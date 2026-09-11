@@ -834,6 +834,32 @@ else
   pass "store-skipped-when-canonical-arg: the store was never consulted"
 fi
 
+# Case 14b: the absent-dir shape with a canonical worktree passed — the
+# OTHER store-reachable site, the one case 14's satellite shape cannot
+# reach (a satellite's canonical-arg branch returns before the store step).
+# The fixture WOULD answer; the contract is that with a canonical argument
+# supplied the store is never consulted and the loud absence stands.
+CASE14B="$WORK/case14b-no-dir"
+CANON14B="$WORK/case14b-canonical-empty"
+make_tree "$CASE14B"
+make_tree "$CANON14B"
+export FLOW_FIND_CALLS="$WORK/case14b.calls"
+: > "$FLOW_FIND_CALLS"
+export FLOW_FIND_FIXTURE="$WORK/case14b.json"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[{\"projectKey\":\"proj-a\",\"name\":\"x-repo-change\",\"worktrees\":{\"$WORK/case14b-elsewhere\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}]}" > "$FLOW_FIND_FIXTURE"
+
+set +e
+OUT="$(PATH="$STORE_BIN:$PATH" change_plan_path "$CASE14B" "x-repo-change" "$CANON14B" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "store-skipped-when-canonical-arg: the absent-dir site never falls back to the store behind a supplied canonical worktree" "$RC"
+assert_eq "store-skipped-when-canonical-arg: it prints nothing to stdout" "" "$OUT"
+if [ -s "$FLOW_FIND_CALLS" ]; then
+  fail "store-skipped-when-canonical-arg: the absent-dir site consulted the store behind a supplied canonical worktree: $(cat "$FLOW_FIND_CALLS")"
+else
+  pass "store-skipped-when-canonical-arg: the absent-dir site never consulted the store"
+fi
+
 # Case 15: store-unavailable-stays-unresolvable — an unreachable store is
 # the step being simply unresolvable: no verdict flips, no new stderr noise
 # of its own, and the caller keeps exactly its pre-change refusal.

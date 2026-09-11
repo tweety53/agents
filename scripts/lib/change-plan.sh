@@ -391,14 +391,24 @@ _change_plan_resolve_dir() {
 
   local link="$dir/link.md"
   if [ ! -f "$link" ]; then
-    _change_plan_try_store "$worktree" "$name"
-    return "$?"
+    # store-last-resort-after-peers (design.md): a canonical worktree was
+    # supplied and already answered the absent-dir branch — its failure is
+    # a fact worth failing loudly on, never a cue to consult the store
+    # behind the caller's back.
+    if [ -z "$canonical_worktree" ]; then
+      _change_plan_try_store "$worktree" "$name"
+      return "$?"
+    fi
+    return 1
   fi
 
   local ref
   ref="$(_change_plan_link_part_of "$link")" || {
-    _change_plan_try_store "$worktree" "$name"
-    return "$?"
+    if [ -z "$canonical_worktree" ]; then
+      _change_plan_try_store "$worktree" "$name"
+      return "$?"
+    fi
+    return 1
   }
 
   local peer="${ref%%:*}" changeid="${ref#*:}"
