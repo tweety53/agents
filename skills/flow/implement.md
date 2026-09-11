@@ -538,11 +538,12 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    is new, `flow tasks tick` for every task the guard passed, and group N+2's gather.** The guard,
    the tick and the gather are the parent's own Bash calls, never a subagent's. The
    guard takes the canonical worktree's absolute path (the worktree created or resumed in
-   **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
-   its sixth:
+   **2. Isolate the workspace** above) as its fourth argument and this run's resolved `<name>` as
+   its fifth. No task base is passed: the guard derives the commit's parent itself (KAN-330),
+   so the argument a mistyped merge base once corrupted is never typed at all:
 
    ```bash
-   check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree> <name>
+   check-task-commit-fields.sh <worktree> <task-id> <task-sha> <canonical-worktree> <name>
    ```
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
@@ -562,7 +563,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    launch returns" above requires.
 
 **When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
-commit's `Files:` against `git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the
+commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 
 **The guard's pass is the tick.** Mark a **task's** checkbox `[x]` (`flow tasks tick`) once

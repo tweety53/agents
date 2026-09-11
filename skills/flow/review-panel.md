@@ -849,7 +849,7 @@ test case, adds a file, or changes what a task's `**Baseline:**` counts, whose t
 the round; it goes to the handback.
 
 Beside the reproducer re-runs above, the round close re-runs the task-field guard mechanically:
-`check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree>
+`check-task-commit-fields.sh <worktree> <task-id> <task-sha> <canonical-worktree>
 <name>` for every task a fixup folded into — `<task-id>` from that commit's `Task-Id:` trailer,
 `<task-sha>` the folded commit as it now stands, the remaining arguments resolved the way
 `skills/flow/implement.md`'s task-close step resolves them. A non-zero exit does not close the
