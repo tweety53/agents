@@ -245,9 +245,13 @@ forced no choices records none.**
 **Considered:** <other options, each with the tradeoff that ruled it out>
 ```
 
-**ID** is assigned once, at creation, and is **immutable** — the match key a later round uses to
-**supersede** a decision: set the old entry's `**Status:**` to `superseded by <new-id>` and append a
-new entry with a fresh ID. **Never delete or rewrite a superseded entry.**
+**Every entry carries its `**ID:**` line — mandatory, never omitted.** A decision is later cited by
+ID or it is re-argued from scratch, and which decisions a review round will want to cite is not
+knowable at creation, so every decision the design records is written with one. **ID** is assigned
+once, at creation, and is **immutable** — the match key a later round uses to **supersede** a
+decision: set the old entry's `**Status:**` to `superseded by <new-id>` and append a new entry with a
+fresh ID. The same key is what let kan-459's review panel name the specific decision a finding found
+stale instead of re-arguing the design. **Never delete or rewrite a superseded entry.**
 
 ### Open questions
 
