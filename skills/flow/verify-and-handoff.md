@@ -95,8 +95,9 @@ model> -effort <parent effort> -agent-id inline`, suffixed `-<worktree basename>
 run's resolved set holds more than one worktree — the same convention **Inline — the parent
 implements** (`skills/flow/implement.md`) uses for implementer and panel-fix rows. `begin` is
 recorded before the first command in the list; `end` after the `## Report` is written, carrying
-`-outcome completed`, or `-outcome blocked -cause test-failure` on the `## Question` handback
-above — the handback's own cause, a command that failed twice (KAN-510).
+`-outcome completed`, or `-outcome blocked -cause <cause>` on the `## Question` handback above —
+`test-failure` for a command of the branch that failed twice, `environment` where the
+environment itself failed twice (a missing build prerequisite; KAN-510).
 
 ### The verifier dispatch
 
