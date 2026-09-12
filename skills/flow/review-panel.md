@@ -661,6 +661,17 @@ by the parent at the fix round's verification step below, never by the fix subag
 
 ## Panel re-runs
 
+**Every round this stage dispatches after pass 1 — each fix-round re-run and the `full` rerun
+policy's final pass — opens by running **Check base movement first** again: the same
+per-worktree `resolve-base-branch.sh` then `check-base-moved.sh` pair, with that section's
+verdicts, operator prompt, rebase and conflict handling unchanged.** **Continue** at a round
+boundary proceeds into the round's own remaining steps — the citation pre-check that follows the
+entry check is an entry step, and the round does not re-run it. The entry check ran once,
+before pass 1; a base that moves while earlier rounds ran would otherwise reach the final round
+— and then integrate — unchallenged, its conflict surfacing only after review has closed. A
+conflict found here surfaces while the panel is still active and the operator is already
+engaged.
+
 **Pass 1 runs the roster **The docs-only reduction** chose — the resolved roster, or `primary`
 alone on a docs-only branch — plus every slot the operator named at this stage's start that it
 did not already carry.** Only re-runs after a fix are scoped. Record
@@ -710,8 +721,8 @@ was dispatched against, and a slot not dispatched in a round keeps the shas it h
 diff <held-sha> HEAD`; a worktree in which the slot holds no sha contributes its whole `git diff
 <merge-base>` section. Every slot's dispatch prompt names the path it was given and, for a delta,
 each worktree's starting sha. **Check base movement first** above clears every slot's held sha in
-the rebased worktree on a clean panel-entry rebase, so that worktree's section falls under the
-no-held-sha rule in the next round. Then:
+the rebased worktree on a clean rebase, whether taken at panel entry or at a round boundary, so
+that worktree's section falls under the no-held-sha rule in the next round. Then:
 
 - **a slot re-runs only when it raised a finding in the previous round, or the previous round
   raised a new Critical** — every slot in the resolved roster, Primary included, and every
