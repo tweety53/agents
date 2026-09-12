@@ -230,14 +230,21 @@ func (s *Store) ListRuns(ctx context.Context, period Period, project, change *st
 		return nil, fmt.Errorf("store: list runs: suite runs: %w", err)
 	}
 
+	// Not period-bounded on d.recorded_at: a decision attaches to a run by
+	// exact (change_id, session_token), not by when it was written, and a
+	// run whose stage rows fall inside the period can still hold a
+	// decision recorded after period.To (the common case -- the decision
+	// lands only once the run's dispatches have already begun). Filtering
+	// on recorded_at would silently drop that decision from a run the
+	// period otherwise selects; project/change scope this query the same
+	// way it scopes the others.
 	decisionRows, err := tx.Query(ctx, `
 		SELECT d.change_id, d.session_token, d.decision
 		FROM decisions d
 		JOIN changes c ON c.id = d.change_id
-		WHERE d.recorded_at >= $1 AND d.recorded_at < $2
-		  AND ($3::text IS NULL OR c.project_key = $3)
-		  AND ($4::text IS NULL OR c.name = $4)
-	`, period.From, period.To, project, change)
+		WHERE ($1::text IS NULL OR c.project_key = $1)
+		  AND ($2::text IS NULL OR c.name = $2)
+	`, project, change)
 	if err != nil {
 		return nil, fmt.Errorf("store: list runs: decisions: %w", err)
 	}

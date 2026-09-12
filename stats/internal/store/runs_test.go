@@ -117,12 +117,11 @@ func TestListRunsGroupsByChangeAndSessionToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// decisions.recorded_at takes the column's own now() default rather
-	// than a caller-supplied timestamp (RecordDecision), so the period's
-	// upper bound has to reach real "now" too, not just t0's fictional
-	// window -- every other row here is dated from t0, and only the
-	// decision is dated from the actual clock.
-	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: time.Now().Add(time.Hour)}, &projectKey, nil)
+	// A fixed historical period, deliberately not reaching real "now": the
+	// decision below is recorded at the decisions column's own now()
+	// default, well after t0.Add(24*time.Hour), and still must attach to
+	// the run -- ListRuns' decisions read is not bounded by recorded_at.
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(24 * time.Hour)}, &projectKey, nil)
 	if err != nil {
 		t.Fatalf("ListRuns: %v", err)
 	}
