@@ -630,6 +630,65 @@ func mustDecodeRows(t *testing.T, env statsEnvelope, body []byte, v any) {
 	}
 }
 
+// TestRunsViewIncludesStageRows pins the per-run stage breakdown on the
+// wire: each run row carries its own stage runs -- stage, attempt, both
+// instants, outcome -- so the runs view can show where a run's wall clock
+// went. A still-open stage keeps endedAt and outcome JSON nulls, the same
+// absence-not-zero discipline every other timestamp on this wire follows.
+func TestRunsViewIncludesStageRows(t *testing.T) {
+	change := "kan-1"
+	startedAt := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
+	endedAt := startedAt.Add(5 * time.Hour)
+	outcome := "completed"
+	sts := &statsFake{runs: []store.ChangeRuns{
+		{Project: "kan", Change: &change,
+			Runs: []store.RunRow{{
+				SessionToken: "sess-1", Kind: "flow", Command: "/flow", StartedAt: startedAt, EndedAt: &endedAt,
+				Stages: []store.RunStageSpan{
+					{Stage: "flow.sdd-tdd", Attempt: 2, StartedAt: startedAt, EndedAt: &endedAt, Outcome: &outcome},
+					{Stage: "flow.verify", Attempt: 1, StartedAt: endedAt},
+				},
+			}},
+		},
+	}}
+	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, periodPath("runs"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var rows []struct {
+		Runs []struct {
+			Stages []struct {
+				Stage     string  `json:"stage"`
+				Attempt   int     `json:"attempt"`
+				StartedAt string  `json:"startedAt"`
+				EndedAt   *string `json:"endedAt"`
+				Outcome   *string `json:"outcome"`
+			} `json:"stages"`
+		} `json:"runs"`
+	}
+	mustDecodeRows(t, env, body, &rows)
+	if len(rows) != 1 || len(rows[0].Runs) != 1 {
+		t.Fatalf("rows = %+v, want 1 change with 1 run", rows)
+	}
+	stages := rows[0].Runs[0].Stages
+	if len(stages) != 2 {
+		t.Fatalf("stages = %+v, want 2", stages)
+	}
+	if stages[0].Stage != "flow.sdd-tdd" || stages[0].Attempt != 2 {
+		t.Errorf("stages[0] = %+v, want flow.sdd-tdd attempt 2", stages[0])
+	}
+	if stages[0].EndedAt == nil || stages[0].Outcome == nil || *stages[0].Outcome != "completed" {
+		t.Errorf("stages[0] close = %+v, want endedAt set and outcome completed", stages[0])
+	}
+	if want := endedAt.UTC().Format(time.RFC3339Nano); stages[0].EndedAt == nil || *stages[0].EndedAt != want {
+		t.Errorf("stages[0].endedAt = %v, want %s", stages[0].EndedAt, want)
+	}
+	if stages[1].Stage != "flow.verify" || stages[1].EndedAt != nil || stages[1].Outcome != nil {
+		t.Errorf("stages[1] = %+v, want open flow.verify with null endedAt/outcome", stages[1])
+	}
+}
+
 // --- TestEmptyPeriodReturnsEmptyNotError -------------------------------
 
 func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {

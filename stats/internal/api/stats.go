@@ -880,19 +880,31 @@ type runDecisionDTO struct {
 	Panel       string `json:"panel"`
 }
 
+// runStageSpanDTO is one stage run of a run row: where that run's wall
+// clock went, carried through from store.RunStageSpan so the runs view can
+// surface a phase blowout per run without leaving the runs list.
+type runStageSpanDTO struct {
+	Stage     string  `json:"stage"`
+	Attempt   int     `json:"attempt"`
+	StartedAt string  `json:"startedAt"`
+	EndedAt   *string `json:"endedAt"`
+	Outcome   *string `json:"outcome"`
+}
+
 type runDTO struct {
-	SessionToken   string           `json:"sessionToken"`
-	Kind           string           `json:"kind"`
-	Command        string           `json:"command"`
-	StartedAt      string           `json:"startedAt"`
-	EndedAt        *string          `json:"endedAt"`
-	Totals         runTotalsDTO     `json:"totals"`
-	Main           runTotalsDTO     `json:"main"`
-	Decision       *runDecisionDTO  `json:"decision"`
-	FanOutMax      int              `json:"fanOutMax"`
-	SuiteRuns      int              `json:"suiteRuns"`
-	SuiteFirstPass *bool            `json:"suiteFirstPass"`
-	Dispatches     []runDispatchDTO `json:"dispatches"`
+	SessionToken   string            `json:"sessionToken"`
+	Kind           string            `json:"kind"`
+	Command        string            `json:"command"`
+	StartedAt      string            `json:"startedAt"`
+	EndedAt        *string           `json:"endedAt"`
+	Totals         runTotalsDTO      `json:"totals"`
+	Main           runTotalsDTO      `json:"main"`
+	Decision       *runDecisionDTO   `json:"decision"`
+	FanOutMax      int               `json:"fanOutMax"`
+	SuiteRuns      int               `json:"suiteRuns"`
+	SuiteFirstPass *bool             `json:"suiteFirstPass"`
+	Dispatches     []runDispatchDTO  `json:"dispatches"`
+	Stages         []runStageSpanDTO `json:"stages"`
 }
 
 type changeRunsDTO struct {
@@ -946,9 +958,14 @@ func toChangeRunsDTOs(rows []store.ChangeRuns) []changeRunsDTO {
 			run := runDTO{SessionToken: r.SessionToken, Kind: r.Kind, Command: r.Command,
 				StartedAt: r.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(r.EndedAt),
 				Totals: toRunTotalsDTO(r.Totals), Main: toRunTotalsDTO(r.Main), FanOutMax: r.FanOutMax, SuiteRuns: r.SuiteRuns,
-				SuiteFirstPass: r.SuiteFirstPass, Dispatches: make([]runDispatchDTO, len(r.Dispatches))}
+				SuiteFirstPass: r.SuiteFirstPass, Dispatches: make([]runDispatchDTO, len(r.Dispatches)),
+				Stages: make([]runStageSpanDTO, len(r.Stages))}
 			if r.Decision != nil {
 				run.Decision = &runDecisionDTO{Execution: r.Decision.Execution, Implementer: r.Decision.Implementer, Panel: r.Decision.Panel}
+			}
+			for k, s := range r.Stages {
+				run.Stages[k] = runStageSpanDTO{Stage: s.Stage, Attempt: s.Attempt,
+					StartedAt: s.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(s.EndedAt), Outcome: s.Outcome}
 			}
 			for k, d := range r.Dispatches {
 				run.Dispatches[k] = runDispatchDTO{Seq: d.Seq, Role: d.Role, Slot: d.Slot, AgentID: d.AgentID, AgentType: d.AgentType,
