@@ -265,14 +265,12 @@ guess_placeholder() {
 # scripts/lib/coverage.sh's own header for the same constraint).
 EXPECTED_ZERO_FILES=(
   "skills/flow-contracts/SKILL.md"
-  "skills/flow-plan/SKILL.md"
   "skills/flow-self-review/SKILL.md"
   "skills/flow-settings/SKILL.md"
   "skills/flow/SKILL.md"
 )
 EXPECTED_ZERO_REASONS=(
   "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"
-  "a thinking-partner research mode with no implementation or verification stage to mark; it runs entirely in the current session, on its own model, dispatching no subagent at all (kan-488) — there is no dispatch record to write, since research has no change to record one against"
   "a standalone command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
   "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
   "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, archive.md) that owns the phase in force; every flow.* mark lives in one of those phase files, which this guard's corpus now scans directly, never in this router itself"

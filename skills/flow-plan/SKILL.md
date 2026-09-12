@@ -146,7 +146,7 @@ Two capture destinations, depending on what exists:
   `-outcome captured`:
 
   ```bash
-  flow stage end -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY> -outcome captured
+  flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome captured
   ```
 - **No change exists yet, or the topic doesn't belong to one** — offer to write a **staging note**
   (see below) instead. This is the default destination for a topic with no home yet.
@@ -158,7 +158,7 @@ A session that ends without either destination — no capture offered, or the of
 the same mark with `-outcome abandoned`:
 
 ```bash
-flow stage end -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY> -outcome abandoned
+flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome abandoned
 ```
 
 ### Staging a Note — the strict research-artifact path
@@ -324,7 +324,7 @@ and branch (**The research worktree** above). End by naming the landed commit an
 either way:
 
 ```bash
-flow stage end -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY> -outcome staged
+flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome staged
 ```
 
 ---

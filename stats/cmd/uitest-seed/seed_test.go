@@ -136,8 +136,12 @@ func TestSeedPopulatesFixture(t *testing.T) {
 		if err != nil {
 			t.Fatalf("list changes for %s: %v", project.Key, err)
 		}
-		if len(changes) != len(project.Changes) {
-			t.Fatalf("project %s: got %d changes, want %d", project.Key, len(changes), len(project.Changes))
+		wantChanges := len(project.Changes)
+		if project.Key == runsFixtureProject {
+			wantChanges++ // seedRunsFixture's own change, absent from fixtureData
+		}
+		if len(changes) != wantChanges {
+			t.Fatalf("project %s: got %d changes, want %d", project.Key, len(changes), wantChanges)
 		}
 
 		for _, c := range changes {

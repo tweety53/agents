@@ -195,11 +195,18 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 	return nil
 }
 
+// runsFixtureProject/runsFixtureChange name the change seedRunsFixture adds
+// on top of fixtureData; the seed test counts it separately.
+const (
+	runsFixtureProject = "uitest-alpha"
+	runsFixtureChange  = "kan-103-runs-view"
+)
+
 // seedRunsFixture writes one change with a plan session, a creating run
 // carrying two dispatches (one served by a different model than declared)
 // and a fix run, so the runs view has every row kind to render.
 func seedRunsFixture(ctx context.Context, st *store.Store) error {
-	const project, change, jira = "uitest-alpha", "kan-103-runs-view", "KAN-103"
+	const project, change, jira = runsFixtureProject, runsFixtureChange, "KAN-103"
 	// t0 is a fixed instant outside both fixtureNow's own window
 	// (2026-08-01..2026-08-16, PINNED_QUERY) and the empty-period window
 	// (2020-01-01..2020-01-02, EMPTY_QUERY) support.ts's other specs pin
