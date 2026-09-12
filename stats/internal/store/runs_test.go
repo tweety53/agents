@@ -444,3 +444,115 @@ func TestListRunsDetachesTokenlessStageRuns(t *testing.T) {
 		t.Errorf("FixIterations = %d, want 0", g.FixIterations)
 	}
 }
+
+func TestGroupRunsKeepsStageRows(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-stagerows-%d", time.Now().UnixNano())
+	t0 := time.Date(2026, 9, 11, 8, 0, 0, 0, time.UTC)
+
+	if err := st.PutChange(ctx, baseChange(projectKey, "kan-509-stagerows")); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+	const token = "ff-stagerows-1"
+	begin := func(stage string, at time.Time) store.StageRun {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-509-stagerows", "/flow", stage)
+		in.SessionToken = ptr(token)
+		in.StartedAt = at
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", stage, err)
+		}
+		return run
+	}
+	kick := begin("flow.kickoff", t0)
+	if err := st.EndStage(ctx, kick.ID, t0.Add(6*time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+	impl := begin("flow.sdd-tdd", t0.Add(10*time.Minute))
+	if err := st.EndStage(ctx, impl.ID, t0.Add(40*time.Minute), "stopped"); err != nil {
+		t.Fatal(err)
+	}
+	// A fix re-run of the same stage records attempt 2 on its own row.
+	impl2 := begin("flow.sdd-tdd", t0.Add(45*time.Minute))
+	if err := st.EndStage(ctx, impl2.ID, t0.Add(105*time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+	verify := begin("flow.verify", t0.Add(110*time.Minute))
+	if err := st.EndStage(ctx, verify.ID, t0.Add(140*time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(24 * time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(rows) != 1 || len(rows[0].Runs) != 1 {
+		t.Fatalf("runs = %+v, want one change with one run", rows)
+	}
+	run := rows[0].Runs[0]
+	want := []struct {
+		stage   string
+		attempt int
+		start   time.Time
+		end     time.Time
+		outcome string
+	}{
+		{"flow.kickoff", 1, t0, t0.Add(6 * time.Minute), "completed"},
+		{"flow.sdd-tdd", 1, t0.Add(10 * time.Minute), t0.Add(40 * time.Minute), "stopped"},
+		{"flow.sdd-tdd", 2, t0.Add(45 * time.Minute), t0.Add(105 * time.Minute), "completed"},
+		{"flow.verify", 1, t0.Add(110 * time.Minute), t0.Add(140 * time.Minute), "completed"},
+	}
+	if len(run.Stages) != len(want) {
+		t.Fatalf("Stages = %+v, want %d rows", run.Stages, len(want))
+	}
+	for i, w := range want {
+		got := run.Stages[i]
+		if got.Stage != w.stage || got.Attempt != w.attempt || !got.StartedAt.Equal(w.start) ||
+			got.EndedAt == nil || !got.EndedAt.Equal(w.end) || got.Outcome == nil || *got.Outcome != w.outcome {
+			t.Errorf("Stages[%d] = %+v, want %s attempt %d %s..%s %s", i, got, w.stage, w.attempt, w.start, w.end, w.outcome)
+		}
+	}
+}
+
+func TestGroupRunsSeparatesStageRowsByToken(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-stagerows-sep-%d", time.Now().UnixNano())
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+
+	if err := st.PutChange(ctx, baseChange(projectKey, "kan-509-stagerows-sep")); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+	mark := func(token, stage string, at time.Time) {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-509-stagerows-sep", "/flow", stage)
+		in.SessionToken = ptr(token)
+		in.StartedAt = at
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", stage, err)
+		}
+		if err := st.EndStage(ctx, run.ID, at.Add(5*time.Minute), "completed"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mark("ff-sep-1", "flow.sdd-tdd", t0)
+	mark("ff-sep-2", "flow.verify", t0.Add(time.Hour))
+
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(24 * time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(rows) != 1 || len(rows[0].Runs) != 2 {
+		t.Fatalf("runs = %+v, want one change with two runs", rows)
+	}
+	first, second := rows[0].Runs[0], rows[0].Runs[1]
+	if len(first.Stages) != 1 || first.Stages[0].Stage != "flow.sdd-tdd" || first.Stages[0].Attempt != 1 {
+		t.Errorf("first run Stages = %+v, want only its own flow.sdd-tdd row", first.Stages)
+	}
+	if len(second.Stages) != 1 || second.Stages[0].Stage != "flow.verify" || second.Stages[0].Attempt != 1 {
+		t.Errorf("second run Stages = %+v, want only its own flow.verify row", second.Stages)
+	}
+}

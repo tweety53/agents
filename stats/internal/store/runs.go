@@ -45,6 +45,20 @@ type RunDispatchRow struct {
 	Totals                                      RunTotals
 }
 
+// RunStageSpan is one stage run of a RunRow, carried through whole so the
+// runs view can show where a run's wall clock went: a five-hour verify tail
+// is invisible in a run-level total, and this span -- the same started_at /
+// ended_at pair stage_runs already persists -- is what makes it visible per
+// run and comparable across runs. Outcome is nil while the stage is still
+// open, mirroring StageRun's own shape.
+type RunStageSpan struct {
+	Stage     string
+	Attempt   int
+	StartedAt time.Time
+	EndedAt   *time.Time
+	Outcome   *string
+}
+
 // RunRow is one recorded run: a plan session, or a /flow or /flow-fast
 // invocation sharing one session token.
 type RunRow struct {
@@ -57,6 +71,7 @@ type RunRow struct {
 	SuiteRuns                   int          // suite_runs rows for the project inside the run's span
 	SuiteFirstPass              *bool        // earliest such row's exit_code == 0; nil when none
 	Dispatches                  []RunDispatchRow
+	Stages                      []RunStageSpan // this run's own stage runs, in started_at order
 }
 
 // RunDecision is the three fields the runs view shows out of a recorded
@@ -89,8 +104,10 @@ type runStageRow struct {
 	SessionToken string
 	Command      string
 	Stage        string
+	Attempt      int
 	StartedAt    time.Time
 	EndedAt      *time.Time
+	Outcome      *string
 	Metrics      map[string]json.RawMessage
 }
 
@@ -125,7 +142,7 @@ func (s *Store) ListRuns(ctx context.Context, period Period, project, change *st
 	stageRows, err := tx.Query(ctx, `
 		SELECT sr.id, COALESCE(sr.change_id, 0), COALESCE(c.project_key, sr.project_key), c.name,
 		       COALESCE(c.jira_issue, sr.jira_key), COALESCE(sr.session_token, ''), sr.command, sr.stage,
-		       sr.started_at, sr.ended_at, sr.metrics
+		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics
 		FROM stage_runs sr
 		LEFT JOIN changes c ON c.id = sr.change_id
 		WHERE sr.started_at >= $1 AND sr.started_at < $2
@@ -140,7 +157,7 @@ func (s *Store) ListRuns(ctx context.Context, period Period, project, change *st
 	for stageRows.Next() {
 		var r runStageRow
 		var metrics []byte
-		if err := stageRows.Scan(&r.ID, &r.ChangeID, &r.ProjectKey, &r.ChangeName, &r.JiraKey, &r.SessionToken, &r.Command, &r.Stage, &r.StartedAt, &r.EndedAt, &metrics); err != nil {
+		if err := stageRows.Scan(&r.ID, &r.ChangeID, &r.ProjectKey, &r.ChangeName, &r.JiraKey, &r.SessionToken, &r.Command, &r.Stage, &r.Attempt, &r.StartedAt, &r.EndedAt, &r.Outcome, &metrics); err != nil {
 			stageRows.Close()
 			return nil, fmt.Errorf("store: list runs: scan stage run: %w", err)
 		}
@@ -341,6 +358,9 @@ func groupRuns(stages []runStageRow, dispatches map[string][]runDispatchRowRaw, 
 		} else if run.EndedAt != nil && sr.EndedAt.After(*run.EndedAt) {
 			run.EndedAt = sr.EndedAt
 		}
+		run.Stages = append(run.Stages, RunStageSpan{
+			Stage: sr.Stage, Attempt: sr.Attempt, StartedAt: sr.StartedAt, EndedAt: sr.EndedAt, Outcome: sr.Outcome,
+		})
 		addStageTotals(&run.Totals, &run.Main, sr)
 	}
 
