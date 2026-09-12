@@ -833,11 +833,13 @@ func TestRenderPanelLineageColumn(t *testing.T) {
 		"| F3 |": "regression of F1",
 		"| F4 |": "supersedes F2; regression of F1",
 	}
+	seen := map[string]bool{}
 	for _, line := range strings.Split(out, "\n") {
 		for prefix, cell := range want {
 			if !strings.HasPrefix(line, prefix+" ") {
 				continue
 			}
+			seen[prefix] = true
 			cols := strings.Split(line, "|")
 			if len(cols) != 8 {
 				t.Errorf("row %q has %d pipe-delimited columns, want 8", line, len(cols))
@@ -846,6 +848,13 @@ func TestRenderPanelLineageColumn(t *testing.T) {
 			if got := strings.TrimSpace(cols[6]); got != cell {
 				t.Errorf("row %q lineage cell = %q, want %q", line, got, cell)
 			}
+		}
+	}
+	// A prefix no line matched is a dropped findings row: the walk above
+	// only judges rows it meets, so absence must be its own failure.
+	for prefix := range want {
+		if !seen[prefix] {
+			t.Errorf("rendered record carries no row beginning %q — a dropped findings row must fail, not pass silently", prefix)
 		}
 	}
 }
