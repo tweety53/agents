@@ -266,19 +266,25 @@ An inline run checks the context ceiling (**Inline — the parent implements**,
 
 Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every**
 worktree in the change's resolved set (**Resolving a change's worktrees**,
-`skills/flow-contracts/worktree-resolution.md`), in resolved order — each worktree's section
-opened by a header naming it and its own working-notes merge base, then that worktree's
-`git diff <merge-base>` (staged and unstaged):
+`skills/flow-contracts/worktree-resolution.md`), in resolved order — one first line naming the
+file's own semantics, then each worktree's section, opened by a header naming it and its own
+working-notes merge base, followed by that worktree's `git diff <merge-base>` (staged and
+unstaged):
 
 ```sh
 : > <abs-worktree>/.superpowers/sdd/final-review.diff
+printf '# final-review.diff — working tree vs merge-base, unstaged changes included\n' \
+  >> <abs-worktree>/.superpowers/sdd/final-review.diff
 # for each <worktree> in the resolved set, in order:
 printf '# worktree: %s — merge base %s\n' "<worktree>" "<merge-base>" \
   >> <abs-worktree>/.superpowers/sdd/final-review.diff
 git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-review.diff
 ```
 
-A single-worktree change writes the same shape with one header. Then dispatch the round's
+A single-worktree change writes the same shape with one header. The first line is the file's
+own answer to the reviewer who reads it as anything narrower: it is a plain working-tree diff
+against the merge base, so work still unstaged or uncommitted is already in it — KAN-459's F37
+was a false positive from reading it otherwise. Then dispatch the round's
 `panel.dispatches` in the canonical worktree, each reading the whole combined file; a role is
 never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view
 (design.md's `combined-diff-per-round`). **Bundled dispatch** below states how the roster is
@@ -697,8 +703,9 @@ row or in the round's output.**
 **When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
 was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
-`<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), combined exactly as
-`final-review.diff` is — one `# worktree:` header per worktree, followed by that worktree's `git
+`<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), combined with the same
+per-worktree sections as `final-review.diff`, without its semantics first line — one `# worktree:`
+header per worktree, followed by that worktree's `git
 diff <held-sha> HEAD`; a worktree in which the slot holds no sha contributes its whole `git diff
 <merge-base>` section. Every slot's dispatch prompt names the path it was given and, for a delta,
 each worktree's starting sha. **Check base movement first** above clears every slot's held sha in
