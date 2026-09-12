@@ -292,6 +292,20 @@ The parent writes the append, or the sub-change's own proposal and plan. Whichev
 budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks
 appended:**` value by one, creating the line in `tasks.md`'s header when the plan has never
 carried one.
+
+**A passing test that asserts the behaviour the fix instructions report as wrong is evidence of
+the code, not of the spec — it decides nothing on its own.** Before the planning pass treats such
+a test as the tie-breaker, search this change's `design.md`, `proposal.md`, panel records and the
+linked Jira issue for a sentence that decided *this* point. One found: cite it and hand the fix
+back as "won't fix, per <cite>" through `## Question` rather than silently changing what the spec
+required. None found: the test guarded an unexamined implementation choice, the report wins, and
+the plan changes the test alongside the behaviour, its commit saying so ("no design decision
+covers this; the prior test locked in the behaviour the report flags"). A test whose own name
+reads as a description of the reported bug is a signal to pause on, not reassurance (KAN-30
+manual re-sweep: `backClosesTheFloorAndKeepsTheSessionRunning` asserted exactly the navigation
+the operator reported as wrong; the decision it was assumed to encode,
+`floor-bar-exits-only-on-contents`, decided only which bar draws the chevron, not where it leads).
+
 **The Jira description sync stays in the parent.** **Load
 `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
 describe, sync the issue **description** per **Description sync** in Jira integration
@@ -307,11 +321,24 @@ flow stage end -command '/flow' -stage flow.document-fix -outcome completed <nam
 flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**At most one implementer subagent may be in flight against a given worktree at any moment** —
-a reviewer is not one: it reads an immutable commit range, and any number of them may run beside
-the one implementer. Dispatches into different worktrees remain free to run concurrently. This
-explicitly overrides `superpowers:subagent-driven-development`'s parallel dispatch guidance and
-`superpowers:dispatching-parallel-agents` for same-worktree tasks.
+**At most one mutator — any Edit/Write-capable dispatch: an implementer, a panel-fix, a fix-round
+agent of any name — may be in flight against a given worktree at any moment** — a reviewer is not
+one: it reads an immutable commit range, and any number of them may run beside the one mutator.
+Dispatches into different worktrees remain free to run concurrently. This explicitly overrides
+`superpowers:subagent-driven-development`'s parallel dispatch guidance and
+`superpowers:dispatching-parallel-agents` for same-worktree tasks. The invariant is the working
+tree, not the build tool, and it holds however file-disjoint two tasks look on paper: UI fixes
+routinely touch shared files — icon sets, shared components, menu wiring — neither task named
+(KAN-30 manual re-sweep: two "small fix" agents dispatched together at one worktree, with no
+Gradle overlap, collided in the tree — the second found the first's uncommitted, compile-broken
+WIP in an unrelated file and silently patched over it to unblock its own build, and neither
+agent nor the parent noticed until both reports named the same file). **A mutating dispatch's
+report is complete only when its build's own success line is quoted and `git -C <worktree>
+status --porcelain` is empty or every entry it prints is explained in the report** — "waiting for
+the build" is never a finished report, and uncommitted WIP is a finding, never a state the next
+dispatch inherits; a fix to something visual names the fresh capture taken after that build, on
+the same footing as step 5's fingerprint (`skills/flow/verify-and-handoff.md`). A mutator that
+finds unrelated uncommitted changes mid-task says so and stops rather than fixing around them.
 
 **The parent records each dispatch in two calls — one as it goes out, one as it comes back.**
 Immediately before dispatching:
