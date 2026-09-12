@@ -5,13 +5,13 @@
 #
 # Runs `setup.sh global` against a sandboxed $HOME (mktemp -d), so it never
 # touches the real ~/.claude. Asserts four symlinks exist under
-# $HOME/.claude/agents/, each resolves, and each frontmatter carries its own
-# `effort:` line and no `model:` line — the Agent tool's dispatch-time
-# `model` parameter overrides a definition's `model`, so the model axis
-# needs no definition of its own while the effort axis does. flow-review
-# carries neither axis: the default-toggle panel decides no effort, and its
-# `tools:` allowlist must omit `Agent` — a reviewer structurally cannot fork
-# (KAN-495).
+# $HOME/.claude/agents/ and each resolves; the three `flow-<effort>`
+# frontmatters each carry their own `effort:` line and no `model:` line — the
+# Agent tool's dispatch-time `model` parameter overrides a definition's
+# `model`, so the model axis needs no definition of its own while the effort
+# axis does. flow-review carries neither axis: the default-toggle panel
+# decides no effort, and its `tools:` allowlist must omit `Agent` — a
+# reviewer structurally cannot fork (KAN-495).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -119,9 +119,9 @@ flow record dispatch end -change <name> -key <the key currently open> -session-t
 state file's worktrees, findings in the store) through this file's own re-entry rules, and the
 operator should see the death rather than have it hidden by a second dispatch.
 
-**Bugbot and Security are prompt-driven roles, dispatched on the same type as every other panel
-slot** (**The roster**, `skills/flow/review-panel.md`) — never a fixed `bugbot` or `security-review`
-Agent-tool type, so there is nothing for the parent to substitute.
+**Bugbot and Security are prompt-driven roles like every other panel slot, with no Agent-tool
+type of their own** (**The roster**, `skills/flow/review-panel.md`) — never a fixed `bugbot` or
+`security-review` type, so there is nothing for the parent to substitute.
 
 ## Inline — the parent implements
 

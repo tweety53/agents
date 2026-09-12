@@ -114,7 +114,9 @@ of this stage's own reporting.
 ## The roster
 
 Every resolved id maps to one slot, dispatched this run because the resolved roster (`REVIEWERS`,
-or the decision's `panel.roster` on `dynamic` — see the opening paragraph above) carries it:
+or the decision's `panel.roster` on `dynamic` — see the opening paragraph above) carries it — the
+spawn column names the `REVIEW_PANEL_TOGGLE: default` spawn, which the `dynamic` paragraph below
+overrides:
 
 | id | Slot | How to spawn |
 |---|------|---------------|
