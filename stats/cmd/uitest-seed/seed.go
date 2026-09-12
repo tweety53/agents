@@ -200,7 +200,14 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 // and a fix run, so the runs view has every row kind to render.
 func seedRunsFixture(ctx context.Context, st *store.Store) error {
 	const project, change, jira = "uitest-alpha", "kan-103-runs-view", "KAN-103"
-	t0 := fixtureNow.Add(-6 * time.Hour)
+	// t0 is a fixed instant outside both fixtureNow's own window
+	// (2026-08-01..2026-08-16, PINNED_QUERY) and the empty-period window
+	// (2020-01-01..2020-01-02, EMPTY_QUERY) support.ts's other specs pin
+	// to -- this fixture gets its own period (RUNS_QUERY,
+	// 2026-07-01..2026-07-16) precisely so the 15 pre-existing visual
+	// specs built around the smaller, original fixture's exact row
+	// counts and cell values never see these rows.
+	t0 := time.Date(2026, 7, 10, 9, 0, 0, 0, time.UTC)
 
 	plan, err := st.BeginStage(ctx, store.BeginStageInput{
 		ProjectKey: project, MainCheckoutPath: "/tmp/uitest-alpha", JiraKey: jira, Harness: "claude-code",
@@ -218,7 +225,13 @@ func seedRunsFixture(ctx context.Context, st *store.Store) error {
 	}
 
 	if err := st.PutChange(ctx, store.Change{ProjectKey: project, MainCheckoutPath: "/tmp/uitest-alpha", Name: change,
-		State: store.StateInProgress, JiraIssue: strPtr(jira), UpdatedAt: fixtureNow, UpdatedBy: "uitest-seed"}); err != nil {
+		// UpdatedAt uses t0, not fixtureNow: LiveStateBoard (state-board)
+		// filters changes by updated_at directly, so a fixtureNow value
+		// here would put this change back inside PINNED_QUERY's window
+		// despite every stage run below sitting outside it, and reopen
+		// exactly the state-board collision this fixture's own period
+		// exists to avoid.
+		State: store.StateInProgress, JiraIssue: strPtr(jira), UpdatedAt: t0, UpdatedBy: "uitest-seed"}); err != nil {
 		return err
 	}
 

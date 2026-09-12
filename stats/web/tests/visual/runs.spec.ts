@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
+import { bodyBackground, DARK_SURFACE_1, RUNS_QUERY } from "./support";
 
 test.describe("runs", () => {
   test("renders runs grouped by change, expanded to main session and dispatches", async ({ page }) => {
-    await page.goto(`/#/runs?${PINNED_QUERY}`);
+    await page.goto(`/#/runs?${RUNS_QUERY}`);
     await expect(page.getByRole("heading", { name: "Runs", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "kan-103-runs-view" })).toBeVisible();
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);

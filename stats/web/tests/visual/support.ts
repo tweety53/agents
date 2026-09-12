@@ -26,6 +26,12 @@ export const PINNED_QUERY = "from=2026-08-01T00%3A00%3A00.000Z&to=2026-08-16T00%
 // carry data already.
 export const EMPTY_QUERY = "from=2020-01-01T00%3A00%3A00.000Z&to=2020-01-02T00%3A00%3A00.000Z";
 
+// Isolates the runs-view fixture (cmd/uitest-seed/seed.go's seedRunsFixture,
+// seeded at its own fixed July 2026 instant) from PINNED_QUERY's window, so
+// the 15 pre-existing specs built around the aggregate views' exact row
+// counts and cell values never see these rows.
+export const RUNS_QUERY = "from=2026-07-01T00%3A00%3A00.000Z&to=2026-07-16T00%3A00%3A00.000Z";
+
 // The datetime-local input value PeriodPicker.tsx's own toInputValue
 // produces for the two instants PINNED_QUERY names.
 //
