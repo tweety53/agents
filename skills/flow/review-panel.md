@@ -697,7 +697,7 @@ mode table, a trigger list, or a round count.**
 re-run either way.** Every Critical and Important the round raised goes to the fix subagent below,
 closed by the verification that follows it — the reproducer re-run exits 0 *and* the fix diff
 touches a path the finding named. For each Minor, the dispatcher decides before the fix goes out:
-`flow record status -change <name> -ref F<n> -status 'deferred <reason>'` is the default; **fix**
+`flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>` is the default — the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query rather than a hand-read; **fix**
 it inline only when it is trivially easy — confined to the lines the finding names, needs no new
 test, and needs no judgment call. The rough 90%+ target for deferred Minors is guidance, never
 computed — no counter, no draw, fixing every Minor is not the goal. A Minor fixed inline under this
