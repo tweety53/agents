@@ -110,6 +110,8 @@ type Record struct {
 	Effort      string
 	AgentID     string
 	Usage       Usage
+	// Signal is set on a non-usage record (signals.go); nil on a usage record.
+	Signal *Signal
 }
 
 // rawLine and its nested types are the minimal decode shape this package
@@ -121,20 +123,54 @@ type Record struct {
 // this project's own wire formats (internal/api's request bodies), not to
 // a format this package only reads and never writes.
 type rawLine struct {
-	Type        string      `json:"type"`
-	Timestamp   string      `json:"timestamp"`
-	SessionID   string      `json:"sessionId"`
-	IsSidechain bool        `json:"isSidechain"`
-	Effort      string      `json:"effort"`
-	AgentID     string      `json:"agentId"`
-	Message     *rawMessage `json:"message"`
+	Type              string          `json:"type"`
+	Timestamp         string          `json:"timestamp"`
+	SessionID         string          `json:"sessionId"`
+	IsSidechain       bool            `json:"isSidechain"`
+	Effort            string          `json:"effort"`
+	AgentID           string          `json:"agentId"`
+	Message           *rawMessage     `json:"message"`
+	Subtype           string          `json:"subtype"`
+	IsAPIErrorMessage bool            `json:"isApiErrorMessage"`
+	DurationMs        int64           `json:"durationMs"`
+	MessageCount      int64           `json:"messageCount"`
+	CompactMetadata   *rawCompactMeta `json:"compactMetadata"`
+}
+
+// rawCompactMeta is a compact_boundary system line's "compactMetadata"
+// object -- the pre/post token counts and wall-clock duration a
+// compaction actually cost, confirmed against a live transcript during
+// planning.
+type rawCompactMeta struct {
+	Trigger    string `json:"trigger"`
+	PreTokens  int64  `json:"preTokens"`
+	PostTokens int64  `json:"postTokens"`
+	DurationMs int64  `json:"durationMs"`
 }
 
 type rawMessage struct {
-	ID      string            `json:"id"`
-	Model   string            `json:"model"`
-	Usage   *rawUsage         `json:"usage"`
-	Content []rawContentBlock `json:"content"`
+	ID      string          `json:"id"`
+	Model   string          `json:"model"`
+	Usage   *rawUsage       `json:"usage"`
+	Content json.RawMessage `json:"content"`
+}
+
+// contentBlocks decodes a message's "content" field into its content
+// blocks. content is either a JSON array of blocks (the ordinary case
+// every parser in this package reads) or a plain JSON string (a
+// synthetic user prompt line, confirmed against a real transcript's
+// first line) -- which carries no blocks at all and decodes to nil
+// rather than an error, the same tolerance the rest of this package
+// extends to a format it only reads and never writes.
+func contentBlocks(raw json.RawMessage) []rawContentBlock {
+	if len(raw) == 0 || raw[0] != '[' {
+		return nil
+	}
+	var blocks []rawContentBlock
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		return nil
+	}
+	return blocks
 }
 
 // rawContentBlock is the minimal shape ParseCommandRecords needs from one
@@ -145,9 +181,13 @@ type rawMessage struct {
 // ignored by name, the same tolerance rawLine's own doc comment already
 // commits to for the rest of the transcript format.
 type rawContentBlock struct {
-	Type  string          `json:"type"`
-	Name  string          `json:"name"`
-	Input json.RawMessage `json:"input"`
+	Type      string          `json:"type"`
+	Name      string          `json:"name"`
+	Input     json.RawMessage `json:"input"`
+	ID        string          `json:"id"`
+	ToolUseID string          `json:"tool_use_id"`
+	IsError   bool            `json:"is_error"`
+	Content   json.RawMessage `json:"content"`
 }
 
 // rawBashInput is the one field ParseCommandRecords reads out of a Bash
@@ -357,7 +397,7 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 		if raw.Type != recordTypeAssistant || raw.Message == nil {
 			continue
 		}
-		for _, block := range raw.Message.Content {
+		for _, block := range contentBlocks(raw.Message.Content) {
 			if block.Type != "tool_use" || block.Name != "Bash" || len(block.Input) == 0 {
 				continue
 			}
@@ -412,7 +452,7 @@ func ReadNewRecords(path string, offset int64) (records []Record, commands []Com
 	}
 
 	complete, _ := SplitCompleteLines(raw)
-	return ParseAssistantRecords(complete), ParseCommandRecords(complete), offset + int64(len(complete)), nil
+	return append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...), ParseCommandRecords(complete), offset + int64(len(complete)), nil
 }
 
 // ReadAllCommands reads path from byte 0 to its current EOF and returns
