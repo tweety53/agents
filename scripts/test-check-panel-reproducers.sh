@@ -113,6 +113,19 @@ findings_json() {
   ' --args -- "$@"
 }
 
+# findings_json_sev <ref> <severity> <status> <reproducer> [...] -- the
+# four-tuple form the KAN-503 cases need: the guard reads `.severity` beside
+# `.reproducer`, so these fixtures carry a severity where the triples above
+# leave the field absent (a finding recorded without one reads as null —
+# never Important, so never exempt-blocked).
+findings_json_sev() {
+  jq -nc '
+    [$ARGS.positional as $a
+     | range(0; ($a | length) / 4)
+     | {ref: $a[. * 4], severity: $a[. * 4 + 1], status: $a[. * 4 + 2], reproducer: $a[. * 4 + 3]}]
+  ' --args -- "$@"
+}
+
 # make_worktree_json <json-array> -- a worktree-shaped sandbox carrying a
 # stub `flow` on its own bin/, which prints <json-array> for
 # `record findings` and exits 0 regardless of the flags it was called with.
@@ -444,8 +457,61 @@ expect_exit_and_names 'case 21: a missing change name is rejected' 2 'usage:' ru
 wt="$(make_worktree_store_unreachable)"
 expect_exit_and_names 'case 22: an unreachable store is cannot-answer, never violations-found or clean' 2 'cannot determine anything' run_guard "$wt"
 
+# ===========================================================================
+# 23. KAN-503: an Important-severity finding carrying the `none — <reason>`
+#     exemption is a violation (exit 1), naming the ref and the rule.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json_sev F1 Important open 'none — prose-only, no runnable check')")"
+expect_exit_and_names 'case 23: an Important finding with the exemption exits 1' 1 'runnable reproducer is required at Important' run_guard "$wt"
+
+# ===========================================================================
+# 24. Positive control for case 23: the same finding carrying a runnable
+#     command instead of the exemption exits 0.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json_sev F1 Important open 'scripts/test-check-panel-reproducers.sh')")"
+expect_exit 'case 24: an Important finding with a runnable command exits 0' 0 run_guard "$wt"
+
+# ===========================================================================
+# 25. A Minor-severity finding with the exemption still exits 0 -- the
+#     boundary KAN-503 draws is Important, not the exemption itself.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json_sev F1 Minor open 'none — prose-only, no runnable check')")"
+expect_exit 'case 25: a Minor finding keeps the exemption legal' 0 run_guard "$wt"
+
+# ===========================================================================
+# 26. Severity is free text matched case-insensitively: `IMPORTANT` violates
+#     exactly as `Important` does.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json_sev F1 IMPORTANT open 'none — prose-only, no runnable check')")"
+expect_exit_and_names 'case 26: a differently-cased Important severity still violates' 1 'runnable reproducer is required at Important' run_guard "$wt"
+
+# ===========================================================================
+# 27. Critical with the exemption stays legal -- Critical already goes to the
+#     fix unconditionally; KAN-503 narrowed nothing there.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json_sev F1 Critical open 'none — prose-only, no runnable check')")"
+expect_exit 'case 27: a Critical finding keeps the exemption legal' 0 run_guard "$wt"
+
+# ===========================================================================
+# 28. One array carrying both shapes: an Important finding with a runnable
+#     command beside a Minor finding with the exemption exits 0 -- the rule
+#     binds per finding, never per store read.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json_sev \
+  F1 Important open 'scripts/test-check-panel-reproducers.sh' \
+  F2 Minor open 'none — prose-only, no runnable check')")"
+expect_exit 'case 28: mixed Important-runnable and Minor-exempt findings exits 0' 0 run_guard "$wt"
+
+# ===========================================================================
+# 29. An Important finding whose reproducer is a bare `none` -- no reason at
+#     all -- exits 1 on the bare-none rule, which fires before the
+#     Important rule; one violation is enough to fail the read.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json_sev F1 Important open none)")"
+expect_exit 'case 29: a bare none on an Important finding still exits 1' 1 run_guard "$wt"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducers-test: one or more cases failed\n' >&2
   exit 1
 fi
-printf 'check-panel-reproducers-test: all 22 cases plus the metacharacter loop pass\n'
+printf 'check-panel-reproducers-test: every case plus the metacharacter loop passes\n'

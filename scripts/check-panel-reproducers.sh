@@ -11,7 +11,11 @@
 # Every finding in the store must declare how it was reproduced, so that
 # /flow's implement phase can run that command and require it to FAIL before dispatching a
 # fix instruction built on it. A finding with no runnable check declares the
-# exemption form `none — <reason>` instead.
+# exemption form `none — <reason>` instead — but the exemption form is
+# available to MINOR findings only: a finding recorded at Important severity
+# must carry a runnable command, and this guard rejects the exemption at
+# Important (KAN-503). The exemption stays legal at Minor and at Critical,
+# which already goes to the fix unconditionally.
 #
 # Reads ONLY the decoded JSON array `flow record findings` prints. It
 # never parses a findings table, a Markdown file, or a marker block — for
@@ -22,7 +26,8 @@
 #
 # Exit codes:
 #   0  every finding the store returned has exactly one well-formed
-#      reproducer (a runnable command or the `none — <reason>` exemption)
+#      reproducer (a runnable command, or the `none — <reason>` exemption
+#      on a finding whose severity is not Important)
 #   1  violations found; each is reported on stderr
 #   2  cannot answer at all — no worktree, no change name, a change name
 #      outside the allowlist, or the store unreachable
@@ -147,7 +152,9 @@ if [ -n "$REFS_TEXT" ]; then
 fi
 
 # A WELL-FORMED REPRODUCER CARRIES EITHER A COMMAND TOKEN, OR THE LITERAL
-# EXEMPTION `none — <reason>` WITH NON-SPACE TEXT AFTER THE EM DASH. A bare
+# EXEMPTION `none — <reason>` WITH NON-SPACE TEXT AFTER THE EM DASH — the
+# exemption only ever legal on a finding whose severity is not Important,
+# checked at the exemption branch below. A bare
 # `none` with no reason is refused — `finding-reproducer: F1 none` used to
 # reach REPRODUCERS-OK with nothing said about why no check runs, and that
 # defect survives the store rewrite unless checked here too. A reproducer
@@ -160,12 +167,26 @@ while IFS= read -r ref; do
     echo "check-panel-reproducers: jq failed — cannot determine anything" >&2
     exit 2
   fi
+  if ! severity="$(printf '%s' "$FINDINGS_JSON" | jq -r --arg ref "$ref" '.[] | select(.ref == $ref) | .severity')"; then
+    echo "check-panel-reproducers: jq failed — cannot determine anything" >&2
+    exit 2
+  fi
 
   if [[ "$reproducer" =~ ^none([[:space:]]|$) ]] && [[ ! "$reproducer" =~ ^none\ —\ [^[:space:]] ]]; then
     add "$ref: declare 'none' with no reason — the exemption form is 'none — <reason>', not a bare 'none'"
     continue
   fi
   if [[ "$reproducer" =~ ^none\ —\ [^[:space:]] ]]; then
+    # THE EXEMPTION IS AVAILABLE TO MINOR FINDINGS ONLY (KAN-503): an
+    # Important-severity finding must carry a runnable command. Severity is
+    # free text in the store, matched case-insensitively and exactly the way
+    # stats/internal/store/aggregate.go's `severity ILIKE 'important'` rows
+    # match it — a longer free-text severity is read into no rule here, the
+    # same reading the aggregate applies, and a finding carrying no severity
+    # at all (`null`) matches nothing.
+    if [ "$(printf '%s' "$severity" | tr '[:upper:]' '[:lower:]')" = "important" ]; then
+      add "$ref: Important-severity finding carries the 'none — <reason>' exemption — a runnable reproducer is required at Important"
+    fi
     continue
   fi
 
