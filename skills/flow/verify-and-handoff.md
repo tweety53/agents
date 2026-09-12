@@ -309,6 +309,58 @@ and 12 below as written, committing and pushing nothing.
       not been checked at all if the mockup draws it focused or active; capture that state
       separately rather than inferring it from the resting frame.
 
+   **Enumerate every mockup frame the change touches into an explicit checklist before starting
+   the sweep, and account for each one by name at handoff — done, or why not.** "Did a
+   screen-by-screen sweep" is unfalsifiable without a fixed list: a partial pass reads exactly like
+   a complete one if nothing forces naming what was skipped (KAN-30 fix round 7: two prior rounds
+   each reported partial coverage as if it were the whole set, and the gap was caught only when the
+   operator asked "so is X fully compared and fixed?" of a specific frame). Build the list from
+   every frame id `design.md`/`tasks.md` cites for this change, or from the mockups directory
+   itself when no such citation exists; a frame reached only by inference from another (already
+   covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
+   still gets named, with the reason.
+
+   **When exercising a flow by scripted navigation (not manual clicks), screenshot after every
+   single action and confirm the resulting screen against an expected marker — a heading, a test
+   tag, a distinctive label — before issuing the next action.** Never chain two or more blind
+   actions and inspect only the final screenshot. A coordinate that assumed a fixed layout silently
+   steers the whole remaining sequence onto the wrong screen the moment real content shifts it — an
+   extra suggestion card, a longer note, a wrapped title — and the resulting screenshot can still
+   look plausible enough to accept at a glance (KAN-30 fix round 7: a blind click landed on a
+   day's "Repeat that workout" suggestion instead of "Create a group session" because an extra card
+   existed on that day only, and the sweep almost recorded the wrong screen as verified). This is
+   the scripted-navigation analogue of the crop-and-zoom rule above: a plausible end state is
+   necessary, never sufficient, evidence that every step along the way went where it was meant to.
+
+   **Check every control against itself, not only against its mockup: crop and diff each
+   appearance of a named state (selected, active, pressed) and of a shared component (a button
+   variant, a sibling card) across every place it shows in the same flow.** Two captures can each
+   match their own frame and still disagree with each other — the mockup draws a state once, so only
+   the captures can show the drift (KAN-30 fix round 8: one dialog's "selected" fill differed
+   between two sub-states; two sibling cards diverged in shadow; "Add user" carried a border on one
+   code path and none on another, because the empty and populated roster states routed to two
+   different shared button components). When a screen renders the same logical control from
+   different code branches depending on state — empty versus populated, first versus subsequent —
+   capture it in every reachable branch and diff the branches against each other, never only the
+   branch the walkthrough reached first.
+
+   **Drive every ranged control through its whole range, and every dynamic list or picker into
+   its empty state.** A wheel, slider, drag handle or multi-step selector is exercised in every
+   direction and past where it wraps or clamps, with a screenshot along the way — the resting
+   capture and one direction prove nothing about the other (KAN-30 fix round 8: a time wheel
+   scrolled correctly one way only, a state-derivation bug no resting capture shows). A list or
+   picker is captured with zero items as well as populated: an empty state sits outside any normal
+   walkthrough, which is how one shipped in its pre-restyle appearance beneath a restyled populated
+   sibling (same round).
+
+   **For every picker or selector, enumerate its options and ask whether any is predictable to
+   fail on submit; one that is gets reported as a defect however good the rejection reads.** No
+   mockup draws the invalid-selection case, so no composite can see it — submit the options the
+   rules already forbid and name every one the list should have excluded instead of offered
+   (KAN-30 fix round 8: a picker offered an option submit always rejected, surfaced only as a
+   post-hoc toast). `rules/design-mockups-are-specs.mdc` puts the same question to the
+   implementer; this is the verifier's side of it.
+
    **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
    the app — `mockups: no map` was reported and accepted every round, because nothing required
