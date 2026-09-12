@@ -613,13 +613,15 @@ type recordJournalBody struct {
 }
 
 // recordStatusRequest mirrors cmd/flow/record.go's own type of the same
-// name: the wire PATCH carries the ref in its URL and only the status in
-// its body, so the journalled request carries both and a replay resolves
-// the write from what it reads rather than from a route this package would
-// have to encode a second time.
+// name: the wire PATCH carries the ref in its URL and the status -- plus,
+// since the deferral category joined it, that category -- in its body, so
+// the journalled request carries all three and a replay resolves the write
+// from what it reads rather than from a route this package would have to
+// encode a second time.
 type recordStatusRequest struct {
-	Ref    string `json:"ref"`
-	Status string `json:"status"`
+	Ref      string `json:"ref"`
+	Status   string `json:"status"`
+	Category string `json:"category,omitempty"`
 }
 
 // errRecordEntryDecodeFailed wraps any failure to make sense of a record
@@ -708,7 +710,7 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 		if err := json.Unmarshal(body.Request, &in); err != nil {
 			return fmt.Errorf("%w: decode status: %v", errRecordEntryDecodeFailed, err)
 		}
-		return api.ApplyFindingStatus(ctx, r.recordStore, e.Project, e.Name, in.Ref, in.Status, "")
+		return api.ApplyFindingStatus(ctx, r.recordStore, e.Project, e.Name, in.Ref, in.Status, in.Category)
 	case "verdict":
 		var in records.Verdict
 		if err := json.Unmarshal(body.Request, &in); err != nil {

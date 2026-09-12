@@ -1145,3 +1145,42 @@ func TestClientAgreesWithRealDaemonOverDaemonHeader(t *testing.T) {
 		t.Errorf("a genuine refusal from a real api.Server must not also read as ErrUnavailable")
 	}
 }
+
+// TestClientSetFindingStatusSendsCategory pins the PATCH body the client
+// builds for a status write: a category the caller passes reaches the
+// daemon under the body's "category" key, and an empty one sends no such
+// key at all rather than an empty word.
+func TestClientSetFindingStatusSendsCategory(t *testing.T) {
+	var bodies []map[string]json.RawMessage
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read PATCH body: %v", err)
+		}
+		var wire map[string]json.RawMessage
+		if err := json.Unmarshal(body, &wire); err != nil {
+			t.Fatalf("decode PATCH body %s: %v", body, err)
+		}
+		bodies = append(bodies, wire)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	if err := c.SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "deferred doc wording only", "doc-only"); err != nil {
+		t.Fatalf("SetFindingStatus with a category: %v", err)
+	}
+	if err := c.SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "fixed", ""); err != nil {
+		t.Fatalf("SetFindingStatus without a category: %v", err)
+	}
+
+	if len(bodies) != 2 {
+		t.Fatalf("%d PATCH bodies captured, want 2", len(bodies))
+	}
+	if string(bodies[0]["category"]) != `"doc-only"` {
+		t.Errorf("first body category = %s, want \"doc-only\"", bodies[0]["category"])
+	}
+	if _, ok := bodies[1]["category"]; ok {
+		t.Errorf("second body carries a category key (%s), want it omitted", bodies[1])
+	}
+}

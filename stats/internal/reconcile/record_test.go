@@ -141,8 +141,9 @@ type recordEnvelope struct {
 // carries, so a journalled status write is replayable from what it holds
 // rather than from a route this test would have to encode a second time.
 type recordStatusRequest struct {
-	Ref    string `json:"ref"`
-	Status string `json:"status"`
+	Ref      string `json:"ref"`
+	Status   string `json:"status"`
+	Category string `json:"category,omitempty"`
 }
 
 // appendRecordWrite journals kind/req exactly as cmd/flow/record.go's
@@ -253,8 +254,12 @@ func (f *fakeRecordStore) RetireHazard(_ context.Context, projectKey, name strin
 	return records.Hazard{}, nil
 }
 
-func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status, _ string) error {
-	f.record(fmt.Sprintf("status %s/%s ref=%s status=%s", projectKey, change, ref, status))
+func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status, category string) error {
+	line := fmt.Sprintf("status %s/%s ref=%s status=%s", projectKey, change, ref, status)
+	if category != "" {
+		line += " category=" + category
+	}
+	f.record(line)
 	return nil
 }
 
@@ -739,4 +744,30 @@ func TestDispatchEndNamingNoRowStaysQueued(t *testing.T) {
 	if n := pendingRecordCount(t, root, project, change); n != 1 {
 		t.Errorf("pending record entries after replay = %d, want 1 -- an end whose begin has not landed must wait for it, not be discarded", n)
 	}
+}
+
+// TestReplayAppliesStatusCategory pins the replay half of the deferral
+// category (F11, review panel round 0): a journalled status write carrying
+// a category replays the category, not the empty word -- a replay that
+// dropped it would clear the deferral's classification on every drain of
+// the journal.
+func TestReplayAppliesStatusCategory(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-category", "chg-record-category"
+
+	appendRecordWrite(t, root, project, change, "status", recordStatusRequest{Ref: "F1", Status: "deferred doc wording only", Category: "doc-only"})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want the one status entry applied", result)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		"status proj-record-category/chg-record-category ref=F1 status=deferred doc wording only category=doc-only",
+	})
 }

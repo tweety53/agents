@@ -457,6 +457,9 @@ func writeErrorWithCode(w http.ResponseWriter, status int, code, msg string) {
 // `deferred <reason>` write against a Critical or Important finding is the
 // store having been reached and having correctly refused, never a reason to
 // journal a replay that would be refused identically every time.
+// ErrCategoryNotDeferred is that refusal's category counterpart -- a
+// deferral category on a non-deferred status is the same class of
+// contradiction, and maps 409 for the same reason.
 //
 // Every other typed error below gets its own deliberate status rather than
 // folding into a blanket 500, chosen by what kind of failure it actually
@@ -504,6 +507,8 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 	case errors.Is(err, store.ErrFindingLinkInvalid):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDeferredNotMinor):
+		return http.StatusConflict, err.Error()
+	case errors.Is(err, store.ErrCategoryNotDeferred):
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):
 		return http.StatusNotFound, err.Error()

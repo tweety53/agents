@@ -273,9 +273,13 @@ type recordHandler struct {
 }
 
 // findingStatusRequest is the wire shape
-// PATCH .../findings/{ref} accepts: the one column a fix round rewrites.
+// PATCH .../findings/{ref} accepts: the status a fix round rewrites, plus
+// the deferral category that rides beside a `deferred <reason>` status --
+// omitted, or empty, for every other status and for a deferral that names
+// no category, which is what clears a category an earlier deferral set.
 type findingStatusRequest struct {
-	Status string `json:"status"`
+	Status   string `json:"status"`
+	Category string `json:"category,omitempty"`
 }
 
 // recordDispatch serves POST /api/v1/records/{project}/{change}/dispatches:
@@ -406,7 +410,7 @@ func (h *recordHandler) setFindingStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := ApplyFindingStatus(r.Context(), h.store, project, change, ref, req.Status, ""); err != nil {
+	if err := ApplyFindingStatus(r.Context(), h.store, project, change, ref, req.Status, req.Category); err != nil {
 		if errors.Is(err, ErrInvalidRecord) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return

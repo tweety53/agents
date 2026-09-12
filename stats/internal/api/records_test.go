@@ -148,6 +148,13 @@ func (f *fakeStore) SetFindingStatus(_ context.Context, projectKey, change, ref,
 	if f.setFindingStatusErr != nil {
 		return f.setFindingStatusErr
 	}
+	// The category contradiction is judged before existence, exactly as
+	// store.SetFindingStatus judges it (F21, review panel round 2): an
+	// unknown ref with a category on a non-deferred status must answer the
+	// same 409 production answers, never the 404 the row-miss would give.
+	if category != "" && !strings.HasPrefix(status, "deferred") {
+		return fmt.Errorf("%w: %s in %s/%s", store.ErrCategoryNotDeferred, ref, projectKey, change)
+	}
 	for i := range f.findings {
 		r := &f.findings[i]
 		if r.projectKey == projectKey && r.changeName == change && r.finding.Ref == ref {
@@ -1457,5 +1464,56 @@ func TestRecordPanelPassAndMutationRejectEmptyFields(t *testing.T) {
 				t.Errorf("the store was reached for a body with an empty %s", tc.name)
 			}
 		})
+	}
+}
+
+// TestSetFindingStatusRouteAppliesCategory pins the wire half of the
+// deferral category: a PATCH body carrying one lands it beside the
+// deferred status it belongs to, and a body without one still works -- the
+// ordinary category-less write every caller that names no category still
+// makes, which also clears whatever an earlier deferral had set.
+func TestSetFindingStatusRouteAppliesCategory(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed POST findings = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	status, body := patchJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings/F1",
+		map[string]any{"status": "deferred doc wording only", "category": "doc-only"})
+	if status != http.StatusNoContent {
+		t.Fatalf("PATCH with a category = %d (%s), want 204", status, body)
+	}
+	if fs.findings[0].finding.Category != "doc-only" {
+		t.Errorf("stored category = %q, want doc-only", fs.findings[0].finding.Category)
+	}
+
+	status, body = patchJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings/F1",
+		map[string]any{"status": "fixed"})
+	if status != http.StatusNoContent {
+		t.Fatalf("PATCH without a category = %d (%s), want 204", status, body)
+	}
+	if fs.findings[0].finding.Category != "" {
+		t.Errorf("stored category = %q after a category-less write, want cleared", fs.findings[0].finding.Category)
+	}
+}
+
+// TestSetFindingStatusRouteAnswers409ForCategoryOffDeferral pins the new
+// mapStoreError case itself (F16, review panel round 1): a deferral
+// category on a non-deferred status is the store having been reached and
+// having correctly refused, so the route answers 409 -- never the generic
+// 500 that internal/client would read as the store being unavailable and
+// journal for a replay that can never succeed.
+func TestSetFindingStatusRouteAnswers409ForCategoryOffDeferral(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed POST findings = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	status, body := patchJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings/F1",
+		map[string]any{"status": "fixed", "category": "cosmetic"})
+	if status != http.StatusConflict {
+		t.Fatalf("PATCH a category onto a non-deferred status = %d (%s), want 409", status, body)
 	}
 }

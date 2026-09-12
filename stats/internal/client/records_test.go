@@ -112,7 +112,7 @@ func TestSetFindingStatusDistinguishesAnUnknownRefFromAnUnreachableStore(t *test
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer ok.Close()
-	if err := client.New(ok.URL, ok.Client()).SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "fixed"); err != nil {
+	if err := client.New(ok.URL, ok.Client()).SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "fixed", ""); err != nil {
 		t.Fatalf("SetFindingStatus against a 204: %v", err)
 	}
 
@@ -121,7 +121,7 @@ func TestSetFindingStatusDistinguishesAnUnknownRefFromAnUnreachableStore(t *test
 		_, _ = w.Write([]byte(`{"error":"store: finding not found: F9 in proj/kan-1"}`))
 	}))
 	defer missing.Close()
-	err := client.New(missing.URL, missing.Client()).SetFindingStatus(context.Background(), "proj", "kan-1", "F9", "fixed")
+	err := client.New(missing.URL, missing.Client()).SetFindingStatus(context.Background(), "proj", "kan-1", "F9", "fixed", "")
 	if !errors.Is(err, client.ErrNotFound) {
 		t.Errorf("SetFindingStatus for an unknown ref = %v, want ErrNotFound", err)
 	}
@@ -131,7 +131,7 @@ func TestSetFindingStatusDistinguishesAnUnknownRefFromAnUnreachableStore(t *test
 		_, _ = w.Write([]byte(`{"error":"status is required"}`))
 	}))
 	defer rejected.Close()
-	err = client.New(rejected.URL, rejected.Client()).SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "")
+	err = client.New(rejected.URL, rejected.Client()).SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "", "")
 	if !errors.Is(err, client.ErrRecordRejected) {
 		t.Errorf("SetFindingStatus refused by the daemon = %v, want ErrRecordRejected -- a caller mistake, never a journalled write", err)
 	}
@@ -192,7 +192,7 @@ func TestRecordCallsFallBackWhenNothingTrustworthyAnswers(t *testing.T) {
 			return err
 		},
 		"SetFindingStatus": func(c *client.Client) error {
-			return c.SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "fixed")
+			return c.SetFindingStatus(context.Background(), "proj", "kan-1", "F1", "fixed", "")
 		},
 		"GetRunRecord": func(c *client.Client) error {
 			_, err := c.GetRunRecord(context.Background(), "proj", "kan-1")

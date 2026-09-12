@@ -934,7 +934,7 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 	// would be a replay with nothing to apply it to.
 	in := recordStatusRequest{Ref: *ref, Status: *status}
 	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (struct{}, error) {
-		return struct{}{}, cl.SetFindingStatus(ctx, projectKey, f.change, *ref, *status)
+		return struct{}{}, cl.SetFindingStatus(ctx, projectKey, f.change, *ref, *status, "")
 	})
 	if callErr == nil {
 		fmt.Fprintf(stdout, "updated: %s\n", *ref)

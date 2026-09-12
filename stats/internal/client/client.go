@@ -720,17 +720,20 @@ func (c *Client) RecordFinding(ctx context.Context, project, change string, in r
 	return out, status == http.StatusCreated, nil
 }
 
-// SetFindingStatus rewrites one finding's status and nothing else -- the
-// whole of what a fix round changes about a finding it has resolved. A ref
-// the change holds no finding under is ErrNotFound, never ErrUnavailable:
-// the daemon answered, and journalling a mistyped ref would queue a replay
-// that can never succeed. A `deferred <reason>` status against a finding
-// whose severity is not Minor answers 409 and is ErrRecordRejected by
-// classifyRecordResponse's own doc comment -- the store having been reached
-// and having refused, the same reason 404 is not journalled either. See
-// RecordDispatch's doc comment for how every other outcome is classified.
-func (c *Client) SetFindingStatus(ctx context.Context, project, change, ref, status string) error {
-	body := findingStatusWireRequest{Status: status}
+// SetFindingStatus rewrites one finding's status, and its deferral
+// category -- the whole of what a fix round changes about a finding it has
+// resolved. The category rides beside a `deferred <reason>` status and is
+// omitted from the body when empty, which is also how a category an
+// earlier deferral set gets cleared. A ref the change holds no finding
+// under is ErrNotFound, never ErrUnavailable: the daemon answered, and
+// journalling a mistyped ref would queue a replay that can never succeed.
+// A `deferred <reason>` status against a finding whose severity is not
+// Minor answers 409 and is ErrRecordRejected by classifyRecordResponse's
+// own doc comment -- the store having been reached and having refused, the
+// same reason 404 is not journalled either. See RecordDispatch's doc
+// comment for how every other outcome is classified.
+func (c *Client) SetFindingStatus(ctx context.Context, project, change, ref, status, category string) error {
+	body := findingStatusWireRequest{Status: status, Category: category}
 	_, err := c.writeRecord(ctx, http.MethodPatch,
 		c.recordsURL(project, change)+"/findings/"+url.PathEscape(ref), body,
 		map[int]bool{http.StatusNoContent: true}, nil)
@@ -1019,9 +1022,13 @@ func (c *Client) RetireHazard(ctx context.Context, project, name string) (record
 }
 
 // findingStatusWireRequest is the body PATCH .../findings/{ref} carries:
-// the one column a fix round rewrites.
+// the status a fix round rewrites, plus the deferral category that rides
+// beside a deferred status. The category is omitempty so a category-less
+// write sends no key at all rather than an empty word -- an omitted key and
+// "the caller named none" are the same fact on this body.
 type findingStatusWireRequest struct {
-	Status string `json:"status"`
+	Status   string `json:"status"`
+	Category string `json:"category,omitempty"`
 }
 
 // writeRecord sends body as JSON through sendJSON and classifies the answer
