@@ -12,10 +12,14 @@ so and build it as drawn unless the user agrees to change it. Reuse existing tok
 already match; add new ones where the mockup demands values the system lacks, rather than bending
 the mockup to fit.
 
-**Ask rather than invent.** Mockups always underspecify — interaction, hover/focus/disabled,
-loading/empty/error, validation, breakpoints, overflow. Batch the questions up front; ask mid-build
-the moment a real blocker appears. Verify visually before claiming it matches: run it, screenshot
-it, compare side by side.
+**Ask rather than invent.** A mockup shows the resting state; every other state exists only if
+named — empty input, zero results, hover/focus/disabled, loading, error, validation, breakpoints,
+overflow. A picker must not offer what submit would reject; whether it filters is a spec question,
+not a style one. A scrollable value picker has both directions stated. A control its sibling
+already has elsewhere reuses that composable, not a rebuild. Batch the questions up front; ask
+mid-build the moment a real blocker appears. Verify by running the app and doing the thing —
+interact, screenshot, compare side by side; a green suite or a read diff misses a fill colour, a
+missing border, a picker that offers what submit rejects.
 
 <!-- /core -->
 
@@ -39,12 +43,16 @@ either deliberate or already agreed with someone you are not talking to.
 ## Ask rather than invent
 
 Mockups are static and always underspecify. The moment something the mockup does not answer comes
-up, ask — do not guess, and do not silently pick a default. Typical gaps:
+up, ask — do not guess, and do not silently pick a default. "Match the mockup" covers the resting
+state only; name every other state. Typical gaps:
 
 - Behaviour of interactive elements.
-- Hover, focus, active and disabled states.
-- Loading, empty, error and overflow states.
+- Hover, focus, active, selected and disabled states.
+- Empty input, zero results, loading, error and overflow states.
 - Validation rules and messages.
+- Whether a picker filters its options or only validates on submit. One that offers a selection
+  submit will reject is a spec gap, not a style gap — the picker should never offer it.
+- Both directions of a scrollable or wheel value picker; "scrollable" alone reads as one.
 - Responsive behaviour at breakpoints the mockup does not show.
 - What happens with long text or large numbers.
 - Exact assets or icon sets.
@@ -53,9 +61,18 @@ up, ask — do not guess, and do not silently pick a default. Typical gaps:
 Where a gap is small and clearly answered by an established convention already in
 the codebase, follow that convention and say so.
 
-## Verify visually before claiming it is done
+## Reuse the sibling's component
 
-Run the app, screenshot the page, compare it against the mockup side by side. "It should match" is
-not verification.
+A control that already exists elsewhere in the app — a workout row, a button variant — is the same
+composable, not a rebuild. Find the sibling before writing one, and check the diff for a second
+copy. Rebuilt siblings are where style drift lives: a row rendered two ways, a button missing the
+border its sibling has.
+
+## Verify by running it before claiming it is done
+
+Run the app, open the screen and do the thing — type, select, submit, scroll the picker both ways —
+then screenshot and compare against the mockup side by side. Reading the diff or a green test suite
+is not verification: a selected-state fill, a filter-vs-error gap, a missing border only show on
+the screen.
 
 Applies globally, all projects, no exceptions.
