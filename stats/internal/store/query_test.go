@@ -79,7 +79,7 @@ func TestFilterBySessionID(t *testing.T) {
 // unlike a test that merely checks each own field is *present*, which
 // would still pass if two entries collided and only one survived.
 func TestStageRunAndChangeFieldsDoNotCollide(t *testing.T) {
-	const stageRunOwnFieldCount = 10 // command, stage, attempt, harness, outcome, started_at, ended_at, duration_ms, repo_root, session_id
+	const stageRunOwnFieldCount = 13 // command, stage, attempt, harness, outcome, started_at, ended_at, duration_ms, repo_root, session_id, jira_key, session_token, project_key
 
 	got := len(store.AllowedStageRunFields())
 	want := len(store.AllowedChangeFields()) + stageRunOwnFieldCount

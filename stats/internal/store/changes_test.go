@@ -721,3 +721,53 @@ func TestPutChangeMergeBaseErrorIsDistinctFromInvalidState(t *testing.T) {
 		t.Errorf("stored UpdatedAt = %v, want %v (the refused write must have changed nothing)", got.UpdatedAt, first.UpdatedAt)
 	}
 }
+
+func TestPutChangeBackfillsPlanSessionsByJiraIssue(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-backfill-%d", time.Now().UnixNano())
+
+	plan, err := st.BeginStage(ctx, store.BeginStageInput{
+		ProjectKey: projectKey, MainCheckoutPath: "/tmp/" + projectKey, JiraKey: "KAN-902",
+		Harness: "claude-code", SessionToken: ptr("fp-backfill-1"),
+		Command: "/flow-plan", Stage: "plan.session", StartedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("BeginStage plan: %v", err)
+	}
+
+	c := baseChange(projectKey, "kan-902-the-slug")
+	c.JiraIssue = ptr("KAN-902")
+	if err := st.PutChange(ctx, c); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+	got, err := st.GetChange(ctx, projectKey, "kan-902-the-slug")
+	if err != nil {
+		t.Fatalf("GetChange: %v", err)
+	}
+
+	runs, _, err := st.QueryStageRuns(ctx, store.Query{
+		Filters: []store.Filter{{Field: "name", Op: store.OpEq, Value: "kan-902-the-slug"}},
+		Limit:   store.NoLimit,
+	})
+	if err != nil {
+		t.Fatalf("QueryStageRuns: %v", err)
+	}
+	if len(runs) != 1 || runs[0].ID != plan.ID {
+		t.Fatalf("runs for the new change = %+v, want the plan row %d", runs, plan.ID)
+	}
+	_ = got
+
+	// A later plan session against an existing change attaches at insert.
+	late, err := st.BeginStage(ctx, store.BeginStageInput{
+		ProjectKey: projectKey, JiraKey: "KAN-902", Harness: "claude-code",
+		SessionToken: ptr("fp-backfill-2"), Command: "/flow-plan", Stage: "plan.session",
+		StartedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("late BeginStage plan: %v", err)
+	}
+	if late.ChangeID == 0 {
+		t.Error("late plan session ChangeID = 0, want the existing change's id")
+	}
+}

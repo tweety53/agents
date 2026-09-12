@@ -288,6 +288,18 @@ var stageRunOwnFieldColumns = map[string]string{
 	// for future fields like this one -- is the smaller, more consistent
 	// change of the two.
 	"session_id": "sr.session_id",
+	// jira_key and session_token identify an unattached plan session
+	// (0023_plan_sessions.sql) -- the end mark finds its open row by
+	// jira_key, and BindSession's own reconcile path already matches
+	// session_token elsewhere.
+	"jira_key":      "sr.jira_key",
+	"session_token": "sr.session_token",
+	// project_key mirrors changeFieldColumns["project"] but through the
+	// stage run's own column, COALESCE'd with the owning change's --
+	// changeFieldColumns["project"] cannot be changed to do this itself,
+	// since QueryChanges builds against the "c" alias alone, where "sr"
+	// does not exist.
+	"project_key": "COALESCE(c.project_key, sr.project_key)",
 }
 
 // stageRunFieldColumns is stageRunOwnFieldColumns plus changeFieldColumns

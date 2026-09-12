@@ -80,7 +80,9 @@ const stageRunSupersedeLockNamespace = 185_004 // KAN-185, task 4
 // never "unknown repository" -- the same absence-is-not-a-value rule the
 // metrics bag follows.
 type StageRun struct {
-	ID        int64
+	ID int64
+	// ChangeID is 0 for a plan session not yet attached to a change
+	// (0023_plan_sessions.sql).
 	ChangeID  int64
 	RepoRoot  *string
 	Harness   string
@@ -109,6 +111,15 @@ type StageRun struct {
 type BeginStageInput struct {
 	ProjectKey string
 	ChangeName string
+	// MainCheckoutPath bootstraps the project row for a plan session, the
+	// way PutChange's own bootstrap does for a change; ignored once the
+	// project exists and ignored entirely when ChangeName is set.
+	MainCheckoutPath string
+	// JiraKey, with ChangeName empty, records a /flow-plan session that
+	// has no change yet (0023_plan_sessions.sql). The row attaches to the
+	// change carrying this jira_issue at insert time if one exists, and
+	// PutChange backfills it otherwise.
+	JiraKey string
 	// RepoRoot is set when this stage ran inside one repository of a
 	// multi-repository change, and left nil when it belongs to the change
 	// as a whole.
@@ -147,6 +158,12 @@ type BeginStageInput struct {
 // bootstrap: let the database detect the race and report it as a typed,
 // retryable condition, instead of a client-side check-then-act.
 func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, error) {
+	if in.ChangeName == "" && in.JiraKey != "" {
+		if in.ProjectKey == "" {
+			return StageRun{}, fmt.Errorf("store: begin plan session: project key is required")
+		}
+		return s.insertPlanStageRun(ctx, in)
+	}
 	for range maxAttemptRetries {
 		run, err := s.insertStageRunAndSupersede(ctx, in)
 		if err == nil {
@@ -342,6 +359,66 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 	return run, nil
 }
 
+// insertPlanStageRun records a stage run identified by (project_key,
+// jira_key) rather than by change. No supersede: a plan session marks one
+// stage and its own token is shared with nothing else. The attempt series
+// is per (project_key, jira_key, command, stage), the plan-session
+// counterpart of stage_runs_attempt_key.
+func (s *Store) insertPlanStageRun(ctx context.Context, in BeginStageInput) (StageRun, error) {
+	if in.SessionToken != nil && *in.SessionToken == "" {
+		in.SessionToken = nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return StageRun{}, fmt.Errorf("store: begin plan session: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := ensureProject(ctx, tx, in.ProjectKey, in.MainCheckoutPath); err != nil {
+		return StageRun{}, err
+	}
+
+	var (
+		run          StageRun
+		metrics      []byte
+		sessionID    *string
+		sessionToken *string
+	)
+	err = tx.QueryRow(ctx, `
+		INSERT INTO stage_runs (
+			change_id, project_key, jira_key, repo_root, harness, session_id, session_token,
+			command, stage, attempt, started_at, metrics
+		)
+		SELECT
+			(SELECT c.id FROM changes c
+			 WHERE c.project_key = $1 AND c.jira_issue = $2
+			 ORDER BY c.updated_at DESC LIMIT 1),
+			$1, $2, $3, $4, $5, $6, $7, $8,
+			COALESCE(
+				(SELECT MAX(sr.attempt) FROM stage_runs sr
+				 WHERE sr.project_key = $1 AND sr.jira_key = $2 AND sr.command = $7 AND sr.stage = $8),
+				0
+			) + 1,
+			$9, '{}'::jsonb
+		RETURNING id, COALESCE(change_id, 0), repo_root, harness, session_id, session_token, command, stage, attempt,
+		          started_at, ended_at, outcome, metrics
+	`, in.ProjectKey, in.JiraKey, in.RepoRoot, in.Harness, in.SessionID, in.SessionToken, in.Command, in.Stage, in.StartedAt).
+		Scan(
+			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
+			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
+		)
+	if err != nil {
+		return StageRun{}, fmt.Errorf("store: begin plan session %s/%s: %w", in.ProjectKey, in.JiraKey, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return StageRun{}, fmt.Errorf("store: begin plan session: commit: %w", err)
+	}
+	run.SessionID = sessionID
+	run.SessionToken = sessionToken
+	run.Metrics = metrics
+	return run, nil
+}
+
 // isUniqueViolation reports whether err is a Postgres unique-violation on
 // the named constraint. An empty constraint matches any unique violation.
 func isUniqueViolation(err error, constraint string) bool {
@@ -500,7 +577,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var total int
-	countSQL := "SELECT COUNT(*) FROM stage_runs sr JOIN changes c ON c.id = sr.change_id " + where
+	countSQL := "SELECT COUNT(*) FROM stage_runs sr LEFT JOIN changes c ON c.id = sr.change_id " + where
 	if err := tx.QueryRow(ctx, countSQL, whereArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("store: query stage runs: count: %w", err)
 	}
@@ -514,10 +591,10 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	}
 
 	sqlText := fmt.Sprintf(`
-		SELECT sr.id, sr.change_id, sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
+		SELECT sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
 		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics
 		FROM stage_runs sr
-		JOIN changes c ON c.id = sr.change_id
+		LEFT JOIN changes c ON c.id = sr.change_id
 		%s
 		%s
 		%s

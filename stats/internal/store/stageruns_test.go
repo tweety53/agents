@@ -2236,3 +2236,83 @@ func TestSupersedeIndexExists(t *testing.T) {
 		t.Errorf("indexdef = %q, want the partial predicate WHERE (ended_at IS NULL)", indexdef)
 	}
 }
+
+func TestBeginStageRecordsPlanSessionWithoutChange(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-plan-%d", time.Now().UnixNano())
+
+	in := store.BeginStageInput{
+		ProjectKey:       projectKey,
+		MainCheckoutPath: "/tmp/" + projectKey,
+		JiraKey:          "KAN-900",
+		Harness:          "claude-code",
+		SessionToken:     ptr("fp-plan-token-1"),
+		Command:          "/flow-plan",
+		Stage:            "plan.session",
+		StartedAt:        time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC),
+	}
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage plan session: %v", err)
+	}
+	if run.ChangeID != 0 {
+		t.Errorf("ChangeID = %d, want 0 for an unattached plan session", run.ChangeID)
+	}
+	if run.Attempt != 1 {
+		t.Errorf("Attempt = %d, want 1", run.Attempt)
+	}
+
+	second, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("second BeginStage plan session: %v", err)
+	}
+	if second.Attempt != 2 {
+		t.Errorf("second Attempt = %d, want 2", second.Attempt)
+	}
+
+	// The harvester finds the window by session_id once bound; an
+	// unattached row must be visible through QueryStageRuns.
+	if _, err := st.BindSession(ctx, "fp-plan-token-1", "sess-plan-1"); err != nil {
+		t.Fatalf("BindSession: %v", err)
+	}
+	runs, _, err := st.QueryStageRuns(ctx, store.Query{
+		Filters: []store.Filter{{Field: "session_id", Op: store.OpEq, Value: "sess-plan-1"}},
+		Limit:   store.NoLimit,
+	})
+	if err != nil {
+		t.Fatalf("QueryStageRuns by session_id: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("got %d runs for the plan session, want 2", len(runs))
+	}
+
+	// The end mark finds the open row by jira_key.
+	open, _, err := st.QueryStageRuns(ctx, store.Query{
+		Filters: []store.Filter{
+			{Field: "project_key", Op: store.OpEq, Value: projectKey},
+			{Field: "jira_key", Op: store.OpEq, Value: "KAN-900"},
+			{Field: "stage", Op: store.OpEq, Value: "plan.session"},
+			{Field: "ended_at", Op: store.OpNull},
+		},
+		Sort:  []store.SortKey{{Field: "attempt", Desc: true}},
+		Limit: 1,
+	})
+	if err != nil {
+		t.Fatalf("QueryStageRuns by jira_key: %v", err)
+	}
+	if len(open) != 1 || open[0].ID != second.ID {
+		t.Fatalf("open plan session query = %+v, want the second row (%d)", open, second.ID)
+	}
+}
+
+func TestBeginStageRejectsJiraKeyWithoutProjectKey(t *testing.T) {
+	st := newTestStore(t)
+	_, err := st.BeginStage(context.Background(), store.BeginStageInput{
+		JiraKey: "KAN-901", Harness: "claude-code", Command: "/flow-plan", Stage: "plan.session",
+		StartedAt: time.Now(),
+	})
+	if err == nil {
+		t.Fatal("BeginStage with JiraKey and no ProjectKey succeeded, want an error")
+	}
+}

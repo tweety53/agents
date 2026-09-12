@@ -117,6 +117,43 @@ type Change struct {
 	UpdatedBy string
 }
 
+// ensureProject bootstraps the project row inside tx, refusing to create
+// one with no checkout path. Shared by PutChange and insertPlanStageRun.
+//
+// INSERT ... ON CONFLICT DO NOTHING RETURNING tells us, in one round trip,
+// whether *this* call was the one that created the row. A separate SELECT
+// EXISTS followed by a conditional INSERT would be check-then-act -- two
+// concurrent first-writers for the same brand-new project could both
+// observe "absent" and both attempt the INSERT, and the loser would hit a
+// bare unique-violation instead of a typed error. ON CONFLICT DO NOTHING
+// makes the losing writer's INSERT a silent no-op at the database level,
+// so no caller ever sees that violation.
+func ensureProject(ctx context.Context, tx pgx.Tx, projectKey, mainCheckoutPath string) error {
+	var createdProjectKey string
+	err := tx.QueryRow(ctx, `
+		INSERT INTO projects (project_key, main_checkout_path)
+		VALUES ($1, $2)
+		ON CONFLICT (project_key) DO NOTHING
+		RETURNING project_key
+	`, projectKey, mainCheckoutPath).Scan(&createdProjectKey)
+	switch {
+	case err == nil:
+		// This call created the project row. Refuse it -- rolling back the
+		// whole transaction, including this insert -- if it did so with no
+		// usable checkout path.
+		if mainCheckoutPath == "" {
+			return fmt.Errorf("%w: project %q", ErrInvalidMainCheckoutPath, projectKey)
+		}
+		return nil
+	case errors.Is(err, pgx.ErrNoRows):
+		// The project already existed (or another concurrent writer just
+		// created it); this call's mainCheckoutPath, if any, is ignored.
+		return nil
+	default:
+		return fmt.Errorf("store: create project %s: %w", projectKey, err)
+	}
+}
+
 // PutChange renders the whole record: every field of c is written, and a
 // field c leaves at its zero value overwrites whatever was stored, exactly
 // as a whole-object write must. The project row is created if absent, using
@@ -169,35 +206,11 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 	// rather than checked.
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Bootstrap the project row atomically: INSERT ... ON CONFLICT DO
-	// NOTHING RETURNING tells us, in one round trip, whether *this* call
-	// was the one that created the row. A separate SELECT EXISTS followed
-	// by a conditional INSERT would be check-then-act — two concurrent
-	// first-writers for the same brand-new project could both observe
-	// "absent" and both attempt the INSERT, and the loser would hit a bare
-	// unique-violation instead of a typed error. ON CONFLICT DO NOTHING
-	// makes the losing writer's INSERT a silent no-op at the database
-	// level, so no caller ever sees that violation.
-	var createdProjectKey string
-	err = tx.QueryRow(ctx, `
-		INSERT INTO projects (project_key, main_checkout_path)
-		VALUES ($1, $2)
-		ON CONFLICT (project_key) DO NOTHING
-		RETURNING project_key
-	`, c.ProjectKey, c.MainCheckoutPath).Scan(&createdProjectKey)
-	switch {
-	case err == nil:
-		// This call created the project row. Refuse it — rolling back the
-		// whole transaction, including this insert — if it did so with no
-		// usable checkout path.
-		if c.MainCheckoutPath == "" {
-			return fmt.Errorf("%w: project %q", ErrInvalidMainCheckoutPath, c.ProjectKey)
-		}
-	case errors.Is(err, pgx.ErrNoRows):
-		// The project already existed (or another concurrent writer just
-		// created it); this call's MainCheckoutPath, if any, is ignored.
-	default:
-		return fmt.Errorf("store: create project %s: %w", c.ProjectKey, err)
+	// Bootstrap the project row atomically -- see ensureProject's own doc
+	// comment for why this is a single INSERT ... ON CONFLICT DO NOTHING
+	// RETURNING rather than a separate SELECT EXISTS.
+	if err := ensureProject(ctx, tx, c.ProjectKey, c.MainCheckoutPath); err != nil {
+		return err
 	}
 
 	var id int64
@@ -235,6 +248,19 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 			return ErrMonotonicViolation
 		}
 		return fmt.Errorf("store: put change %s/%s: %w", c.ProjectKey, c.Name, err)
+	}
+
+	// A plan session (0023_plan_sessions.sql) recorded against this
+	// change's jira_issue before this change existed attaches now -- the
+	// backfill counterpart of insertPlanStageRun's own attach-at-insert
+	// when the change already exists at BeginStage time.
+	if c.JiraIssue != nil && *c.JiraIssue != "" {
+		if _, err := tx.Exec(ctx, `
+			UPDATE stage_runs SET change_id = $1
+			WHERE change_id IS NULL AND project_key = $2 AND jira_key = $3
+		`, id, c.ProjectKey, *c.JiraIssue); err != nil {
+			return fmt.Errorf("store: attach plan sessions to %s/%s: %w", c.ProjectKey, c.Name, err)
+		}
 	}
 
 	// The repository set is written on this same transaction, before
