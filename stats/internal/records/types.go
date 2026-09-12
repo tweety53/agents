@@ -163,16 +163,29 @@ type DispatchEnd struct {
 // dispatch's Seq within the same change -- the identifier a caller has,
 // where the store's own row id is not. It is nil for a finding no single
 // dispatch raised, which is a legitimate case rather than a missing value.
+//
+// Supersedes and RegressionOf are the finding's lineage (KAN-507): both
+// name an earlier finding's Ref within the same change, and both are
+// optional. Supersedes says this finding is the same underlying defect
+// re-raised under a new ref -- the F40 -> F50 chain a fix round's re-read
+// produces. RegressionOf says this finding was caused by an earlier
+// finding's fix, which is what makes "findings caused by fixes" a
+// countable metric rather than a note-reading exercise. The store refuses
+// a link naming a ref the change does not hold, and a finding linking to
+// itself -- a lineage column that can be silently wrong is worse than one
+// that refuses.
 type Finding struct {
-	Ref         string `json:"ref"`
-	DispatchSeq *int   `json:"dispatchSeq,omitempty"`
-	Round       int    `json:"round"`
-	Slot        string `json:"slot"`
-	Severity    string `json:"severity"`
-	Location    string `json:"location,omitempty"`
-	Note        string `json:"note"`
-	Status      string `json:"status"`
-	Reproducer  string `json:"reproducer,omitempty"`
+	Ref          string `json:"ref"`
+	DispatchSeq  *int   `json:"dispatchSeq,omitempty"`
+	Round        int    `json:"round"`
+	Slot         string `json:"slot"`
+	Severity     string `json:"severity"`
+	Location     string `json:"location,omitempty"`
+	Note         string `json:"note"`
+	Status       string `json:"status"`
+	Reproducer   string `json:"reproducer,omitempty"`
+	Supersedes   string `json:"supersedes,omitempty"`
+	RegressionOf string `json:"regressionOf,omitempty"`
 }
 
 // Decision is one run's dynamic decision: the whole `## Decision` block as

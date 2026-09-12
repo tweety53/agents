@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/records"
@@ -28,6 +29,17 @@ var ErrFindingNotFound = errors.New("store: finding not found")
 // validator, which cannot see a finding's severity -- refuses the write
 // here rather than storing a status the finding is not allowed to carry.
 var ErrDeferredNotMinor = errors.New("store: deferred status is Minor-only")
+
+// ErrFindingLinkInvalid is returned by UpsertFinding when a finding's
+// lineage carries a link the change cannot honour: a supersedes or
+// regression-of ref the change holds no finding under, or a finding
+// linked to itself. It is typed for the same reason ErrFindingNotFound is
+// -- internal/api answers 400 on it, so a mistyped ref is a definitive
+// CLI refusal rather than a write that journals for a replay that could
+// never succeed -- and it names the offending ref, because a refusal that
+// did not say which hop was bad would send the caller back to the same
+// guesswork this column exists to end.
+var ErrFindingLinkInvalid = errors.New("store: finding lineage link is invalid")
 
 // ErrDispatchNotFound is returned by MergeDispatchMetrics when no dispatch
 // exists under the given id, and by EndDispatch when the change holds no
@@ -67,6 +79,17 @@ const dispatchesKeyConstraint = "dispatches_key_key"
 // row rather than being refused, and the record of a change's findings
 // never accumulates a second row for one ref.
 const findingsRefConstraint = "findings_ref_key"
+
+// findingsSupersedesFK and findingsRegressionOfFK are the names given,
+// explicitly, to the two lineage foreign keys in 0024_finding_lineage.sql.
+// UpsertFinding checks for these exact constraint names when it translates
+// a foreign-key violation into ErrFindingLinkInvalid, so it knows WHICH
+// link was refused and can name the ref that hop carried -- the same
+// constraint-name-is-contract reasoning findingsRefConstraint records.
+const (
+	findingsSupersedesFK   = "findings_supersedes_fk"
+	findingsRegressionOfFK = "findings_regression_of_fk"
+)
 
 // decisionsSessionConstraint is the name given, explicitly, to the
 // UNIQUE (change_id, session_token) constraint in 0019_decisions.sql.
@@ -391,39 +414,64 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 		dispatchSeq *int
 		location    *string
 		reproducer  *string
+		supersedes  *string
+		regression  *string
 		created     bool
 	)
 
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO findings (
-			change_id, dispatch_id, ref, round, slot, severity, location, note, status, reproducer
+			change_id, dispatch_id, ref, round, slot, severity, location, note, status, reproducer,
+			supersedes, regression_of
 		)
 		SELECT
 			c.id,
 			(SELECT d.id FROM dispatches d WHERE d.change_id = c.id AND d.seq = $4::int),
-			$3, $5, $6, $7, $8, $9, $10, $11
+			$3, $5, $6, $7, $8, $9, $10, $11, $12, $13
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+findingsRefConstraint+` DO UPDATE SET
-			dispatch_id = EXCLUDED.dispatch_id,
-			round       = EXCLUDED.round,
-			slot        = EXCLUDED.slot,
-			severity    = EXCLUDED.severity,
-			location    = EXCLUDED.location,
-			note        = EXCLUDED.note,
-			status      = EXCLUDED.status,
-			reproducer  = EXCLUDED.reproducer
+			dispatch_id   = EXCLUDED.dispatch_id,
+			round         = EXCLUDED.round,
+			slot          = EXCLUDED.slot,
+			severity      = EXCLUDED.severity,
+			location      = EXCLUDED.location,
+			note          = EXCLUDED.note,
+			status        = EXCLUDED.status,
+			reproducer    = EXCLUDED.reproducer,
+			supersedes    = EXCLUDED.supersedes,
+			regression_of = EXCLUDED.regression_of
 		RETURNING
 			ref,
 			(SELECT d.seq FROM dispatches d WHERE d.id = findings.dispatch_id),
-			round, slot, severity, location, note, status, reproducer,
+			round, slot, severity, location, note, status, reproducer, supersedes, regression_of,
 			xmax = 0
 	`,
 		projectKey, change, in.Ref, in.DispatchSeq, in.Round, in.Slot, in.Severity,
 		nullIfEmpty(in.Location), in.Note, in.Status, nullIfEmpty(in.Reproducer),
+		nullIfEmpty(in.Supersedes), nullIfEmpty(in.RegressionOf),
 	).Scan(&out.Ref, &dispatchSeq, &out.Round, &out.Slot, &out.Severity, &location,
-		&out.Note, &out.Status, &reproducer, &created)
+		&out.Note, &out.Status, &reproducer, &supersedes, &regression, &created)
 	if err != nil {
+		// A lineage link the change cannot honour is the caller's typo,
+		// not the store's failure: the FK refuses a ref the change does
+		// not hold and the CHECK refuses a self-link, and both are
+		// translated here into the typed error naming the offending ref,
+		// so the refusal survives to the caller instead of surfacing as a
+		// raw Postgres message from a 500.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch {
+			case pgErr.Code == "23503" && pgErr.ConstraintName == findingsSupersedesFK:
+				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s supersedes %s, which this change does not hold", ErrFindingLinkInvalid, in.Ref, projectKey, change, in.Supersedes)
+			case pgErr.Code == "23503" && pgErr.ConstraintName == findingsRegressionOfFK:
+				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s is a regression of %s, which this change does not hold", ErrFindingLinkInvalid, in.Ref, projectKey, change, in.RegressionOf)
+			case pgErr.Code == "23514" && pgErr.ConstraintName == "findings_supersedes_not_self":
+				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s cannot supersede itself", ErrFindingLinkInvalid, in.Ref, projectKey, change)
+			case pgErr.Code == "23514" && pgErr.ConstraintName == "findings_regression_of_not_self":
+				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s cannot be a regression of itself", ErrFindingLinkInvalid, in.Ref, projectKey, change)
+			}
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return records.Finding{}, false, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
 		}
@@ -433,6 +481,8 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 	out.DispatchSeq = dispatchSeq
 	out.Location = derefOrEmpty(location)
 	out.Reproducer = derefOrEmpty(reproducer)
+	out.Supersedes = derefOrEmpty(supersedes)
+	out.RegressionOf = derefOrEmpty(regression)
 	return out, created, nil
 }
 
@@ -1032,7 +1082,8 @@ func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.D
 // identifier the wire shape carries; the row id never leaves this package.
 func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Finding, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.reproducer
+		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.reproducer,
+		       f.supersedes, f.regression_of
 		FROM findings f
 		LEFT JOIN dispatches d ON d.id = f.dispatch_id
 		WHERE f.change_id = $1
@@ -1050,14 +1101,18 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 			dispatchSeq *int
 			location    *string
 			reproducer  *string
+			supersedes  *string
+			regression  *string
 		)
 		if err := rows.Scan(&f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
-			&f.Note, &f.Status, &reproducer); err != nil {
+			&f.Note, &f.Status, &reproducer, &supersedes, &regression); err != nil {
 			return nil, fmt.Errorf("read findings: scan: %w", err)
 		}
 		f.DispatchSeq = dispatchSeq
 		f.Location = derefOrEmpty(location)
 		f.Reproducer = derefOrEmpty(reproducer)
+		f.Supersedes = derefOrEmpty(supersedes)
+		f.RegressionOf = derefOrEmpty(regression)
 		out = append(out, f)
 	}
 	if err := rows.Err(); err != nil {

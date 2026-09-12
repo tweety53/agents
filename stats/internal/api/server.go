@@ -501,6 +501,8 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusUnprocessableEntity, err.Error()
 	case errors.Is(err, store.ErrFindingNotFound):
 		return http.StatusNotFound, err.Error()
+	case errors.Is(err, store.ErrFindingLinkInvalid):
+		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDeferredNotMinor):
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):

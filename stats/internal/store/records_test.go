@@ -2549,3 +2549,137 @@ func TestRunRecordCarriesPassLog(t *testing.T) {
 		t.Errorf("mutations = %+v, want the one round-1 row", run.Mutations)
 	}
 }
+
+// --- finding lineage (KAN-507) ---
+
+// TestUpsertFindingLineageRoundTrip asserts the whole of the lineage
+// contract in one store round trip: a supersedes link survives the write,
+// a regression-of link survives the write, an unlinked finding reads back
+// with neither, and a restatement that carries no lineage clears the
+// columns -- the upsert replaces the whole row, exactly as it does for
+// note and severity, so a fix round restating a finding is never haunted
+// by a link its caller did not restate.
+func TestUpsertFindingLineageRoundTrip(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-finding-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	for _, ref := range []string{"F1", "F2", "F3"} {
+		if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", baseFinding(ref, 0)); err != nil {
+			t.Fatalf("record %s: %v", ref, err)
+		}
+	}
+
+	superseding := baseFinding("F2", 1)
+	superseding.Supersedes = "F1"
+	got, created, err := st.UpsertFinding(ctx, projectKey, "kan-1", superseding)
+	if err != nil {
+		t.Fatalf("upsert F2 with supersedes: %v", err)
+	}
+	if created {
+		t.Error("F2's second write reported created, want updated -- the API answers 200 on this")
+	}
+	if got.Supersedes != "F1" {
+		t.Errorf("returned supersedes = %q, want F1", got.Supersedes)
+	}
+
+	regressed := baseFinding("F3", 1)
+	regressed.RegressionOf = "F1"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", regressed); err != nil {
+		t.Fatalf("upsert F3 with regression-of: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	byRef := map[string]records.Finding{}
+	for _, f := range rec.Findings {
+		byRef[f.Ref] = f
+	}
+	if byRef["F2"].Supersedes != "F1" {
+		t.Errorf("stored F2 supersedes = %q, want F1", byRef["F2"].Supersedes)
+	}
+	if byRef["F3"].RegressionOf != "F1" {
+		t.Errorf("stored F3 regressionOf = %q, want F1", byRef["F3"].RegressionOf)
+	}
+	if byRef["F1"].Supersedes != "" || byRef["F1"].RegressionOf != "" {
+		t.Errorf("unlinked F1 carries lineage (%q, %q), want neither", byRef["F1"].Supersedes, byRef["F1"].RegressionOf)
+	}
+
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", baseFinding("F2", 2)); err != nil {
+		t.Fatalf("restate F2 without lineage: %v", err)
+	}
+	rec, err = st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord after the clearing write: %v", err)
+	}
+	for _, f := range rec.Findings {
+		if f.Ref == "F2" && (f.Supersedes != "" || f.RegressionOf != "") {
+			t.Errorf("F2 after a lineage-less restatement carries (%q, %q), want both cleared", f.Supersedes, f.RegressionOf)
+		}
+	}
+}
+
+// TestUpsertFindingLineageUnknownRef asserts a lineage link naming a ref
+// the change does not hold is refused, not silently stored NULL: the
+// whole worth of a chain like F40 -> F50 -> F56 is that every hop names a
+// finding that exists, and a typo'd ref would quietly start a chain to
+// nowhere. The refusal is typed -- the API answers 400 on it, so a
+// mistyped ref is a definitive CLI refusal rather than a write that
+// journals for a replay that could never succeed.
+func TestUpsertFindingLineageUnknownRef(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-finding-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	linked := baseFinding("F2", 1)
+	linked.Supersedes = "F99"
+	_, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", linked)
+	if !errors.Is(err, store.ErrFindingLinkInvalid) {
+		t.Fatalf("upsert F2 with an unknown supersedes ref: err = %v, want ErrFindingLinkInvalid", err)
+	}
+	if !strings.Contains(err.Error(), "F99") {
+		t.Errorf("error = %v, want it to name the missing ref F99", err)
+	}
+
+	regressed := baseFinding("F3", 1)
+	regressed.RegressionOf = "F99"
+	_, _, err = st.UpsertFinding(ctx, projectKey, "kan-1", regressed)
+	if !errors.Is(err, store.ErrFindingLinkInvalid) {
+		t.Fatalf("upsert F3 with an unknown regression-of ref: err = %v, want ErrFindingLinkInvalid", err)
+	}
+	if !strings.Contains(err.Error(), "F99") {
+		t.Errorf("error = %v, want it to name the missing ref F99", err)
+	}
+}
+
+// TestUpsertFindingLineageSelfRef asserts a finding cannot link to
+// itself: such a row is a typo (the caller meant another ref), never a
+// chain of one, and a chain of one would sit in the lineage column
+// looking exactly like a real hop.
+func TestUpsertFindingLineageSelfRef(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-finding-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", baseFinding("F1", 0)); err != nil {
+		t.Fatalf("record F1: %v", err)
+	}
+	linked := baseFinding("F1", 1)
+	linked.Supersedes = "F1"
+	_, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", linked)
+	if !errors.Is(err, store.ErrFindingLinkInvalid) {
+		t.Fatalf("upsert F1 linking to itself: err = %v, want ErrFindingLinkInvalid", err)
+	}
+
+	linked = baseFinding("F1", 1)
+	linked.RegressionOf = "F1"
+	_, _, err = st.UpsertFinding(ctx, projectKey, "kan-1", linked)
+	if !errors.Is(err, store.ErrFindingLinkInvalid) {
+		t.Fatalf("upsert F1 regressing itself: err = %v, want ErrFindingLinkInvalid", err)
+	}
+}
