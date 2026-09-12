@@ -36,3 +36,6 @@ stats/web/blob-report/
 # shows up as stray local noise that must not be swept into an unrelated
 # commit.
 .idea/.name
+
+# Per-project skill symlinks installed by the operator (Go skills from ~/.agents/skills) — machine-local
+.claude/skills/

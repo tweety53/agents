@@ -1,10 +1,7 @@
 # Verify, stage, and hand off
 
 Loaded by `skills/flow/SKILL.md` once `skills/flow/review-panel.md` closes clean. Stage order:
-**verify → visual-verify → stage-diff → run-instructions → write-in-progress**. `flow.verify`
-runs its commands inline, in the parent's own Bash calls; `flow.visual-verify` alone dispatches a
-`verifier` subagent (**The verifier dispatch**, below); the parent keeps every mark and every
-block decision.
+**verify → visual-verify → stage-diff → run-instructions → write-in-progress**.
 
 ## Verify
 
@@ -63,8 +60,7 @@ every slot's result stale (**Panel re-runs**, `skills/flow/review-panel.md`), an
 that changes source is a fix run the operator starts. `## lint`, `## test` and
 `check-spec-reach.sh <worktree>` **are the parent's own Bash calls, run inline per worktree,
 never through a subagent** — its work in this stage is `prepare-workspace.sh`, those commands, the
-visual-verify dispatch below and the ledger render. A failing check is never "just re-run to see":
-the run below gives it exactly one inline re-run, per **Inline verify — a failing command** below.
+visual-verify dispatch below and the ledger render.
 
 ### Inline verify
 
@@ -75,11 +71,7 @@ commands, then the test commands, in the order printed, then `check-spec-reach.s
 one more command in the same list, whose exit 0 line `Spec reach: not configured` is the ordinary
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
 every command in order and do not stop at the first failure. **Nothing runs them later** —
-`/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff. Per
-**Read discipline**'s test/lint-through-`tail` rule (`skills/flow/implement.md`), pipe each
-command's own run through `tail` before reading it; the `## Report` block below still carries the
-full truncated-tail text for the operator, which is a different concern from what the parent reads
-mid-run.
+`/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 
 ```text verified:design.md section 2 of this change
 ## Report
@@ -165,9 +157,8 @@ unchanged: a first mismatch closes `<key>` `-outcome fallback` and re-dispatches
 with `## Question` naming `sonnet` and both models that answered, options **Continue on `<the
 model the second handshake named>`** or **Stop the run**.
 
-**A mark or a record never blocks — proceed regardless of whether it reached the store.** A
-verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted` and
-blocks this handoff exactly as a failed command would, naming the death.
+A verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`
+and blocks this handoff exactly as a failed command would, naming the death.
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
@@ -202,8 +193,7 @@ Reads the `## visual verification` section, canonical in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 
-Steps 1, 2 and 11 are the parent's — those steps, `prepare-workspace.sh` and the ledger render
-are the parent's own Bash calls, never a subagent's. Steps 3–10 and 12 are run by one verifier per worktree
+Steps 1, 2 and 11 are the parent's. Steps 3–10 and 12 are run by one verifier per worktree
 surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 parent applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`,
@@ -458,15 +448,10 @@ and 12 below as written, committing and pushing nothing.
 - visual-verification.md: written | not written — <reason>
 ```
 
-Every non-zero exit, unreadable PNG, `resolve-visual-screenshots.sh` exit 1 or 2 and named defect
-is carried in the report; the `Visual:` handoff line is built from its view entries.
-
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: a failed `setup`, a failed `verify`,
-a genuine `capture` failure — **never a first-run snapshot write, which is `capture`'s own success
-path per step 7 above** — a stack that could not be started, **a `fingerprint` that still exits
+a genuine `capture` failure, a stack that could not be started, **a `fingerprint` that still exits
 non-zero after step 5's restart**, a `check-spec-reach.sh` exit 1 or 2,
-an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 — including a capture whose size
-differs from the cropped frame — and a departure from the mockup the
+an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
 verifier reports in a composite**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
 point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
@@ -573,9 +558,6 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   ```
   Not started: <app> (<url>) — protected, see <project>/CLAUDE.md.
   ```
-
-  A stack a stage starts and stops for its own probe is a different mechanism and is never this
-  rule's start target.
 
   **A start that fails blocks this stage**, naming the application and what the command printed —
   handing over run instructions that cannot be followed is the failure this rule exists to prevent.
@@ -710,14 +692,10 @@ policy (`delta` or `full`), and the dispatch groups as `+`-joined roles — the 
 shape `skills/flow-contracts/handoff-blocks.md`'s `Panel:` line carries for `/flow-status`'s
 regenerated view of the same state.
 
-**The `Records` line is printed on every run of this branch, journalled or not.** **The `Costs:`
-line is printed the same way — always, `unknown` included.**
-
 **The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
 absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
 rule — the operator must be able to open the PNG. **Its push clause appears only when step 11
-committed to a `regression checkout`** — the stage never pushes itself, per `no-automatic-push`, so
-this is the command the operator runs by hand to land that commit.
+committed to a `regression checkout`.**
 
 The pre-edit description line is present only on a fix run that synced the description in **3.
 Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or
@@ -729,13 +707,4 @@ orchestrates directly**, `skills/flow/implement.md`).
 
 ## Guardrails
 
-- **Commit per task and per fixup** — never `<project>/spectre/changes/` or
-  `<project>/docs/research/` in a task or fixup commit. **Never push, merge, or open a PR** —
-  except the `prUrl` exception above.
-- **Never** run `finishing-a-development-branch`.
 - **Never** create a second worktree for the same change.
-- **Never** advance the state from `IN_PROGRESS`; write back what you read.
-- **Never** hand off with an open finding of any severity, or a stale clean result — stale as
-  **Panel re-runs** (`skills/flow/review-panel.md`) defines it.
-- **Never** mark a task's checkbox before that task's review passes.
-- **Never** edit source after the panel closes — a fix run is the only path that changes source.

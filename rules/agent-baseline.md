@@ -45,8 +45,9 @@ in the meantime.
 
 ## Project rules come on top
 
-If you are working inside a repository, read `<project>/CLAUDE.md` — and `<project>/AGENTS.md` if present — before
-acting. Project rules are more specific than these and win where they overlap, including which lint,
+If you are working inside a repository, its instruction file is already in your context — `<project>/CLAUDE.md`
+on Claude Code, `<project>/AGENTS.md` on Codex; the other is the same instruction set rendered for the
+other harness, so never read it as well. Project rules are more specific than these and win where they overlap, including which lint,
 test and run commands the rules above actually mean. For a flow project those commands live in
 `<project>/.flow/project.md`, and any `/flow*` step loads its own contract file first; never act on a
 remembered version of a contract. The flow pipeline is deliberately absent from the table above —

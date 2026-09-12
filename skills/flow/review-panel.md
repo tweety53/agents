@@ -15,9 +15,7 @@ flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -s
 ```
 
 **The pass log is store rows, rendered — never a hand-written file.** Every fact this file records
-about a panel run — the roster and reduction verdicts, the diff-size figures and operator answers,
-the re-run decisions, the fix pass's agents and reasons, the fix round's `fix-mutation:` proof
-lines — the parent records as it arises with `flow record pass` or `flow record mutation`
+about a panel run the parent records as it arises with `flow record pass` or `flow record mutation`
 (`-change <name> -round <n>`, the round `0` for the initial panel and `1..n` for a fix round).
 `flow record render -kind panel` renders them into the panel record's pass-log section under
 `<abs-worktree>/.superpowers/sdd/reviews/`, beside the findings.
@@ -110,14 +108,6 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
   <worktree>/.superpowers/sdd/dispatch-context.md "" <canonical-worktree> <shape>
 ```
 
-`<canonical-worktree>` is the member of the run's resolved worktree set whose own
-`<project>/<spec-root>/changes/<name>/tasks.md` exists — the same argument
-`check-unfinished-work.sh` takes, passed on every call and inert when that member is this
-worktree (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for what a
-satellite's bundle then carries). `<shape>` is the parent's computed shape value — the same
-argument implement.md's per-bundle gathers take — so a reviewer's bundle is hazard-filtered by
-the change's shape exactly as an implementer's is.
-
 Report the script's stderr line (`bundle unchanged — reusing …` or `bundle rebuilt — …`) as part
 of this stage's own reporting.
 
@@ -126,15 +116,15 @@ of this stage's own reporting.
 Every resolved id maps to one slot, dispatched this run because the resolved roster (`REVIEWERS`,
 or the decision's `panel.roster` on `dynamic` — see the opening paragraph above) carries it:
 
-| id | Slot | How to spawn | Model |
-|---|------|---------------|-------|
-| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; never code quality, which is `simple-reviewer`'s and Bugbot's job | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
-| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
-| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
-| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
-| `bugbot` | **Bugbot** — defect hunt | general-purpose + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
-| `security` | **Security** | general-purpose + `security-reviewer-prompt.md` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
-| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| id | Slot | How to spawn |
+|---|------|---------------|
+| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; never code quality, which is `simple-reviewer`'s and Bugbot's job |
+| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
+| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` |
+| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` |
+| `bugbot` | **Bugbot** — defect hunt | general-purpose + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
+| `security` | **Security** | general-purpose + `security-reviewer-prompt.md` |
+| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
 `principles-reviewer-prompt.md` and `engineering-principles.md` (Principles),
@@ -169,11 +159,8 @@ roster records `roster: full`.
 
 When the decision's `panel.roster` carries an entry whose `slot` starts `exp-` — at most one, per
 design.md's **The rolls** — it is dispatched once, in pass 1 alongside the rest of the roster,
-exactly like any other slot in **The roster** table above: general-purpose, as `subagent_type:
-flow-<effort>` with `model` passed explicitly, per the `model`/`effort` of the dispatch it joins,
-carrying the same REPORT FILE /
-REPRODUCER / CONTEXT BUNDLE / WORKTREES / TOOLS / NO DELEGATION / FOREGROUND BUILDS / MODEL
-HANDSHAKE / REPRODUCE, DON'T READ paragraphs every slot's dispatch already carries above.
+exactly like any other slot in **The roster** table above, carrying the same paragraphs every
+slot's dispatch already carries above.
 
 Its prompt is not `principles-reviewer-prompt.md` or any other fixed template: it is the file the
 roster entry names in `prompt` — `skills/flow/experimental/<name>.md` inside the agents repo, never
@@ -190,9 +177,7 @@ substituted. The rendered panel record's Slot column therefore shows the `exp-` 
 prefix survives into the archive per design.md's `exp-slot-prefix`.
 
 It is a diff-reading slot like Primary, Principles, Code review (low) and Mutation: **Panel
-re-runs** below governs it unchanged — it re-runs only when it raised a finding in the previous
-round or the previous round raised a new Critical, reading its own delta, and its clean result goes
-stale under the same rules as any other slot's. **The docs-only reduction** below still narrows a
+re-runs** below governs it unchanged. **The docs-only reduction** below still narrows a
 docs-only branch to `primary` alone: the experimental slot is never part of that reduced roster, and
 is dispatched again only if a later round's docs-only guard reclassifies the branch off the
 reduction.
@@ -251,9 +236,7 @@ named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
 `primary` is the reduced roster even when the resolved list does not carry it — the
 same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
-On a docs-only branch the implementer's self-review and the vocabulary and reference guards cover
-the prose; there is no code seam between commits for a second slot to find (KAN-312). This reduction
-applies to a dynamic roster unchanged: it still narrows to `primary` alone, on the model and
+This reduction applies to a dynamic roster unchanged: it still narrows to `primary` alone, on the model and
 effort of the decided dispatch that carried `primary` — one dispatch, never bundled.
 
 **Exit 1 runs the resolved roster unchanged**; the first non-documentation path any worktree's run
@@ -289,9 +272,8 @@ git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-rev
 ```
 
 A single-worktree change writes the same shape with one header. Then dispatch the round's
-`panel.dispatches` — **at most two per round, each one to three roles** — in the canonical
-worktree, each reading the whole combined file; a role is never dispatched once per worktree: one
-pass reads every worktree's section, so a seam between two repositories is in one pass's view
+`panel.dispatches` in the canonical worktree, each reading the whole combined file; a role is
+never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view
 (design.md's `combined-diff-per-round`). **Bundled dispatch** below states how the roster is
 grouped into those dispatches.
 
@@ -339,7 +321,6 @@ group whose other members are clean dispatches with its re-running members only.
 
 The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
 line name the dispatches as `+`-joined groups (`primary+principles · code-review-low+mutation`).
-**The docs-only reduction** above still narrows to `primary` alone, one dispatch.
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
@@ -358,8 +339,7 @@ launched pass's report file; every `end` is recorded in one call once they all e
 discipline**, `skills/flow/implement.md`). A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
-`-slot` names the dispatch's roles from **The roster** table above, `+`-joined in roster order on
-a bundle (**Bundled dispatch** above). `-role` is
+`-slot` names the dispatch's roles from **The roster** table above. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
@@ -644,14 +624,6 @@ finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 
 A finding recorded with no reproducer renders the `none — <reason>` exemption form.
 
-`check-unfinished-work.sh` parses no rendered document at all — it queries the store directly
-through `flow record findings -change <name> -C <worktree>`, decoded by `jq`, and counts findings
-whose status is neither `fixed` nor `withdrawn <reason>`. It reads no table and no marker block;
-its own header records why that parser was removed. `validateFindingStatus` in
-`<agents repo>/stats/cmd/flow/record.go` already guarantees every stored status is exactly `open`, `fixed` or
-`withdrawn <reason>`, so the malformed-shape checks a hand-rolled document parser once needed have
-nothing left to catch.
-
 **The table carries no status column, on purpose.** To read a finding's state, look up its `F<n>`
 in the marker block.
 
@@ -825,8 +797,7 @@ A finding meeting both conditions is recorded closed there and then:
 flow record status -change <name> -ref F<n> -status fixed
 ```
 
-**The parent records it, never the fix subagent** — the parent is what ran the reproducer and
-walked the diff, itself, never through a subagent. **Record every verdict this turn reached in one call,
+**The parent records it, never the fix subagent.** **Record every verdict this turn reached in one call,
 never deferred to the round's end** — the reproducer re-runs and the fix diff are read in one
 call, each finding judged, then every `status fixed` recorded together, so an aborted round
 still leaves every already-verified finding closed. **A finding failing
@@ -835,8 +806,6 @@ either condition is left untouched** on `open`, for the handback below. This wal
 whole fix diff.
 
 ### The fix round mutation-proves what it changed
-
-**This binds the review panel's fix round.**
 
 **Every executable behaviour the fix changed is mutation-proved, not only the test cases the round
 adds.** The fix subagent performs the proof and reports it, per the MUTATION PROOF paragraph its
@@ -867,8 +836,7 @@ hunk of the fix diff with a non-comment, non-whitespace change: each one is eith
 reported line, or is not an executable behaviour at all. A hunk that removes or weakens a test or an
 assertion states in the record what it used to cover and names what still covers that same behaviour
 now — checked by running the named covering test against the **pre-fix** code and confirming it
-fails. A hunk whose path is draw/geometry code — code that computes what is drawn: extents,
-bounds, gridlines, offsets, paths, positions, sizes — is held to the **PIXEL PROBE** paragraph
+fails. A hunk whose path is draw/geometry code is held to the **PIXEL PROBE** paragraph
 beside the mutation lines: the fix's report names the probe assertion it landed against the
 actual rendered pixels or geometry, and a fix commit for this class of bug that landed no such
 probe is rejected at the fix step — the round does not close and the finding stays open, for the
@@ -1052,7 +1020,7 @@ flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
 `-commit` is the task commit the fixup was folded into.
 
 A Minor either fixed or deferred blocks nothing; a Minor left `open` blocks exactly as a Critical
-does, and triggers no re-run — see above. When fix rounds do not converge,
+does. When fix rounds do not converge,
 the run hands back to the operator, one finding at a time:
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
