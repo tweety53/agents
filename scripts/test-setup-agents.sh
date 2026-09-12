@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# test-setup-agents.sh — asserts setup.sh installs the nine
-# flow-<model>-<effort> agent definitions on `./setup.sh global`.
+# test-setup-agents.sh — asserts setup.sh installs the three
+# flow-<effort> agent definitions on `./setup.sh global`.
 #
 # Runs `setup.sh global` against a sandboxed $HOME (mktemp -d), so it never
-# touches the real ~/.claude. Asserts nine symlinks exist under
-# $HOME/.claude/agents/, each resolves, and each frontmatter carries a
-# `model:` line and an `effort:` line.
+# touches the real ~/.claude. Asserts three symlinks exist under
+# $HOME/.claude/agents/, each resolves, and each frontmatter carries its own
+# `effort:` line and no `model:` line — the Agent tool's dispatch-time
+# `model` parameter overrides a definition's `model`, so the model axis
+# needs no definition of its own while the effort axis does.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,35 +26,32 @@ RC=$?
 
 AGENTS_DIR="$SANDBOX_HOME/.claude/agents"
 
-MODELS="sonnet opus haiku"
 EFFORTS="low medium high"
 
 count=0
-for model in $MODELS; do
-  for effort in $EFFORTS; do
-    count=$((count + 1))
-    link="$AGENTS_DIR/flow-$model-$effort.md"
-    if [[ ! -L "$link" ]]; then
-      fail "$link is not a symlink"
-      continue
-    fi
-    if [[ ! -e "$link" ]]; then
-      fail "$link does not resolve"
-      continue
-    fi
-    if ! grep -qE '^model: '"$model"'$' "$link"; then
-      fail "$link frontmatter missing 'model: $model'"
-    fi
-    if ! grep -qE '^effort: '"$effort"'$' "$link"; then
-      fail "$link frontmatter missing 'effort: $effort'"
-    fi
-  done
+for effort in $EFFORTS; do
+  count=$((count + 1))
+  link="$AGENTS_DIR/flow-$effort.md"
+  if [[ ! -L "$link" ]]; then
+    fail "$link is not a symlink"
+    continue
+  fi
+  if [[ ! -e "$link" ]]; then
+    fail "$link does not resolve"
+    continue
+  fi
+  if ! grep -qE '^effort: '"$effort"'$' "$link"; then
+    fail "$link frontmatter missing 'effort: $effort'"
+  fi
+  if grep -qE '^model: ' "$link"; then
+    fail "$link frontmatter still carries a 'model:' line"
+  fi
 done
-[ "$count" -eq 9 ] || fail "expected to check 9 combinations, checked $count"
+[ "$count" -eq 3 ] || fail "expected to check 3 efforts, checked $count"
 
 actual_count=$(find "$AGENTS_DIR" -maxdepth 1 -name 'flow-*.md' 2>/dev/null | wc -l | tr -d ' ')
-[ "$actual_count" -eq 9 ] && pass "nine symlinks present under $AGENTS_DIR" \
-  || fail "expected 9 symlinks under $AGENTS_DIR, found $actual_count"
+[ "$actual_count" -eq 3 ] && pass "three symlinks present under $AGENTS_DIR" \
+  || fail "expected 3 symlinks under $AGENTS_DIR, found $actual_count"
 
 if [ "$FAILURES" -eq 0 ]; then
   echo "test-setup-agents.sh: all checks passed"

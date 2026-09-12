@@ -6,11 +6,9 @@ license: MIT
 ---
 
 Drive the three-state pipeline (`STARTED` → `IN_PROGRESS` → `FINISHED`) end to end in one command.
-`/flow` is one command,
-one state file, the same three states, content reorganized by topic rather than by the old
-start/do/finish boundary. This file is the router: it
-resolves state and dispatches into the topic file that owns the phase in force. Nothing here
-duplicates that file's own content.
+`/flow` is one command, one state file, three states, with its content organized by topic. This
+file is the router: it resolves state and dispatches into the topic file that owns the phase in
+force. Nothing here duplicates that file's own content.
 
 **Announce at start:** "Using flow for change `<name>`."
 
@@ -68,13 +66,6 @@ MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-di
 SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
-SELF_REVIEW_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.selfReviewModel // empty')"
-PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>/dev/null | tr -d '`' | xargs)"
-if [ -n "$PROJECT_SRM" ]; then
-  if flow settings models | grep -qx -- "$PROJECT_SRM"; then SELF_REVIEW_MODEL="$PROJECT_SRM"
-  else echo "⚠ flow: .flow/project.md '## self review model' body '$PROJECT_SRM' is not a valid model — dropped" >&2; fi
-fi
-[ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL=fable
 resolve_toggle() {
   local key="$1" val root rval
   val="$(project-get.sh "$MAIN_CHECKOUT" "$key" 2>/dev/null | tr -d '`' | xargs)"
@@ -98,7 +89,8 @@ REVIEW_PANEL_TOGGLE="$(resolve_toggle 'review panel')"
 VERIFY_MODEL=sonnet
 ```
 
-**`STATE_WORKTREE_ROOTS` is the cross-repo fix (KAN-486).** Set it — space-separated absolute
+**`STATE_WORKTREE_ROOTS` widens toggle resolution across the repositories a change already
+spans.** Set it — space-separated absolute
 paths, or unset/empty when there is none — from the state record's `worktrees` map keys, once
 this run has read that record (**Reading the state**, below): non-empty on a resumed `STARTED`
 run, a fix run, or a bare `IN_PROGRESS` run, since each already has a prior run's completed
@@ -119,8 +111,7 @@ A non-zero exit from `flow settings get` means the settings store could not be r
 no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
 `sonnet` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`),
 naming that this is a fallback rather than a resolved value, and continue: settings unreachable is
-never a reason to block implementation. `SELF_REVIEW_MODEL` falls back to the literal `fable` on
-the same failure, naming that this too is a fallback rather than a resolved value.
+never a reason to block implementation.
 
 **`REVIEWERS` resolves from the same call, into the roster the panel dispatches**
 (`skills/flow/review-panel.md` is canonical for what dispatching it means):
@@ -131,19 +122,9 @@ the same failure, naming that this too is a fallback rather than a resolved valu
 | Reachable, list empty | `primary` alone |
 | Unreachable | `primary`, `principles`, `code-review-low` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
 
-An empty list can never reach this table from `/flow-settings`: `<agents repo>/stats/cmd/flow/settings.go`'s
-`settings set` refuses an empty `-reviewers` as a caller mistake before any write reaches the
-store. The empty-list row exists because this resolver must still define a value for a state the
-store's schema permits, not because an operator can produce one.
-
-**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL`, but governs no dispatch.**
-`skills/flow/archive.md` step 9 runs its reasoning pass inline, in the archive session itself, on
-whatever model that session is already on — in both `run` and `defer` mode, so there is no
-subagent left to send `SELF_REVIEW_MODEL` to. It still resolves, purely as a recorded value:
-`<project>/.flow/project.md`'s `## self review model` key, when present and a valid `ValidModels`
-member, wins over the store's `selfReviewModel` field; when both are empty, or the store is
-unreachable, `SELF_REVIEW_MODEL` falls back to the literal `fable`, naming this a fallback exactly
-as `DEFAULT_MODEL`'s own `sonnet` literal is.
+**`SELF_REVIEW_MODEL` is not resolved here.** It governs no dispatch and only the archive-phase
+self-review pass reads it, so it resolves there, at its point of consumption —
+`skills/flow/archive.md` step 9, canonical for it. No run that stops before archive pays for it.
 
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
@@ -160,9 +141,7 @@ plan's class (and, for the panel, its rolls) — see design.md's **Toggles** sec
 value means in full. A plain-language session instruction overrides a *result*, never a toggle.
 **On a change already known to span more than one repository** (a resumed, fix, or bare
 `IN_PROGRESS` run — see `STATE_WORKTREE_ROOTS` above), a key resolves `dynamic` if **any** of
-those repositories declares it, never `MAIN_CHECKOUT` alone: a cross-repo change started from the
-"wrong" repo of the pair no longer silently drops the other repo's opt-in (KAN-486; KAN-30's fix
-round 3 hit exactly this before the fix).
+those repositories declares it, never `MAIN_CHECKOUT` alone.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot, Bugbot and Security included (all seven are
@@ -253,9 +232,7 @@ one per mark or per phase file.
   **Review panel** (`skills/flow/review-panel.md`).
 - **Never** publish a proposal artifact — `publish-proposal-removed`. `artifactUrl` is written
   `null` and stays `null` for the life of the change.
-- **Never** skip brainstorming's design gate, or leave `tasks.md` a thin scaffold — the removed
-  stages are the options question round and the artifact publish, not the workflow steps
-  themselves.
+- **Never** skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
 - **Never** add a slot beyond the resolved roster automatically, by diff size, touched area, or any
   other trigger — only an explicit operator instruction adds one, for that run only, checked at the
   start of the panel stage and at every fix round. The one automatic change to the roster is a

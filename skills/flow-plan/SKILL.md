@@ -3,7 +3,7 @@ name: flow-plan
 description: Research mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements before or during a change. Touches no pipeline state. Use for /flow-plan.
 ---
 
-Enter research mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
+Enter research mode. Visualize freely. Follow the conversation wherever it goes.
 
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence. One output
 shape is fixed rather than optional (the step-by-step breakdown, below) — but nothing about how you
@@ -93,65 +93,24 @@ this ground.
 
 ---
 
-## Go Deeper: Investigation and Question Depth
+## Closing a topic
 
-`/flow-plan` does noticeably more legwork than a single-pass answer before treating a topic as
-understood — both halves, always:
+A topic is closed by an explicit convergence check, once per topic/thread: ask "anything else to
+dig into on this?" before treating it as settled. A "no" (or equivalent) closes it; a "yes" starts
+another round of investigation and questions. Ground each round in the code and the tree rather
+than in inference, and confirm a pattern's use elsewhere before generalising from one site.
 
-- **Investigation depth:** don't stop at the first plausible answer. Broaden the search, read
-  neighbouring files, check how the pattern is used elsewhere in the tree, confirm rather than
-  assume.
-- **Question depth:** don't accept a thin answer and move on. Ask a follow-up that tests or
-  sharpens what the user just said before treating the topic as settled.
-
-**Stopping rule** (concrete, not left to judgment mid-session):
-
-1. Run at least **two rounds** of investigate-then-ask on each topic/thread before it can be
-   considered understood — a round is one pass of codebase investigation followed by at least one
-   clarifying question and the user's answer. A topic settled on round one has not gone deep enough;
-   do a second pass even if the first answer sounded complete.
-2. After round two, keep going only if a round surfaced something that changes the shape of the
-   topic (a new constraint, a contradiction, an unread file that turns out to matter). Otherwise
-   move to the convergence check.
-3. **Convergence check, once per topic/thread:** ask an explicit "anything else to dig into on
-   this?" before treating the topic as closed. A "no" (or equivalent) closes it; a "yes" starts
-   another round.
-
-This rule applies per topic/thread, not once for the whole session — a multi-topic conversation runs
-the rule again each time the discussion moves to a new thread.
+This applies per topic/thread, not once for the whole session — a multi-topic conversation runs the
+check again each time the discussion moves to a new thread.
 
 ---
 
-## What To Do
-
-Depending on what the user brings, you might:
-
-**Explore the problem space**
-- Ask clarifying questions that emerge from what they said
-- Challenge assumptions
-- Reframe the problem
-- Find analogies
-
-**Investigate the codebase**
-- Map existing architecture relevant to the discussion
-- Find integration points
-- Identify patterns already in use
-- Surface hidden complexity
-
-**Compare options**
-- Name the options on the table
-- Lay out the trade-offs of each, plainly
-- Recommend a path, if asked
-
-**Say when you don't know**
-- If the answer depends on something not yet decided, or not yet knowable, say so rather than
-  guessing
-- Suggest a spike or a targeted investigation instead of a fabricated answer
+## Asking
 
 Ask every pending question whose wording does not depend on another pending answer in one
 **AskUserQuestion** call, up to four per call; a dependent question waits for the next turn. Don't
-funnel the user through a fixed line of questioning — surface the
-interesting directions and let them follow what resonates.
+funnel the user through a fixed line of questioning — surface the interesting directions and let
+them follow what resonates.
 
 ---
 
@@ -266,8 +225,7 @@ Source: <Jira key, ticket URL, or "none">
 
 The breakdown section is a `name`/`what`/`why`/`uses` structural analysis of the topic under
 discussion, and it is the **default** output of every `/flow-plan` session — produce it whether
-or not the user explicitly asked for it, whenever a session reaches a captured note. This overrides
-any instinct to treat it as an extra the user has to request.
+or not the user explicitly asked for it, whenever a session reaches a captured note.
 
 Rules for filling it in:
 

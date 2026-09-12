@@ -9,8 +9,8 @@ worktree.
 **`skills/flow-contracts/finish-contract-run2.md` is canonical for the full procedure.** In outline,
 each numbered step below is bracketed by its own mark, with three exceptions that run inside the
 mark of the step before: step 2 (positioning) inside step 3's `flow.sync-archive`; step 6 (remove
-the proposal artifact source) inside step 5's `flow.cleanup`; step 11 (restore the checkout) inside
-step 10's `flow.push-archive`. **Eleven steps, eight marks.**
+the proposal artifact source) inside step 5's `flow.cleanup`; step 11 (remove the landing
+worktree) inside step 10's `flow.push-archive`. **Eleven steps, eight marks.**
 
 **Generate this run's own session token here, before this first mark** — a separate invocation from
 the integrate phase above (unless chained straight through from merge-and-push, in which case reuse
@@ -151,10 +151,28 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    specific to *executing* it here: `flow record render -change <name> -kind all -repo
    <landing-worktree>` first, then the script invocation `gather-self-review-context.sh
    <archived-change-path> <name> <state-dir> <landing-worktree>`, resolving `<archived-change-path>`
-   as `<project>/spectre/changes/archive/<name>/`, physically under `<landing-worktree>` rather than
-   the main checkout — where step 3 actually moved it, since run 2 no longer archives in the main
-   checkout — and passing `<landing-worktree>` as the trust anchor: the fourth argument must be the
-   repository root the archived path is physically under, and the main checkout no longer is one.
+   as `<project>/spectre/changes/archive/<name>/`, physically under `<landing-worktree>` — where
+   step 3 moved it — and passing `<landing-worktree>` as the trust anchor: the fourth argument must
+   be the repository root the archived path is physically under.
+
+   **Resolve `SELF_REVIEW_MODEL` here, where it is consumed** — `/flow`'s **Model resolution**
+   (`skills/flow/SKILL.md`) deliberately does not, since no run that stops before archive reads it:
+
+   ```bash
+   MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
+   SELF_REVIEW_MODEL="$(flow settings get | jq -r '.selfReviewModel // empty')"
+   PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>/dev/null | tr -d '`' | xargs)"
+   if [ -n "$PROJECT_SRM" ]; then
+     if flow settings models | grep -qx -- "$PROJECT_SRM"; then SELF_REVIEW_MODEL="$PROJECT_SRM"
+     else echo "⚠ flow: .flow/project.md '## self review model' body '$PROJECT_SRM' is not a valid model — dropped" >&2; fi
+   fi
+   [ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL=fable
+   ```
+
+   `<project>/.flow/project.md`'s `## self review model` key, when present and a valid `ValidModels`
+   member, wins over the store's `selfReviewModel` field; when both are empty, or `flow settings
+   get` cannot reach the store at all, `SELF_REVIEW_MODEL` falls back to the literal `fable`, named
+   as a fallback rather than a resolved value exactly as `DEFAULT_MODEL`'s own `sonnet` literal is.
 
    Run `project-get.sh <main-checkout> "self review"` (exit 1: absent) and match the body against
    the three literals `run` / `skip` / `defer` byte-for-byte after trimming leading/trailing
@@ -194,18 +212,13 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
 
    **On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass
    itself, inline — no subagent, no dispatch, no `Model:` handshake, no `opus` re-dispatch.**
-   `SELF_REVIEW_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) still resolves but governs
+   `SELF_REVIEW_MODEL` still resolves, purely as a recorded value, but governs
    nothing here: there is no dispatch left to send it to. Feed the script's output and the
-   five-angle table below directly into this session's own reasoning, then continue straight into
+   five angles cited below directly into this session's own reasoning, then continue straight into
    the filing-and-rating prompt below — the same session already driving `AskUserQuestion`.
 
-   | # | Angle | Label |
-   |---|-------|-------|
-   | 1 | Problems encountered, and what pipeline change would avoid them | `myflow-fix` |
-   | 2 | Token/time cost, and what would reduce it without quality loss | `myflow-cost` |
-   | 3 | What went well, and how to reproduce it | `myflow-improvement` |
-   | 4 | What could be automated or moved to a script | `myflow-automation` |
-   | 5 | What could move to the Go app or its persistent storage | `myflow-stats-app` |
+   The five angles and their labels are **Run 2 — the branch is merged**
+   (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for them.
 
    **One combined pass** — never five separate dispatches. Every finding is explained in the message
    body first, before any prompt fires. The filing ask and the rating are **one `AskUserQuestion`
@@ -261,8 +274,7 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
     ```
 
     Runs inside step 10's mark. The main checkout itself is never touched by this step or any step
-    above — this is the one action step 11 takes, in place of the retired "restore the main checkout
-    to `<base>`" (the main checkout never left it).
+    above.
 
 ```bash
 flow stage end -command '/flow' -stage flow.push-archive -outcome completed <name>
@@ -310,8 +322,8 @@ restated in full here beyond one override:
 `--force` will destroy — how many ignored files, which are build output, and which are irreplaceable
 together with whether they were already preserved — and proceed. This is a scoped override of the
 disclosure ask in **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`); it is safe
-here for the same reason it was safe under `/flow-fast`: the records worth keeping are already out
-of the worktree by this point, committed at `flow.preserve-sessions`
+here because the records worth keeping are already out of the worktree by this point, committed at
+`flow.preserve-sessions`
 (`skills/flow/integrate.md`). **Checks 1, 2, 3, 5 and 6 remain gates.** Check 6, the live-process
 check, is named explicitly because it is the one this override could plausibly be read as reaching:
 a live process is not a preserved record, so `HELD:` and the guard's exit 2 both stop `/flow` exactly

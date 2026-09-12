@@ -4,9 +4,6 @@ description: Show every open flow change with its pipeline state, PR, next comma
 allowed-tools: Bash(spectre:*), Bash(git:*), Bash(jq:*), Bash(flow:*)
 license: MIT
 compatibility: Requires the spectre CLI, the flow CLI, and jq.
-metadata:
-  author: gymie
-  version: "2.0"
 ---
 
 Report the pipeline state of every open (non-archived) spectre change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes state.
@@ -72,14 +69,14 @@ WARNING="$(cat "$ERR")"; rm -f "$ERR"
   below.
 - **`STATUS=1`** — the store was reached and correctly holds no record for this change (`flow:
   no state recorded for <project>/<name>` on stderr): report the change by name as **no state
-  recorded** and omit it from the table, the same way a missing state file was always reported.
+  recorded** and omit it from the table.
 - **Any other `STATUS`, or a `$RECORD` that is not valid JSON** — the record is unreadable: name the
   change in this command's own output and skip it. Never rebuild it by inference.
 
 Then read the fields from `$RECORD`:
 
 ```bash
-printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, .planningEffort, (.models // {} | tojson), (.reviewPanelRoster // null), .updatedAt, .updatedBy, (.worktrees // {} | keys[])'
+printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, .planningEffort, (.models // {} | tojson), .updatedAt, .updatedBy, (.worktrees // {} | keys[])'
 ```
 
 **Load `skills/flow-contracts/worktree-resolution.md`** before resolving the merge-status report
@@ -144,7 +141,7 @@ archived.
 
 | Change | Jira | State | PR | Next | Updated |
 |--------|------|-------|----|------|---------|
-| kan-8-myflow-updates | KAN-8 | IN_PROGRESS | #42 | review the diff + run the apps, then `/myflow-finish` | 2h ago (/myflow-do) |
+| kan-8-stats-ledger-render | KAN-8 | IN_PROGRESS | #42 | review the diff + run the apps, then `/flow <name>` | 2h ago (/flow) |
 | active-workout-session-editing | — | STARTED | — | read the artifact, then `/flow`'s implement phase | 19h ago (/flow) |
 ```
 
@@ -152,7 +149,7 @@ The absolute worktree path is given in the detail view, taken from the `worktree
 
 The **PR** column shows the number parsed from the recorded `prUrl`, or `—` when it is `null`. It
 never reports whether the pull request is open, merged or closed — that answer needs a network call
-this command no longer makes; the detail view says where to look instead.
+this command does not make; the detail view says where to look instead.
 
 The **Jira** column shows `jiraIssue` verbatim, or `—` when the change has no linked issue. This
 is a **read-only** report: never call Jira, never transition an issue, never infer a key from the
@@ -160,22 +157,13 @@ change name.
 
 Surface `artifactUrl` when present — the link to the published proposal artifact.
 
-Surface `planningEffort` the same way: the recorded level verbatim when there is one, and, when
-step 2's read yielded nothing, `not recorded — planned at default`, that being the level recommended
-under **Planning effort** in State file (`skills/flow-contracts/state-file.md`) — that file is
-canonical for the levels and for which of them is recommended, so read the set there rather than
-inferring it from this line.
+Surface `planningEffort` only when the record carries one, verbatim — it is a legacy field no run
+writes, per **Planning effort** in State file (`skills/flow-contracts/state-file.md`); omit the
+line otherwise.
 
-Surface `models` the same way, as one line covering its three roles — `implementation`,
-`reviewPanel` and `panelFix` — each the recorded model verbatim, or `not recorded` where none was
-chosen.
-
-Surface `reviewPanelRoster` the same way: the recorded preset verbatim when there is one, and,
-when step 2's read yielded `null`, `not recorded — using the default`, that default being `light`
-per `skills/flow-settings/SKILL.md`'s reviewer-slot defaults; what each
-preset means is canonical in `skills/flow/review-panel.md`. A
-not-recorded roster is not a warning: it is the default, and this line reports it as a normal
-state, not as something missing.
+Surface `models` the same way: the recorded `models.default` verbatim, or `not recorded` when it
+is `null` or the key is absent — the shape is canonical in **State file**
+(`skills/flow-contracts/state-file.md`).
 
 Next-command mapping:
 
@@ -234,9 +222,9 @@ one.
   report *branch merged → it will archive* in the table and *waiting on the merge* in the block, for
   the same change, in the same run — a change stopped at a run-2 cleanup leftover is exactly that
   case, and it is not rare.
-- **The two splits still do not compete.** The next-command column splits `IN_PROGRESS` on merge
+- **The two splits do not compete.** The next-command column splits `IN_PROGRESS` on merge
   status to say which bare `/flow` run the operator gets; the block splits on it to say which
-  wait the operator is in. Both now read the same signal first, so they cannot disagree about the
+  wait the operator is in. Both read the same signal first, so they cannot disagree about the
   branch — and because both blocks end in `/flow <name>`, neither can contradict the other
   about what to run next.
 - The `prUrl` test that remains is one-way — a `null` `prUrl` does not prove run 1 has not

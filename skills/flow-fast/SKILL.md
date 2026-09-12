@@ -1,6 +1,6 @@
 ---
 name: flow-fast
-description: Minimal-ceremony /flow variant — one invocation from Jira key to pushed change. A git worktree for isolation and nothing else, inline implementation, project lint plus targeted tests, then the project's default landing route and cleanup. Marks every flow.* stage /flow marks and keeps the Jira transitions; no spectre artifacts, no state file, no pipeline guards. Reads the project's three dynamic toggles exactly as /flow does — on dynamic the plan's class decides execution mode, implementer model and the review panel; on default everything runs inline with no dispatch and no panel. Use for /flow-fast.
+description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, inline implementation, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file, no pipeline guards. Use for /flow-fast.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
@@ -284,10 +284,11 @@ flow stage end   -command '/flow-fast' -stage flow.unfinished-work-gate -outcome
 flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-The route is `## default landing route` when the project declares one (`merge and push`,
-`open PR` or `manual`), read without asking. When the project declares none: with `## handoff`
-`required`, ask once through **AskUserQuestion** with those three options, `open PR`
-recommended; with `## handoff` `none`, take `open PR` without asking.
+The route is `## default landing route` when the project declares one (`pull request`,
+`merge and push` or `manual`), matched byte-for-byte per **Project configuration**
+(`skills/flow-contracts/project-configuration.md`) and read without asking. When the project
+declares none: with `## handoff` `required`, ask once through **AskUserQuestion** with those three
+options, `pull request` recommended; with `## handoff` `none`, take `pull request` without asking.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.landing-question -outcome completed <name>
@@ -317,10 +318,10 @@ branch re-runs section 5's lint and targeted tests before continuing; one that n
 runs the project's whole `## lint` and `## test` lists instead.
 
 - **merge and push**: `git -C <worktree> push origin <name>:<default-branch>`. A push the
-  remote rejects (branch protection, a non-fast-forward) falls back to **open PR** below and
+  remote rejects (branch protection, a non-fast-forward) falls back to **pull request** below and
   says so. This route is the one place `/flow-fast` pushes to the default branch; a project whose
-  default branch is protected declares `open PR` instead.
-- **open PR**: `git -C <worktree> push --force-with-lease origin <name>`, then `gh pr create --base
+  default branch is protected declares `pull request` instead.
+- **pull request**: `git -C <worktree> push --force-with-lease origin <name>`, then `gh pr create --base
   <default-branch> --head <name>` with the summary from section 5 as the body.
 - **manual**: `git -C <worktree> push --force-with-lease origin <name>`; print the branch name and the worktree path.
 
@@ -331,7 +332,7 @@ Then transition the Jira issue to In Review per **Transitions**
 flow stage end   -command '/flow-fast' -stage flow.landing-routes -outcome completed <name>
 ```
 
-**`open PR` and `manual` stop here**, worktree and branch kept, and the run ends by naming the
+**`pull request` and `manual` stop here**, worktree and branch kept, and the run ends by naming the
 PR or the branch. When the PR is merged, or the manual landing done, re-run `/flow-fast <name>`
 bare: section 1 finds the worktree, sections 2–7 have nothing new to do and mark through, and
 section 8 runs.

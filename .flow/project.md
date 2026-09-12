@@ -17,8 +17,8 @@ halves live in the one repo and are covered below.
 **This repository is Bash + Python, not Bash-only.** `scripts/check-plan-provenance.sh` is a thin
 wrapper that execs `scripts/check-plan-provenance.py` (Python 3, standard library only —
 `/usr/bin/python3`, no third-party imports, no pip, no network) so its fence/container classifier
-can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist. This followed five
-review panel passes and seven fix waves that found defect class after defect class in the Bash
+can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist. This followed the
+review panel passes and fix waves that found defect class after defect class in the Bash
 version — canonical enumeration and full history in `check-plan-provenance.py`'s own module
 docstring (this file does not restate the count, since a copied number is exactly what let an
 earlier, wrong count survive six review passes). Every other guard in this repository remains Bash-only; adding Python here was a
@@ -91,18 +91,6 @@ invocation is answered by those recorded figures, not by a number pasted here �
 a written duration went stale twice before this paragraph stopped carrying one. Record a run with
 `flow suite record -suite <name> -- <command>`; a store that cannot be reached costs one warning
 line and never changes the suite's own exit code.
-
-One run through the runner, out of five taken while measuring this, reported
-`test-check-installed-citations.sh` as `FAIL` with no case-level failure in its replayed output. The
-failure was reproduced (3 of 8 full-suite runs) and root-caused: **not** oversubscription, but a
-shared temp-directory namespace. `test-lib-parallel.sh` (cases 7–8) and
-`test-check-installed-citations.sh` (trap-chain sub-cases) each identified their own child's
-directory by snapshotting the global `$TMPDIR` for `parallel-lib.*`; under
-`scripts/run-guard-tests.sh`'s concurrent harnesses, a sibling process's live directory could be
-picked up instead, producing empty paths, "could not observe", and false "leaked" reports. Fixed in
-`2e3ed4f` by giving each observing child its own private `TMPDIR`. Since the fix, 24 consecutive
-clean full-suite runs.
-<!-- measured: scripts/run-guard-tests.sh, 24 consecutive clean runs after 2e3ed4f @ branch spectre/kan-362-myflow-guard-test-suite-takes-119s-sequentially -->
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
 list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for
@@ -261,12 +249,9 @@ answer at all. `check-plan-provenance.sh` reports
 "all provenance stated" — see the script's own header for the full exit-code contract: 0
 clean/nothing-in-flight, 1 violations found, 2 environment, 3 containment, 4
 content-classification; a caller that treats "non-zero" uniformly, as this repository's own lint
-step does, is unaffected by that split. The long-standing exception recorded here previously — a
-block of unattributed fenced snippets in `kan-8-myflow-updates`'s plan — cleared on its own when
-that change archived, exactly as predicted, because the guard excludes `changes/archive/` by
-design. There is no known exception left. A future non-zero exit is a real hit
-on a plan in flight: fix the offending line by stating its provenance, never by narrowing the
-guard's scope or adding a suppression marker.
+step does, is unaffected by that split. A future non-zero exit is a real hit on a plan in flight:
+fix the offending line by stating its provenance, never by narrowing the guard's scope or adding a
+suppression marker.
 
 ## stop
 

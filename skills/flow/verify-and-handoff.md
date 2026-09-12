@@ -1,13 +1,8 @@
 # Verify, stage, and hand off
 
-Loaded by `skills/flow/SKILL.md` once `skills/flow/review-panel.md` closes clean. Carries the stage
-order design.md's `workspace-export-lint-merge` and `run-instructions-reorder` decisions produce:
-**verify → visual-verify → stage-diff → run-instructions → write-in-progress** — the old
-`do.run-instructions → do.workspace-export → do.lint-and-test → do.stage-diff → do.write-in-progress`
-order, with the middle two merged into one `flow.verify` stage and `run-instructions` moved to
-immediately before the state write. `flow.visual-verify` sits between `flow.verify` and
-`flow.stage-diff` — a later insertion, not part of either decision above. `flow.verify` runs its
-commands inline, in the parent's own Bash calls; `flow.visual-verify` alone dispatches a
+Loaded by `skills/flow/SKILL.md` once `skills/flow/review-panel.md` closes clean. Stage order:
+**verify → visual-verify → stage-diff → run-instructions → write-in-progress**. `flow.verify`
+runs its commands inline, in the parent's own Bash calls; `flow.visual-verify` alone dispatches a
 `verifier` subagent (**The verifier dispatch**, below); the parent keeps every mark and every
 block decision.
 
@@ -23,10 +18,6 @@ flow stage begin -command '/flow' \
   -session-token mf-<literal-token> \
   <name>
 ```
-
-This stage is design.md's `workspace-export-lint-merge`: the old `do.workspace-export` and
-`do.lint-and-test` stages, unconditional automated pass/block checks with nothing interactive
-between them, merged into one mark.
 
 **First, validate the section and export what it declares — with the script, not by eye.** Run
 
@@ -240,13 +231,13 @@ and 12 below as written, committing and pushing nothing.
 4. **Probe before starting anything.** Probe the URL of each app `ui paths` matched, resolved for
    this worktree per **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) —
    never the project's declared default. If nothing answers, start the stack from `start` when
-   declared, else `## run`, and record that this stage started it — needed at step 11.
+   declared, else `## run`, and record that this stage started it — needed at step 12.
 5. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
    of what the app was serving when it was taken, and a stack step 4 found already running may be
    serving a build older than the worktree — KAN-29's last fix round captured, and nearly accepted,
    the bug the fix had removed. Run `fingerprint`. Exit 0 → the served bundle is the worktree's
    build; continue. Non-zero → stop the stack, start it from `start` when declared, else `## run`,
-   record that this stage started it (step 11 stops it), and run `fingerprint` once more. A second
+   record that this stage started it (step 12 stops it), and run `fingerprint` once more. A second
    non-zero exit blocks, carrying the command's output. No row declared → report
    `fingerprint: not declared` and continue; the report makes the gap visible in every handoff, but
    this stage cannot prove what it was never told how to check.
@@ -293,10 +284,11 @@ and 12 below as written, committing and pushing nothing.
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value, Pillow absent, included) blocks.
 
-   **A clean composite read, or a structural match, is not the same as a verified match at the
-   control level — treat it as necessary, never sufficient.** Full-page comparison catches wrong
-   text, wrong regions, wrong overall layout; it does not catch a border style, an icon's glyph, or
-   a colour step, all of which are invisible at full-page scale (KAN-30 fix round 6: a field's
+   **A full-page match — a clean composite read, a structural match — is necessary, never
+   sufficient: verify at the control level, measure rather than eyeball, and exercise the states
+   a resting frame does not show.** Full-page comparison catches wrong text, wrong regions, wrong
+   overall layout; it does not catch a border style, an icon's glyph, or a colour step, all of
+   which are invisible at full-page scale (KAN-30 fix round 6: a field's
    underline-only focus border, drawn against a mockup showing a full outline, read as a match at
    composite scale and was found only once the two were cropped and zoomed side by side). Before
    accepting any field, button, icon, or toggle as matching its mockup:
@@ -320,46 +312,45 @@ and 12 below as written, committing and pushing nothing.
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
    still gets named, with the reason.
 
-   **When exercising a flow by scripted navigation (not manual clicks), screenshot after every
-   single action and confirm the resulting screen against an expected marker — a heading, a test
-   tag, a distinctive label — before issuing the next action.** Never chain two or more blind
-   actions and inspect only the final screenshot. A coordinate that assumed a fixed layout silently
-   steers the whole remaining sequence onto the wrong screen the moment real content shifts it — an
-   extra suggestion card, a longer note, a wrapped title — and the resulting screenshot can still
-   look plausible enough to accept at a glance (KAN-30 fix round 7: a blind click landed on a
-   day's "Repeat that workout" suggestion instead of "Create a group session" because an extra card
-   existed on that day only, and the sweep almost recorded the wrong screen as verified). This is
-   the scripted-navigation analogue of the crop-and-zoom rule above: a plausible end state is
-   necessary, never sufficient, evidence that every step along the way went where it was meant to.
-
-   **Check every control against itself, not only against its mockup: crop and diff each
-   appearance of a named state (selected, active, pressed) and of a shared component (a button
-   variant, a sibling card) across every place it shows in the same flow.** Two captures can each
-   match their own frame and still disagree with each other — the mockup draws a state once, so only
-   the captures can show the drift (KAN-30 fix round 8: one dialog's "selected" fill differed
-   between two sub-states; two sibling cards diverged in shadow; "Add user" carried a border on one
-   code path and none on another, because the empty and populated roster states routed to two
-   different shared button components). When a screen renders the same logical control from
-   different code branches depending on state — empty versus populated, first versus subsequent —
-   capture it in every reachable branch and diff the branches against each other, never only the
-   branch the walkthrough reached first.
-
-   **Drive every ranged control through its whole range, and every dynamic list or picker into
-   its empty state.** A wheel, slider, drag handle or multi-step selector is exercised in every
-   direction and past where it wraps or clamps, with a screenshot along the way — the resting
-   capture and one direction prove nothing about the other (KAN-30 fix round 8: a time wheel
-   scrolled correctly one way only, a state-derivation bug no resting capture shows). A list or
-   picker is captured with zero items as well as populated: an empty state sits outside any normal
-   walkthrough, which is how one shipped in its pre-restyle appearance beneath a restyled populated
-   sibling (same round).
-
-   **For every picker or selector, enumerate its options and ask whether any is predictable to
-   fail on submit; one that is gets reported as a defect however good the rejection reads.** No
-   mockup draws the invalid-selection case, so no composite can see it — submit the options the
-   rules already forbid and name every one the list should have excluded instead of offered
-   (KAN-30 fix round 8: a picker offered an option submit always rejected, surfaced only as a
-   post-hoc toast). `rules/design-mockups-are-specs.mdc` puts the same question to the
-   implementer; this is the verifier's side of it.
+   **Exercise the states below and capture each one; a state nobody drove into is a state nobody
+   verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
+   reached deliberately rather than by whatever the walkthrough happens to pass through (KAN-30
+   fix rounds 7 and 8: a blind click landed on a day's "Repeat that workout" suggestion instead of
+   "Create a group session" because an extra card existed on that day only, and the sweep almost
+   recorded the wrong screen as verified; one dialog's "selected" fill differed between two
+   sub-states, two sibling cards diverged in shadow, and "Add user" carried a border on one code
+   path and none on another because the empty and populated roster states routed to two different
+   shared button components; a time wheel scrolled correctly one way only, a state-derivation bug
+   no resting capture shows; an empty picker shipped in its pre-restyle appearance beneath a
+   restyled populated sibling; a picker offered an option submit always rejected, surfaced only as
+   a post-hoc toast).
+   1. **Every appearance of a named state, and of a shared component, diffed against its other
+      appearances.** Crop and diff each appearance of a named state (selected, active, pressed)
+      and of a shared component (a button variant, a sibling card) across every place it shows in
+      the same flow: two captures can each match their own frame and still disagree with each
+      other, because the mockup draws a state once and only the captures can show the drift. Where
+      a screen renders the same logical control from different code branches depending on state —
+      empty versus populated, first versus subsequent — capture it in every reachable branch and
+      diff the branches against each other, never only the branch the walkthrough reached first.
+   2. **The whole range of every ranged control, and the empty state of every dynamic list or
+      picker.** A wheel, slider, drag handle or multi-step selector is exercised in every
+      direction and past where it wraps or clamps, with a screenshot along the way — the resting
+      capture and one direction prove nothing about the other. A list or picker is captured with
+      zero items as well as populated: an empty state sits outside any normal walkthrough.
+   3. **Every option of every picker or selector, tested against submit.** Enumerate its options
+      and ask whether any is predictable to fail on submit; one that is gets reported as a defect
+      however good the rejection reads. No mockup draws the invalid-selection case, so no
+      composite can see it — submit the options the rules already forbid and name every one the
+      list should have excluded instead of offered. `rules/design-mockups-are-specs.mdc` puts the
+      same question to the implementer; this is the verifier's side of it.
+   4. **Every intermediate screen of a scripted navigation.** When exercising a flow by scripted
+      navigation (not manual clicks), screenshot after every single action and confirm the
+      resulting screen against an expected marker — a heading, a test tag, a distinctive label —
+      before issuing the next action. Never chain two or more blind actions and inspect only the
+      final screenshot: a coordinate that assumed a fixed layout silently steers the whole
+      remaining sequence onto the wrong screen the moment real content shifts it — an extra
+      suggestion card, a longer note, a wrapped title — and the resulting screenshot can still
+      look plausible enough to accept at a glance.
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -570,42 +561,26 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   `flow` database inside it are never stopped, restarted or dropped by any run —
   `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
   own `## run` names that service, the prohibition wins over this start rule, never the reverse.
-  This is separate from **Visual verification**'s own start/stop rule above (step 11): that stage
+  This is separate from **Visual verification**'s own start/stop rule above (step 12): that stage
   stops only the stack it started for its own probe, and that rule is not restated here. This rule
   starts whatever the run instructions name, on every run, regardless of whether that stage ran
   or started anything.
 
   **Where every application `## apps` names is one this prohibition covers, the start is
-  nothing — stated, not silently skipped.** This repository is that case: its `## apps` names
-  exactly one URL-bearing application, the flow stats daemon on `127.0.0.1:4173`, and that is the
-  protected daemon itself. A run against this repository therefore starts nothing before this
-  stage ends, and the handoff states which application was skipped and why:
+  nothing — stated, not silently skipped.** The handoff then names the application skipped and
+  why:
 
   ```
-  Not started: flow stats daemon (http://127.0.0.1:4173) — protected, see
-  <project>/CLAUDE.md's "Never stop the dev workspace's stats service or its storage".
+  Not started: <app> (<url>) — protected, see <project>/CLAUDE.md.
   ```
 
-  `flow.visual-verify`'s own `make ui-test-up`/`make ui-test-down` pair (steps 4–5 and step 11 above)
-  is a different mechanism entirely — it starts and stops the disposable UI-test stack on
-  `127.0.0.1:4174` for that stage's own probe, and `4174` is not an application `## apps` names at
-  all, so it is never this rule's start target.
+  A stack a stage starts and stops for its own probe is a different mechanism and is never this
+  rule's start target.
 
   **A start that fails blocks this stage**, naming the application and what the command printed —
   handing over run instructions that cannot be followed is the failure this rule exists to prevent.
   Where the project declares no runnable application, there is nothing to start and the rule is
   satisfied by saying so, not by silently skipping it.
-
-  Two worked examples, both real, and they resolve differently:
-
-  ```bash verified:read from /Users/tweety53/Projects/gymie/.flow/project.md and this repository's own .flow/project.md
-  # gymie — `## stop` declares a command, so the start is stop-then-run:
-  ./gradlew devStop
-  docker compose up -d && ./gradlew devStart -PfrontendRoot=<abs> -PadminFrontendRoot=<abs>
-
-  # this repository — `## apps` names only the protected daemon, so the start is nothing at all;
-  # see the paragraph above for the handoff line this produces instead of a command.
-  ```
 
 - **The stack behind the URLs is checked, not trusted.** When the `Running:` block below would
   carry URL lines, run `check-dev-stack-fresh.sh <worktree>` first: the project's declared
@@ -722,11 +697,9 @@ Next:
 /flow <name>
 ```
 
-**Heading and `Staged:` line select from whether the worktree carries any commits yet** — a
-creating run's very first `IN_PROGRESS` write, reached before any task committed, would be an
-anomaly (implementation always commits per task), so in practice this always reads "committed" —
-the "staged and uncommitted" alternative is carried only for symmetry with the phrasing an operator
-resuming mid-panel might see, and should not occur in an ordinary run. **The `Panel:` line is
+**Heading and `Staged:` line select from whether the worktree carries any commits yet.**
+Implementation commits per task, so an ordinary run reads "committed"; the "staged and
+uncommitted" spelling covers a run resuming before any task committed. **The `Panel:` line is
 `/flow`'s own** — it states what **Review panel** (`skills/flow/review-panel.md`) actually
 dispatched this run: the resolved roster or its docs-only reduction to `primary` (**The docs-only
 reduction**, `skills/flow/review-panel.md`), any slot an explicit operator instruction added
@@ -742,7 +715,7 @@ line is printed the same way — always, `unknown` included.**
 
 **The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
 absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
-rule — the operator must be able to open the PNG. **Its push clause appears only when step 10
+rule — the operator must be able to open the PNG. **Its push clause appears only when step 11
 committed to a `regression checkout`** — the stage never pushes itself, per `no-automatic-push`, so
 this is the command the operator runs by hand to land that commit.
 

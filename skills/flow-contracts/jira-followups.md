@@ -9,8 +9,8 @@ them restate the contract. If a rule below and a skill ever disagree, this file 
 
 A **follow-up** is an issue the pipeline files for work a run left outstanding. It is titled
 `<KEY> follow-up`, where `<KEY>` is the change's linked issue; with no linked issue it is titled
-`flow follow-up`. Labelling is unchanged, and is governed by
-**Labels on issues the pipeline creates** (`jira-integration.md`) — a follow-up is not special.
+`flow follow-up`. Labelling is governed by **Labels on issues the pipeline creates**
+(`jira-integration.md`) — a follow-up is not special.
 
 **This naming governs every site that files a follow-up.** Today the only such site is
 `/flow`'s integrate run unfinished-work gate. The rule is stated here rather than there so that a
@@ -223,11 +223,9 @@ candidate, so the matched issue is *usually* one this run had nothing to do with
 feature working as designed, and it is precisely why a human confirms the target before the write.
 The confirmation is the only check on it; nothing about the match is evidence of provenance.
 
-**This reverses an earlier decision, and the reversal is recorded rather than quiet.** Asking before
-each join was considered during design and rejected as another prompt during finish. It was
-reinstated at the review gate: the cost is one bounded question, asked only when a candidate was
-actually found, on a path the operator has already chosen to take — against an unbounded write to an
-issue chosen by attacker-settable fields.
+**The cost of the confirmation is bounded, and it is paid deliberately:** one question, asked only
+when a candidate was actually found, on a path the operator has already chosen to take — against an
+unbounded write to an issue chosen by attacker-settable fields.
 
 **A search that fails is a third outcome, and it is neither of the other two.** `searchJiraIssuesUsingJql`
 can fail for auth, permission, a malformed JQL clause, an unavailable integration, or no Atlassian

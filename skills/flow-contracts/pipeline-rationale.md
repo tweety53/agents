@@ -226,3 +226,18 @@ This is why the second source matters: `spectre list --json` only
 sees change directories present in the *current* git checkout, so a change staged in a worktree —
 `<project>/spectre/changes/<name>/` created there but never committed to the main checkout — is invisible to
 it alone, even while it sits at a human gate with a fully staged diff.
+
+## Review panel — the measurements behind three fix-round rules
+
+Three rules in `skills/flow/review-panel.md` were derived from measurements taken on earlier runs.
+The rules state their own reasons and no longer carry the figures; the figures are recorded here so
+the provenance survives the contract text.
+
+- *A deferral's reason is one clause naming the mechanism — never a rationale essay.* KAN-501
+  observed kan-459's fix rounds 6–7 at 29.6k–34.7k tokens each, carrying deferral-rationale prose
+  and `design.md` rewrites rather than fixes.
+- *When the round raised anything above Minor, re-run on deltas.* On KAN-459, five of seven review
+  rounds raised mostly regressions of earlier fixes, at roughly forty-five minutes a round
+  (KAN-500).
+- *Give the surviving findings to fix subagents in chunks of at most 10 findings.* KAN-459's round 1
+  read ~110M cache tokens fixing 24 findings in one dispatch (KAN-499).

@@ -62,9 +62,6 @@ restated here. Stopping the dev stack is an operator action; the commands live i
      `<project>/.flow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
      is the worked example of that pattern. -->
 
-This project has not declared one yet. Until it does, follow the language's published
-conventions and the patterns already present in the surrounding code.
-
 ---
 
 ## Project Skills (spectre / /flow workflow)
@@ -101,10 +98,7 @@ Read file: skills/flow/SKILL.md
 The Superpowers plugin provides general-purpose workflow skills (brainstorming, TDD,
 subagent-driven-development, etc.). These are referenced by the `/flow` skill above.
 
-Install Superpowers in Claude Code:
-```
-/plugin install prime-radiant-inc/superpowers
-```
+Install it per `<agents repo>/README.md`'s Claude Code section.
 
 After install, general skills auto-trigger from their descriptions. Project-specific `/flow`
 skills are loaded on demand by reading their `SKILL.md` as described above.

@@ -5,7 +5,8 @@ category: flow
 description: Status — where every open change actually is (read-only)
 ---
 
-**Model:** Sonnet (or your default) is fine here — no brainstorming or implementation happens in this command. Cursor doesn't yet support a per-command model frontmatter field, so this is a recommendation, not an enforced switch.
+**Model:** Sonnet (or your default) is fine here — no brainstorming or implementation happens in this command. In Cursor this is a recommendation rather than an enforced switch: switch models in the composer's picker.
+<!-- measured: Cursor per-command model frontmatter unsupported @ re-check on each Cursor release -->
 
 Use the **flow-status** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 

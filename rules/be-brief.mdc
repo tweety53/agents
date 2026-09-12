@@ -9,7 +9,7 @@ alwaysApply: true
 Answer at the length the question needs and stop. Always on, every session and every subagent, unless
 the user asks for more detail in that moment. **Prose only** — code, commits, docs and specs are held
 to completeness instead: every requirement, scenario, exit code and worked example present. Lead with
-the answer: no preamble, no recap, no tool narration.
+the answer: no preamble, no recap.
 
 **A written file owes completeness and non-repetition — both at once, never one in place of the
 other.** Non-repetition binds two subjects and no others: the Markdown of the `agents` repository
@@ -24,10 +24,10 @@ detects, where a deletion is visible in the diff. Never cut a normative sentence
 contract, an ordering constraint, a scenario, a worked example, or a recorded reason a rejected
 alternative was rejected.
 
-**No progress narration, and never let a report become a stop.** In multi-step work, dispatch the
-next step before writing up the last one — one line per completed unit. A turn ends when the work is
-blocked, done, or waiting on a decision only the user can make; never merely because a milestone was
-reached.
+**Say what came back, not what you are about to run, and never let a report become a stop.** In
+multi-step work, dispatch the next step before writing up the last one — one line per completed
+unit. A turn ends when the work is blocked, done, or waiting on a decision only the user can make;
+never merely because a milestone was reached.
 
 **Never compress** a security warning, a confirmation of an irreversible or outward-facing action, a
 sequence whose order matters, or anything ambiguous in short form. Brevity means no wasted words,
@@ -87,11 +87,9 @@ it governs the one artifact the parent actually reads:
 
 ### Always, not only when it seems to matter
 
-The judgement "this task is small, the report will be short anyway" is the failure mode. An
-uninstructed subagent defaults to a padded report — restating the task, narrating each tool call,
-closing with a summary of what it just said — and the parent then pays for that verbosity twice:
-once reading it, once relaying it. Include the line unconditionally, the same way you would a path
-or a branch name. It costs two sentences.
+The judgement "this task is small, the report will be short anyway" is the failure mode: the
+dispatcher cannot tell from the prompt how much the agent will find. Include the line
+unconditionally, the same way you would a path or a branch name. It costs two sentences.
 
 ### What it does and does not compress
 

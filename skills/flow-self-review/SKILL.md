@@ -4,9 +4,6 @@ description: Run the self-review pass a `/flow` run deferred, inline on this ses
 allowed-tools: Bash(git:*), Bash(scripts/check-self-review-report.sh:*)
 license: MIT
 compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
-metadata:
-  author: gymie
-  version: "1.0"
 ---
 
 Run the self-review reasoning pass a `/flow` run deferred (`## self review: defer`, per

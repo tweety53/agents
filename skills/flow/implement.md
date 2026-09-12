@@ -6,7 +6,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 
 | Step | Skill | When |
 |------|-------|------|
-| **2** | resume the workspace created at `flow.create-artifacts`, stated in **2. Isolate the workspace** below | Before the first code change, every run |
+| **2** | resume the workspace created at `flow.kickoff`, stated in **2. Isolate the workspace** below | Before the first code change, every run |
 | **3** | **superpowers:writing-plans** | Validate the plan; repair `tasks.md` if it is not apply-ready |
 | **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks |
 | **5** | **superpowers:test-driven-development** | Every implementer dispatch, every task |
@@ -67,9 +67,12 @@ call that names no row is not made.
 **These five rows are the whole run's dispatch tree.** Every row's own prompt carries the NO
 DELEGATION paragraph (section **4** below, `skills/flow/review-panel.md`,
 `skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so nothing exists below these rows.
-**The `flow-<model>-<effort>` family (`agents/flow-*.md`) carries a `tools:` allowlist that omits
-`Agent`** — the NO DELEGATION paragraph is now backed by a capability the dispatched agent
-structurally does not have, not only by prompt text (KAN-487). This covers the panel bundle and
+**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
+— three definitions, one per effort, each carrying `effort:` and no `model:`, since the Agent
+tool's dispatch-time `model` parameter overrides a definition's `model` while `effort` has no
+dispatch-time parameter) carries a `tools:` allowlist that omits
+`Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
+structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever `REVIEW_PANEL_TOGGLE` is `dynamic` (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row whenever it dispatches on its group's
 `model`/`effort` pair. The verifier row is unaffected regardless of any toggle: it dispatches
@@ -256,21 +259,19 @@ here:
 
 ```bash
 flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
-flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> \
-  -key planner-fix-<n> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
 ```
 
-**Before the dispatch, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
+**Before the planning pass, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
 line from the header of this change's `tasks.md` — the count of tasks appended at the human gate
 since the plan was first written; a plan that has never carried the line reads as 0. When the
-count has reached **6**, the re-plan budget, this fix round is offered the planner pass before
+count has reached **6**, the re-plan budget, this fix round is offered the planning pass before
 anything is appended: an append past this budget is how a change outgrows its own proposal
 without anyone deciding it should (KAN-29 appended 24 of its 46 tasks this way). Ask the
 operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) fixes:
 
 > **This change's plan has had <n> tasks appended at the human gate — at the re-plan budget of
 > 6. Re-plan instead of appending?**
-> - **Re-plan** *(default, recommended)* — this fix's planner pass rewrites the plan instead of
+> - **Re-plan** *(default, recommended)* — this fix's planning pass rewrites the plan instead of
 >   appending: the accumulated appends and this round's fix instructions are folded into a fresh
 >   `tasks.md` with fresh task numbering, `proposal.md`'s scope statement is brought up to date
 >   with what the change now covers, and `**Tasks appended:**` resets to 0 — the folded tasks are
@@ -279,47 +280,37 @@ operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) 
 >   count keeps growing
 
 Silence takes the recommended re-plan, and the ⚠ line names it. Either answer continues into the
-dispatch below — the answer names the planner's brief, never a second dispatch: on **Append
-anyway** the planner runs as this section states it, its own where-should-it-go question
-included; on **Re-plan** the rewrite is the brief and that question does not arise.
+planning pass below — the answer names its brief: on **Append anyway** the pass runs as this
+section states it, its own where-should-it-go question included; on **Re-plan** the rewrite is the
+brief and that question does not arise.
 
 Record what changed **before** writing code, so the proposal never goes stale. `<n>` is this fix
 run's own ordinal — one more than the number of fix rounds already recorded in `proposal.md`/
 `tasks.md` or as `<name>-fix-N` sub-changes, the same `N` the "where should it go" prompt's
-sub-change option below names — so the first fix run's dispatch is `planner-fix-1`, the second
-`planner-fix-2`, and so on. Dispatch this fix's planner the same way **Dispatch the planner**
-(`skills/flow/brainstorm.md`) dispatches a creating run's — same handshake, same `opus` fallback
-**and the same key-suffix rule that section states: the opus re-dispatch records under
-`planner-fix-<n>-opus`, and a second mismatch's under `planner-fix-<n>-<model>`, never a repeat of
-`planner-fix-<n>`** — same relay contract, same `Model:` first line — with the fix instructions in
-place of the design checklist; that section is canonical for the mechanics and is not restated
-here.
+sub-change option below names. **This planning pass is the parent's own work**, run inline on this
+session's model with the fix instructions in place of the design checklist — no dispatch, no
+handshake, no relay.
 
-The planner opens with a `## Question` asking where the fix should go, relayed through the parent
-exactly as any other, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
+The planning pass opens by asking where the fix should go, asked directly by the parent, shape per
+Operator prompts (`skills/flow-contracts/operator-prompts.md`):
 
 > **This fix has to be recorded before it is written — where should it go?**
 > - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — nothing new is created
 > - **Create a linked `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that adds
 >   scope the parent change does not describe
 
-The planner writes the append, or the sub-change's own proposal and plan, and returns `## Plan`.
-Whichever brief the budget answer named, the planner keeps the counter true: every task its
-append adds raises the `**Tasks appended:**` value by one, creating the line in `tasks.md`'s
-header when the plan has never carried one.
-**The Jira description sync stays in the parent** — never the planner's job. **Load
+The parent writes the append, or the sub-change's own proposal and plan. Whichever brief the
+budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks
+appended:**` value by one, creating the line in `tasks.md`'s header when the plan has never
+carried one.
+**The Jira description sync stays in the parent.** **Load
 `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
 describe, sync the issue **description** per **Description sync** in Jira integration
 (`skills/flow-contracts/jira-integration.md`). Never transition the issue here.
 
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
-flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
-  -outcome completed -ended-at <ts> -agent-id <id>
 ```
-
-`<the key currently open>` is `planner-fix-<n>` on a clean handshake, `planner-fix-<n>-opus` after
-one mismatch, or `planner-fix-<n>-<model>` after a second — the same rule stated above.
 
 ## 4. Execute (SDD + TDD)
 
@@ -364,7 +355,9 @@ dispatch shares its id with the original — which is why the id is recorded at 
 **Model resolution**), or the run's session-instruction override when one was given for the
 implementer role; on `IMPLEMENTER_MODEL_TOGGLE` `dynamic` it is the group's own `model` from the
 decision's `groups` entry, `-effort` its `effort`, and the dispatch's `subagent_type` is
-`flow-<model>-<effort>`. Name it explicitly — never by omission. A slot whose model the dispatcher cannot
+`flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the
+definition carries the effort, the dispatch carries the model. Name it explicitly — never by
+omission. A slot whose model the dispatcher cannot
 read records the literal `unknown (agent-defined)` and never a guess.
 
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
@@ -394,7 +387,7 @@ its bundles' `after <k>:` lines **that is not itself a task of one of the group'
 landed — committed and guard-passed, by direct commit or pick.
 **At most two implementer dispatches are in flight per wave**, on both `## execution mode` values.
 A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
-worktree and commits directly, exactly as today; two ready groups launch together in one message,
+worktree and commits directly; two ready groups launch together in one message,
 each into its own throwaway worktree created by the sequence below, each copy then running the
 project's resolved `## worktree setup` command once before its implementer dispatches. A third or
 later ready group queues in plan order and launches, into its own throwaway worktree by the same
@@ -453,8 +446,9 @@ incidents and HEAD (`<agents repo>/scripts/gather-dispatch-context.sh`'s header 
 the resolution).
 
 A non-zero exit — including the guard being absent — is reported, and
-dispatching proceeds with the prompt shape this stage used before this capability existed; the
-context bundle never gates a run. Confirm the bundle was actually written (`test -f
+dispatching proceeds without a context bundle: the dispatch prompt carries the change's proposal,
+design, engineering principles and the group's own tasks inline instead; the context bundle never
+gates a run. Confirm the bundle was actually written (`test -f
 <worktree>/.superpowers/sdd/dispatch-context-group-<g>.md`) and report plainly if it is not.
 **Never read the bundle back into this context** — `test -f` is the whole check; its content is the
 implementer's input, not the dispatcher's. Report the script's stderr line for this stage (`bundle
@@ -710,17 +704,17 @@ test -s <report> && echo ready || echo still-running
 
 `<report>` is the file the child's REPORT FILE paragraph names — every child kind writes one as
 its last act, after its commit and its final test run, so the file's presence is the child's
-completion. The loop is bounded at 240 s, under the prompt-cache TTL rather than the Bash tool's
-ten-minute cap: a wait longer than the TTL re-prices the whole context on return, while a bounded
-wait's `still-running` turn reads it at the cache rate and keeps it warm. `still-running` re-issues
+completion. The loop is bounded at 240 s rather than the Bash tool's ten-minute cap: a wait long
+enough to outlast the prompt cache re-prices the whole context on return, while a bounded wait's
+`still-running` turn reads it at the cache rate and keeps it warm. `still-running` re-issues
 the wait, and a ceiling (**No forking, and a wall-clock ceiling on every slot**,
 `skills/flow/review-panel.md`) is tracked across the calls. `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate
 none of it.
 
-**Read discipline.** The parent now does the reading a resumed conductor once did on a 5-minute
-TTL; on the 1-hour TTL a large context costs 0.1x per call and no rewrite, but only if it stays
-small enough that a warm call is still cheap. These five rules are the run's own size control,
+**Read discipline.** The parent does a large amount of reading across one long-lived context, so
+keeping that context small is what keeps a warm call cheap. These five rules are the run's own size
+control,
 stated once here and cited — never restated — from `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` wherever they read a report or a diff:
 

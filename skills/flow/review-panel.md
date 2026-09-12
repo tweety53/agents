@@ -20,10 +20,7 @@ the re-run decisions, the fix pass's agents and reasons, the fix round's `fix-mu
 lines — the parent records as it arises with `flow record pass` or `flow record mutation`
 (`-change <name> -round <n>`, the round `0` for the initial panel and `1..n` for a fix round).
 `flow record render -kind panel` renders them into the panel record's pass-log section under
-`<abs-worktree>/.superpowers/sdd/reviews/`, beside the findings. The former
-`<abs-worktree>/.superpowers/sdd/final-review-panel.md` is no longer written by anyone: it was the
-last hand-written panel artifact, it died with the worktree, and everything it alone held is now a
-row (KAN-331).
+`<abs-worktree>/.superpowers/sdd/reviews/`, beside the findings.
 
 ## Check base movement first
 
@@ -132,7 +129,7 @@ or the decision's `panel.roster` on `dynamic` — see the opening paragraph abov
 | id | Slot | How to spawn | Model |
 |---|------|---------------|-------|
 | `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; never code quality, which is `simple-reviewer`'s and Bugbot's job | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
-| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
 | `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
 | `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
 | `bugbot` | **Bugbot** — defect hunt | general-purpose + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
@@ -162,8 +159,9 @@ and record explicitly when none were: "no addition this round — the resolved l
 **On `REVIEW_PANEL_TOGGLE` `dynamic`**, model and effort belong to the dispatch, not the slot:
 each entry of the decision's `panel.dispatches` carries its `slots` and its own `model` and
 `effort`, and every slot in it runs on that pair — the dispatch's `subagent_type` is
-`flow-<model>-<effort>` and both `model` and `-effort` are passed, per design.md's
-`agent-definitions-universal-handshake`. The roster carries no per-slot model. A compact roster
+`flow-<effort>` — the effort comes from the definition, the model from the Agent tool's own
+`model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded,
+per design.md's `agent-definitions-universal-handshake`. The roster carries no per-slot model. A compact roster
 (the decision's `panel.compact`) is recorded with `flow record pass -round 0 -note 'roster: compact — <rolled value>'`; a full
 roster records `roster: full`.
 
@@ -172,7 +170,8 @@ roster records `roster: full`.
 When the decision's `panel.roster` carries an entry whose `slot` starts `exp-` — at most one, per
 design.md's **The rolls** — it is dispatched once, in pass 1 alongside the rest of the roster,
 exactly like any other slot in **The roster** table above: general-purpose, as `subagent_type:
-flow-<model>-<effort>` per the `model`/`effort` of the dispatch it joins, carrying the same REPORT FILE /
+flow-<effort>` with `model` passed explicitly, per the `model`/`effort` of the dispatch it joins,
+carrying the same REPORT FILE /
 REPRODUCER / CONTEXT BUNDLE / WORKTREES / TOOLS / NO DELEGATION / FOREGROUND BUILDS / MODEL
 HANDSHAKE / REPRODUCE, DON'T READ paragraphs every slot's dispatch already carries above.
 
@@ -193,7 +192,7 @@ prefix survives into the archive per design.md's `exp-slot-prefix`.
 It is a diff-reading slot like Primary, Principles, Code review (low) and Mutation: **Panel
 re-runs** below governs it unchanged — it re-runs only when it raised a finding in the previous
 round or the previous round raised a new Critical, reading its own delta, and its clean result goes
-stale under the same rules as any other slot's. **The docs-only reduction** above still narrows a
+stale under the same rules as any other slot's. **The docs-only reduction** below still narrows a
 docs-only branch to `primary` alone: the experimental slot is never part of that reduced roster, and
 is dispatched again only if a later round's docs-only guard reclassifies the branch off the
 reduction.
@@ -202,7 +201,7 @@ It runs at most once per change, whether or not the roster is `compact` — the 
 the compact roll are independent per design.md's **The rolls** — and never at all when
 `REVIEW_PANEL_TOGGLE` is `default`, or when the decision recorded `experimental: none available`.
 
-Per **Bundled dispatch** above, it joins whichever group has room, last among the reading passes;
+Per **Bundled dispatch** below, it joins whichever group has room, last among the reading passes;
 when neither group has room for a third role it is skipped and recorded with
 `flow record pass -round <round> -note 'experimental: skipped — bundle cap'` (design.md's
 `exp-skipped-over-cap`) rather than displacing a persistent role.
@@ -340,7 +339,7 @@ group whose other members are clean dispatches with its re-running members only.
 
 The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
 line name the dispatches as `+`-joined groups (`primary+principles · code-review-low+mutation`).
-**The docs-only reduction** below still narrows to `primary` alone, one dispatch.
+**The docs-only reduction** above still narrows to `primary` alone, one dispatch.
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
@@ -464,11 +463,11 @@ one path each**, naming its absolute path alongside `final-review.diff`:
 
 ### No forking, and a wall-clock ceiling on every slot
 
-**No panel slot SHALL be dispatched onto a skill or agent that forks its own background agent.**
-The repair is to dispatch that slot on a shape that reports back to the dispatcher directly. **Never
-drop the slot.**
+No panel slot is dispatched onto a skill or agent that forks its own background agent — a forked
+agent reports to nobody the dispatcher is tracking. Repair it by dispatching the slot on a shape
+that reports back directly; never drop the slot.
 
-**Every panel slot SHALL carry a 15-minute wall-clock ceiling from its dispatch.** The dispatcher
+Every panel slot carries a 15-minute wall-clock ceiling from its dispatch. The dispatcher
 tracks each in-flight slot's elapsed time itself rather than blocking indefinitely on a completion
 notification.
 
@@ -709,9 +708,7 @@ lines is sufficient. When every finding the round raised was Minor, no slot re-r
 the handback below, and that loop re-runs no slot either.
 
 **A deferral's reason is one clause naming the mechanism — never a rationale essay, in the store
-row or in the round's output.** The essay form is measured, not hypothetical: KAN-501 observed
-kan-459's fix rounds 6–7 at 29.6k–34.7k tokens each, carrying deferral-rationale prose and
-design.md rewrites rather than fixes.
+row or in the round's output.**
 
 **When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
@@ -741,8 +738,7 @@ reads the round's `fix-round-N.diff` plus the sites of every finding an earlier 
 each site opened at its recorded `file:line` in the current tree — in place of its held-sha
 delta; the re-run rule above is unchanged, and so is everything the round's own mutation-proof
 covers. The scoping exists because a round that re-reads a growing fix diff regress-checks by
-volume, not by site: on KAN-459, five of seven review rounds raised mostly regressions of
-earlier fixes, at roughly forty-five minutes a round (KAN-500). A scoped round no longer reads
+volume, not by site. A scoped round no longer reads
 the branch, so a run that reached one closes with the final whole-branch pass **Rerun policy
 `full`** adds — reserved for catching independent issues, which is what caught that change's
 round-6 real bugs.
@@ -1014,12 +1010,9 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > contract requires, and the task commit each fixup folded into. The dispatcher waits
 > on that file's presence.
 
-Give the surviving findings to fix subagents in **chunks of at most 10 findings** — the whole
-fix-dispatch contract, stated in full because a parent once read a single sentence and dispatched
-four background fix subagents, one per reviewer (KAN-482). The round's findings are split into
-sequential chunks of at most 10 — the cap that keeps one dispatch from re-reading the whole
-branch across every finding, the blowup KAN-459's round 1 hit reading ~110M cache tokens to fix
-24 findings in one dispatch (KAN-499) — each chunk one panel-fix dispatch carrying its chunk of
+Give the surviving findings to fix subagents in **chunks of at most 10 findings**. The round's
+findings are split into sequential chunks of at most 10 — the cap that keeps one dispatch from
+re-reading the whole branch across every finding — each chunk one panel-fix dispatch carrying its chunk of
 the combined list. Never one dispatch per reviewer, per slot, or per finding — that split
 fragments one diff into competing fixups against the same worktree. Chunks run in order, each
 dispatch awaited in the foreground before the next chunk begins and before the round's reproducer
@@ -1037,13 +1030,11 @@ to exactly this shape (**Before closing the stage**, below). Inline
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
 panel-fix -agent-id inline`. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
-the panel-fix role's own default onto the single settings-store default, deliberately dropping the
-old Opus-panel-fix default `skills/flow-contracts/model-policy.md` still describes for the retired
-per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. **On
+writing its fix. **Dispatch it on `DEFAULT_MODEL`** (design.md's `model-default-sonnet`). **On
 `IMPLEMENTER_MODEL_TOGGLE` `dynamic` with an `sdd` decision, dispatch it instead on the decision's
 `implementer` object** — the fixer's own model and effort, `subagent_type:
-flow-<model>-<effort>`, and `-model`/`-effort` below carry that pair. Record
+flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
+`-model`/`-effort` below carry that pair. Record
 every pass with `flow record pass -round <round>`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.

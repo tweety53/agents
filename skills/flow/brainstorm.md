@@ -32,8 +32,7 @@ while planning runs. A failure is one skipped-with-reason line and planning cont
 this call may delay or alter the run.
 
 **Mark `flow.kickoff` now that the name is fixed, and write `STARTED` immediately — before
-brainstorming begins.** Write it here, at the top of this phase, rather than at the
-bottom of it.
+brainstorming begins.**
 
 ```bash
 flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -session-token mf-<literal-token> <name>
@@ -109,9 +108,7 @@ by reading, not by assuming:
   quality (exact paths, verification commands, no placeholders) means planning is fully done: skip
   straight to `skills/flow/implement.md`.
 
-This is a pragmatic re-entrancy rule, not an exhaustively-enumerated state machine — a run resuming
-at `STARTED` reads what actually exists and continues from there, the same principle every other
-`/flow` re-entry point already applies. State the resumption point plainly before continuing:
+State the resumption point plainly before continuing:
 "resuming `<name>` at `<point>`."
 
 ## Run brainstorming and planning directly
@@ -130,8 +127,7 @@ Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and f
 directly — the resolved `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and
 `REVIEW_PANEL_TOGGLE` (**Model resolution**, `skills/flow/SKILL.md`) and the resolved worktree
 count (per **Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`) are
-already in scope from this run's own earlier resolution — nothing further needs passing to a
-dispatch that does not happen.
+already in scope from this run's own earlier resolution.
 
 **Questions are the session's own direct `AskUserQuestion` calls**, batched exactly as
 `brainstorm-planner.md`'s checklist section already states: every pending question whose wording
@@ -146,7 +142,7 @@ not only the bare question and options. The operator approving or answering the 
 approving against the summary they were actually shown.
 
 Mark `flow.brainstorm` end and `flow.design-approval` begin/end around the merged
-convergence-and-approval confirm, exactly as today:
+convergence-and-approval confirm:
 
 ```bash
 flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
@@ -183,8 +179,7 @@ flow record decision -change <name> -session-token mf-<literal-token> -file <abs
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
 
-Continue into `skills/flow/implement.md` directly — no dispatch record to close, since nothing was
-dispatched.
+Continue into `skills/flow/implement.md` directly.
 
 ## Resume and fix runs
 

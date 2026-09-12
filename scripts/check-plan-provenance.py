@@ -588,8 +588,8 @@ _ESCAPED_DELIMITER_RE = re.compile(
 # the escape and class-wide vetoes exactly as shipped with the angle-bracket
 # veto left out: 37 numeric claims are exempted, and 9 sit on a line
 # containing `<`. Every one of those 9 is either a worked demonstration of
-# this very veto — quoted on purpose in `plan-provenance-guard.md`'s own prose
-# (`skills/flow-contracts/plan-provenance-guard.md`), in the plan-provenance
+# this very veto — quoted on purpose in the guard contract's rationale appendix
+# (`skills/flow-contracts/plan-provenance-guard-rationale.md`), in the plan-provenance
 # delta spec, in an archived copy of that spec, or in an archived design
 # document that walked through the same
 # veto — or a claim already carrying a provenance tag on the same line, so

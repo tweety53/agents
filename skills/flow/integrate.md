@@ -6,8 +6,7 @@ Loaded by `skills/flow/SKILL.md` on a **bare** invocation at `IN_PROGRESS` — n
 
 **`skills/flow-contracts/finish-contract-run1.md` is canonical for every procedure below** — the
 base-branch resolution, the preflight checks, the removal sequence and their rationales live in
-that file, unchanged by this rework. This file carries only what is specific to *executing* it
-under `/flow`.
+that file. This file carries only what is specific to *executing* it under `/flow`.
 
 **Load `skills/flow-contracts/worktree-resolution.md`** too.
 
@@ -57,7 +56,7 @@ the link instead of reporting an absence.
   > - **Continue — integrate anyway**
   > - **File or join a Jira follow-up, then continue**
 
-  There is no fourth, and in particular none that hands back to `skills/flow/implement.md` inline.
+  There is no fourth.
 - **No verdict line at all, and a non-zero exit** → stop and ask.
 
 **Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed.
@@ -66,7 +65,7 @@ the operator's answer says the verdict was verified structural — the plan held
 with every task ticked and no open finding — run, once per worktree that reported `OUTSTANDING`
 and before proceeding to **2**:
 
-```bash verified:the flag set is design.md §5's; the call shape mirrors the flow record findings call at scripts/check-unfinished-work.sh:317
+```bash verified:the flag set is design.md §5's; the call shape mirrors the `flow record verdict` invocation in scripts/check-unfinished-work.sh
 flow record verdict false-positive -change <name> -guard check-unfinished-work \
   -reason "<the operator's reason, verbatim>" -C <worktree>
 ```

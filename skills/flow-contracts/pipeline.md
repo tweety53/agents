@@ -151,10 +151,9 @@ integrate/archive branch.
 **On the implementation branch the granularity is per task.** The stages from
 `flow.load-context` to `flow.write-in-progress` (**The parent orchestrates directly**,
 `skills/flow/implement.md`) run in the parent session itself, which holds its own task-list tool
-throughout the run — no resumed subagent sits between the parent and the list, so nothing forces
-the coarser stage-level granularity an earlier design (`conductor-stage-returns`, since superseded)
-accepted as a trade-off. One entry per `tasks.md` item, updated as each task's guard passes and its
-checkbox ticks.
+throughout the run — no resumed subagent sits between the parent and the list, so nothing forces a
+coarser stage-level granularity. One entry per `tasks.md` item, updated as each task's guard passes
+and its checkbox ticks.
 
 `/flow-status` is read-only and **registers nothing**. Registering steps for a
 report would put entries on the operator's task list for work nobody is doing.
@@ -437,7 +436,7 @@ silently dropped.** Name the unreadable file in the resolution's own output; do 
 **Every command that resolves this candidate set reports which of the two sources produced it** —
 `state list`'s own `"source"` field, echoed rather than re-derived.
 
-Once the candidate set is built, resolution proceeds exactly as before:
+Once the candidate set is built:
 
 - Exactly one match → use it automatically; announce which change was picked.
 - Multiple matches → **AskUserQuestion** listing each (name, state, last modified) — never guess.

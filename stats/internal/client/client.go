@@ -236,7 +236,8 @@ func (c *Client) PutSettings(ctx context.Context, in Settings) (Settings, error)
 
 // stateBoardEpoch is the "from" instant ListStateBoard's underlying query
 // asks for -- before any change this store could ever hold, since the
-// store starts empty (state-file.md, "The store starts empty"). It is
+// store starts empty (state-file.md, "The on-disk file is written, never
+// seeded"). It is
 // named as a constant, not merely inlined, so the period stays a real,
 // finite one rather than reading as "unbounded": GET
 // /api/v1/stats/state-board requires both "from" and "to" (design.md,

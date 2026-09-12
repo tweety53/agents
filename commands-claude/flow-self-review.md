@@ -11,6 +11,10 @@ no per-change state file, and marks no `flow stage` call. It reads the saved con
 `/flow` run's `## self review: defer` left behind, runs the five-angle reasoning pass inline, files
 and rates findings, writes the report, deletes the bundle, and lands both on the default branch.
 
+The pass runs on whatever model this session is already on: the settings store's
+`selfReviewModel` and a project's `## self review model` key resolve for the record but govern no
+dispatch, so neither overrides it.
+
 **Input:** one change name, required. Any other argument is reported rather than ignored.
 
 **When done:** nothing further to run — the report and the deleted bundle are already committed

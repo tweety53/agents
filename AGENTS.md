@@ -20,36 +20,23 @@ naming them in `<project>/.flow/project.md`'s `## standards` section.
 Project-mode `<agents repo>/setup.sh codex` installs skills and this file but no rules, symmetrically
 with `claude-code`. Run `<agents repo>/setup.sh global` for the rule layer.
 
-### What a global install actually leaves a Codex session with
+### Codex has no slash-command layer
 
-Be precise about this, because the two halves are asymmetric:
-
-| | After `<agents repo>/setup.sh global` |
-|---|---|
-| **Rules** | ✅ present — the managed block in `~/.codex/AGENTS.md` carries `flow-manual-review.mdc` and `lint-fix-priority.mdc` |
-| **Skills** | ✅ present — `install_global` links every directory in `skills/` into `~/.codex/skills/`, alongside `~/.claude/skills/` and `~/.cursor/skills/` |
-| **Commands** | ❌ absent — `~/.claude/commands/` and `~/.cursor/commands/` only. There is no `~/.codex/commands/` layer. |
-
-So a Codex session has the rules and the skills, but no slash-command layer: typing
-`/flow` will not resolve, even though the skill it delegates to is installed.
-
-**What to do today:** invoke the skill directly instead of through a command — read its
-`SKILL.md` out of the globally installed tree and follow it, e.g.
+`<agents repo>/setup.sh global` installs rules (the managed block in `~/.codex/AGENTS.md`) and
+skills (`~/.codex/skills/`, symlinked into this checkout) for Codex, but no commands — there is no
+`~/.codex/commands/` layer, so `/flow` does not resolve in a Codex session even though the skill it
+delegates to is installed. Invoke the skill directly instead:
 
 ```
 Read file: ~/.codex/skills/flow/SKILL.md
 (then follow the instructions in that file)
 ```
 
-That path is a symlink into this checkout, so the content is always current. Each command
-file in `commands-claude/` is a thin wrapper naming exactly one skill plus its accepted
-states, so reading the skill directly loses nothing but the shorthand.
-
-Do **not** work around the missing command layer with a per-project `<agents repo>/setup.sh codex`
-install. A project-local copy shadows the global one and then goes stale: installs are additive, so
-an entry deleted from this checkout leaves its symlink behind at every destination it was ever
-installed to. `<agents repo>/setup.sh`'s own `link_into` and `prune_stale_links` exist to prevent
-exactly that shadowing, and a second install per project reintroduces it.
+Each file in `commands-claude/` is a thin wrapper naming one skill plus its accepted states, so
+reading the skill directly loses only the shorthand. Do not install a per-project
+`<agents repo>/setup.sh codex` copy to compensate: installs are additive, so a project-local copy shadows the
+global one and keeps a stale symlink for every entry later deleted from this checkout — which is
+what `link_into` and `prune_stale_links` exist to prevent.
 
 ---
 
@@ -91,9 +78,6 @@ expand that list without user approval.
      `<project>/.flow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
      is the worked example of that pattern. -->
 
-This project has not declared one yet. Until it does, follow the language's published
-conventions and the patterns already present in the surrounding code.
-
 ---
 
 ## Project Skills (spectre / /flow workflow)
@@ -109,6 +93,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | Skill directory | Trigger | Purpose |
 |-----------------|---------|---------|
 | `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the review panel resolved from the settings store, and integrate/archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
+| `skills/flow-fast/` | `/flow-fast` | Minimal-ceremony `/flow` variant: one invocation from Jira key to landed change. A git worktree for isolation only, inline implementation, project lint plus targeted tests, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks and keeps the Jira transitions; no spectre artifacts, state file, decision record, review panel or guard |
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-plan/` | `/flow-plan` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
@@ -152,7 +137,7 @@ description or Jira key); anything else is reported rather than ignored.
 
 | Command | What it does |
 |---------|-------------|
-| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive, unchanged) and implementation behind the review panel resolved from the settings store's reviewer list (`skills/flow/review-panel.md` is canonical for the roster), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it asks how to land the branch — open PR *(default)*, merge and push, or manual — and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage** |
+| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store's reviewer list (`skills/flow/review-panel.md` is canonical for the roster), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it asks how to land the branch — open PR *(default)*, merge and push, or manual — and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage** |
 | *(gate)* | **You** — creating run or fix: review the staged diff **and** run the apps; integrate with open PR or manual: wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
 | `/flow-status <name>` | Read-only state report for open changes |
 
@@ -177,12 +162,7 @@ Read file: skills/flow/SKILL.md
 The Superpowers plugin provides general-purpose workflow skills (brainstorming, TDD,
 subagent-driven-development, etc.). These are referenced by the `/flow` skill above.
 
-Install Superpowers for Codex from its fork repo, per the Superpowers README (look for the
-Codex install section), and enable multi-agent support in `~/.codex/config.toml`:
-```toml
-[features]
-multi_agent = true
-```
+Install it per `<agents repo>/README.md`'s Codex section.
 
 After install, general skills auto-trigger from their descriptions. Project-specific `/flow`
 skills are loaded on demand by reading their `SKILL.md` as described above.

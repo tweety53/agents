@@ -564,6 +564,8 @@ EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-c
 
 EXPECTED_ZERO_RATIONALE_DOCS=(
   "skills/flow-contracts/git-boundaries-rationale.md"
+  "skills/flow-contracts/plan-provenance-guard-rationale.md"
+  "skills/flow-contracts/session-records-rationale.md"
   "skills/flow-contracts/worktree-resolution-rationale.md"
   "skills/flow-contracts/project-configuration-authoring.md"
   "skills/flow/SKILL-rationale.md"

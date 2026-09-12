@@ -128,7 +128,7 @@ rules/kotlin-backend-development-standard.mdc 9641
 rules/lint-fix-priority.mdc 2961
 rules/flow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
-skills/README.md 4781
+skills/README.md 4978
 skills/flow-fast/SKILL.md 25925
 skills/flow-plan/SKILL.md 23290
 skills/flow-self-review/SKILL.md 7102
@@ -167,6 +167,7 @@ skills/flow-contracts/model-policy.md 8010
 skills/flow-contracts/operator-prompts.md 2432
 skills/flow-contracts/pipeline-rationale.md 20935
 skills/flow-contracts/pipeline.md 36155
+skills/flow-contracts/plan-provenance-guard-rationale.md 11527
 skills/flow-contracts/plan-provenance-guard.md 24295
 skills/flow-contracts/plan-provenance.md 7533
 skills/flow-contracts/project-configuration-authoring.md 3028

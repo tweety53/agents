@@ -36,7 +36,7 @@ bare `/flow` is the only command that loads this file.
    by status), never to the committed gitignore; every other entry is an **asset**, reported and
    touched by nothing. The script never refuses: an absent worktree prints nothing and there is
    nothing to classify — the guard creates it fresh and clean; a settled one prints `CLEAN`; an
-   asset stays untracked, so the guard's refusal stands until the conductor settles it — prompted
+   asset stays untracked, so the guard's refusal stands until the run settles it — prompted
    to the operator once, **delete** removes it in place, **commit** moves it to the scratchpad so
    positioning can proceed, then restores and commits it onto `chore/archive-<name>` as its own
    commit immediately after positioning, so it cannot ride step 4's `add -A` unremarked. When the
@@ -64,8 +64,8 @@ bare `/flow` is the only command that loads this file.
    that order and never accept a guess in place of any of them.
 3. **Archive the change** — `spectre archive <name>` moves it into
    `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**, because
-   `spectre archive` adds none: the date-ordered archive OpenSpec gave this pipeline is a real loss,
-   accepted, and a prefix re-added here would describe a move the tool does not perform.
+   `spectre archive` adds none: a prefix re-added here would describe a move the tool does not
+   perform.
    **One call per change, parent and sub-change alike.** A `<name>-fix-N` sub-change is a flat
    sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
    refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
@@ -90,9 +90,8 @@ bare `/flow` is the only command that loads this file.
    a landing worktree step 2 failed to actually fast-forward — silently, or by a skipped guard run
    by hand and gotten wrong — stages and commits whatever else that stale tree carried right
    alongside it. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
-   rather than let a stray path land on `chore/archive-<name>` unremarked. This is not a hypothetical:
-   kan-474's own archive commit (`a574bf4`) reverted skill-file content another change had shipped
-   minutes earlier, exactly this way, before this guard existed.
+   rather than let a stray path land on `chore/archive-<name>` unremarked. This has happened: an archive commit made this
+   way reverted skill-file content another change had shipped minutes earlier.
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below.
@@ -106,9 +105,8 @@ bare `/flow` is the only command that loads this file.
    **Resolve the base branch** under Run 1
    (`skills/flow-contracts/finish-contract-run1.md`), run again here because this is a separate
    invocation and nothing carries `BASE` over from run 1's. Step 4's archive commit runs before this
-   step, so every worktree in the set is still present when its own resolution runs — satisfying the
-   same "before cleanup removes it" ordering this step has always required, just per worktree rather
-   than once for the change. Anything but exit `0` for a given worktree — stop and ask, exactly as
+   step, so every worktree in the set is still present when its own resolution runs, which is what
+   "before cleanup removes it" means per worktree. Anything but exit `0` for a given worktree — stop and ask, exactly as
    Run 1 does, and leave every worktree alone, per **Any failed check leaves every worktree alone**
    below.
 
@@ -134,7 +132,7 @@ bare `/flow` is the only command that loads this file.
    nothing to remove, and says so.
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
-   behind, which is the one thing run 2 previously assumed.
+   behind.
 
    | Verdict | What run 2 does |
    |---------|-----------------|
@@ -213,7 +211,7 @@ bare `/flow` is the only command that loads this file.
 
    **On `run`, this same step-9 session runs the reasoning pass itself, inline, on whatever
    model it is already on — no subagent, no dispatch, no `Model:` handshake, no `opus`
-   re-dispatch.** `SELF_REVIEW_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) still
+   re-dispatch.** `SELF_REVIEW_MODEL` (step 9, `skills/flow/archive.md`) still
    resolves — the store field, a project override, the `fable` fallback — but governs nothing:
    there is no dispatch left to send it to. It gathers its
    input by invoking `gather-self-review-context.sh` rather than re-reading files a second time,
@@ -240,8 +238,7 @@ bare `/flow` is the only command that loads this file.
 
    **Every angle produces zero or more findings, and an angle that produces none says so
    explicitly** — present-but-empty, the way `## Decisions` and `## Open questions` already are,
-   rather than omitted. A silent angle and a skipped angle are indistinguishable to a reader, which
-   is how KAN-73's cost angle passed unnoticed while its section existed.
+   rather than omitted. A silent angle and a skipped angle are indistinguishable to a reader.
 
    **Every finding is explained in the message body before any prompt fires** — what was observed,
    what breaks, and what the fix would be. A prompt's option text cannot carry that explanation, so
@@ -268,9 +265,6 @@ bare `/flow` is the only command that loads this file.
    canonical here.** Step 9 of `skills/flow/archive.md`'s own run 2 carries only what is
    specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
    and the report-commit shell. It is not a second statement of this rule.
-
-   **There is no requirements layer above this one; change this file.** The statement above is
-   both the requirement and the runtime source of the procedure.
 10. **Push the archive branch and land it — the route depends on how this run of archive.md was
     reached.**
 
@@ -297,8 +291,7 @@ bare `/flow` is the only command that loads this file.
     a fact already in scope for that one call path, never written to the state file. A standalone
     invocation (the PR and manual routes always defer archiving this way) has no way to know what
     the original route was, or whether the operator merged the PR through some mechanism this
-    pipeline never chose — so it always takes the standalone row, which is the same behavior this
-    step already had before this change.
+    pipeline never chose — so it always takes the standalone row.
 11. **Remove the landing worktree.** Successful or not:
 
     ```bash
@@ -397,8 +390,8 @@ ps -o pid,command -p <pid>
 **There is no confirmation to proceed past check 6**, unlike check 4's disclosure. That disclosure
 is safe to confirm because the operator can see what is at stake and decide; a live process is
 different in kind. Confirming it destroys the only records that can reach the process afterwards,
-and the resulting orphan holds ports shared across every workspace — which is how this incident
-reached the operator both times it happened. The remedy is to clear the process and re-run, while
+and the resulting orphan holds ports shared across every workspace. The remedy is to clear the
+process and re-run, while
 the worktree still exists and the project's own stop command can still read what it started.
 
 **Check 4 is a disclosure, not a gate.** When it lists anything, **stop and show the list**, and
@@ -427,7 +420,7 @@ git -C "$REPO" worktree prune
   is at risk. They say nothing about ignored files, because `--exclude-standard` is what hides
   them — and "ignored" is not "disposable". Check 4 exists to make that visible rather than to
   prevent it: it lists exactly what will die, and the operator confirms. Claiming the checks make
-  `--force` safe would be false, and was: a gitignored `.env` passes checks 1 and 2 and is
+  `--force` safe would be false: a gitignored `.env` passes checks 1 and 2 and is
   destroyed silently.
 - **Neither check sees a file whose `assume-unchanged` bit is set.** `git status` is blind to it
   by design. Rare, operator-inflicted, and named here so it is a known limit rather than a
@@ -448,7 +441,7 @@ Then the change's **remote** branch:
 ```bash
 # `push --delete` exits non-zero BOTH when the branch was already gone and when the push was
 # refused, so the two are told apart by git's message and never by the exit code alone. Measured
-# against a scratch remote on this machine (git 2.50.1): an already-absent branch prints
+# against a scratch remote on 2026-08-31 (git 2.50.1): an already-absent branch prints
 # `error: unable to delete 'spectre/<name>': remote ref does not exist` and exits 1, and the
 # stale remote-tracking ref SURVIVES that failure.
 OUT="$(git -C "$REPO" push origin --delete "spectre/<name>" 2>&1)"; RC=$?

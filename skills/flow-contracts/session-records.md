@@ -25,5 +25,5 @@ run 1; the invocation of `flow record render` itself is described by each caller
 any one failure, and the handoff names which records were rendered and which were not.** **Neither
 `MISSING:` nor `journalled:` is non-zero** — non-zero keeps its one meaning, a destination refused or
 a write that failed, so a caller branching on exit status never reads an empty record, or an
-unreachable store, as a failure. See **Preserving the session records** (`skills/flow-contracts/session-records-rationale.md`) —
-which keeps its former name — for why.
+unreachable store, as a failure.
+See **Rendering the session records** (`skills/flow-contracts/session-records-rationale.md`) for why.

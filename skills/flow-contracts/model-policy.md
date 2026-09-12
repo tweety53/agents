@@ -15,10 +15,6 @@ The reasoning behind this file lives in `skills/flow-contracts/model-policy-rati
 
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`).
 
-**There is no requirements layer above this one; change this section.** See **Model policy**
-(`skills/flow-contracts/model-policy-rationale.md`) for where the rule was first written and why
-that layer no longer governs.
-
 Planning — brainstorming, design and writing-plans — runs in the current session, on its own
 model, with no dispatched planner subagent and no `PLANNING_MODEL` to resolve (kan-488); see
 **Model resolution** (`skills/flow/SKILL.md`), canonical for what the session's model prices. The
@@ -44,28 +40,17 @@ panel to Opus for a change that warrants it, or lowering the implementer for gen
 work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
 from a mistake.
 
-**Three model roles are chosen once per change and recorded in its state file.** The run that
-**creates** a change — `/flow`'s creating run finding no state file, exactly as the planning-effort
-question determines it — asks three separate questions, one per role, each naming its default and
-marking it as the recommendation. A revision round states the recorded values and does not ask
-again, and every other command carries them forward verbatim, as it does the linked Jira issue.
+**The model each role runs on is resolved per run from the settings store, never recorded per
+change.** `DEFAULT_MODEL` and `REVIEWERS` resolve once near the top of every run, per **Model
+resolution** (`skills/flow/SKILL.md`). The state file's `models.default` records only a model an
+operator explicitly chose for the change; it is `null` on every change the creating run did not ask
+about. See **State file** (`skills/flow-contracts/state-file.md`).
 
-| Role | Key under `models` | Default |
-|------|--------------------|---------|
-| The implementer subagents `/flow`'s implement phase dispatches | `implementation` | Opus, or the harness's strongest available model |
-| Every review-panel slot that takes a model override | `reviewPanel` | Sonnet |
-| The subagents that repair panel findings | `panelFix` | Opus, or the harness's strongest available model |
+**A subagent that repairs panel findings is implementer work, so the implementer rule above governs
+it too.** See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why.
 
-See **State file** (`skills/flow-contracts/state-file.md`).
-
-**The panel-fix default is the strongest available model, and deliberately not Sonnet** — the role
-applies fixes, which is implementer work, so the implementer rule above governs it too. See **Model
-policy** (`skills/flow-contracts/model-policy-rationale.md`) for why.
-
-**A recorded choice is the operator override this section already permits, made durable.** It
-applies to every run of the change without being restated, which is the point of recording it. A
-session instruction is the narrower and later of the two: it governs the run in which it is given
-and is recorded with its dispatch exactly as above.
+**A session instruction governs the run in which it is given** and is recorded with its dispatch
+exactly as above.
 
 **These fields record intent; the ledger records what happened.** A recorded value does **not**
 replace the per-dispatch ledger line, which remains the only evidence of the model a dispatch
@@ -79,9 +64,7 @@ See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why
 behind this rule.
 
 Where the dispatcher **cannot know** the model, the ledger records `unknown (agent-defined)` and
-never a guess — a case that no longer arises for any panel slot: Bugbot and Security Review are
-dispatched general-purpose on an explicit model, exactly like every other slot in **The roster**
-(`skills/flow/review-panel.md`), so the dispatcher always knows their model at dispatch time.
+never a guess.
 
 **This record outlives the change.** See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for why, and
@@ -99,8 +82,8 @@ neither the write into the store nor the render out of it invents a model slug. 
   dispatches each name their model explicitly, and the ledger line for that dispatch is what
   records that they did. Planning has no dispatch to name a model for — it runs on the session's
   own model (kan-488).
-- **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) —
-  each `.cursor/commands/flow*.md` file carries an explicit note; switch models manually in the
+- **Cursor**: no per-command model frontmatter, so no model is enforceable from a command file —
+  each `.cursor/commands/flow*.md` carries an explicit note; switch models manually in the
   composer/chat picker.
 - **Codex**: no per-command/skill model override mechanism either — model is a session or profile
   level setting; switch manually before starting a new proposal.

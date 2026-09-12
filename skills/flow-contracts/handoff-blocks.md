@@ -73,7 +73,7 @@ read-only in both forms.
 
 **Change:** <name>
 **Artifact:** <artifactUrl, or "missing">
-**Recorded:** <N> decisions · <N> open questions · effort <level, or "not recorded — planned at default"> · models <implementation>/<reviewPanel>/<panelFix>
+**Recorded:** <N> decisions · <N> open questions · effort <level, or "not recorded — planned at default"> · model <models.default, or "not recorded">
 **Jira:** (run-only) <issue key and the transition made, or "none linked", or a skipped-with-reason line>
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
@@ -182,8 +182,7 @@ is `0`. A deferred Minor is not an open finding — it does not block the handof
 `/flow`'s implement phase itself only ever emits the first two — it stages, or it commits and pushes to a PR
 branch. The third is reached only when `/flow-status` regenerates this rendering for a change
 whose run 1 took the *merge and push* or *handle it manually* route: the work is committed and
-pushed with no `prUrl` to prove it. Leaving the field at two options meant that block stated
-something untrue about every such change, and the pair below is what the command prints instead:
+pushed with no `prUrl` to prove it. The review command follows the state:
 
 | Git state | Review command |
 |-----------|----------------|
@@ -255,7 +254,7 @@ from the report, so there is nothing left waiting on the operator to hand off. b
 run 2 does print a terminal block — what it synced, archived, removed and verified — and every field
 of it is run-only, because it reports what that run did rather than what the change now is. One
 renderer means nothing to keep in step, which is why that block takes no template here. That block
-carries two more fields now: `**Self-review:** <path> (rating: <n>/5) | deferred —
+also carries `**Self-review:** <path> (rating: <n>/5) | deferred —
 docs/self-review/<name>-context.md | skipped | skipped — project default`, immediately after
 `**Cleanup:** verified`, naming step 9's outcome, and `**Guards:** all present | N missing — those
 checks were performed by hand`, immediately after `Self-review`, naming what that run's own

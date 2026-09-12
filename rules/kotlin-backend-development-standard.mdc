@@ -8,14 +8,6 @@ alwaysApply: false
 
 # Kotlin Backend Development Standard
 
-> **Living document.** This standard evolves with the team and ecosystem. Improvement proposals are welcome via PR.
-
-## 1. Purpose and principles
-
-- **Consistency**: Every service module is organized predictably.
-- **Pragmatism**: The standard solves real team problems; it must not create bureaucracy.
-- **Evolution**: The document may change when better practices or technologies emerge.
-
 Follow [JetBrains Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html). `./gradlew ktlintCheck detekt` must pass with zero violations.
 
 ## 2. Gymie Gradle layout
@@ -141,13 +133,8 @@ When implementing ports or serving requests, use **core domain types** at bounda
 
 Mirror `core/` and `infrastructure/` paths in test source sets. Layout is enforced by `BaselineLayoutTest` in `:app`.
 
-## 10. Agent checklist
+## 10. Before claiming work done
 
-1. Business logic? → `core/services/<name>/impl/`
-2. Domain model? → `core/domain/`
-3. Business error? → `core/exceptions/`
-4. Outbound contract? → `core/ports/`
-5. DB / cache / JWT / HTTP / config? → matching `infrastructure/` subtree
-6. Run `./gradlew ktlintCheck detekt :auth:test :app:test`
+`./gradlew ktlintCheck detekt :auth:test :app:test`
 
 Reference: `README.md`, `src/app/auth/README.md`

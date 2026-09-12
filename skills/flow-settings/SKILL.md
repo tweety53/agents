@@ -4,24 +4,21 @@ description: Read and change the harness-wide flow defaults — default model, r
 allowed-tools: Bash(flow:*), Bash(jq:*)
 license: MIT
 compatibility: Requires the flow CLI and jq.
-metadata:
-  author: gymie
-  version: "1.0"
 ---
 
 Read and change the harness-wide settings record `flow settings get`/`set` manage: the default
 model (`defaultModel`) every `/flow` run's implementer, fixer and reviewer roles use unless a
 session overrides it, the reviewer slots (`reviewers`) the review panel dispatches by default, and
 the recorded value (`selfReviewModel`) unless a project overrides it — the archive-phase
-self-review pass itself now runs inline, on whatever model the archive session is already on, so
-this field is resolved but governs no dispatch (**Model resolution**, `skills/flow/SKILL.md`).
+self-review pass itself runs inline, on whatever model the archive session is already on, so
+this field is resolved but governs no dispatch (step 9, `skills/flow/archive.md`).
 
 **This is a standalone command, not a pipeline stage.** It takes no change name, reads and writes
 no per-change state file, and marks no `flow stage` call. It changes the harness-wide store, not
 any one change's record.
 
-**No flags.** Per **Command surface** (`skills/flow-contracts/pipeline.md`), no `/flow*` or
-`/flow*` command accepts a flag; that rule extends to this command as part of the same family. The
+**No flags.** Per **Command surface** (`skills/flow-contracts/pipeline.md`), no `/flow*` command
+accepts a flag; that rule extends to this command as part of the same family. The
 only input is the operator's answers to the questions this skill asks interactively.
 
 **Announce at start:** "Using flow-settings."
@@ -43,7 +40,7 @@ Print the current values plainly before asking anything:
 
 ```
 Current flow settings:
-  default model:      sonnet
+  default model:      <defaultModel, verbatim>
   reviewers:          <comma-separated list from Reviewers, verbatim>
   self-review model:  <selfReviewModel, or "(fable — store default)" when empty>
 ```
@@ -64,13 +61,14 @@ read in step 1:
   file — `ValidReviewers` is that store's own enum and the only place it is canonical. **This list is
   the review panel**: every id it holds is dispatched by every `/flow` run until this command changes
   it again, none held back as a fixed floor — resolution is canonical in `skills/flow/SKILL.md`'s
-  Model resolution, dispatch in `skills/flow/review-panel.md`'s roster. "On-demand" now names a
-  different mechanism: a per-run operator instruction can still add a slot for a single run without
-  touching this list, but an id's presence here is what makes every run dispatch it. Offer the full
+  Model resolution, dispatch in `skills/flow/review-panel.md`'s roster. A per-run operator
+  instruction can add a slot for a single run without touching this list; an id's presence here is
+  what makes every run dispatch it. Offer the full
   set as a multi-select seeded with the current list, plus "keep current", and say plainly when
   asking that the selection made here becomes every subsequent run's panel, not just this one. The
   CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags
-  check (`<agents repo>/stats/cmd/flow/settings.go:123`) exits 2, distinct from the store's own
+  check (`<agents repo>/stats/cmd/flow/settings.go`'s `-model and -reviewers are both required`
+  check) exits 2, distinct from the store's own
   exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero
   slots fails at step 3 with exit 2, rather than turning review off.
 - **Self-review model** — offer the same `ValidModels` set as Default model, plus an explicit
@@ -80,7 +78,7 @@ read in step 1:
   whatever model it is already on; an empty value is a legitimate, first-class choice, not a
   fallback born of an unreachable store, so offer it as a named option rather than only as "keep
   current". Empty resolves to the literal `fable`, unless `<project>/.flow/project.md`'s `##
-  self review model` key overrides it, per **Model resolution** (`skills/flow/SKILL.md`).
+  self review model` key overrides it, per step 9 (`skills/flow/archive.md`).
 If the operator keeps all three fields unchanged, say so and stop — do not call `settings set`
 for a no-op write.
 

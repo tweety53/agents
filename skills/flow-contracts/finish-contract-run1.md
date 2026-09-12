@@ -89,9 +89,8 @@ once per worktree in the same resolved set, `<recorded-merge-base>` being the sa
 signal 1 above already reads. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
 breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same
 breakdown and the same three courses below, not a second prompt. This guard exists because a stage
-mark is not evidence a stage ran: kan-30's own fix round 4 wrote `flow stage begin`/`flow stage end
--outcome completed flow.visual-verify` around no dispatch at all, and the operator was told "no open
-finding" — see that guard's own header for the full account. Exit 2 (cannot answer) is stop-and-ask,
+mark is not evidence a stage ran — a run can mark `flow.visual-verify` begun and completed around no
+dispatch at all; see that guard's own header for the account. Exit 2 (cannot answer) is stop-and-ask,
 the same as a missing `check-unfinished-work.sh` verdict line above.
 
 On `OUTSTANDING` — from either guard — the operator is offered **exactly three** courses:
@@ -278,7 +277,7 @@ no `origin` remote at all.
 `HEAD` *is* `spectre/<name>` — so that fallback resolves to the change's **own** upstream, making
 the merge check `spectre/<name>` vs `origin/spectre/<name>`, which is true the moment the branch
 is pushed. That silently reports an unmerged change as merged, and run 2 then archives it and
-deletes its worktree. `resolve-base-branch.sh` is where this rule is now enforced: it never
+deletes its worktree. `resolve-base-branch.sh` is where this rule is enforced: it never
 consults `HEAD@{upstream}`, and its assertion that `BASE` differs from the current branch is
 unconditional, which is what makes that class of misresolution impossible rather than merely
 unlikely.
@@ -304,7 +303,7 @@ precondition is the script's absence — a fallback the operator applies by hand
 absent cannot defer them to a file that, by the same precondition, is not there to read.
 
 **A repository with no remote at all cannot be integrated by this command.** Every route needs a
-push, and base resolution needs `origin` — `resolve-base-branch.sh` is where that check now lives,
+push, and base resolution needs `origin` — `resolve-base-branch.sh` is where that check lives,
 and its exit `3` is how a caller recognises this case. Say exactly that — *"this repository has no
 remote, so there is nothing to push to or merge into"* — rather than reporting a base-branch
 failure, which sends the operator debugging the wrong thing. Offer to leave the change at

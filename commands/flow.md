@@ -5,19 +5,20 @@ category: flow
 description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, and integrate, pausing only at the human gates
 ---
 
-**Model:** planning and implementation both run in subagents whose models are set at dispatch time
-(**Model resolution**, `skills/flow/SKILL.md`), so the session model is not load-bearing.
+**Model:** brainstorming runs in this session, so the session model is load-bearing for planning;
+implementation and review run in subagents whose models are set at dispatch time
+(**Model resolution**, `skills/flow/SKILL.md`).
 
 Use the **flow** skill — installed globally, so let your harness resolve it by name rather than
 assuming a project-local path.
 
 Follow that skill exactly. Accepts **no state** (creates a change), **`STARTED`** (resumes a
 creating run that stopped before implementation), or **`IN_PROGRESS`**. On a creating run it writes
-`STARTED` immediately, then runs brainstorming (unchanged, fully interactive, now in a planner
-subagent on the configured planning model), then implementation, review and verification in a
-conductor subagent on the default model, the parent relaying its questions, behind the review panel
-resolved from the settings store, ending at `IN_PROGRESS`. Re-invoked with an argument
-at `IN_PROGRESS`, the argument is fix instructions.
+`STARTED` immediately, then runs brainstorming (fully interactive, in this session), then
+implementation, review and verification orchestrated by this session — implementers and panel
+slots dispatched on the resolved default model — behind the review panel resolved from the
+settings store, ending at `IN_PROGRESS`. Re-invoked with an argument at `IN_PROGRESS`, the
+argument is fix instructions.
 Re-invoked bare at `IN_PROGRESS`, it asks how to land the branch; merge-and-push continues in the
 same invocation through archive to `FINISHED`, while open PR and manual stop and hand off.
 

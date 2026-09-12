@@ -3,11 +3,7 @@
 This file is the reasoning behind `skills/flow-contracts/session-records.md`.
 **A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
-## Preserving the session records
-
-*The heading keeps its former name deliberately.* **Rendering the session records** (`skills/flow-contracts/session-records.md`)
-cites this section inline by it, and `check-references.sh`
-matches that citing bold token against this heading — renaming it here breaks the citation there.
+## Rendering the session records
 
 **A non-zero exit is never silent and never a stop.** Those two rules pull in opposite directions
 and both hold: a step able to abandon an integration whose work is already committed would be a

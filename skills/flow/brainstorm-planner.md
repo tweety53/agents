@@ -7,13 +7,10 @@ subagent, no relay. Every "you" below addresses that session directly.
 
 ## B. Basic Workflow #1 — Brainstorming
 
-**This section's stage marks are run inline, by this same session.** The `flow.brainstorm` begin
-mark lives in **Run brainstorming and planning directly** (`skills/flow/brainstorm.md`), and the
-`flow.brainstorm` end / `flow.design-approval` begin/end marks under **Convergence** below stay
-exactly where they are, run around the merged HARD GATE approval. Everywhere else in this
-section — and in **C** and **D** below — "you" means this same running session: the seeded-note
-discovery and its deletion, the checklist, and the convergence loop are all done directly, with no
-return or relay step in between.
+The `flow.brainstorm` begin mark lives in **Run brainstorming and planning directly**
+(`skills/flow/brainstorm.md`), and the `flow.brainstorm` end / `flow.design-approval` begin/end
+marks under **Convergence** below stay exactly where they are, run around the merged HARD GATE
+approval.
 
 ### Seed from a staged research note, if one exists
 
@@ -29,10 +26,8 @@ one `test -f`, never a glob, never inference:
   `skills/flow-plan/SKILL.md` describes — an exact match only when the change's later slug happens
   to reuse the research session's own topic wording.
 
-The exact-filename check is unambiguous by construction: there is exactly one path to test per
-case, never a wildcard and never more than one candidate to disambiguate between. A topic captured
-under different wording than the change later resolves to will not be found by this rule at all —
-that is an accepted limit of a deterministic, exact-filename check, not a defect to patch with
+A topic captured under different wording than the change later resolves to will not be found by
+this rule at all — that is an accepted limit of a deterministic, exact-filename check, not a defect to patch with
 fuzzy heuristics: guessing which note "probably" matches risks seeding from the wrong topic
 silently.
 
@@ -59,8 +54,8 @@ convergence-and-approval confirm are both skipped: present the note's parsed str
 then continue directly into **C**. A note missing either sibling file — a note alone, or a note
 with only a plan — still runs the full checklist exactly as stated above; this exception applies
 only when every one of the three files is present. `/flow-plan`'s own investigate-then-ask process
-that produced the note (at least two rounds per topic, an explicit convergence check per topic —
-**Go Deeper: Investigation and Question Depth**, `skills/flow-plan/SKILL.md`) already gathered and
+that produced the note (an explicit convergence check per topic — **Closing a topic**,
+`skills/flow-plan/SKILL.md`) already gathered and
 confirmed this content, so a fully-seeded note carries no fresh operator judgment left to gate on —
 this is a second, narrowly-scoped bounded exception to **Stage exit — never the command's own
 judgment** (`skills/flow-contracts/pipeline.md`), alongside its "no channel to ask through"
@@ -204,10 +199,6 @@ flow stage end   -command '/flow' -stage flow.design-approval -outcome completed
 
 ## C. Create the change and its artifacts
 
-**This section's stage marks are run inline, by this same session** — see **Run brainstorming
-and planning directly** (`skills/flow/brainstorm.md`). Everywhere below, "you" means this same
-session: `spectre new`, the three artifacts, and the staging-note deletion are its own work.
-
 ```bash
 flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
 spectre new "<name>"   # working directory: the worktree flow.kickoff created
@@ -286,10 +277,6 @@ flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed 
 ```
 
 ## D. Basic Workflow #3 — Writing plans
-
-**This section's stage marks are run inline, by this same session** — see **Run brainstorming
-and planning directly** (`skills/flow/brainstorm.md`). Everywhere below, "you" means this same
-session: the writing-plans enrichment and the guards at the end of this section are its own work.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>

@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# check-model-resolution-shell.sh — proves skills/flow/SKILL.md's "Model
-# resolution" bash block actually resolves SELF_REVIEW_MODEL and the three
-# toggles (EXECUTION_MODE_TOGGLE, IMPLEMENTER_MODEL_TOGGLE,
-# REVIEW_PANEL_TOGGLE) correctly, rather than trusting the prose by eye.
+# check-model-resolution-shell.sh — proves the two documented bash blocks
+# that resolve /flow's run-level variables actually resolve them correctly,
+# rather than trusting the prose by eye: skills/flow/SKILL.md's "Model
+# resolution" block for the three toggles (EXECUTION_MODE_TOGGLE,
+# IMPLEMENTER_MODEL_TOGGLE, REVIEW_PANEL_TOGGLE), and skills/flow/archive.md
+# step 9's block for SELF_REVIEW_MODEL. The two are extracted and run
+# together, in that order, so the cases below assert all four variables at
+# once exactly as they did when one block resolved all four. SELF_REVIEW_MODEL
+# moved to archive.md because only the archive-phase self-review pass reads it
+# and it governs no dispatch — resolving it on every run cost two subprocess
+# calls a run that stops earlier never needs.
 #
 # WHY THIS EXISTS. That block is documentation — prose describing what a
 # `/flow` run executes, not itself a script this repository runs in CI — so
@@ -16,17 +23,19 @@
 # removed it end to end — planning runs inline on the session's own model
 # now, with no PLANNING_MODEL variable left in the block to resolve.
 #
-# HOW IT AVOIDS DUPLICATING THE BLOCK. The exact fenced ```bash block under
-# skills/flow/SKILL.md's "## Model resolution" heading is extracted
+# HOW IT AVOIDS DUPLICATING THE BLOCKS. The exact fenced ```bash block under
+# skills/flow/SKILL.md's "## Model resolution" heading, and the one under
+# archive.md's "Resolve `SELF_REVIEW_MODEL` here" marker line, are extracted
 # verbatim and executed — never retyped here — so this guard cannot go
-# stale relative to what the skill actually says to run. `flow` is
+# stale relative to what the skills actually say to run. `flow` is
 # stubbed, via a throwaway PATH entry, answering both `settings get`
 # (canned settings JSON) and `settings models` (the fixed vocabulary);
 # `project-get.sh` is the real script, on `PATH` from this repository's
 # own scripts/, run for real against a per-case MAIN_CHECKOUT fixture.
 #
-# CHECK_MODEL_RESOLUTION_SKILL_MD, when set, names the file the block is
-# extracted from instead of the real skill — test-check-model-resolution-shell.sh's
+# CHECK_MODEL_RESOLUTION_SKILL_MD and CHECK_MODEL_RESOLUTION_ARCHIVE_MD, when
+# set, name the files the blocks are
+# extracted from instead of the real skills — test-check-model-resolution-shell.sh's
 # sandbox override, so its mutation cases never write the real tree
 # (KAN-376: a concurrent run-guard-tests.sh run fingerprints that tree by
 # mtime, and a restore landing inside the fingerprint window failed
@@ -34,9 +43,9 @@
 # reads the real skill.
 #
 # Usage: check-model-resolution-shell.sh
-# Exit 0 the extracted block resolves every variable correctly for every
-# case below, 1 a case resolved wrong, 2 cannot answer at all (SKILL.md
-# missing/unreadable, the block not found in it, or a temp-file failure).
+# Exit 0 the extracted blocks resolve every variable correctly for every
+# case below, 1 a case resolved wrong, 2 cannot answer at all (either file
+# missing/unreadable, a block not found in it, or a temp-file failure).
 set -uo pipefail
 
 die() {
@@ -47,6 +56,7 @@ die() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILL_MD="$REPO_ROOT/skills/flow/SKILL.md"
+ARCHIVE_MD="$REPO_ROOT/skills/flow/archive.md"
 # Honoured only when set, and refused when set but empty — the
 # RUN_GUARD_TESTS_ROOT idiom: a silent fallback to the real skill would run
 # the cases against a file the caller never chose.
@@ -54,24 +64,45 @@ if [ "${CHECK_MODEL_RESOLUTION_SKILL_MD+set}" = set ]; then
   [[ -n "$CHECK_MODEL_RESOLUTION_SKILL_MD" ]] || die "CHECK_MODEL_RESOLUTION_SKILL_MD is set but empty"
   SKILL_MD="$CHECK_MODEL_RESOLUTION_SKILL_MD"
 fi
+if [ "${CHECK_MODEL_RESOLUTION_ARCHIVE_MD+set}" = set ]; then
+  [[ -n "$CHECK_MODEL_RESOLUTION_ARCHIVE_MD" ]] || die "CHECK_MODEL_RESOLUTION_ARCHIVE_MD is set but empty"
+  ARCHIVE_MD="$CHECK_MODEL_RESOLUTION_ARCHIVE_MD"
+fi
 
 [[ -r "$SKILL_MD" ]] || die "cannot read $SKILL_MD"
+[[ -r "$ARCHIVE_MD" ]] || die "cannot read $ARCHIVE_MD"
 
 # Extract the first ```bash ... ``` fence after the "## Model resolution"
 # heading, verbatim, body lines only (fences excluded).
-BLOCK="$(awk '
+SKILL_BLOCK="$(awk '
   $0 == "## Model resolution" { seen_heading = 1; next }
   seen_heading && /^```bash$/ { in_block = 1; next }
   in_block && /^```$/ { exit }
   in_block { print }
 ' "$SKILL_MD")"
 
-[[ -n "$BLOCK" ]] || die "no \`\`\`bash block found under '## Model resolution' in $SKILL_MD"
-echo "$BLOCK" | grep -q 'SELF_REVIEW_MODEL' || die "extracted block does not mention SELF_REVIEW_MODEL — heading or fence shape changed"
-echo "$BLOCK" | grep -q 'EXECUTION_MODE_TOGGLE' || die "extracted block does not mention EXECUTION_MODE_TOGGLE — heading or fence shape changed"
-echo "$BLOCK" | grep -q 'IMPLEMENTER_MODEL_TOGGLE' || die "extracted block does not mention IMPLEMENTER_MODEL_TOGGLE — heading or fence shape changed"
-echo "$BLOCK" | grep -q 'REVIEW_PANEL_TOGGLE' || die "extracted block does not mention REVIEW_PANEL_TOGGLE — heading or fence shape changed"
-echo "$BLOCK" | grep -q 'PLANNING_MODEL' && die "extracted block still mentions PLANNING_MODEL — kan-488 removed it end to end, this guard's own drift check"
+# And the first ```bash fence after archive.md step 9's marker line. That
+# fence is indented three spaces, as a numbered list item's block must be;
+# the common indent is stripped so the body executes as written.
+ARCHIVE_BLOCK="$(awk '
+  /^ *\*\*Resolve `SELF_REVIEW_MODEL` here, where it is consumed\*\*/ { seen_marker = 1; next }
+  seen_marker && /^ *```bash$/ { in_block = 1; next }
+  in_block && /^ *```$/ { exit }
+  in_block { sub(/^   /, ""); print }
+' "$ARCHIVE_MD")"
+
+[[ -n "$SKILL_BLOCK" ]] || die "no \`\`\`bash block found under '## Model resolution' in $SKILL_MD"
+[[ -n "$ARCHIVE_BLOCK" ]] || die "no \`\`\`bash block found under the 'Resolve SELF_REVIEW_MODEL here' marker in $ARCHIVE_MD"
+echo "$ARCHIVE_BLOCK" | grep -q 'SELF_REVIEW_MODEL' || die "extracted archive block does not mention SELF_REVIEW_MODEL — marker or fence shape changed"
+echo "$SKILL_BLOCK" | grep -q 'SELF_REVIEW_MODEL' && die "SKILL.md's block still mentions SELF_REVIEW_MODEL — it resolves in archive.md now, this guard's own drift check"
+echo "$SKILL_BLOCK" | grep -q 'EXECUTION_MODE_TOGGLE' || die "extracted block does not mention EXECUTION_MODE_TOGGLE — heading or fence shape changed"
+echo "$SKILL_BLOCK" | grep -q 'IMPLEMENTER_MODEL_TOGGLE' || die "extracted block does not mention IMPLEMENTER_MODEL_TOGGLE — heading or fence shape changed"
+echo "$SKILL_BLOCK" | grep -q 'REVIEW_PANEL_TOGGLE' || die "extracted block does not mention REVIEW_PANEL_TOGGLE — heading or fence shape changed"
+echo "$SKILL_BLOCK" | grep -q 'PLANNING_MODEL' && die "extracted block still mentions PLANNING_MODEL — kan-488 removed it end to end, this guard's own drift check"
+
+# Run order matches the run's own: the toggles first, then archive step 9.
+BLOCK="$SKILL_BLOCK
+$ARCHIVE_BLOCK"
 
 STUB_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-model-resolution-shell.XXXXXX")" \
   || die "cannot create a temp dir for the flow stub"

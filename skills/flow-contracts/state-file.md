@@ -35,10 +35,9 @@ MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
 PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
 ```
 
-This derivation is now performed inside the CLI itself (`flow state get`/`flow state set`
-resolve it from `-C dir`, or the working directory) rather than by a skill running this recipe by
-hand — but the algorithm is unchanged, and it is stated here because it is what makes the store,
-the fallback file and the journal agree on one identity for one change.
+The CLI performs this derivation itself (`flow state get`/`flow state set` resolve it from `-C
+dir`, or the working directory). It is stated here because it is what makes the store, the fallback
+file and the journal agree on one identity for one change.
 
 **The path is resolved through symlinks — physical resolution, not the raw one — and that is
 load-bearing rather than incidental.** Git records a worktree's pointer back to its main checkout
@@ -46,8 +45,7 @@ as an **already-resolved** real path, while a naive resolution of the main check
 whatever symlinked route the operator arrived by. Without resolving both sides the same way, the
 identical repository yields **two different project keys** depending on which side asks — the
 exact split this section exists to prevent, reappearing one level down. It was found by running the
-derivation from a real worktree whose temporary directory crossed a symlink; a test using a
-constructed path would not have shown it.
+derivation from a real worktree whose temporary directory crossed a symlink.
 
 Anything else deriving this key — a command, a script, or a program — resolves symlinks the same
 way. A project reached through a symlinked path (a symlinked home directory, a synced folder, a
@@ -165,11 +163,9 @@ field is how it gets erased.
   is kept in the record rather than dropped so a change created before that decision, whose
   `artifactUrl` is still populated, is not read as malformed.
 - `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only on the run that **creates** the change; every other invocation **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
-- `planningEffort` — the level chosen for this change's planning, or `null` when none was chosen.
-  Written only on the run that **creates** the change; every other invocation
-  **carries it forward verbatim**. It governs the creating run's own reasoning depth and nothing
-  else — no command derives behaviour from it, and the review panel's breadth is never scaled from
-  it. The levels, and which of them is offered as the recommendation, are stated once under
+- `planningEffort` — a legacy field: the level recorded for an older change's planning, or `null`.
+  No run writes it; every invocation **carries it forward verbatim**. It governs nothing — no
+  command derives behaviour from it, and the review panel's breadth is never scaled from it. See
   **Planning effort** (`state-file.md`) below.
 - `models` — an object carrying one field, `default`, naming the model chosen for the change, or
   `null` where none was chosen. Written only on the run that **creates** the
@@ -195,9 +191,9 @@ field is how it gets erased.
   journal entry all carry, so an entry replayed later orders by the instant its write actually
   happened at rather than the instant of the replay. No skill reads the clock for this field or
   emits it. A payload still carrying the field is accepted with its value ignored rather than
-  refused. A journal entry written before this rule replays unchanged for an unrelated reason: the
-  daemon decodes such an entry's own body rather than routing it back through the CLI, and that
-  decoder accepts a second-precision instant and a sub-second one alike. `/flow-status` reports
+  refused. A journal entry replays through the daemon's own decoder
+  rather than back through the CLI, and that decoder accepts a second-precision instant and a
+  sub-second one alike. `/flow-status` reports
   "last update" from this field, and the store uses it to order same-state writes (see **Writes are
   monotonic in both dimensions** below).
 - `updatedBy` — the command that last wrote the record, always `/flow`.
@@ -214,10 +210,8 @@ at the *same* `state` — to an `updatedAt` earlier than the one already recorde
 instant is the primary ordering and the pipeline state is the tiebreaker, so a replayed or
 duplicated write can never silently overwrite a newer record with older field values.
 
-The instant this ordering rests on now comes from a single writer — the CLI stamps it (`updatedAt`
-under **The record** above), so every live write is ordered by one clock at one precision rather
-than by two clocks whose differing precisions made a same-state write inside one second compare as
-backwards.
+The instant this ordering rests on comes from a single writer — the CLI stamps it (`updatedAt`
+under **The record** above) — so every live write is ordered by one clock at one precision.
 
 **This same refusal covers a benign duplicate** — a write identical to one already accepted, being
 retried or replayed — because the store cannot tell a superseded write from a harmless repeat of the
@@ -273,9 +267,8 @@ The store reads the same way — a two-repository change is one record, never tw
 The **project key names the project whose state directory owns the record** — it is not the list of
 affected repositories. The daemon derives the affected-repository set from `worktrees` on every
 write and persists it alongside the record in the same transaction, so no reader ever observes a
-change with a partially updated repository set. A skill's own obligation is unchanged by any of
-this: it writes `worktrees` exactly as it always has, and never supplies a repository set
-separately.
+change with a partially updated repository set. A skill writes `worktrees` and never supplies a
+repository set separately.
 
 The **key set of `worktrees` is the authoritative recorded list of affected worktrees** — it is
 what `/flow`'s archive phase cleans up, and what resolves an app's root when a handoff needs an absolute
@@ -295,13 +288,11 @@ reads to sequence run 1's routes.
 }
 ```
 
-## The store starts empty
+## The on-disk file is written, never seeded
 
-**No record predates this contract's store.** Nothing imports the JSON state files that existed
-under the file-based contract, and no command reads one for a live value or as a fallback of last
-resort — the on-disk file this contract still names is written only going forward, by the CLI's own
-fallback path, never seeded from history. A change worked before the store existed has no record
-until a command writes one for it.
+The on-disk fallback file is written only by the CLI's own fallback path. No command reads a JSON
+file it did not write there, and nothing is imported into the store from history. A change with no
+record in the store has none until a command writes one.
 
 ## Read it, write it
 
@@ -317,25 +308,8 @@ committed, never staged, and never archived** — nothing here is part of the ch
 
 ## Planning effort
 
-**There is no requirements layer above this one; change this file.** Three levels exist, `default`
-is the level offered as the recommendation, and no level may switch a gate off: the table below is
-both the requirement and the **operational form the commands read**, and it exists here so `/flow`
-has one place to look rather than a requirements document to interpret. Naming the requirement in
-full, rather than giving the path alone, is still what makes
-`<agents repo>/scripts/check-references.sh` check the pointer — a `### Requirement: …` heading is a
-heading like any other, and the frozen file it names does resolve, so the citation stays checked
-rather than rotting silently.
+`planningEffort` is a legacy field. No run writes it, and a level recorded on a change created
+before the question was retired governs nothing.
 
-Three levels, offered by `/flow` on the run that creates a change, with `default` the level
-offered as the recommendation:
-
-| Level | What it changes |
-|-------|-----------------|
-| `low` | Questions batched rather than asked one at a time; the design presented once; `tasks.md` grouped more coarsely |
-| `default` | The checklist followed with related questions grouped |
-| `detailed` | Each checklist item worked separately, alternatives enumerated per open question, each design section approved on its own |
-
-**No level may switch a gate off.** Brainstorming runs, the design approval gate holds,
-writing-plans runs, and `tasks.md` is never left a thin scaffold — at every level. A lower level
-means fewer rounds and coarser grouping, never a gate that does not run. A planning effort level
-able to skip a gate would be a way to skip review rather than a way to size the thinking inside it.
+**No gate is ever switched off.** Brainstorming runs, the design approval gate holds,
+writing-plans runs, and `tasks.md` is never left a thin scaffold.
