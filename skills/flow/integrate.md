@@ -158,12 +158,13 @@ This collapses every per-task and fixup commit back into the working tree, uncom
 stale value here would also collapse in the upstream commits the rebase just brought in, silently
 smuggling them into the implementation commit below.
 
-All three routes commit — implementation, the `<project>/spectre/changes/` planning artifacts, and
-the session records under `<project>/docs/superpowers/` — as **two** commits, never one.
+All three routes commit — implementation, then the `<project>/spectre/changes/` planning
+artifacts — as **two** commits, never one. The session records stay uncommitted under
+`<abs-worktree>/.superpowers/sdd/`.
 
 **Load `skills/flow-contracts/session-records.md`** before rendering, below.
 
-**Render the ledger first**, before staging:
+**Render the ledger first**, so a missing one is caught here:
 
 ```bash
 flow record render -change <name> -kind ledger -repo <worktree>
@@ -182,7 +183,7 @@ Then stage and commit twice, in this order:
 ```bash
 commit-split.sh <worktree> <name> \
   "<type>(<module>): <what the implementation does>" \
-  "chore(spectre): plan and session records"
+  "chore(spectre): plan"
 ```
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff. The

@@ -63,7 +63,7 @@ records.
 
 > This resolves the remaining half of `research-staging-mechanism`
 > left open by design.md: a staging note that outlives its adoption is a second, driftable copy of
-> what the change's own `design.md` now states canonically, and `<project>/docs/superpowers/research/` is meant
+> what the change's own `design.md` now states canonically, and `<project>/docs/research/` is meant
 > to hold notes still waiting for a home, not a permanent archive of every note that found one.
 
 ## integrate.md — preamble

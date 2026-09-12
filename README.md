@@ -164,9 +164,9 @@ copied here is a copy that can go wrong silently the next time the owning file c
 
 superpowers:brainstorming runs its checklist in full and ends with the operator approving the
 design, which is a hard gate: nothing is created under `spectre/changes/` until that approval
-lands. The approved design is saved under `docs/superpowers/specs/` in the change's worktree and
+lands. The approved design is saved under the worktree's gitignored `.superpowers/sdd/` and
 becomes the source for the change's `design.md` artifact — adapted, never duplicated into a
-conflicting second design. Before the checklist opens, the stage checks `docs/superpowers/research/`
+conflicting second design. Before the checklist opens, the stage checks `docs/research/`
 for a staged note matching this topic (per `/flow-plan`'s staging behaviour below) and, if found,
 seeds the round from it without ever skipping straight to artifact-writing (design.md's
 `flow-plan-staging`).
@@ -274,9 +274,8 @@ The operator is asked once, before any git action, how the branch should land: o
 *(default)*, merge and push, or handle it manually. The run then completes without asking again,
 and the answer is never remembered between runs.
 
-All three routes do the same two things first, in this order: preserve the session records out of
-the gitignored worktree into the repository, then commit in **two** commits — implementation first,
-planning artifacts second. Moving the linked issue to In Review is an unconditional sub-step of
+All three routes first commit in **two** commits — implementation first, planning artifacts
+second; the session records stay in the gitignored worktree and the store. Moving the linked issue to In Review is an unconditional sub-step of
 this stage on every route, including the manual one (design.md's `move-in-review-fold`).
 
 The route table is **Run 1 — the branch is not merged**
@@ -651,7 +650,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 | `/flow <name>` | `flow` | Single-command pipeline. No state: creates the change, writes `STARTED`, and — same invocation — runs brainstorming (unchanged, fully interactive) then implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question and publishes no proposal artifact. `IN_PROGRESS` with an argument: fix run, state unchanged. `IN_PROGRESS` bare: asks how to land the branch — open PR (default), merge and push, or manual — then, on merge-and-push, continues in the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. Runs no tests, linters or coverage check outside implementation's own verify stage. |
 | *(gate)* | You | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-status [name]` | `flow-status` | Read-only state report for open changes |
-| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/superpowers/research/` for `/flow`'s brainstorming to seed from |
+| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/research/` for `/flow`'s brainstorming to seed from |
 | `/flow-settings` | `flow-settings` | Reads/writes the global model and reviewer defaults every `/flow` run reads from |
 | `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle |
 

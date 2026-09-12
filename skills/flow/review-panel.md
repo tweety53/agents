@@ -19,8 +19,8 @@ about a panel run — the roster and reduction verdicts, the diff-size figures a
 the re-run decisions, the fix pass's agents and reasons, the fix round's `fix-mutation:` proof
 lines — the parent records as it arises with `flow record pass` or `flow record mutation`
 (`-change <name> -round <n>`, the round `0` for the initial panel and `1..n` for a fix round).
-`flow record render -kind panel` renders them into the committed panel record's pass-log section,
-so they land in the same commit as the findings and the ledger. The former
+`flow record render -kind panel` renders them into the panel record's pass-log section under
+`<abs-worktree>/.superpowers/sdd/reviews/`, beside the findings. The former
 `<abs-worktree>/.superpowers/sdd/final-review-panel.md` is no longer written by anyone: it was the
 last hand-written panel artifact, it died with the worktree, and everything it alone held is now a
 row (KAN-331).

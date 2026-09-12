@@ -8,7 +8,7 @@
 # shape `flow record findings` itself prints -- one object per finding with
 # at least `ref`, `status`, `reproducer`), or exits non-zero to simulate a
 # store the guard could not reach. No case writes a
-# docs/superpowers/reviews/*-panel.md file any more; that path, and the
+# .superpowers/sdd/reviews/*-panel.md file any more; that path, and the
 # marker-line grammar the guard used to parse out of it, are retired by this
 # rewrite.
 #
@@ -52,7 +52,7 @@
 #     path, that path raising no violation of its own, and the anchored
 #     match rejecting another change's dated record (old cases 39a, 39b,
 #     39c) -- all exercise panel_record_path's glob-matching over
-#     docs/superpowers/reviews, which task 6 deletes outright along with the
+#     .superpowers/sdd/reviews, which task 6 deletes outright along with the
 #     function itself.
 #   - the dash-prefixed relative worktree defeating a grep-as-options
 #     injection into the record path (old case 16) -- that hazard was grep
@@ -435,7 +435,7 @@ expect_exit_and_names 'case 21: a missing change name is rejected' 2 'usage:' ru
 #
 #     THIS CASE FAILS UNTIL TASK 6 LANDS, on purpose: today's guard still
 #     resolves a rendered Markdown file, finds none (this sandbox writes no
-#     docs/superpowers/reviews/*-panel.md), and reports "no readable panel
+#     .superpowers/sdd/reviews/*-panel.md), and reports "no readable panel
 #     record for ..." at exit 2 -- the right exit code by coincidence, but
 #     not the "cannot determine anything" wording this case asserts, so it
 #     correctly fails now and will only pass once task 6's guard actually

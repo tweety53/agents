@@ -129,9 +129,9 @@ bare `/flow` is the only command that loads this file.
    **A failed removal does not stop run 2 here; it is reported, and step 7 decides the verdict** —
    from the project's survivor report and never from this command's exit code, per
    **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
-6. **Remove the proposal artifact source** from the state directory, on the condition its row in
-   **Temporary artifacts registry** (`artifacts-registry.md`) gives. That section carries the condition and
-   the reason for it; this step does not repeat either.
+6. **Remove the proposal artifact source** from the state directory, per its row in
+   **Temporary artifacts registry** (`artifacts-registry.md`); a change that published none has
+   nothing to remove, and says so.
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
    behind, which is the one thing run 2 previously assumed.
@@ -194,6 +194,11 @@ bare `/flow` is the only command that loads this file.
    the change off `FINISHED`. It is skippable per run, with running it the default. A project's
    `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
    decides without asking when present and valid; the per-run prompt is the absent case.
+   **Whichever option runs, the ledger and panel record are rendered from the store first**, with
+   `flow record render -change <name> -kind all -repo <landing-worktree>`: they land under
+   `<project>/.worktrees/_landing-<name>/.superpowers/sdd/`, where `gather-self-review-context.sh` reads them, and
+   the apply worktree that held the run's own copies is gone since step 5. `MISSING:` for a kind
+   is what the gather reports as that source skipped.
    `defer` — by key or by the prompt's third option — gathers as below, appends `## design.md`
    (the archived `design.md` verbatim) and `## Session narrative` (the archived `narrative.md`
    verbatim, or `narrative.md: absent — change predates the narrative rule`, then one paragraph

@@ -247,7 +247,7 @@ Next:
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work — and no `/flow` step checks out, stages or commits in the main checkout. Resolve
   app roots from `git worktree list` or the state file's `worktrees` keys.
-- **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
+- **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/research/` before
   integrating**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
   and a change directory's `link.md` are deliberately not on it — see **Git boundaries**
   (`skills/flow-contracts/git-boundaries.md`) for why. The integrate phase

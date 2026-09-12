@@ -72,14 +72,14 @@ command. See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale
 cases this guards against and why it is a chain rather than `set -e`.
 
 ```bash
-git -C <abs-worktree> reset -q -- spectre/changes/ docs/superpowers/ \
-  && git -C <abs-worktree> add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/superpowers/' \
+git -C <abs-worktree> reset -q -- spectre/changes/ docs/research/ \
+  && git -C <abs-worktree> add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/research/' \
   && { git -C <abs-worktree> add -A -- 'spectre/changes/<id>/link.md' 2>/dev/null || true; } \
   && { git -C <abs-worktree> diff --cached --quiet \
        || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
   && git -C <abs-worktree> add -A \
   && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "chore(spectre): plan and session records"; }
+       || git -C <abs-worktree> commit -m "chore(spectre): plan"; }
 ```
 
 `<module>` is derived from the reshaped diff — the module carrying the change's substance, or a
@@ -95,7 +95,7 @@ for what an unguarded sequence would do instead.
 **A planning path that is a tracked symlink stops the run, and is never worked around.** When either
 of the two is a symlink — or `<project>/spectre/` is, putting `<project>/spectre/changes/` behind
 one — the
-`git add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/superpowers/'` call exits 128 with
+`git add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/research/'` call exits 128 with
 `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**. Report that message,
 name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bare `git add -A`,
 which puts the planning artifacts into the implementation commit — the one outcome this split

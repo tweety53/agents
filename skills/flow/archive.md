@@ -148,7 +148,8 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    input via a script rather than an inline re-read, one combined reasoning pass across all five
    angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the branch
    is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it. What is
-   specific to *executing* it here: the script invocation `gather-self-review-context.sh
+   specific to *executing* it here: `flow record render -change <name> -kind all -repo
+   <landing-worktree>` first, then the script invocation `gather-self-review-context.sh
    <archived-change-path> <name> <state-dir> <landing-worktree>`, resolving `<archived-change-path>`
    as `<project>/spectre/changes/archive/<name>/`, physically under `<landing-worktree>` rather than
    the main checkout — where step 3 actually moved it, since run 2 no longer archives in the main

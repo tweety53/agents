@@ -87,7 +87,7 @@ No CLI grant is needed for any of this: listing and reading markdown takes no `a
 If the user names a change, read its folder for context before discussing it. If nothing exists yet
 — a fresh tree, or a topic with no change — that's fine; think from the code and the conversation.
 
-Also check `<project>/docs/superpowers/research/` for an existing staging note on the same topic (see
+Also check `<project>/docs/research/` for an existing staging note on the same topic (see
 **Staging a Note** below) — a prior `/flow-plan` session may already have investigated part of
 this ground.
 
@@ -179,13 +179,13 @@ to become a change, say so and point at that command rather than making one your
 When there's no existing change to write into, offer to capture the session as a staging note rather
 than only letting it evaporate into the conversation:
 
-- "Want this captured? I'd write it to `<project>/docs/superpowers/research/<destination>.md`."
+- "Want this captured? I'd write it to `<project>/docs/research/<destination>.md`."
 
 The destination is **mandatory and deterministic**, never a free choice:
 
 - **A Jira key is known** (passed as the argument, or resolved from the conversation per
   **Resolution (how `jiraIssue` is decided)**, `skills/flow-contracts/jira-integration.md`) — write to
-  `<project>/docs/superpowers/research/<jira-key-lowercased>.md`, exactly. Never a descriptive
+  `<project>/docs/research/<jira-key-lowercased>.md`, exactly. Never a descriptive
   suffix (`<key>-<slug>.md`) — a later `/flow <key>` finds the seed with one `test -f` on this
   exact path (**Seed from a staged research note, if one exists**, `skills/flow/brainstorm-planner.md`), and a
   suffixed filename would not be found by it.
@@ -196,7 +196,7 @@ The destination is **mandatory and deterministic**, never a free choice:
   created key is then the known key above, and the note's `Source:` line. The creation is a Jira
   write like any other: `## jira` absent or `none`, no Atlassian tooling, or a refused create is
   one `⚠ Jira: skipped — <reason>` line, and the note falls back to
-  `<project>/docs/superpowers/research/<topic-slug>.md`, `<topic-slug>` a short kebab-case slug
+  `<project>/docs/research/<topic-slug>.md`, `<topic-slug>` a short kebab-case slug
   derived from the topic itself, with `Source: none`.
 
 If a note already exists at the resolved destination, update it rather than creating a second file
@@ -287,14 +287,14 @@ A captured **staging note** — never a `design.md` addition, since an existing 
 both — also produces, when the session finishes, two files beside it. `<stem>` is the note's own
 filename without `.md`, so the pair is found from the note's path by one exact test each.
 
-1. **`<project>/docs/superpowers/research/<stem>/tasks.md` — the plan.** Exactly the shape
+1. **`<project>/docs/research/<stem>/tasks.md` — the plan.** Exactly the shape
    **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) defines: task
    and step lines, the field family, the two header lines, the provenance and build-green tags —
    cited, never restated. One task per breakdown item is the natural starting grain. Run
    `check-plan-shape.sh <that path>` and fix any hit before finishing.
-2. **`<project>/docs/superpowers/research/<stem>/decision.json` — the dynamic decision.** Reached
+2. **`<project>/docs/research/<stem>/decision.json` — the dynamic decision.** Reached
    exactly as **Decide** (`skills/flow/brainstorm-planner.md`) reaches it and written in the JSON
-   shape that section defines: `plan-class.sh <project>/docs/superpowers/research/<stem>/tasks.md <repos>`, `<repos>` being the number
+   shape that section defines: `plan-class.sh <project>/docs/research/<stem>/tasks.md <repos>`, `<repos>` being the number
    of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps` table;
    `1` when every path is in this one); the three toggles resolved per **Model resolution**
    (`skills/flow/SKILL.md`) against the research worktree alone;
@@ -319,7 +319,7 @@ pushed from there onto `<default-branch>` (`## apps`, `<project>/.flow/project.m
 `HEAD` branch when the table names none):
 
 ```bash
-git -C <worktree> add docs/superpowers/research/<stem>.md docs/superpowers/research/<stem>/tasks.md docs/superpowers/research/<stem>/decision.json
+git -C <worktree> add docs/research/<stem>.md docs/research/<stem>/tasks.md docs/research/<stem>/decision.json
 git -C <worktree> commit -m "docs(research): <stem> research note, plan and decision"
 git -C <worktree> pull --rebase origin <default-branch>
 git -C <worktree> push origin HEAD:<default-branch>

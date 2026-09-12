@@ -74,12 +74,12 @@ new_repo() {
 
 # add_ledger / add_panel / add_tasks — write one of the three file sources.
 add_ledger() {
-  mkdir -p "$REPO/docs/superpowers/ledgers"
-  printf 'LEDGER-BODY\n' > "$REPO/docs/superpowers/ledgers/2026-01-01-demo.md"
+  mkdir -p "$REPO/.superpowers/sdd/ledgers"
+  printf 'LEDGER-BODY\n' > "$REPO/.superpowers/sdd/ledgers/2026-01-01-demo.md"
 }
 add_panel() {
-  mkdir -p "$REPO/docs/superpowers/reviews"
-  printf 'PANEL-BODY\n' > "$REPO/docs/superpowers/reviews/2026-01-01-demo-panel.md"
+  mkdir -p "$REPO/.superpowers/sdd/reviews"
+  printf 'PANEL-BODY\n' > "$REPO/.superpowers/sdd/reviews/2026-01-01-demo-panel.md"
 }
 add_tasks() {
   printf 'TASKS-BODY\n' > "$ARCHIVED/tasks.md"
@@ -189,7 +189,7 @@ run_it
 [ "$RC" -eq 0 ] && pass "ledger absent: exits 0" \
   || fail "ledger absent: rc=$RC out=$OUT"
 case "$OUT" in
-  *"skipped: docs/superpowers/ledgers/demo.md (absent)"*) \
+  *"skipped: .superpowers/sdd/ledgers/demo.md (absent)"*) \
     pass "ledger absent: reported as skipped" ;;
   *) fail "ledger absent: not reported as skipped: $OUT" ;;
 esac
@@ -215,7 +215,7 @@ run_it
 [ "$RC" -eq 0 ] && pass "panel absent: exits 0" \
   || fail "panel absent: rc=$RC out=$OUT"
 case "$OUT" in
-  *"skipped: docs/superpowers/reviews/demo-panel.md (absent)"*) \
+  *"skipped: .superpowers/sdd/reviews/demo-panel.md (absent)"*) \
     pass "panel absent: reported as skipped" ;;
   *) fail "panel absent: not reported as skipped: $OUT" ;;
 esac
@@ -259,12 +259,12 @@ run_it
 [ "$RC" -eq 0 ] && pass "all sources absent: exits 0" \
   || fail "all sources absent: rc=$RC out=$OUT"
 case "$OUT" in
-  *"skipped: docs/superpowers/ledgers/demo.md (absent)"*) \
+  *"skipped: .superpowers/sdd/ledgers/demo.md (absent)"*) \
     pass "all sources absent: ledger reported skipped" ;;
   *) fail "all sources absent: ledger not reported skipped: $OUT" ;;
 esac
 case "$OUT" in
-  *"skipped: docs/superpowers/reviews/demo-panel.md (absent)"*) \
+  *"skipped: .superpowers/sdd/reviews/demo-panel.md (absent)"*) \
     pass "all sources absent: panel reported skipped" ;;
   *) fail "all sources absent: panel not reported skipped: $OUT" ;;
 esac
@@ -288,8 +288,8 @@ new_repo
 OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside.XXXXXX")"
 TREES+=("$OUTSIDE")
 printf 'SECRET-OUTSIDE-CONTENT\n' > "$OUTSIDE/secret.txt"
-mkdir -p "$REPO/docs/superpowers/ledgers"
-ln -s "$OUTSIDE/secret.txt" "$REPO/docs/superpowers/ledgers/2026-01-01-demo.md"
+mkdir -p "$REPO/.superpowers/sdd/ledgers"
+ln -s "$OUTSIDE/secret.txt" "$REPO/.superpowers/sdd/ledgers/2026-01-01-demo.md"
 add_panel
 add_tasks
 add_commits
@@ -297,12 +297,12 @@ run_it
 [ "$RC" -eq 0 ] && pass "ledger symlink escape: exits 0" \
   || fail "ledger symlink escape: rc=$RC out=$OUT"
 case "$OUT" in
-  *"refused: docs/superpowers/ledgers/demo.md (resolves outside the repository)"*) \
+  *"refused: .superpowers/sdd/ledgers/demo.md (resolves outside the repository)"*) \
     pass "ledger symlink escape: reported as refused" ;;
   *) fail "ledger symlink escape: not reported as refused: $OUT" ;;
 esac
 case "$OUT" in
-  *"skipped: docs/superpowers/ledgers/demo.md (absent)"*) \
+  *"skipped: .superpowers/sdd/ledgers/demo.md (absent)"*) \
     fail "ledger symlink escape: wrongly also reported as skipped: $OUT" ;;
   *) pass "ledger symlink escape: not reported as skipped" ;;
 esac
@@ -331,7 +331,7 @@ case "$OUT" in
   *) fail "archived path missing: note not printed: $OUT" ;;
 esac
 case "$OUT" in
-  *"skipped: docs/superpowers/ledgers/demo.md (absent)"*) \
+  *"skipped: .superpowers/sdd/ledgers/demo.md (absent)"*) \
     pass "archived path missing: ledger reported skipped" ;;
   *) fail "archived path missing: ledger not reported skipped: $OUT" ;;
 esac
@@ -1133,9 +1133,9 @@ esac
 new_repo
 (
   cd "$REPO" \
-    && mkdir -p docs/superpowers/ledgers spectre/changes/demo \
-    && printf 'unrelated\n' > docs/superpowers/ledgers/someone-else.md \
-    && git add docs/superpowers/ledgers/someone-else.md \
+    && mkdir -p docs/research spectre/changes/demo \
+    && printf 'unrelated\n' > docs/research/someone-else.md \
+    && git add docs/research/someone-else.md \
     && git commit -q -m "chore(records): PLANNING-ONLY-PARENT-BODY" \
     && printf 'TASKS-OUTSIDE\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
@@ -1408,9 +1408,9 @@ TREES+=("$WORKTREE_K493")
 # same handling the F23 case gives $ARCHIVED. `git worktree add` records the resolved path
 # too, so this is also the path a real caller passes.
 WORKTREE_K493="$(cd -P "$WORKTREE_K493" && pwd -P)"
-mkdir -p "$WORKTREE_K493/docs/superpowers/ledgers" \
+mkdir -p "$WORKTREE_K493/.superpowers/sdd/ledgers" \
   "$WORKTREE_K493/spectre/changes/archive/2026-01-01-demo"
-printf 'LEDGER-WORKTREE-ROOT\n' > "$WORKTREE_K493/docs/superpowers/ledgers/2026-01-01-demo.md"
+printf 'LEDGER-WORKTREE-ROOT\n' > "$WORKTREE_K493/.superpowers/sdd/ledgers/2026-01-01-demo.md"
 printf 'TASKS-WORKTREE-ROOT\n' > "$WORKTREE_K493/spectre/changes/archive/2026-01-01-demo/tasks.md"
 OUTSIDE_CWD_K493="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-worktree-root.XXXXXX")"
 TREES+=("$OUTSIDE_CWD_K493")

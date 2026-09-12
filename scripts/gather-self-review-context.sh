@@ -134,17 +134,17 @@
 # invocation looks wrong," just for different reasons.
 #
 # The four sources:
-#   1. docs/superpowers/ledgers/<name>.md
-#   2. docs/superpowers/reviews/<name>-panel.md
+#   1. .superpowers/sdd/ledgers/<name>.md
+#   2. .superpowers/sdd/reviews/<name>-panel.md
 #   3. <archived-change-path>/tasks.md
 #   4. git log --stat for the change's two finish-run-1 commits (the
-#      implementation commit and the "plan and session records" commit) plus
-#      the archive commit. Both that current subject and the wording finish
-#      run 1 used before the rename ("plan, test guide and session records")
-#      are matched, so changes committed before the rename keep resolving.
+#      implementation commit and the "plan" commit) plus the archive commit.
+#      The current subject and every wording finish run 1 used before ("plan
+#      and session records", "plan, test guide and session records") are
+#      matched, so changes committed before a rename keep resolving.
 #
 # NOTE on sources 1 and 2: `flow record render` writes these under
-# docs/superpowers/{ledgers,reviews}/ with a LEADING DATE, e.g.
+# .superpowers/sdd/{ledgers,reviews}/ with a LEADING DATE, e.g.
 # "2026-08-01-demo.md", never literally "<name>.md" — this script's messages
 # still name the source using the plain "<name>.md" / "<name>-panel.md" form,
 # matching the wording this repository's archived kan-23-myflow-self-review
@@ -414,8 +414,8 @@ done
 
 validate_archived_path
 
-LEDGER_LABEL="docs/superpowers/ledgers/$NAME.md"
-PANEL_LABEL="docs/superpowers/reviews/$NAME-panel.md"
+LEDGER_LABEL=".superpowers/sdd/ledgers/$NAME.md"
+PANEL_LABEL=".superpowers/sdd/reviews/$NAME-panel.md"
 TASKS_LABEL="$ARCHIVED_PATH/tasks.md"
 GITLOG_LABEL="git log --stat"
 
@@ -466,8 +466,8 @@ resolve_file() {
 
 # check_boundary <candidate> <root> — the READ half of the path-boundary pair
 # this script inherited from the record-copying step, kept after that step
-# became a render: a candidate file under a tracked, PR-editable
-# directory (docs/superpowers/ledgers/, docs/superpowers/reviews/, or
+# became a render: a candidate file under a directory anything in the
+# worktree can write (.superpowers/sdd/ledgers/, .superpowers/sdd/reviews/, or
 # <archived-change-path>/tasks.md) may be a symlink planted to make `cat`
 # read an arbitrary file outside the repository. Resolve it and verify the
 # resolved path stays under <root>; refuse (not skip) it if not — refusing is
@@ -583,7 +583,7 @@ is_real_impl_commit() {
   local PARENT_TOUCHES_OUTSIDE=0
   if [ "$PARENT_IS_MERGE" -eq 0 ] \
     && git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r --root "$PLAN_PARENT" 2>/dev/null \
-      | grep -Ev "^($(spec_root_leaf "$REPO_ROOT")/changes/|docs/superpowers/)" | grep -q .; then
+      | grep -Ev "^($(spec_root_leaf "$REPO_ROOT")/changes/|docs/superpowers/|docs/research/)" | grep -q .; then
     PARENT_TOUCHES_OUTSIDE=1
   fi
 
@@ -612,7 +612,7 @@ REFUSED=()
 LEDGER_FILE=""
 PANEL_FILE=""
 if [ -n "$REPO_ROOT" ]; then
-  ledger_candidate="$(find_dated "$REPO_ROOT/docs/superpowers/ledgers" ".md")"
+  ledger_candidate="$(find_dated "$REPO_ROOT/.superpowers/sdd/ledgers" ".md")"
   if [ -n "$ledger_candidate" ]; then
     check_boundary "$ledger_candidate" "$REPO_ROOT"
     if [ "$BOUNDARY_REFUSED" -eq 1 ]; then
@@ -621,7 +621,7 @@ if [ -n "$REPO_ROOT" ]; then
       LEDGER_FILE="$BOUNDARY_RESOLVED"
     fi
   fi
-  panel_candidate="$(find_dated "$REPO_ROOT/docs/superpowers/reviews" "-panel.md")"
+  panel_candidate="$(find_dated "$REPO_ROOT/.superpowers/sdd/reviews" "-panel.md")"
   if [ -n "$panel_candidate" ]; then
     check_boundary "$panel_candidate" "$REPO_ROOT"
     if [ "$BOUNDARY_REFUSED" -eq 1 ]; then
@@ -661,9 +661,9 @@ fi
 # finding E): the plan commit is the most recent commit that both (a)
 # touched THIS change's own spectre/changes/<name>/ directory and (b)
 # carries a plan-commit subject — PLAN_SUBJECT_RE_NEW, the module-scope
-# convention's fixed literal "chore(spectre): plan and session records",
-# or PLAN_SUBJECT_RE_OLD, either wording finish run 1 used before that
-# rename. Path alone is not commit-specific: verified directly, a LATER
+# convention's fixed literal "chore(spectre): plan" (which also matches the
+# earlier "chore(spectre): plan and session records"), or
+# PLAN_SUBJECT_RE_OLD, either wording finish run 1 used before that rename. Path alone is not commit-specific: verified directly, a LATER
 # commit that merely touches the same directory (e.g. a typo fix landed
 # after archiving) outranks the real planning commit by recency and wins a
 # path-only `head -1`, making the real planning commit disappear from the
@@ -698,8 +698,8 @@ fi
 # since it matched none of the three reserved subject shapes this guard
 # used to check alone). The parent is now accepted as IMPL_SHA only when it
 # is BOTH a non-merge commit (exactly one parent — every commit-split.sh
-# commit is) AND touches at least one path outside spectre/changes/ and
-# docs/superpowers/ (what a real implementation commit is guaranteed to do,
+# commit is) AND touches at least one path outside spectre/changes/,
+# docs/research/ and the retired docs/superpowers/ (what a real implementation commit is guaranteed to do,
 # per commit-split.sh's own boundary, and what some unrelated commit
 # sitting just ahead of the plan commit is not), on top of the existing
 # reserved-subject-shape rejections. This is still a heuristic, not a
@@ -752,7 +752,7 @@ if [ -n "$REPO_ROOT" ]; then
   NAME_RE="$(printf '%s' "$NAME" | sed 's/\./\\./g')"
 
   ARCHIVE_SUBJECT_RE="^chore\\(spectre\\): archive ${NAME_RE}$"
-  PLAN_SUBJECT_RE_NEW='^chore\(spectre\): plan and session records'
+  PLAN_SUBJECT_RE_NEW='^chore\(spectre\): plan'
   PLAN_SUBJECT_RE_OLD="^chore\\(${NAME_RE}\\): plan(, test guide and| and) session records"
 
   ARCHIVE_SHA="$(git -C "$REPO_ROOT" log -E --grep="$ARCHIVE_SUBJECT_RE" \
@@ -771,7 +771,7 @@ if [ -n "$REPO_ROOT" ]; then
 
   # IMPL_SHA derived from PLAN_SHA's first parent (finding G): accepted
   # only when that parent is a non-merge commit touching at least one path
-  # outside spectre/changes/ and docs/superpowers/, and its subject matches none
+  # outside spectre/changes/, docs/research/ and docs/superpowers/, and its subject matches none
   # of the three reserved plan-/archive-shapes above. Anything else
   # resolves NOTHING rather than a confident wrong answer. The four
   # conditions themselves live in is_real_impl_commit, defined above.

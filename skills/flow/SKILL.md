@@ -20,7 +20,7 @@ known (which it already is by this point, per **Change name resolution**,
 staged research note** check, per its exact-filename rule:
 
 ```text
-research seed: found docs/superpowers/research/<key>.md — seeding brainstorm
+research seed: found docs/research/<key>.md — seeding brainstorm
              | none — planning inline in this session
 ```
 
@@ -273,7 +273,7 @@ one per mark or per phase file.
 - **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
   defines it. A deferred Minor is not open.
-- **Never** commit `<project>/spectre/changes/` or `<project>/docs/superpowers/` in a task or fixup
+- **Never** commit `<project>/spectre/changes/` or `<project>/docs/research/` in a task or fixup
   commit. **Never** push, merge, or open a PR outside the integrate/archive branches' own routes.
 - **Never** advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch

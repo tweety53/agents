@@ -42,11 +42,11 @@ new_repo() {
   git -C "$REPO" init -q
   git -C "$REPO" config user.email "test@example.com"
   git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/spectre/changes" "$REPO/spectre/specs" "$REPO/docs/superpowers"
+  mkdir -p "$REPO/spectre/changes" "$REPO/spectre/specs" "$REPO/docs/research"
   printf 'seed\n' > "$REPO/README.md"
   printf 'seed\n' > "$REPO/spectre/changes/seed.md"
   printf 'seed\n' > "$REPO/spectre/specs/seed.md"
-  printf 'seed\n' > "$REPO/docs/superpowers/seed.md"
+  printf 'seed\n' > "$REPO/docs/research/seed.md"
   git -C "$REPO" add -A
   git -C "$REPO" commit -q -m "seed"
 }
@@ -83,7 +83,7 @@ COUNT="$(git -C "$REPO" log --oneline | wc -l | tr -d ' ')"
 # 2. Implementation commit skipped when only planning paths changed.
 # ===========================================================================
 new_repo
-printf 'plan only\n' > "$REPO/docs/superpowers/only.md"
+printf 'plan only\n' > "$REPO/docs/research/only.md"
 set +e
 OUT="$("$SCRIPT" "$REPO" demo "impl: case2" "plan: case2" 2>&1)"
 RC=$?
@@ -146,7 +146,7 @@ esac
 # ===========================================================================
 # 5. A capability spec under spectre/specs/ is IMPLEMENTATION, not planning:
 #    it lands in the implementation commit, and the planning commit is
-#    skipped when nothing under spectre/changes/ or docs/superpowers/ moved.
+#    skipped when nothing under spectre/changes/ or docs/research/ moved.
 #    The counterpart half — spectre/changes/ still being planning — is
 #    cases 1 and 2 above.
 # ===========================================================================

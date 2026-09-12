@@ -587,17 +587,17 @@ func TestDestinationRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
 
 // TestDestinationRefusesADestinationOutsideTheRepoRoot inherits
 // preserve-session-records.sh's Protection 2. The directories under
-// docs/superpowers/ are ordinary tracked repository paths, editable in any
-// pull request: if one is a symlink, a renderer that simply joined the
-// path would write the record outside the repository entirely.
+// .superpowers/sdd/ are untracked but writable by anything running in the
+// worktree: if one is a symlink, a renderer that simply joined the path
+// would write the record outside the repository entirely.
 func TestDestinationRefusesADestinationOutsideTheRepoRoot(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "docs", "superpowers"), 0o755); err != nil {
-		t.Fatalf("mkdir docs/superpowers: %v", err)
+	if err := os.MkdirAll(filepath.Join(root, ".superpowers", "sdd"), 0o755); err != nil {
+		t.Fatalf("mkdir .superpowers/sdd: %v", err)
 	}
-	if err := os.Symlink(outside, filepath.Join(root, "docs", "superpowers", "ledgers")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(root, ".superpowers", "sdd", "ledgers")); err != nil {
 		t.Fatalf("symlink ledgers: %v", err)
 	}
 
@@ -621,7 +621,7 @@ func TestDestinationRefusesADestinationOutsideTheRepoRoot(t *testing.T) {
 // dated duplicate per round.
 func TestDestinationReusesAnExistingDatedFile(t *testing.T) {
 	root := t.TempDir()
-	dir := filepath.Join(root, "docs", "superpowers", "ledgers")
+	dir := filepath.Join(root, ".superpowers", "sdd", "ledgers")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir ledgers: %v", err)
 	}
@@ -656,15 +656,9 @@ func TestDestinationReusesAnExistingDatedFile(t *testing.T) {
 }
 
 // TestDestinationNamesThePanelRecordAsTheArchiveAlreadyDoes pins the
-// panel record's filename to the convention docs/superpowers/reviews/
-// already holds, `<date>-<change>-panel.md`, which is the suffix the
-// retired preserve-session-records.sh passed for that directory and which
-// every file already archived there carries.
-//
-// It is asserted rather than left to the renderer's constant because the
-// suffix is the only thing that decides whether a rendered record lands
-// beside its predecessors or opens a second naming convention inside one
-// archive directory -- the exact drift this change exists to remove.
+// panel record's filename to `<date>-<change>-panel.md`, the suffix the
+// retired preserve-session-records.sh passed for that directory and the
+// one gather-self-review-context.sh's dated search matches.
 func TestDestinationNamesThePanelRecordAsTheArchiveAlreadyDoes(t *testing.T) {
 	root := t.TempDir()
 	today := time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)

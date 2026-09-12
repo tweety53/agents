@@ -20,11 +20,11 @@ return or relay step in between.
 **Before starting the interactive checklist**, check for a note using this exact-filename rule —
 one `test -f`, never a glob, never inference:
 
-- **The change carries a linked Jira issue:** check `<project>/docs/superpowers/research/<jira-key-lowercased>.md`.
+- **The change carries a linked Jira issue:** check `<project>/docs/research/<jira-key-lowercased>.md`.
   This is the exact, mandatory shape `skills/flow-plan/SKILL.md`'s "Staging a Note" writes — see
   **The strict research-artifact path** there for why it is the only destination a keyed session
   ever writes.
-- **No linked issue:** check `<project>/docs/superpowers/research/<name>.md`, where `<name>` is the
+- **No linked issue:** check `<project>/docs/research/<name>.md`, where `<name>` is the
   change's own resolved (slug-only) name. This is the "slug derived from the topic itself" case
   `skills/flow-plan/SKILL.md` describes — an exact match only when the change's later slug happens
   to reuse the research session's own topic wording.
@@ -52,8 +52,8 @@ exactly as if no note existed — the note answers what it answers, and the chec
 what it does not, confirms what it does, and gives the operator a chance to correct it.
 
 **Exception: a fully-seeded note skips the checklist entirely.** When the found note carries all
-three of itself, a sibling `<project>/docs/superpowers/research/<stem>/tasks.md` and a sibling
-`<project>/docs/superpowers/research/<stem>/decision.json` (**A seeded plan
+three of itself, a sibling `<project>/docs/research/<stem>/tasks.md` and a sibling
+`<project>/docs/research/<stem>/decision.json` (**A seeded plan
 and decision ride with the note**, below), the interactive checklist and the merged
 convergence-and-approval confirm are both skipped: present the note's parsed structure as above,
 then continue directly into **C**. A note missing either sibling file — a note alone, or a note
@@ -78,11 +78,11 @@ round expanded on), still delete it once adopted: its useful content now lives i
 is the canonical location from that point on.
 
 **Carry the seeded note's path forward to C.** If a note was found and seeded above, remember its
-path (e.g. `<project>/docs/superpowers/research/kan-326.md`) — **C** deletes exactly that file and only when
+path (e.g. `<project>/docs/research/kan-326.md`) — **C** deletes exactly that file and only when
 this note-found condition holds.
 
-**A seeded plan and decision ride with the note.** `/flow-plan` writes `<project>/docs/superpowers/research/<stem>/tasks.md`
-and `<project>/docs/superpowers/research/<stem>/decision.json` beside a note, `<stem>` being the note's filename without
+**A seeded plan and decision ride with the note.** `/flow-plan` writes `<project>/docs/research/<stem>/tasks.md`
+and `<project>/docs/research/<stem>/decision.json` beside a note, `<stem>` being the note's filename without
 `.md` (**The plan and the decision**, `skills/flow-plan/SKILL.md`). When a note was found, test for
 each with one `test -f` on that exact path and carry the paths forward: **D** copies the plan in
 place of writing-plans, **Decide** records the decision in place of the roll, and **C** deletes the
@@ -105,10 +105,10 @@ changes.
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
-- Save the design to `<project>/.worktrees/<name>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` — the
-  worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`) — and stage it there when
-  the brainstorming skill requires it; never commit it here, and never write it to the main
-  checkout.
+- Save the design to `<project>/.worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
+  worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
+  path is gitignored: never stage or commit it, even where the brainstorming skill says to, and
+  never write it to the main checkout.
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
   asked.
@@ -234,8 +234,8 @@ task's `**Files:**` field — the implementer writes and commits it on the chang
 task's own commit.
 
 **Delete the adopted staging note, if one was seeded.** If **B** found and seeded a staging note,
-delete that same path (`<project>/docs/superpowers/research/<jira-key-lowercased>.md` or `<name>.md`, per which
-branch of **B**'s discovery rule matched) now — and its `<project>/docs/superpowers/research/<stem>/` directory beside it when one
+delete that same path (`<project>/docs/research/<jira-key-lowercased>.md` or `<name>.md`, per which
+branch of **B**'s discovery rule matched) now — and its `<project>/docs/research/<stem>/` directory beside it when one
 exists — alongside creating the three artifacts above, and stage the deletion in the same commit.
 Skip this step outright when **B** found no note to seed from.
 
@@ -295,7 +295,7 @@ session: the writing-plans enrichment and the guards at the end of this section 
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**A seeded plan replaces the invocation below.** When **B** carried `<project>/docs/superpowers/research/<stem>/tasks.md`, copy it to
+**A seeded plan replaces the invocation below.** When **B** carried `<project>/docs/research/<stem>/tasks.md`, copy it to
 `<changeRoot>/tasks.md`, fold in whatever the checklist round changed — never adopt it blind — and
 skip **superpowers:writing-plans**; the guards at the end of this section still run on the copy.
 Otherwise:
@@ -384,7 +384,7 @@ declares them, and fix any hit.
 
 ### Decide
 
-**A seeded decision replaces the roll.** When **B** carried `<project>/docs/superpowers/research/<stem>/decision.json`, copy it
+**A seeded decision replaces the roll.** When **B** carried `<project>/docs/research/<stem>/decision.json`, copy it
 unchanged to the decision path named below, print its `## Decision` block with the line
 `seeded from <path>` directly above it, and skip `plan-class.sh` and steps 1–4: its rolls were
 seeded from `<stem>` rather than `<name>`, and the written decision is the one this run records.

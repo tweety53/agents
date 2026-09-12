@@ -21,9 +21,10 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Panel record | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Self-review context bundle | run 2 step 9, on `defer` | `<project>/docs/self-review/<name>-context.md`, committed on `chore/archive-<name>` | `/flow-self-review <name>`, in the same commit as the report |
 | SDD ledger | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
-| Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
+| Rendered ledger and panel record | `flow record render` | `<abs-worktree>/.superpowers/sdd/` in the worktree; again under `<landing-worktree>` at run 2 step 9, for the self-review bundle | with the worktree, at run 2; with the landing worktree, at run 2 step 11 |
+| Brainstorm design document | `/flow`'s creating run | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Dispatch context bundle | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Proposal artifact source | `/flow`'s creating run | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
+| Proposal artifact source | `/flow`'s creating run | the state directory | run 2, unconditionally |
 | Worktree | `/flow`'s `flow.kickoff` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
@@ -50,18 +51,11 @@ never left unaccounted for on the grounds that something probably removes it. Se
 artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for the incident that
 established this.
 
-**Where the proposal artifact source comes from, and what produces the copy its row tests.**
-`/flow`'s creating run writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish
-to the same URL, and the preserved copy its row requires lives under
-`<project>/docs/superpowers/artifacts/`. **Finish run 1 is what puts it there**, by copying it before
-it stages — see **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract-run1.md`), which is canonical for that copy, for the change-name
-and containment checks it makes first, and for the skip when a change published no artifact. The
-condition is therefore reachable in both directions: a change whose artifact run 1 copied is deleted
-at run 2, and a `/flow-fast` change, which publishes none, is not. No preserved copy → leave the
-file and say so. The deletion is disclosed the same way the worktree removal is. See **Temporary
-artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for why the row is
-conditional.
+**The proposal artifact source is not a record.** `/flow`'s creating run writes
+`<state-dir>/<name>-proposal-artifact.html` so a revision round can republish to the same URL; the
+published page outlives the file, and nothing in the repository preserves a copy. Run 2 deletes it
+whether or not it exists — a `/flow-fast` change, which publishes none, has nothing to delete and
+says so. The deletion is disclosed the same way the worktree removal is.
 
 **The workspace row belongs only to a project that declares isolation, and for every other project
 it is a row about nothing — which is why it names no database, no bucket and no service.** A project

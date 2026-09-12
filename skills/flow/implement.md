@@ -472,7 +472,7 @@ Every implementer dispatch **must** carry:
 > your work with `git commit`, carrying a `Task-Id: <n>` trailer. The trailer identifies the task;
 > the subject is this task's declared `**Commit:**` field, reproduced exactly. **Never weaken or
 > bypass a project's commit validation to fit** — no `--no-verify`. You **may** `git add`/`git
-> commit` your own work, but never `<project>/spectre/changes/` or `<project>/docs/superpowers/`.
+> commit` your own work, but never `<project>/spectre/changes/` or `<project>/docs/research/`.
 > **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
 > `**Files:**` names one, edit it and commit it here, in this task's own commit.
 

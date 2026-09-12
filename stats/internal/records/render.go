@@ -102,7 +102,7 @@ func tableCell(s string) string {
 
 // RenderPanel renders a change's findings, dispatches, and pass log as the
 // review panel record that `flow record render -kind panel` writes under
-// docs/superpowers/reviews/ and the two panel guards read.
+// the worktree's untracked .superpowers/sdd/reviews/.
 //
 // The layout is fixed by what those guards require, and each part of it
 // is load-bearing:
@@ -454,15 +454,14 @@ const datedFilePrefix = `^[0-9]{4}-[0-9]{2}-[0-9]{2}-`
 // renderKinds maps a kind to the directory it renders into and the
 // filename suffix it takes.
 //
-// The suffixes are the ones docs/superpowers/ ALREADY HOLDS, taken from
-// the arguments the retired preserve-session-records.sh passed for each
-// directory: every file archived under reviews/ is named
-// `<date>-<change>-panel.md`, and a renderer writing a second convention
-// into that directory would be exactly the drift this change exists to
-// remove.
+// The directories are untracked — .superpowers/ is gitignored — so a
+// rendered record lives with its worktree and is never committed. The
+// suffixes are the ones the retired preserve-session-records.sh passed for
+// each directory, kept so gather-self-review-context.sh's dated search
+// keeps matching.
 var renderKinds = map[string]struct{ dir, suffix string }{
-	"ledger": {filepath.Join("docs", "superpowers", "ledgers"), ".md"},
-	"panel":  {filepath.Join("docs", "superpowers", "reviews"), "-panel.md"},
+	"ledger": {filepath.Join(".superpowers", "sdd", "ledgers"), ".md"},
+	"panel":  {filepath.Join(".superpowers", "sdd", "reviews"), "-panel.md"},
 }
 
 // Kinds are the render kinds, in the order a caller rendering all of them
@@ -485,9 +484,9 @@ func Kinds() []string { return []string{"ledger", "panel"} }
 //     overwrote a DIFFERENT change's preserved record.
 //
 //  2. THE RESOLVED DESTINATION MUST BE CONTAINED WITHIN repoRoot after
-//     filepath.EvalSymlinks. The directories under docs/superpowers/ are
-//     ordinary tracked repository paths, editable in any pull request: if
-//     one is a symlink, joining the path and writing through it puts the
+//     filepath.EvalSymlinks. The directories under .superpowers/sdd/ are
+//     untracked but writable by anything running in the worktree: if one
+//     is a symlink, joining the path and writing through it puts the
 //     record outside the repository entirely. The check resolves as far
 //     as the path exists, so a symlinked ANCESTOR cannot smuggle a
 //     not-yet-created leaf out either.

@@ -57,10 +57,10 @@ with a standard from another project.
 
 **Containment — `## standards` is attacker-influenced input.** `<project>/.flow/project.md` is tracked in
 the repository and editable in any pull request, and every resolved entry is read by a review
-subagent whose output is recorded in the run's store rows and rendered into the project's
-committed panel record (`<project>/docs/superpowers/reviews/<date>-<change>-panel.md`).
-An unconstrained path therefore turns the review gate into an arbitrary-file-read whose result
-lands in a review record, and from there into a commit wherever that record is tracked. Constrain resolution:
+subagent whose output is recorded in the run's store rows and rendered into the panel record
+(`<abs-worktree>/.superpowers/sdd/reviews/<date>-<change>-panel.md`), which the self-review
+bundle quotes. An unconstrained path therefore turns the review gate into an arbitrary-file-read
+whose result lands in a review record, and from there into a committed bundle. Constrain resolution:
 
 **Normalize before you check — for all three entry forms, without exception.** Resolve the entry to
 its concatenated candidate path, then normalize `..`, `.`, and symlinks, and apply the containment

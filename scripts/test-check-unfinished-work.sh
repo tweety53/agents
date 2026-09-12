@@ -9,7 +9,7 @@
 # `record findings -change <name> [-C <dir>]` with a canned JSON array (the
 # shape `flow record findings` itself prints -- one object per finding with
 # `ref`, `status`, `reproducer`), or exits non-zero to simulate a store the
-# guard could not reach. No case writes a docs/superpowers/reviews/*-panel.md
+# guard could not reach. No case writes a .superpowers/sdd/reviews/*-panel.md
 # file any more; that path, and the marker-line grammar signal two used to
 # parse out of it, are retired by this rewrite. SIGNAL ONE (the tasks.md
 # checkbox count) AND ITS FIXTURES ARE COMPLETELY UNTOUCHED -- it never read
@@ -63,7 +63,7 @@
 #   - the missing-panel-record case and the record-location group (the
 #     record read from the old sdd path, another change's dated record, an
 #     undated file, the earliest of two dated records) -- all exercise
-#     `panel_record_path`'s glob-matching over `docs/superpowers/reviews`,
+#     `panel_record_path`'s glob-matching over `.superpowers/sdd/reviews`,
 #     which task 8 deletes outright along with the function itself. A change
 #     the store has never heard of now answers `[]` at exit 0 (task 4's
 #     `ErrNotFound` branch) -- exactly the "zero findings" case below, not a
@@ -447,7 +447,7 @@ assert_verdict "CLEAR:" "a store with no findings for this run is CLEAR"
 #
 #     THIS CASE FAILS UNTIL TASK 8 LANDS, on purpose: today's guard still
 #     resolves a rendered Markdown file, finds none (this sandbox writes no
-#     docs/superpowers/reviews/*-panel.md), and reports "no review panel
+#     .superpowers/sdd/reviews/*-panel.md), and reports "no review panel
 #     record for ..." as one OUTSTANDING reason at exit 0 -- the wrong exit
 #     code and the wrong wording, so it correctly fails now and will only
 #     pass once task 8's guard actually calls flow and surfaces its

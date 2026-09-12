@@ -15,7 +15,7 @@
 #   --apply    execute; without it, print what would run and change nothing
 #   repo-dir   defaults to the caller's cwd; must be a git repository
 #   path...    planning paths to restore, relative to the repo root;
-#              defaults to `docs/superpowers` and `spectre/changes`
+#              defaults to `docs/research` and `spectre/changes`
 #
 # Exit 0 on a printed dry-run plan or a completed apply; 1 on a failed
 # precondition (cause on stderr, stdout empty); 2 on a usage error — an
@@ -49,7 +49,7 @@ usage() {
   printf 'usage: %s [--apply] [repo-dir] [path...]\n' "$SELF"
   printf '  --apply    execute; default is a dry-run plan\n'
   printf '  repo-dir   git repository, default cwd\n'
-  printf '  path...    planning paths, repo-root-relative; default docs/superpowers spectre/changes\n'
+  printf '  path...    planning paths, repo-root-relative; default docs/research spectre/changes\n'
 }
 
 APPLY=0
@@ -70,7 +70,7 @@ fi
 REPO="$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)" \
   || die "not a git repository: $DIR" 2
 
-[ "$#" -gt 0 ] || set -- docs/superpowers spectre/changes
+[ "$#" -gt 0 ] || set -- docs/research spectre/changes
 
 git -C "$REPO" rev-parse -q --verify REVERT_HEAD >/dev/null 2>&1 \
   || die "no revert in progress in $REPO (REVERT_HEAD missing) — nothing to recover"

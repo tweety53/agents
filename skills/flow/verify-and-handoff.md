@@ -404,7 +404,7 @@ git -C <worktree> status
 git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> **`<project>/spectre/changes/` and `<project>/docs/superpowers/` are never part of a task
+> **`<project>/spectre/changes/` and `<project>/docs/research/` are never part of a task
 > commit.** `<project>/spectre/specs/` is not one of them — a capability spec belongs in the task
 > commit that implements its requirement. This step only confirms nothing slipped in.
 
@@ -413,10 +413,10 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 **The one planning-commit exception.** Every task and fixup commit already sits on the branch,
 pushed as it landed (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). If the state
 file records a `prUrl`, a PR is already open, so this run also commits
-`<project>/spectre/changes/` and `<project>/docs/superpowers/` and pushes everything to the PR
+`<project>/spectre/changes/` and `<project>/docs/research/` and pushes everything to the PR
 branch; otherwise this step commits nothing more. On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <worktree>`; then `commit-split.sh <worktree>
-<name> "<impl-msg>" "chore(spectre): plan and session records"`; then push the branch
+<name> "<impl-msg>" "chore(spectre): plan"`; then push the branch
 `--force-with-lease`, since the split reshaped it. `<impl-msg>`
 covers working-tree edits the operator made at the human gate without staging them — derive it the
 same way a fixup commit's subject is derived — `fix(<module>): <what changed since the last task
@@ -657,7 +657,7 @@ orchestrates directly**, `skills/flow/implement.md`).
 ## Guardrails
 
 - **Commit per task and per fixup** — never `<project>/spectre/changes/` or
-  `<project>/docs/superpowers/` in a task or fixup commit. **Never push, merge, or open a PR** —
+  `<project>/docs/research/` in a task or fixup commit. **Never push, merge, or open a PR** —
   except the `prUrl` exception above.
 - **Never** run `finishing-a-development-branch`.
 - **Never** create a second worktree for the same change.

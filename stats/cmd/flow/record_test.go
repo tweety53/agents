@@ -851,7 +851,7 @@ func TestRecordRenderWritesBothFilesAndPrintsRendered(t *testing.T) {
 		t.Errorf("stdout = %q, want it to report rendered: <dest>", stdout.String())
 	}
 
-	ledgers, err := filepath.Glob(filepath.Join(repo, "docs", "superpowers", "ledgers", "*.md"))
+	ledgers, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "ledgers", "*.md"))
 	if err != nil {
 		t.Fatalf("glob ledgers: %v", err)
 	}
@@ -866,7 +866,7 @@ func TestRecordRenderWritesBothFilesAndPrintsRendered(t *testing.T) {
 		t.Errorf("rendered ledger does not name the dispatch's model:\n%s", body)
 	}
 
-	panels, err := filepath.Glob(filepath.Join(repo, "docs", "superpowers", "reviews", "*.md"))
+	panels, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "reviews", "*.md"))
 	if err != nil {
 		t.Fatalf("glob reviews: %v", err)
 	}
@@ -909,7 +909,7 @@ func TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing(t *testing.T)
 		t.Errorf("stdout = %q, want it to name the change", stdout.String())
 	}
 
-	got, err := filepath.Glob(filepath.Join(repo, "docs", "superpowers", "ledgers", "*"))
+	got, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "ledgers", "*"))
 	if err != nil {
 		t.Fatalf("glob ledgers: %v", err)
 	}
@@ -953,7 +953,7 @@ func TestRecordRenderPanelWithNoFindingsStillWritesTheRecord(t *testing.T) {
 		t.Errorf("stdout = %q, want it to report rendered: <dest>", stdout.String())
 	}
 
-	panels, err := filepath.Glob(filepath.Join(repo, "docs", "superpowers", "reviews", "*.md"))
+	panels, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "reviews", "*.md"))
 	if err != nil {
 		t.Fatalf("glob reviews: %v", err)
 	}
@@ -1035,7 +1035,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	if err := os.MkdirAll(sddDir, 0o755); err != nil {
 		t.Fatalf("mkdir sdd dir: %v", err)
 	}
-	panels, err := filepath.Glob(filepath.Join(repo, "docs", "superpowers", "reviews", "*.md"))
+	panels, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "reviews", "*.md"))
 	if err != nil {
 		t.Fatalf("glob reviews: %v", err)
 	}
@@ -1103,18 +1103,17 @@ func TestRecordRenderRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
 }
 
 // TestRecordRenderRefusesADestinationOutsideTheRepo pins the second path
-// protection inherited from preserve-session-records.sh: docs/superpowers/
-// is an ordinary tracked path, so a symlink placed there in a pull request
-// must not carry the render out of the repository.
+// protection inherited from preserve-session-records.sh: a symlink placed
+// under .superpowers/sdd/ must not carry the render out of the repository.
 func TestRecordRenderRefusesADestinationOutsideTheRepo(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	outside := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(repo, "docs", "superpowers"), 0o755); err != nil {
-		t.Fatalf("mkdir docs/superpowers: %v", err)
+	if err := os.MkdirAll(filepath.Join(repo, ".superpowers", "sdd"), 0o755); err != nil {
+		t.Fatalf("mkdir .superpowers/sdd: %v", err)
 	}
-	if err := os.Symlink(outside, filepath.Join(repo, "docs", "superpowers", "ledgers")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(repo, ".superpowers", "sdd", "ledgers")); err != nil {
 		t.Fatalf("symlink ledgers: %v", err)
 	}
 
@@ -1143,7 +1142,7 @@ func TestRecordRenderReusesTheFirstRendersDate(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	dir := filepath.Join(repo, "docs", "superpowers", "ledgers")
+	dir := filepath.Join(repo, ".superpowers", "sdd", "ledgers")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir ledgers: %v", err)
 	}

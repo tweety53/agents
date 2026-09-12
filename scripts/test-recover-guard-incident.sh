@@ -89,10 +89,10 @@ start_conflicting_revert() {
 # stash_planning_files -> the incident's stash: untracked planning files under
 # the tool's default paths, captured into stash@{0}'s third parent and gone
 # from the worktree afterwards. PLAN1/PLAN2 hold the contents asserted later.
-P1="docs/superpowers/plans/kan-423-plan.md"
+P1="docs/research/plans/kan-423-plan.md"
 P2="spectre/changes/kan-423/tasks.md"
 stash_planning_files() {
-  mkdir -p "$REPO/docs/superpowers/plans" "$REPO/spectre/changes/kan-423"
+  mkdir -p "$REPO/docs/research/plans" "$REPO/spectre/changes/kan-423"
   PLAN1='incident plan body
 '
   PLAN2='- restore the planning files
@@ -398,7 +398,7 @@ case "$OUT" in
   *) fail "case 10: custom path not anchored at $REPO: $OUT" ;;
 esac
 case "$OUT" in
-  *"stash@{0}^3:docs/superpowers"*) fail "case 10: custom path did not replace the defaults: $OUT" ;;
+  *"stash@{0}^3:docs/research"*) fail "case 10: custom path did not replace the defaults: $OUT" ;;
   *) pass "case 10: default paths absent from the plan" ;;
 esac
 
