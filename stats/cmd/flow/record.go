@@ -123,6 +123,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
                              [-reproducer cmd] [-dispatch-seq n] -note text
+                             [-supersedes F<n>] [-regression-of F<n>]
        flow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
        flow record findings [-addr url] [-timeout dur] [-C dir]
@@ -835,6 +836,14 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	// a finding no single dispatch raised leaves dispatch_id NULL, which
 	// design.md names as the legitimate case rather than a missing value.
 	dispatchSeq := fset.Int("dispatch-seq", 0, "the seq of the dispatch that raised it, where one did")
+	// Lineage (KAN-507): both flags name an EARLIER finding's ref in the
+	// same change. The store, not this command, is what refuses a link
+	// naming nothing -- the FK over (change_id, ref) knows what exists,
+	// where this validator cannot -- so the flags carry no validation
+	// here beyond emptiness, the same trust DispatchSeq's own flag places
+	// in the store's seq lookup.
+	supersedes := fset.String("supersedes", "", "an earlier finding's ref this one supersedes: the same defect re-raised (optional)")
+	regressionOf := fset.String("regression-of", "", "an earlier finding's ref whose fix caused this one (optional)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -864,14 +873,16 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	}
 
 	in := records.Finding{
-		Ref:        *ref,
-		Round:      *round,
-		Slot:       *slot,
-		Severity:   *severity,
-		Location:   *location,
-		Note:       *note,
-		Status:     *status,
-		Reproducer: *reproducer,
+		Ref:          *ref,
+		Round:        *round,
+		Slot:         *slot,
+		Severity:     *severity,
+		Location:     *location,
+		Note:         *note,
+		Status:       *status,
+		Reproducer:   *reproducer,
+		Supersedes:   *supersedes,
+		RegressionOf: *regressionOf,
 	}
 	if *dispatchSeq > 0 {
 		in.DispatchSeq = dispatchSeq

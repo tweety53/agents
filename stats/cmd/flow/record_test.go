@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // recordJournalEntries reads the record journal for repo's project key and
@@ -3008,6 +3009,73 @@ func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
 			}
 			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
 				t.Errorf("a caller mistake left a record journal behind")
+			}
+		})
+	}
+}
+
+// TestRecordFindingLineageFlags pins that `flow record finding`'s lineage
+// flags reach the recorded finding's wire shape: -supersedes and
+// -regression-of name earlier findings' refs, and the daemon receives them
+// under the JSON keys the store reads. Omitted flags record a finding
+// carrying no lineage, which is the ordinary shape of most findings.
+func TestRecordFindingLineageFlags(t *testing.T) {
+	cases := []struct {
+		name         string
+		args         []string
+		supersedes   string
+		regressionOf string
+	}{
+		{
+			name:       "supersedes only",
+			args:       []string{"-supersedes", "F1"},
+			supersedes: "F1",
+		},
+		{
+			name:         "regression-of only",
+			args:         []string{"-regression-of", "F3"},
+			regressionOf: "F3",
+		},
+		{
+			name:         "both links",
+			args:         []string{"-supersedes", "F1", "-regression-of", "F3"},
+			supersedes:   "F1",
+			regressionOf: "F3",
+		},
+		{
+			name: "neither flag",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			var body records.Finding
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"ref":"F5","round":1,"slot":"principles","severity":"major","note":"n","status":"open"}`))
+			}))
+			defer srv.Close()
+
+			args := []string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-507", "-ref", "F5", "-round", "1", "-slot", "principles",
+				"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh",
+				"-note", "the note"}
+			args = append(args, c.args...)
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+			}
+			if body.Supersedes != c.supersedes {
+				t.Errorf("recorded supersedes = %q, want %q", body.Supersedes, c.supersedes)
+			}
+			if body.RegressionOf != c.regressionOf {
+				t.Errorf("recorded regressionOf = %q, want %q", body.RegressionOf, c.regressionOf)
 			}
 		})
 	}
