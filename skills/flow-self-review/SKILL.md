@@ -96,8 +96,7 @@ re-checking rather than trusted from step 1 alone:
 ```
 
 A branch mismatch stops here — nothing is committed, pulled, or pushed. A rejected push leaves the
-commit local and this run names it — never retried around
-(`~/.claude/rules/no-direct-pushes-to-main.md`).
+commit local and this run names it — never retried around.
 
 ### 6. Report
 

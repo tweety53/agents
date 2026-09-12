@@ -163,8 +163,6 @@ declare_if_present "rules/design-mockups-are-specs.mdc" \
   "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
 declare_if_present "rules/never-touch-production.mdc" \
   "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
-declare_if_present "rules/no-direct-pushes-to-main.mdc" \
-  "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
 declare_if_present "skills/flow/engineering-principles.md" \
   "reviewer-prompt file, deliberately self-contained — cites principles-reviewer-prompt.md only via a Markdown link, a shape this guard's classifier does not scan"
 declare_if_present "commands/flow-plan.md" \

@@ -128,7 +128,6 @@ rules/kotlin-backend-development-standard.mdc 9641
 rules/lint-fix-priority.mdc 2961
 rules/flow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
-rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
 skills/flow-fast/SKILL.md 25925
 skills/flow-plan/SKILL.md 23290

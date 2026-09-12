@@ -319,8 +319,7 @@ runs the project's whole `## lint` and `## test` lists instead.
 - **merge and push**: `git -C <worktree> push origin <name>:<default-branch>`. A push the
   remote rejects (branch protection, a non-fast-forward) falls back to **open PR** below and
   says so. This route is the one place `/flow-fast` pushes to the default branch; a project whose
-  default branch is protected declares `open PR` instead
-  (`~/.claude/rules/no-direct-pushes-to-main.md`).
+  default branch is protected declares `open PR` instead.
 - **open PR**: `git -C <worktree> push --force-with-lease origin <name>`, then `gh pr create --base
   <default-branch> --head <name>` with the summary from section 5 as the body.
 - **manual**: `git -C <worktree> push --force-with-lease origin <name>`; print the branch name and the worktree path.

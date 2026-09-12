@@ -545,7 +545,6 @@ EXPECTED_ZERO_RULE_FILES=(
   "rules/dispatch-carries-the-baseline.mdc"
   "rules/lint-fix-priority.mdc"
   "rules/never-touch-production.mdc"
-  "rules/no-direct-pushes-to-main.mdc"
 )
 EXPECTED_ZERO_RULE_FILES_REASON="rule file — its own path citations (where present) sit in a Markdown table cell or plain prose, separated from any bold text by more than the adjacency window this guard's is_associated allows, or cite no path in a bold-adjacent shape at all"
 

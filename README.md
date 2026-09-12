@@ -23,7 +23,6 @@ agents-data/
 │   ├── flow-manual-review.mdc       ← flow trigger + contract pointers (always-on stub, installed globally)
 │   ├── lint-fix-priority.mdc          ← never suppress/bypass linters (always-on, installed globally)
 │   ├── never-touch-production.mdc     ← no route to a production system, ever (always-on)
-│   ├── no-direct-pushes-to-main.mdc   ← land on the integration branch, promote by PR (always-on)
 │   ├── be-brief.mdc                   ← answer at the length the question needs; prose only (always-on)
 │   ├── build-the-simplest-thing.mdc   ← complexity is opt-in (always-on)
 │   ├── dependency-versions.mdc        ← look up the current stable version before adding one (always-on)
