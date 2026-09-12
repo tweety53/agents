@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -49,6 +50,32 @@ func DefaultZcodeRolloutRoot() (string, error) {
 // never an error -- the same discipline ParseAssistantRecords applies to the
 // Claude transcript format.
 const recordTypeModelIO = "model_io"
+
+// rolloutSubagentSessionPrefix is the per-dispatch session id prefix ZCode
+// stamps on every rollout line a subagent dispatch produces (measured
+// 2026-09-12 against a live capture, model-io-sess_subagent_agent_<uuid>.jsonl):
+// one rollout file per dispatch, sessionId sess_subagent_agent_<uuid> on every
+// line, querySource "subagent", and the <uuid> byte-identical to the agentId
+// the dispatcher's Agent tool result returns -- which `flow record dispatch
+// begin -agent-id` already records on the dispatch row. That session id is
+// the per-dispatch identity cost attribution keys on, exactly, with no
+// timestamp inference involved (KAN-506): a record carrying it IS that
+// dispatch's spend, no matter how many sibling dispatches run concurrently.
+const rolloutSubagentSessionPrefix = "sess_subagent_agent_"
+
+// agentIDFromRolloutSessionID reports whether sessionID names a subagent
+// dispatch's own session and returns that dispatch's agent id -- the
+// dispatcher-side form (agent_<uuid>) the dispatches.agent_id column carries.
+// The mapping is prefix-stripping, not parsing: sess_ + subagent_ + the agent
+// id, so a main-session id (sess_<uuid>) and anything else simply do not
+// match.
+func agentIDFromRolloutSessionID(sessionID string) (string, bool) {
+	rest, ok := strings.CutPrefix(sessionID, rolloutSubagentSessionPrefix)
+	if !ok || rest == "" {
+		return "", false
+	}
+	return "agent_" + rest, true
+}
 
 // rawRolloutLine and its nested types are the minimal decode shape this
 // package needs from one rollout line. encoding/json drops everything else
@@ -121,6 +148,13 @@ type rawRolloutUsage struct {
 // CacheSplitKnown false and its cache-creation total in the unknown split
 // (Bucket.add), where store.Store.Price can see it -- and prices it exactly
 // under the flat-rate rule the store's own pricing rule provides.
+//
+// A line carrying a subagent dispatch's per-dispatch session id
+// (sess_subagent_agent_<uuid>, rolloutSubagentSessionPrefix) yields a record
+// marked IsSidechain with that dispatch's own agent id -- the identity
+// attribution keys on instead of the dispatch's time window, so concurrent
+// dispatches neither lose nor blend their figures (KAN-506). A main-session
+// line marks neither field, unchanged.
 func ParseRolloutRecords(complete []byte) []Record {
 	var out []Record
 	forEachRolloutLine(complete, func(raw rawRolloutLine) {
@@ -136,7 +170,7 @@ func ParseRolloutRecords(complete []byte) []Record {
 		if raw.Model != nil {
 			model = raw.Model.ModelID
 		}
-		out = append(out, Record{
+		rec := Record{
 			Timestamp: ts,
 			SessionID: raw.SessionID,
 			Model:     model,
@@ -146,7 +180,12 @@ func ParseRolloutRecords(complete []byte) []Record {
 				CacheReadInputTokens:     u.CacheReadTokens,
 				OutputTokens:             u.OutputTokens,
 			},
-		})
+		}
+		if agentID, ok := agentIDFromRolloutSessionID(raw.SessionID); ok {
+			rec.IsSidechain = true
+			rec.AgentID = agentID
+		}
+		out = append(out, rec)
 	})
 	return out
 }
