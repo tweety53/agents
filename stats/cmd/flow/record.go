@@ -55,6 +55,15 @@ var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner"
 // journal a write a replay could only ever be refused for a second time.
 var recordEfforts = []string{"low", "medium", "high", "default"}
 
+// recordCauses is the closed set `-cause` accepts on a dispatch end closed
+// `-outcome blocked`: environment (a stack or tool the environment would
+// not run), test-failure (a failing lint/test command), missing-fixture
+// (an absent fixture the verify needed). Checked before the store is ever
+// contacted, the recordEfforts precedent -- and a cause is refused with
+// any other outcome, so a row can never carry a cause its outcome does not
+// explain (KAN-510).
+var recordCauses = []string{"environment", "test-failure", "missing-fixture"}
+
 // validateFindingStatus judges a finding's status the way validateRole
 // judges -role, before the store is ever contacted: "open" and "fixed" are
 // the two terminal words, and "withdrawn" and "deferred" are each legal
@@ -108,8 +117,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -key key -session-token token -started-at rfc3339
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
-                             [-commit sha] [-outcome outcome] [-agent-id id]
-                             -ended-at rfc3339
+                             [-commit sha] [-outcome outcome] [-cause cause]
+                             [-agent-id id] -ended-at rfc3339
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -260,6 +269,13 @@ on "end" as well: on Claude Code the harness reports it at launch, so
 whatever "begin" recorded; omitted on "end", it leaves that value
 untouched -- an "end" that omits it never clears an identifier already
 recorded.
+
+-cause is why an end closed "-outcome blocked", one of: environment,
+test-failure, missing-fixture. It is required with -outcome blocked and
+refused with any other outcome -- a cause its outcome does not explain,
+or a block whose reason survives only as prose in a verify report, are the
+same defect (KAN-510): "three environment-caused blocks in one run" must
+be a query the store answers, not a footnote in one run's ledger.
 
 -session-token must be a literal, unique token this command writes -- never
 a shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
@@ -705,6 +721,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	commit := fset.String("commit", "", "the commit sha this dispatch produced")
 	outcome := fset.String("outcome", "", "how the dispatch ended, e.g. completed")
+	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
 	endedAt := fset.String("ended-at", "", "when the dispatch ended, RFC 3339 -- the instant its attribution window closes (required)")
 
@@ -717,6 +734,20 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		[2]string{"-ended-at", *endedAt},
 	) {
 		return 2
+	}
+	if *outcome == "blocked" && *cause == "" {
+		fmt.Fprintf(stderr, "flow: -cause is required when -outcome is blocked -- one of: %s\n", strings.Join(recordCauses, ", "))
+		return 2
+	}
+	if *cause != "" {
+		if *outcome != "blocked" {
+			fmt.Fprintf(stderr, "flow: -cause is only valid with -outcome blocked, not -outcome %q\n", *outcome)
+			return 2
+		}
+		if !slices.Contains(recordCauses, *cause) {
+			fmt.Fprintf(stderr, "flow: -cause %q is not one of: %s\n", *cause, strings.Join(recordCauses, ", "))
+			return 2
+		}
 	}
 	if err := validateSessionToken(*sessionToken); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
@@ -739,6 +770,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		Key:          *key,
 		CommitSHA:    *commit,
 		Outcome:      *outcome,
+		Cause:        *cause,
 		EndedAt:      ended,
 		AgentID:      *agentID,
 	}

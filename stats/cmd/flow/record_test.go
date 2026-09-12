@@ -818,6 +818,129 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 	})
 }
 
+// --- write-time validation: a blocked outcome's cause (KAN-510) ---
+
+// The cause tests share one call shape: every case below passes the same
+// minimal end request, varying only `-outcome` and `-cause`.
+func causeEndRun(t *testing.T, extra ...string) (int, bytes.Buffer, bytes.Buffer, bool, string) {
+	t.Helper()
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"verifier","model":"sonnet","endedAt":"2026-01-02T03:44:05Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause",
+		"-ended-at", "2026-01-02T03:44:05Z"}
+	args = append(args, extra...)
+	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+	return code, stdout, stderr, contacted, repo
+}
+
+// TestDispatchEndCauseRequired pins that `-outcome blocked` without a cause
+// is a caller mistake refused before the store is ever contacted: a blocked
+// outcome naming no cause is the prose footnote this flag exists to retire.
+func TestDispatchEndCauseRequired(t *testing.T) {
+	code, _, stderr, contacted, repo := causeEndRun(t, "-outcome", "blocked")
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for a blocked outcome with no cause -- it must be refused first")
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-510"); exists {
+		t.Error("a refused end wrote a record journal")
+	}
+}
+
+// TestDispatchEndCauseRejectedWithoutBlocked pins the other direction: a
+// cause is meaningful only beside a blocked outcome, so carrying one with
+// any other outcome is a caller mistake.
+func TestDispatchEndCauseRejectedWithoutBlocked(t *testing.T) {
+	for _, outcome := range []string{"completed", "stopped", "aborted", ""} {
+		t.Run("outcome="+outcome, func(t *testing.T) {
+			extra := []string{}
+			if outcome != "" {
+				extra = append(extra, "-outcome", outcome)
+			}
+			extra = append(extra, "-cause", "environment")
+			code, _, stderr, contacted, _ := causeEndRun(t, extra...)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for a cause with no blocked outcome -- it must be refused first")
+			}
+		})
+	}
+}
+
+// TestDispatchEndCauseUnknown pins the closed vocabulary: a cause outside
+// `environment`, `test-failure`, `missing-fixture` is refused before the
+// store is contacted, the recordRoles/recordEfforts precedent, and the
+// usage names the accepted set.
+func TestDispatchEndCauseUnknown(t *testing.T) {
+	code, _, stderr, contacted, _ := causeEndRun(t, "-outcome", "blocked", "-cause", "weather")
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an unrecognised cause -- it must be refused first")
+	}
+	for _, want := range []string{"environment", "test-failure", "missing-fixture"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr does not name the accepted cause %q:\n%s", want, stderr.String())
+		}
+	}
+}
+
+// TestDispatchEndCauseAccepted pins the happy path: `-outcome blocked`
+// with a cause from the set reaches the wire carrying it.
+func TestDispatchEndCauseAccepted(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"verifier","model":"sonnet","endedAt":"2026-01-02T03:44:05Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause",
+			"-outcome", "blocked", "-cause", "environment", "-ended-at", "2026-01-02T03:44:05Z"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+	}
+	if sent["cause"] != "environment" {
+		t.Errorf("cause = %v, want environment on the wire", sent["cause"])
+	}
+}
+
 // --- render ---
 
 // renderRunRecordJSON is the body a genuine daemon answers
