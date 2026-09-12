@@ -116,7 +116,7 @@ commands/flow-settings.md 1188
 commands/flow-status.md 1970
 commands/flow-fast.md 4054
 commands/flow.md 3874
-rules/agent-baseline.md 6883
+rules/agent-baseline.md 6739
 rules/be-brief.mdc 7782
 rules/build-the-simplest-thing.mdc 3660
 rules/commit-scope-is-the-module.mdc 2998
@@ -142,13 +142,13 @@ skills/flow/brainstorm-planner.md 40756
 skills/flow/bugbot-reviewer-prompt.md 7374
 skills/flow/engineering-principles.md 10732
 skills/flow/experimental/failure-modes.md 8931
-skills/flow/implement.md 62890
+skills/flow/implement.md 60323
 skills/flow/integrate.md 18602
 skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 73554
 skills/flow/security-reviewer-prompt.md 5730
 skills/flow/simple-reviewer-prompt.md 5780
-skills/flow/verify-and-handoff.md 58262
+skills/flow/verify-and-handoff.md 57996
 skills/flow-contracts/SKILL.md 9665
 skills/flow-contracts/artifacts-registry-rationale.md 6981
 skills/flow-contracts/artifacts-registry.md 8447

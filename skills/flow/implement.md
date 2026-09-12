@@ -21,8 +21,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 Sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` are **the parent's own work** — no resumed subagent runs
 `flow.load-context` through `flow.write-in-progress` on its behalf; the running session does it
-itself, in its own Bash and Read calls, `flow record`/`flow stage` marks, worktree add/remove,
-report reads and diff walks. Every "you" in those files addresses the parent. On a fix run,
+itself. Every "you" in those files addresses the parent. On a fix run,
 section **3** below runs first: the parent resolves the worktree from the state file's `worktrees`
 map, runs section 3's inline plan-append and Jira sync, then continues into load-context/isolate/
 sdd-tdd on the same session, with no dispatch in between. A fix run's stage order is therefore
@@ -64,9 +63,9 @@ other name — the KAN-449 run's six unrecorded subagents (four rogue panel-fix 
 **The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.
 
-**These five rows are the whole run's dispatch tree.** Every row's own prompt carries the NO
-DELEGATION paragraph (section **4** below, `skills/flow/review-panel.md`,
-`skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so nothing exists below these rows.
+Every row's own prompt carries the NO DELEGATION paragraph (section **4** below,
+`skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so
+nothing exists below these rows.
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
 — three definitions, one per effort, each carrying `effort:` and no `model:`, since the Agent
 tool's dispatch-time `model` parameter overrides a definition's `model` while `effort` has no
@@ -105,13 +104,6 @@ actually answered, options **Continue on `<the model the second handshake named>
 that running agent, no third dispatch — or **Stop the run**. **A mark or a record never blocks** —
 proceed on the handshake's outcome regardless of whether any `flow` call reached the store.
 
-This rule is cited, never restated, at every dispatch site in this pipeline: the implementer
-dispatch and the gated per-task reviewer dispatch below (the reviewer's line compared against its
-group's `model`, or `DEFAULT_MODEL` on a run with no groups); `skills/flow/review-panel.md`'s
-panel slot and panel-fix subagent dispatch;
-`skills/flow/verify-and-handoff.md`'s verifier dispatch (compared against `sonnet`, never
-`DEFAULT_MODEL`).
-
 **The return.** Once a dispatch's report file appears, read its verdict, print the change's own
 handoff or continue to the next stage, and close the record under whichever key is open:
 
@@ -149,11 +141,8 @@ these substitutions:
   sdd mode** — a session reviewing its own diff is not a review. Panel fixes and gated per-task
   review fixes are applied by the parent instead of a panel-fix subagent or a resumed implementer;
   the parent still runs every reproducer and the fix-diff walk
-  (`skills/flow/review-panel.md`) before recording a finding `fixed`. The parent's own permitted
-  dispatches inline are the closed list's panel-bundle, gated per-task-reviewer and verifier rows
-  alone
-  (**Dispatch sites — the parent's closed list** above); `flow.verify` runs inline for the parent
-  exactly as under `sdd` execution.
+  (`skills/flow/review-panel.md`) before recording a finding `fixed`. `flow.verify` runs inline
+  for the parent exactly as under `sdd` execution.
 - **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
   <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
   model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see
@@ -381,8 +370,7 @@ its bundles in plan order, one commit per task, carrying that task's own `Task-I
 task and its partner make one commit between them — and a `Build: red` task is bundled with, and
 commits with, the partner its `**Squash-with:**` field names.
 
-**Waves — concurrent dispatch of ready groups.** Inline (**Inline — the parent implements**
-above) runs bundles in plan order, never in waves. A group is ready when every id in the union of
+**Waves — concurrent dispatch of ready groups.** A group is ready when every id in the union of
 its bundles' `after <k>:` lines **that is not itself a task of one of the group's own bundles** has
 landed — committed and guard-passed, by direct commit or pick.
 **At most two implementer dispatches are in flight per wave**, on both `## execution mode` values.
@@ -509,8 +497,7 @@ Every implementer dispatch **must** also carry:
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
 The parent compares that line against `DEFAULT_MODEL` (or the run's session override) and
-applies **The handshake** stated above, unchanged: a first mismatch is a fallback plus one retry
-under `<key>-retry`; a second is a fallback plus `## Question`.
+applies **The handshake** stated above, unchanged.
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
@@ -595,9 +582,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    guard on top of it. (KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
    recovery.)
 3. **One message launches group N+2's implementer and, for every task whose gate fired, that
-   task's reviewer (below). The next Bash call records every launch's `begin`** —
-   the very next action after the launch returns, which is what "recorded immediately after the
-   launch returns" above requires.
+   task's reviewer (below). The next Bash call records every launch's `begin`**.
 
 **When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
@@ -687,9 +672,6 @@ suite` failure; the review panel's pre-work may share the last implementer's wai
 call. A report that records a full-suite failure ends your turn with `## Question` — the failing
 command and its output, verbatim — before `final-review.diff` is written: the panel never runs on
 a red branch, and the operator resolves it through a fix run.
-
-**Never end a turn with a child in flight** — wait for every implementer and reviewer launched
-before reporting a stage boundary or asking the operator anything.
 
 **Turn discipline.** A turn is spent only where an output must be read before the next action is
 chosen. Calls that do not depend on one another share one Bash call — every verdict printed, each

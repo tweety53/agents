@@ -70,7 +70,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
-			[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-task", "6", "-role", "implementer",
 				"-model", "unknown (agent-defined)", "-key", "task-6-implementer",
 				"-session-token", "mf-record-dispatch-ok",
@@ -254,7 +254,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 	}{
 		{
 			name: "dispatch",
-			args: []string{"record", "dispatch", "begin", "-change", "kan-258", "-task", "6",
+			args: []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258", "-task", "6",
 				"-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 				"-session-token", "mf-record-dispatch-journal", "-started-at", "2026-01-02T03:04:05Z"},
 			kind: "dispatch",
@@ -367,15 +367,15 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"dispatch begin without -model", []string{"record", "dispatch", "begin", "-change", "kan-258",
+		{"dispatch begin without -model", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
 			"-role", "implementer", "-key", "k1", "-session-token", "mf-record-missing-model",
 			"-started-at", "2026-01-02T03:04:05Z"}},
-		{"dispatch begin without -change", []string{"record", "dispatch", "begin",
+		{"dispatch begin without -change", []string{"record", "dispatch", "begin", "-agent-id", "none",
 			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-missing-change",
 			"-started-at", "2026-01-02T03:04:05Z"}},
-		{"dispatch begin without -started-at", []string{"record", "dispatch", "begin", "-change", "kan-258",
+		{"dispatch begin without -started-at", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
 			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-missing-started"}},
-		{"dispatch begin without -key", []string{"record", "dispatch", "begin", "-change", "kan-258",
+		{"dispatch begin without -key", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
 			"-role", "implementer", "-model", "opus", "-session-token", "mf-record-missing-key",
 			"-started-at", "2026-01-02T03:04:05Z"}},
 		{"dispatch end without -key", []string{"record", "dispatch", "end", "-change", "kan-258",
@@ -427,7 +427,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "architect", "-model", "opus", "-key", "k1",
 			"-session-token", "mf-record-unknown-role", "-started-at", "2026-01-02T03:04:05Z"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -466,7 +466,7 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "planner", "-model", "opus", "-key", "k1",
 			"-session-token", "mf-record-planner-role", "-started-at", "2026-01-02T03:04:05Z"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -497,7 +497,7 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "conductor", "-model", "sonnet", "-key", "conductor",
 			"-session-token", "mf-record-conductor-role", "-started-at", "2026-01-02T03:04:05Z"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -528,7 +528,7 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "k1",
 			"-session-token", "mf-record-verifier-role", "-started-at", "2026-01-02T03:04:05Z"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -560,7 +560,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "k1",
 			"-session-token", "mf-$(date +%s)", "-started-at", "2026-01-02T03:04:05Z"},
 		strings.NewReader(""), &stdout, &stderr)
@@ -598,13 +598,14 @@ func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 	}
 }
 
-// TestRecordDispatchSendsAgentIDOnlyWhenGiven pins the optional -agent-id
-// flag in both of its states, which are two ordinary states rather than a
-// good one and a degraded one: Claude Code exposes a subagent identifier
-// and the flag carries it, while Cursor and Codex expose none at all and
-// the dispatch is recorded without one.
+// TestRecordDispatchSendsAgentIDOnlyWhenGiven pins the required -agent-id
+// flag in its three states: Claude Code exposes a subagent identifier and
+// the flag carries it; Cursor and Codex expose none at all and the caller
+// passes the literal "none", recorded as no id; and a begin that omits the
+// flag is a caller mistake, exit 2, because an unattributable dispatch is
+// what this flag exists to prevent.
 //
-// The absent case asserts the key is missing from the body, not that it is
+// The "none" case asserts the key is missing from the body, not that it is
 // empty. "" means "not reported" and must never match another absent id
 // during attribution, so a wire form that spelled absence as a present,
 // empty value would be a value the daemon could store and the attributor
@@ -655,10 +656,24 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 		}
 	})
 
-	t.Run("omitted", func(t *testing.T) {
-		sent := send(t)
+	t.Run("none", func(t *testing.T) {
+		sent := send(t, "-agent-id", "none")
 		if v, ok := sent["agentId"]; ok {
 			t.Errorf("agentId = %v, want the key absent -- an unreported id is absence, not an empty value", v)
+		}
+	})
+
+	t.Run("omitted", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), dispatchArgs(repo, "http://127.0.0.1:1"),
+			strings.NewReader(""), &stdout, &stderr)
+		if code != 2 {
+			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "-agent-id is required") {
+			t.Errorf("stderr = %q, want it to name -agent-id as required", stderr.String())
 		}
 	})
 }
@@ -685,7 +700,7 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 	}))
 	defer srv.Close()
 
-	args := []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+	args := []string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-principles",
 		"-session-token", "mf-record-diff-base", "-started-at", "2026-01-02T03:04:05Z"}
 
@@ -1398,7 +1413,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
 			"-key", "task-6-implementer", "-session-token", "mf-record-pair",
 			"-started-at", "2026-01-02T03:04:05Z"},
@@ -2694,7 +2709,7 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
-		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "extreme",
 			"-key", "k1", "-session-token", "mf-record-unknown-effort", "-started-at", "2026-01-02T03:04:05Z"},
 		strings.NewReader(""), &stdout, &stderr)
