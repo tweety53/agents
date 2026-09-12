@@ -143,7 +143,7 @@ func (f *fakeStore) UpsertFinding(_ context.Context, projectKey, change string, 
 // SetFindingStatus rewrites one finding's status and nothing else, and
 // reports store.ErrFindingNotFound for a ref the change holds no finding
 // under -- the condition the handler must answer 404 to rather than 500.
-func (f *fakeStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status string) error {
+func (f *fakeStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status, category string) error {
 	f.recordCalls++
 	if f.setFindingStatusErr != nil {
 		return f.setFindingStatusErr
@@ -152,6 +152,7 @@ func (f *fakeStore) SetFindingStatus(_ context.Context, projectKey, change, ref,
 		r := &f.findings[i]
 		if r.projectKey == projectKey && r.changeName == change && r.finding.Ref == ref {
 			r.finding.Status = status
+			r.finding.Category = category
 			return nil
 		}
 	}

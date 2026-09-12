@@ -24,7 +24,7 @@ type RecordWriter interface {
 	RecordDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error)
 	EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error)
 	UpsertFinding(ctx context.Context, projectKey, change string, in records.Finding) (records.Finding, bool, error)
-	SetFindingStatus(ctx context.Context, projectKey, change, ref, status string) error
+	SetFindingStatus(ctx context.Context, projectKey, change, ref, status, category string) error
 
 	// RecordDecision and ListDecisions carry one run's dynamic decision --
 	// the whole `## Decision` block a plan return appends -- the same way
@@ -199,7 +199,8 @@ func ApplyMutationRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 	return rw.RecordMutation(ctx, projectKey, change, in)
 }
 
-// ApplyFindingStatus rewrites one finding's status against rw.
+// ApplyFindingStatus rewrites one finding's status, and its deferral
+// category, against rw.
 //
 // ref is deliberately not checked for emptiness, where status is: an empty
 // ref is already answered correctly one layer down, by an UPDATE that
@@ -207,12 +208,14 @@ func ApplyMutationRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 // route, a definitive refusal on replay. A check here would move that
 // answer without improving it. An empty *status* has no such backstop: the
 // column is NOT NULL, which an empty string satisfies, so it would be
-// written.
-func ApplyFindingStatus(ctx context.Context, rw RecordWriter, projectKey, change, ref, status string) error {
+// written. The category is not checked here at all: an empty category is
+// the ordinary category-less write, and which non-empty words are legal is
+// the CLI validator's judgment, the same split -status's own shape takes.
+func ApplyFindingStatus(ctx context.Context, rw RecordWriter, projectKey, change, ref, status, category string) error {
 	if status == "" {
 		return fmt.Errorf("%w: status is required", ErrInvalidRecord)
 	}
-	return rw.SetFindingStatus(ctx, projectKey, change, ref, status)
+	return rw.SetFindingStatus(ctx, projectKey, change, ref, status, category)
 }
 
 // ApplyVerdictRecord records one guard's verdict against rw, refusing a
@@ -403,7 +406,7 @@ func (h *recordHandler) setFindingStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := ApplyFindingStatus(r.Context(), h.store, project, change, ref, req.Status); err != nil {
+	if err := ApplyFindingStatus(r.Context(), h.store, project, change, ref, req.Status, ""); err != nil {
 		if errors.Is(err, ErrInvalidRecord) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return

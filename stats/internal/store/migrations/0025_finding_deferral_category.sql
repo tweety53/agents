@@ -1,0 +1,22 @@
+-- 0025_finding_deferral_category.sql: a deferral's structured category,
+-- beside the free-text reason its status already carries.
+--
+-- KAN-459's deferred-Minor rate was a hand count: every deferred finding's
+-- free-text reason had to be read and classified by a person before the
+-- number existed. The category column is that classification, recorded
+-- where the deferral is recorded so the next rate is a query rather than a
+-- read-through.
+--
+-- Nullable, with no default: an open or fixed finding carries no category,
+-- and a deferral written before this column existed -- or written without
+-- naming one -- reads back NULL, which is "not classified", never an
+-- invented word. SetFindingStatus sets and clears the column together with
+-- the status it belongs to, and the store refuses a non-empty category
+-- whose status is not deferred, the same cross-column shape its Minor-only
+-- rule gives the deferral status itself.
+--
+-- The vocabulary is the CLI's to enforce (doc-only, pre-existing, cosmetic,
+-- coverage-gap, out-of-scope, other), exactly as -status's own shape is:
+-- an unrecognised word is a caller mistake, judged before the store is ever
+-- contacted, not a schema constraint.
+ALTER TABLE findings ADD COLUMN IF NOT EXISTS deferral_category TEXT;

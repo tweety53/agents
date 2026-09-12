@@ -40,7 +40,7 @@ func (nopRecordStore) UpsertFinding(context.Context, string, string, records.Fin
 	return records.Finding{}, false, errRecordStoreNotExercised
 }
 
-func (nopRecordStore) SetFindingStatus(context.Context, string, string, string, string) error {
+func (nopRecordStore) SetFindingStatus(context.Context, string, string, string, string, string) error {
 	return errRecordStoreNotExercised
 }
 
@@ -253,7 +253,7 @@ func (f *fakeRecordStore) RetireHazard(_ context.Context, projectKey, name strin
 	return records.Hazard{}, nil
 }
 
-func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status string) error {
+func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status, _ string) error {
 	f.record(fmt.Sprintf("status %s/%s ref=%s status=%s", projectKey, change, ref, status))
 	return nil
 }

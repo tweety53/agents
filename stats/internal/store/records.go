@@ -41,6 +41,15 @@ var ErrDeferredNotMinor = errors.New("store: deferred status is Minor-only")
 // guesswork this column exists to end.
 var ErrFindingLinkInvalid = errors.New("store: finding lineage link is invalid")
 
+// ErrCategoryNotDeferred is returned by SetFindingStatus and UpsertFinding
+// when a non-empty deferral category rides on a status that is not
+// `deferred`. The category names the mechanism a finding was deferred for
+// (0025_finding_deferral_category.sql), so on any other status it is a
+// contradiction rather than a value -- refused here, where this package's
+// own cross-column rules live, so neither the route nor a replayed write
+// can land one.
+var ErrCategoryNotDeferred = errors.New("store: deferral category is deferred-only")
+
 // ErrDispatchNotFound is returned by MergeDispatchMetrics when no dispatch
 // exists under the given id, and by EndDispatch when the change holds no
 // dispatch under the given session token and key.
@@ -406,6 +415,15 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 // instead of quietly matching some other unique index that happens to cover
 // the same columns.
 //
+// A finding recorded with a deferral category whose status is not
+// `deferred` is refused with ErrCategoryNotDeferred before the statement
+// runs: the category names the mechanism a finding was deferred for, so on
+// any other status it is a caller contradiction, the same shape of mistake
+// the store's Minor-only rule refuses one layer out. The conflict update
+// rewrites the column from EXCLUDED like every other restated field, so a
+// fix round restating F1 as fixed clears a category an earlier deferral
+// had set.
+//
 // dispatch_id is resolved from in.DispatchSeq in the same statement, by a
 // scalar subquery over the same change's dispatches. Seq is the only
 // identifier a caller has -- the row id is this package's own bookkeeping,
@@ -423,18 +441,23 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 		reproducer  *string
 		supersedes  *string
 		regression  *string
+		category    *string
 		created     bool
 	)
 
+	if in.Category != "" && !strings.HasPrefix(in.Status, "deferred") {
+		return records.Finding{}, false, fmt.Errorf("%w: %s in %s/%s", ErrCategoryNotDeferred, in.Ref, projectKey, change)
+	}
+
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO findings (
-			change_id, dispatch_id, ref, round, slot, severity, location, note, status, reproducer,
+			change_id, dispatch_id, ref, round, slot, severity, location, note, status, deferral_category, reproducer,
 			supersedes, regression_of
 		)
 		SELECT
 			c.id,
 			(SELECT d.id FROM dispatches d WHERE d.change_id = c.id AND d.seq = $4::int),
-			$3, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$3, $5, $6, $7, $8, $9, $10, $12, $11, $13, $14
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+findingsRefConstraint+` DO UPDATE SET
@@ -445,20 +468,21 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 			location      = EXCLUDED.location,
 			note          = EXCLUDED.note,
 			status        = EXCLUDED.status,
+			deferral_category = EXCLUDED.deferral_category,
 			reproducer    = EXCLUDED.reproducer,
 			supersedes    = EXCLUDED.supersedes,
 			regression_of = EXCLUDED.regression_of
 		RETURNING
 			ref,
 			(SELECT d.seq FROM dispatches d WHERE d.id = findings.dispatch_id),
-			round, slot, severity, location, note, status, reproducer, supersedes, regression_of,
+			round, slot, severity, location, note, status, deferral_category, reproducer, supersedes, regression_of,
 			xmax = 0
 	`,
 		projectKey, change, in.Ref, in.DispatchSeq, in.Round, in.Slot, in.Severity,
 		nullIfEmpty(in.Location), in.Note, in.Status, nullIfEmpty(in.Reproducer),
-		nullIfEmpty(in.Supersedes), nullIfEmpty(in.RegressionOf),
+		nullIfEmpty(in.Category), nullIfEmpty(in.Supersedes), nullIfEmpty(in.RegressionOf),
 	).Scan(&out.Ref, &dispatchSeq, &out.Round, &out.Slot, &out.Severity, &location,
-		&out.Note, &out.Status, &reproducer, &supersedes, &regression, &created)
+		&out.Note, &out.Status, &category, &reproducer, &supersedes, &regression, &created)
 	if err != nil {
 		// A lineage link the change cannot honour is the caller's typo,
 		// not the store's failure: the FK refuses a ref the change does
@@ -488,16 +512,23 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 	out.DispatchSeq = dispatchSeq
 	out.Location = derefOrEmpty(location)
 	out.Reproducer = derefOrEmpty(reproducer)
+	out.Category = derefOrEmpty(category)
 	out.Supersedes = derefOrEmpty(supersedes)
 	out.RegressionOf = derefOrEmpty(regression)
 	return out, created, nil
 }
 
-// SetFindingStatus updates one finding's status and nothing else -- the
-// whole of what a fix round changes about a finding it has resolved. A ref
-// the change holds no finding under is ErrFindingNotFound, not a silent
-// no-op, so a caller's typo is reported rather than looking like a
-// successful update.
+// SetFindingStatus updates one finding's status and its deferral category,
+// and nothing else -- the whole of what a fix round changes about a finding
+// it has resolved. A ref the change holds no finding under is
+// ErrFindingNotFound, not a silent no-op, so a caller's typo is reported
+// rather than looking like a successful update.
+//
+// The category rides beside a `deferred <reason>` status and nowhere else:
+// a non-empty category on any other status is refused with
+// ErrCategoryNotDeferred before the statement runs, and a category-less
+// call clears whatever an earlier deferral wrote, since the column's only
+// meaning is the one its status gives it.
 //
 // A `deferred <reason>` status carries the extra `AND f.severity ILIKE 'Minor'`
 // clause design.md's `deferred <reason>` section requires, so the update
@@ -510,19 +541,23 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 // SELECT distinguishes the two: a row found is ErrDeferredNotMinor, no row
 // is ErrFindingNotFound, the same sentinel every other status's zero-row
 // case already returns.
-func (s *Store) SetFindingStatus(ctx context.Context, projectKey, change, ref, status string) error {
+func (s *Store) SetFindingStatus(ctx context.Context, projectKey, change, ref, status, category string) error {
 	deferred := strings.HasPrefix(status, "deferred")
+
+	if category != "" && !deferred {
+		return fmt.Errorf("%w: %s in %s/%s", ErrCategoryNotDeferred, ref, projectKey, change)
+	}
 
 	query := `
 		UPDATE findings f
-		SET status = $4
+		SET status = $4, deferral_category = $5
 		FROM changes c
 		WHERE c.id = f.change_id AND c.project_key = $1 AND c.name = $2 AND f.ref = $3`
 	if deferred {
 		query += ` AND f.severity ILIKE 'Minor'`
 	}
 
-	tag, err := s.pool.Exec(ctx, query, projectKey, change, ref, status)
+	tag, err := s.pool.Exec(ctx, query, projectKey, change, ref, status, nullIfEmpty(category))
 	if err != nil {
 		return fmt.Errorf("store: set finding %s status for %s/%s: %w", ref, projectKey, change, err)
 	}
@@ -1089,7 +1124,7 @@ func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.D
 // identifier the wire shape carries; the row id never leaves this package.
 func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Finding, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.reproducer,
+		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.deferral_category, f.reproducer,
 		       f.supersedes, f.regression_of
 		FROM findings f
 		LEFT JOIN dispatches d ON d.id = f.dispatch_id
@@ -1110,14 +1145,16 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 			reproducer  *string
 			supersedes  *string
 			regression  *string
+			category    *string
 		)
 		if err := rows.Scan(&f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
-			&f.Note, &f.Status, &reproducer, &supersedes, &regression); err != nil {
+			&f.Note, &f.Status, &category, &reproducer, &supersedes, &regression); err != nil {
 			return nil, fmt.Errorf("read findings: scan: %w", err)
 		}
 		f.DispatchSeq = dispatchSeq
 		f.Location = derefOrEmpty(location)
 		f.Reproducer = derefOrEmpty(reproducer)
+		f.Category = derefOrEmpty(category)
 		f.Supersedes = derefOrEmpty(supersedes)
 		f.RegressionOf = derefOrEmpty(regression)
 		out = append(out, f)

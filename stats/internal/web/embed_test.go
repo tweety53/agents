@@ -423,7 +423,7 @@ func (fakeStore) UpsertFinding(context.Context, string, string, records.Finding)
 	return records.Finding{}, false, nil
 }
 
-func (fakeStore) SetFindingStatus(context.Context, string, string, string, string) error {
+func (fakeStore) SetFindingStatus(context.Context, string, string, string, string, string) error {
 	return nil
 }
 

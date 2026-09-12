@@ -875,7 +875,7 @@ func (stubStageStore) UpsertFinding(context.Context, string, string, records.Fin
 	return records.Finding{}, false, errStageStoreNotImplemented
 }
 
-func (stubStageStore) SetFindingStatus(context.Context, string, string, string, string) error {
+func (stubStageStore) SetFindingStatus(context.Context, string, string, string, string, string) error {
 	return errStageStoreNotImplemented
 }
 

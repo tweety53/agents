@@ -446,7 +446,7 @@ func TestSetFindingStatusUpdatesInPlace(t *testing.T) {
 		t.Fatalf("UpsertFinding: %v", err)
 	}
 
-	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "fixed"); err != nil {
+	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "fixed", ""); err != nil {
 		t.Fatalf("SetFindingStatus: %v", err)
 	}
 
@@ -467,7 +467,7 @@ func TestSetFindingStatusUpdatesInPlace(t *testing.T) {
 		t.Errorf("finding after SetFindingStatus = %+v, want only its status changed from %+v", after, before)
 	}
 
-	err = st.SetFindingStatus(ctx, projectKey, "kan-1", "F9", "fixed")
+	err = st.SetFindingStatus(ctx, projectKey, "kan-1", "F9", "fixed", "")
 	if !errors.Is(err, store.ErrFindingNotFound) {
 		t.Errorf("SetFindingStatus for an unknown ref = %v, want ErrFindingNotFound so the API can answer 404 rather than 500", err)
 	}
@@ -495,7 +495,7 @@ func TestSetFindingStatusDeferredMinorOnly(t *testing.T) {
 		t.Fatalf("UpsertFinding F2: %v", err)
 	}
 
-	err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "deferred cosmetic")
+	err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "deferred cosmetic", "")
 	if !errors.Is(err, store.ErrDeferredNotMinor) {
 		t.Errorf("SetFindingStatus(deferred) on a Major finding = %v, want ErrDeferredNotMinor", err)
 	}
@@ -510,7 +510,7 @@ func TestSetFindingStatusDeferredMinorOnly(t *testing.T) {
 		}
 	}
 
-	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F2", "deferred cosmetic"); err != nil {
+	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F2", "deferred cosmetic", ""); err != nil {
 		t.Fatalf("SetFindingStatus(deferred) on a Minor finding: %v", err)
 	}
 	rec, err = st.RunRecord(ctx, projectKey, "kan-1")
@@ -543,7 +543,7 @@ func TestSetFindingStatusDeferredAcceptsLowercaseMinor(t *testing.T) {
 		t.Fatalf("UpsertFinding F1: %v", err)
 	}
 
-	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "deferred cosmetic"); err != nil {
+	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "deferred cosmetic", ""); err != nil {
 		t.Fatalf("SetFindingStatus(deferred) on a lowercase-minor finding: %v", err)
 	}
 
@@ -2681,5 +2681,213 @@ func TestUpsertFindingLineageSelfRef(t *testing.T) {
 	_, _, err = st.UpsertFinding(ctx, projectKey, "kan-1", linked)
 	if !errors.Is(err, store.ErrFindingLinkInvalid) {
 		t.Fatalf("upsert F1 regressing itself: err = %v, want ErrFindingLinkInvalid", err)
+	}
+}
+
+// TestUpsertFindingRoundTripsCategory pins the write/read half of the
+// deferral-category column: a finding recorded as deferred with a category
+// reads it back, and a finding recorded without one reads back empty rather
+// than inheriting a sibling's word.
+func TestUpsertFindingRoundTripsCategory(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("second RunMigrations call: %v", err)
+	}
+	var recorded int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM schema_migrations WHERE filename LIKE '0025\\_%'",
+	).Scan(&recorded); err != nil {
+		t.Fatalf("count schema_migrations rows for this change's migration: %v", err)
+	}
+	if recorded != 1 {
+		t.Errorf("schema_migrations holds %d rows for 0025_*, want exactly 1 after two runs", recorded)
+	}
+	var exists bool
+	if err := pool.QueryRow(ctx,
+		"SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'findings' AND column_name = 'deferral_category')",
+	).Scan(&exists); err != nil {
+		t.Fatalf("check for the deferral_category column: %v", err)
+	}
+	if !exists {
+		t.Fatalf("findings.deferral_category does not exist after the migration ran")
+	}
+
+	projectKey := fmt.Sprintf("proj-finding-category-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	categorised := baseFinding("F1", 0)
+	categorised.Severity = "Minor"
+	categorised.Status = "deferred cosmetic dead-code removal only"
+	categorised.Category = "cosmetic"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", categorised); err != nil {
+		t.Fatalf("UpsertFinding F1: %v", err)
+	}
+
+	plain := baseFinding("F2", 0)
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", plain); err != nil {
+		t.Fatalf("UpsertFinding F2: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Findings) != 2 {
+		t.Fatalf("RunRecord returned %d findings, want 2", len(rec.Findings))
+	}
+	for _, f := range rec.Findings {
+		switch f.Ref {
+		case "F1":
+			if f.Category != "cosmetic" {
+				t.Errorf("F1 category = %q, want cosmetic", f.Category)
+			}
+		case "F2":
+			if f.Category != "" {
+				t.Errorf("F2 category = %q, want empty -- a finding recorded without a category inherits nobody's word", f.Category)
+			}
+		}
+	}
+}
+
+// TestSetFindingStatusStoresCategory pins the fix-round write: the category
+// lands beside the deferred status it belongs to, and a later call that
+// carries no category clears the old one rather than leaving a category
+// against a status it no longer describes.
+func TestSetFindingStatusStoresCategory(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-status-category-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	minor := baseFinding("F1", 0)
+	minor.Severity = "Minor"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", minor); err != nil {
+		t.Fatalf("UpsertFinding F1: %v", err)
+	}
+
+	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "deferred doc wording only", "doc-only"); err != nil {
+		t.Fatalf("SetFindingStatus with a category: %v", err)
+	}
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if rec.Findings[0].Status != "deferred doc wording only" || rec.Findings[0].Category != "doc-only" {
+		t.Errorf("F1 = (%q, %q), want the deferred status and its doc-only category",
+			rec.Findings[0].Status, rec.Findings[0].Category)
+	}
+
+	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "deferred covered elsewhere", ""); err != nil {
+		t.Fatalf("SetFindingStatus without a category: %v", err)
+	}
+	rec, err = st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if rec.Findings[0].Category != "" {
+		t.Errorf("F1 category = %q after a category-less rewrite, want cleared", rec.Findings[0].Category)
+	}
+}
+
+// TestSetFindingStatusRefusesCategoryOffDeferral pins the store-side
+// cross-column invariant: a category describes why a finding was deferred,
+// so a non-deferred status carrying one is refused with a typed error and
+// the finding is left untouched -- the same shape ErrDeferredNotMinor gives
+// the severity rule.
+func TestSetFindingStatusRefusesCategoryOffDeferral(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-status-category-guard-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	finding := baseFinding("F1", 0)
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", finding); err != nil {
+		t.Fatalf("UpsertFinding F1: %v", err)
+	}
+
+	err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "fixed", "cosmetic")
+	if !errors.Is(err, store.ErrCategoryNotDeferred) {
+		t.Errorf("SetFindingStatus(fixed, cosmetic) = %v, want ErrCategoryNotDeferred", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if rec.Findings[0].Status != "open" || rec.Findings[0].Category != "" {
+		t.Errorf("F1 = (%q, %q) after a refused write, want untouched (open, no category)",
+			rec.Findings[0].Status, rec.Findings[0].Category)
+	}
+}
+
+// TestUpsertFindingRefusesCategoryOffDeferral pins the upsert half of the
+// store's category invariant: a category beside a non-deferred status is
+// refused before the statement runs, and the row is left untouched -- the
+// same shape SetFindingStatus's own refusal takes.
+func TestUpsertFindingRefusesCategoryOffDeferral(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-upsert-category-guard-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first := baseFinding("F1", 0)
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", first); err != nil {
+		t.Fatalf("UpsertFinding F1: %v", err)
+	}
+
+	bad := baseFinding("F1", 0)
+	bad.Status = "fixed"
+	bad.Category = "cosmetic"
+	_, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", bad)
+	if !errors.Is(err, store.ErrCategoryNotDeferred) {
+		t.Errorf("UpsertFinding(fixed, cosmetic) = %v, want ErrCategoryNotDeferred", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if rec.Findings[0].Status != "open" || rec.Findings[0].Category != "" {
+		t.Errorf("F1 = (%q, %q) after a refused restatement, want untouched (open, no category)",
+			rec.Findings[0].Status, rec.Findings[0].Category)
+	}
+}
+
+// TestUpsertFindingRestateClearsCategory pins the conflict-update half of
+// the column: a fix round restating a categorised deferral as fixed clears
+// the category with the status, so a stale word can never outlive the
+// deferral it described.
+func TestUpsertFindingRestateClearsCategory(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-upsert-category-clear-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	deferred := baseFinding("F1", 0)
+	deferred.Severity = "Minor"
+	deferred.Status = "deferred cosmetic dead-code removal only"
+	deferred.Category = "cosmetic"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", deferred); err != nil {
+		t.Fatalf("UpsertFinding F1 (deferred): %v", err)
+	}
+
+	fixed := baseFinding("F1", 1)
+	fixed.Status = "fixed"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", fixed); err != nil {
+		t.Fatalf("UpsertFinding F1 (fixed): %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Findings) != 1 {
+		t.Fatalf("RunRecord returned %d findings, want exactly 1", len(rec.Findings))
+	}
+	if rec.Findings[0].Status != "fixed" || rec.Findings[0].Category != "" {
+		t.Errorf("F1 = (%q, %q) after restating as fixed, want the status updated and the category cleared",
+			rec.Findings[0].Status, rec.Findings[0].Category)
 	}
 }

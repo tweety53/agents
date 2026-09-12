@@ -708,7 +708,7 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 		if err := json.Unmarshal(body.Request, &in); err != nil {
 			return fmt.Errorf("%w: decode status: %v", errRecordEntryDecodeFailed, err)
 		}
-		return api.ApplyFindingStatus(ctx, r.recordStore, e.Project, e.Name, in.Ref, in.Status)
+		return api.ApplyFindingStatus(ctx, r.recordStore, e.Project, e.Name, in.Ref, in.Status, "")
 	case "verdict":
 		var in records.Verdict
 		if err := json.Unmarshal(body.Request, &in); err != nil {
