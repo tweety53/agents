@@ -470,6 +470,26 @@ and 13 below as written, committing and pushing nothing.
    third complaint — 26px above the control to the divider, 6px below, a `LazyColumn` content
    padding stacked on the sticky header's top inset with nothing equivalent at its bottom).
 
+   **"Filled to the border", "flush with the edge", "reaches the corner" is a third measurement,
+   and neither of the two above sees it — a claim that one shape's paint ends where another
+   shape's boundary is compares two edge coordinates, never one shape's size (hit box or ink)
+   and never the empty space between two shapes (`gap`).** A fill inset from its own container's
+   border has no gap the `gap` property can find — the inset is the container's own interior
+   colour — and a correct box size says nothing about where the box sits. Crop the *container*
+   as the region, so the inset fill is that region's `content`, and read `content.padding` on
+   each side the claim names: flush is a padding equal to the container's `border` width and
+   nothing more, and the mockup's frame gives the same number to compare against. The same
+   reading covers a highlight against the row it highlights and an icon against the circle
+   drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
+   before the `background()` or `clip()` it was meant to inset the content of, or on the parent
+   before its children's own backgrounds, shrinks the painted area, not the content — a
+   checkable line of code before any screenshot (KAN-30 manual re-sweep: a workout picker's
+   selected-row fill stopped a `space2` gutter short of its box's border on every side, the
+   parent `Column`'s padding sitting above the rows' backgrounds; the complaint "rows are still
+   not filled with color fully till the borders" was answered twice with the wrong measurement —
+   a centring check on an unrelated icon, then a colour-existence check with the gap tooling —
+   and once with the right one, a scanline through the fill and both border strokes).
+
    **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
    the app — `mockups: no map` was reported and accepted every round, because nothing required
