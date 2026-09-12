@@ -314,9 +314,10 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > (`commonTest`) files, then one follow-on task per feature task whose `**Files:**` names only that
 > feature's UI-test file(s), all of them. The two are file-disjoint, so `plan-dispatch-bundles.sh`
 > keeps them separate bundles and the UI-test iteration starts in a fresh implementer at a small
-> context instead of the one that just wrote the feature. No `**After:**` field is needed — the
-> serial default already runs the follow-on after its feature task — and the last bundle's FULL
-> SUITE run still covers the pair.
+> context instead of the one that just wrote the feature. The follow-on declares
+> `**After:** Task <N>` naming its feature task, and the feature task declares its own
+> predecessors or `none` — the declarations alone run the follow-on after the feature task — and
+> the last bundle's FULL SUITE run still covers the pair.
 
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block and every numeric claim per **Plan provenance**
@@ -336,7 +337,11 @@ with `**Build:**` per **The build-green tag**
   italic `_none_` does not** — the recognition ends on a word boundary, and `_` is a word
   character, so the trailing underscore swallows it.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
-- `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`.
+- `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, counted statically from
+  test declarations (`@Test` and its language equivalents), never from a test run, and each
+  task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field
+  names, so two tasks dispatched in parallel count independently — neither's baseline depends on
+  the other's edits.
 - `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
   the task's own `**Files:**` field carries, per **Commit scopes name the module**
   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
@@ -344,11 +349,13 @@ with `**Build:**` per **The build-green tag**
 A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task
 its commit folds into.
 
-An optional `**After:**` field — `Task <ids>` or `none` — declares the task's predecessors, and
-its absence means the task runs after every earlier task. Write it on file-disjoint tasks with no
-caller/helper relationship, and write it consistently across a `**Squash-with:**` pair (union
-semantics merge the pair into one bundle). A task left unannotated stays fully serial, so opting in
-is per task.
+An `**After:**` field — `Task <ids>` or `none` — declares the task's predecessors, and **every
+task writes it**: a plan states its ordering in declarations, so `plan-dispatch-bundles.sh`
+resolves every bundle's after-set from what the tasks say and never needs a human judgment call
+about ordering. The dispatcher still reads an absent field as after every earlier task, so an
+older plan parses unchanged — the planner never relies on that inference. Name exactly the
+tasks this one's own files depend on, `none` when there are none, and write it consistently
+across a `**Squash-with:**` pair (union semantics merge the pair into one bundle).
 
 Add this header to `tasks.md`:
 
