@@ -38,8 +38,22 @@ check this skill's own captures feed into is `brainstorm-planner.md`'s **Seed fr
 research note** (`skills/flow/brainstorm-planner.md`) — see that section's own **One shared
 mechanism, not two copies** subsection for what stays shared between the two skills.
 
+**Generate this session's token once, right here — `fp-<literal-token>`, a short unique literal
+string, exactly as `/flow` generates `mf-<literal-token>` (**Stage keys**, `skills/flow/SKILL.md`)
+— and mark the session as soon as the Jira key is known:**
+
+```bash
+flow stage begin -command '/flow-plan' -stage plan.session -harness <harness> -session-token fp-<literal-token> -jira-key <KEY>
+```
+
+`<KEY>` is the resolved Jira key, uppercase, exactly as **Resolution (how `jiraIssue` is decided)**
+(`skills/flow-contracts/jira-integration.md`) resolves it. When the key is only created later, by
+**Staging a Note**, mark at that point instead. A session that ends with no key marks nothing.
+
 **No `flow record dispatch` call** — that record closes against a change's dispatch history, and
-`/flow-plan` has no change to record against, dispatching nothing either.
+`/flow-plan` has no change to record against, dispatching nothing either. The one mark this mode
+makes is `plan.session`, above, recorded against the Jira key; the store attaches it to the
+change `/flow <KEY>` later creates.
 
 ## The research worktree
 
@@ -127,11 +141,25 @@ Two capture destinations, depending on what exists:
   structure. Offer, don't auto-capture:
   - "That's a design decision — want it in design.md?"
   - "This is a new requirement — worth a note?"
+
+  Once written, close the session's mark (the token generated at session start, above) with
+  `-outcome captured`:
+
+  ```bash
+  flow stage end -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY> -outcome captured
+  ```
 - **No change exists yet, or the topic doesn't belong to one** — offer to write a **staging note**
   (see below) instead. This is the default destination for a topic with no home yet.
 
 Creating a change is `/flow`'s job, not this mode's — if the thinking is ready
 to become a change, say so and point at that command rather than making one yourself.
+
+A session that ends without either destination — no capture offered, or the offer declined — closes
+the same mark with `-outcome abandoned`:
+
+```bash
+flow stage end -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY> -outcome abandoned
+```
 
 ### Staging a Note — the strict research-artifact path
 
@@ -265,7 +293,8 @@ filename without `.md`, so the pair is found from the note's path by one exact t
 `/flow`'s seed step takes both files in place of its own writing-plans and Decide work and deletes
 them with the note once adopted (**Seed from a staged research note, if one exists**,
 `skills/flow/brainstorm-planner.md`). `/flow-fast` reads neither — it plans and decides on its
-own (**Dynamic decisions**, `skills/flow-fast/SKILL.md`). Nothing here marks a stage, records to the store, or creates a change: the pair is a
+own (**Dynamic decisions**, `skills/flow-fast/SKILL.md`). Nothing here creates a change or records
+a dispatch; the session's own `plan.session` mark is the only store write, and the pair is a
 research artifact until `/flow` adopts it.
 
 ## Landing the note
@@ -290,6 +319,13 @@ protection, a non-fast-forward after the pull) leaves the commit on `plan-<stem>
 ends by saying so and naming the commit, the branch and the worktree path, both kept — a
 protected default branch is landed by the operator, never retried around. After a push that succeeded, remove the worktree
 and branch (**The research worktree** above). End by naming the landed commit and the Jira key.
+
+**Close the session's mark here, whichever way the push went** — the note itself was written
+either way:
+
+```bash
+flow stage end -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY> -outcome staged
+```
 
 ---
 
