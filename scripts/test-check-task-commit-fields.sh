@@ -3153,6 +3153,190 @@ run_guard "$REPO" 1 "$SHA" "" "$REPO" "change-a"
   || fail "case 95: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 95: clean exit, no refusal printed" || fail "case 95: expected no output, got: $OUT"
 
+# ===========================================================================
+# Case 96 (KAN-511): a declared **Baseline:** before/after equal to the
+# @Test delta the commit measures in its changed files -> exit 0. The parent
+# carries one @Test line, the task commit two, and the plan declares
+# before=1 after=2.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Baseline delta matches
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Baseline:** before=1 after=2
+**Commit:** grow alpha tests
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '@Test fun a() {}\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "seed alpha"
+printf '@Test fun a() {}\n@Test fun b() {}\n# test_alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "grow alpha tests"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 96: baseline delta matching the measured @Test counts passes" || fail "case 96: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 97 (KAN-511): a declared **Baseline:** delta the commit does not
+# measure -> exit 1, naming both the declared and the measured counts.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Baseline delta stale
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Baseline:** before=1 after=3
+**Commit:** grow alpha tests
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '@Test fun a() {}\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "seed alpha"
+printf '@Test fun a() {}\n@Test fun b() {}\n# test_alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "grow alpha tests"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 97: stale baseline delta fails" || fail "case 97: rc=$RC out=$OUT"
+case "$OUT" in
+  *"before=1 after=3"*"before=1 after=2"*)
+    pass "case 97: names declared and measured counts" ;;
+  *) fail "case 97: expected declared and measured counts in output, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 98 (KAN-511): the changed files carry no @Test at EITHER revision —
+# the declared unit is prose (harnesses, cases), not @Test — so the
+# Baseline check SKIPS rather than fails (the spec's skip-not-fail rule).
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Baseline unit is not tests
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Baseline:** before=37 after=38
+**Commit:** bump harness count
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'harness\n# test_alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "seed alpha"
+printf 'harness\ntwo\n# test_alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "bump harness count"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 98: baseline check skips when no @Test at either revision" || fail "case 98: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 99 (KAN-511): a backticked **Tests:** name the commit REMOVES — the
+# name still appears in the diff (the removal hunk), so the diff check
+# passes, but the tree at the commit no longer contains it -> exit 1 with
+# the tree message. This is the stale-field drift KAN-459's reviewers saw.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Removed test still declared
+
+**Files:** `alpha.txt`
+**Tests:** `test_gone`
+**Commit:** remove gone test
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_gone(): pass\ndef test_kept(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "seed alpha"
+printf 'def test_kept(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "remove gone test"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 99: a test the commit removed fails the tree check" || fail "case 99: rc=$RC out=$OUT"
+case "$OUT" in
+  *"test_gone"*"not found in the tree"*)
+    pass "case 99: names the removed test and the tree" ;;
+  *) fail "case 99: expected tree message naming test_gone, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 100 (KAN-511): a BARE camelCase name in **Tests:** (no backticks, no
+# Case labels) absent from the tree at the commit -> exit 1. The prose field
+# stays vacuous for the diff check, so only the tree check fires.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Bare camelCase name stale
+
+**Files:** `alpha.txt`
+**Tests:** covers calculateDailyCaloriesReturnsZero for empty input
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'plain content\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 100: stale bare camelCase name fails the tree check" || fail "case 100: rc=$RC out=$OUT"
+case "$OUT" in
+  *"calculateDailyCaloriesReturnsZero"*"not found in the tree"*)
+    pass "case 100: names the stale camelCase name" ;;
+  *) fail "case 100: expected tree message naming the camelCase name, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 101 (KAN-511): backticked names present in the tree's CONTENT pass —
+# one added by the commit (`test_alpha`), one already in the tree and in the
+# diff's context lines (`test_beta`) -> exit 0.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Names present in tree
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha` and `test_beta`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n# test_beta\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 101: names present in tree content pass" || fail "case 101: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 102 (KAN-511): a **Tests:** value OPENING with `none` declares no
+# names at all — a camelCase token later in the prose does not tree-fail.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. None opens
+
+**Files:** `alpha.txt`
+**Tests:** none — GitLabOnlyToken stays unexported, no test added
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'plain content\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 102: none-opening Tests stays vacuous for the tree check" || fail "case 102: rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

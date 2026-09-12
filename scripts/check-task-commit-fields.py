@@ -12,7 +12,24 @@ test suites per task, and verified nothing against any real runner, since
 it required a `COUNT:`/`RESULT` protocol no project's `## test` command
 speaks. `Regression:` and `Baseline:` remain plan declarations the grammar
 still parses. `Files:`, `Tests:` and `Commit:` are checked directly
-against git (`check_files`, `check_tests`, `check_commit_subject`).
+against git (`check_files`, `check_tests`, `check_commit_subject`). KAN-511
+adds two more git checks, both read-only and cheap — the cost KAN-442
+removed was the worktree mutation and the two full test suites, neither of
+which these need. A declared `**Baseline:** before=N after=M` must equal
+the `@Test` delta the commit measures in its changed files, counted at the
+commit and at its parent (`check_baseline_counts`); the check SKIPS when
+the changed files carry no `@Test` at either revision, because a plan
+whose Baseline unit is prose-declared — this repository counts harnesses
+and test cases, not annotations — would otherwise false-fail every task.
+And every backticked or bare-camelCase name in `**Tests:**` must appear in
+the tree's CONTENT at the commit (`check_tests_in_tree`): the diff check
+above passes a test the commit removes, because the removal hunk carries
+the name, and that stale declaration is exactly the drift KAN-459's
+reviewers found by hand. The plan file itself is excluded from that grep —
+its own `**Tests:**` line declares the name, and without the exclusion
+every declared name would trivially match itself. `Case <N>` labels stay
+diff-checked only, and a value opening with `none` declares no names, both
+per the `Tests:` grammar below.
 
 Scope is one task, in one tasks.md, in one worktree, checked against one
 commit (and its parent) — unlike check-task-build-green.py, which scans an
@@ -191,7 +208,9 @@ sentence, which is what produced false failures against this plan's own
 Exit codes:
   0  clean — every checked field matches the real commit.
   1  violations found — one or more of: an undeclared file, a missing
-     declared test, a commit subject mismatch, a `Squash-with:` value that
+     declared test, a `**Baseline:**` delta the commit does not measure, a
+     declared test name the tree does not contain, a commit subject
+     mismatch, a `Squash-with:` value that
      does not gate as `Task <id>[, <id>...]`, an unresolvable
      `Squash-with:` partner, a set of partners — or two folds joined by a
      shared partner — disagreeing about the folded commit's subject, or a
@@ -833,6 +852,128 @@ def check_tests(task: TaskFields, diff_text: str) -> List[str]:
     return violations
 
 
+# CAMEL_NAME_RE — a bare camelCase identifier in a `Tests:` value: at least
+# one lowercase-to-uppercase hump with a lowercase letter after it, so
+# `Case`, an acronym like `KAN`, and single-case prose never match;
+# `parseJSONData`-shaped acro-humps are missed on purpose, and a backticked
+# token covers those.
+CAMEL_NAME_RE = re.compile(r"\b[A-Za-z][a-z0-9]*(?:[A-Z][a-z0-9]*[a-z][a-z0-9]*)+\b")
+
+
+def _extract_tree_names(tests_value: str) -> List[str]:
+    """The `Tests:` names the tree check greps for: backticked tokens and
+    bare camelCase identifiers, deduplicated in field order. `Case <N>`
+    labels take priority over backtick tokens in `_parse_test_specs`, and
+    the same priority applies here: a field carrying labels is diff-checked
+    by label and greps no tree names, and a value opening with `none`
+    declares no names at all."""
+    if NONE_OPEN_RE.match(tests_value) is not None:
+        return []
+    if CASE_LABEL_RE.findall(tests_value):
+        return []
+    names: List[str] = []
+    for token in BACKTICK_RE.findall(tests_value) + CAMEL_NAME_RE.findall(
+        tests_value
+    ):
+        if token not in names:
+            names.append(token)
+    return names
+
+
+def _git_grep(worktree: str, args: List[str]) -> Tuple[str, int]:
+    """Run `git grep` in <worktree> and return (stdout, exit code) without
+    raising on exit 1 — git grep's no-match code, which every caller here
+    reads as a zero count or an absent name, never as an error."""
+    result = subprocess.run(
+        ["git", "-C", worktree, "grep"] + args, capture_output=True, text=True
+    )
+    return result.stdout, result.returncode
+
+
+def count_test_annotations(
+    worktree: str, revision: str, paths: List[str]
+) -> int:
+    """Occurrences of `@Test` across <paths> at <revision> — `-o` so a file
+    holding several matches on one line still counts each one."""
+    if not paths:
+        return 0
+    out, code = _git_grep(worktree, ["-o", "-F", "@Test", revision, "--"] + paths)
+    if code == 1:
+        return 0
+    if code != 0:
+        raise RuntimeError(f"git grep @Test at {revision} failed with exit {code}")
+    return len(out.splitlines())
+
+
+def check_baseline_counts(
+    task: TaskFields,
+    worktree: str,
+    changed_files: List[str],
+    parent_sha: str,
+    commit_sha: str,
+) -> List[str]:
+    """A declared `**Baseline:** before=N after=M` must equal the `@Test`
+    delta the commit's changed files measure, at the parent and at the
+    commit. Skips — never fails — when neither revision carries a single
+    `@Test` in the counted set: the field's unit is then prose-declared
+    (harnesses, cases), not annotations, and no verdict about it can be
+    reached from `@Test` counts (the kan-100 spec's skip-not-fail rule,
+    which KAN-442's removal left standing)."""
+    if task.baseline is None:
+        return []
+    before_count = count_test_annotations(worktree, parent_sha, changed_files)
+    after_count = count_test_annotations(worktree, commit_sha, changed_files)
+    if before_count == 0 and after_count == 0:
+        return []
+    declared_before, declared_after = task.baseline
+    if after_count - before_count == declared_after - declared_before:
+        return []
+    return [
+        f"task {task.id}: **Baseline:** declares before={declared_before} "
+        f"after={declared_after}, but the changed files count @Test "
+        f"before={before_count} after={after_count}"
+    ]
+
+
+def check_tests_in_tree(
+    task: TaskFields, worktree: str, commit_sha: str, tasks_md_path: str
+) -> List[str]:
+    """Every backticked or bare-camelCase name in `Tests:` must appear in
+    the tree's CONTENT at the commit. The diff check passes a test the
+    commit removes — the removal hunk carries the name — so the tree is
+    what catches the stale declaration. The plan file itself is excluded
+    from the grep: its own `**Tests:**` line declares the name, and without
+    the exclusion every declared name would trivially match itself. A
+    satellite's plan lives OUTSIDE the worktree grepped (the change-plan
+    resolution reads it from the canonical repository), and git refuses a
+    pathspec pointing out of the tree — there the plan cannot self-match
+    anyway, so no exclusion is passed."""
+    plan_rel = os.path.relpath(
+        os.path.abspath(tasks_md_path), os.path.abspath(worktree)
+    )
+    pathspecs = (
+        []
+        if plan_rel.startswith(".." + os.sep)
+        else [f":(exclude){plan_rel}"]
+    )
+    violations = []
+    for name in _extract_tree_names(task.tests_value):
+        _, code = _git_grep(
+            worktree, ["-F", "-e", name, commit_sha, "--"] + pathspecs
+        )
+        if code == 0:
+            continue
+        if code != 1:
+            raise RuntimeError(
+                f"git grep {name!r} at {commit_sha} failed with exit {code}"
+            )
+        violations.append(
+            f"task {task.id}: declared test {name} not found in the tree "
+            f"at {commit_sha}"
+        )
+    return violations
+
+
 def check_commit_subject(task: TaskFields, actual_subject: str) -> List[str]:
     if task.commit is None:
         return []
@@ -980,6 +1121,10 @@ def check_task_commit(
     # Tests: and the declared-scope check are about either way.
     violations += check_files(folded, changed_files)
     violations += check_tests(task, diff_text)
+    violations += check_baseline_counts(
+        task, worktree, changed_files, resolved_parent, commit_sha
+    )
+    violations += check_tests_in_tree(task, worktree, commit_sha, tasks_md_path)
     violations += check_commit_subject(folded, actual_subject)
     violations += check_commit_scope(task, change_name)
 
