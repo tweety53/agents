@@ -88,6 +88,12 @@ type SignalsDelta struct {
 // add folds one record into s. A usage record contributes its served
 // model and effort and, when it is the latest seen, the context size at
 // that message; a signal record contributes its own counters.
+//
+// A synthetic API-error line (Model == "<synthetic>") is excluded from
+// both ServedModels and ContextEnd -- it carries an all-zero Usage, so
+// letting it win the "latest seen" race would zero out context_end for
+// good the moment it is a batch's last record: jsonb_deep_add's
+// last-write-wins string replace has no earlier value to fall back to.
 func (s *Signals) add(r Record) {
 	if r.Signal == nil {
 		if r.Model != "" && r.Model != "<synthetic>" {
@@ -96,7 +102,7 @@ func (s *Signals) add(r Record) {
 		if r.Effort != "" {
 			bump(&s.ServedEfforts, r.Effort)
 		}
-		if r.Timestamp.After(s.contextEndAt) {
+		if r.Model != "<synthetic>" && r.Timestamp.After(s.contextEndAt) {
 			s.contextEndAt = r.Timestamp
 			u := r.Usage
 			s.ContextEnd = strconv.FormatInt(u.InputTokens+u.CacheReadInputTokens+u.CacheCreationInputTokens, 10)

@@ -22,10 +22,10 @@ import (
 // be mistaken for a coincidentally-correct one, and so that every JSON
 // key Bucket can produce actually appears in the committed fixture (see
 // TestSPAFixtureBucketsCoverEveryBucketField below). MetricsPatch's own
-// top-level omitempty fields (Models, Effort, Speed) are deliberately
-// left zero and absent from the fixture -- this value exists to pin the
-// token-bucket wire shape the SPA's token readers depend on, not every
-// field MetricsPatch has ever grown.
+// top-level omitempty fields (Models, Effort, Speed, Signals) are
+// deliberately left zero and absent from the fixture -- this value
+// exists to pin the token-bucket wire shape the SPA's token readers
+// depend on, not every field MetricsPatch has ever grown.
 var spaMetricsFixturePatch = harvest.MetricsPatch{
 	Tokens: harvest.TokenDelta{
 		Main: harvest.Bucket{

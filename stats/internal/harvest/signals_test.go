@@ -172,3 +172,31 @@ func TestAttributeSignalOnlyAgentRecordsCreateNoDispatchTokens(t *testing.T) {
 		t.Errorf("DispatchSignals[agent-sig0001] = %+v", ds)
 	}
 }
+
+// TestSyntheticAPIErrorLineDoesNotZeroContextEnd guards the same rule
+// ServedModels already applies (add's own doc comment): a synthetic
+// API-error assistant line carries an all-zero Usage, and when it is the
+// batch's chronologically latest record, letting it win the
+// "latest-seen" race would set context_end to "0" -- which
+// jsonb_deep_add's last-write-wins string replace then commits over the
+// stored real value for good, with no earlier value to fall back to.
+func TestSyntheticAPIErrorLineDoesNotZeroContextEnd(t *testing.T) {
+	lines := []byte(
+		`{"type":"assistant","isSidechain":false,"sessionId":"session-synth-1","timestamp":"2026-09-01T10:00:00.000Z","message":{"id":"m1","model":"claude-opus-5","role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":50,"output_tokens":5}}}` + "\n" +
+			`{"type":"assistant","isSidechain":false,"sessionId":"session-synth-1","timestamp":"2026-09-01T10:00:01.000Z","isApiErrorMessage":true,"message":{"id":"m2","model":"<synthetic>","role":"assistant","content":[{"type":"text","text":"API Error"}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}}` + "\n",
+	)
+	complete, _ := harvest.SplitCompleteLines(lines)
+	records := append(harvest.ParseAssistantRecords(complete), harvest.ParseSignalRecords(complete)...)
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		"session-synth-1": {{StageRunID: 11, Attempt: 1, SessionID: "session-synth-1",
+			StartedAt: mustParse(t, "2026-09-01T09:00:00Z")}},
+	}}
+	deltas, err := harvest.NewAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[11].Signals.Main.ContextEnd; got != "60" {
+		t.Errorf("context_end = %q, want %q (the synthetic API-error line's zero usage must not overwrite the real value)", got, "60")
+	}
+}

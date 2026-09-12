@@ -683,6 +683,113 @@ func TestEncodePatchesCarriesDispatchDescriptors(t *testing.T) {
 	}
 }
 
+// TestEncodePatchesCarriesSignals is the encoder seam's own contract for
+// task 5's signals wire shape (Delta.Signals, Delta.DispatchSignals),
+// called directly through the export_test.go alias rather than through
+// Watcher.RunOnce -- unlike TestEncodePatchesCarriesDispatchDescriptors
+// above, there is no transcript fixture that exercises every one of
+// Signals' fields at once, so this pins the shape from a hand-built Delta
+// instead. It is the exact wire the store reads: signals.main.turns,
+// signals.sidechain.tool_calls_total, signals.main.context_end (a JSON
+// string, not a number), and dispatches.<agentId>.signals.turns.
+func TestEncodePatchesCarriesSignals(t *testing.T) {
+	deltas := map[int64]harvest.Delta{
+		1: {
+			Signals: harvest.SignalsDelta{
+				Main:      harvest.Signals{Turns: 2, ContextEnd: "11030"},
+				Sidechain: harvest.Signals{ToolCallsTotal: 3},
+			},
+			Dispatches: map[string]harvest.TokenDelta{
+				"agent-x": {},
+			},
+			DispatchSignals: map[string]harvest.Signals{
+				"agent-x": {Turns: 1},
+			},
+		},
+	}
+
+	patches, err := harvest.EncodePatchesForTest(deltas, harvest.DispatchMeta{}, false)
+	if err != nil {
+		t.Fatalf("encodePatches: %v", err)
+	}
+
+	var mp harvest.MetricsPatch
+	if err := json.Unmarshal(patches[1], &mp); err != nil {
+		t.Fatalf("unmarshal patch: %v", err)
+	}
+	if mp.Signals == nil {
+		t.Fatalf("patch carries no signals: %s", patches[1])
+	}
+	if mp.Signals.Main.Turns != 2 {
+		t.Errorf("signals.main.turns = %d, want 2", mp.Signals.Main.Turns)
+	}
+	if mp.Signals.Main.ContextEnd != "11030" {
+		t.Errorf("signals.main.context_end = %q, want %q", mp.Signals.Main.ContextEnd, "11030")
+	}
+	if mp.Signals.Sidechain.ToolCallsTotal != 3 {
+		t.Errorf("signals.sidechain.tool_calls_total = %d, want 3", mp.Signals.Sidechain.ToolCallsTotal)
+	}
+	db, ok := mp.Dispatches["agent-x"]
+	if !ok {
+		t.Fatalf("no dispatches[agent-x] in patch: %s", patches[1])
+	}
+	if db.Signals == nil || db.Signals.Turns != 1 {
+		t.Errorf("dispatches[agent-x].signals.turns = %v, want 1", db.Signals)
+	}
+
+	// Pin the raw JSON shape too: context_end must ride as a string, not
+	// a bare number -- jsonb_deep_add's numeric-leaf summing would
+	// otherwise silently add successive context sizes together instead of
+	// replacing last-write-wins.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(patches[1], &raw); err != nil {
+		t.Fatalf("unmarshal patch as raw: %v", err)
+	}
+	var signalsRaw map[string]json.RawMessage
+	if err := json.Unmarshal(raw["signals"], &signalsRaw); err != nil {
+		t.Fatalf("unmarshal signals: %v", err)
+	}
+	var mainRaw map[string]json.RawMessage
+	if err := json.Unmarshal(signalsRaw["main"], &mainRaw); err != nil {
+		t.Fatalf("unmarshal signals.main: %v", err)
+	}
+	if got := string(mainRaw["context_end"]); got != `"11030"` {
+		t.Errorf("signals.main.context_end raw JSON = %s, want a quoted string %q", got, `"11030"`)
+	}
+}
+
+// TestEncodePatchesDispatchMergePathCarriesSidechainSignals covers the
+// other of the two dispatch-merge call sites (attributeDispatches'
+// inference path is TestEncodePatchesCarriesSignals' own dispatches.<id>
+// case above, via the stage-grain Delta) -- attributeAgentFile's own
+// marshal, MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}},
+// exactly as watcher.go's attributeAgentFile and attributeDispatches both
+// build it from a DispatchDelta. A dispatch's own bag carries no main
+// bucket at all (TokenDelta's own doc comment: a dispatch is sidechain
+// spend only), so its signals belong entirely under signals.sidechain.
+func TestEncodePatchesDispatchMergePathCarriesSidechainSignals(t *testing.T) {
+	dd := harvest.DispatchDelta{
+		Tokens:  harvest.TokenDelta{Sidechain: harvest.Bucket{Input: 5}},
+		Signals: harvest.Signals{Turns: 1, ToolCallsTotal: 1},
+	}
+
+	patch, err := json.Marshal(harvest.MetricsPatch{Tokens: dd.Tokens, Signals: &harvest.SignalsDelta{Sidechain: dd.Signals}})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var mp harvest.MetricsPatch
+	if err := json.Unmarshal(patch, &mp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if mp.Signals == nil || mp.Signals.Sidechain.Turns != 1 {
+		t.Errorf("signals.sidechain.turns = %v, want 1", mp.Signals)
+	}
+	if mp.Signals.Main.Turns != 0 {
+		t.Errorf("signals.main.turns = %d, want 0 -- a dispatch's bag carries sidechain signals only", mp.Signals.Main.Turns)
+	}
+}
+
 // TestEncodePatchesPreservesGenuineSpawnDepthZero pins F5 (pass 1 of this
 // change's own review panel): a top-level dispatch's sidecar genuinely
 // carries "spawnDepth":0, and that must reach the committed patch as a
