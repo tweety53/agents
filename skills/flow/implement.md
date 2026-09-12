@@ -314,7 +314,13 @@ look.** Before the planning pass answers "it matches" or plans a fix, run
 `## Question`; a spacing dispute is measured on every side the complaint names. The glance that
 passed the control is what the operator is contesting, and repeating it answers nothing (KAN-30
 manual re-sweep: a "+" button's row was re-eyeballed as matching through two disputes and
-measured only on the third — 26px above, 6px below).
+measured only on the third — 26px above, 6px below). The complaint's own wording names which
+property that is — "too big", "oversized" is a size (`box` and `ink`); "cramped", "uneven",
+"too close" is a spacing (`gap`); "not filled to the border", "flush", "reaches" is an edge
+alignment (`content.padding` of the container) — so the measurement answers the property
+named, never the screen area the complaint happens to sit in (KAN-30 manual re-sweep: "rows
+are still not filled with color fully till the borders" was read as "look at that picker
+again" and cost a centring check and a colour check before the fill's edge was measured).
 
 **The Jira description sync stays in the parent.** **Load
 `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
