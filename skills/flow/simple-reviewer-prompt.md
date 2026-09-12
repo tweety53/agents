@@ -41,8 +41,11 @@ Subagent (flow-<effort>):  # dynamic-only slot
 
     ## Read-Only Review
 
-    Do not mutate the working tree, index, HEAD, or branch. Inspect with Read, Grep, and
-    git show/diff only.
+    Read-only binds to the tree you review: do not mutate the reviewed worktree, its index, HEAD,
+    or branch — inspect with Read, Grep, and git show/diff only. The one exception is the
+    reproducer script each finding requires, written into the shared worktree's
+    `.superpowers/sdd/reproducers/` directory per **Every slot must supply, per finding, a
+    reproducer** (`skills/flow/review-panel.md`).
 
     ## Do Not
 

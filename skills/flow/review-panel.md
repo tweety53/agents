@@ -123,7 +123,7 @@ overrides:
 | `primary` | **Primary** — plan alignment and senior code review | `flow-review` + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
 | `principles` | **Principles** | `flow-review` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
 | `code-review-low` | **Code review (low)** | `flow-review` reviewer briefed for high-confidence defects only, against `final-review.diff` |
-| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | `flow-review` reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` |
+| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | `flow-review` reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
 | `bugbot` | **Bugbot** — defect hunt | `flow-review` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
 | `security` | **Security** | `flow-review` + `security-reviewer-prompt.md` |
 | `mutation` | **Mutation** — sabotage-proofing | `flow-review` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
@@ -316,7 +316,8 @@ BUILDS, REPRODUCE DON'T READ, CITATION CHECK, MODEL HANDSHAKE, the reproducer ru
 **PASS `<id>`** section per role in roster order, each carrying exactly the brief that role's solo
 dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`. Mutating
 roles (`mutation`, `bugbot`) are always the last passes of a bundle and still work in their
-throwaway copies (**The throwaway worktree** below); the reading passes before them read the shared
+throwaway copies (**The throwaway worktree** below); simple-reviewer works in its own throwaway
+copy too, read-only, wherever one is made for it; the reading passes before them read the shared
 `<worktree>`. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
@@ -370,14 +371,17 @@ printed — `recorded: dispatch <seq>` — into each of that slot's `flow record
 `-dispatch-seq <seq>`.
 
 **Every slot must supply, per finding, a reproducer**: a runnable command that demonstrates the
-defect, or the literal exemption form `none — <reason>`. A demonstrating command needing a pipe, a
+defect, or the literal exemption form `none — <reason>`. **The exemption form is available to Minor
+findings only: an Important-severity finding must carry a runnable command** — one that
+`check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
+at Important (KAN-503). A demonstrating command needing a pipe, a
 quote, a glob or any other shell metacharacter is written as a script rather than abandoned — the
 guards refuse a metacharacter in the recorded line, never one inside a script. The slot writes it
 to `<abs-worktree>/.superpowers/sdd/reproducers/<round>-<id>-<n>.sh` — `<round>` this round's
 number, `<id>` the slot's own resolved reviewer id, `<n>` that slot's own 1-based finding index —
 gives it a shebang and `chmod +x`, and records that same path, the path relative to the worktree —
 not the `<abs-worktree>/`-prefixed form above; `run-reproducer.sh` refuses an absolute token.
-Bugbot and Mutation write theirs into the canonical worktree, never their own
+Bugbot, Mutation and Simple reviewer write theirs into the canonical worktree, never their own
 `<worktree>-<slot>-<round>` copy, which is removed the moment their dispatch closes. The parent
 records the path the slot supplied verbatim — there is no rename step. Carry this requirement on
 every slot's dispatch prompt.
@@ -499,18 +503,23 @@ operator withdraws it with a reason.
 
 ### The throwaway worktree
 
-Bugbot and Mutation both mutate code in place to run their brief; every other slot only reads the
-diff. Dispatching either into the same worktree a reading slot concurrently reads is the KAN-366
+Bugbot and Mutation both mutate code in place to run their brief; simple-reviewer reads without
+mutating; every other slot only reads the diff. Dispatching a mutating slot into the same worktree
+a reading slot concurrently reads is the KAN-366
 collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched
-reading slot reads from `<worktree>` at that moment. Bugbot's and Mutation's dispatch — pass 1 and
+reading slot reads from `<worktree>` at that moment. **Independent multi-slot detection is the
+panel's core signal, preserved deliberately rather than treated as incidental (KAN-503)**: each of
+the three defect-hunting slots — Bugbot's and Mutation's dispatch, pass 1 and
 every fix-round re-run, both carrying the mutation-testing brief (Bugbot's own copy is
-`bugbot-reviewer-prompt.md`'s) — therefore both run there, against a throwaway worktree, never the
-shared `<worktree>` the other slots read:
+`bugbot-reviewer-prompt.md`'s), and Simple reviewer's read-only pass beside them — therefore runs
+against its own throwaway worktree, never the
+shared `<worktree>` the other slots read, so every slot's findings are raised against the same
+pristine snapshot and no slot's view ever contains another slot's work:
 
 **The parent creates and removes every throwaway copy itself, in its own Bash calls — never a
 subagent.** Run the sequence below once per worktree in the resolved set per slot, producing one
-`<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`bugbot` or `mutation`),
-so a roster carrying both produces two copies per repository per round.
+`<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`bugbot`, `mutation` or
+`simple-reviewer`), so a roster carrying all three produces three copies per repository per round.
 
 ```bash
 git -C <worktree> worktree add --detach <worktree>-<slot>-<round> HEAD
@@ -537,7 +546,8 @@ special character, and silently drops that file from the copy; the `-z`/NUL form
 byte string through untouched, regardless of what the filename contains.
 
 Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
-that slot as the repository paths to mutate and test in, in place of `<worktree>` (design.md's
+that slot as the repository paths to mutate and test in — for simple-reviewer, to read and grep
+in — in place of `<worktree>` (design.md's
 `bugbot-security-one-dispatch`).
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
 (including after the wall-clock re-dispatch), or the run stopped:
@@ -548,8 +558,8 @@ git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
 ```
 
 Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
-reproducer still runs against the real `<worktree>` at verification time, never against Bugbot's or
-Mutation's copy, exactly as today. Security is **not** isolated this way — nothing in this file requires it to
+reproducer still runs against the real `<worktree>` at verification time, never against any slot's
+throwaway copy, exactly as today. Security is **not** isolated this way — nothing in this file requires it to
 mutate anything, so it keeps sharing `<worktree>` with the reading slots. It too is dispatched
 once, its prompt naming every worktree in the resolved set.
 
