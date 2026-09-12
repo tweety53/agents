@@ -22,20 +22,26 @@ under **Metrics**. Expanding a row shows the main session and every subagent dis
 ### Schema (`0023_plan_sessions.sql`)
 
 - `stage_runs.change_id` becomes nullable.
-- New columns `stage_runs.project_id BIGINT NULL REFERENCES projects(id)` and
-  `stage_runs.jira_key TEXT NULL`, index on `(project_id, jira_key) WHERE change_id IS NULL`.
-- Check constraint: `change_id IS NOT NULL OR (project_id IS NOT NULL AND jira_key IS NOT NULL)`.
-  `project_id` is set only on rows that arrive before their change; the project bootstrap in
-  `changes.go` already resolves it from the `-C` repo root.
+- New columns `stage_runs.project_key TEXT NULL REFERENCES projects(project_key)` and
+  `stage_runs.jira_key TEXT NULL`, index on `(project_key, jira_key) WHERE change_id IS NULL`.
+- Check constraint: `change_id IS NOT NULL OR (project_key IS NOT NULL AND jira_key IS NOT NULL)`.
+  Both new columns are set only by a plan-session mark and kept after backfill; the project
+  bootstrap `PutChange` already performs is extracted so the plan-session insert shares it.
+- `QueryStageRuns` joins `changes` with `LEFT JOIN` and reads `change_id` through `COALESCE(…, 0)`,
+  so a harvest window lookup (session_id filter) and the plan-session end mark (jira_key filter)
+  both see unattached rows. Every other aggregate keeps its inner join and simply omits them.
 - `dispatches.change_id` stays `NOT NULL`; a plan session dispatches nothing.
 
 ### Write path
 
 `flow stage begin|end` accepts `-jira-key <KEY>` as an alternative to the positional change
 name. With `-jira-key`, `BeginStageInput.ChangeName` is empty, `JiraKey` is set, and the store
-inserts the row with `change_id NULL`. Command is `/flow-plan`, stage is `plan.session`, one
-attempt per invocation. `-jira-key` without a change name is accepted only for stage
-`plan.session`; any other stage keeps requiring a change name.
+inserts the row with `change_id NULL` (or the id of an existing change carrying that
+`jira_issue`). Command is `/flow-plan`, stage is `plan.session`, attempt numbered per
+`(project_key, jira_key, command, stage)`. `-jira-key` without a change name is accepted only
+for stage `plan.session`; any other stage keeps requiring a change name. `plan.session` joins
+`internal/stages.Table` and README's Level 1 table as the one stage of a new `/flow-plan`
+command, so the documented-stage guard on both the CLI and the daemon admits it.
 
 ### Backfill
 
@@ -44,7 +50,7 @@ is set:
 
 ```sql
 UPDATE stage_runs SET change_id = $new_id
-WHERE change_id IS NULL AND jira_key = $jira_issue AND project_id = $project_id;
+WHERE change_id IS NULL AND jira_key = $jira_issue AND project_key = $project_key;
 ```
 
 `jira_key` is kept after backfill; it is the audit trail that the row arrived before the change.
@@ -72,34 +78,40 @@ window exactly as for any stage run. `store.Price` prices the row the same way.
 ## 2. Metrics
 
 All new metrics are written by the harvester into the existing `metrics` JSONB bag on both
-`stage_runs` and `dispatches`, through `CommitHarvestBatch` and `jsonb_deep_add`. Counters are
-additive; lists append. No new tables, no new hooks.
+`stage_runs` and `dispatches`, through `CommitHarvestBatch` and `jsonb_deep_add`. No new
+tables, no new hooks. They live under one `signals` key, split `main` / `sidechain` exactly as
+`tokens` is, so a stage run's main-session figures never include its subagents' and a dispatch
+row (sidechain only) can be read on its own. `jsonb_deep_add` sums numbers, replaces strings and
+replaces arrays, which fixes three shapes below: every counter is a number, the compaction event
+list is an object keyed by the event's RFC 3339 timestamp (two batches never carry the same
+event, so keys never collide), and `context_end` is a string so the latest batch wins.
 
-### New keys, per window
+### New keys, per window, under `signals.main` and `signals.sidechain`
 
 | Key | Source record | Shape |
 |-----|---------------|-------|
-| `compactions.count` | `type:"system", subtype:"compact_boundary"` | int |
-| `compactions.events[]` | `compactMetadata` | `{at, trigger, preTokens, postTokens, durationMs}` |
-| `turns.count` | `subtype:"turn_duration"` | int |
-| `turns.durationMs` | `turn_duration.durationMs` | int, summed |
-| `turns.messages` | `turn_duration.messageCount` | int, summed |
-| `tool_calls.<name>` | assistant content block `type:"tool_use"` | int per tool name |
-| `tool_calls.total` | same | int |
-| `tool_errors.count` | user content block `type:"tool_result", is_error:true` | int |
-| `tool_errors.denials` | `is_error` result whose text starts with one of the denial phrases | int |
-| `api_errors` | `isApiErrorMessage:true` | int |
-| `context_end` | last assistant `usage` in the window | `input + cache_read + cache_creation` |
-| `served_models.<model>` | assistant `message.model` | message count per model |
-| `served_efforts.<effort>` | `Record.Effort` | message count per effort |
+| `compactions` | `type:"system", subtype:"compact_boundary"` | int |
+| `compaction_events.<rfc3339nano>` | `compactMetadata` | `{trigger, pre_tokens, post_tokens, duration_ms}` |
+| `turns` | `type:"system", subtype:"turn_duration"` | int |
+| `turn_duration_ms` | `turn_duration.durationMs` | int, summed |
+| `turn_messages` | `turn_duration.messageCount` | int, summed |
+| `tool_calls.<name>` | assistant content block `type:"tool_use"`, deduplicated by block `id` | int per tool name |
+| `tool_calls_total` | same | int |
+| `tool_errors` | user content block `type:"tool_result", is_error:true`, deduplicated by `tool_use_id` | int |
+| `denials` | `is_error` result whose text starts with one of the denial phrases | int |
+| `api_errors` | assistant line with `isApiErrorMessage:true` | int |
+| `context_end` | last assistant `usage` in the window by timestamp | decimal string of `input + cache_read + cache_creation` |
+| `served_models.<model>` | assistant `message.model`, lowercased, `<synthetic>` excluded | message count per model |
+| `served_efforts.<effort>` | line-level `effort` | message count per effort |
 
 Denial phrases (prefix match, case-sensitive, from live transcripts):
 `Permission for this action was denied`, `The user doesn't want to proceed`,
 `PreToolUse hook`. Add a phrase only with a transcript sample beside it in the test fixture.
 
 Subagent transcripts (`subagents/agent-<id>.jsonl`) carry the same record shapes; the dispatch
-window receives the same keys. `compactions` on a dispatch window is expected to stay zero and is
-recorded anyway.
+row receives `signals.sidechain`, and the owning stage run's `dispatches.<agentId>.signals`
+carries the same figures beside that dispatch's tokens. `compactions` on a dispatch is expected
+to stay zero and is recorded anyway.
 
 ### Already captured, only surfaced
 
@@ -121,16 +133,26 @@ Computed by the new aggregate, never stored:
   wall clock is `last.ended_at - first.started_at` of the run.
 - **Fix iterations** — per change, count of runs whose `command` is `/flow` and whose first stage
   is not `flow.kickoff`.
-- **Fan-out width** — per stage run, count of dispatches whose windows overlap.
-- **Findings per slot** — from `findings` joined to `dispatches.slot`: raised, confirmed, rejected.
-- **Suite first-pass** — per run, whether the first `suite_runs` row for the run passed.
+- **Fan-out width** — per run, the most dispatches open at one instant, from a sweep over the
+  run's dispatch intervals.
+- **Findings per dispatch** — from `findings.dispatch_id`: raised, and the same rows counted by
+  their current `status` (the pipeline's own vocabulary, `open`, `fixed`, …), shown on the
+  dispatch row.
+- **Suite first-pass** — `suite_runs` carries no change or token, so per run it is the project's
+  suite runs whose `ran_at` falls inside the run's span: their count, and whether the earliest
+  exited 0. Absent when none fall inside.
 - **Cache hit ratio** — `cache_read / (input + cache_read + cache_creation)`.
 - **Model mismatch** — declared model absent from `served_models`, or declared effort absent
-  from `served_efforts`; shown as a flag on the dispatch row.
+  from `served_efforts`, on a dispatch whose `served_models` is non-empty; shown as a flag on
+  the dispatch row.
+- **Main-session cost** — run cost minus the sum of its dispatches' cost, since `store.Price`
+  prices a stage run whole and each `dispatches.<agentId>` bucket separately.
 
 ## 3. API
 
-`GET /api/v1/stats/runs?project=<key>&change=<name>&period=<p>` returns:
+`GET /api/v1/stats/runs?from=<rfc3339>&to=<rfc3339>[&project=<key>][&change=<name>]` is a new
+`viewName` on the existing stats endpoint, answered in the standard `statsResponse` envelope with
+`rows` shaped:
 
 ```json
 {
@@ -142,12 +164,14 @@ Computed by the new aggregate, never stored:
       "startedAt": "…", "endedAt": "…",
       "totals": { ...RunTotals },
       "decision": { "execution": "…", "implementer": "…", "panel": "…" } | null,
+      "fanOutMax": 2, "suiteRuns": 3, "suiteFirstPass": false | true | null,
       "main": { ...RunTotals },
       "dispatches": [{
         "seq": 1, "role": "…", "slot": "…", "agentType": "flow-medium", "description": "…",
         "depth": 1, "declaredModel": "…", "servedModels": {...}, "declaredEffort": "…",
-        "servedEfforts": {...}, "mismatch": false, "startedAt": "…", "endedAt": "…",
-        ...RunTotals
+        "servedEfforts": {...}, "mismatch": false,
+        "findingsRaised": 3, "findingsByStatus": {"fixed": 2, "open": 1},
+        "startedAt": "…", "endedAt": "…", "totals": { ...RunTotals }
       }]
     }]
   }]
@@ -173,14 +197,15 @@ New route `runs` → `views/Runs.tsx`, added to the static view list in `App.tsx
 Layout: one `DataTable` per change, header row = change name, Jira key, change totals. Body =
 one row per run. Columns: kind, command, started, tokens in, tokens out, cache hit, cost, wall
 clock, human gate, compactions, turns, tool calls, errors (tool errors + api errors, denials in
-the tooltip), decision (execution / implementer / panel, blank for plan runs). The change header
+the tooltip), fan-out, suite first pass, decision (execution / implementer / panel, blank for
+plan runs). The change header
 row additionally shows idle between runs and fix iterations.
 
 Expand (existing `renderDetail` + `rowKey` on `DataTable`): first row **main session** with the
 run's `main` totals; then one row per dispatch: seq, role/slot, agent type, description, depth,
 model (declared, with served in parentheses when they differ, flagged red on mismatch), effort
-(same treatment), tokens in/out, cache hit, cost, wall clock, turns, tool calls, errors,
-compactions. Nested rows reuse `DispatchTable`'s cell formatters; the table itself is extended
+(same treatment), findings (raised, by status), tokens in/out, cache hit, cost, wall clock,
+turns, tool calls, errors, compactions, context at end. Nested rows reuse `DispatchTable`'s cell formatters; the table itself is extended
 with the new columns rather than duplicated.
 
 Filters: `ProjectFilter`, `ChangeVariable`, `PeriodPicker`, as on the other views.
