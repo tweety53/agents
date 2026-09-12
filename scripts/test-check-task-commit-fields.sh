@@ -3337,6 +3337,91 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 102: none-opening Tests stays vacuous for the tree check" || fail "case 102: rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 103 (panel F1, KAN-511): a backticked **Tests:** token that is a real
+# committed PATH — modified by the commit, so the diff check passes on its
+# path header, but whose string appears nowhere as content — passes the tree
+# check through the path-existence route.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Path token in Tests
+
+**Files:** `helper.md`
+**Tests:** `helper.md`
+**Commit:** touch helper
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'original helper body\n' > "$REPO/helper.md"
+git -C "$REPO" add helper.md
+git -C "$REPO" commit -q -m "seed helper"
+printf 'revised helper body\n' > "$REPO/helper.md"
+git -C "$REPO" add helper.md
+git -C "$REPO" commit -q -m "touch helper"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 103: a Tests token existing as a committed path passes" || fail "case 103: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 104 (panel F2, KAN-511): a stale **Tests:** name that survives only in
+# ANOTHER change's plan file under spectre/changes/ — the archived plan must
+# not vouch for the name, so the tree check still fails.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Stale name in another plan
+
+**Files:** `alpha.txt`
+**Tests:** `test_stale`
+**Commit:** remove stale test
+**Build:** green
+'
+mkdir -p "$REPO/spectre/changes/archive/old-change"
+printf -- '- [ ] 1. Old plan task\n\n**Files:** `gone.txt`\n**Tests:** `test_stale`\n**Commit:** old\n' \
+  > "$REPO/spectre/changes/archive/old-change/tasks.md"
+git -C "$REPO" add spectre/changes
+git -C "$REPO" commit -q -m "plan"
+printf 'x\n# test_stale\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "seed alpha"
+printf 'x\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "remove stale test"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 104: an archived plan cannot vouch for a stale name" || fail "case 104: rc=$RC out=$OUT"
+case "$OUT" in
+  *"test_stale"*"not found in the tree"*)
+    pass "case 104: names the stale name despite the archive copy" ;;
+  *) fail "case 104: expected tree message naming test_stale, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 105 (panel S1, KAN-511): @TestFactory / @TestInstance lines are not
+# @Test — the counted delta must use whole-word matching, so a one-test
+# commit plus one lifecycle annotation measures 1 -> 2, not 1 -> 3.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Lifecycle annotations are not tests
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Baseline:** before=1 after=2
+**Commit:** grow alpha tests
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '@TestFactory\n@Test fun a() {}\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "seed alpha"
+printf '@TestFactory\n@TestInstance(LIFECYCLE.PER_METHOD)\n@Test fun a() {}\n@Test fun b() {}\n# test_alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "grow alpha tests"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 105: lifecycle annotations do not count as @Test" || fail "case 105: rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

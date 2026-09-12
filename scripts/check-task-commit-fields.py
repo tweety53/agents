@@ -880,28 +880,36 @@ def _extract_tree_names(tests_value: str) -> List[str]:
     return names
 
 
-def _git_grep(worktree: str, args: List[str]) -> Tuple[str, int]:
-    """Run `git grep` in <worktree> and return (stdout, exit code) without
-    raising on exit 1 — git grep's no-match code, which every caller here
-    reads as a zero count or an absent name, never as an error."""
+def _git_grep(worktree: str, args: List[str]) -> Tuple[str, str, int]:
+    """Run `git grep` in <worktree> and return (stdout, stderr, exit code)
+    without raising on exit 1 — git grep's no-match code, which every caller
+    here reads as a zero count or an absent name, never as an error. The
+    stderr rides along so a real failure's message reaches the raised
+    RuntimeError instead of dying as a bare exit code (panel F3)."""
     result = subprocess.run(
         ["git", "-C", worktree, "grep"] + args, capture_output=True, text=True
     )
-    return result.stdout, result.returncode
+    return result.stdout, result.stderr, result.returncode
 
 
 def count_test_annotations(
     worktree: str, revision: str, paths: List[str]
 ) -> int:
     """Occurrences of `@Test` across <paths> at <revision> — `-o` so a file
-    holding several matches on one line still counts each one."""
+    holding several matches on one line still counts each one, and `-w` so a
+    lifecycle annotation like `@TestFactory` or `@TestInstance` is not
+    counted as a test (panel S1): only whole-word `@Test` is."""
     if not paths:
         return 0
-    out, code = _git_grep(worktree, ["-o", "-F", "@Test", revision, "--"] + paths)
+    out, err, code = _git_grep(
+        worktree, ["-o", "-w", "-F", "@Test", revision, "--"] + paths
+    )
     if code == 1:
         return 0
     if code != 0:
-        raise RuntimeError(f"git grep @Test at {revision} failed with exit {code}")
+        raise RuntimeError(
+            f"git grep @Test at {revision} failed with exit {code}: {err.strip()}"
+        )
     return len(out.splitlines())
 
 
@@ -947,30 +955,42 @@ def check_tests_in_tree(
     satellite's plan lives OUTSIDE the worktree grepped (the change-plan
     resolution reads it from the canonical repository), and git refuses a
     pathspec pointing out of the tree — there the plan cannot self-match
-    anyway, so no exclusion is passed."""
+    anyway, so no exclusion is passed. Every other plan under
+    `spectre/changes/` — archived changes included — is excluded too
+    (panel F2): a stale name surviving in another change's `**Tests:**`
+    line must not vouch for itself, or the guard passes the exact stale
+    declaration it exists to catch."""
     plan_rel = os.path.relpath(
         os.path.abspath(tasks_md_path), os.path.abspath(worktree)
     )
-    pathspecs = (
-        []
-        if plan_rel.startswith(".." + os.sep)
-        else [f":(exclude){plan_rel}"]
-    )
+    pathspecs = [":(exclude)spectre/changes"]
+    if not plan_rel.startswith(".." + os.sep):
+        pathspecs.append(f":(exclude){plan_rel}")
     violations = []
     for name in _extract_tree_names(task.tests_value):
-        _, code = _git_grep(
+        _, err, code = _git_grep(
             worktree, ["-F", "-e", name, commit_sha, "--"] + pathspecs
         )
-        if code == 0:
-            continue
-        if code != 1:
-            raise RuntimeError(
-                f"git grep {name!r} at {commit_sha} failed with exit {code}"
+        if code != 0:
+            if code != 1:
+                raise RuntimeError(
+                    f"git grep {name!r} at {commit_sha} failed with exit "
+                    f"{code}: {err.strip()}"
+                )
+            # Content grep missed; the name may still be a real committed
+            # PATH (panel F1) — a `Tests:` token naming a file the commit
+            # carries, whose string appears nowhere as file content.
+            path_check = subprocess.run(
+                ["git", "-C", worktree, "cat-file", "-e", f"{commit_sha}:{name}"],
+                capture_output=True,
+                text=True,
             )
-        violations.append(
-            f"task {task.id}: declared test {name} not found in the tree "
-            f"at {commit_sha}"
-        )
+            if path_check.returncode == 0:
+                continue
+            violations.append(
+                f"task {task.id}: declared test {name} not found in the tree "
+                f"at {commit_sha}"
+            )
     return violations
 
 
