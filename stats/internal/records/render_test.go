@@ -803,3 +803,49 @@ func TestRenderPanelNeutralisesPassLogLabelsInRows(t *testing.T) {
 		t.Errorf("the neutralised colon is missing:\n%s", out)
 	}
 }
+
+// TestRenderPanelLineageColumn pins the lineage column's whole contract
+// (KAN-507): a finding carrying a supersedes link renders `supersedes
+// F<n>`, one carrying a regression-of link renders `regression of F<n>`,
+// one carrying both renders both, one carrying neither renders an empty
+// cell, and every lineage cell still leaves the row beginning `| F<n> |`
+// -- the anchored shape the record's readers key on. A link ref is store
+// data, so it renders through tableCell like every other cell: a
+// marker-shaped ref cannot impersonate a marker, and a pipe-bearing one
+// cannot shift the columns after it.
+func TestRenderPanelLineageColumn(t *testing.T) {
+	r := records.Run{Change: "demo"}
+	r.Findings = append(r.Findings,
+		records.Finding{Ref: "F1", Round: 0, Slot: "principles", Severity: "Major", Note: "n", Status: "open"},
+		records.Finding{Ref: "F2", Round: 1, Slot: "principles", Severity: "Major", Note: "n", Status: "open", Supersedes: "F1"},
+		records.Finding{Ref: "F3", Round: 1, Slot: "principles", Severity: "Major", Note: "n", Status: "open", RegressionOf: "F1"},
+		records.Finding{Ref: "F4", Round: 2, Slot: "principles", Severity: "Major", Note: "n", Status: "open", Supersedes: "F2", RegressionOf: "F1"},
+	)
+
+	out := records.RenderPanel(r)
+
+	if !strings.Contains(out, "| ID | Slot | Severity | Location | Note | Lineage |\n") {
+		t.Errorf("rendered record does not carry the Lineage column header:\n%s", out)
+	}
+	want := map[string]string{
+		"| F1 |": "",
+		"| F2 |": "supersedes F1",
+		"| F3 |": "regression of F1",
+		"| F4 |": "supersedes F2; regression of F1",
+	}
+	for _, line := range strings.Split(out, "\n") {
+		for prefix, cell := range want {
+			if !strings.HasPrefix(line, prefix+" ") {
+				continue
+			}
+			cols := strings.Split(line, "|")
+			if len(cols) != 8 {
+				t.Errorf("row %q has %d pipe-delimited columns, want 8", line, len(cols))
+				continue
+			}
+			if got := strings.TrimSpace(cols[6]); got != cell {
+				t.Errorf("row %q lineage cell = %q, want %q", line, got, cell)
+			}
+		}
+	}
+}

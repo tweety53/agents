@@ -100,6 +100,24 @@ func tableCell(s string) string {
 	return strings.ReplaceAll(neutraliseMarkers(s), "|", `\|`)
 }
 
+// lineageCell words a finding's lineage (KAN-507) for the table's Lineage
+// column: `supersedes F<n>`, `regression of F<n>`, both joined by "; " when
+// a finding carries the two kinds at once, or the empty string when it
+// carries neither -- tableCell renders that as a blank cell, the ordinary
+// shape of most findings. It is words rather than a bare ref pair because
+// the cell is read in one glance with the row's note: which KIND of link
+// it carries is the fact a fix round's churn signal turns on.
+func lineageCell(f Finding) string {
+	parts := make([]string, 0, 2)
+	if strings.TrimSpace(f.Supersedes) != "" {
+		parts = append(parts, "supersedes "+f.Supersedes)
+	}
+	if strings.TrimSpace(f.RegressionOf) != "" {
+		parts = append(parts, "regression of "+f.RegressionOf)
+	}
+	return strings.Join(parts, "; ")
+}
+
 // RenderPanel renders a change's findings, dispatches, and pass log as the
 // review panel record that `flow record render -kind panel` writes under
 // the worktree's untracked .superpowers/sdd/reviews/.
@@ -134,12 +152,12 @@ func RenderPanel(r Run) string {
 	fmt.Fprintf(&b, "# Review panel — %s\n\n", neutraliseMarkers(r.Change))
 	b.WriteString("Rendered from the store. Do not edit: the findings are rows, and the next render overwrites this file.\n\n")
 
-	b.WriteString("| ID | Slot | Severity | Location | Note |\n")
-	b.WriteString("|---|---|---|---|---|\n")
+	b.WriteString("| ID | Slot | Severity | Location | Note | Lineage |\n")
+	b.WriteString("|---|---|---|---|---|---|\n")
 	for _, f := range r.Findings {
-		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n",
+		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s | %s |\n",
 			tableCell(f.Ref), tableCell(f.Slot), tableCell(f.Severity),
-			tableCell(f.Location), tableCell(f.Note))
+			tableCell(f.Location), tableCell(f.Note), tableCell(lineageCell(f)))
 	}
 	b.WriteString("\n")
 
