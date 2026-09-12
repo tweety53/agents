@@ -74,10 +74,12 @@ dispatch-time parameter) carries a `tools:` allowlist that omits
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever `REVIEW_PANEL_TOGGLE` is `dynamic` (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row whenever it dispatches on its group's
-`model`/`effort` pair. The verifier row is unaffected regardless of any toggle: it dispatches
+`model`/`effort` pair. On `REVIEW_PANEL_TOGGLE: default` a reviewer row dispatches `flow-review`
+(`agents/flow-review.md`) instead — a definition this repository owns, carrying the same
+allowlist, so the reviewer rows are structurally fork-free on both toggle values. The verifier
+row is unaffected regardless of any toggle: it dispatches
 `subagent_type: general-purpose` unconditionally (`skills/flow/verify-and-handoff.md`) — a
-harness-provided type this repository does not own and cannot restrict this way. `general-purpose`
-is likewise what a reviewer row dispatches on `REVIEW_PANEL_TOGGLE: default`.
+harness-provided type this repository does not own and cannot restrict this way.
 
 **Inline — the parent implements** below takes this same table minus the implementer and panel-fix
 rows — the parent's only permitted dispatches inline are the panel-bundle, gated per-task-reviewer
@@ -117,7 +119,7 @@ flow record dispatch end -change <name> -key <the key currently open> -session-t
 state file's worktrees, findings in the store) through this file's own re-entry rules, and the
 operator should see the death rather than have it hidden by a second dispatch.
 
-**Bugbot and Security are prompt-driven roles, dispatched general-purpose like every other panel
+**Bugbot and Security are prompt-driven roles, dispatched on the same type as every other panel
 slot** (**The roster**, `skills/flow/review-panel.md`) — never a fixed `bugbot` or `security-review`
 Agent-tool type, so there is nothing for the parent to substitute.
 

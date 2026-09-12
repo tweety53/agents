@@ -118,13 +118,13 @@ or the decision's `panel.roster` on `dynamic` — see the opening paragraph abov
 
 | id | Slot | How to spawn |
 |---|------|---------------|
-| `primary` | **Primary** — plan alignment and senior code review | general-purpose + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
-| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
-| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` |
-| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` |
-| `bugbot` | **Bugbot** — defect hunt | general-purpose + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
-| `security` | **Security** | general-purpose + `security-reviewer-prompt.md` |
-| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
+| `primary` | **Primary** — plan alignment and senior code review | `flow-review` + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
+| `principles` | **Principles** | `flow-review` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
+| `code-review-low` | **Code review (low)** | `flow-review` reviewer briefed for high-confidence defects only, against `final-review.diff` |
+| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | `flow-review` reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` |
+| `bugbot` | **Bugbot** — defect hunt | `flow-review` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
+| `security` | **Security** | `flow-review` + `security-reviewer-prompt.md` |
+| `mutation` | **Mutation** — sabotage-proofing | `flow-review` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
 `primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
@@ -137,7 +137,11 @@ dispatcher resolves their paths, confirms each exists, and names them in the pro
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
 seven entries, never an eighth. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
 for this run. There is no parent-model inheritance and no economy tier. Every slot in this table,
-Bugbot and Security included, is dispatched general-purpose and carries the same model rule.
+Bugbot and Security included, is dispatched on `flow-review` (`agents/flow-review.md`, on
+`REVIEW_PANEL_TOGGLE: default`) and carries the same model rule. `flow-review` is a definition
+this repository owns, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a
+capability the slot structurally does not have, not by the NO DELEGATION paragraph alone;
+`general-purpose` is a harness-provided type whose tool set cannot be restricted.
 
 **Check for an operator-named id at two points**: at the start of this stage (has the operator, in
 this run's own argument or in the session before this stage, named an id the resolved list does not
