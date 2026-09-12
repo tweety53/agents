@@ -1021,3 +1021,17 @@ func TestStageEndWithJiraKeyClosesThePlanSession(t *testing.T) {
 		t.Errorf("plan session not closed: %+v", fs.stageRuns[0].run)
 	}
 }
+
+func TestStageEndRejectsJiraKeyOutsidePlanSession(t *testing.T) {
+	fs := newFakeStore()
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+	req := map[string]any{
+		"projectKey": "proj", "jiraKey": "KAN-900", "command": "/flow", "stage": "flow.kickoff",
+		"endedAt": "2026-09-01T10:30:00Z", "outcome": "completed",
+	}
+	resp, _ := postJSON(t, srv.URL+"/api/v1/stages/end", req)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	}
+}

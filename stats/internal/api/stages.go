@@ -499,6 +499,8 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.As(err, &unknownStage):
 			writeErrorWithCode(w, http.StatusBadRequest, CodeUndocumentedStage, err.Error())
+		case errors.Is(err, ErrInvalidMark):
+			writeError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, ErrNoOpenStageRun):
 			writeError(w, http.StatusNotFound, err.Error())
 		default:
@@ -575,6 +577,9 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (StageMarkResult, error) {
 	if err := stages.Validate(stages.Command(mark.Command), mark.Stage); err != nil {
 		return StageMarkResult{}, err
+	}
+	if mark.JiraKey != "" && mark.ChangeName == "" && mark.Stage != "plan.session" {
+		return StageMarkResult{}, fmt.Errorf("%w: jiraKey without changeName is only valid for plan.session", ErrInvalidMark)
 	}
 
 	var openRun *store.StageRun
