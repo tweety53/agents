@@ -567,6 +567,11 @@ Every dispatched slot ends up with one, a slot that raised nothing included. **N
 slot's report from this context** — record its `F<n>` rows and cite the file, per **Read
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 
+When two independently dispatched slots raise the same defect — the code-quality ground Primary
+and Simple reviewer or Code review (low) now overlap, per `primary-reviewer-prompt.md`'s **Do
+Not** — the dispatcher records it once, under a `+`-joined `-slot` value naming both, rather than
+as two `F<n>` rows.
+
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself, never a subagent. Every
 finding a round raised is recorded in one Bash call, one `flow record finding` per finding:

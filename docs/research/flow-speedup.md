@@ -659,6 +659,10 @@ transcript (`<session>/subagents/agent-<agentId>.jsonl`), the parent and conduct
   `tasks.md`'s Files/Tests/Commit fields against the whole branch; code quality is
   `code-review-low`'s and bugbot's. The docs-only reduction and the empty-store fallback still
   resolve to `primary` unchanged.
+- **Reversed**: `primary` regained code quality when it took the senior reviewer prompt (26cfb44,
+  "primary slot merges plan alignment with the senior code review prompt") — that prompt's own
+  **Do Not** section (`skills/flow/primary-reviewer-prompt.md`) is now canonical for how `primary`
+  shares code-quality ground with `code-review-low` and Simple reviewer.
 
 ### Per-task review deleted
 

@@ -50,6 +50,12 @@ flow stage begin -command '/flow-plan' -stage plan.session -harness <harness> -s
 (`skills/flow-contracts/jira-integration.md`) resolves it. When the key is only created later, by
 **Staging a Note**, mark at that point instead. A session that ends with no key marks nothing.
 
+**This mark never blocks.** A refused or unreachable store prints one line and the session
+continues; never branch on `flow stage begin`'s or `flow stage end`'s exit code. Close the session
+with exactly one `stage end`, on whichever exit path this session takes — `staged` when a note was
+written, `captured` when the session wrote into an existing change's artifacts, `abandoned`
+otherwise, including a session that just stops.
+
 **No `flow record dispatch` call** — that record closes against a change's dispatch history, and
 `/flow-plan` has no change to record against, dispatching nothing either. The one mark this mode
 makes is `plan.session`, above, recorded against the Jira key; the store attaches it to the

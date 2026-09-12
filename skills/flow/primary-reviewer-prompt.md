@@ -91,6 +91,9 @@ Subagent (<the dispatch's subagent_type>):  # general-purpose on `default`;
       principle-by-name violation, a security audit, a throwaway-worktree defect hunt or
       sabotage-proofing are theirs; raise such a finding only when it is also a plain
       correctness defect you would bet on.
+    - Code review (low) and Simple reviewer cover the same code-quality ground on the
+      rosters that carry them; raise a finding they would also raise only when it is a
+      defect you would bet on, and never re-raise one their report already carries.
     - Do not flag formatting a formatter would fix silently, or a style preference with no
       correctness content.
     - Do not say "looks good" without checking, and do not give feedback on code you did
