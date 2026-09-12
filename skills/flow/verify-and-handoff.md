@@ -361,6 +361,35 @@ and 12 below as written, committing and pushing nothing.
    post-hoc toast). `rules/design-mockups-are-specs.mdc` puts the same question to the
    implementer; this is the verifier's side of it.
 
+   **Never judge a size, alignment, spacing or corner radius by eye from a resized or cropped
+   image; measure it from pixels.** A crop is for reading text and layout, never edges or
+   centres — interpolation and a small viewport shift an edge by pixels and hide a gap outright
+   (KAN-30 fix round 9: a card corner read "square, no gap" from a tight crop that ended before
+   the corner; a row-by-row background-colour scan of the same boundary found a rounded corner
+   and a 9px gap). Find an edge by sampling pixel colours along a scan line until the colour
+   transitions, then compare the resulting coordinates and distances as numbers. Three
+   preconditions on any number compared across two images:
+   1. **Calibrate before comparing images of different provenance** — a mockup export against a
+      capture, or captures at two viewport sizes. Where the project declares a `mockup frame`
+      geometry, its `scale` is the calibration the composite already crops by; ad-hoc
+      measurements use the same factor. Otherwise derive the factor from an element whose
+      correctness in both images is already established by other evidence — a prior finding, a
+      code-level guarantee, a passing test — never from the nearest similar-looking thing: an
+      unchecked ruler is itself a claim, and a wrong one makes the comparison wrong twice (KAN-30
+      fix round 9: a day-number circle as ruler put a button at 2–3x oversized; an adjacent "+"
+      button confirmed correct earlier put it at 15–20%, traced to a deliberate 44dp
+      touch-target minimum).
+   2. **Confirm both images are the same state of the view** — the same expand/collapse state,
+      scroll position and populated/empty condition, not merely the same screen. The box between
+      two landmarks encloses different content in different states, and its size then compares
+      nothing (KAN-30 fix round 9: a date-header row measured 3x taller against a mockup drawn
+      with the calendar collapsed and a capture with it expanded).
+   3. **Treat an implausible result — a multiple rather than a percentage, an order of
+      magnitude — as a methodology error, never as a bigger finding.** Re-derive the calibration
+      and the state check before reporting it; a smaller wrong number from the same mistake reads
+      as a finding and ships (KAN-30 fix round 9: the 3x row was caught only because it was
+      absurd).
+
    **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
    the app — `mockups: no map` was reported and accepted every round, because nothing required
