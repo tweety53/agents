@@ -366,7 +366,7 @@ and 12 below as written, committing and pushing nothing.
    artefact, and that a `null` or an exit 1 was resolved by a wider or better-centred region, not
    by dropping the property. A number no eye confirmed is a methodology error waiting to ship;
    an eye with no number is round 9 again. Exit 2 with no calibration is the script refusing
-   precondition 1 below; supply it, never work around it. Three preconditions on any number
+   precondition 1 below; supply it, never work around it. Four preconditions on any number
    compared across two images:
    1. **Calibrate before comparing images of different provenance** — a mockup export against a
       capture, or captures at two viewport sizes. Where the project declares a `mockup frame`
@@ -389,6 +389,27 @@ and 12 below as written, committing and pushing nothing.
       and the state check before reporting it; a smaller wrong number from the same mistake reads
       as a finding and ships (KAN-30 fix round 9: the 3x row was caught only because it was
       absurd).
+   4. **Measure the rendered box, never the declared one — a declared minimum is a floor, not a
+      size, and the hit box and the visible ink are two measurements, not one.** `sizeIn(min =
+      44.dp)` bounds a box from below and nothing bounds it from above: a child's own intrinsic
+      size inflates the box past the mockup's drawn size and past the floor itself, and reading
+      the constant in code sees none of it. An accessibility minimum applies to the tap target
+      only, while the mockup draws the visible shape, so a control that looks oversized is
+      measured twice — hit box and ink — before either number is called wrong (KAN-30 manual
+      re-sweep, after round 10: the "+" button precondition 1 had accepted as a deliberate 44dp
+      minimum had grown past 44dp on a child's layout demand, found only by measuring its
+      rendered pixels; and a tap-target circle whose visible fill shared its hit size rendered
+      about 2.5x the mockup's circle, the two numbers never having been separated).
+
+   **A first impression that a control "looks broken" is a hypothesis, not a finding — zoom and
+   contrast-check the capture before it becomes a code change.** A small, low-contrast but
+   pixel-correct element reads as wrong at a glance, and "hard to see" is a different question
+   from "drawn wrong" — one for the operator, not for a fix (KAN-30 manual re-sweep: a substring
+   highlight read as a smudge, cost three wrong hypotheses about its geometry, and was proved
+   pixel-correct only once re-rendered in a saturated red for a contrast test; the right first
+   move was a zoomed crop and "low-contrast, reads as a smudge at 1x — accepted?" handed back).
+   Symmetric with the measurement rule above: the eye that passes a control owes a number, and so
+   does the eye that fails one.
 
    **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
