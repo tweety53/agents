@@ -61,11 +61,14 @@ func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string
 	return f.decisionRows, f.decisionRowsErr
 }
 
-// CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured have no
-// fakeStore field of their own: this type exists purely to keep satisfying
-// api.StatsStore at call sites that never exercise a stats route at all
-// (this section's own header comment) -- no test here needs any of them to
-// return anything but a harmless zero value.
+// ListRuns, CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured
+// have no fakeStore field of their own: this type exists purely to keep
+// satisfying api.StatsStore at call sites that never exercise a stats route
+// at all (this section's own header comment) -- no test here needs any of
+// them to return anything but a harmless zero value.
+func (f *fakeStore) ListRuns(_ context.Context, _ store.Period, _, _ *string) ([]store.ChangeRuns, error) {
+	return nil, nil
+}
 func (f *fakeStore) CountRunsWithoutModel(_ context.Context, _ store.Period, _ *string) (int, error) {
 	return 0, nil
 }
@@ -103,6 +106,7 @@ type statsFake struct {
 	cacheEfficiency  []store.CacheEfficiencyRow
 	reviewers        []store.ReviewerRow
 	decisions        []store.DecisionRow
+	runs             []store.ChangeRuns
 	aggErr           error
 
 	countRunsWithoutModel    int
@@ -172,6 +176,9 @@ func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) (
 func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]store.DecisionRow, error) {
 	f.lastProject = p
 	return f.decisions, f.aggErr
+}
+func (f *statsFake) ListRuns(_ context.Context, _ store.Period, _ *string, _ *string) ([]store.ChangeRuns, error) {
+	return f.runs, f.aggErr
 }
 func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *string) (int, error) {
 	f.lastProject = p
@@ -548,6 +555,55 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			got.CacheReadTokens != 20 || got.CostUsd != 1.25 || got.Critical != 1 || got.Important != 1 ||
 			got.Minor != 1 || got.FixRounds != 2 || got.Fallbacks != 1 || got.TimedOut != 1 {
 			t.Errorf("got %+v, want the seeded decision row unchanged", got)
+		}
+	})
+
+	t.Run("runs", func(t *testing.T) {
+		change := "kan-1"
+		startedAt := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
+		sts := &statsFake{runs: []store.ChangeRuns{
+			{Project: "kan", Change: &change, JiraKey: &change,
+				Totals: store.RunTotals{InputTokens: 500}, IdleBetweenRunsMs: 1000, FixIterations: 1,
+				Runs: []store.RunRow{
+					{SessionToken: "sess-1", Kind: "flow", Command: "/flow", StartedAt: startedAt,
+						Totals:    store.RunTotals{InputTokens: 300},
+						Main:      store.RunTotals{InputTokens: 200},
+						FanOutMax: 2, SuiteRuns: 1,
+						Dispatches: []store.RunDispatchRow{
+							{Seq: 1, Role: "reviewer", Slot: "exp-failure-modes", AgentID: "a1", AgentType: "general-purpose",
+								Description: "review", DeclaredModel: "claude-sonnet-4-5", DeclaredEffort: "high",
+								StartedAt: startedAt, Totals: store.RunTotals{InputTokens: 100}},
+						},
+					},
+				},
+			},
+		}}
+		ts := newStatsTestServer(t, sts)
+		status, env, body := getStats(t, ts, periodPath("runs"))
+		if status != http.StatusOK {
+			t.Fatalf("status %d, body %s", status, body)
+		}
+		var rows []struct {
+			Project string `json:"project"`
+			Change  string `json:"change"`
+			Runs    []struct {
+				Main struct {
+					InputTokens int64 `json:"inputTokens"`
+				} `json:"main"`
+				Dispatches []struct {
+					DeclaredModel string `json:"declaredModel"`
+				} `json:"dispatches"`
+			} `json:"runs"`
+		}
+		mustDecodeRows(t, env, body, &rows)
+		if len(rows) != 1 || len(rows[0].Runs) != 1 || len(rows[0].Runs[0].Dispatches) != 1 {
+			t.Fatalf("rows = %+v, want 1 change with 1 run with 1 dispatch", rows)
+		}
+		if got := rows[0].Runs[0].Dispatches[0].DeclaredModel; got != "claude-sonnet-4-5" {
+			t.Errorf("dispatches[0].declaredModel = %q, want claude-sonnet-4-5", got)
+		}
+		if got := rows[0].Runs[0].Main.InputTokens; got != 200 {
+			t.Errorf("runs[0].main.inputTokens = %d, want 200", got)
 		}
 	})
 

@@ -57,6 +57,11 @@ type StatsStore interface {
 	// its own run's totals. It takes no model filter -- a decision spans
 	// models (store.DecisionRow's own doc comment).
 	Decisions(ctx context.Context, period store.Period, project *string) ([]store.DecisionRow, error)
+	// ListRuns backs the "runs" view (design.md's "Stats views › runs",
+	// task 22): one row per change's runs, each run's dispatches nested
+	// inside it. Like Decisions, it takes no model filter -- a run spans
+	// models across its dispatches.
+	ListRuns(ctx context.Context, period store.Period, project, change *string) ([]store.ChangeRuns, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
@@ -102,6 +107,7 @@ const (
 	viewCacheEfficiency  viewName = "cache-efficiency"
 	viewReviewers        viewName = "reviewers"
 	viewDecisions        viewName = "decisions"
+	viewRuns             viewName = "runs"
 )
 
 // knownViews is every accepted {view} path value, used both to dispatch and
@@ -110,7 +116,7 @@ const (
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
-	viewCacheEfficiency, viewReviewers, viewDecisions,
+	viewCacheEfficiency, viewReviewers, viewDecisions, viewRuns,
 }
 
 func acceptedViewNames() string {
@@ -522,6 +528,21 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toDecisionDTOs(decisions), 0, ""
 
+	case viewRuns:
+		if model != nil {
+			return nil, http.StatusBadRequest, "the runs view lists whole runs, so a model restriction cannot apply here"
+		}
+		var change *string
+		if c := firstValue(values, "change"); c != "" {
+			change = &c
+		}
+		rows, err := h.store.ListRuns(ctx, period, project, change)
+		if err != nil {
+			s, m := mapStoreError(h.logger, "runs", err)
+			return nil, s, m
+		}
+		return toChangeRunsDTOs(rows), 0, ""
+
 	default:
 		return nil, http.StatusBadRequest, fmt.Sprintf("unrecognised view %q; accepted: %s", name, acceptedViewNames())
 	}
@@ -807,6 +828,136 @@ func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
 			Critical: r.Critical, Important: r.Important, Minor: r.Minor, FixRounds: r.FixRounds,
 			Fallbacks: r.Fallbacks, TimedOut: r.TimedOut,
 		}
+	}
+	return out
+}
+
+type runTotalsDTO struct {
+	InputTokens    int64    `json:"inputTokens"`
+	OutputTokens   int64    `json:"outputTokens"`
+	ThinkingTokens int64    `json:"thinkingTokens"`
+	CacheRead      int64    `json:"cacheRead"`
+	CacheWrite5m   int64    `json:"cacheWrite5m"`
+	CacheWrite1h   int64    `json:"cacheWrite1h"`
+	CacheHitRatio  *float64 `json:"cacheHitRatio"`
+	CostUsd        *float64 `json:"costUsd"`
+	WallClockMs    int64    `json:"wallClockMs"`
+	HumanGateMs    int64    `json:"humanGateMs"`
+	Compactions    int64    `json:"compactions"`
+	Turns          int64    `json:"turns"`
+	ToolCalls      int64    `json:"toolCalls"`
+	ToolErrors     int64    `json:"toolErrors"`
+	Denials        int64    `json:"denials"`
+	ApiErrors      int64    `json:"apiErrors"`
+	ContextEnd     *int64   `json:"contextEnd"`
+}
+
+type runDispatchDTO struct {
+	Seq              int              `json:"seq"`
+	Role             string           `json:"role"`
+	Slot             string           `json:"slot"`
+	AgentID          string           `json:"agentId"`
+	AgentType        string           `json:"agentType"`
+	Description      string           `json:"description"`
+	Depth            *int             `json:"depth"`
+	DeclaredModel    string           `json:"declaredModel"`
+	DeclaredEffort   string           `json:"declaredEffort"`
+	ServedModels     map[string]int64 `json:"servedModels"`
+	ServedEfforts    map[string]int64 `json:"servedEfforts"`
+	Mismatch         bool             `json:"mismatch"`
+	FindingsRaised   int              `json:"findingsRaised"`
+	FindingsByStatus map[string]int   `json:"findingsByStatus"`
+	StartedAt        string           `json:"startedAt"`
+	EndedAt          *string          `json:"endedAt"`
+	Totals           runTotalsDTO     `json:"totals"`
+}
+
+type runDecisionDTO struct {
+	Execution   string `json:"execution"`
+	Implementer string `json:"implementer"`
+	Panel       string `json:"panel"`
+}
+
+type runDTO struct {
+	SessionToken   string           `json:"sessionToken"`
+	Kind           string           `json:"kind"`
+	Command        string           `json:"command"`
+	StartedAt      string           `json:"startedAt"`
+	EndedAt        *string          `json:"endedAt"`
+	Totals         runTotalsDTO     `json:"totals"`
+	Main           runTotalsDTO     `json:"main"`
+	Decision       *runDecisionDTO  `json:"decision"`
+	FanOutMax      int              `json:"fanOutMax"`
+	SuiteRuns      int              `json:"suiteRuns"`
+	SuiteFirstPass *bool            `json:"suiteFirstPass"`
+	Dispatches     []runDispatchDTO `json:"dispatches"`
+}
+
+type changeRunsDTO struct {
+	Project           string       `json:"project"`
+	Change            *string      `json:"change"`
+	JiraKey           *string      `json:"jiraKey"`
+	Totals            runTotalsDTO `json:"totals"`
+	IdleBetweenRunsMs int64        `json:"idleBetweenRunsMs"`
+	FixIterations     int          `json:"fixIterations"`
+	Runs              []runDTO     `json:"runs"`
+}
+
+// toRunTotalsDTO derives CacheHitRatio from the same tokens store.RunTotals
+// already carries rather than the store folding and returning a fraction of
+// its own: the ratio is cache reads over every token that could have been a
+// cache read (input plus all three cache buckets), and is left nil -- never
+// zero -- when that denominator is itself zero, so a run with no measured
+// tokens reads as "no ratio" rather than a misleading 0%.
+func toRunTotalsDTO(t store.RunTotals) runTotalsDTO {
+	out := runTotalsDTO{
+		InputTokens: t.InputTokens, OutputTokens: t.OutputTokens, ThinkingTokens: t.ThinkingTokens,
+		CacheRead: t.CacheRead, CacheWrite5m: t.CacheWrite5m, CacheWrite1h: t.CacheWrite1h,
+		CostUsd: t.CostUSD, WallClockMs: t.WallClockMs, HumanGateMs: t.HumanGateMs,
+		Compactions: t.Compactions, Turns: t.Turns, ToolCalls: t.ToolCalls, ToolErrors: t.ToolErrors,
+		Denials: t.Denials, ApiErrors: t.APIErrors, ContextEnd: t.ContextEnd,
+	}
+	if denom := t.InputTokens + t.CacheRead + t.CacheWrite5m + t.CacheWrite1h; denom > 0 {
+		ratio := float64(t.CacheRead) / float64(denom)
+		out.CacheHitRatio = &ratio
+	}
+	return out
+}
+
+// rfc3339Ptr formats t the same way every other timestamp on the wire is
+// formatted (UTC, RFC3339Nano), preserving nil for the still-open runs and
+// dispatches EndedAt represents.
+func rfc3339Ptr(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.UTC().Format(time.RFC3339Nano)
+	return &s
+}
+
+func toChangeRunsDTOs(rows []store.ChangeRuns) []changeRunsDTO {
+	out := make([]changeRunsDTO, len(rows))
+	for i, g := range rows {
+		dto := changeRunsDTO{Project: g.Project, Change: g.Change, JiraKey: g.JiraKey, Totals: toRunTotalsDTO(g.Totals),
+			IdleBetweenRunsMs: g.IdleBetweenRunsMs, FixIterations: g.FixIterations, Runs: make([]runDTO, len(g.Runs))}
+		for j, r := range g.Runs {
+			run := runDTO{SessionToken: r.SessionToken, Kind: r.Kind, Command: r.Command,
+				StartedAt: r.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(r.EndedAt),
+				Totals: toRunTotalsDTO(r.Totals), Main: toRunTotalsDTO(r.Main), FanOutMax: r.FanOutMax, SuiteRuns: r.SuiteRuns,
+				SuiteFirstPass: r.SuiteFirstPass, Dispatches: make([]runDispatchDTO, len(r.Dispatches))}
+			if r.Decision != nil {
+				run.Decision = &runDecisionDTO{Execution: r.Decision.Execution, Implementer: r.Decision.Implementer, Panel: r.Decision.Panel}
+			}
+			for k, d := range r.Dispatches {
+				run.Dispatches[k] = runDispatchDTO{Seq: d.Seq, Role: d.Role, Slot: d.Slot, AgentID: d.AgentID, AgentType: d.AgentType,
+					Description: d.Description, Depth: d.Depth, DeclaredModel: d.DeclaredModel, DeclaredEffort: d.DeclaredEffort,
+					ServedModels: d.ServedModels, ServedEfforts: d.ServedEfforts, Mismatch: d.Mismatch,
+					FindingsRaised: d.FindingsRaised, FindingsByStatus: d.FindingsByStatus,
+					StartedAt: d.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(d.EndedAt), Totals: toRunTotalsDTO(d.Totals)}
+			}
+			dto.Runs[j] = run
+		}
+		out[i] = dto
 	}
 	return out
 }
