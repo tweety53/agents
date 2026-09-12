@@ -375,3 +375,8 @@ th button {
 .data-table-scroll {
   overflow-x: auto;
 }
+
+.dispatch-mismatch {
+  color: var(--status-critical);
+  font-weight: 600;
+}

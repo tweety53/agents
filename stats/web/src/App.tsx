@@ -19,6 +19,7 @@ import { CacheEfficiency } from "./views/CacheEfficiency";
 import { Decisions } from "./views/Decisions";
 import { RunDetail } from "./views/RunDetail";
 import { Reviewers } from "./views/Reviewers";
+import { Runs } from "./views/Runs";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
 import { Trend } from "./views/Trend";
@@ -32,6 +33,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "cache-efficiency": "Cache efficiency",
   reviewers: "Reviewers",
   decisions: "Decisions",
+  runs: "Runs",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
@@ -41,6 +43,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "cache-efficiency": CacheEfficiency,
   reviewers: Reviewers,
   decisions: Decisions,
+  runs: Runs,
 };
 
 function isViewName(v: string): v is ViewName {

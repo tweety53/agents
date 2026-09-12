@@ -148,6 +148,7 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
       timedOut: 0,
     },
   ]),
+  runs: envelope("runs", []),
 };
 
 beforeEach(() => {

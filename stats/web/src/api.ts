@@ -37,7 +37,14 @@ export const STAGE_RUN_QUERY_FIELDS: readonly string[] = queryFields.stageRunFie
 /** One of the four surviving statistics views' URL slugs (design.md's
  * `stats-ui-cut`: `CostPerChange`, `ModelComparison`, `PanelEconomics` and
  * `ReworkRate` were cut). */
-export type ViewName = "state-board" | "stage-leaderboard" | "trend" | "cache-efficiency" | "reviewers" | "decisions";
+export type ViewName =
+  | "state-board"
+  | "stage-leaderboard"
+  | "trend"
+  | "cache-efficiency"
+  | "reviewers"
+  | "decisions"
+  | "runs";
 
 export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
@@ -46,6 +53,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "cache-efficiency",
   "reviewers",
   "decisions",
+  "runs",
 ];
 
 /** The "cost-per-change" statistics endpoint slug -- not a navigable
@@ -323,6 +331,75 @@ export interface DecisionRow {
   fixRounds: number;
   fallbacks: number;
   timedOut: number;
+}
+
+/** Mirrors the runs view's per-run totals bag. */
+export interface RunTotals {
+  inputTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+  cacheRead: number;
+  cacheWrite5m: number;
+  cacheWrite1h: number;
+  cacheHitRatio: number | null;
+  costUsd: number | null;
+  wallClockMs: number;
+  humanGateMs: number;
+  compactions: number;
+  turns: number;
+  toolCalls: number;
+  toolErrors: number;
+  denials: number;
+  apiErrors: number;
+  contextEnd: number | null;
+}
+
+/** One dispatch inside a run (mirrors the runs view's dispatch row). */
+export interface RunDispatchRow {
+  seq: number;
+  role: string;
+  slot: string;
+  agentId: string;
+  agentType: string;
+  description: string;
+  depth: number | null;
+  declaredModel: string;
+  declaredEffort: string;
+  servedModels: Record<string, number> | null;
+  servedEfforts: Record<string, number> | null;
+  mismatch: boolean;
+  findingsRaised: number;
+  findingsByStatus: Record<string, number> | null;
+  startedAt: string;
+  endedAt: string | null;
+  totals: RunTotals;
+}
+
+/** One run (a change's /flow-plan, /flow or /flow-fast invocation), keyed by session token. */
+export interface RunRow {
+  sessionToken: string;
+  kind: "plan" | "flow" | "flow-fast";
+  command: string;
+  startedAt: string;
+  endedAt: string | null;
+  totals: RunTotals;
+  main: RunTotals;
+  decision: { execution: string; implementer: string; panel: string } | null;
+  fanOutMax: number;
+  suiteRuns: number;
+  suiteFirstPass: boolean | null;
+  dispatches: RunDispatchRow[];
+}
+
+/** A change's runs, grouped -- mirrors the runs view's top-level row. */
+export interface ChangeRuns {
+  project: string;
+  change: string | null;
+  jiraKey: string | null;
+  totals: RunTotals;
+  idleBetweenRunsMs: number;
+  fixIterations: number;
+  runs: RunRow[];
 }
 
 /**
