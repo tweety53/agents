@@ -40,6 +40,7 @@ type Command string
 const (
 	Flow     Command = "/flow"
 	FlowFast Command = "/flow-fast"
+	FlowPlan Command = "/flow-plan"
 )
 
 // Stage is one documented pipeline stage: a stable key, a human-readable
@@ -89,6 +90,9 @@ var Table = []Stage{
 	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.self-review", Name: "Self-review (run 2)", Commands: []Command{Flow}},
 	{Key: "flow.push-archive", Name: "Push the archive branch and open its PR (run 2)", Commands: []Command{Flow, FlowFast}},
+	// /flow-plan -- one stage: the whole research session, recorded so its
+	// cost joins the change it seeds (docs/superpowers/specs/2026-09-12-run-stats-design.md).
+	{Key: "plan.session", Name: "Plan session — the whole `/flow-plan` invocation", Commands: []Command{FlowPlan}},
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that

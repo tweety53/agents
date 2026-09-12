@@ -418,3 +418,12 @@ func sortedKeys(m map[string]bool) []string {
 	sort.Strings(out)
 	return out
 }
+
+func TestPlanSessionIsADocumentedFlowPlanStage(t *testing.T) {
+	if err := stages.Validate(stages.FlowPlan, "plan.session"); err != nil {
+		t.Fatalf("Validate(/flow-plan, plan.session) = %v, want nil", err)
+	}
+	if stages.Valid(stages.Flow, "plan.session") {
+		t.Error("plan.session must not be valid for /flow")
+	}
+}

@@ -103,7 +103,7 @@ that runs it. A name marked ▸ hides substructure and is expanded at level 2 be
 
 Every row below is defined by `/flow`, and `/flow-fast` — the one other command that runs rows —
 marks every one of them too (`skills/flow-fast/SKILL.md`), most as an empty begin/end pair.
-`/flow-status` marks no stages at all and contributes no rows. Which phase file under
+`/flow-status` marks no stages at all and contributes no rows; `/flow-plan` marks the single `plan.session` stage, recorded against the Jira key until `/flow` creates the change. Which phase file under
 `skills/flow/` marks each `flow.*` key is **Stage keys** (`skills/flow/SKILL.md`), cited rather
 than repeated as a column here.
 
@@ -139,6 +139,7 @@ than repeated as a column here.
 | `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast` |
 | `flow.self-review` | Self-review (run 2) | `/flow` |
 | `flow.push-archive` | Push the archive branch and open its PR (run 2) | `/flow`, `/flow-fast` |
+| `plan.session` | Plan session — the whole `/flow-plan` invocation | `/flow-plan` |
 
 **Gate after it.** `/flow` is one command with several runs — creating, resuming, fix, integrate,
 archive — so its row states the gate for each.
