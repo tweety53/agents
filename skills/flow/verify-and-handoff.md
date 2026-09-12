@@ -409,7 +409,9 @@ and 13 below as written, committing and pushing nothing.
    measure-visual-properties.sh <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
    ```
 
-   with each region a crop around that one control and a background margin on every side, and
+   with each region a crop around that one control and a background margin on every side —
+   `--props runs` on that crop first where its edges are in doubt, since every run boundary it
+   lists is an edge the region can sit on, and a miscrop is the glance again — and
    read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
    (KAN-30 fix round 10; the script's own header is canonical for its options, properties, output
    and exit codes). **Both halves are mandatory and neither substitutes for the other.** The
@@ -487,9 +489,12 @@ and 13 below as written, committing and pushing nothing.
    and never the empty space between two shapes (`gap`).** A fill inset from its own container's
    border has no gap the `gap` property can find — the inset is the container's own interior
    colour — and a correct box size says nothing about where the box sits. Crop the *container*
-   as the region, so the inset fill is that region's `content`, and read `content.padding` on
-   each side the claim names: flush is a padding equal to the container's `border` width and
-   nothing more, and the mockup's frame gives the same number to compare against. The same
+   as the region, centred on the filled row, and read `--props runs`: the run right after the
+   border's run is the fill when flush, and the container-coloured run between them when not,
+   its `length` the inset in px — the mockup's frame gives the same list to compare against.
+   Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text
+   included, and a fill covering half the box flips which colour counts as `fill` (both shown
+   on the incident's own geometry by `<agents repo>/scripts/test-measure-visual-properties.sh`). The same
    reading covers a highlight against the row it highlights and an icon against the circle
    drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
    before the `background()` or `clip()` it was meant to inset the content of, or on the parent
