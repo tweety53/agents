@@ -90,6 +90,40 @@ func validateFindingStatus(status string) error {
 	return fmt.Errorf("-status %q is not one of: open, fixed, withdrawn <reason>, deferred <reason>", status)
 }
 
+// findingCategories is the closed set `-category` accepts beside a
+// `deferred <reason>` status: the vocabulary the dashboard's deferred-Minor
+// breakdown counts on, so a rate over it is a query rather than a
+// hand-read of every reason. doc-only, the finding is a wording or comment
+// fix; pre-existing, it predates this change's base; cosmetic, style,
+// naming or dead code with no behavioural risk; coverage-gap, a test gap
+// not worth blocking the change; out-of-scope, real but belonging to
+// another change; other, none of those and the reason field carries the
+// mechanism.
+var findingCategories = []string{"doc-only", "pre-existing", "cosmetic", "coverage-gap", "out-of-scope", "other"}
+
+// validateFindingCategory judges a finding's -category before the store is
+// contacted, the way validateFindingStatus judges -status: the word must
+// come from the closed set -- an unrecognised one is a defect in the
+// caller, and letting it fall through to the never-block fallback would
+// journal a write a replay could only ever be refused for a second time --
+// and it is legal only beside a deferred status, the store's own
+// ErrCategoryNotDeferred rule mirrored here so the caller mistake is
+// refused before any network call rather than after one.
+func validateFindingCategory(category, status string) error {
+	if category == "" {
+		return nil
+	}
+	if !strings.HasPrefix(status, "deferred") {
+		return fmt.Errorf("-category %q is only valid with a deferred status", category)
+	}
+	for _, c := range findingCategories {
+		if category == c {
+			return nil
+		}
+	}
+	return fmt.Errorf("-category %q is not one of: %s", category, strings.Join(findingCategories, ", "))
+}
+
 // validateFindingReproducer judges a finding's -reproducer before the store
 // is contacted. Empty is always an error -- a finding with no reproducer at
 // all is a finding nobody can act on. Where the first word is exactly
@@ -122,10 +156,12 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
-                             [-reproducer cmd] [-dispatch-seq n] -note text
+                             [-category cat] [-reproducer cmd]
+                             [-dispatch-seq n] -note text
                              [-supersedes F<n>] [-regression-of F<n>]
        flow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
+                             [-category cat]
        flow record findings [-addr url] [-timeout dur] [-C dir]
                              -change name
        flow record dispatches [-addr url] [-timeout dur] [-C dir]
@@ -830,6 +866,7 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	severity := fset.String("severity", "", "the finding's severity (required)")
 	location := fset.String("location", "", "where the finding is, e.g. path:line")
 	status := fset.String("status", "", "one of: open, fixed, withdrawn <reason> (required)")
+	category := fset.String("category", "", "the deferral category, deferred statuses only")
 	reproducer := fset.String("reproducer", "", "the command that reproduces it, or \"none — <reason>\" (required)")
 	note := fset.String("note", "", "the finding itself, in the slot's own words (required)")
 	// A dispatch's seq starts at 1, so 0 is an unambiguous "not given":
@@ -861,6 +898,10 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
+	if err := validateFindingCategory(*category, *status); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
 	if err := validateFindingReproducer(*reproducer); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
@@ -880,6 +921,7 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		Location:     *location,
 		Note:         *note,
 		Status:       *status,
+		Category:     *category,
 		Reproducer:   *reproducer,
 		Supersedes:   *supersedes,
 		RegressionOf: *regressionOf,
@@ -911,6 +953,7 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 	registerRecordIdentityFlags(fset, &f)
 	ref := fset.String("ref", "", "the finding's reference, F<n> (required)")
 	status := fset.String("status", "", "one of: open, fixed, withdrawn <reason> (required)")
+	category := fset.String("category", "", "the deferral category, deferred statuses only")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -919,6 +962,10 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 		return 2
 	}
 	if err := validateFindingStatus(*status); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	if err := validateFindingCategory(*category, *status); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
@@ -932,9 +979,9 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 	// The journalled request is the whole call, ref included: the URL
 	// carries the ref on the wire, so a body carrying only the status
 	// would be a replay with nothing to apply it to.
-	in := recordStatusRequest{Ref: *ref, Status: *status}
+	in := recordStatusRequest{Ref: *ref, Status: *status, Category: *category}
 	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (struct{}, error) {
-		return struct{}{}, cl.SetFindingStatus(ctx, projectKey, f.change, *ref, *status, "")
+		return struct{}{}, cl.SetFindingStatus(ctx, projectKey, f.change, *ref, *status, *category)
 	})
 	if callErr == nil {
 		fmt.Fprintf(stdout, "updated: %s\n", *ref)
@@ -1130,13 +1177,15 @@ func formatCostStatusLine(cs records.CostStatus) string {
 }
 
 // recordStatusRequest is the journalled form of a status write. The wire
-// PATCH carries the ref in its URL and only the status in its body, so
-// this type exists to keep both in the journal entry -- a replay resolves
-// the route from what it reads, never from a path this file would have to
+// PATCH carries the ref in its URL and the status -- plus the deferral
+// category that rides beside a deferred one -- in its body, so this type
+// exists to keep all three in the journal entry -- a replay resolves the
+// route from what it reads, never from a path this file would have to
 // encode a second time.
 type recordStatusRequest struct {
-	Ref    string `json:"ref"`
-	Status string `json:"status"`
+	Ref      string `json:"ref"`
+	Status   string `json:"status"`
+	Category string `json:"category,omitempty"`
 }
 
 // runRecordRender implements `flow record render`: the read half of this

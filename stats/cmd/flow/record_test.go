@@ -3080,3 +3080,156 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateFindingCategory pins -category's two rules, judged before
+// the store is ever contacted: the word must come from the closed
+// vocabulary the deferred-Minor breakdown counts on, and it is legal only
+// beside a `deferred <reason>` status -- a category on any other status is
+// the same caller contradiction the store refuses one layer out.
+func TestValidateFindingCategory(t *testing.T) {
+	for _, category := range []string{"doc-only", "pre-existing", "cosmetic", "coverage-gap", "out-of-scope", "other"} {
+		if err := validateFindingCategory(category, "deferred cosmetic, not worth a fix round"); err != nil {
+			t.Errorf("validateFindingCategory(%q, deferred ...) = %v, want nil", category, err)
+		}
+	}
+	for _, status := range []string{"open", "fixed", "withdrawn superseded by F2"} {
+		if err := validateFindingCategory("cosmetic", status); err == nil {
+			t.Errorf("validateFindingCategory(cosmetic, %q) = nil, want an error -- a category is deferred-only", status)
+		}
+	}
+	if err := validateFindingCategory("nobody-heard-of-this", "deferred whatever"); err == nil {
+		t.Error(`validateFindingCategory("nobody-heard-of-this", deferred) = nil, want an error -- the set is closed`)
+	}
+	if err := validateFindingCategory("", "fixed"); err != nil {
+		t.Errorf("validateFindingCategory(\"\", fixed) = %v, want nil -- the empty category is the ordinary category-less write", err)
+	}
+}
+
+// TestRecordStatusJournalsCategory pins the journal half of the category
+// (F8, review panel round 0): the journalled status request is the whole
+// call, category included, so a replay of a categorised deferral re-lands
+// the category instead of clearing it.
+func TestRecordStatusJournalsCategory(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-change", "kan-258", "-ref", "F2",
+			"-status", "deferred doc wording only", "-category", "doc-only"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
+	}
+
+	entries, exists := recordJournalEntries(t, repo, "kan-258")
+	if !exists {
+		t.Fatalf("no record journal was written")
+	}
+	if len(entries) != 1 {
+		t.Fatalf("len(record journal entries) = %d, want 1", len(entries))
+	}
+	var body struct {
+		Kind    string          `json:"kind"`
+		Request json.RawMessage `json:"request"`
+	}
+	if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+		t.Fatalf("decode journalled body: %v", err)
+	}
+	if body.Kind != "status" {
+		t.Fatalf("journalled kind = %q, want status", body.Kind)
+	}
+	var req recordStatusRequest
+	if err := json.Unmarshal(body.Request, &req); err != nil {
+		t.Fatalf("decode journalled status request: %v", err)
+	}
+	if req.Category != "doc-only" {
+		t.Errorf("journalled category = %q, want doc-only -- a replay without it would clear the deferral's word", req.Category)
+	}
+}
+
+// TestRecordFindingSendsCategory pins the finding verb's wire half (F9,
+// review panel round 0): -category reaches the daemon's POST body, so a
+// finding recorded already-deferred lands with its category in one write.
+func TestRecordFindingSendsCategory(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"ref":"F3"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-ref", "F3", "-slot", "principles", "-severity", "Minor",
+			"-status", "deferred cosmetic, not worth a fix round", "-category", "cosmetic",
+			"-reproducer", "none — cosmetic dead code", "-note", "the handler carries dead code"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var sent records.Finding
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode POST body %s: %v", gotBody, err)
+	}
+	if sent.Category != "cosmetic" {
+		t.Errorf("POST body category = %q, want cosmetic", sent.Category)
+	}
+}
+
+// TestRecordVerbsValidateCategoryBeforeTheStore pins the invocation half
+// of the validator (F10, review panel round 0): a category on a
+// non-deferred status, and an unrecognised word, are refused with exit 2
+// before any network call -- a dead addr proves the refusal, since a fall
+// through to the write path would journal and exit 0.
+func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "status with a category on fixed",
+			args: []string{"record", "status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-258", "-ref", "F1", "-status", "fixed", "-category", "cosmetic"},
+		},
+		{
+			name: "status with an unknown word",
+			args: []string{"record", "status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-258", "-ref", "F1", "-status", "deferred whatever", "-category", "nobody-heard-of-this"},
+		},
+		{
+			name: "finding with a category on open",
+			args: []string{"record", "finding", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-258", "-ref", "F4", "-slot", "principles", "-severity", "Minor",
+				"-status", "open", "-category", "doc-only",
+				"-reproducer", "none — wording only", "-note", "a wording finding"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), tc.args, strings.NewReader(""), &stdout, &stderr)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2 (the validator must refuse before the store is contacted); stderr:\n%s", code, stderr.String())
+			}
+			entries, _ := recordJournalEntries(t, repo, "kan-258")
+			if len(entries) != 0 {
+				t.Fatalf("a refused write was journalled anyway: %d entries", len(entries))
+			}
+		})
+	}
+}
