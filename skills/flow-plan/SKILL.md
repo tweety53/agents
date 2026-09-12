@@ -225,8 +225,12 @@ parse it mechanically instead of re-reading loose prose. At minimum:
 3. **A step-by-step breakdown section**, always present (see below) — this is the default output of
    every research session, never opt-in.
 
-Optional, add only when relevant: an **Open / undesigned** section listing what the session
-surfaced but didn't resolve — one bullet per open item.
+**A captured note carries no open items.** Everything the session surfaced is decided before
+the note is written — decided by the user through the convergence round's questions, or by you
+where the call is routine, and recorded as a decision in its thread's section with the
+rejected alternative named. There is no **Open / undesigned** section: an item still open when
+the convergence check closes is one more **AskUserQuestion** round, never a bullet deferred to
+`/flow`, whose seed step adopts the plan and decision as written and asks nothing again.
 
 ### Template
 
@@ -256,10 +260,6 @@ Source: <Jira key, ticket URL, or "none">
 **What:** ...
 **Why:** ...
 **Uses:** ...
-
-## Open / undesigned
-
-- <item not resolved this session>
 ```
 
 ## The Step-by-Step Breakdown
@@ -347,5 +347,7 @@ and branch (**The research worktree** above). End by naming the landed commit an
 - **Don't force structure on the conversation** — let the shape of the discussion emerge; the fixed
   structure applies to what gets *captured*, never to how the discussion itself unfolds
 - **Don't skip the step-by-step breakdown** — it's the default capture shape, not an opt-in
+- **Don't land a note with an open item** — ask another round instead; the note records decisions,
+  never deferrals (see **The Fixed Section Structure**)
 - **Don't leave a staging note without its plan and decision** — the pair beside it is what makes
   the note ready for `/flow`, not an extra
