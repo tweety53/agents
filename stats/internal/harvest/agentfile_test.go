@@ -22,11 +22,11 @@ func TestAgentFileRecordsCreditOneRowWhole(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("deltas cover %d rows, want 1", len(got))
 	}
-	if got[7].Sidechain.Input != 30 || got[7].Sidechain.Output != 5 {
+	if got[7].Tokens.Sidechain.Input != 30 || got[7].Tokens.Sidechain.Output != 5 {
 		t.Errorf("row 7 = %+v, want the batch's whole sidechain usage", got[7])
 	}
-	if got[7].Main.Input != 0 {
-		t.Errorf("row 7 main bucket = %+v, want zero — an agent file's spend is sidechain spend", got[7].Main)
+	if got[7].Tokens.Main.Input != 0 {
+		t.Errorf("row 7 main bucket = %+v, want zero — an agent file's spend is sidechain spend", got[7].Tokens.Main)
 	}
 }
 
@@ -38,7 +38,7 @@ func TestAgentFileRecordsSplitAcrossResumedRows(t *testing.T) {
 		{AgentID: "a1", IsSidechain: true, Timestamp: second.StartedAt.Add(time.Minute), Usage: Usage{InputTokens: 40}},
 	}
 	got := attributeAgentFileRecords([]DispatchWindow{first, second}, records)
-	if got[10].Sidechain.Input != 10 || got[12].Sidechain.Input != 40 {
+	if got[10].Tokens.Sidechain.Input != 10 || got[12].Tokens.Sidechain.Input != 40 {
 		t.Errorf("split = %+v, want each resume's own records only", got)
 	}
 }
@@ -49,7 +49,7 @@ func TestAgentFileRecordsBeforeTheFirstRowFloorToIt(t *testing.T) {
 		{AgentID: "a1", IsSidechain: true, Timestamp: row.StartedAt.Add(-time.Minute), Usage: Usage{InputTokens: 3}},
 	}
 	got := attributeAgentFileRecords([]DispatchWindow{row}, records)
-	if got[10].Sidechain.Input != 3 {
+	if got[10].Tokens.Sidechain.Input != 3 {
 		t.Errorf("row 10 = %+v, want the pre-start record floored to the first row", got[10])
 	}
 }

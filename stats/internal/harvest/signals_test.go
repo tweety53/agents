@@ -1,6 +1,7 @@
 package harvest_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/harvest"
@@ -77,5 +78,97 @@ func TestParseSignalRecordsDeduplicatesRepeatedBlocks(t *testing.T) {
 	got := countKinds(harvest.ParseSignalRecords(twice))
 	if got[harvest.SignalToolUse] != 1 {
 		t.Errorf("tool_use counted %d times for one repeated block id, want 1", got[harvest.SignalToolUse])
+	}
+}
+
+func TestAttributeCarriesSignalsSplitByMainAndSidechain(t *testing.T) {
+	main, _ := harvest.SplitCompleteLines(readFixture(t, signalsFixture))
+	agent, _ := harvest.SplitCompleteLines(readFixture(t, "../../testdata/transcripts/signals-agent.jsonl"))
+	records := append(harvest.ParseAssistantRecords(main), harvest.ParseSignalRecords(main)...)
+	records = append(records, harvest.ParseAssistantRecords(agent)...)
+	records = append(records, harvest.ParseSignalRecords(agent)...)
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		"session-signals-1": {{StageRunID: 7, Attempt: 1, SessionID: "session-signals-1",
+			StartedAt: mustParse(t, "2026-09-01T09:00:00Z")}},
+	}}
+	deltas, err := harvest.NewAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	d := deltas[7]
+	m := d.Signals.Main
+	if m.Compactions != 1 || m.Turns != 2 || m.TurnDurationMs != 8000 || m.TurnMessages != 8 {
+		t.Errorf("main compactions/turns = %d/%d (%d ms, %d msgs)", m.Compactions, m.Turns, m.TurnDurationMs, m.TurnMessages)
+	}
+	if m.ToolCalls["Bash"] != 1 || m.ToolCalls["Read"] != 2 || m.ToolCallsTotal != 3 {
+		t.Errorf("main tool calls = %v total %d", m.ToolCalls, m.ToolCallsTotal)
+	}
+	if m.ToolErrors != 4 || m.Denials != 3 || m.APIErrors != 1 {
+		t.Errorf("main errors = %d/%d/%d", m.ToolErrors, m.Denials, m.APIErrors)
+	}
+	if m.ContextEnd != "11030" {
+		t.Errorf("main context_end = %q, want 11030", m.ContextEnd)
+	}
+	if m.ServedModels["claude-opus-5"] != 2 || m.ServedModels["claude-sonnet-5"] != 1 || m.ServedModels["<synthetic>"] != 0 {
+		t.Errorf("main served_models = %v", m.ServedModels)
+	}
+	if m.ServedEfforts["high"] != 2 || m.ServedEfforts["medium"] != 1 {
+		t.Errorf("main served_efforts = %v", m.ServedEfforts)
+	}
+	ev, ok := m.CompactionEvents["2026-09-01T10:00:09Z"]
+	if !ok || ev.PreTokens != 180000 {
+		t.Errorf("compaction_events = %v", m.CompactionEvents)
+	}
+
+	s := d.Signals.Sidechain
+	if s.Turns != 1 || s.ToolCalls["Grep"] != 1 || s.ContextEnd != "505" || s.ServedEfforts["low"] != 1 {
+		t.Errorf("sidechain signals = %+v", s)
+	}
+	ds := d.DispatchSignals["agent-sig0001"]
+	if ds.Turns != 1 || ds.ToolCallsTotal != 1 {
+		t.Errorf("dispatch signals for agent-sig0001 = %+v", ds)
+	}
+}
+
+func TestAttributeAgentFileCarriesDispatchSignals(t *testing.T) {
+	agent, _ := harvest.SplitCompleteLines(readFixture(t, "../../testdata/transcripts/signals-agent.jsonl"))
+	records := append(harvest.ParseAssistantRecords(agent), harvest.ParseSignalRecords(agent)...)
+	windows := []harvest.DispatchWindow{{DispatchID: 3, AgentID: "agent-sig0001", StartedAt: mustParse(t, "2026-09-01T10:04:00Z")}}
+	got := harvest.AttributeAgentFileRecordsForTest(windows, records)
+	if got[3].Tokens.Sidechain.Input != 5 || got[3].Signals.Turns != 1 || got[3].Signals.ToolCalls["Grep"] != 1 {
+		t.Errorf("agent-file delta = %+v", got[3])
+	}
+}
+
+// TestAttributeSignalOnlyAgentRecordsCreateNoDispatchTokens is the guard
+// task 4's review flagged: a batch made entirely of signal records
+// carrying an AgentID must fold into DispatchSignals without ever
+// touching Dispatches, the token map -- an agentId with signals but no
+// usage has nothing to report as tokens, and a stray empty TokenDelta
+// entry there would misrepresent that as "zero tokens measured" instead
+// of "no tokens in this batch at all".
+func TestAttributeSignalOnlyAgentRecordsCreateNoDispatchTokens(t *testing.T) {
+	agent, _ := harvest.SplitCompleteLines(readFixture(t, "../../testdata/transcripts/signals-agent.jsonl"))
+	records := harvest.ParseSignalRecords(agent)
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		"session-signals-1": {{StageRunID: 9, Attempt: 1, SessionID: "session-signals-1",
+			StartedAt: mustParse(t, "2026-09-01T09:00:00Z")}},
+	}}
+	deltas, err := harvest.NewAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	d := deltas[9]
+	if _, ok := d.Dispatches["agent-sig0001"]; ok {
+		t.Errorf("Dispatches[agent-sig0001] = %+v, want no entry for a signal-only batch", d.Dispatches["agent-sig0001"])
+	}
+	if _, ok := d.Models["claude-sonnet-5"]; ok {
+		t.Errorf("Models[claude-sonnet-5] = %+v, want no entry for a signal-only batch", d.Models["claude-sonnet-5"])
+	}
+	ds, ok := d.DispatchSignals["agent-sig0001"]
+	if !ok || ds.Turns != 1 || ds.ToolCallsTotal != 1 {
+		t.Errorf("DispatchSignals[agent-sig0001] = %+v", ds)
 	}
 }

@@ -258,6 +258,19 @@ type Delta struct {
 	// key. Dispatches is always a subset of what Total accounts for,
 	// filled from the same records in the same pass as Total and Models.
 	Dispatches map[string]TokenDelta
+	// Signals is the same batch's records folded into observability
+	// counters (task 5), split main/sidechain exactly as Total is --
+	// Signals.bucket(r.IsSidechain).add(r) runs for every record, signal
+	// or usage alike, so it is the whole-run observability figure the
+	// metrics bag's top-level "signals" key carries.
+	Signals SignalsDelta
+	// DispatchSignals is Dispatches' own rule (this doc comment, above)
+	// applied to Signals instead of TokenDelta: a record carrying an
+	// agentId contributes to this map, keyed by that agentId, feeding
+	// the metrics bag's "dispatches.<agentId>.signals" key -- always a
+	// subset of the sidechain figures Signals.Sidechain accounts for,
+	// since every agentId-carrying record is a sidechain record.
+	DispatchSignals map[string]Signals
 	// Speed is the last non-empty Usage.Speed seen among this stage run's
 	// records in this batch -- last-write-wins, the same rule Effort
 	// already documents for MetricsPatch, and correct for the same
@@ -349,6 +362,10 @@ type DispatchBucket struct {
 	Description string     `json:"description,omitempty"`
 	Model       string     `json:"model,omitempty"`
 	SpawnDepth  *string    `json:"spawn_depth,omitempty"`
+	// Signals is a dispatch's own observability counters (task 5),
+	// mirroring Tokens one field over -- Delta.DispatchSignals' own doc
+	// comment says where this comes from.
+	Signals *Signals `json:"signals,omitempty"`
 }
 
 // MetricsPatch is the JSON shape a harvest batch's results are added into
@@ -381,7 +398,11 @@ type MetricsPatch struct {
 	Tokens     TokenDelta                `json:"tokens"`
 	Models     map[string]ModelBucket    `json:"models,omitempty"`
 	Dispatches map[string]DispatchBucket `json:"dispatches,omitempty"`
-	Effort     string                    `json:"effort,omitempty"`
+	// Signals is a stage run's or a dispatch's own observability counters
+	// (task 5), nested under "signals" alongside "tokens" -- Delta.Signals'
+	// own doc comment says where this comes from and how it splits.
+	Signals *SignalsDelta `json:"signals,omitempty"`
+	Effort  string        `json:"effort,omitempty"`
 	// Speed carries Delta.Speed through to the stored metrics bag's
 	// top-level "speed" key -- read back by store.Store.Price (task 23)
 	// to decide whether a run's models are priced at their fast-mode
@@ -449,6 +470,14 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 				continue
 			}
 			d := deltas[w.StageRunID]
+			d.Signals.bucket(r.IsSidechain).add(r)
+			if r.AgentID != "" {
+				upsertBucket(&d.DispatchSignals, r.AgentID, func(s Signals) Signals { s.add(r); return s })
+			}
+			if r.Signal != nil {
+				deltas[w.StageRunID] = d
+				continue
+			}
 			d.Total.bucket(r.IsSidechain).add(r.Usage)
 			if r.Usage.Speed != "" {
 				d.Speed = r.Usage.Speed
@@ -679,6 +708,18 @@ type AmbiguousDispatch struct {
 	DispatchIDs []int64
 }
 
+// DispatchDelta is one dispatch's contribution from a single attribution
+// pass -- Tokens is DispatchAttributor.Attribute's and
+// attributeAgentFileRecords' previous return value unchanged in meaning,
+// Signals is that same dispatch's observability counters (task 5),
+// accumulated from every record -- signal or usage -- this pass credits
+// to it, mirroring Tokens' own Sidechain-only rule (both methods' own doc
+// comments say why only sidechain records reach either pass at all).
+type DispatchDelta struct {
+	Tokens  TokenDelta
+	Signals Signals
+}
+
 // Attribute assigns every *sidechain* record in records to the dispatch
 // window matching its session and, among those, the one bestDispatchWindow
 // selects -- the window recording the record's own agent id where one is
@@ -721,8 +762,8 @@ type AmbiguousDispatch struct {
 // the deltas it produces are not committed atomically with the batch's
 // offset -- see Watcher's own doc comment on the second pass for what
 // that costs and why it is accepted.
-func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (map[int64]TokenDelta, []AmbiguousDispatch, error) {
-	deltas := make(map[int64]TokenDelta)
+func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (map[int64]DispatchDelta, []AmbiguousDispatch, error) {
+	deltas := make(map[int64]DispatchDelta)
 	if len(records) == 0 {
 		return deltas, nil, nil
 	}
@@ -755,7 +796,10 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 				continue
 			}
 			d := deltas[w.DispatchID]
-			d.Sidechain.add(r.Usage)
+			d.Signals.add(r)
+			if r.Signal == nil {
+				d.Tokens.Sidechain.add(r.Usage)
+			}
 			deltas[w.DispatchID] = d
 		}
 	}
@@ -920,8 +964,8 @@ func bestDispatchWindow(windows []DispatchWindow, agentID string, ts time.Time) 
 // With no windows there is nothing to credit and the result is empty --
 // an agent the dispatch protocol never recorded is the same silence
 // Attribute applies to a record matching no window.
-func attributeAgentFileRecords(windows []DispatchWindow, records []Record) map[int64]TokenDelta {
-	deltas := make(map[int64]TokenDelta)
+func attributeAgentFileRecords(windows []DispatchWindow, records []Record) map[int64]DispatchDelta {
+	deltas := make(map[int64]DispatchDelta)
 	if len(windows) == 0 || len(records) == 0 {
 		return deltas
 	}
@@ -937,7 +981,10 @@ func attributeAgentFileRecords(windows []DispatchWindow, records []Record) map[i
 			}
 		}
 		d := deltas[row.DispatchID]
-		d.Sidechain.add(r.Usage)
+		d.Signals.add(r)
+		if r.Signal == nil {
+			d.Tokens.Sidechain.add(r.Usage)
+		}
 		deltas[row.DispatchID] = d
 	}
 

@@ -1068,20 +1068,20 @@ func TestDispatchWindowAttributesSidechainUsage(t *testing.T) {
 	if !ok {
 		t.Fatalf("no delta for dispatch 77: %v", deltas)
 	}
-	if d.Sidechain.Input != 8 {
-		t.Errorf("tokens.sidechain.input = %v, want 8", d.Sidechain.Input)
+	if d.Tokens.Sidechain.Input != 8 {
+		t.Errorf("tokens.sidechain.input = %v, want 8", d.Tokens.Sidechain.Input)
 	}
-	if d.Sidechain.CacheCreation != 35348 {
-		t.Errorf("tokens.sidechain.cache_creation = %v, want 35348", d.Sidechain.CacheCreation)
+	if d.Tokens.Sidechain.CacheCreation != 35348 {
+		t.Errorf("tokens.sidechain.cache_creation = %v, want 35348", d.Tokens.Sidechain.CacheCreation)
 	}
-	if d.Sidechain.CacheCreation5m != 35348 {
-		t.Errorf("tokens.sidechain.cache_creation_5m = %v, want 35348 (the fixture's split is known and entirely 5m)", d.Sidechain.CacheCreation5m)
+	if d.Tokens.Sidechain.CacheCreation5m != 35348 {
+		t.Errorf("tokens.sidechain.cache_creation_5m = %v, want 35348 (the fixture's split is known and entirely 5m)", d.Tokens.Sidechain.CacheCreation5m)
 	}
-	if d.Sidechain.CacheRead != 77676 {
-		t.Errorf("tokens.sidechain.cache_read = %v, want 77676", d.Sidechain.CacheRead)
+	if d.Tokens.Sidechain.CacheRead != 77676 {
+		t.Errorf("tokens.sidechain.cache_read = %v, want 77676", d.Tokens.Sidechain.CacheRead)
 	}
-	if d.Sidechain.Output != 125 {
-		t.Errorf("tokens.sidechain.output = %v, want 125", d.Sidechain.Output)
+	if d.Tokens.Sidechain.Output != 125 {
+		t.Errorf("tokens.sidechain.output = %v, want 125", d.Tokens.Sidechain.Output)
 	}
 }
 
@@ -1121,11 +1121,11 @@ func TestDispatchWindowIgnoresMainThreadUsage(t *testing.T) {
 	if !ok {
 		t.Fatalf("no delta for dispatch 5: %v", deltas)
 	}
-	if d.Main != (harvest.Bucket{}) {
-		t.Errorf("tokens.main = %+v, want the zero bucket: a dispatch is charged for sidechain usage only", d.Main)
+	if d.Tokens.Main != (harvest.Bucket{}) {
+		t.Errorf("tokens.main = %+v, want the zero bucket: a dispatch is charged for sidechain usage only", d.Tokens.Main)
 	}
-	if d.Sidechain.Input != 8 {
-		t.Errorf("tokens.sidechain.input = %v, want 8 -- the sidechain records must still be attributed", d.Sidechain.Input)
+	if d.Tokens.Sidechain.Input != 8 {
+		t.Errorf("tokens.sidechain.input = %v, want 8 -- the sidechain records must still be attributed", d.Tokens.Sidechain.Input)
 	}
 }
 
@@ -1250,16 +1250,16 @@ func TestDispatchWindowIntervalIsHalfOpen(t *testing.T) {
 		// Only the fixture's first record (00:05:00.500) precedes the
 		// seam; the record *on* the seam and the two after it belong to
 		// the window that is starting.
-		if got := deltas[1].Sidechain.Output; got != 30 {
+		if got := deltas[1].Tokens.Sidechain.Output; got != 30 {
 			t.Errorf("order %v: dispatch 1 output = %v, want 30 (its one record before the seam)", order, got)
 		}
-		if got := deltas[2].Sidechain.Output; got != 95 {
+		if got := deltas[2].Tokens.Sidechain.Output; got != 95 {
 			t.Errorf("order %v: dispatch 2 output = %v, want 95 (the record on the seam plus the two after it)", order, got)
 		}
-		if got := deltas[1].Sidechain.CacheCreation; got != 20000 {
+		if got := deltas[1].Tokens.Sidechain.CacheCreation; got != 20000 {
 			t.Errorf("order %v: dispatch 1 cache_creation = %v, want 20000", order, got)
 		}
-		if got := deltas[2].Sidechain.CacheCreation; got != 15348 {
+		if got := deltas[2].Tokens.Sidechain.CacheCreation; got != 15348 {
 			t.Errorf("order %v: dispatch 2 cache_creation = %v, want 15348", order, got)
 		}
 	}
@@ -1300,7 +1300,7 @@ func sidechainRecord(t *testing.T, agentID string, at string, input int64) harve
 // DispatchWindowsForSession happened to return its rows in. The order is
 // the store's ORDER BY, and a rule that survives only one of its
 // permutations is not a rule.
-func attributeInEveryOrder(t *testing.T, windows []harvest.DispatchWindow, records []harvest.Record, check func(t *testing.T, deltas map[int64]harvest.TokenDelta)) {
+func attributeInEveryOrder(t *testing.T, windows []harvest.DispatchWindow, records []harvest.Record, check func(t *testing.T, deltas map[int64]harvest.DispatchDelta)) {
 	t.Helper()
 	for _, order := range permuteWindows(windows) {
 		a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
@@ -1369,11 +1369,11 @@ func TestConcurrentSlotsAreSeparatedByAgentID(t *testing.T) {
 		sidechainRecord(t, "agent-slot-b", "2026-01-01T00:10:31Z", 9),
 	}
 
-	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
-		if got := deltas[1].Sidechain.Input; got != 5 {
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+		if got := deltas[1].Tokens.Sidechain.Input; got != 5 {
 			t.Errorf("dispatch 1 (agent-slot-a) input = %v, want 5 -- its own agent's record, not whichever slot started last", got)
 		}
-		if got := deltas[2].Sidechain.Input; got != 9 {
+		if got := deltas[2].Tokens.Sidechain.Input; got != 9 {
 			t.Errorf("dispatch 2 (agent-slot-b) input = %v, want 9", got)
 		}
 	})
@@ -1397,11 +1397,11 @@ func TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule(t *testing.T) {
 		sidechainRecord(t, "agent-nobody-recorded", "2026-01-01T00:10:30Z", 7),
 	}
 
-	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
-		if got := deltas[2].Sidechain.Input; got != 7 {
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+		if got := deltas[2].Tokens.Sidechain.Input; got != 7 {
 			t.Errorf("dispatch 2 input = %v, want 7 -- no agent id matches, so the interval pass places it on the one window that contains it", got)
 		}
-		if got := deltas[1].Sidechain.Input; got != 0 {
+		if got := deltas[1].Tokens.Sidechain.Input; got != 0 {
 			t.Errorf("dispatch 1 input = %v, want 0", got)
 		}
 	})
@@ -1431,11 +1431,11 @@ func TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule(t *testing.T) {
 		}
 		records := []harvest.Record{sidechainRecord(t, "", "2026-01-01T00:10:30Z", 4)}
 
-		attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
-			if got := deltas[2].Sidechain.Input; got != 4 {
+		attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+			if got := deltas[2].Tokens.Sidechain.Input; got != 4 {
 				t.Errorf("dispatch 2 input = %v, want 4 -- two absent agent ids are not a match, so the interval pass decides", got)
 			}
-			if got := deltas[1].Sidechain.Input; got != 0 {
+			if got := deltas[1].Tokens.Sidechain.Input; got != 0 {
 				t.Errorf("dispatch 1 input = %v, want 0 -- an absent agent id means \"not reported\", never \"matches the empty agent id\"", got)
 			}
 		})
@@ -1448,8 +1448,8 @@ func TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule(t *testing.T) {
 		}
 		records := []harvest.Record{sidechainRecord(t, "agent-unrelated", "2026-01-01T00:10:30Z", 6)}
 
-		attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
-			if got := deltas[2].Sidechain.Input; got != 6 {
+		attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+			if got := deltas[2].Tokens.Sidechain.Input; got != 6 {
 				t.Errorf("dispatch 2 input = %v, want 6 -- a dispatch recorded with no agent id still receives records", got)
 			}
 		})
@@ -1481,7 +1481,7 @@ func TestDispatchIdentityBeatsInterval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
-	if got := deltas[1].Sidechain.Input; got != 42 {
+	if got := deltas[1].Tokens.Sidechain.Input; got != 42 {
 		t.Errorf("dispatch 1 input = %v, want 42 -- the record's agent id matches this dispatch even though its timestamp falls two minutes outside the dispatch's own interval", got)
 	}
 }
@@ -1501,7 +1501,7 @@ func TestDispatchDuplicateAgentIDAttributesToNeither(t *testing.T) {
 		sidechainRecord(t, "agent-one", "2026-01-01T00:10:30Z", 5),
 	}
 
-	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
 		if len(deltas) != 0 {
 			t.Fatalf("deltas = %v, want empty: two dispatches record the same agent id, so the identity pass is ambiguous and must not fall back to the interval or to row order", deltas)
 		}
@@ -1522,7 +1522,7 @@ func TestDispatchAmbiguousOverlapAttributesToNone(t *testing.T) {
 	}
 	records := []harvest.Record{sidechainRecord(t, "", "2026-01-01T00:10:30Z", 3)}
 
-	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
 		if len(deltas) != 0 {
 			t.Fatalf("deltas = %v, want empty: three windows contain the record and none carries an agent id, so the interval pass is ambiguous too -- not that the latest-started window wins", deltas)
 		}
@@ -1541,8 +1541,8 @@ func TestDispatchSameAgentIDNarrowedByInterval(t *testing.T) {
 	}
 	records := []harvest.Record{sidechainRecord(t, "a1", "2026-01-01T00:20:30Z", 5)}
 
-	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
-		if got := deltas[42].Sidechain.Input; got != 5 {
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+		if got := deltas[42].Tokens.Sidechain.Input; got != 5 {
 			t.Fatalf("dispatch 42 input = %v, want 5 -- two windows share the id and only 42 contains the timestamp", got)
 		}
 		if _, ok := deltas[41]; ok {
@@ -1594,7 +1594,7 @@ func TestDispatchNonOverlappingIntervalStillAttributes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
-	if got := deltas[31].Sidechain.Input; got != 9 {
+	if got := deltas[31].Tokens.Sidechain.Input; got != 9 {
 		t.Errorf("dispatch 31 input = %v, want 9 -- one containing window with no agent id on either side must still attribute", got)
 	}
 }

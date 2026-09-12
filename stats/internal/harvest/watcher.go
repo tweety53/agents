@@ -860,8 +860,8 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 		return
 	}
 
-	for dispatchID, tokens := range deltas {
-		patch, err := json.Marshal(MetricsPatch{Tokens: tokens})
+	for dispatchID, dd := range deltas {
+		patch, err := json.Marshal(MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}})
 		if err != nil {
 			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
 			continue
@@ -951,8 +951,8 @@ func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path
 		return
 	}
 
-	for dispatchID, tokens := range attributeAgentFileRecords(windows, records) {
-		patch, err := json.Marshal(MetricsPatch{Tokens: tokens})
+	for dispatchID, dd := range attributeAgentFileRecords(windows, records) {
+		patch, err := json.Marshal(MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}})
 		if err != nil {
 			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
 			continue
@@ -1385,7 +1385,8 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 func encodePatches(deltas map[int64]Delta, meta DispatchMeta, hasMeta bool) (map[int64]json.RawMessage, error) {
 	patches := make(map[int64]json.RawMessage, len(deltas))
 	for stageRunID, delta := range deltas {
-		mp := MetricsPatch{Tokens: delta.Total, Speed: delta.Speed}
+		sig := delta.Signals
+		mp := MetricsPatch{Tokens: delta.Total, Speed: delta.Speed, Signals: &sig}
 		if len(delta.Models) > 0 {
 			// A plain nil-check-and-assign, not upsertBucket (F35, pass 7
 			// of this change's own review panel): mp.Models starts nil for
@@ -1404,6 +1405,10 @@ func encodePatches(deltas map[int64]Delta, meta DispatchMeta, hasMeta bool) (map
 			mp.Dispatches = make(map[string]DispatchBucket, len(delta.Dispatches))
 			for agentID, td := range delta.Dispatches {
 				db := DispatchBucket{Tokens: td}
+				if s, ok := delta.DispatchSignals[agentID]; ok {
+					s := s
+					db.Signals = &s
+				}
 				if hasMeta {
 					db.AgentType = meta.AgentType
 					db.Description = meta.Description

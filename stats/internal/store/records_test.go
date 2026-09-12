@@ -1477,8 +1477,8 @@ func TestUsageDuringAnUnfinishedDispatchIsAttributedToIt(t *testing.T) {
 	if !ok {
 		t.Fatalf("deltas = %+v, want usage attributed to dispatch %d -- a dispatch that has not ended yet still has an open window, and a harvest tick that runs mid-dispatch must find it", deltas, opened.ID)
 	}
-	if got.Sidechain.Input != 1_200 || got.Sidechain.Output != 340 {
-		t.Errorf("delta = %+v, want the record's own 1200/340 figures", got.Sidechain)
+	if got.Tokens.Sidechain.Input != 1_200 || got.Tokens.Sidechain.Output != 340 {
+		t.Errorf("delta = %+v, want the record's own 1200/340 figures", got.Tokens.Sidechain)
 	}
 }
 
