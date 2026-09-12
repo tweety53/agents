@@ -377,6 +377,19 @@ export interface RunDispatchRow {
   totals: RunTotals;
 }
 
+/**
+ * One stage run inside a run (mirrors the runs view's per-run stage span):
+ * where that run's wall clock went. `endedAt`/`outcome` are null while the
+ * stage is still open.
+ */
+export interface RunStageSpan {
+  stage: string;
+  attempt: number;
+  startedAt: string;
+  endedAt: string | null;
+  outcome: string | null;
+}
+
 /** One run (a change's /flow-plan, /flow or /flow-fast invocation), keyed by session token. */
 export interface RunRow {
   sessionToken: string;
@@ -391,6 +404,7 @@ export interface RunRow {
   suiteRuns: number;
   suiteFirstPass: boolean | null;
   dispatches: RunDispatchRow[];
+  stages: RunStageSpan[];
 }
 
 /** A change's runs, grouped -- mirrors the runs view's top-level row. */

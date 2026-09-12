@@ -38,7 +38,7 @@ const rows: ChangeRuns[] = [{
     sessionToken: "mf-1", kind: "flow", command: "/flow", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T11:00:00Z",
     totals: totals({ inputTokens: 600, costUsd: 2 }), main: totals({ inputTokens: 200, costUsd: 0.75 }),
     decision: { execution: "subagent", implementer: "claude-opus-5/medium", panel: "1 slot, compact" },
-    fanOutMax: 1, suiteRuns: 2, suiteFirstPass: false,
+    fanOutMax: 1, suiteRuns: 2, suiteFirstPass: false, stages: [],
     dispatches: [{
       seq: 1, role: "implementer", slot: "", agentId: "a1", agentType: "flow-medium", description: "impl", depth: 1,
       declaredModel: "claude-opus-5", declaredEffort: "medium", servedModels: { "claude-sonnet-5": 5 }, servedEfforts: { medium: 5 },
@@ -66,11 +66,11 @@ describe("Runs", () => {
       runs: [
         {
           sessionToken: "", kind: "flow-fast", command: "/flow-fast", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T10:30:00Z",
-          totals: totals(), main: totals(), decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [],
+          totals: totals(), main: totals(), decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [], stages: [],
         },
         {
           sessionToken: "", kind: "flow-fast", command: "/flow-fast", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T11:00:00Z",
-          totals: totals(), main: totals(), decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [],
+          totals: totals(), main: totals(), decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [], stages: [],
         },
       ],
     }];
@@ -91,7 +91,7 @@ describe("Runs", () => {
       runs: [{
         sessionToken: "mf-3", kind: "flow", command: "/flow", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T11:00:00Z",
         totals: totals({ costUsd: 0.5, priced: false }), main: totals({ costUsd: 0.5, priced: true }),
-        decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [],
+        decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [], stages: [],
       }],
     }];
     fetchStatsViewMock.mockResolvedValue(envelope(unpricedRows));
@@ -108,5 +108,32 @@ describe("Runs", () => {
     render(<Runs period={period} project={undefined} />);
     const link = await screen.findByRole("link", { name: "kan-1-x" });
     expect(link).toHaveAttribute("href", "#/run/p/kan-1-x");
+  });
+
+  it("runs view renders per-stage wall clock in the expanded run detail", async () => {
+    const staged: ChangeRuns[] = [{
+      project: "p", change: "kan-4-w", jiraKey: "KAN-4", totals: totals({ wallClockMs: 8 * 60 * 60 * 1000 }),
+      idleBetweenRunsMs: 0, fixIterations: 0,
+      runs: [{
+        sessionToken: "ff-4", kind: "flow", command: "/flow", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T18:00:00Z",
+        totals: totals({ wallClockMs: 8 * 60 * 60 * 1000 }), main: totals(),
+        decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [],
+        stages: [
+          { stage: "flow.sdd-tdd", attempt: 1, startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T12:00:00Z", outcome: "completed" },
+          { stage: "flow.visual-verify", attempt: 1, startedAt: "2026-09-01T13:00:00Z", endedAt: null, outcome: null },
+        ],
+      }],
+    }];
+    fetchStatsViewMock.mockResolvedValue(envelope(staged));
+    render(<Runs period={period} project={undefined} />);
+    expect(await screen.findByText("kan-4-w")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /run details/i }));
+    expect(screen.getByLabelText("Stage wall clock")).toBeInTheDocument();
+    expect(screen.getAllByTestId("run-stage-row")).toHaveLength(2);
+    expect(screen.getByText("flow.visual-verify")).toBeInTheDocument();
+    // Two hours of sdd-tdd renders as a duration; the still-open
+    // visual-verify stage reads "still running", never a fabricated zero.
+    expect(screen.getByText("120.0 min")).toBeInTheDocument();
+    expect(screen.getByText("still running")).toBeInTheDocument();
   });
 });

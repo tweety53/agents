@@ -2,15 +2,18 @@
 // invocations, keyed by session token), grouped under the change with a
 // change subtotal, so a plan session sits beside the runs it seeded
 // (docs/superpowers/specs/2026-09-12-run-stats-design.md). Expanding a row
-// reuses DataTable's renderDetail: the main session first, then one row
-// per dispatch with declared versus served model and effort.
+// reuses DataTable's renderDetail: the run's own stage runs first -- the
+// per-stage wall clock that makes a phase blowout (a five-hour verify
+// tail) visible per run and comparable across runs -- then the main
+// session and one row per dispatch with declared versus served model and
+// effort.
 import { DataTable, type Column } from "../components/DataTable";
 import { Panel } from "../components/Panel";
 import { Unavailable } from "../components/Unavailable";
 import { ViewFrame } from "../components/ViewFrame";
-import type { ChangeRuns, RunDispatchRow, RunRow, RunTotals } from "../api";
+import type { ChangeRuns, RunDispatchRow, RunRow, RunStageSpan, RunTotals } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
-import { formatDateTime, formatInt, formatMs, formatRatio, formatUsd } from "../format";
+import { formatDateTime, formatDurationOrOpen, formatInt, formatMs, formatRatio, formatUsd } from "../format";
 import type { ViewProps } from "../viewTypes";
 
 function served(declared: string, servedMap: Record<string, number> | null): string {
@@ -75,9 +78,36 @@ function TotalsCells({ t }: { t: RunTotals }) {
   );
 }
 
+// stageRows renders the run's own stage runs, in started_at order -- the
+// same rows the per-change RunDetail route's table carries, scoped here to
+// one run so its phase durations read directly beside the run's total.
+// An open stage shows "still running" rather than a fabricated duration,
+// the same absence-is-never-zero rule the wall-clock column follows.
+function stageRows(s: RunStageSpan) {
+  return (
+    <tr key={`${s.stage}|${s.attempt}|${s.startedAt}`} data-testid="run-stage-row">
+      <td>{s.stage}</td>
+      <td>{formatInt(s.attempt)}</td>
+      <td>{formatDateTime(s.startedAt)}</td>
+      <td>{formatDurationOrOpen(s.startedAt, s.endedAt ?? undefined)}</td>
+      <td>{s.outcome ?? ""}</td>
+    </tr>
+  );
+}
+
 function RunDetail({ run }: { run: RunRow }) {
   return (
     <div className="data-table-scroll">
+      {run.stages.length > 0 && (
+        <table className="dispatch-table" aria-label="Stage wall clock">
+          <thead>
+            <tr>
+              <th>Stage</th><th>Attempt</th><th>Started</th><th>Wall clock</th><th>Outcome</th>
+            </tr>
+          </thead>
+          <tbody>{run.stages.map(stageRows)}</tbody>
+        </table>
+      )}
       <table className="dispatch-table">
         <thead>
           <tr>
