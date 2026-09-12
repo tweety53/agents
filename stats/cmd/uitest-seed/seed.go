@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -187,6 +188,110 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 				}
 			}
 		}
+	}
+	if err := seedRunsFixture(ctx, st); err != nil {
+		return err
+	}
+	return nil
+}
+
+// seedRunsFixture writes one change with a plan session, a creating run
+// carrying two dispatches (one served by a different model than declared)
+// and a fix run, so the runs view has every row kind to render.
+func seedRunsFixture(ctx context.Context, st *store.Store) error {
+	const project, change, jira = "uitest-alpha", "kan-103-runs-view", "KAN-103"
+	t0 := fixtureNow.Add(-6 * time.Hour)
+
+	plan, err := st.BeginStage(ctx, store.BeginStageInput{
+		ProjectKey: project, MainCheckoutPath: "/tmp/uitest-alpha", JiraKey: jira, Harness: "claude-code",
+		SessionToken: strPtr("fp-uitest-plan"), Command: "/flow-plan", Stage: "plan.session", StartedAt: t0,
+	})
+	if err != nil {
+		return fmt.Errorf("uitest-seed: plan session: %w", err)
+	}
+	if err := mergeJSON(ctx, st, plan.ID, `{"tokens":{"main":{"input":12000,"output":3000,"cache_read":90000}},"cost_usd":0.41,
+		"signals":{"main":{"compactions":1,"turns":18,"tool_calls_total":40,"tool_errors":2,"denials":1,"context_end":"95000"}}}`); err != nil {
+		return err
+	}
+	if err := st.EndStage(ctx, plan.ID, t0.Add(25*time.Minute), "staged"); err != nil {
+		return err
+	}
+
+	if err := st.PutChange(ctx, store.Change{ProjectKey: project, MainCheckoutPath: "/tmp/uitest-alpha", Name: change,
+		State: store.StateInProgress, JiraIssue: strPtr(jira), UpdatedAt: fixtureNow, UpdatedBy: "uitest-seed"}); err != nil {
+		return err
+	}
+
+	const token = "mf-uitest-run1"
+	stage := func(key string, from, to time.Duration, metrics string) error {
+		run, err := st.BeginStage(ctx, store.BeginStageInput{ProjectKey: project, ChangeName: change, Harness: "claude-code",
+			SessionToken: strPtr(token), Command: "/flow", Stage: key, StartedAt: t0.Add(from)})
+		if err != nil {
+			return err
+		}
+		if metrics != "" {
+			if err := mergeJSON(ctx, st, run.ID, metrics); err != nil {
+				return err
+			}
+		}
+		return st.EndStage(ctx, run.ID, t0.Add(to), "completed")
+	}
+	if err := stage("flow.kickoff", time.Hour, time.Hour+2*time.Minute, ""); err != nil {
+		return err
+	}
+	if err := stage("flow.design-approval", time.Hour+2*time.Minute, time.Hour+14*time.Minute, ""); err != nil {
+		return err
+	}
+	if err := stage("flow.sdd-tdd", time.Hour+14*time.Minute, time.Hour+70*time.Minute, `{
+		"tokens":{"main":{"input":40000,"output":9000,"cache_read":300000},"sidechain":{"input":80000,"output":20000,"cache_read":500000}},
+		"cost_usd":3.9,
+		"signals":{"main":{"turns":30,"tool_calls_total":80,"tool_errors":3},"sidechain":{"turns":40,"tool_calls_total":120,"tool_errors":5,"denials":2}},
+		"dispatches":{
+			"agent-uitest-1":{"cost_usd":1.6,"agent_type":"flow-medium","description":"Task 1: store","spawn_depth":"1",
+				"tokens":{"sidechain":{"input":50000,"output":12000,"cache_read":300000}},
+				"signals":{"turns":25,"tool_calls_total":70,"served_models":{"claude-sonnet-5":25},"served_efforts":{"medium":25}}},
+			"agent-uitest-2":{"cost_usd":1.1,"agent_type":"flow-high","description":"review: primary","spawn_depth":"1",
+				"tokens":{"sidechain":{"input":30000,"output":8000,"cache_read":200000}},
+				"signals":{"turns":15,"tool_calls_total":50,"tool_errors":5,"denials":2,"served_models":{"claude-opus-5":15},"served_efforts":{"high":15}}}}}`); err != nil {
+		return err
+	}
+	dispatch := func(role, agentID, model, effort string, from, to time.Duration, metrics string) error {
+		_, err := st.RecordDispatch(ctx, project, change, records.Dispatch{
+			Role: role, AgentID: agentID, Model: model, Effort: effort, SessionToken: token,
+			StartedAt: t0.Add(from), EndedAt: timePtr(t0.Add(to)), Outcome: "completed", Metrics: json.RawMessage(metrics),
+		})
+		return err
+	}
+	if err := dispatch("implementer", "agent-uitest-1", "claude-sonnet-5", "medium", time.Hour+15*time.Minute, time.Hour+45*time.Minute,
+		`{"tokens":{"sidechain":{"input":50000,"output":12000,"cache_read":300000}},"signals":{"sidechain":{"turns":25,"tool_calls_total":70,"served_models":{"claude-sonnet-5":25},"served_efforts":{"medium":25}}}}`); err != nil {
+		return err
+	}
+	if err := dispatch("reviewer", "agent-uitest-2", "claude-sonnet-5", "high", time.Hour+46*time.Minute, time.Hour+68*time.Minute,
+		`{"tokens":{"sidechain":{"input":30000,"output":8000,"cache_read":200000}},"signals":{"sidechain":{"turns":15,"tool_calls_total":50,"tool_errors":5,"denials":2,"served_models":{"claude-opus-5":15},"served_efforts":{"high":15}}}}`); err != nil {
+		return err
+	}
+	if _, _, err := st.RecordDecision(ctx, project, change, records.Decision{SessionToken: token,
+		Decision: json.RawMessage(`{"class":"regular","execution":"subagent","implementer":{"model":"claude-sonnet-5","effort":"medium"},"panel":{"roster":[{"slot":"primary"}],"compact":true}}`)}); err != nil {
+		return err
+	}
+
+	fix, err := st.BeginStage(ctx, store.BeginStageInput{ProjectKey: project, ChangeName: change, Harness: "claude-code",
+		SessionToken: strPtr("mf-uitest-run2"), Command: "/flow", Stage: "flow.document-fix", StartedAt: t0.Add(4 * time.Hour)})
+	if err != nil {
+		return err
+	}
+	if err := mergeJSON(ctx, st, fix.ID, `{"tokens":{"main":{"input":9000,"output":2000,"cache_read":60000}},"cost_usd":0.3,"signals":{"main":{"turns":8,"tool_calls_total":20}}}`); err != nil {
+		return err
+	}
+	return st.EndStage(ctx, fix.ID, t0.Add(4*time.Hour+12*time.Minute), "completed")
+}
+
+func strPtr(s string) *string        { return &s }
+func timePtr(t time.Time) *time.Time { return &t }
+
+func mergeJSON(ctx context.Context, st *store.Store, id int64, patch string) error {
+	if err := st.MergeMetrics(ctx, id, json.RawMessage(patch)); err != nil {
+		return fmt.Errorf("uitest-seed: merge metrics for stage run %d: %w", id, err)
 	}
 	return nil
 }
