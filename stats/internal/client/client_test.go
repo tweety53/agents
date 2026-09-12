@@ -838,6 +838,10 @@ func (stubStageStore) Decisions(context.Context, store.Period, *string) ([]store
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) ListRuns(context.Context, store.Period, *string, *string) ([]store.ChangeRuns, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, errStageStoreNotImplemented
 }
