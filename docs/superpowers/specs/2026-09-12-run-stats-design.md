@@ -70,7 +70,9 @@ window exactly as for any stage run. `store.Price` prices the row the same way.
 - First action after resolving the Jira key:
   `flow stage begin -command '/flow-plan' -stage plan.session -harness <harness> -session-token fp-<literal-token> -jira-key <KEY>`
 - Last action, on every exit path including "nothing to stage":
-  `flow stage end -session-token fp-<literal-token> -outcome <staged|abandoned>`
+  `flow stage end -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY> -outcome <staged|captured|abandoned>`
+  — `staged` when a note was written, `captured` when the session wrote into an existing
+  change's artifacts, `abandoned` otherwise.
 - A plan session with no Jira key marks nothing; the contract sentence "records nothing to the
   store" is narrowed to that case. Lines `SKILL.md:41-42` and `:268-269` are rewritten to say so.
 - `/flow` kickoff needs no change: the backfill is store-side.
