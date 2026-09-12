@@ -16,7 +16,7 @@ Interface:
     --ref-b x,y,w,h       both images: scale = ref-b width / ref-a width
                           (heights must agree with that factor within 5%)
     --props <list>        comma-separated subset of box,radius,border,fill,
-                          shadow,content,gap,ink (default: all)
+                          shadow,content,gap,ink,runs (default: all)
     --edge <n>            adjacent-pixel colour jump (RGB Euclidean, 0-441)
                           that counts as a hard edge (default 24)
     --noise <n>           colour distance to background below which a pixel
@@ -32,7 +32,8 @@ top-left pixel, and all four corners must be background. Everything is
 measured on the centre row and centre column of the region, from the outside
 inward, so the region's centre must fall inside the control. Only `shadow`
 and `gap` look past the region, out to the image's own edge, so a neighbour
-belongs outside the region, not in it.
+belongs outside the region, not in it. `ink` and `runs` need no control edge
+at all and are the two properties to run before the crop is trusted.
 
 Properties (pixels of the region's own image; `null` where not found):
 
@@ -65,6 +66,20 @@ Properties (pixels of the region's own image; `null` where not found):
            no control edge: crop to a run of capital letters and request
            `--props ink` — its height is the cap-height, the font-size
            stand-in.
+  runs     colour runs along the region's centre row and centre column:
+           `from`/`to` (region-relative), `length` and `colour` of every
+           stretch of pixels within `--noise` of the stretch's first pixel.
+           The scanline, needing no clean box. Two readings the other
+           properties cannot give: (1) an edge-to-edge claim — a fill flush
+           with its container's border is the run immediately after the
+           border's run, and an inset fill shows as the container-coloured
+           run between them, its `length` the inset in px (`content` cannot
+           answer this: it boxes every non-fill pixel in the container,
+           other rows' text included, and a fill covering half the box
+           flips which colour counts as `fill` — KAN-30 manual re-sweep);
+           (2) where to crop — every run boundary is an edge a region can
+           sit on, read before any property that needs a box. No `delta`:
+           compare the two lists by eye.
 
 Output (stdout): one JSON object — `a`, `b` (when given), `scale`, and
 `delta`: for every numeric leaf, `a`, `a_scaled` (`a` × scale for lengths,
@@ -93,7 +108,7 @@ except ImportError:
     print("measure-visual-properties: Pillow is required — python3 -m pip install pillow", file=sys.stderr)
     sys.exit(2)
 
-ALL_PROPS = ("box", "radius", "border", "fill", "shadow", "content", "gap", "ink")
+ALL_PROPS = ("box", "radius", "border", "fill", "shadow", "content", "gap", "ink", "runs")
 # Numeric leaves that are not lengths and therefore are not scaled.
 UNSCALED = ("ratio", "approx_opacity", "peak_delta", "share")
 
@@ -347,9 +362,28 @@ class Region:
             return {"width": None, "height": None}
         return {"left": min(xs), "top": min(ys), "width": max(xs) - min(xs) + 1, "height": max(ys) - min(ys) + 1}
 
+    def measure_runs(self):
+        cx, cy = self.w // 2, self.h // 2
+        out = {}
+        for name, points in (("row", self.row(cy, 0, self.w - 1)), ("col", self.col(cx, 0, self.h - 1))):
+            runs = []
+            for i, p in enumerate(points):
+                c = self.at(*p)
+                # Compared with the run's FIRST pixel, not the previous one, so a
+                # gradient breaks into runs instead of drifting into one.
+                if runs and dist(c, runs[-1]["colour"]) <= self.noise:
+                    runs[-1]["to"] = i
+                else:
+                    runs.append({"from": i, "to": i, "colour": c})
+            out[name] = [
+                {"from": r["from"], "to": r["to"], "length": r["to"] - r["from"] + 1, "colour": hexcolour(r["colour"])}
+                for r in runs
+            ]
+        return out
+
     def measure(self, props):
         out = {"background": hexcolour(self.bg)}
-        needs_box = [p for p in props if p != "ink"]
+        needs_box = [p for p in props if p not in ("ink", "runs")]
         if needs_box:
             box = self.measure_box()
             if "box" in props:
@@ -374,6 +408,8 @@ class Region:
                 out["gap"] = self.measure_gap()
         if "ink" in props:
             out["ink"] = self.measure_ink()
+        if "runs" in props:
+            out["runs"] = self.measure_runs()
         return out
 
 
