@@ -343,6 +343,7 @@ export interface RunTotals {
   cacheWrite1h: number;
   cacheHitRatio: number | null;
   costUsd: number | null;
+  priced: boolean;
   wallClockMs: number;
   humanGateMs: number;
   compactions: number;
@@ -368,6 +369,7 @@ export interface RunDispatchRow {
   servedModels: Record<string, number> | null;
   servedEfforts: Record<string, number> | null;
   mismatch: boolean;
+  priced: boolean;
   findingsRaised: number;
   findingsByStatus: Record<string, number> | null;
   startedAt: string;

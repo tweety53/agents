@@ -16,9 +16,17 @@ import (
 type RunTotals struct {
 	InputTokens, OutputTokens, ThinkingTokens, CacheRead, CacheWrite5m, CacheWrite1h int64
 	CostUSD                                                                          *float64 // nil when no window carried cost_usd
-	WallClockMs, HumanGateMs                                                         int64
-	Compactions, Turns, ToolCalls, ToolErrors, Denials, APIErrors                    int64
-	ContextEnd                                                                       *int64
+	// Priced is false when at least one token-bearing window folded into
+	// this total (a "tokens" bag carrying a chargeable figure -- see
+	// tokenBucket.hasCharge) has no cost_usd, so CostUSD, though it may
+	// still be non-nil from the windows that did price, understates the
+	// true cost -- pricing.go's Price doc comment calls this shape "the
+	// single most dangerous output Price could produce". A run whose only
+	// cost-less windows are token-less (a human-gate stage) stays Priced.
+	Priced                                                        bool
+	WallClockMs, HumanGateMs                                      int64
+	Compactions, Turns, ToolCalls, ToolErrors, Denials, APIErrors int64
+	ContextEnd                                                    *int64
 }
 
 // RunDispatchRow is one subagent dispatch inside a run.
@@ -29,6 +37,7 @@ type RunDispatchRow struct {
 	DeclaredModel, DeclaredEffort               string
 	ServedModels, ServedEfforts                 map[string]int64
 	Mismatch                                    bool
+	Priced                                      bool           // false: this dispatch carries chargeable tokens with no cost_usd
 	FindingsRaised                              int            // findings rows whose dispatch_id is this dispatch
 	FindingsByStatus                            map[string]int // the same rows counted by their current status
 	StartedAt                                   time.Time
@@ -299,7 +308,7 @@ func groupRuns(stages []runStageRow, dispatches map[string][]runDispatchRowRaw, 
 		}
 		g, ok := groups[gk]
 		if !ok {
-			g = &ChangeRuns{Project: sr.ProjectKey, Change: sr.ChangeName, JiraKey: sr.JiraKey}
+			g = &ChangeRuns{Project: sr.ProjectKey, Change: sr.ChangeName, JiraKey: sr.JiraKey, Totals: RunTotals{Priced: true}}
 			groups[gk] = g
 			order = append(order, gk)
 			runsByGroup[gk] = map[string]*RunRow{}
@@ -310,7 +319,7 @@ func groupRuns(stages []runStageRow, dispatches map[string][]runDispatchRowRaw, 
 		}
 		run, ok := runsByGroup[gk][token]
 		if !ok {
-			run = &RunRow{SessionToken: sr.SessionToken, Kind: runKind(sr.Command), Command: sr.Command, StartedAt: sr.StartedAt, EndedAt: sr.EndedAt}
+			run = &RunRow{SessionToken: sr.SessionToken, Kind: runKind(sr.Command), Command: sr.Command, StartedAt: sr.StartedAt, EndedAt: sr.EndedAt, Totals: RunTotals{Priced: true}, Main: RunTotals{Priced: true}}
 			runsByGroup[gk][token] = run
 			runOrder[gk] = append(runOrder[gk], token)
 			// A stage run with no session token carries nothing of its own:
@@ -451,6 +460,15 @@ type tokenBucket struct {
 	Input, Output, Thinking, CacheRead, CacheCreation5m, CacheCreation1h int64
 }
 
+// hasCharge reports whether b carries a chargeable figure -- input, output
+// or any cache component -- mirroring chargeableTokens.hasCharge
+// (pricing.go) at this package's own coarser tokenBucket shape. Thinking
+// is excluded: it has no rate at all, so its presence says nothing about
+// whether this window should have priced.
+func (b tokenBucket) hasCharge() bool {
+	return b.Input != 0 || b.Output != 0 || b.CacheRead != 0 || b.CacheCreation5m != 0 || b.CacheCreation1h != 0
+}
+
 func readBucket(raw json.RawMessage) tokenBucket {
 	var b struct {
 		Input           int64 `json:"input"`
@@ -522,6 +540,12 @@ func addCost(t *RunTotals, metrics map[string]json.RawMessage) {
 	*t.CostUSD += cost
 }
 
+// rowHasCost reports whether metrics carries a top-level cost_usd figure.
+func rowHasCost(metrics map[string]json.RawMessage) bool {
+	var cost float64
+	return json.Unmarshal(metrics["cost_usd"], &cost) == nil
+}
+
 func addStageTotals(total, main *RunTotals, sr runStageRow) {
 	mt, ms := side(sr.Metrics, "main")
 	st, ss := side(sr.Metrics, "sidechain")
@@ -538,6 +562,12 @@ func addStageTotals(total, main *RunTotals, sr runStageRow) {
 	addCost(total, sr.Metrics)
 	addBucket(main, mt)
 	addSignals(main, ms)
+	if (mt.hasCharge() || st.hasCharge()) && !rowHasCost(sr.Metrics) {
+		total.Priced = false
+	}
+	if mt.hasCharge() && !rowHasCost(sr.Metrics) {
+		main.Priced = false
+	}
 	if humanGateStages[sr.Stage] {
 		total.HumanGateMs += spanMs(sr.StartedAt, sr.EndedAt)
 	}
@@ -563,6 +593,9 @@ func sumTotals(dst *RunTotals, src RunTotals) {
 			dst.CostUSD = new(float64)
 		}
 		*dst.CostUSD += *src.CostUSD
+	}
+	if !src.Priced {
+		dst.Priced = false
 	}
 }
 
@@ -619,6 +652,8 @@ func buildDispatchRows(raw []runDispatchRowRaw, stages []runStageRow, changeID i
 		if row.Totals.CostUSD == nil {
 			addCost(&row.Totals, d.Metrics)
 		}
+		row.Priced = !tokens.hasCharge() || row.Totals.CostUSD != nil
+		row.Totals.Priced = row.Priced // keep the nested totals bag consistent with the row's own flag
 		row.Mismatch = mismatch(d.Model, d.Effort, signals)
 		if byStatus := findings[d.ID]; len(byStatus) > 0 {
 			row.FindingsByStatus = byStatus

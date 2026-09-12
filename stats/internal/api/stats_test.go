@@ -566,13 +566,13 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 				Totals: store.RunTotals{InputTokens: 500}, IdleBetweenRunsMs: 1000, FixIterations: 1,
 				Runs: []store.RunRow{
 					{SessionToken: "sess-1", Kind: "flow", Command: "/flow", StartedAt: startedAt,
-						Totals:    store.RunTotals{InputTokens: 300},
-						Main:      store.RunTotals{InputTokens: 200},
+						Totals:    store.RunTotals{InputTokens: 300, Priced: false},
+						Main:      store.RunTotals{InputTokens: 200, Priced: true},
 						FanOutMax: 2, SuiteRuns: 1,
 						Dispatches: []store.RunDispatchRow{
 							{Seq: 1, Role: "reviewer", Slot: "exp-failure-modes", AgentID: "a1", AgentType: "general-purpose",
-								Description: "review", DeclaredModel: "claude-sonnet-4-5", DeclaredEffort: "high",
-								StartedAt: startedAt, Totals: store.RunTotals{InputTokens: 100}},
+								Description: "review", DeclaredModel: "claude-sonnet-4-5", DeclaredEffort: "high", Priced: true,
+								StartedAt: startedAt, Totals: store.RunTotals{InputTokens: 100, Priced: true}},
 						},
 					},
 				},
@@ -587,11 +587,16 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			Project string `json:"project"`
 			Change  string `json:"change"`
 			Runs    []struct {
+				Totals struct {
+					Priced bool `json:"priced"`
+				} `json:"totals"`
 				Main struct {
 					InputTokens int64 `json:"inputTokens"`
+					Priced      bool  `json:"priced"`
 				} `json:"main"`
 				Dispatches []struct {
 					DeclaredModel string `json:"declaredModel"`
+					Priced        bool   `json:"priced"`
 				} `json:"dispatches"`
 			} `json:"runs"`
 		}
@@ -604,6 +609,15 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		}
 		if got := rows[0].Runs[0].Main.InputTokens; got != 200 {
 			t.Errorf("runs[0].main.inputTokens = %d, want 200", got)
+		}
+		if rows[0].Runs[0].Totals.Priced {
+			t.Errorf("runs[0].totals.priced = true, want false")
+		}
+		if !rows[0].Runs[0].Main.Priced {
+			t.Errorf("runs[0].main.priced = false, want true")
+		}
+		if !rows[0].Runs[0].Dispatches[0].Priced {
+			t.Errorf("dispatches[0].priced = false, want true")
 		}
 	})
 

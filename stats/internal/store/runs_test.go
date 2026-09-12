@@ -182,6 +182,115 @@ func TestListRunsGroupsByChangeAndSessionToken(t *testing.T) {
 	}
 }
 
+func TestListRunsPricedFalseWhenATokenBearingStageIsUnpriced(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-runs-priced-%d", time.Now().UnixNano())
+	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+
+	c := baseChange(projectKey, "kan-priced-runs")
+	if err := st.PutChange(ctx, c); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+
+	const token = "mf-priced-1"
+	begin := func(stage string, at time.Time) store.StageRun {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-priced-runs", "/flow", stage)
+		in.SessionToken = ptr(token)
+		in.StartedAt = at
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", stage, err)
+		}
+		return run
+	}
+
+	priced := begin("flow.kickoff", t0)
+	mergeMetrics(t, st, priced.ID, `{"tokens":{"main":{"input":100,"output":10}},"cost_usd":0.5}`)
+	if err := st.EndStage(ctx, priced.ID, t0.Add(10*time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	// A second, token-bearing stage in the same run whose Price pass never
+	// ran (no top-level cost_usd) -- the trap Important 1 describes: a
+	// partially priced run must not read as a fully priced, understated one.
+	unpriced := begin("flow.sdd-tdd", t0.Add(10*time.Minute))
+	mergeMetrics(t, st, unpriced.ID, `{"tokens":{"main":{"input":200,"output":20}}}`)
+	if err := st.EndStage(ctx, unpriced.ID, t0.Add(30*time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(rows) != 1 || len(rows[0].Runs) != 1 {
+		t.Fatalf("rows = %+v", rows)
+	}
+	run := rows[0].Runs[0]
+	if run.Totals.Priced {
+		t.Errorf("Totals.Priced = true, want false: %+v", run.Totals)
+	}
+	if run.Totals.CostUSD == nil || *run.Totals.CostUSD != 0.5 {
+		t.Errorf("Totals.CostUSD = %v, want 0.5 (only the priced stage's cost)", run.Totals.CostUSD)
+	}
+	if run.Main.Priced {
+		t.Errorf("Main.Priced = true, want false: %+v", run.Main)
+	}
+}
+
+func TestListRunsPricedTrueWhenOnlyCostlessStagesAreTokenless(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-runs-priced2-%d", time.Now().UnixNano())
+	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+
+	c := baseChange(projectKey, "kan-priced2-runs")
+	if err := st.PutChange(ctx, c); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+
+	const token = "mf-priced2-1"
+	begin := func(stage string, at time.Time) store.StageRun {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-priced2-runs", "/flow", stage)
+		in.SessionToken = ptr(token)
+		in.StartedAt = at
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage %s: %v", stage, err)
+		}
+		return run
+	}
+
+	priced := begin("flow.kickoff", t0)
+	mergeMetrics(t, st, priced.ID, `{"tokens":{"main":{"input":100,"output":10}},"cost_usd":0.5}`)
+	if err := st.EndStage(ctx, priced.ID, t0.Add(10*time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	// A human-gate stage carries no tokens at all -- its own cost_usd
+	// absence must not flip the run's Priced flag (the "nearly every /flow
+	// run" trap Important 1's own note calls out).
+	gate := begin("flow.design-approval", t0.Add(10*time.Minute))
+	if err := st.EndStage(ctx, gate.ID, t0.Add(20*time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(rows) != 1 || len(rows[0].Runs) != 1 {
+		t.Fatalf("rows = %+v", rows)
+	}
+	run := rows[0].Runs[0]
+	if !run.Totals.Priced {
+		t.Errorf("Totals.Priced = false, want true: %+v", run.Totals)
+	}
+}
+
 func TestListRunsListsAnUnattachedPlanSessionUnderItsJiraKey(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()

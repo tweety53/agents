@@ -38,7 +38,7 @@ const runColumns: Column<RunRow>[] = [
   { key: "in", header: "Tokens in", sortable: true, accessor: (r) => r.totals.inputTokens, render: (r) => formatInt(r.totals.inputTokens) },
   { key: "out", header: "Tokens out", sortable: true, accessor: (r) => r.totals.outputTokens, render: (r) => formatInt(r.totals.outputTokens) },
   { key: "cache", header: "Cache hit", sortable: true, accessor: (r) => r.totals.cacheHitRatio, render: (r) => <Unavailable value={r.totals.cacheHitRatio} format={formatRatio} /> },
-  { key: "cost", header: "Cost", sortable: true, accessor: (r) => r.totals.costUsd, render: (r) => <Unavailable value={r.totals.costUsd} format={formatUsd} /> },
+  { key: "cost", header: "Cost", sortable: true, accessor: (r) => r.totals.costUsd, render: (r) => <Unavailable value={r.totals.priced ? r.totals.costUsd : null} format={formatUsd} /> },
   { key: "wall", header: "Wall clock", sortable: true, accessor: (r) => r.totals.wallClockMs, render: (r) => formatMs(r.totals.wallClockMs) },
   { key: "gate", header: "Human gate", sortable: true, accessor: (r) => r.totals.humanGateMs, render: (r) => formatMs(r.totals.humanGateMs) },
   { key: "compactions", header: "Compactions", sortable: true, accessor: (r) => r.totals.compactions, render: (r) => formatInt(r.totals.compactions) },
@@ -64,7 +64,7 @@ function TotalsCells({ t }: { t: RunTotals }) {
       <td>{formatInt(t.inputTokens)}</td>
       <td>{formatInt(t.outputTokens)}</td>
       <td><Unavailable value={t.cacheHitRatio} format={formatRatio} /></td>
-      <td><Unavailable value={t.costUsd} format={formatUsd} /></td>
+      <td><Unavailable value={t.priced ? t.costUsd : null} format={formatUsd} /></td>
       <td>{formatMs(t.wallClockMs)}</td>
       <td>{formatInt(t.turns)}</td>
       <td>{formatInt(t.toolCalls)}</td>
@@ -110,14 +110,24 @@ function RunDetail({ run }: { run: RunRow }) {
   );
 }
 
+// runDetailHash builds "#/run/<project>/<change>" -- the same route and
+// encoding ChangeVariable.tsx's own runDetailHash and StateBoard.tsx's
+// runDetailHref already build for this route, kept local here rather than
+// exported since neither of those is exported either.
+function runDetailHash(project: string, change: string): string {
+  return `#/run/${encodeURIComponent(project)}/${encodeURIComponent(change)}`;
+}
+
 function ChangePanel({ group, period, onPeriodChange }: { group: ChangeRuns } & Pick<ViewProps, "period" | "onPeriodChange">) {
   const title = group.change ?? `${group.jiraKey} (no change yet)`;
   return (
     <section className="panel" aria-label={title}>
-      <h3 className="panel-title">{title}</h3>
+      <h3 className="panel-title">
+        {group.change ? <a href={runDetailHash(group.project, group.change)}>{title}</a> : title}
+      </h3>
       <p className="panel-description">
         {group.jiraKey && group.change ? `${group.jiraKey} · ` : ""}
-        cost <Unavailable value={group.totals.costUsd} format={formatUsd} /> · tokens in {formatInt(group.totals.inputTokens)} ·
+        cost <Unavailable value={group.totals.priced ? group.totals.costUsd : null} format={formatUsd} /> · tokens in {formatInt(group.totals.inputTokens)} ·
         idle between runs {formatMs(group.idleBetweenRunsMs)} · fix iterations {formatInt(group.fixIterations)}
       </p>
       <div className="panel-body">

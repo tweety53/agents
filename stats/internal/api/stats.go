@@ -841,6 +841,7 @@ type runTotalsDTO struct {
 	CacheWrite1h   int64    `json:"cacheWrite1h"`
 	CacheHitRatio  *float64 `json:"cacheHitRatio"`
 	CostUsd        *float64 `json:"costUsd"`
+	Priced         bool     `json:"priced"`
 	WallClockMs    int64    `json:"wallClockMs"`
 	HumanGateMs    int64    `json:"humanGateMs"`
 	Compactions    int64    `json:"compactions"`
@@ -865,6 +866,7 @@ type runDispatchDTO struct {
 	ServedModels     map[string]int64 `json:"servedModels"`
 	ServedEfforts    map[string]int64 `json:"servedEfforts"`
 	Mismatch         bool             `json:"mismatch"`
+	Priced           bool             `json:"priced"`
 	FindingsRaised   int              `json:"findingsRaised"`
 	FindingsByStatus map[string]int   `json:"findingsByStatus"`
 	StartedAt        string           `json:"startedAt"`
@@ -913,7 +915,7 @@ func toRunTotalsDTO(t store.RunTotals) runTotalsDTO {
 	out := runTotalsDTO{
 		InputTokens: t.InputTokens, OutputTokens: t.OutputTokens, ThinkingTokens: t.ThinkingTokens,
 		CacheRead: t.CacheRead, CacheWrite5m: t.CacheWrite5m, CacheWrite1h: t.CacheWrite1h,
-		CostUsd: t.CostUSD, WallClockMs: t.WallClockMs, HumanGateMs: t.HumanGateMs,
+		CostUsd: t.CostUSD, Priced: t.Priced, WallClockMs: t.WallClockMs, HumanGateMs: t.HumanGateMs,
 		Compactions: t.Compactions, Turns: t.Turns, ToolCalls: t.ToolCalls, ToolErrors: t.ToolErrors,
 		Denials: t.Denials, ApiErrors: t.APIErrors, ContextEnd: t.ContextEnd,
 	}
@@ -951,7 +953,7 @@ func toChangeRunsDTOs(rows []store.ChangeRuns) []changeRunsDTO {
 			for k, d := range r.Dispatches {
 				run.Dispatches[k] = runDispatchDTO{Seq: d.Seq, Role: d.Role, Slot: d.Slot, AgentID: d.AgentID, AgentType: d.AgentType,
 					Description: d.Description, Depth: d.Depth, DeclaredModel: d.DeclaredModel, DeclaredEffort: d.DeclaredEffort,
-					ServedModels: d.ServedModels, ServedEfforts: d.ServedEfforts, Mismatch: d.Mismatch,
+					ServedModels: d.ServedModels, ServedEfforts: d.ServedEfforts, Mismatch: d.Mismatch, Priced: d.Priced,
 					FindingsRaised: d.FindingsRaised, FindingsByStatus: d.FindingsByStatus,
 					StartedAt: d.StartedAt.UTC().Format(time.RFC3339Nano), EndedAt: rfc3339Ptr(d.EndedAt), Totals: toRunTotalsDTO(d.Totals)}
 			}

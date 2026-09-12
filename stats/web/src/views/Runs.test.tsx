@@ -28,7 +28,7 @@ function envelope(rows: ChangeRuns[]): StatsResponse<ChangeRuns[]> {
 
 const totals = (over: Partial<import("../api").RunTotals> = {}) => ({
   inputTokens: 0, outputTokens: 0, thinkingTokens: 0, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0,
-  cacheHitRatio: null, costUsd: null, wallClockMs: 0, humanGateMs: 0, compactions: 0, turns: 0,
+  cacheHitRatio: null, costUsd: null, priced: true, wallClockMs: 0, humanGateMs: 0, compactions: 0, turns: 0,
   toolCalls: 0, toolErrors: 0, denials: 0, apiErrors: 0, contextEnd: null, ...over,
 });
 
@@ -42,7 +42,7 @@ const rows: ChangeRuns[] = [{
     dispatches: [{
       seq: 1, role: "implementer", slot: "", agentId: "a1", agentType: "flow-medium", description: "impl", depth: 1,
       declaredModel: "claude-opus-5", declaredEffort: "medium", servedModels: { "claude-sonnet-5": 5 }, servedEfforts: { medium: 5 },
-      mismatch: true, findingsRaised: 3, findingsByStatus: { fixed: 2, open: 1 }, startedAt: "2026-09-01T10:10:00Z", endedAt: "2026-09-01T10:40:00Z", totals: totals({ inputTokens: 400, costUsd: 1.25 }),
+      mismatch: true, priced: true, findingsRaised: 3, findingsByStatus: { fixed: 2, open: 1 }, startedAt: "2026-09-01T10:10:00Z", endedAt: "2026-09-01T10:40:00Z", totals: totals({ inputTokens: 400, costUsd: 1.25 }),
     }],
   }],
 }];
@@ -82,5 +82,31 @@ describe("Runs", () => {
 
     await userEvent.click(toggles[0]);
     expect(screen.getAllByTestId("main-session-row")).toHaveLength(1);
+  });
+
+  it("renders Unavailable for a run's cost when priced is false, even though costUsd is a number", async () => {
+    const unpricedRows: ChangeRuns[] = [{
+      project: "p", change: "kan-3-z", jiraKey: "KAN-3",
+      totals: totals({ costUsd: 0.5, priced: false }), idleBetweenRunsMs: 0, fixIterations: 0,
+      runs: [{
+        sessionToken: "mf-3", kind: "flow", command: "/flow", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T11:00:00Z",
+        totals: totals({ costUsd: 0.5, priced: false }), main: totals({ costUsd: 0.5, priced: true }),
+        decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [],
+      }],
+    }];
+    fetchStatsViewMock.mockResolvedValue(envelope(unpricedRows));
+    render(<Runs period={period} project={undefined} />);
+    expect(await screen.findByText("kan-3-z")).toBeInTheDocument();
+    // The run row's cost cell and the change panel's cost figure both read
+    // Unavailable, not "$0.50", despite costUsd carrying a number.
+    expect(screen.getAllByTestId("unavailable").length).toBeGreaterThan(0);
+    expect(screen.queryByText("$0.50")).not.toBeInTheDocument();
+  });
+
+  it("links a change panel's title into RunDetail's route", async () => {
+    fetchStatsViewMock.mockResolvedValue(envelope(rows));
+    render(<Runs period={period} project={undefined} />);
+    const link = await screen.findByRole("link", { name: "kan-1-x" });
+    expect(link).toHaveAttribute("href", "#/run/p/kan-1-x");
   });
 });
