@@ -881,9 +881,13 @@ Beside the reproducer re-runs above, the round close re-runs the task-field guar
 `<task-sha>` the folded commit as it now stands, the remaining arguments resolved the way
 `skills/flow/implement.md`'s task-close step resolves them. A non-zero exit does not close the
 round; it goes to the handback. This catches an undeclared file the fixup added and a declared
-test it removed or renamed, read post-autosquash; a test added to the commit without a
-`**Tests:**` declaration and a stale `**Baseline:**` count remain the walk's judgment until the
-companion checker (KAN-511) lands.
+test it removed or renamed, read post-autosquash. The stale-field classes the walk used to judge
+alone are the same guard's verdicts now (KAN-511): a task declaring `**Baseline:** before=N
+after=M` fails when the changed files' `@Test` delta at the commit does not measure it — skipped
+where the counted set carries no `@Test` at either revision, per the skip-not-fail rule — and a
+`**Tests:**` name, backticked or bare camelCase, that the tree's content at the commit no longer
+contains fails with it. A test added to the commit with no `**Baseline:**` declared and no
+`**Tests:**` naming it stays the walk's judgment.
 
 This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
 neither Bugbot nor Mutation is in the resolved roster or added this run is exactly where the round's own proof
