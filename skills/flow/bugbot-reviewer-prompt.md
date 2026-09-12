@@ -1,12 +1,12 @@
 Use this template for the panel's **Bugbot** slot — a defect hunt over `final-review.diff`,
-dispatched general-purpose like every other slot, per **The roster** (`skills/flow/review-panel.md`).
+dispatched like every other slot, per **The roster** (`skills/flow/review-panel.md`).
 
 Read-write review: this slot mutates code in its own throwaway worktree copies to prove each
 finding — see **The throwaway worktree** (`skills/flow/review-panel.md`) for how those copies are
 made and removed.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # general-purpose on `default`;
+Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Defect hunt (Bugbot)"
   model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's

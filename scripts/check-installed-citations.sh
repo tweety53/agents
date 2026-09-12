@@ -187,6 +187,8 @@ declare_if_present "agents/flow-medium.md" \
   "generic dispatch-target agent definition — cites no .md/.mdc path at all"
 declare_if_present "agents/flow-high.md" \
   "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-review.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then

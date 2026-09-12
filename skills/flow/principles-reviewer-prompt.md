@@ -13,7 +13,7 @@ so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path
 Read-only review.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # general-purpose on `default`;
+Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Principles review (Merged)"
   model: <the bundle's own model>             # DEFAULT_MODEL on `default`, the decision's

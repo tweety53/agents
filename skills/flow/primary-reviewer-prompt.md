@@ -1,11 +1,11 @@
 Use this template for the panel's **Primary** slot — plan alignment plus senior code review, on
-every roster including the docs-only reduction, dispatched general-purpose like every other slot,
+every roster including the docs-only reduction, dispatched like every other slot,
 per **The roster** (`skills/flow/review-panel.md`).
 
 Read-only review.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # general-purpose on `default`;
+Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Code review (primary)"
   model: <the bundle's own model>             # DEFAULT_MODEL on `default`, the decision's

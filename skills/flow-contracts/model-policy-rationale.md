@@ -63,9 +63,9 @@ implemented which task therefore reads the preserved ledger rather than a transc
 The preservation duty itself is stated once, under
 **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
-Bugbot and Security Review are prompt-driven roles dispatched general-purpose like every other
-panel slot (**The roster**, `skills/flow/review-panel.md`) — no fixed agent definition, and no
-exception from either mechanism.
+Bugbot and Security Review are prompt-driven roles dispatched on the same type as every other
+panel slot (**The roster**, `skills/flow/review-panel.md`) — no fixed agent definition of their
+own, and no exception from either mechanism.
 
 Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
 persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly

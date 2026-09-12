@@ -1,10 +1,10 @@
-Use this template for the panel's **Security** slot — dispatched general-purpose like every other
+Use this template for the panel's **Security** slot — dispatched like every other
 slot, per **The roster** (`skills/flow/review-panel.md`).
 
 Read-only review.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # general-purpose on `default`;
+Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Security review"
   model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's

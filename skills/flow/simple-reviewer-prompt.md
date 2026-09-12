@@ -1,5 +1,5 @@
 Use this template for the panel's **Simple reviewer** slot — small class's compact-roster
-code-quality reviewer, dispatched general-purpose like every other slot, per **The roster**
+code-quality reviewer, dispatched like every other slot, per **The roster**
 (`skills/flow/review-panel.md`).
 
 Read-only review.

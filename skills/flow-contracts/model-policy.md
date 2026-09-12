@@ -54,8 +54,8 @@ exactly as above.
 
 **These fields record intent; the ledger records what happened.** A recorded value does **not**
 replace the per-dispatch ledger line, which remains the only evidence of the model a dispatch
-actually ran on. Every panel slot, Bugbot and Security included, is a prompt-driven role dispatched
-general-purpose (**The roster**, `skills/flow/review-panel.md`) and takes the recorded panel model
+actually ran on. Every panel slot, Bugbot and Security included, is a prompt-driven role
+(**The roster**, `skills/flow/review-panel.md`) and takes the recorded panel model
 the same way every other slot does — there is no exception left that leaves a slot's ledger entry
 unrecorded.
 
