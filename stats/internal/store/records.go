@@ -80,15 +80,22 @@ const dispatchesKeyConstraint = "dispatches_key_key"
 // never accumulates a second row for one ref.
 const findingsRefConstraint = "findings_ref_key"
 
-// findingsSupersedesFK and findingsRegressionOfFK are the names given,
-// explicitly, to the two lineage foreign keys in 0024_finding_lineage.sql.
-// UpsertFinding checks for these exact constraint names when it translates
-// a foreign-key violation into ErrFindingLinkInvalid, so it knows WHICH
-// link was refused and can name the ref that hop carried -- the same
-// constraint-name-is-contract reasoning findingsRefConstraint records.
+// findingsSupersedesFK, findingsRegressionOfFK,
+// findingsSupersedesNotSelfCheck and findingsRegressionOfNotSelfCheck are
+// the names given, explicitly, to the two lineage foreign keys and the two
+// self-link CHECKs in 0024_finding_lineage.sql. UpsertFinding checks for
+// these exact constraint names when it translates a foreign-key or CHECK
+// violation into ErrFindingLinkInvalid, so it knows WHICH link was refused
+// and can name the ref that hop carried -- the same
+// constraint-name-is-contract reasoning findingsRefConstraint records. All
+// four are constants, not literals at the switch: a migration renaming a
+// constraint then fails here as a wrong-name mismatch the tests catch,
+// never as a silently unmatched case that surfaces as a 500.
 const (
-	findingsSupersedesFK   = "findings_supersedes_fk"
-	findingsRegressionOfFK = "findings_regression_of_fk"
+	findingsSupersedesFK             = "findings_supersedes_fk"
+	findingsRegressionOfFK           = "findings_regression_of_fk"
+	findingsSupersedesNotSelfCheck   = "findings_supersedes_not_self"
+	findingsRegressionOfNotSelfCheck = "findings_regression_of_not_self"
 )
 
 // decisionsSessionConstraint is the name given, explicitly, to the
@@ -466,9 +473,9 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s supersedes %s, which this change does not hold", ErrFindingLinkInvalid, in.Ref, projectKey, change, in.Supersedes)
 			case pgErr.Code == "23503" && pgErr.ConstraintName == findingsRegressionOfFK:
 				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s is a regression of %s, which this change does not hold", ErrFindingLinkInvalid, in.Ref, projectKey, change, in.RegressionOf)
-			case pgErr.Code == "23514" && pgErr.ConstraintName == "findings_supersedes_not_self":
+			case pgErr.Code == "23514" && pgErr.ConstraintName == findingsSupersedesNotSelfCheck:
 				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s cannot supersede itself", ErrFindingLinkInvalid, in.Ref, projectKey, change)
-			case pgErr.Code == "23514" && pgErr.ConstraintName == "findings_regression_of_not_self":
+			case pgErr.Code == "23514" && pgErr.ConstraintName == findingsRegressionOfNotSelfCheck:
 				return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s cannot be a regression of itself", ErrFindingLinkInvalid, in.Ref, projectKey, change)
 			}
 		}
