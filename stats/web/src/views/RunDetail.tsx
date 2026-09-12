@@ -39,6 +39,15 @@ import { useRunDetail } from "../hooks/useRunDetail";
 import { formatInt, formatMs, formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 
+// The same three-line percent format Reviewers.tsx's formatShare uses for
+// its per-slot deferred and withdrawn shares. Two views, one shape of
+// number, two local copies -- the same deliberate WET call Reviewers
+// itself records: a shared helper for one three-line format would cost
+// more than the repetition it removes.
+function formatShare(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 export interface RunDetailProps {
   project: string;
   change: string;
@@ -107,6 +116,13 @@ export function RunDetail({ project, change, model }: RunDetailProps) {
             </RunPanel>
             <RunPanel title="Total duration">
               <StatPanel label="Total duration" value={state.summary.totalDurationMs} format={formatMs} />
+            </RunPanel>
+            {/* KAN-508: the deferred-Minor rate as one computed number
+                off the change's run record -- deferred findings over every
+                finding the panel raised. Unavailable, never a fabricated
+                0%, when the run raised no findings at all. */}
+            <RunPanel title="Deferred minor">
+              <StatPanel label="Deferred minor" value={state.deferredMinor.ratio} format={formatShare} />
             </RunPanel>
           </div>
 

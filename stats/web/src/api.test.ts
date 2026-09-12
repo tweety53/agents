@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  fetchRunRecord,
   ApiError,
   buildListQuery,
   buildModelsQuery,
@@ -236,6 +237,21 @@ describe("fetch integration", () => {
     );
     expect(resp.recorded).toBe(true);
     expect(resp.rows).toEqual([{ name: "kan-16-stats-app" }]);
+  });
+
+  it("fetchRunRecord requests the change's run record endpoint", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ change: "kan-508", findings: [] }), { status: 200 }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const rec = await fetchRunRecord("agents-a740d89c", "kan-508");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0] as unknown as [string];
+    expect(url).toBe("/api/v1/records/agents-a740d89c/kan-508");
+    expect(rec.change).toBe("kan-508");
   });
 
   it("listChanges omits the leading '?' when the query is empty", async () => {

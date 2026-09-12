@@ -11,7 +11,14 @@
 // complete answer for the period requested, whatever the change's stage
 // runs list is paged to.
 import { useEffect, useState } from "react";
-import { fetchStatsView, listStageRuns, type CostPerChangeRow, type StageRunDTO } from "../api";
+import {
+  fetchRunRecord,
+  fetchStatsView,
+  listStageRuns,
+  type CostPerChangeRow,
+  type RunRecordFindingDTO,
+  type StageRunDTO,
+} from "../api";
 
 export interface RunSummary {
   runCount: number;
@@ -23,6 +30,22 @@ export interface RunSummary {
   sidechainTokens: number | null;
 }
 
+/** The change's deferred-Minor ratio (KAN-508): how many of the findings
+ * its review panel raised carry a deferred status, as one computed number
+ * rather than a hand count of free-text reasons. Deferrals are
+ * Minor-only by the store's own rule, so this is the deferred-Minor rate
+ * the panel's 90%+ guidance talks about -- guidance, never a gate. */
+export interface DeferredMinorRatio {
+  /** Findings whose status carries a deferral. */
+  deferred: number;
+  /** Every finding the run's review panel raised -- the denominator. */
+  total: number;
+  /** deferred / total. Null when total is zero: a run with no findings
+   * has no ratio, and absence is never zero (the same rule the header's
+   * sums below follow). */
+  ratio: number | null;
+}
+
 export type RunDetailState =
   | { status: "loading" }
   | { status: "error"; message: string }
@@ -30,6 +53,7 @@ export type RunDetailState =
       status: "ready";
       stageRuns: StageRunDTO[];
       summary: RunSummary;
+      deferredMinor: DeferredMinorRatio;
       /** True when the change has more stage runs than the fetched page
        * held (totalStageRuns > stageRuns.length, before any model
        * filtering below). Task 25, step 4: a model-filtered table built
@@ -89,6 +113,20 @@ function summarize(rows: CostPerChangeRow[]): RunSummary {
     mainTokens: sumNullable(rows.map((r) => r.mainTokens)),
     sidechainTokens: sumNullable(rows.map((r) => r.sidechainTokens)),
   };
+}
+
+/** Counts the deferrals out of the run record's findings and divides. The
+ * findings may be null -- the real wire carries `findings: null` for a
+ * change with none, never an empty array -- and null divides nothing: the
+ * ratio is absent, the same answer a no-findings run gives. The status
+ * match mirrors the store's own queries (`status ILIKE 'deferred%'`,
+ * internal/store/aggregate.go): case-insensitive and prefix-shaped, so the
+ * wording whichever caller wrote the deferral in still counts. */
+function deferredMinorOf(findings: RunRecordFindingDTO[] | null): DeferredMinorRatio {
+  const present = findings ?? [];
+  const deferred = present.filter((f) => f.status.toLowerCase().startsWith("deferred")).length;
+  const total = present.length;
+  return { deferred, total, ratio: total > 0 ? deferred / total : null };
 }
 
 // The run detail route shows a change's whole run history (spec: "every
@@ -159,8 +197,17 @@ export function useRunDetail(project: string, change: string, model?: string): R
         // of the page below.
         model,
       }),
+      // The run record itself -- the findings the change's review panel
+      // raised -- is the third and last input this route needs. It is
+      // scoped to the change alone and takes no model restriction: a
+      // finding belongs to the panel that raised it, not to a model
+      // variable's filter. A failure here must not blank what it does
+      // not feed: the stage-run table and the cost header render from
+      // the two calls above regardless, and the ratio reads as
+      // unavailable rather than taking the whole route down with it.
+      fetchRunRecord(project, change).catch(() => null),
     ])
-      .then(([stageRunsResp, aggregateResp]) => {
+      .then(([stageRunsResp, aggregateResp, runRecord]) => {
         if (cancelled) return;
         // No client-side changeName filter here (task 25, step 2): the
         // request above already sends "change" and "project", so the
@@ -193,6 +240,7 @@ export function useRunDetail(project: string, change: string, model?: string): R
           status: "ready",
           stageRuns,
           summary: summarize(rowsForChange),
+          deferredMinor: deferredMinorOf(runRecord?.findings ?? null),
           truncated,
           totalStageRuns: stageRunsResp.total,
         });

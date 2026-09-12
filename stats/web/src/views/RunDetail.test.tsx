@@ -10,17 +10,25 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { VIEW_NAMES, type CostPerChangeRow, type ListStageRunsResponse, type StageRunDTO, type StatsResponse } from "../api";
+import {
+  VIEW_NAMES,
+  type CostPerChangeRow,
+  type ListStageRunsResponse,
+  type RunRecordDTO,
+  type StageRunDTO,
+  type StatsResponse,
+} from "../api";
 import { RunDetail } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock } = vi.hoisted(() => ({
+const { listStageRunsMock, fetchStatsViewMock, fetchRunRecordMock } = vi.hoisted(() => ({
   listStageRunsMock: vi.fn(),
   fetchStatsViewMock: vi.fn(),
+  fetchRunRecordMock: vi.fn(),
 }));
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, fetchRunRecord: fetchRunRecordMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -47,9 +55,18 @@ function aggregateEnvelope(rows: CostPerChangeRow[]): StatsResponse<CostPerChang
 const PROJECT = "kan-16-stats-app";
 const CHANGE = "kan-16-stats-app";
 
+function runRecordEnvelope(findings: RunRecordDTO["findings"]): RunRecordDTO {
+  return { change: CHANGE, findings };
+}
+
 beforeEach(() => {
   listStageRunsMock.mockReset();
   fetchStatsViewMock.mockReset();
+  fetchRunRecordMock.mockReset();
+  // Every test below renders the route, and the route fetches the run
+  // record beside its two other calls; a change with no findings is the
+  // ordinary default, overridden only where a test seeds some.
+  fetchRunRecordMock.mockResolvedValue(runRecordEnvelope([]));
 });
 
 describe("a change with runs across several commands", () => {
@@ -666,5 +683,105 @@ describe("two stage runs sharing both stage and attempt (kan-201)", () => {
     expect(within(dispatchRows[0]).getByText("Task A dispatch")).toBeInTheDocument();
     expect(screen.queryByText("Task B dispatch")).not.toBeInTheDocument();
     expect(within(rowB).queryByTestId("dispatch-row")).not.toBeInTheDocument();
+  });
+});
+
+// KAN-508: the deferred-Minor ratio is a computed dashboard number, not a
+// hand count -- deferred findings over every finding the run's review
+// panel raised, read off the change's own run record. A run with no
+// findings has no ratio at all: absence renders unavailable, never a
+// fabricated 0%.
+describe("the deferred-Minor ratio (kan-508)", () => {
+  it("computes deferred findings over every finding the run raised, as a percent", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+    fetchRunRecordMock.mockResolvedValue(
+      runRecordEnvelope([
+        { ref: "F1", status: "deferred cosmetic dead-code removal only", category: "cosmetic" },
+        { ref: "F2", status: "deferred doc wording only", category: "doc-only" },
+        { ref: "F3", status: "fixed" },
+        { ref: "F4", status: "open" },
+        { ref: "F5", status: "fixed" },
+        { ref: "F6", status: "withdrawn superseded by F3" },
+      ]),
+    );
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    const panel = await screen.findByRole("region", { name: "Deferred minor" });
+    // 2 of 6 findings carry a deferred status.
+    expect(within(panel).getByText("33%")).toBeInTheDocument();
+  });
+
+  it("matches deferred statuses case-insensitively, as the store's own queries do", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+    fetchRunRecordMock.mockResolvedValue(
+      runRecordEnvelope([
+        { ref: "F1", status: "Deferred cosmetic, not worth a fix round" },
+        { ref: "F2", status: "fixed" },
+      ]),
+    );
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    const panel = await screen.findByRole("region", { name: "Deferred minor" });
+    expect(within(panel).getByText("50%")).toBeInTheDocument();
+  });
+
+  it("reads as unavailable when the wire carries findings null, as the real server does", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+    // The server marshals its nil findings slice unomitemptyed: the real
+    // shape is null, never an empty array (F3, review panel round 0).
+    fetchRunRecordMock.mockResolvedValue({ change: CHANGE, findings: null });
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    const panel = await screen.findByRole("region", { name: "Deferred minor" });
+    expect(within(panel).getByTestId("unavailable")).toBeInTheDocument();
+    expect(within(panel).queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  it("keeps the stage-run table and header up when the run record fails to load", async () => {
+    // The run record feeds the ratio alone; a records-endpoint failure
+    // must not blank the stage-run table or the cost header it does not
+    // feed (F5, review panel round 0).
+    listStageRunsMock.mockResolvedValue(
+      stageRunsResponse([
+        {
+          stageRunId: 60,
+          harness: "claude-code",
+          command: "/flow",
+          stage: "SDD + TDD per task",
+          attempt: 1,
+          startedAt: "2026-01-01T00:00:00Z",
+          endedAt: "2026-01-01T00:05:00Z",
+          outcome: "committed",
+          metrics: { cost_usd: 2.5 },
+        },
+      ]),
+    );
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+    fetchRunRecordMock.mockRejectedValue(new Error("records endpoint down"));
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    expect(await screen.findByRole("cell", { name: "SDD + TDD per task" })).toBeInTheDocument();
+    expect(await screen.findByText("$2.50")).toBeInTheDocument();
+    const panel = await screen.findByRole("region", { name: "Deferred minor" });
+    expect(within(panel).getByTestId("unavailable")).toBeInTheDocument();
+  });
+
+  it("reads as unavailable when the run raised no findings at all", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+    fetchRunRecordMock.mockResolvedValue(runRecordEnvelope([]));
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    const panel = await screen.findByRole("region", { name: "Deferred minor" });
+    expect(within(panel).getByTestId("unavailable")).toBeInTheDocument();
+    expect(within(panel).queryByText("0%")).not.toBeInTheDocument();
   });
 });
