@@ -2316,3 +2316,67 @@ func TestBeginStageRejectsJiraKeyWithoutProjectKey(t *testing.T) {
 		t.Fatal("BeginStage with JiraKey and no ProjectKey succeeded, want an error")
 	}
 }
+
+// TestConcurrentBeginStagePlanSessionDoesNotCollide is
+// TestConcurrentBeginStageDoesNotCollide's plan-session counterpart:
+// stage_runs_attempt_key's UNIQUE (change_id, command, stage, attempt)
+// never fires for two unattached plan-session rows, since Postgres treats
+// every NULL change_id as distinct from every other -- so
+// insertPlanStageRun's own attempt allocation needs its own guard,
+// stage_runs_plan_attempt_key (0023_plan_sessions.sql), and BeginStage's
+// plan-session branch needs the same retry loop the ordinary path already
+// has. Before that guard and loop existed, concurrent writers here could
+// each compute the same MAX(attempt)+1 from the same snapshot and each
+// commit a duplicate attempt number outright.
+func TestConcurrentBeginStagePlanSessionDoesNotCollide(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-concurrent-plan-%d", time.Now().UnixNano())
+
+	const writers = 30
+	in := store.BeginStageInput{
+		ProjectKey:       projectKey,
+		MainCheckoutPath: "/tmp/" + projectKey,
+		JiraKey:          "KAN-903",
+		Harness:          "claude-code",
+		Command:          "/flow-plan",
+		Stage:            "plan.session",
+		StartedAt:        time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC),
+	}
+
+	var wg sync.WaitGroup
+	attempts := make([]int, writers)
+	errs := make([]error, writers)
+
+	for i := range writers {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			callCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+
+			run, err := st.BeginStage(callCtx, in)
+			errs[i] = err
+			if err == nil {
+				attempts[i] = run.Attempt
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	seen := make(map[int]int)
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("writer %d: BeginStage: %v", i, err)
+		}
+		seen[attempts[i]]++
+	}
+	for attempt := 1; attempt <= writers; attempt++ {
+		if seen[attempt] != 1 {
+			t.Errorf("attempt %d was allocated %d times, want exactly 1", attempt, seen[attempt])
+		}
+	}
+	if len(seen) != writers {
+		t.Errorf("got %d distinct attempt numbers, want %d", len(seen), writers)
+	}
+}

@@ -48,6 +48,16 @@ var ErrStageRunAlreadyClosed = errors.New("store: stage run already closed")
 // knows how to retry.
 const stageRunsAttemptConstraint = "stage_runs_attempt_key"
 
+// stageRunsPlanAttemptConstraint is stageRunsAttemptConstraint's
+// counterpart for an unattached plan session: stage_runs_attempt_key's
+// UNIQUE (change_id, command, stage, attempt) never fires for two such
+// rows, since Postgres treats every NULL change_id as distinct from every
+// other. stage_runs_plan_attempt_key (0023_plan_sessions.sql) is the
+// partial unique index -- keyed on (project_key, jira_key, command, stage,
+// attempt) WHERE change_id IS NULL -- that insertPlanStageRun's retry loop
+// actually relies on.
+const stageRunsPlanAttemptConstraint = "stage_runs_plan_attempt_key"
+
 // maxAttemptRetries bounds how many times BeginStage retries after losing
 // an attempt-number race before giving up with
 // ErrTooManyAttemptCollisions. It is set well above
@@ -162,7 +172,23 @@ func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, e
 		if in.ProjectKey == "" {
 			return StageRun{}, fmt.Errorf("store: begin plan session: project key is required")
 		}
-		return s.insertPlanStageRun(ctx, in)
+		for range maxAttemptRetries {
+			run, err := s.insertPlanStageRun(ctx, in)
+			if err == nil {
+				return run, nil
+			}
+			// A plan session racing another plan session for the same
+			// (project_key, jira_key, command, stage) collides on
+			// stageRunsPlanAttemptConstraint; one that resolved the same
+			// existing change at insert time collides on
+			// stageRunsAttemptConstraint instead, exactly as
+			// insertStageRunAndSupersede's own callers do below.
+			if isUniqueViolation(err, stageRunsPlanAttemptConstraint) || isUniqueViolation(err, stageRunsAttemptConstraint) {
+				continue
+			}
+			return StageRun{}, err
+		}
+		return StageRun{}, fmt.Errorf("%w: %s/%s %s/%s", ErrTooManyAttemptCollisions, in.ProjectKey, in.JiraKey, in.Command, in.Stage)
 	}
 	for range maxAttemptRetries {
 		run, err := s.insertStageRunAndSupersede(ctx, in)
@@ -361,9 +387,34 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 
 // insertPlanStageRun records a stage run identified by (project_key,
 // jira_key) rather than by change. No supersede: a plan session marks one
-// stage and its own token is shared with nothing else. The attempt series
-// is per (project_key, jira_key, command, stage), the plan-session
-// counterpart of stage_runs_attempt_key.
+// stage and its own token is shared with nothing else.
+//
+// The attempt number is computed inside the same INSERT ... SELECT as the
+// resolved change id, exactly as insertStageRunAndSupersede's own comment
+// describes for the ordinary path: no separate read-then-insert, so two
+// concurrent callers can still compute the same next attempt before either
+// commits. When that happens the loser's insert collides with a UNIQUE
+// constraint and BeginStage's plan-session branch retries. Which
+// constraint depends on whether this row resolves to an existing change at
+// insert time (resolved_change.id below):
+//   - unattached (resolved_change.id IS NULL): the attempt series is per
+//     (project_key, jira_key, command, stage), enforced by the partial
+//     index stage_runs_plan_attempt_key (0023_plan_sessions.sql) --
+//     stage_runs_attempt_key's own UNIQUE (change_id, command, stage,
+//     attempt) never fires here, since Postgres treats every NULL
+//     change_id as distinct from every other.
+//   - attached at insert (resolved_change.id IS NOT NULL): the attempt
+//     series is per (change_id, command, stage), the same series
+//     insertStageRunAndSupersede computes and stage_runs_attempt_key
+//     enforces -- so a plan session attaching to a change that also has
+//     ordinary stage runs still gets a collision-free attempt number
+//     against that same series, not a separate one.
+//
+// resolved_change is a CTE containing exactly one row whose id is NULL
+// when no change carries this jira_issue yet, rather than a bare subquery
+// in the FROM clause: a bare correlated subquery returning zero rows would
+// make the whole INSERT ... SELECT produce zero rows too, silently
+// dropping the insert instead of recording an unattached plan session.
 func (s *Store) insertPlanStageRun(ctx context.Context, in BeginStageInput) (StageRun, error) {
 	if in.SessionToken != nil && *in.SessionToken == "" {
 		in.SessionToken = nil
@@ -385,21 +436,32 @@ func (s *Store) insertPlanStageRun(ctx context.Context, in BeginStageInput) (Sta
 		sessionToken *string
 	)
 	err = tx.QueryRow(ctx, `
+		WITH resolved_change AS (
+			SELECT (
+				SELECT c.id FROM changes c
+				WHERE c.project_key = $1 AND c.jira_issue = $2
+				ORDER BY c.updated_at DESC LIMIT 1
+			) AS id
+		)
 		INSERT INTO stage_runs (
 			change_id, project_key, jira_key, repo_root, harness, session_id, session_token,
 			command, stage, attempt, started_at, metrics
 		)
 		SELECT
-			(SELECT c.id FROM changes c
-			 WHERE c.project_key = $1 AND c.jira_issue = $2
-			 ORDER BY c.updated_at DESC LIMIT 1),
+			resolved_change.id,
 			$1, $2, $3, $4, $5, $6, $7, $8,
 			COALESCE(
 				(SELECT MAX(sr.attempt) FROM stage_runs sr
-				 WHERE sr.project_key = $1 AND sr.jira_key = $2 AND sr.command = $7 AND sr.stage = $8),
+				 WHERE sr.command = $7 AND sr.stage = $8
+				   AND (
+				     sr.change_id = resolved_change.id
+				     OR (resolved_change.id IS NULL AND sr.project_key = $1 AND sr.jira_key = $2)
+				   )
+				),
 				0
 			) + 1,
 			$9, '{}'::jsonb
+		FROM resolved_change
 		RETURNING id, COALESCE(change_id, 0), repo_root, harness, session_id, session_token, command, stage, attempt,
 		          started_at, ended_at, outcome, metrics
 	`, in.ProjectKey, in.JiraKey, in.RepoRoot, in.Harness, in.SessionID, in.SessionToken, in.Command, in.Stage, in.StartedAt).
