@@ -454,6 +454,22 @@ and 13 below as written, committing and pushing nothing.
    Symmetric with the measurement rule above: the eye that passes a control owes a number, and so
    does the eye that fails one.
 
+   **"Looks compact", "looks tight", "matches the proportions" is the same hypothesis said of a
+   gap — a spacing claim is backed by the script's `gap` property on every side it speaks for,
+   never by a glance.** The eye cannot compare two absolute gaps in a scaled screenshot — a
+   4x asymmetry between the space above a control and the space below it reads as "about the
+   same" at 1x — so a claim about the space between two elements (a control and the dividers
+   around it, a heading and its rule, a row and its neighbours) names the measured background
+   pixels on each side, from one capture, and the mockup's on the same sides, before it is called
+   symmetric, tight or matching. Gaps compound where sizes do not: an outer container's content
+   padding stacks on a header's own inset on one side only, and no per-element size measurement
+   sees it. An operator's re-raised or repeated spacing complaint is a measurement order, not a
+   second look — the second look is what already failed (KAN-30 manual re-sweep: a date-row
+   header's "+" button was screenshotted and eyeballed as "compact, matching the mockup's
+   proportions" several times, disputed twice by the operator, and pixel-sampled only on the
+   third complaint — 26px above the control to the divider, 6px below, a `LazyColumn` content
+   padding stacked on the sticky header's top inset with nothing equivalent at its bottom).
+
    **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
    the app — `mockups: no map` was reported and accepted every round, because nothing required

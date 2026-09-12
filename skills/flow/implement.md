@@ -306,6 +306,16 @@ manual re-sweep: `backClosesTheFloorAndKeepsTheSessionRunning` asserted exactly 
 the operator reported as wrong; the decision it was assumed to encode,
 `floor-bar-exits-only-on-contents`, decided only which bar draws the chevron, not where it leads).
 
+**Fix instructions that dispute a visual judgement this session already made — a spacing, size
+or alignment an earlier round eyeballed as fine — open with the measurement, never with another
+look.** Before the planning pass answers "it matches" or plans a fix, run
+`measure-visual-properties.sh` on the disputed region of the current capture and the mockup
+(**10** in `skills/flow/verify-and-handoff.md`) and put the numbers in the plan or the
+`## Question`; a spacing dispute is measured on every side the complaint names. The glance that
+passed the control is what the operator is contesting, and repeating it answers nothing (KAN-30
+manual re-sweep: a "+" button's row was re-eyeballed as matching through two disputes and
+measured only on the third — 26px above, 6px below).
+
 **The Jira description sync stays in the parent.** **Load
 `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
 describe, sync the issue **description** per **Description sync** in Jira integration
