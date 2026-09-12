@@ -77,6 +77,25 @@ func agentIDFromRolloutSessionID(sessionID string) (string, bool) {
 	return "agent_" + rest, true
 }
 
+// AgentIDFromRolloutPath returns the agentId a subagent dispatch's rollout
+// file name carries -- the <id> in
+// model-io-sess_subagent_agent_<id>.jsonl -- and whether path is such a file
+// at all. It is the rollout counterpart of AgentIDFromTranscriptPath
+// (transcript.go): a batch read from a file whose own name names its
+// dispatch needs no per-record field and no time window to survive, which
+// is what lets concurrent dispatches be costed exactly (KAN-506). A
+// main-session rollout file (model-io-sess_<uuid>.jsonl) and a Claude
+// per-agent transcript (subagents/agent-<id>.jsonl, its own resolver) are
+// both not this shape.
+func AgentIDFromRolloutPath(transcriptPath string) (string, bool) {
+	name := strings.TrimSuffix(filepath.Base(transcriptPath), ".jsonl")
+	rest, ok := strings.CutPrefix(name, "model-io-"+rolloutSubagentSessionPrefix)
+	if !ok || rest == "" {
+		return "", false
+	}
+	return "agent_" + rest, true
+}
+
 // rawRolloutLine and its nested types are the minimal decode shape this
 // package needs from one rollout line. encoding/json drops everything else
 // silently; DisallowUnknownFields is deliberately not used, for the same

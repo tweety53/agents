@@ -679,12 +679,18 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 						delete(w.pendingDispatchMeta, path)
 					}
 				}
-			} else if !w.gaveUpDispatchMeta[path] {
+			} else if IsAgentTranscriptPath(path) && !w.gaveUpDispatchMeta[path] {
 				// Never re-add an entry for a path this Watcher has already
-				// given up backfilling (F31, pass 7 of this change's own
-				// review panel) -- mirrors pendingSessionTokens' own
-				// gaveUpTokens filter above: a give-up must actually stop this
+				// given up backfilling (F31, pass 7 of this change's own review
+				// panel) -- mirrors pendingSessionTokens' own gaveUpTokens filter above: a give-up must actually stop this
 				// Watcher from looking, not just stop it from logging.
+				// Gated on IsAgentTranscriptPath because ReadDispatchMeta
+				// looks for its sidecar only beside a subagents/ directory:
+				// any other path -- a ZCode rollout file, main-session or
+				// subagent alike (KAN-506) -- can never grow one, so
+				// remembering it here would buy maxDispatchMetaBackfillCycles
+				// of futile re-reads and a give-up warning per dispatch for
+				// descriptors no retry could ever produce.
 				for stageRunID, delta := range deltas {
 					for agentID := range delta.Dispatches {
 						if w.pendingDispatchMeta[path] == nil {
@@ -803,6 +809,19 @@ func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]stri
 	}
 }
 
+// dispatchAgentIDForPath names the dispatch a transcript path belongs to --
+// a Claude per-agent transcript by its subagents/ directory and file name
+// (AgentIDFromTranscriptPath), a ZCode subagent dispatch's rollout file by
+// its own file name (AgentIDFromRolloutPath) -- and reports false for a
+// path that names none. Those two shapes are the only files that ARE one
+// dispatch's usage; every other batch routes to window inference.
+func dispatchAgentIDForPath(path string) (string, bool) {
+	if id, ok := AgentIDFromTranscriptPath(path); ok {
+		return id, true
+	}
+	return AgentIDFromRolloutPath(path)
+}
+
 // attributeDispatches runs the second attribution pass over one batch's
 // records and merges each touched dispatch's delta into deps. Every
 // Watcher runs this pass unconditionally (KAN-173): dispatchAttributor is
@@ -819,6 +838,11 @@ func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]stri
 // to do -- the inference pass is what stamped every resumed agent's rows
 // unattributed, because its identity pass matches several rows carrying
 // the same agentId and its interval pass refuses to guess between them.
+// A ZCode subagent dispatch's rollout file
+// (model-io-sess_subagent_agent_<id>.jsonl, AgentIDFromRolloutPath) is the
+// same shape of fact and routes the same way (KAN-506): one file IS one
+// dispatch's usage, keyed on that dispatch's own per-dispatch session id,
+// so concurrent dispatches neither lose nor blend their cost figures.
 // Only batches from top-level session transcripts -- embedded sidechains,
 // the shape Cursor and Codex and pre-agent-file Claude transcripts
 // produce -- still go through DispatchAttributor.
@@ -849,8 +873,8 @@ func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]stri
 // is always written -- the "nowhere to write it" case this comment used
 // to describe no longer exists.
 func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, path string) {
-	if IsAgentTranscriptPath(path) {
-		w.attributeAgentFile(ctx, records, path)
+	if agentID, ok := dispatchAgentIDForPath(path); ok {
+		w.attributeAgentFile(ctx, records, path, agentID)
 		return
 	}
 
@@ -927,24 +951,20 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 // descriptors for tokens a past batch already committed.
 //
 // attributeAgentFile credits one agent-file batch's records to the
-// dispatch rows its file's own agentId resolves to -- kan-357's direct
-// path, routed here by attributeDispatches for every batch
-// IsAgentTranscriptPath names. The windows come from deps'
+// dispatch rows agentID resolves to -- kan-357's "record each dispatch's
+// own usage at the source", routed here by attributeDispatches for every
+// batch dispatchAgentIDForPath names. The windows come from deps'
 // DispatchWindowsForAgent, ordered by (started_at, id), and the per-row
 // sums merge through MergeDispatchMetrics exactly as the inference
 // path's do: additive batch deltas, keyed by the dispatch row's own id.
 //
-// A file whose agentId matches no dispatch row credits nothing and says
+// An agent whose id matches no dispatch row credits nothing and says
 // nothing -- an agent the dispatch protocol never recorded (a fork's
 // subagents, today) has no row to touch, and the stage grain already
 // counts its tokens. The failure posture is attributeDispatches' own:
 // log, step over, never return -- the stage pass has already committed
 // this batch by the time anything here can fail.
-func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path string) {
-	agentID, ok := AgentIDFromTranscriptPath(path)
-	if !ok {
-		return
-	}
+func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path string, agentID string) {
 	windows, err := w.deps.DispatchWindowsForAgent(ctx, agentID)
 	if err != nil {
 		w.warn("harvest: dispatch windows for agent failed, this batch's dispatch figures are lost", "path", path, "agent_id", agentID, "error", err)
