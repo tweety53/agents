@@ -309,6 +309,29 @@ and 12 below as written, committing and pushing nothing.
       not been checked at all if the mockup draws it focused or active; capture that state
       separately rather than inferring it from the resting frame.
 
+   **Enumerate every mockup frame the change touches into an explicit checklist before starting
+   the sweep, and account for each one by name at handoff — done, or why not.** "Did a
+   screen-by-screen sweep" is unfalsifiable without a fixed list: a partial pass reads exactly like
+   a complete one if nothing forces naming what was skipped (KAN-30 fix round 7: two prior rounds
+   each reported partial coverage as if it were the whole set, and the gap was caught only when the
+   operator asked "so is X fully compared and fixed?" of a specific frame). Build the list from
+   every frame id `design.md`/`tasks.md` cites for this change, or from the mockups directory
+   itself when no such citation exists; a frame reached only by inference from another (already
+   covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
+   still gets named, with the reason.
+
+   **When exercising a flow by scripted navigation (not manual clicks), screenshot after every
+   single action and confirm the resulting screen against an expected marker — a heading, a test
+   tag, a distinctive label — before issuing the next action.** Never chain two or more blind
+   actions and inspect only the final screenshot. A coordinate that assumed a fixed layout silently
+   steers the whole remaining sequence onto the wrong screen the moment real content shifts it — an
+   extra suggestion card, a longer note, a wrapped title — and the resulting screenshot can still
+   look plausible enough to accept at a glance (KAN-30 fix round 7: a blind click landed on a
+   day's "Repeat that workout" suggestion instead of "Create a group session" because an extra card
+   existed on that day only, and the sweep almost recorded the wrong screen as verified). This is
+   the scripted-navigation analogue of the crop-and-zoom rule above: a plausible end state is
+   necessary, never sufficient, evidence that every step along the way went where it was meant to.
+
    **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
    the app — `mockups: no map` was reported and accepted every round, because nothing required
