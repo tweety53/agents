@@ -117,7 +117,12 @@ func TestListRunsGroupsByChangeAndSessionToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(24 * time.Hour)}, &projectKey, nil)
+	// decisions.recorded_at takes the column's own now() default rather
+	// than a caller-supplied timestamp (RecordDecision), so the period's
+	// upper bound has to reach real "now" too, not just t0's fictional
+	// window -- every other row here is dated from t0, and only the
+	// decision is dated from the actual clock.
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: time.Now().Add(time.Hour)}, &projectKey, nil)
 	if err != nil {
 		t.Fatalf("ListRuns: %v", err)
 	}
@@ -199,5 +204,135 @@ func TestListRunsListsAnUnattachedPlanSessionUnderItsJiraKey(t *testing.T) {
 	}
 	if len(rows) != 1 || rows[0].Change != nil || rows[0].JiraKey == nil || *rows[0].JiraKey != "KAN-951" || len(rows[0].Runs) != 1 {
 		t.Fatalf("rows = %+v", rows)
+	}
+}
+
+// TestFanOutMaxTieBreaksCloseBeforeOpen covers the edge fanOutMax's own
+// sort comparator names in its "close before open" tie-break: a third
+// dispatch that starts at the exact instant a second one ends must not be
+// counted as briefly overlapping it. Two of the three dispatches do
+// genuinely overlap, so the maximum is 2, never 3.
+func TestFanOutMaxTieBreaksCloseBeforeOpen(t *testing.T) {
+	t0 := time.Date(2026, 9, 3, 9, 0, 0, 0, time.UTC)
+	end := func(at time.Time) *time.Time { return &at }
+	got := store.FanOutMaxForTest([]store.DispatchWindowForTest{
+		{StartedAt: t0, EndedAt: end(t0.Add(10 * time.Minute))},
+		{StartedAt: t0.Add(5 * time.Minute), EndedAt: end(t0.Add(15 * time.Minute))},
+		{StartedAt: t0.Add(15 * time.Minute), EndedAt: end(t0.Add(20 * time.Minute))},
+	})
+	if got != 2 {
+		t.Errorf("FanOutMax = %d, want 2", got)
+	}
+}
+
+// TestListRunsFiltersByChangeName asserts the change parameter narrows
+// ListRuns to that one change's group, and a change name the project holds
+// no runs under returns zero groups rather than every change's.
+func TestListRunsFiltersByChangeName(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-runs-filter-%d", time.Now().UnixNano())
+	t0 := time.Date(2026, 9, 4, 9, 0, 0, 0, time.UTC)
+
+	seedChange(t, st, projectKey, "kan-960-a")
+	seedChange(t, st, projectKey, "kan-961-b")
+
+	beginIn := func(name, token string) store.BeginStageInput {
+		in := baseBeginInput(projectKey, name, "/flow", "flow.kickoff")
+		in.SessionToken = ptr(token)
+		in.StartedAt = t0
+		return in
+	}
+	runA, err := st.BeginStage(ctx, beginIn("kan-960-a", "mf-filter-a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.EndStage(ctx, runA.ID, t0.Add(time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+	runB, err := st.BeginStage(ctx, beginIn("kan-961-b", "mf-filter-b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.EndStage(ctx, runB.ID, t0.Add(time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	period := store.Period{From: t0.Add(-time.Hour), To: t0.Add(time.Hour)}
+
+	rows, err := st.ListRuns(ctx, period, &projectKey, ptr("kan-960-a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Change == nil || *rows[0].Change != "kan-960-a" {
+		t.Fatalf("filtered rows = %+v", rows)
+	}
+
+	none, err := st.ListRuns(ctx, period, &projectKey, ptr("kan-962-nonexistent"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(none) != 0 {
+		t.Fatalf("got %d groups for a change with no runs, want 0: %+v", len(none), none)
+	}
+}
+
+// TestListRunsDetachesTokenlessStageRuns is the controller's ruling for a
+// token-less stage run: it must carry nothing of the change's other
+// token-less rows. Two token-less stage runs plus one token-less dispatch
+// must come back as two runs, each with zero dispatches -- not one run
+// inheriting the dispatch and the other duplicating it -- and neither
+// counts toward FixIterations.
+func TestListRunsDetachesTokenlessStageRuns(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-runs-notoken-%d", time.Now().UnixNano())
+	t0 := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
+	seedChange(t, st, projectKey, "kan-970-notoken")
+
+	first := baseBeginInput(projectKey, "kan-970-notoken", "/flow", "flow.kickoff")
+	first.StartedAt = t0
+	run1, err := st.BeginStage(ctx, first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.EndStage(ctx, run1.ID, t0.Add(time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	second := baseBeginInput(projectKey, "kan-970-notoken", "/flow", "flow.document-fix")
+	second.StartedAt = t0.Add(time.Hour)
+	run2, err := st.BeginStage(ctx, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.EndStage(ctx, run2.ID, t0.Add(time.Hour+time.Minute), "completed"); err != nil {
+		t.Fatal(err)
+	}
+
+	d := baseDispatch("implementer", "claude-opus-5")
+	d.StartedAt = t0.Add(30 * time.Second)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-970-notoken", d); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(2 * time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d change groups, want 1: %+v", len(rows), rows)
+	}
+	g := rows[0]
+	if len(g.Runs) != 2 {
+		t.Fatalf("got %d runs, want 2: %+v", len(g.Runs), g.Runs)
+	}
+	for _, run := range g.Runs {
+		if len(run.Dispatches) != 0 {
+			t.Errorf("run %+v carries %d dispatches, want 0", run, len(run.Dispatches))
+		}
+	}
+	if g.FixIterations != 0 {
+		t.Errorf("FixIterations = %d, want 0", g.FixIterations)
 	}
 }

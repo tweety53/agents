@@ -180,9 +180,12 @@ func (s *Store) ListRuns(ctx context.Context, period Period, project, change *st
 		SELECT f.dispatch_id, f.status, COUNT(*)
 		FROM findings f
 		JOIN dispatches d ON d.id = f.dispatch_id
+		JOIN changes c ON c.id = d.change_id
 		WHERE d.started_at >= $1 AND d.started_at < $2
+		  AND ($3::text IS NULL OR c.project_key = $3)
+		  AND ($4::text IS NULL OR c.name = $4)
 		GROUP BY f.dispatch_id, f.status
-	`, period.From, period.To)
+	`, period.From, period.To, project, change)
 	if err != nil {
 		return nil, fmt.Errorf("store: list runs: findings: %w", err)
 	}
@@ -228,10 +231,13 @@ func (s *Store) ListRuns(ctx context.Context, period Period, project, change *st
 	}
 
 	decisionRows, err := tx.Query(ctx, `
-		SELECT DISTINCT ON (change_id, session_token) change_id, COALESCE(session_token, ''), decision
-		FROM decisions
-		ORDER BY change_id, session_token, recorded_at DESC
-	`)
+		SELECT d.change_id, d.session_token, d.decision
+		FROM decisions d
+		JOIN changes c ON c.id = d.change_id
+		WHERE d.recorded_at >= $1 AND d.recorded_at < $2
+		  AND ($3::text IS NULL OR c.project_key = $3)
+		  AND ($4::text IS NULL OR c.name = $4)
+	`, period.From, period.To, project, change)
 	if err != nil {
 		return nil, fmt.Errorf("store: list runs: decisions: %w", err)
 	}
@@ -300,10 +306,16 @@ func groupRuns(stages []runStageRow, dispatches map[string][]runDispatchRowRaw, 
 			run = &RunRow{SessionToken: sr.SessionToken, Kind: runKind(sr.Command), Command: sr.Command, StartedAt: sr.StartedAt, EndedAt: sr.EndedAt}
 			runsByGroup[gk][token] = run
 			runOrder[gk] = append(runOrder[gk], token)
-			run.Decision = decisions[runKey(sr.ChangeID, sr.SessionToken)]
-			raw := dispatches[runKey(sr.ChangeID, sr.SessionToken)]
-			run.Dispatches = buildDispatchRows(raw, stages, sr.ChangeID, sr.SessionToken, findings)
-			run.FanOutMax = fanOutMax(raw)
+			// A stage run with no session token carries nothing of its own:
+			// the lookups below are keyed by token, and an empty token would
+			// otherwise match -- and so credit this run with -- every other
+			// token-less dispatch and decision of the same change.
+			if sr.SessionToken != "" {
+				run.Decision = decisions[runKey(sr.ChangeID, sr.SessionToken)]
+				raw := dispatches[runKey(sr.ChangeID, sr.SessionToken)]
+				run.Dispatches = buildDispatchRows(raw, stages, sr.ChangeID, sr.SessionToken, findings)
+				run.FanOutMax = fanOutMax(raw)
+			}
 		}
 		if sr.StartedAt.Before(run.StartedAt) {
 			run.StartedAt = sr.StartedAt
@@ -340,7 +352,7 @@ func groupRuns(stages []runStageRow, dispatches map[string][]runDispatchRowRaw, 
 		sort.SliceStable(g.Runs, func(i, j int) bool { return g.Runs[i].StartedAt.Before(g.Runs[j].StartedAt) })
 		for i, run := range g.Runs {
 			sumTotals(&g.Totals, run.Totals)
-			if run.Command == "/flow" && !firstStageIsKickoff(stages, gk.changeID, run.SessionToken) {
+			if run.SessionToken != "" && run.Command == "/flow" && !firstStageIsKickoff(stages, gk.changeID, run.SessionToken) {
 				g.FixIterations++
 			}
 			if i > 0 && g.Runs[i-1].EndedAt != nil && run.StartedAt.After(*g.Runs[i-1].EndedAt) {
@@ -509,7 +521,13 @@ func addStageTotals(total, main *RunTotals, sr runStageRow) {
 	addBucket(total, mt)
 	addBucket(total, st)
 	addSignals(total, ms)
+	// ContextEnd is a main-side-only figure -- the sidechain's own signals
+	// carry no meaningful context-window position for the run -- so the
+	// sidechain's addSignals call below must not let its (usually absent)
+	// context_end overwrite what the main call just set.
+	savedContextEnd := total.ContextEnd
 	addSignals(total, ss)
+	total.ContextEnd = savedContextEnd
 	addCost(total, sr.Metrics)
 	addBucket(main, mt)
 	addSignals(main, ms)
@@ -572,11 +590,12 @@ func buildDispatchRows(raw []runDispatchRowRaw, stages []runStageRow, changeID i
 		addSignals(&row.Totals, signals)
 		row.ServedModels, row.ServedEfforts = signals.ServedModels, signals.ServedEfforts
 		row.Totals.WallClockMs = spanMs(d.StartedAt, d.EndedAt)
-		addCost(&row.Totals, d.Metrics)
 		if b, ok := buckets[row.AgentID]; ok && row.AgentID != "" {
-			if row.Totals.CostUSD == nil {
-				addCost(&row.Totals, b)
-			}
+			// The owning stage run's dispatches.<agentId>.cost_usd bucket is
+			// where store.Price actually writes per-dispatch cost, so it
+			// takes precedence; the dispatch row's own cost_usd, checked
+			// below, is only a fallback for when that bucket has none.
+			addCost(&row.Totals, b)
 			var s string
 			if json.Unmarshal(b["agent_type"], &s) == nil {
 				row.AgentType = s
@@ -589,6 +608,9 @@ func buildDispatchRows(raw []runDispatchRowRaw, stages []runStageRow, changeID i
 					row.Depth = &n
 				}
 			}
+		}
+		if row.Totals.CostUSD == nil {
+			addCost(&row.Totals, d.Metrics)
 		}
 		row.Mismatch = mismatch(d.Model, d.Effort, signals)
 		if byStatus := findings[d.ID]; len(byStatus) > 0 {
