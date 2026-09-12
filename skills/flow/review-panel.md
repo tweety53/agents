@@ -118,7 +118,7 @@ or the decision's `panel.roster` on `dynamic` — see the opening paragraph abov
 
 | id | Slot | How to spawn |
 |---|------|---------------|
-| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; never code quality, which is `simple-reviewer`'s and Bugbot's job |
+| `primary` | **Primary** — plan alignment and senior code review | general-purpose + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
 | `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
 | `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` |
 | `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` |
@@ -127,7 +127,8 @@ or the decision's `panel.roster` on `dynamic` — see the opening paragraph abov
 | `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
-`principles-reviewer-prompt.md` and `engineering-principles.md` (Principles),
+`primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
+`engineering-principles.md` (Principles),
 `bugbot-reviewer-prompt.md` (Bugbot), `security-reviewer-prompt.md` (Security),
 `simple-reviewer-prompt.md` (Simple reviewer), and
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
