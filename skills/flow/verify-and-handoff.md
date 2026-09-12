@@ -95,7 +95,8 @@ model> -effort <parent effort> -agent-id inline`, suffixed `-<worktree basename>
 run's resolved set holds more than one worktree — the same convention **Inline — the parent
 implements** (`skills/flow/implement.md`) uses for implementer and panel-fix rows. `begin` is
 recorded before the first command in the list; `end` after the `## Report` is written, carrying
-`-outcome completed` (or `-outcome stopped` on the `## Question` handback above).
+`-outcome completed`, or `-outcome blocked -cause test-failure` on the `## Question` handback
+above — the handback's own cause, a command that failed twice (KAN-510).
 
 ### The verifier dispatch
 
@@ -149,6 +150,15 @@ from a defect in the branch. **The second report is final.** Another non-zero ex
 with `## Question` naming the failing command and its output, verbatim; the operator resolves it
 through a fix run. Never run the failing command yourself to check it, and never dispatch a third
 verifier. The ledger render and this stage's `end` mark follow whichever report was last.
+
+**A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never
+`completed`.** The cause is one of the closed set the CLI validates, named from the report's own
+facts: `environment` — a stack or tool the environment would not run (a stack that could not be
+started, a build prerequisite the worktree lacked); `test-failure` — a lint/test command that
+failed; `missing-fixture` — a fixture or baseline the verify needed and the worktree did not
+carry. The cause is what makes three environment-caused blocks in one run a query the store
+answers instead of a footnote in one run's ledger (KAN-510). A report with every exit zero still
+closes `-outcome completed`.
 
 **Handshake.** Compare the `Model:` line against `sonnet` (never `DEFAULT_MODEL` or a session
 override) and apply **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**),
