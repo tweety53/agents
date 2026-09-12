@@ -1311,6 +1311,75 @@ func TestEndDispatchOmittedAgentIDPreservesBeginsIdentifierAgainstPostgres(t *te
 	}
 }
 
+// TestEndDispatchRecordsCause pins the blocked outcome's cause column end
+// to end against a real database: an end closed `-outcome blocked` carrying
+// a cause stores that cause and reads it back on the dispatch row, and a
+// later end that records a different outcome with no cause clears it. The
+// cause is a property of the outcome's own last write -- a plain SET, never
+// a COALESCE-preserved one -- so a row cannot keep claiming an environment
+// block after its outcome has moved on to completed.
+func TestEndDispatchRecordsCause(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-dispatch-cause-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const (
+		token = "mf-kan510-end-cause"
+		key   = "visual-verify"
+	)
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	begin.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	dispatch := baseDispatch("verifier", "sonnet")
+	dispatch.SessionToken = token
+	dispatch.Key = key
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", dispatch); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	blocked, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: token,
+		Key:          key,
+		Outcome:      "blocked",
+		Cause:        "environment",
+		EndedAt:      dispatch.StartedAt.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+	if blocked.Outcome != "blocked" || blocked.Cause != "environment" {
+		t.Errorf("EndDispatch's own returned row: Outcome = %q, Cause = %q, want blocked/environment", blocked.Outcome, blocked.Cause)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Dispatches) != 1 {
+		t.Fatalf("RunRecord returned %d dispatches, want 1", len(rec.Dispatches))
+	}
+	if got := rec.Dispatches[0].Cause; got != "environment" {
+		t.Errorf("stored row: Cause = %q, want environment -- re-read from Postgres after the update, not just the call's own return value", got)
+	}
+
+	closed, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: token,
+		Key:          key,
+		Outcome:      "completed",
+		EndedAt:      dispatch.StartedAt.Add(2 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("second EndDispatch: %v", err)
+	}
+	if closed.Cause != "" {
+		t.Errorf("a re-end without a cause left Cause = %q, want it cleared -- the cause follows the outcome's own last write", closed.Cause)
+	}
+}
+
 // TestRenderedLedgerCallsAStoredDispatchWithNoMetricsNotMeasured renders a
 // dispatch that came OUT OF THE STORE, rather than one built as a Go
 // composite literal in the test, and pins that an unmeasured one still

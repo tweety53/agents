@@ -1,0 +1,28 @@
+-- 0024_dispatch_cause.sql: why a dispatch closed `-outcome blocked`.
+--
+-- KAN-510: on kan-459 three visual-verify dispatches were each blocked by a
+-- different environment cause, and the reasons survived only as prose in
+-- that run's verify report -- a worktree-lifetime file cleanup destroys --
+-- so "three environment-caused blocks in one run" was a footnote in one
+-- run's ledger rather than a queryable fact across runs. A cause on the
+-- dispatch row makes it one: GROUP BY cause over role/outcome answers it
+-- in SQL, and `flow record dispatches` carries the column in its JSON.
+--
+-- The vocabulary is three words -- environment (a stack or tool the
+-- environment would not run), test-failure (a failing lint/test command),
+-- missing-fixture (an absent fixture the verify needed) -- validated at the
+-- CLI layer that records the write, the way recordRoles and recordEfforts
+-- are, never here. It is a NEW file rather than an edit to 0010_run_records.sql
+-- or 0020_dispatch_effort.sql, for the reason those two state: migrations
+-- are tracked by filename with no checksum, so editing an applied one would
+-- leave an existing database silently diverged from a freshly migrated one.
+--
+-- Nullable, and it stays nullable: a cause exists only for a blocked
+-- outcome, so NULL is the ordinary case for every dispatch that was not
+-- blocked -- the agent_id precedent, not effort's NOT NULL DEFAULT, because
+-- unlike an absent effort an absent block is not a fact the dispatcher set
+-- but a state the row was never in. The column follows the outcome's own
+-- last-write-wins semantics in EndDispatch: a later end that records a
+-- non-blocked outcome with no cause clears a stale cause rather than
+-- preserving it.
+ALTER TABLE dispatches ADD COLUMN cause TEXT;

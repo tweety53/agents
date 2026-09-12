@@ -165,7 +165,7 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // sixteenth to one and not the other compiles cleanly and silently reads
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
-	          session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
+	          cause, session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
 	          diff_base, effort`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
@@ -204,6 +204,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 		slot         *string
 		commitSHA    *string
 		outcome      *string
+		cause        *string
 		sessionToken *string
 		notes        *string
 		dispatchKey  *string
@@ -212,7 +213,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	)
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
-		&sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
+		&cause, &sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
 		&diffBase, &d.Effort,
 	); err != nil {
 		return records.Dispatch{}, err
@@ -222,6 +223,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	d.Slot = derefOrEmpty(slot)
 	d.CommitSHA = derefOrEmpty(commitSHA)
 	d.Outcome = derefOrEmpty(outcome)
+	d.Cause = derefOrEmpty(cause)
 	d.SessionToken = derefOrEmpty(sessionToken)
 	d.Notes = derefOrEmpty(notes)
 	d.Key = derefOrEmpty(dispatchKey)
@@ -312,16 +314,25 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 // in.AgentID names a different identifier than `begin` already recorded,
 // end's value wins: this call has no notion of a conflict, only of
 // "supplied" versus "omitted".
+//
+// cause is the one opposite case, and deliberately so: it exists only
+// beside an outcome of `blocked`, so it takes the outcome's own plain
+// last-write-wins SET rather than agent_id's COALESCE -- an end that
+// records a non-blocked outcome with no cause clears a stale cause, and a
+// row never goes on claiming a block its outcome no longer reports
+// (KAN-510).
 func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
-		SET commit_sha = $5, outcome = $6, ended_at = $7, agent_id = COALESCE($8, d.agent_id)
+		SET commit_sha = $5, outcome = $6, ended_at = $7, agent_id = COALESCE($8, d.agent_id),
+		    cause = $9
 		FROM changes c
 		WHERE c.id = d.change_id AND c.project_key = $1 AND c.name = $2
 		  AND d.session_token = $3 AND d.dispatch_key = $4
 		RETURNING `+qualifiedDispatchColumns("d"),
 		projectKey, change, in.SessionToken, in.Key,
 		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
+		nullIfEmpty(in.Cause),
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

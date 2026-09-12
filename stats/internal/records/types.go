@@ -99,6 +99,7 @@ type Dispatch struct {
 	CommitSHA    string          `json:"commitSha,omitempty"`
 	DiffBase     string          `json:"diffBase,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
+	Cause        string          `json:"cause,omitempty"`
 	SessionToken string          `json:"sessionToken,omitempty"`
 	StartedAt    time.Time       `json:"startedAt"`
 	EndedAt      *time.Time      `json:"endedAt,omitempty"`
@@ -137,11 +138,19 @@ type Dispatch struct {
 // this is non-empty, so an end that omits it leaves whatever begin already
 // captured untouched. A NON-EMPTY AgentID that names a different identifier
 // than begin recorded overwrites it: end's value wins on conflict.
+//
+// Cause is why an outcome of `blocked` happened, one of the closed set
+// `environment`, `test-failure`, `missing-fixture` the CLI validates. It is
+// meaningful only beside a blocked outcome, and it follows the outcome's
+// own last-write-wins semantics -- an end that records another outcome with
+// no cause clears it -- so a row never keeps claiming a block its outcome
+// no longer reports (KAN-510).
 type DispatchEnd struct {
 	SessionToken string    `json:"sessionToken"`
 	Key          string    `json:"key"`
 	CommitSHA    string    `json:"commitSha,omitempty"`
 	Outcome      string    `json:"outcome,omitempty"`
+	Cause        string    `json:"cause,omitempty"`
 	EndedAt      time.Time `json:"endedAt"`
 	AgentID      string    `json:"agentId,omitempty"`
 }
