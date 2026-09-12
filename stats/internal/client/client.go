@@ -358,6 +358,9 @@ type BeginStageRequest struct {
 	Command      string
 	Stage        string
 	StartedAt    time.Time
+	// JiraKey, with ChangeName empty, records a /flow-plan session that
+	// has no change yet -- accepted for the plan.session stage only.
+	JiraKey string
 }
 
 // BeginStageResult identifies the stage run the daemon created, so a later
@@ -385,6 +388,9 @@ type EndStageRequest struct {
 	// outcome -- fix-rounds, panel-rounds and findings-by-severity travel
 	// this way from `stage end`'s own flags.
 	Metrics json.RawMessage
+	// JiraKey, with ChangeName empty, closes the open plan session for
+	// this Jira key instead of an open stage run for a change.
+	JiraKey string
 }
 
 type beginStageWireRequest struct {
@@ -398,6 +404,7 @@ type beginStageWireRequest struct {
 	Command          string  `json:"command"`
 	Stage            string  `json:"stage"`
 	StartedAt        string  `json:"startedAt"`
+	JiraKey          string  `json:"jiraKey,omitempty"`
 }
 
 type stageRunWireResponse struct {
@@ -413,6 +420,7 @@ type endStageWireRequest struct {
 	EndedAt    string          `json:"endedAt"`
 	Outcome    string          `json:"outcome"`
 	Metrics    json.RawMessage `json:"metrics,omitempty"`
+	JiraKey    string          `json:"jiraKey,omitempty"`
 }
 
 // ErrUndocumentedStage means the store was reached and correctly refused
@@ -501,6 +509,7 @@ func (c *Client) BeginStage(ctx context.Context, in BeginStageRequest) (BeginSta
 		Command:          in.Command,
 		Stage:            in.Stage,
 		StartedAt:        in.StartedAt.UTC().Format(time.RFC3339Nano),
+		JiraKey:          in.JiraKey,
 	}
 	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.stagesBeginURL(), wire)
 	if err != nil {
@@ -538,6 +547,7 @@ func (c *Client) EndStage(ctx context.Context, in EndStageRequest) (BeginStageRe
 		EndedAt:    in.EndedAt.UTC().Format(time.RFC3339Nano),
 		Outcome:    in.Outcome,
 		Metrics:    in.Metrics,
+		JiraKey:    in.JiraKey,
 	}
 	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.stagesEndURL(), wire)
 	if err != nil {

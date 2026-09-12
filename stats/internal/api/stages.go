@@ -65,6 +65,10 @@ type stageBeginRequest struct {
 	Command      string `json:"command"`
 	Stage        string `json:"stage"`
 	StartedAt    string `json:"startedAt"`
+	// JiraKey, with ChangeName empty, records a /flow-plan session that
+	// has no change yet -- accepted for the plan.session stage only
+	// (ApplyBeginStageMark).
+	JiraKey string `json:"jiraKey,omitempty"`
 }
 
 // stageEndRequest is the wire shape POST /api/v1/stages/end accepts. It
@@ -78,6 +82,9 @@ type stageEndRequest struct {
 	EndedAt    string          `json:"endedAt"`
 	Outcome    string          `json:"outcome"`
 	Metrics    json.RawMessage `json:"metrics,omitempty"`
+	// JiraKey, with ChangeName empty, closes the open plan session for
+	// this Jira key instead of an open stage run for a change.
+	JiraKey string `json:"jiraKey,omitempty"`
 }
 
 // stageRunResponse is the wire shape both endpoints answer with on
@@ -115,6 +122,9 @@ type BeginStageMark struct {
 	Command      string
 	Stage        string
 	StartedAt    time.Time
+	// JiraKey, with ChangeName empty, records a /flow-plan session that
+	// has no change yet -- see stageBeginRequest.JiraKey's doc comment.
+	JiraKey string
 }
 
 // EndStageMark is the typed, transport-agnostic shape of an end mark. See
@@ -127,6 +137,9 @@ type EndStageMark struct {
 	EndedAt    time.Time
 	Outcome    string
 	Metrics    json.RawMessage
+	// JiraKey, with ChangeName empty, closes the open plan session for
+	// this Jira key -- see stageEndRequest.JiraKey's doc comment.
+	JiraKey string
 }
 
 // harvestedHarnesses is the set of harness values whose sessions write a
@@ -167,6 +180,14 @@ var harvestedHarnesses = map[string]bool{
 // internal/client classifies it as ErrStageMarkRejected, never
 // ErrUnavailable.
 var ErrInvalidSessionToken = errors.New("api: invalid sessionToken")
+
+// ErrInvalidMark is returned by ApplyBeginStageMark when mark.JiraKey is
+// set without mark.ChangeName outside the plan.session stage -- the one
+// combination a jiraKey is valid for (design.md, "a /flow-plan session has
+// no change yet"). Like ErrInvalidSessionToken, this is a caller mistake,
+// never a store failure: mapped to 400 in both handlers, and treated as a
+// definitive (non-retryable) refusal by IsDefinitiveMarkOutcome.
+var ErrInvalidMark = errors.New("api: invalid stage mark")
 
 // sessionTokenShellVarPattern matches a "$" immediately followed by a shell
 // variable-name character ($VAR, $HOME, $_x) -- one of the three
@@ -256,6 +277,11 @@ func IsDefinitiveMarkOutcome(err error) bool {
 		// retrying the identical journalled entry can never fix, exactly
 		// like an undocumented stage name above.
 		return true
+	case errors.Is(err, ErrInvalidMark):
+		// A caller mistake -- a jiraKey without a changeName outside
+		// plan.session -- that retrying the identical journalled entry can
+		// never fix either.
+		return true
 	case errors.Is(err, ErrNoOpenStageRun):
 		return true
 	case errors.Is(err, store.ErrInvalidMainCheckoutPath):
@@ -311,8 +337,8 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if req.ProjectKey == "" || req.ChangeName == "" || req.Command == "" || req.Stage == "" || req.Harness == "" {
-		writeError(w, http.StatusBadRequest, "projectKey, changeName, command, stage and harness are all required")
+	if req.ProjectKey == "" || (req.ChangeName == "" && req.JiraKey == "") || req.Command == "" || req.Stage == "" || req.Harness == "" {
+		writeError(w, http.StatusBadRequest, "projectKey, (changeName or jiraKey), command, stage and harness are all required")
 		return
 	}
 	startedAt, err := parseMarkTime(req.StartedAt)
@@ -332,6 +358,7 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 		Command:          req.Command,
 		Stage:            req.Stage,
 		StartedAt:        startedAt,
+		JiraKey:          req.JiraKey,
 	})
 	if err != nil {
 		var unknownStage *stages.ErrUnknownStage
@@ -339,7 +366,7 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 		case errors.As(err, &unknownStage):
 			writeErrorWithCode(w, http.StatusBadRequest, CodeUndocumentedStage, err.Error())
 			return
-		case errors.Is(err, ErrInvalidSessionToken):
+		case errors.Is(err, ErrInvalidSessionToken), errors.Is(err, ErrInvalidMark):
 			// A caller mistake, not a store failure -- mapStoreError's
 			// generic default (500 "internal error") would swallow the
 			// reason this is rejected, exactly the failure mode
@@ -386,25 +413,30 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if err := validateSessionTokenShape(mark.SessionToken); err != nil {
 		return StageMarkResult{}, err
 	}
+	if mark.JiraKey != "" && mark.ChangeName == "" && mark.Stage != "plan.session" {
+		return StageMarkResult{}, fmt.Errorf("%w: jiraKey without changeName is only valid for plan.session", ErrInvalidMark)
+	}
 
 	var sessionToken *string
 	if mark.SessionToken != "" {
 		sessionToken = &mark.SessionToken
 	}
 	in := store.BeginStageInput{
-		ProjectKey:   mark.ProjectKey,
-		ChangeName:   mark.ChangeName,
-		RepoRoot:     mark.RepoRoot,
-		Harness:      mark.Harness,
-		SessionID:    mark.SessionID,
-		SessionToken: sessionToken,
-		Command:      mark.Command,
-		Stage:        mark.Stage,
-		StartedAt:    mark.StartedAt,
+		ProjectKey:       mark.ProjectKey,
+		MainCheckoutPath: mark.MainCheckoutPath,
+		ChangeName:       mark.ChangeName,
+		RepoRoot:         mark.RepoRoot,
+		Harness:          mark.Harness,
+		SessionID:        mark.SessionID,
+		SessionToken:     sessionToken,
+		Command:          mark.Command,
+		Stage:            mark.Stage,
+		StartedAt:        mark.StartedAt,
+		JiraKey:          mark.JiraKey,
 	}
 
 	run, err := ss.BeginStage(ctx, in)
-	if errors.Is(err, store.ErrChangeNotFound) {
+	if errors.Is(err, store.ErrChangeNotFound) && mark.ChangeName != "" {
 		bootstrap := store.Change{
 			ProjectKey:       mark.ProjectKey,
 			MainCheckoutPath: mark.MainCheckoutPath,
@@ -442,8 +474,8 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if req.ProjectKey == "" || req.ChangeName == "" || req.Command == "" || req.Stage == "" || req.Outcome == "" {
-		writeError(w, http.StatusBadRequest, "projectKey, changeName, command, stage and outcome are all required")
+	if req.ProjectKey == "" || (req.ChangeName == "" && req.JiraKey == "") || req.Command == "" || req.Stage == "" || req.Outcome == "" {
+		writeError(w, http.StatusBadRequest, "projectKey, (changeName or jiraKey), command, stage and outcome are all required")
 		return
 	}
 	endedAt, err := parseMarkTime(req.EndedAt)
@@ -460,6 +492,7 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 		EndedAt:    endedAt,
 		Outcome:    req.Outcome,
 		Metrics:    req.Metrics,
+		JiraKey:    req.JiraKey,
 	})
 	if err != nil {
 		var unknownStage *stages.ErrUnknownStage
@@ -544,7 +577,13 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 		return StageMarkResult{}, err
 	}
 
-	openRun, err := findOpenStageRun(ctx, ss, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage)
+	var openRun *store.StageRun
+	var err error
+	if mark.ChangeName == "" && mark.JiraKey != "" {
+		openRun, err = findOpenPlanSession(ctx, ss, mark.ProjectKey, mark.JiraKey, mark.Command, mark.Stage)
+	} else {
+		openRun, err = findOpenStageRun(ctx, ss, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage)
+	}
 	if err != nil {
 		return StageMarkResult{}, err
 	}
@@ -583,6 +622,9 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 // place that spells out mark's identity into it (fix round 5, finding
 // F19).
 func noOpenStageRunErr(mark EndStageMark) error {
+	if mark.ChangeName == "" && mark.JiraKey != "" {
+		return fmt.Errorf("%w: %s/jira:%s %s/%s", ErrNoOpenStageRun, mark.ProjectKey, mark.JiraKey, mark.Command, mark.Stage)
+	}
 	return fmt.Errorf("%w: %s/%s %s/%s", ErrNoOpenStageRun, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage)
 }
 
@@ -664,6 +706,34 @@ func findOpenStageRun(ctx context.Context, ss StageStore, projectKey, changeName
 		Filters: []store.Filter{
 			{Field: "project", Op: store.OpEq, Value: projectKey},
 			{Field: "name", Op: store.OpEq, Value: changeName},
+			{Field: "command", Op: store.OpEq, Value: command},
+			{Field: "stage", Op: store.OpEq, Value: stage},
+			{Field: "ended_at", Op: store.OpNull},
+		},
+		Sort:  []store.SortKey{{Field: "attempt", Desc: true}},
+		Limit: 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(runs) == 0 {
+		return nil, nil
+	}
+	return &runs[0], nil
+}
+
+// findOpenPlanSession returns the most recent (highest attempt) open plan
+// session for jiraKey -- an unattached stage run (0023_plan_sessions.sql,
+// Task 1) that findOpenStageRun's own change-scoped query cannot see, since
+// it has no changeName to filter by. The project filter is project_key
+// (COALESCE(c.project_key, sr.project_key)), not project (c.project_key
+// via a join to the changes table that an unattached row has none of), so
+// it reaches rows findOpenStageRun's own "project" filter would miss.
+func findOpenPlanSession(ctx context.Context, ss StageStore, projectKey, jiraKey, command, stage string) (*store.StageRun, error) {
+	runs, _, err := ss.QueryStageRuns(ctx, store.Query{
+		Filters: []store.Filter{
+			{Field: "project_key", Op: store.OpEq, Value: projectKey},
+			{Field: "jira_key", Op: store.OpEq, Value: jiraKey},
 			{Field: "command", Op: store.OpEq, Value: command},
 			{Field: "stage", Op: store.OpEq, Value: stage},
 			{Field: "ended_at", Op: store.OpNull},

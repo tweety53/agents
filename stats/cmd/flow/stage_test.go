@@ -689,3 +689,41 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 		t.Errorf("state journal has %d entries, want 0 -- a stage mark must land in its own journal file", len(stateEntries))
 	}
 }
+
+func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var got map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-plan", "-stage", "plan.session", "-session-token", "fp-cli-plan", "-jira-key", "KAN-900"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if got["jiraKey"] != "KAN-900" || got["changeName"] != "" {
+		t.Errorf("request (jiraKey, changeName) = (%v, %v), want (KAN-900, \"\")", got["jiraKey"], got["changeName"])
+	}
+}
+
+func TestStageBeginJiraKeyAndChangeNameTogetherIsAUsageError(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-C", repo, "-command", "/flow-plan", "-stage", "plan.session",
+			"-session-token", "fp-cli-plan", "-jira-key", "KAN-900", "kan-900-slug"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+}

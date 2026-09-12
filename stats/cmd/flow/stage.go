@@ -32,14 +32,18 @@ import (
 const defaultHarness = "unknown"
 
 const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
-                          -command cmd -stage key -session-token token <change>
+                          -command cmd -stage key -session-token token (<change> | -jira-key KEY)
        flow stage end [-addr url] [-timeout dur] [-C dir]
                         -command cmd -stage key -outcome outcome
-                        [-fix-rounds n] [-panel-rounds n] [-findings json] <change>
+                        [-fix-rounds n] [-panel-rounds n] [-findings json] (<change> | -jira-key KEY)
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
 -- the stages of each command table's Key column; an undocumented key is
 rejected before it ever reaches the store.
+
+-jira-key records a /flow-plan session against its Jira key before the change
+exists; it replaces the <change> argument and is accepted for the plan.session
+stage only.
 
 -session-token must be a literal, unique token this command writes -- never a
 shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
@@ -83,6 +87,7 @@ type stageIdentityFlags struct {
 	command string
 	stage   string
 	name    string
+	jiraKey string
 }
 
 func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
@@ -91,13 +96,18 @@ func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	fset.StringVar(&f.command, "command", "", "the flow command this stage belongs to, e.g. /flow")
 	fset.StringVar(&f.stage, "stage", "", "the stage key, exactly as README.md's Level 1 table's Key column documents it -- never its prose name")
+	fset.StringVar(&f.jiraKey, "jira-key", "", "record against this Jira key instead of a change name -- /flow-plan's plan.session only")
 }
 
 func finishStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) error {
-	if fset.NArg() != 1 {
-		return fmt.Errorf("expected exactly one argument, the change name")
+	switch {
+	case f.jiraKey != "" && fset.NArg() == 0:
+		f.name = ""
+	case f.jiraKey == "" && fset.NArg() == 1:
+		f.name = fset.Arg(0)
+	default:
+		return fmt.Errorf("expected exactly one argument, the change name, or -jira-key with no argument")
 	}
-	f.name = fset.Arg(0)
 	if f.command == "" || f.stage == "" {
 		return fmt.Errorf("-command and -stage are both required")
 	}
@@ -334,6 +344,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		Command:          f.command,
 		Stage:            f.stage,
 		StartedAt:        time.Now(),
+		JiraKey:          f.jiraKey,
 	}
 
 	_, beginErr := beginStage(ctx, f.addr, f.timeout, req)
@@ -350,9 +361,21 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: stage begin refused: %v\n", beginErr)
 		return 1
 	default:
-		journalStageMark(projectKey, f.name, "begin", req, stderr)
+		journalStageMark(projectKey, journalName(f), "begin", req, stderr)
 		return 0
 	}
+}
+
+// journalName returns the name a stage mark's journal path is keyed by:
+// f.name when set, else a synthetic "plan-<jira key, lowercased>" name for
+// a -jira-key mark, which carries no change name of its own --
+// journalStageMark's own doc comment requires a non-empty name for the
+// journal path.
+func journalName(f stageIdentityFlags) string {
+	if f.name != "" {
+		return f.name
+	}
+	return "plan-" + strings.ToLower(f.jiraKey)
 }
 
 // beginStage calls the store's stage-begin endpoint under addr/timeout,
@@ -434,6 +457,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		EndedAt:    time.Now(),
 		Outcome:    *outcome,
 		Metrics:    metrics,
+		JiraKey:    f.jiraKey,
 	}
 
 	_, endErr := endStage(ctx, f.addr, f.timeout, req)
@@ -448,7 +472,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		// reached, but the mark can no longer be attributed to anything;
 		// there is nothing left to do but the same fallback as an
 		// outage), or ErrRefused: none of these may block the pipeline.
-		journalStageMark(projectKey, f.name, "end", req, stderr)
+		journalStageMark(projectKey, journalName(f), "end", req, stderr)
 		return 0
 	}
 }

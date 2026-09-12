@@ -569,6 +569,7 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 			Command:          req.Command,
 			Stage:            req.Stage,
 			StartedAt:        req.StartedAt,
+			JiraKey:          req.JiraKey,
 		})
 		return err
 	case "end":
@@ -584,6 +585,7 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 			EndedAt:    req.EndedAt,
 			Outcome:    req.Outcome,
 			Metrics:    req.Metrics,
+			JiraKey:    req.JiraKey,
 		})
 		return err
 	default:

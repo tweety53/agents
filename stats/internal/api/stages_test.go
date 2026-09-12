@@ -25,6 +25,7 @@ type stageRunRecord struct {
 	run        store.StageRun
 	projectKey string
 	changeName string
+	jiraKey    string
 }
 
 // BeginStage looks the owning change up by its public identity -- exactly
@@ -36,8 +37,11 @@ func (f *fakeStore) BeginStage(_ context.Context, in store.BeginStageInput) (sto
 	if f.beginStageErr != nil {
 		return store.StageRun{}, f.beginStageErr
 	}
-	if _, ok := f.changes[changeKey(in.ProjectKey, in.ChangeName)]; !ok {
-		return store.StageRun{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, in.ProjectKey, in.ChangeName)
+	isPlanSession := in.ChangeName == "" && in.JiraKey != ""
+	if !isPlanSession {
+		if _, ok := f.changes[changeKey(in.ProjectKey, in.ChangeName)]; !ok {
+			return store.StageRun{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, in.ProjectKey, in.ChangeName)
+		}
 	}
 
 	attempt := 0
@@ -62,7 +66,7 @@ func (f *fakeStore) BeginStage(_ context.Context, in store.BeginStageInput) (sto
 		StartedAt:    in.StartedAt,
 		Metrics:      json.RawMessage(`{}`),
 	}
-	f.stageRuns = append(f.stageRuns, stageRunRecord{run: run, projectKey: in.ProjectKey, changeName: in.ChangeName})
+	f.stageRuns = append(f.stageRuns, stageRunRecord{run: run, projectKey: in.ProjectKey, changeName: in.ChangeName, jiraKey: in.JiraKey})
 	return run, nil
 }
 
@@ -153,8 +157,16 @@ func stageRunMatchesFilters(r stageRunRecord, filters []store.Filter) bool {
 			if r.projectKey != f.Value {
 				return false
 			}
+		case "project_key":
+			if r.projectKey != f.Value {
+				return false
+			}
 		case "name":
 			if r.changeName != f.Value {
+				return false
+			}
+		case "jira_key":
+			if r.jiraKey != f.Value {
 				return false
 			}
 		case "command":
@@ -940,4 +952,72 @@ func TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses(t *testing.T)
 			t.Errorf("metrics.tokens_available = %#v, want the JSON boolean false", available)
 		}
 	})
+}
+
+func TestStageBeginWithJiraKeyRecordsAPlanSession(t *testing.T) {
+	fs := newFakeStore()
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+
+	req := map[string]any{
+		"projectKey":       "proj",
+		"mainCheckoutPath": "/tmp/proj",
+		"jiraKey":          "KAN-900",
+		"harness":          "claude-code",
+		"sessionToken":     "fp-plan-identity",
+		"command":          "/flow-plan",
+		"stage":            "plan.session",
+		"startedAt":        "2026-09-01T10:00:00Z",
+	}
+	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", resp.StatusCode, body)
+	}
+	if len(fs.stageRuns) != 1 {
+		t.Fatalf("len(stageRuns) = %d, want 1", len(fs.stageRuns))
+	}
+	if fs.stageRuns[0].jiraKey != "KAN-900" || fs.stageRuns[0].changeName != "" {
+		t.Errorf("recorded (jiraKey, changeName) = (%q, %q), want (KAN-900, \"\")", fs.stageRuns[0].jiraKey, fs.stageRuns[0].changeName)
+	}
+	if len(fs.changes) != 0 {
+		t.Errorf("a plan session bootstrapped %d synthetic change(s), want none", len(fs.changes))
+	}
+}
+
+func TestStageBeginRejectsJiraKeyOutsidePlanSession(t *testing.T) {
+	fs := newFakeStore()
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+	req := map[string]any{
+		"projectKey": "proj", "jiraKey": "KAN-900", "harness": "claude-code",
+		"sessionToken": "mf-x", "command": "/flow", "stage": "flow.kickoff", "startedAt": "2026-09-01T10:00:00Z",
+	}
+	resp, _ := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestStageEndWithJiraKeyClosesThePlanSession(t *testing.T) {
+	fs := newFakeStore()
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+	begin := map[string]any{
+		"projectKey": "proj", "mainCheckoutPath": "/tmp/proj", "jiraKey": "KAN-900", "harness": "claude-code",
+		"sessionToken": "fp-plan-end", "command": "/flow-plan", "stage": "plan.session", "startedAt": "2026-09-01T10:00:00Z",
+	}
+	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", begin); resp.StatusCode != http.StatusOK {
+		t.Fatalf("begin status = %d; body: %s", resp.StatusCode, body)
+	}
+	end := map[string]any{
+		"projectKey": "proj", "jiraKey": "KAN-900", "command": "/flow-plan", "stage": "plan.session",
+		"endedAt": "2026-09-01T10:30:00Z", "outcome": "staged",
+	}
+	resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", end)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("end status = %d; body: %s", resp.StatusCode, body)
+	}
+	if fs.stageRuns[0].run.EndedAt == nil || fs.stageRuns[0].run.Outcome == nil || *fs.stageRuns[0].run.Outcome != "staged" {
+		t.Errorf("plan session not closed: %+v", fs.stageRuns[0].run)
+	}
 }
