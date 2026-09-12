@@ -59,4 +59,28 @@ describe("Runs", () => {
     expect(screen.getByTestId("dispatch-mismatch")).toBeInTheDocument();
     expect(screen.getByText("3 (fixed 2, open 1)")).toBeInTheDocument();
   });
+
+  it("gives two token-less runs sharing a startedAt distinct row keys, so expanding one opens only its own detail", async () => {
+    const tokenLessRuns: ChangeRuns[] = [{
+      project: "p", change: "kan-2-y", jiraKey: "KAN-2", totals: totals(), idleBetweenRunsMs: 0, fixIterations: 0,
+      runs: [
+        {
+          sessionToken: "", kind: "flow-fast", command: "/flow-fast", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T10:30:00Z",
+          totals: totals(), main: totals(), decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [],
+        },
+        {
+          sessionToken: "", kind: "flow-fast", command: "/flow-fast", startedAt: "2026-09-01T10:00:00Z", endedAt: "2026-09-01T11:00:00Z",
+          totals: totals(), main: totals(), decision: null, fanOutMax: 0, suiteRuns: 0, suiteFirstPass: null, dispatches: [],
+        },
+      ],
+    }];
+    fetchStatsViewMock.mockResolvedValue(envelope(tokenLessRuns));
+    render(<Runs period={period} project={undefined} />);
+
+    const toggles = await screen.findAllByRole("button", { name: /run details/i });
+    expect(toggles).toHaveLength(2);
+
+    await userEvent.click(toggles[0]);
+    expect(screen.getAllByTestId("main-session-row")).toHaveLength(1);
+  });
 });

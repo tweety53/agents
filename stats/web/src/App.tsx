@@ -1,8 +1,8 @@
 // App is the shell every view mounts inside: the period and project
 // controls (shared, because every view is driven by both -- design.md's
 // "Filtering, searching and sorting" and "Project is a first-class
-// filter"), and a minimal hash router with no added dependency -- eight
-// static routes plus a redirect is well inside what `window.location.hash`
+// filter"), and a minimal hash router with no added dependency -- the
+// static routes plus a redirect are well inside what `window.location.hash`
 // can carry, and pulling in a router library for that would be exactly the
 // "config switch/registry with one implementation" KISS violation
 // (engineering-principles.md) for a change this size.
@@ -51,10 +51,10 @@ function isViewName(v: string): v is ViewName {
 }
 
 /**
- * The route this app can be on: one of the eight static statistics views,
- * or the parametrised run-detail route a state-board row links into
+ * The route this app can be on: one of the static statistics views, or
+ * the parametrised run-detail route a state-board row links into
  * (task 18, "One change opens on its own dashboard"). A discriminated
- * union rather than a ninth ViewName -- run detail's URL carries data
+ * union rather than another ViewName -- run detail's URL carries data
  * (project, change) no static view slug does, so it cannot be a member of
  * VIEW_NAMES without forcing every other view-name check in this file to
  * also handle a "name" that isn't really one.

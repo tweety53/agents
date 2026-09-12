@@ -16,7 +16,7 @@ import type { ViewProps } from "../viewTypes";
 function served(declared: string, servedMap: Record<string, number> | null): string {
   const keys = Object.keys(servedMap ?? {});
   if (keys.length === 0) return declared;
-  const others = keys.filter((k) => k !== declared.toLowerCase());
+  const others = keys.filter((k) => k.toLowerCase() !== declared.toLowerCase());
   return others.length === 0 ? declared : `${declared} (served ${others.join(", ")})`;
 }
 
@@ -124,7 +124,12 @@ function ChangePanel({ group, period, onPeriodChange }: { group: ChangeRuns } & 
         <DataTable
           columns={runColumns}
           rows={group.runs}
-          rowKey={(r) => r.sessionToken || r.startedAt}
+          // sessionToken is "" for a real wire value (not every harness
+          // records one), and two token-less runs in the same change can
+          // share startedAt -- falling back to startedAt alone would
+          // collide their DataTable row keys and share one expand toggle
+          // between two distinct runs, so the fallback is composite.
+          rowKey={(r) => r.sessionToken || `${r.command}|${r.startedAt}|${r.endedAt ?? "open"}`}
           emptyMessage="No runs in this period."
           detailLabel="run details"
           renderDetail={(r) => <RunDetail run={r} />}
