@@ -116,6 +116,7 @@
 # registry-row-not-checked: Rendered ledger and panel record — committed and
 #   archived with the change, so nothing removes them and there is nothing for
 #   this guard to find gone
+# registry-row-not-checked: Brainstorm design document — removed with the worktree
 # registry-row-not-checked: Dispatch context bundle — removed with the worktree
 # registry-row-not-checked: Bugbot's or Mutation's throwaway worktree copy — created and removed
 #   entirely within the review panel stage, immediately after that slot's dispatch

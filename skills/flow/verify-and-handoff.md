@@ -193,14 +193,15 @@ Reads the `## visual verification` section, canonical in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 
-Steps 1, 2 and 11 are the parent's. Steps 3–10 and 12 are run by one verifier per worktree
-surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
+Steps 1, 2, 3 and 12 are the parent's — those steps, `prepare-workspace.sh` and the ledger render
+are the parent's own Bash calls, never a subagent's. Steps 4–11 and 13 are run by one verifier per worktree
+surviving steps 1–3, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 parent applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`,
 `fingerprint` and `start` commands and `screenshots` root, its resolved `mockups` root when
 declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths`
-matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 3–10
-and 12 below as written, committing and pushing nothing.
+matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 4–11
+and 13 below as written, committing and pushing nothing.
 
 1. **Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
    its own shape and closed vocabulary. A project declaring no section → this worktree prints
@@ -217,35 +218,77 @@ and 12 below as written, committing and pushing nothing.
    section resolves) — report its stderr and skip this worktree the same way exit 1 does.
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
-3. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
-4. **Probe before starting anything.** Probe the URL of each app `ui paths` matched, resolved for
+3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
+   cannot repair an environment that cannot pass — KAN-459's visual-verify stage retried three
+   times over roughly five hours on pre-existing workspace-isolation gaps before the operator
+   stopped it. With the parent's own Bash calls, before the dispatch below, check the environment
+   this worktree will verify in:
+
+   - **Ports held only by their own app.** For every port this worktree's resolved environment
+     carries — the `port` row's resolved value and the port in each matched app's
+     worktree-resolved URL — a listener is a pre-flight failure only when nothing answers it. The
+     probe is the app's worktree-resolved URL where the port reaches this check through one;
+     where it arrives only through a `port` row, the probe is the port itself — a listener that
+     accepts a connection is answering, one that accepts nothing is a dead holder. An answering
+     listener is the already-running stack steps 5 and 6 probe and fingerprint and step 13 leaves
+     alone — the pipeline's own run-instructions rule starts that stack on every run and hands it
+     running to the operator, so a fix run re-entering on a held port is the ordinary case, never
+     a failure. A held port whose probe answers nothing — a foreign holder, a sibling workspace,
+     yesterday's orphan — fails the pre-flight (`lsof -nP -iTCP:<port> -sTCP:LISTEN`, the probe
+     **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) defines), naming
+     the port, the holder `lsof` prints, and the probe that went unanswered.
+   - **The app's base-URL configuration resolves to the workspace's port** — `ApiBaseUrl`, where
+     this failure was measured. For every `## workspace isolation` row whose resolved value (the
+     `KEY=value` line **Verify** exported) differs from the row's declared default, the
+     application configuration under the matched `ui paths`' roots must take that value from the
+     exported variable or from the `start`/`## run` command — a literal naming the declared
+     default there, which neither the exported variables nor that command overrides, is the
+     hardcoded-port failure; name the file and the line.
+   - **Origin allowed.** The worktree's allowed-origins configuration (`ALLOWED_ORIGINS`, where
+     this failure was measured) must include the worktree-resolved URL of every matched app — an
+     origin list pinned to the declared default URL fails; name the file.
+   - **One Playwright checkout per workspace.** Resolve the Playwright module from each matched
+     app's package root (`node -e "console.log(require.resolve('@playwright/test/package.json',
+     {paths: [root]}))"`) — the resolved absolute path must sit inside this worktree. A resolution
+     landing in a sibling worktree or a machine-global checkout is the cross-worktree module
+     conflict; name the path, and install this worktree's own before re-running.
+
+   **Any failing check ends the stage here**: no verifier is dispatched, the stage's `end` mark
+   carries `-outcome stopped`, and the report names every failing check with the evidence above.
+   The run proceeds to the `IN_PROGRESS` handoff, which names the environment cause — the operator
+   fixes the environment and re-runs. This is a handoff, never a `## Question` and never a
+   re-dispatch: the re-dispatch below is for a verifier report, not for an environment this stage
+   has proven cannot pass.
+
+4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
+5. **Probe before starting anything.** Probe the URL of each app `ui paths` matched, resolved for
    this worktree per **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) —
    never the project's declared default. If nothing answers, start the stack from `start` when
-   declared, else `## run`, and record that this stage started it — needed at step 12.
-5. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
-   of what the app was serving when it was taken, and a stack step 4 found already running may be
+   declared, else `## run`, and record that this stage started it — needed at step 13.
+6. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
+   of what the app was serving when it was taken, and a stack step 5 found already running may be
    serving a build older than the worktree — KAN-29's last fix round captured, and nearly accepted,
    the bug the fix had removed. Run `fingerprint`. Exit 0 → the served bundle is the worktree's
    build; continue. Non-zero → stop the stack, start it from `start` when declared, else `## run`,
-   record that this stage started it (step 12 stops it), and run `fingerprint` once more. A second
+   record that this stage started it (step 13 stops it), and run `fingerprint` once more. A second
    non-zero exit blocks, carrying the command's output. No row declared → report
    `fingerprint: not declared` and continue; the report makes the gap visible in every handoff, but
    this stage cannot prove what it was never told how to check.
-6. **Run `verify`.** A non-zero exit blocks.
-7. **Capture** — author a spec covering the views this change touched, then run `capture` with
+7. **Run `verify`.** A non-zero exit blocks.
+8. **Capture** — author a spec covering the views this change touched, then run `capture` with
    `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration.md`; nothing here restates it. **Every screenshot
    this spec takes is the full page or viewport, never a clipped region.** A clip is the right tool
    for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
    own job — page-wide styling (background, shadow, border, font, spacing) matching the mockup — is
-   exactly what a clip is built to hide; step 9 below cannot compose a clip against a full mockup
+   exactly what a clip is built to hide; step 10 below cannot compose a clip against a full mockup
    frame and call the result a fidelity check. **`capture` creates this change's baseline**: writing
    a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
    reason blocks (see **Blocking** below). Then run `check-spec-reach.sh <worktree>` — the spec
    `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
    exit 1 (an orphan, named) or 2 (cannot answer) blocks.
-8. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
+9. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
 
    ```bash
    resolve-visual-screenshots.sh <worktree> <spec's basename>
@@ -257,7 +300,7 @@ and 12 below as written, committing and pushing nothing.
    that never rendered; exit 2 (cannot answer) blocks the same way. **Read every printed path** — no
    script can do that — and state, per view, what was seen. An unreadable PNG is reported and blocks
    too.
-9. **Compose captured frames against their mockups, if `mockups` is declared.** With a
+10. **Compose captured frames against their mockups, if `mockups` is declared.** With a
    `<spec>.mockups` sidecar beside the capture spec, run
 
    ```bash
@@ -420,15 +463,15 @@ and 12 below as written, committing and pushing nothing.
    screen family the touched `ui paths` name. A plausible match exists → **author the
    `<spec>.mockups` sidecar yourself**, one `<screenshot name> <frame id>` line per captured view
    with a real frame, then run the compose command above — composing against a sidecar this stage
-   just wrote is not a special case, and it is committed at step 11 along with everything else this
+   just wrote is not a special case, and it is committed at step 12 along with everything else this
    stage writes. No plausible match anywhere in the directory → report `mockups: no map for
    <spec's basename> — searched <mockups dir>, no frame for <views>`, naming what was searched, and
    continue. Not declared → report `mockups: not declared` and continue. The sidecar's shape is
    canonical in **visual verification** (`skills/flow-contracts/project-configuration.md`).
-10. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
-    path, resolved by the same recursive search step 8 used, and what was seen; and, per composed
+11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
+    path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's absolute path, the frame id, its `diff=` ratio, and what was seen.
-11. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
+12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **Resolve the
     `regression checkout` root the same way every other declared app root in this file is
     resolved** — from `git worktree list` in that repository, or the state file's `worktrees`
@@ -449,7 +492,7 @@ and 12 below as written, committing and pushing nothing.
     ```
 
     `<changeRoot>/visual-verification/` is committed with the change root.
-12. **Stop the stack only if step 4 or step 5 started it.** A stack the operator already had running is left
+13. **Stop the stack only if step 5 or step 6 started it.** A stack the operator already had running is left
     alone.
 
 ```text verified:design.md section 3 of this change
@@ -469,9 +512,10 @@ and 12 below as written, committing and pushing nothing.
 - visual-verification.md: written | not written — <reason>
 ```
 
-**Blocking.** This stage blocks the `IN_PROGRESS` handoff on: a failed `setup`, a failed `verify`,
+**Blocking.** This stage blocks the `IN_PROGRESS` handoff on: **a workspace pre-flight that failed
+(step 3), which ends the stage before any dispatch**, a failed `setup`, a failed `verify`,
 a genuine `capture` failure, a stack that could not be started, **a `fingerprint` that still exits
-non-zero after step 5's restart**, a `check-spec-reach.sh` exit 1 or 2,
+non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
 verifier reports in a composite**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
@@ -481,6 +525,9 @@ both test suites, and obvious the moment the page was opened.
 ```bash
 flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
 ```
+
+**A step-3 pre-flight failure closes this mark `-outcome stopped` instead of `completed`**, per
+that step — the one outcome variant this stage's end mark carries.
 
 ## Stage, excluding the planning paths
 
@@ -567,7 +614,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   `flow` database inside it are never stopped, restarted or dropped by any run —
   `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
   own `## run` names that service, the prohibition wins over this start rule, never the reverse.
-  This is separate from **Visual verification**'s own start/stop rule above (step 12): that stage
+  This is separate from **Visual verification**'s own start/stop rule above (step 13): that stage
   stops only the stack it started for its own probe, and that rule is not restated here. This rule
   starts whatever the run instructions name, on every run, regardless of whether that stage ran
   or started anything.
@@ -594,7 +641,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   resolved URL and the guard's own stderr reason, restart-shaped and never a restatement of the
   verdict: `Stale: <app> (<url>) — <the guard's reason>; restart the stack before testing.`
   Exit 2 adds `Freshness: unverified — <the guard's stderr reason>` instead, the same
-  visible-gap rule **Visual verification**'s own step 5 runs on a missing row. A refused start
+  visible-gap rule **Visual verification**'s own step 6 runs on a missing row. A refused start
   above already ends the run, so this check only ever runs on a start that succeeded or was
   skipped by the protected-service rule.
 
@@ -673,7 +720,7 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 
 **Change:** <name>
 **Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
-**Visual:** not configured | no UI paths touched | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
+**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
 **Deferred:** <count of deferred Minors>
@@ -715,7 +762,7 @@ regenerated view of the same state.
 
 **The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
 absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
-rule — the operator must be able to open the PNG. **Its push clause appears only when step 11
+rule — the operator must be able to open the PNG. **Its push clause appears only when step 12
 committed to a `regression checkout`.**
 
 The pre-edit description line is present only on a fix run that synced the description in **3.
