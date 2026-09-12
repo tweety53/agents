@@ -361,24 +361,43 @@ and 12 below as written, committing and pushing nothing.
    post-hoc toast). `rules/design-mockups-are-specs.mdc` puts the same question to the
    implementer; this is the verifier's side of it.
 
-   **Never judge a size, alignment, spacing or corner radius by eye from a resized or cropped
-   image; measure it from pixels.** A crop is for reading text and layout, never edges or
-   centres — interpolation and a small viewport shift an edge by pixels and hide a gap outright
-   (KAN-30 fix round 9: a card corner read "square, no gap" from a tight crop that ended before
-   the corner; a row-by-row background-colour scan of the same boundary found a rounded corner
-   and a 9px gap). Find an edge by sampling pixel colours along a scan line until the colour
-   transitions, then compare the resulting coordinates and distances as numbers. Three
-   preconditions on any number compared across two images:
+   **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
+   font size by eye from a resized or cropped image; measure it with
+   `measure-visual-properties.sh`, then eyeball what it measured.** A crop is for reading text
+   and layout, never edges or centres — interpolation and a small viewport shift an edge by
+   pixels and hide a gap outright (KAN-30 fix round 9: a card corner read "square, no gap" from a
+   tight crop that ended before the corner; a row-by-row background-colour scan of the same
+   boundary found a rounded corner and a 9px gap — done by hand-written one-off scripts, three
+   attempts, the first two wrong). For every per-control comparison this step makes, run
+
+   ```bash
+   measure-visual-properties.sh <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
+   ```
+
+   with each region a crop around that one control and a background margin on every side, and
+   read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
+   (KAN-30 fix round 10; the script's own header is canonical for its options, properties, output
+   and exit codes). **Both halves are mandatory and neither substitutes for the other.** The
+   script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
+   off a crop; and its output is then eyeballed against the two crops before any number is
+   reported: state, per control, that the `box` the script found is that control (its edges land
+   where the control's edges are seen), that `content` is the icon or label and not a corner
+   artefact, and that a `null` or an exit 1 was resolved by a wider or better-centred region, not
+   by dropping the property. A number no eye confirmed is a methodology error waiting to ship;
+   an eye with no number is round 9 again. Exit 2 with no calibration is the script refusing
+   precondition 1 below; supply it, never work around it. Three preconditions on any number
+   compared across two images:
    1. **Calibrate before comparing images of different provenance** — a mockup export against a
       capture, or captures at two viewport sizes. Where the project declares a `mockup frame`
-      geometry, its `scale` is the calibration the composite already crops by; ad-hoc
-      measurements use the same factor. Otherwise derive the factor from an element whose
-      correctness in both images is already established by other evidence — a prior finding, a
-      code-level guarantee, a passing test — never from the nearest similar-looking thing: an
-      unchecked ruler is itself a claim, and a wrong one makes the comparison wrong twice (KAN-30
-      fix round 9: a day-number circle as ruler put a button at 2–3x oversized; an adjacent "+"
-      button confirmed correct earlier put it at 15–20%, traced to a deliberate 44dp
-      touch-target minimum).
+      geometry, its `scale` is the calibration the composite already crops by, and the frame the
+      composite cropped is at the capture's own scale, so `--scale 1`; ad-hoc measurements use
+      the same factor. Otherwise derive the factor from an element whose correctness in both
+      images is already established by other evidence — a prior finding, a code-level guarantee,
+      a passing test — as that element's box in each image via `--ref-a`/`--ref-b`, never from
+      the nearest similar-looking thing: an unchecked ruler is itself a claim, and a wrong one
+      makes the comparison wrong twice (KAN-30 fix round 9: a day-number circle as ruler put a
+      button at 2–3x oversized; an adjacent "+" button confirmed correct earlier put it at
+      15–20%, traced to a deliberate 44dp touch-target minimum).
    2. **Confirm both images are the same state of the view** — the same expand/collapse state,
       scroll position and populated/empty condition, not merely the same screen. The box between
       two landmarks encloses different content in different states, and its size then compares
