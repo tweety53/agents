@@ -95,9 +95,9 @@ model and `subagent_type`, under `<key>-retry`:
 
 ```bash
 flow record dispatch end -change <name> -key <key> -session-token mf-<literal-token> \
-  -outcome fallback -ended-at <ts>
+  -outcome fallback
 flow record dispatch begin -change <name> -role <role> -model <the model originally requested> \
-  -key <key>-retry -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+  -key <key>-retry -agent-id <id> -session-token mf-<literal-token>
 ```
 
 A **second** mismatch closes the retry row `-outcome fallback` too and the parent asks the
@@ -111,7 +111,7 @@ handoff or continue to the next stage, and close the record under whichever key 
 
 ```bash
 flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
-  -outcome completed -ended-at <ts>
+  -outcome completed
 ```
 
 **A dispatch whose agent dies is closed with `-outcome aborted`, reported, and not retried**: print
@@ -363,14 +363,14 @@ Immediately before dispatching:
 
 ```bash
 flow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
-  -key task-<n>-implementer -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+  -key task-<n>-implementer -agent-id <id> -session-token mf-<literal-token>
 ```
 
 and as soon as that dispatch reports back, before the next one goes out:
 
 ```bash
 flow record dispatch end -change <name> -key task-<n>-implementer \
-  -session-token mf-<literal-token> -commit <sha> -outcome completed -ended-at <ts> \
+  -session-token mf-<literal-token> -commit <sha> -outcome completed \
   -agent-id <id>
 ```
 
@@ -380,10 +380,12 @@ before any other action; `end` may repeat the id.** `-key` is this dispatch's ow
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
 `-role` is one of `implementer`, `reviewer`, `panel-fix` or `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`); `-task` is the task's
-flat integer id, omitted for a dispatch against no single task; `-started-at`/`-ended-at` are
-RFC 3339 — `-started-at` the launch time. `-session-token` takes a literal, never a shell
-substitution. Two dispatches starting at one instant are told apart only by id, and a resumed
-dispatch shares its id with the original — which is why the id is recorded at launch.
+flat integer id, omitted for a dispatch against no single task. The start and end instants are
+**not** caller inputs: the daemon stamps both at its own clock — the one the transcript
+attribution shares — so no hand-typed approximation of the time is ever recorded (KAN-324).
+`-session-token` takes a literal, never a shell substitution. Two dispatches starting at one
+instant are told apart only by id, and a resumed dispatch shares its id with the original — which
+is why the id is recorded at launch.
 
 **`-model` is the model this dispatch was actually given — `DEFAULT_MODEL`** (`skills/flow/SKILL.md`'s
 **Model resolution**), or the run's session-instruction override when one was given for the

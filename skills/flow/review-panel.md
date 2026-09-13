@@ -339,9 +339,9 @@ records for an implementer:
 ```bash
 flow record dispatch begin -change <name> -role reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
   -agent-id <id> -diff-base <sha> -key panel-<round>-<that slot> \
-  -session-token mf-<literal-token> -started-at <ts>
+  -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-<round>-<that slot> \
-  -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
+  -session-token mf-<literal-token> -outcome completed -agent-id <id>
 ```
 
 Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
@@ -1040,9 +1040,9 @@ identity together with the reproducer output it carried back.
 
 ```bash
 flow record dispatch begin -change <name> -role panel-fix -model <m> -effort <e> \
-  -key panel-fix-<round>[-<chunk>] -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+  -key panel-fix-<round>[-<chunk>] -agent-id <id> -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
-  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \
+  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed \
   -agent-id <id>
 ```
 
