@@ -296,8 +296,12 @@ and 13 below as written, committing and pushing nothing.
    frame and call the result a fidelity check. **`capture` creates this change's baseline**: writing
    a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
-   reason blocks (see **Blocking** below). **Seed the spec with data the frame does not draw.** A
-   mockup is drawn on a happy case, and a spec whose fixture reproduces it verifies only that case:
+   reason blocks (see **Blocking** below). A `toHaveScreenshot` passing over a baseline this
+   change wrote is the app agreeing with itself, never with the mockup — step 10 is the only
+   comparison, and `capture: exit 0` is never evidence of a frame's fidelity (KAN-437 final
+   verification: Q1's baseline was the implementer's own first capture, green on every later run
+   while drawing three controls of the wrong kind). **Seed the spec with data the frame does not
+   draw.** A mockup is drawn on a happy case, and a spec whose fixture reproduces it verifies only that case:
    the fixture holds, for every element the view derives from data, at least one input the frame's
    own numbers would never produce — a threshold, goal or marker value outside the plotted range;
    a dataset whose derived numbers (axis ticks, averages, deltas, unit conversions) do not come out
@@ -348,7 +352,16 @@ and 13 below as written, committing and pushing nothing.
    accepting any field, button, icon, or toggle as matching its mockup:
    1. **Crop and zoom (2–3x) both the mockup region and the corresponding capture, side by side.**
       Do this for every interactive control the view carries, not only ones that already look
-      suspicious at full scale.
+      suspicious at full scale. **Name the control's kind in each image first, before any
+      measurement** — a plain text field or a headline display figure; a list row carrying a
+      leading radio, or a quiet row whose only indicator is a trailing filled circle on the
+      selected one; a segmented control of N cells each fitting its own label — a differing
+      kind is a departure before any number is taken (KAN-437 final verification, Q1: the WEIGHT
+      field rendered in the weight tab's headline-figure style at about three times the frame's
+      field height; every ACTIVITY row carried a leading outlined radio where the frame draws no
+      indicator on unselected rows and a trailing filled circle on the selected one; the GOAL
+      segments' two-line labels ran into the neighbouring cell — none subtle at 1x, none seen,
+      the frame never on the list below).
    2. **Exercise every interactive state the mockup draws for that control, not only its resting
       one** — a focused field, a field with a value typed (so a clear icon or a validation state
       actually renders), a pressed button, an enabled toggle. A control checked only at rest has
@@ -364,7 +377,17 @@ and 13 below as written, committing and pushing nothing.
    every frame id `design.md`/`tasks.md` cites for this change, or from the mockups directory
    itself when no such citation exists; a frame reached only by inference from another (already
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
-   still gets named, with the reason.
+   still gets named, with the reason. **The list is the change's, never the round's**: a fix run
+   re-verifies the same list, not the views its fix touched, and the specs `capture` runs are
+   chosen to reach every frame on it, never the other way round — a denominator the verifier
+   derives from the specs it happened to run is the partial pass wearing a fraction. The report's
+   `frames:` line counts against that list and names every declared frame absent from the
+   per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame
+   list before applying **Blocking**, and a declared frame with no line blocks as a departure
+   would (KAN-437 final verification: `design.md` declared 22 frames, two `flow.visual-verify`
+   rounds each ran three of five fidelity specs and reported 15/17 composed — Q1–Q3 and M1–M2
+   never composed, never named as skipped, unnoticed by the parent, and every Q1 defect above
+   surfaced only when the operator opened the screen).
 
    **Exercise the states below and capture each one; a state nobody drove into is a state nobody
    verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
@@ -626,6 +649,7 @@ and 13 below as written, committing and pushing nothing.
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
 - <frame id> sweeps: text | order | reach | derived | rows — <each done, or why not; `rows` names each bounded row and its four gaps per image>
+- frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - visual-verification.md: written | not written — <reason>
 ```
 
@@ -634,7 +658,8 @@ and 13 below as written, committing and pushing nothing.
 a genuine `capture` failure, a stack that could not be started, **a `fingerprint` that still exits
 non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
-verifier reports in a composite**, and **a defect the
+verifier reports in a composite**, **a frame on the change's declared list with no line in the
+report — the parent's own reconciliation, step 10**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
 point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
 both test suites, and obvious the moment the page was opened.
