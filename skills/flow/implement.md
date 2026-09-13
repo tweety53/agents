@@ -97,7 +97,7 @@ model and `subagent_type`, under `<key>-retry`:
 flow record dispatch end -change <name> -key <key> -session-token mf-<literal-token> \
   -outcome fallback
 flow record dispatch begin -change <name> -role <role> -model <the model originally requested> \
-  -key <key>-retry -agent-id <id> -session-token mf-<literal-token>
+  -key <key>-retry -session-token mf-<literal-token>
 ```
 
 A **second** mismatch closes the retry row `-outcome fallback` too and the parent asks the
@@ -363,29 +363,30 @@ Immediately before dispatching:
 
 ```bash
 flow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
-  -key task-<n>-implementer -agent-id <id> -session-token mf-<literal-token>
+  -key task-<n>-implementer -session-token mf-<literal-token>
 ```
 
 and as soon as that dispatch reports back, before the next one goes out:
 
 ```bash
 flow record dispatch end -change <name> -key task-<n>-implementer \
-  -session-token mf-<literal-token> -commit <sha> -outcome completed \
-  -agent-id <id>
+  -session-token mf-<literal-token> -commit <sha> -outcome completed
 ```
 
-**Both calls are required. Every launch is asynchronous and returns the agent's identifier at
-launch, so `begin` carries `-agent-id <id>` and is recorded immediately after the launch returns,
-before any other action; `end` may repeat the id.** `-key` is this dispatch's own literal label,
+**Both calls are required. `begin` is recorded immediately before the dispatch, carrying no
+`-agent-id`: the daemon now captures the agent's identifier automatically (KAN-322) — Claude Code
+writes it into the parent transcript's own launch tool result, the harvester pairs that result
+with the begin that named the row, and the row's empty `agent_id` is filled from it, which is why
+`begin` must precede the launch rather than wait for its id. `-agent-id` remains accepted on both
+calls as recorded intent the daemon never overwrites, for a caller that knows the id.** `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
 `-role` is one of `implementer`, `reviewer`, `panel-fix` or `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`); `-task` is the task's
-flat integer id, omitted for a dispatch against no single task. The start and end instants are
-**not** caller inputs: the daemon stamps both at its own clock — the one the transcript
-attribution shares — so no hand-typed approximation of the time is ever recorded (KAN-324).
-`-session-token` takes a literal, never a shell substitution. Two dispatches starting at one
-instant are told apart only by id, and a resumed dispatch shares its id with the original — which
-is why the id is recorded at launch.
+flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,
+never a shell substitution. The start and end instants are the daemon's own (KAN-324) — never
+caller inputs. Two dispatches starting at one instant are told apart only by id: the daemon pairs
+a begin with its launch by the begin command's own transcript instant, so record `begin`
+immediately before its launch and never reuse one `-key` for a second dispatch.
 
 **`-model` is the model this dispatch was actually given — `DEFAULT_MODEL`** (`skills/flow/SKILL.md`'s
 **Model resolution**), or the run's session-instruction override when one was given for the
@@ -663,11 +664,10 @@ code quality together — dispatched beside the group implementers, on the task'
 `model`/`effort` pair from the decision's `groups` entry (`DEFAULT_MODEL`/`default` on a run with
 no groups). The reviewer gets the commit-range diff `git diff <task-sha>^..<task-sha>` — a real
 commit diff, never a snapshot of the working tree, which the next implementer is editing. Record
-the dispatch (`-role reviewer`, the same `-task <n>`, `-key task-<n>-reviewer`, `-agent-id` on
-`begin`) and close it with **`-outcome clean` or `-outcome fix`**, so per-task review yield stays
+the dispatch (`-role reviewer`, the same `-task <n>`, `-key task-<n>-reviewer`) and close it with **`-outcome clean` or `-outcome fix`**, so per-task review yield stays
 measurable against the gate. A clean review ticks the task in the same call that closes the
 record. **A fix resumes the task's own group's implementer** (`SendMessage`; recorded as its own
-pair under `task-<n>-implementer-fix-<k>`, `-agent-id` the implementer's own id) with the
+pair under `task-<n>-implementer-fix-<k>`) with the
 reviewer's report path; it commits `git commit --fixup=<task-sha>`, runs
 `git rebase --autosquash <task-sha>^` — the explicit base is load-bearing: a bare
 `git rebase --autosquash` rebases onto the branch's upstream, absorbing the operator base's

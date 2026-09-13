@@ -338,10 +338,10 @@ records for an implementer:
 
 ```bash
 flow record dispatch begin -change <name> -role reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
-  -agent-id <id> -diff-base <sha> -key panel-<round>-<that slot> \
+  -diff-base <sha> -key panel-<round>-<that slot> \
   -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-<round>-<that slot> \
-  -session-token mf-<literal-token> -outcome completed -agent-id <id>
+  -session-token mf-<literal-token> -outcome completed
 ```
 
 Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
@@ -360,8 +360,9 @@ panel record names every worktree's sha beside the delta path (design.md's
 `panel.dispatches` on `dynamic` — bundled or one-role alike, no exception. `-effort` likewise:
 `default` on `REVIEW_PANEL_TOGGLE` `default`, and the dispatch's own effort on `dynamic`.
 
-**On Claude Code, `-agent-id` is the identifier an asynchronous agent launch returns in the parent's
-own tool result, at launch.** Never invent one.
+**`-agent-id` is never typed, never invented** — the daemon captures the launch identifier
+(KAN-322), pairing each launch with the begin whose command sits nearest it in the transcript;
+record `begin` immediately before its launch, and never reuse a `-key`.
 
 **Record a slot's dispatch before recording that slot's findings**, and carry the seq the command
 printed — `recorded: dispatch <seq>` — into each of that slot's `flow record finding` calls as
@@ -1040,10 +1041,9 @@ identity together with the reproducer output it carried back.
 
 ```bash
 flow record dispatch begin -change <name> -role panel-fix -model <m> -effort <e> \
-  -key panel-fix-<round>[-<chunk>] -agent-id <id> -session-token mf-<literal-token>
+  -key panel-fix-<round>[-<chunk>] -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
-  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed \
-  -agent-id <id>
+  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed
 ```
 
 `-commit` is the task commit the fixup was folded into.
