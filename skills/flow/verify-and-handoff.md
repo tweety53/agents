@@ -436,6 +436,24 @@ and 13 below as written, committing and pushing nothing.
       populated path shows (first-time versus returning), is a defect no single capture can
       show (KAN-437: a dialog's derived field stayed stale as the operator typed, and was missing
       entirely on the first-entry path the spec never took).
+   9. **Every row bounded by a divider, hairline or container edge — a header bar, a sticky
+      bar, a toolbar, a list section, a dialog's action row — gap-measured on the side facing each
+      bound, in both images, before the row is called matching.** Read the `gap` block of the
+      per-control measurement below for the row's controls and report the four numbers per
+      image: the script scans past the region to the next neighbour, so the number is already in
+      the JSON of every measurement this step makes and costs nothing beyond reading it. This
+      sweep runs on every such row, unprompted: the spacing rule below answers a claim or a
+      complaint, and a row nobody claimed anything about was never measured. Nothing else here
+      sees it — the composite's ratio barely moves when a row's content is right and only the
+      whitespace around it is wrong, the per-control crop matches its control wherever it sits, and
+      the order-and-containment sweep finds every element present and inside its container. A row
+      whose every control measures the right size is the case to suspect, not to pass: a uniform
+      container padding around correctly-sized controls is invisible to every reading but this one
+      (KAN-437 final verification: a Weight/Calories segmented control and its "+" button, both
+      exactly the mockup's 44dp, sat in a `padding(space4)` on all four sides — 20dp against a
+      frame drawing 2–5px to the dividers above and below — and passed two `flow.visual-verify`
+      fix rounds, one operator sweep and one manual re-check, each of which had measured the
+      controls and none the gaps).
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -607,7 +625,7 @@ and 13 below as written, committing and pushing nothing.
 - <view>: <absolute PNG path> — <what was seen, including any defect>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
-- <frame id> sweeps: text | order | reach | derived — <each done, or why not>
+- <frame id> sweeps: text | order | reach | derived | rows — <each done, or why not; `rows` names each bounded row and its four gaps per image>
 - visual-verification.md: written | not written — <reason>
 ```
 
