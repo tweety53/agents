@@ -410,11 +410,11 @@ recorded as such:
    one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
    slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
    static grouping takes the tree's per-bundle values; a free grouping assigns each dispatch its
-   own, chosen from the tree's values for the class, the choice named in `grouping_reason`; `primary` + `simple-reviewer` + `principles`, bundled as one
+   own, chosen from the tree's values for the class, the choice named in `grouping_reason`; `primary` + `principles`, bundled as one
    dispatch, is the universal floor for every roster this tree assigns — compact or full, every
-   class — its `-slot` `primary+simple-reviewer+principles`, deterministic, no roll. It already
-   uses the bundle cap's full three-role capacity, so it never has spare room for anything else. A
-   compact roster's three roles are the floor bundle itself, nothing more to group. A full roster's
+   class — its `-slot` `primary+principles`, deterministic, no roll. Its spare seat under the
+   bundle cap stays empty: nothing else ever joins the floor bundle. A
+   compact roster's two roles are the floor bundle itself, nothing more to group. A full roster's
    remaining roles form the second dispatch entirely — there is no overflow case left, since the
    floor already holds every reading/judgment role; a rolled experimental slot joins the second
    dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree**
@@ -444,9 +444,9 @@ recorded as such:
 
 | class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster; bundle: model/effort) |
 |---|---|---|---|---|---|---|
-| small | inline | — | primary; simple-reviewer; principles | primary; simple-reviewer; principles | delta | `primary+simple-reviewer+principles`: sonnet/medium |
-| regular | inline | — | primary; simple-reviewer; principles; mutation | primary; simple-reviewer; principles | delta | `primary+simple-reviewer+principles`: sonnet/high · `mutation`: sonnet/medium |
-| big | sdd | opus/high | primary; simple-reviewer; principles; mutation; bugbot; security | primary; simple-reviewer; principles | full | `primary+simple-reviewer+principles`: opus/high · `mutation+bugbot+security`: sonnet/high |
+| small | inline | — | primary; principles | primary; principles | delta | `primary+principles`: sonnet/medium |
+| regular | inline | — | primary; principles; mutation | primary; principles | delta | `primary+principles`: sonnet/high · `mutation`: sonnet/medium |
+| big | sdd | opus/high | primary; principles; mutation; bugbot; security | primary; principles | full | `primary+principles`: opus/high · `mutation+bugbot+security`: sonnet/high |
 
 A compact roster is the floor bundle alone, on the floor bundle's model/effort. `bugbot` and
 `security` are prompt-driven roles like every other slot, dispatched in whichever bundle carries

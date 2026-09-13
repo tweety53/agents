@@ -144,8 +144,8 @@ value means in full. A plain-language session instruction overrides a *result*, 
 those repositories declares it, never `MAIN_CHECKOUT` alone.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
-(`skills/flow/implement.md`), every panel slot, Bugbot and Security included (all seven are
-prompt-driven roles, per **The roster**, `skills/flow/review-panel.md`),
+(`skills/flow/implement.md`), every panel slot, Bugbot and Security included (every one a
+prompt-driven role, per **The roster**, `skills/flow/review-panel.md`),
 and the panel-fix subagent (`skills/flow/review-panel.md`).
 
 **A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — "use opus for
