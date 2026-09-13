@@ -3515,6 +3515,121 @@ case "$OUT" in
   *) fail "case 107: expected the ambiguity relay naming both projects: $OUT" ;;
 esac
 
+# Case 108 (KAN-274): a **Tests:** field written as prose that names a
+# guard script — the exact trap KAN-77's task 3 hit — reports the parse
+# rule alongside the missing name, so the failure names the misused field
+# and not only a test the plan never declared.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Prose field naming a script
+
+**Files:** `alpha.txt`
+**Tests:** covered by the existing guards — `check-references.sh` and `check-contract-budget.sh`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'no tests here\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 108: prose field naming a script fails" || fail "case 108: rc=$RC out=$OUT"
+case "$OUT" in
+  *"check-references.sh"*"not found in the diff"*"parsed, not read"*)
+    pass "case 108: reports the parse rule with the missing name" ;;
+  *) fail "case 108: expected the parse-rule hint beside the missing name, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 109 (KAN-274): a genuinely missing declared test keeps naming the
+# test itself — the parse-rule hint rides along on every missing-test
+# message, legitimate declarations included.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Genuine missing test
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'no tests here\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 109: genuine missing test fails" || fail "case 109: rc=$RC out=$OUT"
+case "$OUT" in
+  *"test_alpha"*"not found in the diff"*"parsed, not read"*)
+    pass "case 109: names the test first, parse rule second" ;;
+  *) fail "case 109: expected the test name then the parse-rule hint, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 110 (panel F1): a **Tests:** field carrying a `Case <N>` label
+# parses its backticked tokens as nothing, so the missing-label message
+# must state the conditional rule — the label is checked by that label
+# alone — never an unconditional every-backticked-token claim.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Labelled field missing its label
+
+**Files:** `alpha.txt`
+**Tests:** Case 99 covers the parsing (see `helper_alpha`)
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'no tests here\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 110: labelled field missing its label fails" || fail "case 110: rc=$RC out=$OUT"
+case "$OUT" in
+  *"Case 99"*"not found in the diff"*"checked by that label alone"*)
+    pass "case 110: states the label-alone rule, not the backtick claim" ;;
+  *) fail "case 110: expected the conditional parse rule, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 111 (panel round 1, F5/F6): a bare camelCase token is a tree-check
+# name, so its not-found-in-the-tree message must carry the parse-rule hint
+# naming the camelCase rule — and this case is what pins the tree-check
+# hint, which no earlier case asserts past the name.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Bare camelCase tree miss
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha` and helperAlpha
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'no tests here\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 111: bare camelCase tree miss fails" || fail "case 111: rc=$RC out=$OUT"
+case "$OUT" in
+  *"helperAlpha"*"not found in the tree"*"parsed, not read"*)
+    pass "case 111: tree message carries the hint" ;;
+  *) fail "case 111: expected the tree message with the parse-rule hint, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"helperAlpha"*"not found in the tree"*"camelCase"*)
+    pass "case 111: tree message states the camelCase rule" ;;
+  *) fail "case 111: expected the camelCase clause in the tree message, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

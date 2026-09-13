@@ -841,13 +841,33 @@ def check_files(task: TaskFields, changed_files: List[str]) -> List[str]:
     return violations
 
 
+# TESTS_PARSE_RULE — the parse rule both sibling `Tests:` violation messages
+# state, the diff check's and the tree check's, so one prose-misuse failure
+# is diagnosed one way (panel round 0, F1/F3/F4). The rule is conditional
+# because the parser is: a `Case <N>` label makes the field label-checked
+# with its backticks parsed as nothing, so an unconditional "every
+# backticked token is a declared test name" claim would be false on exactly
+# the labelled shape. The bare-camelCase clause is the tree check's own
+# extension (panel round 1, F5): `_extract_tree_names` also extracts a bare
+# camelCase identifier, so a tree-check violation for an unbackticked token
+# must not arrive under a rule under which it was never declared.
+TESTS_PARSE_RULE = (
+    "a **Tests:** field is parsed, not read: a `Case <N>` label is checked "
+    "by that label alone and backticks beside it parse as nothing, any "
+    "other backticked token is a declared test name, the tree check also "
+    "treats a bare camelCase identifier as one, and a task adding no "
+    "tests opens the field with `none`; coverage prose belongs outside the "
+    "field"
+)
+
+
 def check_tests(task: TaskFields, diff_text: str) -> List[str]:
     violations = []
     for spec in task.tests:
         if not spec.pattern.search(diff_text):
             violations.append(
                 f"task {task.id}: declared test {spec.label} not found in "
-                "the diff"
+                f"the diff — {TESTS_PARSE_RULE}"
             )
     return violations
 
@@ -989,7 +1009,7 @@ def check_tests_in_tree(
                 continue
             violations.append(
                 f"task {task.id}: declared test {name} not found in the tree "
-                f"at {commit_sha}"
+                f"at {commit_sha} — {TESTS_PARSE_RULE}"
             )
     return violations
 
