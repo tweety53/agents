@@ -454,15 +454,21 @@ type Watcher struct {
 	dispatchMetaCycles map[string]int
 	gaveUpDispatchMeta map[string]bool
 
-	// dispatchBegins carries, per transcript path, the most recent
-	// `flow record dispatch begin` command KAN-322's pairing has seen
-	// whose launch has not yet been read. A batch boundary may split the
-	// pair -- the begin command commits in one harvest batch, the launch
-	// result lands in the next -- so the last begin survives into the
-	// next RunOnce, exactly one per path: a later begin always supersedes
-	// an earlier one, and a launch always pairs with the begin nearest
-	// before it.
-	dispatchBegins map[string]dispatchBeginEvent
+	// pendingBegins and pendingLaunches carry, per transcript path, the
+	// begins and launches KAN-322's pairing has seen but not yet paired.
+	// A batch boundary may split the pair -- the launch result and the
+	// begin command that names its row can commit in different harvest
+	// batches, in either order (a panel round launches its slots in one
+	// message and records their begins in one Bash call afterwards,
+	// review-panel.md; a single dispatch records its begin immediately
+	// before the launch, implement.md) -- so both sides survive into the
+	// next RunOnce until paired or evicted. Both lists are bounded:
+	// maxPendingStampEvents per path, oldest dropped, so a run of
+	// begin-less launches or never-launched begins cannot grow the state
+	// without end. A dropped event simply never stamps -- the ordinary
+	// silence, never a wrong pairing.
+	pendingBegins   map[string][]dispatchBeginEvent
+	pendingLaunches map[string][]AgentLaunch
 }
 
 // NewWatcher builds a Watcher over sources (each root scanned recursively
@@ -491,7 +497,8 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		pendingDispatchMeta: make(map[string]map[int64]string),
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
-		dispatchBegins:      make(map[string]dispatchBeginEvent),
+		pendingBegins:       make(map[string][]dispatchBeginEvent),
+		pendingLaunches:     make(map[string][]AgentLaunch),
 	}
 }
 
@@ -1005,13 +1012,36 @@ func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path
 // dispatchBeginEvent is the pairing-relevant slice of a
 // `flow record dispatch begin` command found in a transcript: the row the
 // launch's agent id will be stamped onto is named by (sessionToken, key),
-// the same two literals the begin call itself carries, so no session-id
-// resolution and no window inference stands between the launch and the
-// row it belongs to.
+// the same two literals the begin call itself carries, and StartedAt is
+// the begin's own -started-at -- the instant its dispatcher recorded as
+// the launch's start, which is what pairs it with a launch across either
+// ordering without any window inference standing in between.
 type dispatchBeginEvent struct {
 	SessionToken string
 	Key          string
+	StartedAt    time.Time
 }
+
+// maxStampTimeTolerance is how far a begin's own -started-at may sit from
+// a launch's timestamp and still pair with it. Both instants describe the
+// same launch: the harness writes the tool result when the launch lands,
+// the dispatcher types -started-at as that same launch's start. A panel
+// round records its begins right after the launches return -- seconds; a
+// single dispatch records its begin immediately before -- again seconds.
+// What the tolerance exists to EXCLUDE is a stale begin: one whose launch
+// never happened (a denied dispatch) or whose launch paired already,
+// sitting minutes away from the launch now being paired. Rounds run for
+// minutes, so two minutes separates "this launch" from "some earlier
+// round's begin" with room on both sides.
+const maxStampTimeTolerance = 2 * time.Minute
+
+// maxPendingStampEvents bounds both pending lists, per path. A dispatch
+// round is a handful of events; eight absorbs any real round plus the
+// cross-batch straddle the pending lists exist for, while a transcript
+// that somehow accumulates begin-less launches (a caller recording begins
+// the daemon cannot see, or never recording them at all) cannot grow the
+// Watcher's state without end.
+const maxPendingStampEvents = 8
 
 // beginCommandShape is what a command must contain to pair with a launch:
 // the begin verb itself plus the three flags that identify its row. A
@@ -1027,30 +1057,60 @@ var beginCommandShape = []string{
 	"-started-at",
 }
 
-// dispatchBeginFromCommand judges one Bash command's text as a possible
-// dispatch begin and extracts its row identity. Every shape literal must
+// dispatchBeginsFromCommand judges one Bash command's text as zero or
+// more dispatch begins and extracts each one's row identity and start
+// instant. Line continuations and `&&` joins are folded first, because
+// the skills' templates wrap one invocation across several physical lines
+// and a panel round records every slot's begin in one Bash call; what
+// remains is one candidate invocation per line. Every shape literal must
 // be present, and each flag must carry a value -- the CLI itself refuses
-// a begin without them, so a command missing one is a mention or a
+// a begin without them, so a fragment missing one is a mention or a
 // mistype, never a row opener.
-func dispatchBeginFromCommand(command string) (dispatchBeginEvent, bool) {
+func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
+	joined := strings.ReplaceAll(command, "\\\n", " ")
+	fragments := strings.Split(joined, "\n")
+	var out []dispatchBeginEvent
+	for _, fragment := range fragments {
+		for _, piece := range strings.Split(fragment, "&&") {
+			ev, ok := dispatchBeginFromInvocation(piece)
+			if ok {
+				out = append(out, ev)
+			}
+		}
+	}
+	return out
+}
+
+// dispatchBeginFromCommand judges one invocation's text as a possible
+// dispatch begin. Renamed from its singular predecessor's role: it sees
+// one candidate invocation, never the whole Bash command.
+func dispatchBeginFromInvocation(invocation string) (dispatchBeginEvent, bool) {
 	for _, part := range beginCommandShape {
-		if !strings.Contains(command, part) {
+		if !strings.Contains(invocation, part) {
 			return dispatchBeginEvent{}, false
 		}
 	}
-	token, ok := commandFlagValue(command, "-session-token")
+	token, ok := commandFlagValue(invocation, "-session-token")
 	if !ok {
 		return dispatchBeginEvent{}, false
 	}
-	key, ok := commandFlagValue(command, "-key")
+	key, ok := commandFlagValue(invocation, "-key")
 	if !ok {
 		return dispatchBeginEvent{}, false
 	}
-	return dispatchBeginEvent{SessionToken: token, Key: key}, true
+	started, ok := commandFlagValue(invocation, "-started-at")
+	if !ok {
+		return dispatchBeginEvent{}, false
+	}
+	ts, err := time.Parse(time.RFC3339, started)
+	if err != nil {
+		return dispatchBeginEvent{}, false
+	}
+	return dispatchBeginEvent{SessionToken: token, Key: key, StartedAt: ts}, true
 }
 
-// commandFlagValue reads one flag's value out of a command's text: the
-// next whitespace-delimited token after the flag, with one layer of
+// commandFlagValue reads one flag's value out of an invocation's text:
+// the next whitespace-delimited token after the flag, with one layer of
 // surrounding single or double quotes stripped. The values a dispatcher
 // types are validated literals (never a shell substitution), so this is
 // deliberately not a shell parser -- a shape it cannot read yields no
@@ -1077,21 +1137,29 @@ func commandFlagValue(command, flag string) (string, bool) {
 }
 
 // stampDispatchAgents pairs KAN-322's agent launches with the dispatch
-// begin commands that precede them -- in this batch by line position, or
-// across a batch boundary through the one begin per path carried in
-// w.dispatchBegins -- and stamps each pair's agent id onto its row via
-// deps' DispatchAgentStamper. The stamp fills only an empty agent_id
-// (store.StampDispatchAgent's own contract), so a hand-typed id always
-// wins and a replayed or duplicated stamp cannot corrupt a row that
-// already carries one.
+// begin commands that name their rows, and stamps each pair's agent id
+// onto that row via deps' DispatchAgentStamper.
 //
-// Pairing is by line position alone: the launch's agent id belongs to the
-// begin nearest before it, which is the ordering the dispatch protocol
-// itself produces (record begin, then dispatch) and the reason a denied
-// or failed launch between two begins never mis-pairs its siblings. A
-// launch with no begin before it -- a dispatch recorded by a caller whose
-// transcript the daemon does not read, or a run predating the begin
-// command's flags -- stamps nothing: silence, not a guess.
+// PAIRING IS BY TIME, NOT BY LINE POSITION, and the reason is the two
+// orderings the dispatch protocol itself produces. A single dispatch
+// records its begin immediately before the launch (implement.md), so the
+// begin sits at a smaller line; a panel round launches its slots in one
+// message and records their begins in one Bash call afterwards
+// (review-panel.md), so the begins sit at larger lines -- and with more
+// than one launch in the round, line order would make the first launch
+// steal whichever begin precedes it, attributing one dispatch's identity
+// to another row. What both orderings hold constant is the TIME: each
+// begin's own -started-at names the launch it belongs to, and a launch's
+// tool result carries its own timestamp. A begin pairs with the unpaired
+// launch nearest in time, within maxStampTimeTolerance; a begin with no
+// launch in reach, or a launch with no begin, stays pending for the next
+// batch -- the pair may simply straddle a batch boundary -- and is
+// eventually evicted by the bound. Nothing is ever stamped by inference
+// from line order or row order alone.
+//
+// The stamp fills only an empty agent_id (store.StampDispatchAgent's own
+// contract), so a hand-typed id always wins and a replayed or duplicated
+// stamp cannot corrupt a row that already carries one.
 //
 // The failure posture is attributeDispatches' own: log, step over, never
 // return. A stamp that fails loses that one row's automatic id -- the
@@ -1102,47 +1170,64 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 		return
 	}
 
-	// This batch's begins, in line order; the carried begin, if any, is
-	// older than every line here by construction (its batch committed
-	// before this one was read).
-	begins := make([]struct {
-		line  int
-		event dispatchBeginEvent
-	}, 0, len(commands))
+	var begins []dispatchBeginEvent
 	for _, c := range commands {
-		if ev, ok := dispatchBeginFromCommand(c.Command); ok {
-			begins = append(begins, struct {
-				line  int
-				event dispatchBeginEvent
-			}{c.Line, ev})
+		begins = append(begins, dispatchBeginsFromCommand(c.Command)...)
+	}
+	begins = append(w.pendingBegins[path], begins...)
+	launches = append(w.pendingLaunches[path], launches...)
+
+	// Candidates pair nearest-first: every (begin, launch) pair within
+	// tolerance is considered, closest delta first, and a pair is taken
+	// only while both sides are unclaimed. Nearest-first is what makes a
+	// stale begin lose: a denied dispatch's begin sits seconds from the
+	// launch that eventually follows, but the launch's own begin sits
+	// closer, and the closer pair is decided first. Deterministic: equal
+	// deltas fall back to (begin start, begin key, launch line), so the
+	// same batch always pairs the same way.
+	type pairing struct {
+		beginIdx, launchIdx int
+		delta               time.Duration
+	}
+	var candidates []pairing
+	for bi, begin := range begins {
+		for li, launch := range launches {
+			delta := launch.Timestamp.Sub(begin.StartedAt)
+			if delta < 0 {
+				delta = -delta
+			}
+			if delta <= maxStampTimeTolerance {
+				candidates = append(candidates, pairing{bi, li, delta})
+			}
 		}
 	}
+	sort.Slice(candidates, func(i, j int) bool {
+		a, b := candidates[i], candidates[j]
+		if a.delta != b.delta {
+			return a.delta < b.delta
+		}
+		if !begins[a.beginIdx].StartedAt.Equal(begins[b.beginIdx].StartedAt) {
+			return begins[a.beginIdx].StartedAt.Before(begins[b.beginIdx].StartedAt)
+		}
+		if begins[a.beginIdx].Key != begins[b.beginIdx].Key {
+			return begins[a.beginIdx].Key < begins[b.beginIdx].Key
+		}
+		return a.launchIdx < b.launchIdx
+	})
 
-	carried, hasCarried := w.dispatchBegins[path]
-	for _, launch := range launches {
-		var best dispatchBeginEvent
-		found := hasCarried
-		if found {
-			best = carried
-		}
-		for _, b := range begins {
-			if b.line >= launch.Line {
-				continue
-			}
-			if !found {
-				best, found = b.event, true
-				continue
-			}
-			// begins is in file order, so the last match wins.
-			best = b.event
-		}
-		if !found {
+	takenBegin := make([]bool, len(begins))
+	claimed := make([]bool, len(launches))
+	for _, c := range candidates {
+		if takenBegin[c.beginIdx] || claimed[c.launchIdx] {
 			continue
 		}
-		stamped, err := w.deps.StampDispatchAgent(ctx, best.SessionToken, best.Key, launch.AgentID)
+		takenBegin[c.beginIdx] = true
+		claimed[c.launchIdx] = true
+		begin := begins[c.beginIdx]
+		stamped, err := w.deps.StampDispatchAgent(ctx, begin.SessionToken, begin.Key, launches[c.launchIdx].AgentID)
 		if err != nil {
 			w.warn("harvest: stamp dispatch agent failed, the row keeps no id from this launch",
-				"path", path, "key", best.Key, "agent_id", launch.AgentID, "error", err)
+				"path", path, "key", begin.Key, "agent_id", launches[c.launchIdx].AgentID, "error", err)
 			continue
 		}
 		if !stamped {
@@ -1154,13 +1239,60 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 		}
 	}
 
-	// Carry the batch's last begin forward even when no launch paired with
-	// it: its launch may still be bytes this path has not written yet. A
-	// batch with no begins leaves the carried one untouched -- exactly the
-	// cross-batch case this field exists for.
-	if len(begins) > 0 {
-		w.dispatchBegins[path] = begins[len(begins)-1].event
+	// Whatever remains unpaired stays pending for the next batch, bounded:
+	// oldest dropped, so neither list can grow without end. A dropped
+	// event never stamps -- the ordinary silence, never a wrong pairing.
+	w.pendingBegins[path] = appendPending(w.pendingBegins[path], dropPaired(begins, launches))
+	w.pendingLaunches[path] = appendPending(w.pendingLaunches[path], unclaimed(launches, claimed))
+}
+
+// dropPaired removes the begins this pass consumed -- after the pass, a
+// begin still unpaired is out of tolerance of every unpaired launch (the
+// pass would have claimed it otherwise), so the only begins worth keeping
+// are those no launch at all is within tolerance of: their launches may
+// still arrive in a later batch. A begin in reach only of launches other
+// begins already took is dropped -- re-pairing it next cycle would stamp
+// the same agent id onto a second row.
+func dropPaired(begins []dispatchBeginEvent, launches []AgentLaunch) []dispatchBeginEvent {
+	var out []dispatchBeginEvent
+	for _, begin := range begins {
+		inReach := false
+		for _, launch := range launches {
+			delta := launch.Timestamp.Sub(begin.StartedAt)
+			if delta < 0 {
+				delta = -delta
+			}
+			if delta <= maxStampTimeTolerance {
+				inReach = true
+				break
+			}
+		}
+		if !inReach {
+			out = append(out, begin)
+		}
 	}
+	return out
+}
+
+// unclaimed returns the launches no begin took this pass.
+func unclaimed(launches []AgentLaunch, claimed []bool) []AgentLaunch {
+	var out []AgentLaunch
+	for i, launch := range launches {
+		if !claimed[i] {
+			out = append(out, launch)
+		}
+	}
+	return out
+}
+
+// appendPending appends new pending events behind the old and enforces
+// the bound, dropping from the front.
+func appendPending[T any](pending, added []T) []T {
+	pending = append(pending, added...)
+	if len(pending) > maxPendingStampEvents {
+		pending = pending[len(pending)-maxPendingStampEvents:]
+	}
+	return pending
 }
 
 // Still no sidecar (hasMeta false), a failure encoding or committing the

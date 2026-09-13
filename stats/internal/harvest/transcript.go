@@ -395,6 +395,7 @@ type CommandRecord struct {
 type AgentLaunch struct {
 	SessionID string
 	AgentID   string
+	Timestamp time.Time
 	Line      int
 }
 
@@ -500,11 +501,15 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 		}
 		if raw.Type == "user" && raw.ToolUseResult != nil &&
 			raw.ToolUseResult.AgentID != "" && raw.ToolUseResult.Status == launchStatus {
-			out = append(out, AgentLaunch{
-				SessionID: raw.SessionID,
-				AgentID:   raw.ToolUseResult.AgentID,
-				Line:      lineIndex,
-			})
+			ts, err := time.Parse(time.RFC3339Nano, raw.Timestamp)
+			if err == nil {
+				out = append(out, AgentLaunch{
+					SessionID: raw.SessionID,
+					AgentID:   raw.ToolUseResult.AgentID,
+					Timestamp: ts,
+					Line:      lineIndex,
+				})
+			}
 		}
 		lineIndex++
 	}

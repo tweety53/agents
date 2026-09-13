@@ -3224,9 +3224,12 @@ func TestWatcherDeniedLaunchKeepsFollowingPairingCorrect(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	denied := `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"PreToolUse hook denied the Agent call"}]}}`
+	_ = denied
 	begin2 := strings.Replace(stampBeginLine, "task-1-implementer", "task-2-reviewer", 1)
 	begin2 = strings.Replace(begin2, "mf-kan322", "mf-kan322-b", 1)
-	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, denied, begin2, stampLaunchLine), 0o644); err != nil {
+	begin2 = strings.Replace(begin2, "-started-at 2026-01-01T00:00:00Z", "-started-at 2026-01-01T00:00:02Z", 1)
+	launch2 := strings.Replace(stampLaunchLine, "00:00:01Z", "00:00:03Z", 1)
+	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, denied, begin2, launch2), 0o644); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
 
@@ -3242,5 +3245,85 @@ func TestWatcherDeniedLaunchKeepsFollowingPairingCorrect(t *testing.T) {
 	want := stampCall{"mf-kan322-b", "task-2-reviewer", "a68cee7239419a7e7"}
 	if deps.stamps[0] != want {
 		t.Errorf("stamp = %+v, want %+v", deps.stamps[0], want)
+	}
+}
+
+// TestWatcherPairsPanelRoundBeginsRecordedAfterTheLaunches is the review
+// panel's own ordering: a round's dispatches all launch in one message --
+// two launch results, seconds apart -- and their begins are recorded in
+// one Bash call afterwards (review-panel.md), each begin's -started-at
+// naming its own launch. Line order would give the first launch whatever
+// begin precedes it; time-nearest pairing gives each launch the begin
+// that names it, which is the whole point of stamping panel slots.
+func TestWatcherPairsPanelRoundBeginsRecordedAfterTheLaunches(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	launch2 := strings.Replace(stampLaunchLine, "a68cee7239419a7e7", "a8884ead3c626d980", 1)
+	launch2 = strings.Replace(launch2, "00:00:01Z", "00:00:02Z", 1)
+	begin2 := strings.Replace(stampBeginLine, "task-1-implementer", "task-2-reviewer", 1)
+	begin2 = strings.Replace(begin2, "mf-kan322", "mf-kan322-b", 1)
+	begin2 = strings.Replace(begin2, "-started-at 2026-01-01T00:00:00Z", "-started-at 2026-01-01T00:00:02Z", 1)
+	// One Bash call, both begins: line-continuation wrapped, joined with
+	// && -- the shape review-panel.md's own templates produce.
+	combined := "flow record dispatch begin -change kan-322 -role reviewer -key task-1-implementer \\\n" +
+		"  -session-token mf-kan322 -started-at 2026-01-01T00:00:00Z && \\\n" +
+		"flow record dispatch begin -change kan-322 -role reviewer -key task-2-reviewer \\\n" +
+		"  -session-token mf-kan322-b -started-at 2026-01-01T00:00:02Z"
+	if err := os.WriteFile(path, stampFixtureLines(stampLaunchLine, launch2), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (launch batch): %v", err)
+	}
+	if len(deps.stamps) != 0 {
+		t.Fatalf("got %d stamps before the begins landed, want 0", len(deps.stamps))
+	}
+
+	commandJSON, err := json.Marshal(combined)
+	if err != nil {
+		t.Fatalf("marshal command: %v", err)
+	}
+	appendLine(t, path, `{"type":"assistant","timestamp":"2026-01-01T00:00:03Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(commandJSON)+`}}]}}`)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (begin batch): %v", err)
+	}
+
+	if len(deps.stamps) != 2 {
+		t.Fatalf("got %d stamps, want 2: %+v", len(deps.stamps), deps.stamps)
+	}
+	// Nearest-first claims the zero-delta pair before the one-second
+	// pair, so the call order is pairing-order, not slot order: compare
+	// as a set.
+	want := map[stampCall]bool{
+		{"mf-kan322", "task-1-implementer", "a68cee7239419a7e7"}: true,
+		{"mf-kan322-b", "task-2-reviewer", "a8884ead3c626d980"}:  true,
+	}
+	for _, got := range deps.stamps {
+		if !want[got] {
+			t.Errorf("unexpected stamp %+v", got)
+		}
+		delete(want, got)
+	}
+	for wnt := range want {
+		t.Errorf("missing stamp %+v", wnt)
+	}
+}
+
+// appendLine appends one newline-terminated transcript line to an
+// existing fixture file, so a test can grow it between RunOnce calls.
+func appendLine(t *testing.T, path, line string) {
+	t.Helper()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("open for append: %v", err)
+	}
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close: %v", err)
 	}
 }
