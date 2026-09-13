@@ -319,6 +319,18 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > predecessors or `none` — the declarations alone run the follow-on after the feature task — and
 > the last bundle's FULL SUITE run still covers the pair.
 
+> **Write a live-verification task when the change touches a running service or persistent
+> state.** When the change under plan touches a long-running service, a daemon, a store, a
+> scheduler or anything else holding runtime state, the plan carries a final task that exercises
+> the real thing — the running system against its real state, not its fakes — and records the
+> before/after figures it observed. That task also states what the change **not** working would
+> look like, so a null result is recognisable as failure rather than read as success: a task that
+> only asserts the command exited 0 cannot tell a repaired system from an untouched one. When the
+> planner judges the change has no runtime to verify against, it writes one line in the plan
+> saying so — the justification is required, the task is not. This is deliberately not an
+> integration-test stage on every change: a step that usually resolves to "nothing to do" trains
+> everyone to skip it.
+
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block and every numeric claim per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
