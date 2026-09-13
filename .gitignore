@@ -9,6 +9,7 @@
 
 # Python bytecode from the guard wrappers (check-plan-provenance.py, check-task-*.py)
 __pycache__/
+*.pyc
 
 # stats/ build output — the Vite SPA build and the compiled daemon/CLI binaries
 stats/bin/
