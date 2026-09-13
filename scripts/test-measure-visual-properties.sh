@@ -106,5 +106,34 @@ else
   fail "case 4: two-image runs comparison failed"
 fi
 
+# Case 5: `content.colour` is the glyph's tint, not the box's fill (KAN-437:
+# two icons shipped grey where the mockup drew them accent blue, matching on
+# every other property). Same box, same fill, a 12px disc in the middle —
+# accent blue in one fixture, grey in the other.
+make_icon() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+from PIL import Image, ImageDraw
+path, tint = sys.argv[1], tuple(int(sys.argv[2][i:i + 2], 16) for i in (0, 2, 4))
+im = Image.new("RGB", (80, 80), (0xEA, 0xE9, 0xE9))
+d = ImageDraw.Draw(im)
+d.rectangle((16, 16, 63, 63), fill=(0xFF, 0xFF, 0xFF))
+d.ellipse((34, 34, 45, 45), fill=tint)
+im.save(path)
+PY
+}
+make_icon "$DIR/icon-blue.png" 1e6fe0
+make_icon "$DIR/icon-grey.png" 9e9e9e
+got="$("$GUARD" "$DIR/icon-blue.png" "$DIR/icon-grey.png" --scale 1 --props content | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+print(d["a"]["content"]["colour"], d["b"]["content"]["colour"], round(d["delta"]["content.colour"]["distance"]))
+')"
+if [ "$got" = "#1e6fe0 #9e9e9e 152" ]; then
+  pass "case 5: content.colour reads the glyph tint and the delta carries the distance between two tints"
+else
+  fail "case 5: expected '#1e6fe0 #9e9e9e 152', got '$got'"
+fi
+
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]

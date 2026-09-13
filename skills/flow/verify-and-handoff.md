@@ -296,7 +296,16 @@ and 13 below as written, committing and pushing nothing.
    frame and call the result a fidelity check. **`capture` creates this change's baseline**: writing
    a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
-   reason blocks (see **Blocking** below). Then run `check-spec-reach.sh <worktree>` — the spec
+   reason blocks (see **Blocking** below). **Seed the spec with data the frame does not draw.** A
+   mockup is drawn on a happy case, and a spec whose fixture reproduces it verifies only that case:
+   the fixture holds, for every element the view derives from data, at least one input the frame's
+   own numbers would never produce — a threshold, goal or marker value outside the plotted range;
+   a dataset whose derived numbers (axis ticks, averages, deltas, unit conversions) do not come out
+   round; a list longer than the viewport; and the empty or first-time entry path beside the
+   populated one (KAN-437: a goal line drawn from a value outside the axis range rendered over the
+   list below the chart, and axis labels read `82.333333333333 kg`; the spec's fixture kept the
+   goal in range and its ticks round, so 22 frames passed and an operator found both by hand).
+   Then run `check-spec-reach.sh <worktree>` — the spec
    `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
    exit 1 (an orphan, named) or 2 (cannot answer) blocks.
 9. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
@@ -330,8 +339,9 @@ and 13 below as written, committing and pushing nothing.
 
    **A full-page match — a clean composite read, a structural match — is necessary, never
    sufficient: verify at the control level, measure rather than eyeball, and exercise the states
-   a resting frame does not show.** Full-page comparison catches wrong text, wrong regions, wrong
-   overall layout; it does not catch a border style, an icon's glyph, or a colour step, all of
+   a resting frame does not show.** Full-page comparison catches wrong regions and wrong overall
+   layout, and wrong text only where the capture's data is the frame's own; it does not catch a
+   border style, an icon's glyph, or a colour step, all of
    which are invisible at full-page scale (KAN-30 fix round 6: a field's
    underline-only focus border, drawn against a mockup showing a full outline, read as a match at
    composite scale and was found only once the two were cropped and zoomed side by side). Before
@@ -395,6 +405,37 @@ and 13 below as written, committing and pushing nothing.
       remaining sequence onto the wrong screen the moment real content shifts it — an extra
       suggestion card, a longer note, a wrapped title — and the resulting screenshot can still
       look plausible enough to accept at a glance.
+   5. **Every text run in the capture, transcribed and judged as display text.** The difference
+      panel is white wherever the capture's data differs from the frame's, and "the data differs"
+      is the explanation that absorbs a wrong number: a white label region is not accounted for
+      until its text has been read. Transcribe every number, unit and label the capture shows and
+      state, per run, that it is a display value at the precision the frame shows — a raw float,
+      a `NaN`, `null`, `undefined`, an empty string where the frame draws a value, a placeholder
+      is a defect whatever the frame's own numbers are (KAN-437: `82.333333333333 kg` on an axis
+      the frame drew as `82.3 kg`, read as a data difference).
+   6. **The elements of capture and frame, listed top to bottom, and every element inside its
+      own container.** Write both lists — heading, chart, chips, list, link — and compare their
+      order: a control present in both but in a different position relative to its siblings is a
+      departure the per-control crop never sees, since each crop matches its own control wherever
+      it sits (KAN-437: preset chips rendered above the chart the frame drew them below). Then
+      confirm no element's ink crosses its container's bounds into a sibling — a plotted line, a
+      marker, a label — driving the out-of-range value step 8 seeded and stating whether the app
+      clamps it or hides it (KAN-437: a goal line drawn at a Y past the chart's clip, over the
+      rows beneath).
+   7. **Every scrollable region scrolled to its end, and the frame's last element reached by
+      name.** A frame taller than the capture viewport is itself the assertion that the screen
+      scrolls: scroll to the frame's bottom element, capture it, and name it in the report. A
+      screen whose content extends past the viewport with nothing to scroll it is a defect, and
+      the fixed-viewport capture cannot show it — it proves the visible viewport and nothing
+      beyond (KAN-437: a tab with no scroll container at all, its "All N weigh-ins" link
+      structurally unreachable, every capture of its top green).
+   8. **Every derived value re-derived after its input changes.** For each value the view
+      computes from an input the operator can edit — a delta, a total, a conversion, a preview —
+      type a new input, capture before and after, recompute the expected value by hand, and
+      state both. A value that does not follow its input, or that is absent on one entry path the
+      populated path shows (first-time versus returning), is a defect no single capture can
+      show (KAN-437: a dialog's derived field stayed stale as the operator typed, and was missing
+      entirely on the first-entry path the spec never took).
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -414,7 +455,12 @@ and 13 below as written, committing and pushing nothing.
    lists is an edge the region can sit on, and a miscrop is the glance again — and
    read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
    (KAN-30 fix round 10; the script's own header is canonical for its options, properties, output
-   and exit codes). **Both halves are mandatory and neither substitutes for the other.** The
+   and exit codes). Two readings the eye reliably gets wrong: an icon's tint is `content.colour`,
+   never `fill` — the fill is the box behind the glyph, and a grey glyph on the right fill matches
+   on every other property (KAN-437: two icons grey where the frame drew accent blue); and a pill
+   is a `radius` equal to half the box height, while a rounded rectangle is any smaller number —
+   read the number, since both look "rounded" at 1x (KAN-437: preset chips shipped as rounded
+   rectangles against a pill frame). **Both halves are mandatory and neither substitutes for the other.** The
    script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
    off a crop; and its output is then eyeballed against the two crops before any number is
    reported: state, per control, that the `box` the script found is that control (its edges land
@@ -561,6 +607,7 @@ and 13 below as written, committing and pushing nothing.
 - <view>: <absolute PNG path> — <what was seen, including any defect>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
+- <frame id> sweeps: text | order | reach | derived — <each done, or why not>
 - visual-verification.md: written | not written — <reason>
 ```
 

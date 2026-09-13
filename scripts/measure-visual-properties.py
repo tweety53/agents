@@ -57,7 +57,12 @@ Properties (pixels of the region's own image; `null` where not found):
            black shadow. A flat design is width 0 on every side.
   content  bounding box of non-fill pixels inside the border and outside the
            corner curves (an icon, a glyph run, a label), its size, its size
-           as a ratio of the box, and the padding from each box edge to it.
+           as a ratio of the box, the padding from each box edge to it, and
+           `colour` — the modal colour of those pixels, the icon's or text's
+           tint. `fill` is the box behind the glyph, never the glyph: a grey
+           icon where the mockup draws an accent one matches on box, radius,
+           fill and content size alike, and only this colour's `delta`
+           distance sees it (KAN-437).
   gap      per side: background pixels between the box edge (past any
            shadow band) and the next non-background pixel on the same scan
            line, out to the image's edge — the spacing to the nearest
@@ -329,12 +334,17 @@ class Region:
                 xs.append(x)
                 ys.append(y)
         if not xs:
-            return {"width": None, "height": None, "ratio": None, "padding": None}
+            return {"width": None, "height": None, "ratio": None, "padding": None, "colour": None}
         cl, cr, ct, cb = min(xs), max(xs), min(ys), max(ys)
         w, h = cr - cl + 1, cb - ct + 1
+        # The tint: the modal colour of the content pixels themselves. `fill`
+        # is the box behind an icon, never the icon — a grey glyph on the
+        # right fill reads as a match on every other property (KAN-437).
+        tint = Counter(self.at(x, y) for x, y in zip(xs, ys)).most_common(1)[0][0]
         return {
             "width": w,
             "height": h,
+            "colour": hexcolour(tint),
             "ratio": {"width": round(w / b["width"], 3), "height": round(h / b["height"], 3)},
             "padding": {"left": cl - b["left"], "top": ct - b["top"], "right": b["right"] - cr, "bottom": b["bottom"] - cb},
         }
