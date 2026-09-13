@@ -343,11 +343,15 @@ with `**Build:**` per **The build-green tag**
 
 - `**Files:**` — the paths this task's commit will touch, with an optional
   `**Allowed-collateral:**` glob.
-- `**Tests:**` — the names of the tests this task adds. A task adding none writes a field opening
-  with the literal `none`, and `check-task-commit-fields.sh` then never reads that field's
-  backticks as test names it must find in the commit's diff. **Bold `**none**` opens such a field;
-  italic `_none_` does not** — the recognition ends on a word boundary, and `_` is a word
-  character, so the trailing underscore swallows it.
+- `**Tests:**` — the names of the tests this task adds. **The field is parsed, not read:** a
+  `Case <N>` label is checked by that label alone and backticks beside it parse as nothing;
+  otherwise every backticked token becomes a declared test name the commit's diff and the tree
+  are searched for; any other prose in it is invisible to the check — write what covers the task
+  outside the field, never inside it. A task adding none writes a field opening with the literal
+  `none`, and `check-task-commit-fields.sh` then never reads that field's backticks as test names
+  it must find in the commit's diff. **Bold `**none**` opens such a field; italic `_none_` does
+  not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
+  underscore swallows it.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
 - `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, counted statically from
   test declarations (`@Test` and its language equivalents), never from a test run, and each

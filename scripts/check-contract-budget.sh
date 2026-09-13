@@ -138,7 +138,7 @@ skills/flow/SKILL.md 17812
 skills/flow/SKILL-rationale.md 9490
 skills/flow/archive.md 23452
 skills/flow/brainstorm.md 12712
-skills/flow/brainstorm-planner.md 37193
+skills/flow/brainstorm-planner.md 46942
 skills/flow/bugbot-reviewer-prompt.md 7374
 skills/flow/engineering-principles.md 10732
 skills/flow/experimental/failure-modes.md 8931
