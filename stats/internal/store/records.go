@@ -917,6 +917,47 @@ func (s *Store) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]
 	return out, nil
 }
 
+// StampDispatchAgent fills an empty agent_id on the dispatch row the
+// (sessionToken, key) pair names -- KAN-322's automatic capture of the id
+// the harness reports in a launch's own tool result. The caller is the
+// harvester, which reads that tool result out of the parent transcript
+// the dispatch itself was recorded from, so the row is identified by the
+// two literals its begin command carried and by nothing else: no
+// session-id resolution, no window inference, no change name.
+//
+// IT FILLS ONLY AN EMPTY COLUMN. A begin that carried -agent-id, or an
+// end that supplied one, recorded what the harness reported by hand --
+// recorded intent -- and this call never overwrites it: the WHERE clause
+// requires COALESCE(agent_id, '') = '', so a row already named is
+// untouchable here and the method reports false rather than restamping.
+// That is also what makes the stamp idempotent under the harvester's own
+// failure modes: a replayed batch, a doubled launch line, or a second
+// daemon racing the first all land on an already-filled row and change
+// nothing.
+//
+// The agent id is stored verbatim -- never normalised, never validated
+// against a shape this package does not own. A launch naming a row that
+// does not exist (a begin still sitting in a journal, a mention-shaped
+// command the pairing should have refused, a token this store never
+// heard) affects no row and reports false: silence, not an error, because
+// there is nothing to retry and nothing the caller could do with one.
+//
+// The bool is rows-affected, and it exists for the watcher's log: a true
+// return is the ordinary case, a false one the three ordinary cases above
+// -- nothing stamps, and no warning is owed either way.
+func (s *Store) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE dispatches d
+		SET agent_id = $3
+		WHERE d.session_token = $1 AND d.dispatch_key = $2
+		  AND COALESCE(d.agent_id, '') = ''
+	`, sessionToken, key, agentID)
+	if err != nil {
+		return false, fmt.Errorf("store: stamp dispatch agent for key %q: %w", key, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // RunRecord returns one change's whole derived record: its dispatches in
 // seq order and its findings in the order the numbers their refs spell,
 // which is the order every rendering of the record reads them in.

@@ -2891,3 +2891,110 @@ func TestUpsertFindingRestateClearsCategory(t *testing.T) {
 			rec.Findings[0].Status, rec.Findings[0].Category)
 	}
 }
+
+// seedStampedDispatch opens one dispatch row under (token, key) -- the
+// identity KAN-322's automatic stamp targets -- and returns it.
+func seedStampedDispatch(t *testing.T, st *store.Store, ctx context.Context, projectKey, token, key string) {
+	t.Helper()
+	in := baseDispatch("implementer", "opus")
+	in.SessionToken = token
+	in.Key = key
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+}
+
+// TestStampDispatchAgentFillsEmptyID is KAN-322's positive case: the
+// daemon read a launch tool result naming an agent id, and the row its
+// begin command opened under (session token, key) had recorded none -- so
+// the stamp fills it. DispatchWindowsForAgent then resolves that row by
+// its agent id, which is what makes overlapping dispatches attributable
+// without anyone typing the id by hand.
+func TestStampDispatchAgentFillsEmptyID(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-stamp-agent-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const token = "mf-kan322-stamp"
+	seedStampedDispatch(t, st, ctx, projectKey, token, "task-1-implementer")
+
+	stamped, err := st.StampDispatchAgent(ctx, token, "task-1-implementer", "a68cee7239419a7e7")
+	if err != nil {
+		t.Fatalf("StampDispatchAgent: %v", err)
+	}
+	if !stamped {
+		t.Fatalf("StampDispatchAgent reported false, want a row filled")
+	}
+
+	var agentID *string
+	if err := pool.QueryRow(ctx,
+		"SELECT agent_id FROM dispatches d WHERE d.session_token = $1 AND d.dispatch_key = $2",
+		token, "task-1-implementer",
+	).Scan(&agentID); err != nil {
+		t.Fatalf("read agent_id back: %v", err)
+	}
+	if agentID == nil || *agentID != "a68cee7239419a7e7" {
+		t.Errorf("agent_id = %v, want a68cee7239419a7e7", agentID)
+	}
+}
+
+// TestStampDispatchAgentNeverOverwrites pins the recorded-intent rule: a
+// begin that carried an explicit -agent-id (or an end that supplied one)
+// stated what the harness reported, by hand, and the automatic stamp must
+// never replace it -- a launch seen later in the transcript is evidence
+// about an empty column, never a correction to a filled one.
+func TestStampDispatchAgentNeverOverwrites(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-stamp-keep-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const token = "mf-kan322-keep"
+	seedStampedDispatch(t, st, ctx, projectKey, token, "task-2-reviewer")
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: token,
+		Key:          "task-2-reviewer",
+		AgentID:      "ahandtyped",
+		EndedAt:      time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+
+	stamped, err := st.StampDispatchAgent(ctx, token, "task-2-reviewer", "a68cee7239419a7e7")
+	if err != nil {
+		t.Fatalf("StampDispatchAgent: %v", err)
+	}
+	if stamped {
+		t.Errorf("StampDispatchAgent reported true over a filled row")
+	}
+
+	var agentID *string
+	if err := pool.QueryRow(ctx,
+		"SELECT agent_id FROM dispatches d WHERE d.session_token = $1 AND d.dispatch_key = $2",
+		token, "task-2-reviewer",
+	).Scan(&agentID); err != nil {
+		t.Fatalf("read agent_id back: %v", err)
+	}
+	if agentID == nil || *agentID != "ahandtyped" {
+		t.Errorf("agent_id = %v, want the hand-typed value kept", agentID)
+	}
+}
+
+// TestStampDispatchAgentNoRowReportsFalse is the silence case: the pairing
+// found a launch whose begin names no row this store holds (a journalled
+// begin not yet replayed, a mention-shaped command, a row another
+// project's store holds) -- nothing stamps, nothing errors, and the
+// caller logs nothing. False is "no row changed", not a failure.
+func TestStampDispatchAgentNoRowReportsFalse(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+
+	stamped, err := st.StampDispatchAgent(ctx, "mf-kan322-absent", "task-3-panel-fix", "a68cee7239419a7e7")
+	if err != nil {
+		t.Fatalf("StampDispatchAgent: %v", err)
+	}
+	if stamped {
+		t.Errorf("StampDispatchAgent reported true for a row that does not exist")
+	}
+}
