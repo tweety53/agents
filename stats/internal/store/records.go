@@ -928,7 +928,7 @@ func (s *Store) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]
 // IT FILLS ONLY AN EMPTY COLUMN. A begin that carried -agent-id, or an
 // end that supplied one, recorded what the harness reported by hand --
 // recorded intent -- and this call never overwrites it: the WHERE clause
-// requires COALESCE(agent_id, '') = '', so a row already named is
+// requires COALESCE(agent_id, ”) = ”, so a row already named is
 // untouchable here and the method reports false rather than restamping.
 // That is also what makes the stamp idempotent under the harvester's own
 // failure modes: a replayed batch, a doubled launch line, or a second
