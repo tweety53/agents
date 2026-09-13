@@ -381,6 +381,13 @@ type CommandRecord struct {
 	SessionID string
 	Command   string
 	Line      int
+	// Timestamp is the command line's own instant -- when the dispatcher
+	// issued the command, the same write the daemon stamps the dispatch
+	// row's started_at at (KAN-324). KAN-322's pairing uses it as the
+	// begin event's time anchor, which is why a command whose line
+	// carries no parsable timestamp can be a begin for session-token
+	// matching but never pairs with a launch.
+	Timestamp time.Time
 }
 
 // AgentLaunch is one async agent launch's tool result as KAN-322 reads it
@@ -452,6 +459,7 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 		if raw.Type != recordTypeAssistant || raw.Message == nil {
 			continue
 		}
+		ts, _ := time.Parse(time.RFC3339Nano, raw.Timestamp)
 		for _, block := range contentBlocks(raw.Message.Content) {
 			if block.Type != "tool_use" || block.Name != "Bash" || len(block.Input) == 0 {
 				continue
@@ -463,7 +471,7 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 			if input.Command == "" {
 				continue
 			}
-			out = append(out, CommandRecord{SessionID: raw.SessionID, Command: input.Command, Line: lineIndex})
+			out = append(out, CommandRecord{SessionID: raw.SessionID, Command: input.Command, Line: lineIndex, Timestamp: ts})
 		}
 	}
 	return out

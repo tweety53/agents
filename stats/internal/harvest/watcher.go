@@ -1035,9 +1035,14 @@ func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path
 // `flow record dispatch begin` command found in a transcript: the row the
 // launch's agent id will be stamped onto is named by (sessionToken, key),
 // the same two literals the begin call itself carries, and StartedAt is
-// the begin's own -started-at -- the instant its dispatcher recorded as
-// the launch's start, which is what pairs it with a launch across either
-// ordering without any window inference standing in between.
+// the command line's own transcript instant -- when the dispatcher issued
+// the begin, the same write the daemon stamps the row's started_at at
+// (KAN-324) -- which is what pairs it with a launch across either
+// ordering without any window inference standing in between. A begin
+// recorded immediately before its launch sits seconds from the launch's
+// tool result; a panel round's begins, recorded after the round's
+// launches, sit seconds behind them -- both inside the tolerance, both
+// anchored by measurement rather than by a caller's typed claim.
 type dispatchBeginEvent struct {
 	SessionToken string
 	Key          string
@@ -1066,7 +1071,11 @@ const maxStampTimeTolerance = 2 * time.Minute
 const maxPendingStampEvents = 8
 
 // beginCommandShape is what a command must contain to pair with a launch:
-// the begin verb itself plus the three flags that identify its row. It
+// the begin verb itself plus the two flags that identify its row. The
+// row's time anchor is the command line's own transcript instant
+// (CommandRecord.Timestamp) -- the same write the daemon stamps the row's
+// started_at at (KAN-324) -- never a caller-typed flag, because there is
+// no longer one: KAN-324 removed the instants from the caller's hands. It
 // deliberately re-encodes the CLI's own required-flag contract instead of
 // importing it: the harvester parses transcript TEXT the CLI never sees,
 // and internal/harvest imports nothing from cmd/ (the dependency would run
@@ -1080,7 +1089,6 @@ var beginCommandShape = []string{
 	"flow record dispatch begin",
 	"-key",
 	"-session-token",
-	"-started-at",
 }
 
 // dispatchBeginsFromCommand judges one Bash command's text as zero or
@@ -1124,15 +1132,7 @@ func dispatchBeginFromInvocation(invocation string) (dispatchBeginEvent, bool) {
 	if !ok {
 		return dispatchBeginEvent{}, false
 	}
-	started, ok := commandFlagValue(invocation, "-started-at")
-	if !ok {
-		return dispatchBeginEvent{}, false
-	}
-	ts, err := time.Parse(time.RFC3339, started)
-	if err != nil {
-		return dispatchBeginEvent{}, false
-	}
-	return dispatchBeginEvent{SessionToken: token, Key: key, StartedAt: ts}, true
+	return dispatchBeginEvent{SessionToken: token, Key: key}, true
 }
 
 // commandFlagValue reads one flag's value out of an invocation's text:
@@ -1210,20 +1210,25 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 
 	var begins []dispatchBeginEvent
 	for _, c := range commands {
-		begins = append(begins, dispatchBeginsFromCommand(c.Command)...)
+		for _, ev := range dispatchBeginsFromCommand(c.Command) {
+			// The command line's own instant is the begin's time anchor; a
+			// command whose line carries none can never pair.
+			if !c.Timestamp.IsZero() {
+				ev.StartedAt = c.Timestamp
+				begins = append(begins, ev)
+			}
+		}
 	}
 	begins = append(w.pendingBegins[path], begins...)
 	launches = append(w.pendingLaunches[path], launches...)
 	denials = append(w.pendingDenials[path], denials...)
 
-	// Candidates pair nearest-first: every (begin, launch) pair within
-	// tolerance is considered, closest delta first, and a pair is taken
-	// only while both sides are unclaimed. Nearest-first is what makes a
-	// stale begin lose: a denied dispatch's begin sits seconds from the
-	// launch that eventually follows, but the launch's own begin sits
-	// closer, and the closer pair is decided first. Deterministic: equal
-	// deltas fall back to (begin start, begin key, launch line), so the
-	// same batch always pairs the same way.
+	// Every (begin, launch) pair within tolerance is considered; a pair
+	// is taken only while both sides are unclaimed, in the sorted order
+	// below. The denial check at claim time is what makes a stale begin
+	// lose: a denied dispatch's begin sits seconds from the launch that
+	// eventually follows, but the launch's own begin sits closer, and the
+	// closer pair is decided first.
 	type pairing struct {
 		beginIdx, launchIdx int
 		delta               time.Duration
@@ -1240,8 +1245,19 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 			}
 		}
 	}
+	// Candidates sort by LAUNCH time first: a panel round records every
+	// begin in one Bash call, so those begins share one transcript instant
+	// and only their order against the launches' own order separates them
+	// -- the round's k-th launch belongs to the round's k-th begin, both
+	// emitted in slot order. Within one launch, the nearest begin wins
+	// (delta, then begin start, then key), which is what keeps a stale
+	// begin from out-ranking the launch's own begin. Deterministic under
+	// any input order.
 	sort.Slice(candidates, func(i, j int) bool {
 		a, b := candidates[i], candidates[j]
+		if !launches[a.launchIdx].Timestamp.Equal(launches[b.launchIdx].Timestamp) {
+			return launches[a.launchIdx].Timestamp.Before(launches[b.launchIdx].Timestamp)
+		}
 		if a.delta != b.delta {
 			return a.delta < b.delta
 		}
