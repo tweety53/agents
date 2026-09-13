@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
 )
@@ -725,5 +727,390 @@ func TestStageBeginJiraKeyAndChangeNameTogetherIsAUsageError(t *testing.T) {
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+}
+
+// --- stage wrap: one call marks the pair around the work ---
+
+// TestRunStageWrapRunsChildAndMarksPair pins the wrapper's happy path: the
+// begin mark is sent before the child runs, the child's stdout reaches the
+// wrapper's, and the end mark carries outcome "completed". The wrapper
+// exits with the child's exit code -- it records the work, it never alters
+// it.
+func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var mu sync.Mutex
+	var paths []string
+	var arrivals []time.Time
+	bodies := map[string][]byte{}
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		paths = append(paths, r.URL.Path)
+		arrivals = append(arrivals, time.Now())
+		b, err := readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		bodies[r.URL.Path] = b
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
+			"-session-token", "ff-session-token-wrap-happy", "kan-323",
+			"--", "sh", "-c", "sleep 0.2; echo wrapped-output"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (the child's own exit code); stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "wrapped-output") {
+		t.Errorf("stdout = %q, want it to carry the child's output", stdout.String())
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(paths) != 2 || paths[0] != "/api/v1/stages/begin" || paths[1] != "/api/v1/stages/end" {
+		t.Fatalf("request paths = %v, want begin then end, exactly once each", paths)
+	}
+	// The plan pins "StartedAt before the child and EndedAt after it": the
+	// child sleeps 200ms between the two marks, so the gap between the
+	// marks' arrivals at the store proves the pair bracketed the work
+	// rather than both firing after it.
+	if gap := arrivals[1].Sub(arrivals[0]); gap < 200*time.Millisecond {
+		t.Errorf("gap between begin and end arrivals = %v, want >= 200ms -- the marks must bracket the child, not bookend it", gap)
+	}
+
+	var beginReq map[string]any
+	if err := json.Unmarshal(bodies["/api/v1/stages/begin"], &beginReq); err != nil {
+		t.Fatalf("decode begin body: %v\nbody: %s", err, bodies["/api/v1/stages/begin"])
+	}
+	if beginReq["changeName"] != "kan-323" {
+		t.Errorf("begin changeName = %v, want kan-323", beginReq["changeName"])
+	}
+	if beginReq["stage"] != "flow.brainstorm" {
+		t.Errorf("begin stage = %v, want flow.brainstorm", beginReq["stage"])
+	}
+	if beginReq["sessionToken"] != "ff-session-token-wrap-happy" {
+		t.Errorf("begin sessionToken = %v, want ff-session-token-wrap-happy", beginReq["sessionToken"])
+	}
+	if beginReq["startedAt"] == nil || beginReq["startedAt"] == "" {
+		t.Errorf("begin startedAt was not sent: %s", bodies["/api/v1/stages/begin"])
+	}
+
+	var endReq map[string]any
+	if err := json.Unmarshal(bodies["/api/v1/stages/end"], &endReq); err != nil {
+		t.Fatalf("decode end body: %v\nbody: %s", err, bodies["/api/v1/stages/end"])
+	}
+	if endReq["outcome"] != "completed" {
+		t.Errorf("end outcome = %v, want completed for a child exiting 0", endReq["outcome"])
+	}
+	if endReq["endedAt"] == nil || endReq["endedAt"] == "" {
+		t.Errorf("end endedAt was not sent: %s", bodies["/api/v1/stages/end"])
+	}
+}
+
+// TestRunStageWrapChildFailureMarksFailedOutcome pins that a child exiting
+// non-zero is recorded with outcome "failed" and that the wrapper exits
+// with the child's own code, not 0 and not the store's.
+func TestRunStageWrapChildFailureMarksFailedOutcome(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotOutcome string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/stages/end" {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode end body: %v", err)
+			}
+			gotOutcome, _ = body["outcome"].(string)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-fast", "-stage", "flow.verify",
+			"-session-token", "ff-session-token-wrap-fail", "kan-323",
+			"--", "sh", "-c", "exit 3"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (the child's own exit code); stderr:\n%s", code, stderr.String())
+	}
+	if gotOutcome != "failed" {
+		t.Errorf("end outcome = %q, want failed for a child exiting non-zero", gotOutcome)
+	}
+}
+
+// TestRunStageWrapStoreUnreachableStillRunsChild pins the never-block
+// guarantee for the wrapper: a dead store journals both marks, prints the
+// one warning line, and the child still runs -- the wrapper's exit code is
+// the child's, never the store failure's.
+func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "wrap", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+			"-session-token", "ff-session-token-wrap-dead", "kan-323",
+			"--", "sh", "-c", "echo wrapped-anyway"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (the child's own exit code, dead store must never block); stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "wrapped-anyway") {
+		t.Errorf("stdout = %q, want the child to have run", stdout.String())
+	}
+	if got := countLines(stderr.String()); got != 2 {
+		t.Errorf("stderr line count = %d, want exactly 2 (one warning per half):\n%s", got, stderr.String())
+	}
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-323") + ".stage")
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("len(stage journal entries) = %d, want 2 (begin and end)", len(entries))
+	}
+	var beginBody, endBody map[string]any
+	if err := json.Unmarshal(entries[0].Body, &beginBody); err != nil {
+		t.Fatalf("decode journalled begin: %v", err)
+	}
+	if err := json.Unmarshal(entries[1].Body, &endBody); err != nil {
+		t.Fatalf("decode journalled end: %v", err)
+	}
+	if beginBody["kind"] != "begin" || endBody["kind"] != "end" {
+		t.Errorf(`journalled kinds = (%v, %v), want (begin, end)`, beginBody["kind"], endBody["kind"])
+	}
+}
+
+// TestRunStageWrapUsageErrorsRunNoChild pins that every caller mistake --
+// no "--" separator, an empty child after it, a missing -session-token --
+// exits 2 with the usage text and never runs the child.
+func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{"no separator", []string{
+			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+			"-session-token", "ff-session-token-wrap-nosep", "kan-323",
+			"sh", "-c", "echo should-not-run"}},
+		{"empty child", []string{
+			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+			"-session-token", "ff-session-token-wrap-empty", "kan-323", "--"}},
+		{"missing session token", []string{
+			"-command", "/flow-fast", "-stage", "flow.brainstorm", "kan-323",
+			"--", "sh", "-c", "echo should-not-run"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				append([]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, tc.args...),
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2 (a usage error); stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for a usage error -- it must be rejected before any network call")
+			}
+			if strings.Contains(stdout.String(), "should-not-run") {
+				t.Error("the child ran on a usage error -- it must never run")
+			}
+			if stderr.Len() == 0 {
+				t.Error("stderr is empty, want the usage text")
+			}
+		})
+	}
+}
+
+// TestRunStageWrapUndocumentedStageRunsNoChild pins that an undocumented
+// stage key is refused exactly as `stage begin` refuses it -- a caller
+// defect, not a store outage -- and the child never runs behind it.
+func TestRunStageWrapUndocumentedStageRunsNoChild(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-fast", "-stage", "a stage nobody documented",
+			"-session-token", "ff-session-token-wrap-undoc", "kan-323",
+			"--", "sh", "-c", "echo should-not-run"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (an undocumented stage is a usage error); stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an undocumented stage key -- it must be rejected before any network call")
+	}
+	if strings.Contains(stdout.String(), "should-not-run") {
+		t.Error("the child ran behind an undocumented stage key -- it must never run")
+	}
+}
+
+// --- stage wrap: the signal contract (fix-round 1's F8/F9/F10) ---
+
+// TestRunStageWrapContextCancelTerminatesChildAndExits143 pins F1's fix in
+// its unit-testable half: a cancelled ctx tears the child down (the child
+// here sleeps far past the test) and the wrapper exits 143, the shell's
+// 128+SIGTERM convention for its own termination -- with the end mark still
+// recorded, on the fresh context, as failed.
+func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotOutcome string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/stages/end" {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			gotOutcome, _ = body["outcome"].(string)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		cancel()
+	}()
+	var stdout, stderr bytes.Buffer
+	code := run(ctx,
+		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-fast", "-stage", "flow.brainstorm",
+			"-session-token", "ff-session-token-wrap-cancel", "kan-323",
+			"--", "sh", "-c", "sleep 30"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 143 {
+		t.Fatalf("exit code = %d, want 143 (128+SIGTERM, the wrapper's own termination convention); stderr:\n%s", code, stderr.String())
+	}
+	if gotOutcome != "failed" {
+		t.Errorf("end outcome = %q, want failed -- the end mark must be recorded even when the wrapper itself was cancelled", gotOutcome)
+	}
+}
+
+// TestRunStageWrapContextCancelForceKillsChildIgnoringTerm pins F9's fix:
+// a child that ignores SIGTERM does not hang the wrapper -- WaitDelay
+// force-kills it after the same bound every store call carries, and the
+// invocation ends with the end mark recorded.
+func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	endSeen := make(chan struct{})
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/stages/end" {
+			close(endSeen)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		cancel()
+	}()
+	var stdout, stderr bytes.Buffer
+	code := run(ctx,
+		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-fast", "-stage", "flow.verify",
+			"-session-token", "ff-session-token-wrap-stubborn", "kan-323",
+			"--", "sh", "-c", "trap \"\" TERM; sleep 30"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 143 {
+		t.Fatalf("exit code = %d, want 143; stderr:\n%s", code, stderr.String())
+	}
+	select {
+	case <-endSeen:
+	case <-time.After(2 * time.Second):
+		t.Error("the end mark was never recorded -- the wrapper must still close the stage run it opened")
+	}
+}
+
+// TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig pins F2's
+// 128+signal mapping for a child that dies to its own signal, both
+// spellings of the convention.
+func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T) {
+	cases := []struct {
+		kill string
+		want int
+	}{
+		{"kill -TERM $$", 143},
+		{"kill -INT $$", 130},
+	}
+	for _, tc := range cases {
+		t.Run(tc.kill, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-command", "/flow-fast", "-stage", "flow.brainstorm",
+					"-session-token", "ff-session-token-wrap-sigchild", "kan-323",
+					"--", "sh", "-c", tc.kill},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != tc.want {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
+			}
+		})
 	}
 }

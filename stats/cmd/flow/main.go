@@ -28,6 +28,7 @@ commands:
   state resolve       print the change-name candidate set: source, complete, candidates, unreadable
   stage begin <name>  record the start of one documented pipeline stage
   stage end <name>    record the end, outcome and metrics of a stage
+  stage wrap <name>   mark begin, run the work named after --, mark end
   record dispatch     record one subagent dispatch of a change's run record
   record finding      record one review-panel finding, or replace it
   record status       set one recorded finding's status
@@ -48,8 +49,14 @@ commands:
   workspace-id <name>  print a change's workspace id, derived from its name
 `
 
+// handledSignals is the one list of signals this CLI treats as termination
+// requests: main's NotifyContext consumes it and runStageWrap observes it
+// (stage.go), so it is written once here and never copied -- a signal added
+// to main only would desync the wrapper's 128+signal exit mapping.
+var handledSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), handledSignals...)
 	defer stop()
 
 	os.Exit(run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
@@ -68,7 +75,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	case "state":
 		return runState(ctx, args[1:], stdin, stdout, stderr)
 	case "stage":
-		return runStage(ctx, args[1:], stdout, stderr)
+		return runStage(ctx, args[1:], stdin, stdout, stderr)
 	case "record":
 		return runRecord(ctx, args[1:], stdin, stdout, stderr)
 	case "hazard":

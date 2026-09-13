@@ -9,8 +9,11 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"os/signal"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
@@ -36,6 +39,9 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
        flow stage end [-addr url] [-timeout dur] [-C dir]
                         -command cmd -stage key -outcome outcome
                         [-fix-rounds n] [-panel-rounds n] [-findings json] (<change> | -jira-key KEY)
+       flow stage wrap [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
+                        -command cmd -stage key -session-token token (<change> | -jira-key KEY)
+                        -- <work command and args...>
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
 -- the stages of each command table's Key column; an undocumented key is
@@ -59,7 +65,7 @@ There is no fix at this layer: type the literal token itself on the command
 line, not a variable holding it.
 `
 
-func runStage(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
@@ -70,6 +76,8 @@ func runStage(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return runStageBegin(ctx, args[1:], stderr)
 	case "end":
 		return runStageEnd(ctx, args[1:], stderr)
+	case "wrap":
+		return runStageWrap(ctx, args[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
 		fmt.Fprint(stderr, stageUsage)
@@ -538,4 +546,214 @@ func endStage(ctx context.Context, addr string, timeout time.Duration, req clien
 
 	cl := client.New(addr, &http.Client{Timeout: timeout})
 	return cl.EndStage(reqCtx, req)
+}
+
+// runStageWrap implements `flow stage wrap`: one call that marks begin,
+// runs the work named after `--`, and marks end -- so a missing `end`
+// becomes impossible rather than merely detectable (KAN-323).
+//
+// The never-block guarantee shapes every store interaction here: a store
+// failure on either half journals and warns and the work still runs, and
+// the wrapper's exit code is the child's own in every post-child path --
+// the wrapper records the work, it never alters it. Caller mistakes
+// (usage errors, an undocumented stage key) are the one exception, exactly
+// as runStageBegin already draws the line: exit non-zero before anything
+// runs, so the defect is surfaced rather than swallowed by a fallback.
+func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	// The terminating signal is observed as it arrives, from the first
+	// line of the wrapper (F8, F11): signal.Notify multicasts to every
+	// registered channel, so this one receives the signal main's
+	// NotifyContext consumed in parallel. The residual blind window is
+	// the process's own startup up to this registration -- microseconds
+	// of runtime initialisation, not the parse-and-begin work below --
+	// and a signal inside it exits 143 rather than the signal-specific
+	// 130/143 convention.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, handledSignals...)
+	defer signal.Stop(sigCh)
+
+	sep := -1
+	for i, a := range args {
+		if a == "--" {
+			sep = i
+			break
+		}
+	}
+	if sep < 0 {
+		fmt.Fprintln(stderr, `flow: stage wrap requires "--" followed by the work command to run`)
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	childArgs := args[sep+1:]
+	if len(childArgs) == 0 {
+		fmt.Fprintln(stderr, `flow: stage wrap requires a work command after "--"`)
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+
+	fset := flag.NewFlagSet("flow stage wrap", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f stageIdentityFlags
+	registerStageIdentityFlags(fset, &f)
+	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
+	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
+	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (required)")
+	if err := fset.Parse(args[:sep]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	noteAddrEnvUsage(fset, stderr)
+	if err := finishStageIdentityFlags(fset, &f); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	if *sessionTokenFlag == "" {
+		fmt.Fprintln(stderr, "flow: -session-token is required")
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	if err := validateSessionToken(*sessionTokenFlag); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+
+	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+
+	projectKey, mainCheckout, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	var sessionID *string
+	switch {
+	case *sessionFlag != "":
+		sessionID = sessionFlag
+	default:
+		if v := os.Getenv("CLAUDE_CODE_SESSION_ID"); v != "" {
+			sessionID = &v
+		}
+	}
+	beginReq := client.BeginStageRequest{
+		ProjectKey:       projectKey,
+		MainCheckoutPath: mainCheckout,
+		ChangeName:       f.name,
+		Harness:          resolveHarness(*harnessFlag),
+		SessionID:        sessionID,
+		SessionToken:     *sessionTokenFlag,
+		Command:          f.command,
+		Stage:            f.stage,
+		StartedAt:        time.Now(),
+		JiraKey:          f.jiraKey,
+	}
+
+	// A store refusal on begin is a caller defect -- the same one
+	// runStageBegin exits 1 for -- and the child is not run behind it: the
+	// marks name a stage run that would never close cleanly. Any other
+	// failure journals and the work still runs.
+	_, beginErr := beginStage(ctx, f.addr, f.timeout, beginReq)
+	switch {
+	case beginErr == nil:
+	case errors.Is(beginErr, client.ErrUndocumentedStage), errors.Is(beginErr, client.ErrStageMarkRejected):
+		fmt.Fprintf(stderr, "flow: stage wrap refused: %v\n", beginErr)
+		return 1
+	default:
+		journalStageMark(projectKey, journalName(f), "begin", beginReq, stderr)
+	}
+
+	// The argv after -- is the caller's own work command, the whole point
+	// of the subcommand: it runs directly, never shell-interpolated.
+	// CommandContext ties the child to the ctx main derives from
+	// signal.NotifyContext (F1): a SIGINT/SIGTERM to the wrapper cancels
+	// ctx, whose Cancel forwards SIGTERM to the child, so a harness
+	// timeout-kill terminates the whole invocation instead of hanging
+	// until the child finishes on its own. WaitDelay bounds that
+	// teardown (F9): a child ignoring SIGTERM is force-killed after
+	// defaultTimeout, the same bound every store call here already
+	// carries, so Run cannot block on a stubborn child indefinitely.
+	cmd := exec.CommandContext(ctx, childArgs[0], childArgs[1:]...)
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.WaitDelay = defaultTimeout
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	childErr := cmd.Run()
+	exitCode := 0
+	switch {
+	case childErr == nil:
+	case errors.As(childErr, new(*exec.ExitError)):
+		if ws, ok := childErr.(*exec.ExitError).Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+			// A signal-killed child has no exit code; the shell
+			// convention stands in for one: 128+signal (F2), never
+			// the raw -1 an unsigned byte would surface as 255.
+			exitCode = 128 + int(ws.Signal())
+		} else {
+			exitCode = childErr.(*exec.ExitError).ExitCode()
+		}
+	default:
+		// The child never started (no such command, no permission):
+		// 127 is the convention a shell uses for the same failure. A
+		// cancellation is not a spawn failure -- the wrapper was
+		// signalled, the ctx.Err() branch below reports that with the
+		// 128+signal convention, and printing a run-the-work error
+		// would misread it (F11).
+		if ctx.Err() == nil {
+			fmt.Fprintf(stderr, "flow: stage wrap: run the work: %v\n", childErr)
+			exitCode = 127
+		}
+	}
+	if ctx.Err() != nil {
+		// The wrapper itself was signalled. The child has been torn down
+		// above; the wrapper must not outlive the signal that ended it,
+		// and its own exit code follows the same 128+signal convention:
+		// 130 for SIGINT, 143 for SIGTERM, 143 when no signal of the two
+		// was observed (only signals cancel main's ctx in practice).
+		exitCode = 143
+		select {
+		case s := <-sigCh:
+			if s == os.Interrupt {
+				exitCode = 130
+			}
+		default:
+		}
+	}
+
+	endReq := client.EndStageRequest{
+		ProjectKey: projectKey,
+		ChangeName: f.name,
+		Command:    f.command,
+		Stage:      f.stage,
+		EndedAt:    time.Now(),
+		Outcome:    "completed",
+		JiraKey:    f.jiraKey,
+	}
+	if exitCode != 0 {
+		endReq.Outcome = "failed"
+	}
+
+	// Past this line the work has run, so no store failure may alter its
+	// reported result: the exit code below is the child's, whatever the
+	// end half does. A refusal is printed and swallowed here (unlike
+	// runStageEnd's own exit 1) because the work's result outranks the
+	// mark's rejection once the work is already done. The end call runs
+	// on a fresh context -- a ctx cancelled by the signal that killed
+	// the child must not force the one mark that records the work's
+	// actual outcome into the journal; -timeout still bounds it.
+	_, endErr := endStage(context.Background(), f.addr, f.timeout, endReq)
+	switch {
+	case endErr == nil:
+	case errors.Is(endErr, client.ErrUndocumentedStage), errors.Is(endErr, client.ErrStageMarkRejected):
+		fmt.Fprintf(stderr, "flow: stage end refused: %v\n", endErr)
+	default:
+		journalStageMark(projectKey, journalName(f), "end", endReq, stderr)
+	}
+	return exitCode
 }
