@@ -291,7 +291,7 @@ type Source struct {
 	// ReadNew reads path from offset to EOF, exactly ReadNewRecords'
 	// contract (transcript.go): records and commands from the complete
 	// portion only, the new offset covering no partial trailing line.
-	ReadNew func(path string, offset int64) ([]Record, []CommandRecord, int64, error)
+	ReadNew func(path string, offset int64) ([]Record, []CommandRecord, []AgentLaunch, int64, error)
 	// ReadAllCmds reads path whole for commands only, exactly
 	// ReadAllCommands' contract (transcript.go): no Records, no offset
 	// read or written -- the retried-give-up scan's shape.
@@ -563,7 +563,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 				continue
 			}
 
-			records, commands, newOffset, err := set.source.ReadNew(path, offset)
+			records, commands, _, newOffset, err := set.source.ReadNew(path, offset)
 			if err != nil {
 				w.warn("harvest: read transcript failed, will retry", "path", path, "error", err)
 				continue

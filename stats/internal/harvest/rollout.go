@@ -249,21 +249,24 @@ func ParseRolloutCommandRecords(complete []byte) []CommandRecord {
 // source's counterpart of ReadNewRecords (transcript.go), sharing that
 // function's offset discipline verbatim: a partial trailing line is split
 // off and never counted as consumed, and a file shorter than offset is
-// ErrOffsetBeyondEOF, never silently reread from 0.
-func ReadRolloutNewRecords(path string, offset int64) ([]Record, []CommandRecord, int64, error) {
+// ErrOffsetBeyondEOF, never silently reread from 0. It returns no agent
+// launches: a rollout file carries no launch-status tool result, a ZCode
+// dispatch's agent id being recoverable only from the subagent file's own
+// name (AgentIDFromRolloutPath).
+func ReadRolloutNewRecords(path string, offset int64) ([]Record, []CommandRecord, []AgentLaunch, int64, error) {
 	f, err := openAt(path, offset)
 	if err != nil {
-		return nil, nil, offset, err
+		return nil, nil, nil, offset, err
 	}
 	defer f.Close()
 
 	raw, err := io.ReadAll(f)
 	if err != nil {
-		return nil, nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
+		return nil, nil, nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
 	}
 
 	complete, _ := SplitCompleteLines(raw)
-	return ParseRolloutRecords(complete), ParseRolloutCommandRecords(complete), offset + int64(len(complete)), nil
+	return ParseRolloutRecords(complete), ParseRolloutCommandRecords(complete), nil, offset + int64(len(complete)), nil
 }
 
 // ReadRolloutAllCommands reads path from byte 0 to its current EOF and

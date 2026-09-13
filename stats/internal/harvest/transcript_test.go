@@ -155,7 +155,7 @@ func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
 		t.Fatalf("write growing fixture: %v", err)
 	}
 
-	firstPass, _, offsetAfterFirst, err := harvest.ReadNewRecords(path, 0)
+	firstPass, _, _, offsetAfterFirst, err := harvest.ReadNewRecords(path, 0)
 	if err != nil {
 		t.Fatalf("ReadNewRecords (truncated): %v", err)
 	}
@@ -171,7 +171,7 @@ func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
 		t.Fatalf("complete the write: %v", err)
 	}
 
-	secondPass, _, offsetAfterSecond, err := harvest.ReadNewRecords(path, offsetAfterFirst)
+	secondPass, _, _, offsetAfterSecond, err := harvest.ReadNewRecords(path, offsetAfterFirst)
 	if err != nil {
 		t.Fatalf("ReadNewRecords (resumed): %v", err)
 	}
@@ -247,7 +247,7 @@ func TestReadNewRecordsOffsetBeyondEOFIsReported(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	_, _, _, err := harvest.ReadNewRecords(path, 10_000)
+	_, _, _, _, err := harvest.ReadNewRecords(path, 10_000)
 	if !errors.Is(err, harvest.ErrOffsetBeyondEOF) {
 		t.Fatalf("ReadNewRecords error = %v, want ErrOffsetBeyondEOF", err)
 	}
@@ -472,7 +472,7 @@ func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	records, commands, newOffset, err := harvest.ReadNewRecords(path, 0)
+	records, commands, launches, newOffset, err := harvest.ReadNewRecords(path, 0)
 	if err != nil {
 		t.Fatalf("ReadNewRecords: %v", err)
 	}
@@ -482,7 +482,96 @@ func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
 	if len(commands) != 1 || commands[0].Command != "flow stage begin -session-token mf-abc123" {
 		t.Fatalf("got %+v, want one command record for mf-abc123", commands)
 	}
+	if len(launches) != 0 {
+		t.Errorf("got %d launches, want 0 (no launch in this fixture)", len(launches))
+	}
 	if int(newOffset) != len(content) {
 		t.Errorf("newOffset = %d, want %d", newOffset, len(content))
+	}
+}
+
+// TestParseAgentLaunchesExtractsAsyncLaunches is KAN-322's positive case:
+// an async agent launch's tool result is a user-type line whose
+// top-level "toolUseResult" object carries status "async_launched" and a
+// non-empty "agentId" (confirmed against a live parent transcript before
+// writing this fixture, not assumed). ParseAgentLaunches must recover the
+// agent id, the session it was recorded under, and the line's index
+// within complete, so the watcher can pair it with the dispatch begin
+// command that precedes it in file order.
+func TestParseAgentLaunchesExtractsAsyncLaunches(t *testing.T) {
+	complete := []byte(
+		`{"type":"user","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a68cee7239419a7e7"}}` + "\n" +
+			`{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"session-x","message":{"content":[{"type":"tool_result","tool_use_id":"u1","content":"plain result"}]}}` + "\n" +
+			`{"type":"user","timestamp":"2026-01-01T00:00:02Z","sessionId":"session-x","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a8884ead3c626d980"}}` + "\n")
+
+	got := harvest.ParseAgentLaunches(complete)
+	if len(got) != 2 {
+		t.Fatalf("got %d launches, want 2: %+v", len(got), got)
+	}
+	if got[0].AgentID != "a68cee7239419a7e7" || got[0].SessionID != "session-x" {
+		t.Errorf("first launch = %+v, want agent a68cee7239419a7e7 in session-x", got[0])
+	}
+	if got[0].Line != 0 {
+		t.Errorf("first launch Line = %d, want 0", got[0].Line)
+	}
+	if got[1].AgentID != "a8884ead3c626d980" || got[1].Line != 2 {
+		t.Errorf("second launch = %+v, want agent a8884ead3c626d980 at line 2", got[1])
+	}
+}
+
+// TestParseAgentLaunchesIgnoresNonLaunchResults is the negative
+// companion: a tool result with no agentId, one with an empty agentId, a
+// tool result whose status is not async_launched (a resumed agent's
+// result, whose id belongs to its original dispatch and must never be
+// re-stamped onto whatever begin happens to precede it), an assistant
+// line, and a line that is not JSON at all must all contribute nothing.
+func TestParseAgentLaunchesIgnoresNonLaunchResults(t *testing.T) {
+	complete := []byte(
+		`{"type":"user","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"PreToolUse hook denied"}]}}` + "\n" +
+			`{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","toolUseResult":{"status":"async_launched"}}` + "\n" +
+			`{"type":"user","timestamp":"2026-01-01T00:00:02Z","sessionId":"s","toolUseResult":{"status":"completed","agentId":"a68cee7239419a7e7"}}` + "\n" +
+			`{"type":"assistant","timestamp":"2026-01-01T00:00:03Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[]}}` + "\n" +
+			`not json at all` + "\n")
+
+	got := harvest.ParseAgentLaunches(complete)
+	if len(got) != 0 {
+		t.Fatalf("got %d launches, want 0: %+v", len(got), got)
+	}
+}
+
+// TestParseAgentLaunchesDeduplicatesRepeatedLines pins the one
+// launch per line rule: a single line can carry one toolUseResult, so a
+// repeated line (a re-read overlap) must not yield a second launch for
+// the same dispatch.
+func TestParseAgentLaunchesDeduplicatesRepeatedLines(t *testing.T) {
+	line := `{"type":"user","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a68cee7239419a7e7"}}` + "\n"
+	got := harvest.ParseAgentLaunches([]byte(line + line))
+	if len(got) != 2 {
+		t.Fatalf("got %d launches, want 2 (two distinct lines, each its own launch): %+v", len(got), got)
+	}
+	if got[0].Line != 0 || got[1].Line != 1 {
+		t.Errorf("launch lines = %d, %d, want 0, 1", got[0].Line, got[1].Line)
+	}
+}
+
+// TestParseCommandRecordsCarriesLineNumbers pins CommandRecord.Line:
+// the watcher pairs a launch with the most recent dispatch-begin command
+// at a smaller line, which needs each command's index within complete,
+// not just its text.
+func TestParseCommandRecordsCarriesLineNumbers(t *testing.T) {
+	complete := []byte(
+		`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"text","text":"thinking"}]}}` + "\n" +
+			`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow record dispatch begin -key task-1-implementer -session-token mf-abc123 -started-at 2026-01-01T00:00:00Z"}}]}}` + "\n" +
+			`{"type":"assistant","timestamp":"2026-01-01T00:00:02Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-xyz"}}]}}` + "\n")
+
+	got := harvest.ParseCommandRecords(complete)
+	if len(got) != 2 {
+		t.Fatalf("got %d commands, want 2: %+v", len(got), got)
+	}
+	if got[0].Line != 1 {
+		t.Errorf("first command Line = %d, want 1", got[0].Line)
+	}
+	if got[1].Line != 2 {
+		t.Errorf("second command Line = %d, want 2", got[1].Line)
 	}
 }

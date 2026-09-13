@@ -123,18 +123,29 @@ type Record struct {
 // this project's own wire formats (internal/api's request bodies), not to
 // a format this package only reads and never writes.
 type rawLine struct {
-	Type              string          `json:"type"`
-	Timestamp         string          `json:"timestamp"`
-	SessionID         string          `json:"sessionId"`
-	IsSidechain       bool            `json:"isSidechain"`
-	Effort            string          `json:"effort"`
-	AgentID           string          `json:"agentId"`
-	Message           *rawMessage     `json:"message"`
-	Subtype           string          `json:"subtype"`
-	IsAPIErrorMessage bool            `json:"isApiErrorMessage"`
-	DurationMs        int64           `json:"durationMs"`
-	MessageCount      int64           `json:"messageCount"`
-	CompactMetadata   *rawCompactMeta `json:"compactMetadata"`
+	Type              string            `json:"type"`
+	Timestamp         string            `json:"timestamp"`
+	SessionID         string            `json:"sessionId"`
+	IsSidechain       bool              `json:"isSidechain"`
+	Effort            string            `json:"effort"`
+	AgentID           string            `json:"agentId"`
+	Message           *rawMessage       `json:"message"`
+	Subtype           string            `json:"subtype"`
+	IsAPIErrorMessage bool              `json:"isApiErrorMessage"`
+	DurationMs        int64             `json:"durationMs"`
+	MessageCount      int64             `json:"messageCount"`
+	CompactMetadata   *rawCompactMeta   `json:"compactMetadata"`
+	ToolUseResult     *rawToolUseResult `json:"toolUseResult"`
+}
+
+// rawToolUseResult is a user line's top-level "toolUseResult" object, the
+// minimal shape KAN-322's launch detection reads. Every other key that
+// object carries on a real transcript (isAsync, description, prompt,
+// resolvedModel, and whatever else a harness adds) is never named here,
+// the same tolerance rawLine's own doc comment commits to.
+type rawToolUseResult struct {
+	AgentID string `json:"agentId"`
+	Status  string `json:"status"`
 }
 
 // rawCompactMeta is a compact_boundary system line's "compactMetadata"
@@ -355,10 +366,45 @@ func ParseAssistantRecords(complete []byte) []Record {
 // same bytes. SessionID is the same top-level "sessionId" every Record
 // also carries; Command is the Bash tool_use block's "input.command"
 // field, read verbatim, before the shell ever expands it.
+//
+// Line is the command's own line index within the complete bytes it was
+// parsed from (0-based, counting every line, not only ones that parse to
+// something). KAN-322's watcher pairing needs it: a launch is paired with
+// the most recent dispatch-begin command at a smaller line, and only line
+// positions can state that order across the several parse passes over the
+// same bytes.
 type CommandRecord struct {
 	SessionID string
 	Command   string
+	Line      int
 }
+
+// AgentLaunch is one async agent launch's tool result as KAN-322 reads it
+// out of a parent transcript: a user-type line whose top-level
+// "toolUseResult" object carries a non-empty "agentId" and the status
+// "async_launched" (both confirmed against a live parent transcript
+// before this parser was written, not assumed). SessionID is the
+// dispatching session's own id and Line the launch line's index within
+// the complete bytes, CommandRecord.Line's counterpart in the begin/launch
+// pairing.
+//
+// AgentID is sent verbatim to whatever stores it -- never normalised,
+// never invented. A harness that reports no id produces no launch at all,
+// which is the ordinary case on two of the three supported harnesses and
+// never an error.
+type AgentLaunch struct {
+	SessionID string
+	AgentID   string
+	Line      int
+}
+
+// launchStatus is the toolUseResult status that says a dispatch LAUNCHED
+// here, measured against a real transcript. Filtered on explicitly: a
+// resumed agent's result (a SendMessage continuation) shares its
+// original's agent id, and stamping that id onto whatever begin command
+// happens to precede the resume would attribute one dispatch's identity
+// to another row.
+const launchStatus = "async_launched"
 
 // ParseCommandRecords decodes every Bash tool_use command found in
 // complete's assistant lines. Unlike ParseAssistantRecords, it does not
@@ -377,6 +423,7 @@ type CommandRecord struct {
 // only reads and never writes.
 func ParseCommandRecords(complete []byte) []CommandRecord {
 	var out []CommandRecord
+	lineIndex := 0
 	start := 0
 	for start < len(complete) {
 		idx := bytes.IndexByte(complete[start:], '\n')
@@ -408,8 +455,58 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 			if input.Command == "" {
 				continue
 			}
-			out = append(out, CommandRecord{SessionID: raw.SessionID, Command: input.Command})
+			out = append(out, CommandRecord{SessionID: raw.SessionID, Command: input.Command, Line: lineIndex})
 		}
+		lineIndex++
+	}
+	return out
+}
+
+// ParseAgentLaunches decodes every async agent launch found in complete's
+// user lines into an AgentLaunch, in file order, its Line field numbering
+// every line of complete the way ParseCommandRecords' does. A line that
+// is not a user line, carries no toolUseResult, carries one whose status
+// is not launchStatus or whose agentId is empty, or fails to decode as
+// JSON at all, contributes nothing -- the same tolerance the rest of this
+// package extends to a transcript format it only reads and never writes.
+//
+// This is KAN-322's extraction pass over the same bytes
+// ParseAssistantRecords and ParseCommandRecords already read: the parent
+// transcript records each launch's agent id in the tool result the
+// harness returns at launch, so the daemon -- which reads that transcript
+// anyway -- can capture the id instead of asking a dispatcher to type it
+// by hand.
+func ParseAgentLaunches(complete []byte) []AgentLaunch {
+	var out []AgentLaunch
+	lineIndex := 0
+	start := 0
+	for start < len(complete) {
+		idx := bytes.IndexByte(complete[start:], '\n')
+		if idx < 0 {
+			break // complete always ends in '\n'; unreachable in practice.
+		}
+		end := start + idx + 1
+		line := bytes.TrimSpace(complete[start:end])
+		start = end
+		if len(line) == 0 {
+			lineIndex++
+			continue
+		}
+
+		var raw rawLine
+		if err := json.Unmarshal(line, &raw); err != nil {
+			lineIndex++
+			continue
+		}
+		if raw.Type == "user" && raw.ToolUseResult != nil &&
+			raw.ToolUseResult.AgentID != "" && raw.ToolUseResult.Status == launchStatus {
+			out = append(out, AgentLaunch{
+				SessionID: raw.SessionID,
+				AgentID:   raw.ToolUseResult.AgentID,
+				Line:      lineIndex,
+			})
+		}
+		lineIndex++
 	}
 	return out
 }
@@ -439,20 +536,20 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 // read has already passed -- see its own doc comment for why that does
 // not reopen the "second scan" this comment otherwise still holds true
 // against.
-func ReadNewRecords(path string, offset int64) (records []Record, commands []CommandRecord, newOffset int64, err error) {
+func ReadNewRecords(path string, offset int64) (records []Record, commands []CommandRecord, launches []AgentLaunch, newOffset int64, err error) {
 	f, err := openAt(path, offset)
 	if err != nil {
-		return nil, nil, offset, err
+		return nil, nil, nil, offset, err
 	}
 	defer f.Close()
 
 	raw, err := io.ReadAll(f)
 	if err != nil {
-		return nil, nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
+		return nil, nil, nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
 	}
 
 	complete, _ := SplitCompleteLines(raw)
-	return append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...), ParseCommandRecords(complete), offset + int64(len(complete)), nil
+	return append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...), ParseCommandRecords(complete), ParseAgentLaunches(complete), offset + int64(len(complete)), nil
 }
 
 // ReadAllCommands reads path from byte 0 to its current EOF and returns
