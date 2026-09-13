@@ -327,6 +327,10 @@ func (fakeStore) GetChange(context.Context, string, string) (store.Change, error
 
 func (fakeStore) PutChange(context.Context, store.Change) error { return nil }
 
+func (fakeStore) FindChangesByName(context.Context, string) ([]store.Change, error) {
+	return nil, nil
+}
+
 func (fakeStore) QueryChanges(context.Context, store.Query) ([]store.Change, int, error) {
 	return nil, 0, nil
 }
