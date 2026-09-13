@@ -666,6 +666,83 @@ func TestRecordDispatchRouteAllocatesSeqAndAnswers201(t *testing.T) {
 
 // --- findings ---
 
+// TestRecordDispatchRouteStampsAZeroStartedAt pins the daemon-side
+// instant: a begin whose body carries no startedAt is stamped at the
+// moment the row is written, never refused -- the caller-typed instant was
+// an agent's approximation of the clock, and the daemon is the participant
+// whose clock the transcript attribution shares. A SUPPLIED instant is the
+// replay override: a journalled write replayed later must keep the
+// instant the original attempt carried, so a non-zero startedAt is stored
+// exactly as it arrived.
+func TestRecordDispatchRouteStampsAZeroStartedAt(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+
+	body := dispatchBody("implementer", "opus")
+	delete(body, "startedAt")
+	resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", body)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST dispatches without startedAt = %d (%s), want 201", resp.StatusCode, respBody)
+	}
+	if len(fs.dispatches) != 1 {
+		t.Fatalf("store holds %d dispatches, want 1", len(fs.dispatches))
+	}
+	stamped := fs.dispatches[0].dispatch.StartedAt
+	if stamped.IsZero() {
+		t.Fatalf("the row carries a zero startedAt: the daemon must stamp the instant it writes")
+	}
+	if time.Since(stamped) > time.Minute {
+		t.Errorf("stamped startedAt = %s, want an instant near the write", stamped)
+	}
+
+	supplied := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	override := dispatchBody("reviewer", "sonnet")
+	override["startedAt"] = supplied.Format(time.RFC3339)
+	resp2, respBody2 := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", override)
+	if resp2.StatusCode != http.StatusCreated {
+		t.Fatalf("POST dispatches with supplied startedAt = %d (%s), want 201", resp2.StatusCode, respBody2)
+	}
+	if len(fs.dispatches) != 2 {
+		t.Fatalf("store holds %d dispatches, want 2", len(fs.dispatches))
+	}
+	if got := fs.dispatches[1].dispatch.StartedAt; !got.Equal(supplied) {
+		t.Errorf("supplied startedAt = %s, want the caller's instant kept as the replay override %s", got, supplied)
+	}
+}
+
+// TestEndDispatchRouteStampsAZeroEndedAt pins the closing half's
+// daemon-side instant: an end whose body carries no endedAt is stamped at
+// the moment the row is closed -- an unclosed window goes on claiming
+// later usage, so the stamp must never be refused -- while a supplied
+// instant survives untouched, the replay override the journalled end
+// carries.
+func TestEndDispatchRouteStampsAZeroEndedAt(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	beginBody := dispatchBody("implementer", "opus")
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", beginBody); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST dispatches = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	endBody := dispatchEndBody("task-3-implementer")
+	delete(endBody, "endedAt")
+	resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches/end", endBody)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST dispatches/end without endedAt = %d (%s), want 200", resp.StatusCode, respBody)
+	}
+	if len(fs.dispatches) != 1 {
+		t.Fatalf("store holds %d dispatches, want 1", len(fs.dispatches))
+	}
+	closed := fs.dispatches[0].dispatch.EndedAt
+	if closed == nil || closed.IsZero() {
+		t.Fatalf("the closed row carries no endedAt: the daemon must stamp the instant it closes")
+	}
+	if time.Since(*closed) > time.Minute {
+		t.Errorf("stamped endedAt = %s, want an instant near the close", *closed)
+	}
+	if fs.dispatches[0].dispatch.StartedAt.IsZero() {
+		t.Errorf("the stamped close lost the row's startedAt")
+	}
+}
+
 // TestRecordFindingRouteAnswers201OnCreateAnd200OnUpdate pins the one
 // thing an upsert's status code has to say: whether the write inserted a
 // row or replaced one. A fix round restating F1 must be distinguishable
@@ -1012,7 +1089,6 @@ func TestEndDispatchRouteRefusesABodyThatNamesNothing(t *testing.T) {
 	}{
 		{"no key", map[string]any{"sessionToken": "mf-record-api", "endedAt": time.Date(2026, 8, 22, 9, 30, 0, 0, time.UTC).Format(time.RFC3339)}},
 		{"no session token", map[string]any{"key": "task-3-implementer", "endedAt": time.Date(2026, 8, 22, 9, 30, 0, 0, time.UTC).Format(time.RFC3339)}},
-		{"no end instant", map[string]any{"sessionToken": "mf-record-api", "key": "task-3-implementer"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			before := fs.recordCalls

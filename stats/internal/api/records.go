@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -121,21 +122,31 @@ func ApplyDispatchRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 		return records.Dispatch{}, fmt.Errorf("%w: role and model are both required: a dispatch row records what ran and on what", ErrInvalidRecord)
 	}
 	if in.StartedAt.IsZero() {
-		return records.Dispatch{}, fmt.Errorf("%w: startedAt is required: the harvester attributes a dispatch's cost to the window it opens", ErrInvalidRecord)
+		// The caller-typed instant was an agent's approximation of the
+		// clock (KAN-324), so a zero startedAt is stamped here, at the
+		// moment the row is written, rather than refused: this daemon's
+		// clock is the one the transcript attribution shares. A SUPPLIED
+		// instant is the replay override -- a journalled write carries the
+		// instant its original attempt was made, and replaying it must
+		// restore that instant, not date the dispatch to the replay.
+		in.StartedAt = time.Now()
 	}
 	return rw.RecordDispatch(ctx, projectKey, change, in)
 }
 
 // ApplyDispatchEnd closes one dispatch against rw, refusing a record that
-// cannot name the row it closes, or that carries no end instant, before the
-// store is touched at all.
+// cannot name the row it closes before the store is touched at all.
 //
 // The session token and the key are both required because together they
 // ARE the row's name: the caller has no seq to close by, since a `begin`
-// whose response was lost never returned one. An empty end instant is
-// refused for the reason the call exists: leaving ended_at NULL is exactly
-// the open window this half of the pair was added to close, so a request
-// that omits it would report success while changing nothing that matters.
+// whose response was lost never returned one. A zero end instant is NOT
+// refused: it is stamped here, at the moment the row is closed, the same
+// daemon-side rule ApplyDispatchRecord applies to startedAt (KAN-324) --
+// leaving ended_at NULL is exactly the open window this half of the pair
+// was added to close, so a body without one is stamped rather than let
+// through to do nothing. A SUPPLIED instant is the replay override, kept
+// exactly as it arrived so a journalled end replays with the instant its
+// original attempt carried.
 //
 // It exists beside the live route for the reason ApplyDispatchRecord does:
 // replay and the handler must not answer "is this closable?" differently.
@@ -144,7 +155,7 @@ func ApplyDispatchEnd(ctx context.Context, rw RecordWriter, projectKey, change s
 		return records.Dispatch{}, fmt.Errorf("%w: sessionToken and key are both required: together they name the dispatch being closed", ErrInvalidRecord)
 	}
 	if in.EndedAt.IsZero() {
-		return records.Dispatch{}, fmt.Errorf("%w: endedAt is required: an unclosed window goes on claiming later usage", ErrInvalidRecord)
+		in.EndedAt = time.Now()
 	}
 	return rw.EndDispatch(ctx, projectKey, change, in)
 }

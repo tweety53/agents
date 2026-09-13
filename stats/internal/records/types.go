@@ -125,9 +125,14 @@ type Dispatch struct {
 // returned a seq to the caller, and an end that could not name its row
 // would leave the window open forever.
 //
-// EndedAt is required. It is the whole point of the call: an open window
-// (a NULL ended_at) goes on claiming later usage, so a dispatch that never
-// closes keeps stealing its successors' tokens.
+// EndedAt names when the dispatch ended. A zero value is stamped by
+// ApplyDispatchEnd at the moment the row is closed -- the caller-typed
+// instant was an agent's approximation of the clock (KAN-324) -- and a
+// supplied value is the replay override, kept exactly as it arrived so a
+// journalled end replays with the instant its original attempt carried.
+// It is never NULL on a stored row: an open window (a NULL ended_at) goes
+// on claiming later usage, so a dispatch that never closes keeps stealing
+// its successors' tokens.
 //
 // AgentID may be recorded here instead of at Dispatch.AgentID's own opening
 // call: on Claude Code the harness reports a subagent's identifier only
