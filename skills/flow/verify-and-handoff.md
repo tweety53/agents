@@ -459,9 +459,12 @@ and 13 below as written, committing and pushing nothing.
       populated path shows (first-time versus returning), is a defect no single capture can
       show (KAN-437: a dialog's derived field stayed stale as the operator typed, and was missing
       entirely on the first-entry path the spec never took).
-   9. **Every row bounded by a divider, hairline or container edge — a header bar, a sticky
-      bar, a toolbar, a list section, a dialog's action row — gap-measured on the side facing each
-      bound, in both images, before the row is called matching.** Read the `gap` block of the
+   9. **Every row the frame bounds with a divider, hairline or container edge — a header bar, a
+      sticky bar, a toolbar, a list section, a dialog's action row — gap-measured on the side
+      facing each bound, in both images, before the row is called matching.** Which rows are
+      bounded is read from the frame, never from the capture: a capture that omits the frame's
+      hairline shows no bounded row to measure, and the sweep below is what finds the omission.
+      Read the `gap` block of the
       per-control measurement below for the row's controls and report the four numbers per
       image: the script scans past the region to the next neighbour, so the number is already in
       the JSON of every measurement this step makes and costs nothing beyond reading it. This
@@ -477,6 +480,23 @@ and 13 below as written, committing and pushing nothing.
       frame drawing 2–5px to the dividers above and below — and passed two `flow.visual-verify`
       fix rounds, one operator sweep and one manual re-check, each of which had measured the
       controls and none the gaps).
+   10. **Every non-text ink the frame draws — hairline, divider, rule, border, background fill,
+      shadow band — inventoried from the frame alone, then found in the capture one by one.**
+      Every sweep above starts from something the capture shows or the text says: a control, a
+      text run, a row, a value. A line the frame draws and the capture omits is on none of those
+      lists, and the composite's ratio barely moves for a 1px rule, so nothing above asks for it
+      and a verifier who has matched every label and number walks away satisfied. Before the
+      frame is called matching, run `measure-visual-properties.sh` with `--props runs` on the
+      frame alone, the region a full-height column through each list, section and card, and
+      write down every run whose colour is neither the background's nor a text row's — its
+      position and length — then the same region on the capture, and pair the lists: a run on
+      the frame's list with no counterpart on the capture's is a departure, whatever the row's
+      text reads. This sweep runs on a frame whose content already matches and on a frame
+      already fixed for something else — a fix run re-verifies the whole frame, never the
+      element it fixed (KAN-437 final verification, Q2 and Q3: Q2's "HOW IT GOT THERE" rows had
+      their label text fixed and were re-checked for that text only, and Q3 was passed as
+      matching on its labels and values; the hairline rules both frames draw above, between and
+      below their rows were never in the app, and an operator found both by hand).
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -648,7 +668,7 @@ and 13 below as written, committing and pushing nothing.
 - <view>: <absolute PNG path> — <what was seen, including any defect>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
-- <frame id> sweeps: text | order | reach | derived | rows — <each done, or why not; `rows` names each bounded row and its four gaps per image>
+- <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - visual-verification.md: written | not written — <reason>
 ```
