@@ -147,7 +147,7 @@ func validateFindingReproducer(reproducer string) error {
 
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
-                             -model model -agent-id id|none [-diff-base sha]
+                             -model model [-agent-id id|none] [-diff-base sha]
                              -key key -session-token token
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
@@ -295,12 +295,17 @@ it as a literal, unique among the dispatches of one -session-token.
 -role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier.
 
 -agent-id is the harness's own identifier for the subagent that was
-dispatched. "begin" requires it: pass the identifier the launch returned,
-or the literal "none" where the harness exposes none (Cursor and Codex) or
-where it is not yet known at "begin". A dispatch recorded as "none" is
-ordinary, not degraded, and its cost is attributed by the dispatch's own
-time window instead. Giving the real id is what lets two slots dispatched
-at once be costed separately, since their windows overlap. It may be given
+dispatched. "begin" accepts it as recorded intent the daemon never
+overwrites, but no longer requires it (KAN-322): the daemon reads the
+identifier the launch returned out of the parent transcript's own tool
+result and fills the row's empty agent_id with it, so the hand-typed call
+KAN-212 predicted would be forgotten is no longer an obligation. Pass it
+explicitly to pin the id; pass the literal "none" to record that the
+harness exposes none (Cursor and Codex). A dispatch recorded without any
+id -- "none" or a launch the daemon has not seen -- is ordinary, not
+degraded, and its cost is attributed by the dispatch's own time window
+instead. Giving the real id is what lets two slots dispatched at once be
+costed separately, since their windows overlap. It may be given
 on "end" as well: on Claude Code the harness reports it at launch, so
 "begin" normally carries it. Given on "end", it overwrites
 whatever "begin" recorded; omitted on "end", it leaves that value
@@ -640,15 +645,22 @@ func runRecordDispatchVerb(ctx context.Context, args []string, stdout, stderr io
 // The token figures are not recorded here at all -- the harvester
 // attributes them to this row afterwards, from the harness transcript.
 //
-// -agent-id is required and unvalidated beyond being a string: it is the
+// -agent-id is optional, and unvalidated beyond being a string: it is the
 // harness's identifier, not this tool's, and the only thing this command
-// can say about it is whether it was reported. It is required because a
-// dispatch recorded without one cannot be attributed to its transcript,
-// and 9% of one month's dispatches arrived without one from a harness
-// that does expose it. Where the harness exposes none, the caller passes
-// the literal `none`, which is sent as nothing at all rather than as an
-// empty value, because the attributor treats an absent id as "not
-// reported" and must never pair two dispatches off by their shared absence.
+// can say about it is whether it was reported. It used to be required,
+// because a dispatch recorded without one could not be attributed to its
+// transcript -- and every dispatch of one month's runs forgot it anyway,
+// exactly as KAN-212 predicted a hand-typed call would be. The daemon now
+// captures the id automatically (KAN-322): Claude Code writes it into the
+// parent transcript's launch tool result, the harvester pairs that result
+// with the begin command that preceded it, and the store fills the row's
+// empty agent_id from it -- so an omitted flag means "stamp it
+// automatically", not "no id". An explicit value still wins, recorded
+// intent the daemon will never overwrite. Where the harness exposes none,
+// the caller may pass the literal `none`, which is sent as nothing at all
+// rather than as an empty value, because the attributor treats an absent
+// id as "not reported" and must never pair two dispatches off by their
+// shared absence.
 //
 // -diff-base is optional in the same shape as -agent-id: it names the sha
 // the diff this dispatch was given was computed from, which a panel slot
@@ -672,7 +684,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	slot := fset.String("slot", "", "the review-panel slot, where the role is a panel slot")
 	model := fset.String("model", "", "the model this dispatch ran on, as recorded intent -- the literal \"unknown (agent-defined)\" where it cannot be read, never a guess (required)")
 	effort := fset.String("effort", "default", "the effort this dispatch ran at -- one of: "+strings.Join(recordEfforts, ", ")+" -- recorded, never handshaken, since a model cannot report its own effort")
-	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, or the literal \"none\" where the harness exposes none (required)")
+	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, recorded intent the daemon never overwrites -- optional: omitted, the daemon stamps it from the transcript's launch result; the literal \"none\" records that the harness exposes none")
 	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta -- optional, since an implementer and a slot reading the whole diff record none")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
@@ -683,7 +695,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	if !requireRecordFlags(stderr,
 		[2]string{"-role", *role},
 		[2]string{"-model", *model},
-		[2]string{"-agent-id", *agentID},
 		[2]string{"-key", *key},
 		[2]string{"-session-token", *sessionToken},
 	) {

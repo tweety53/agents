@@ -664,18 +664,20 @@ func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 	}
 }
 
-// TestRecordDispatchSendsAgentIDOnlyWhenGiven pins the required -agent-id
-// flag in its three states: Claude Code exposes a subagent identifier and
-// the flag carries it; Cursor and Codex expose none at all and the caller
-// passes the literal "none", recorded as no id; and a begin that omits the
-// flag is a caller mistake, exit 2, because an unattributable dispatch is
-// what this flag exists to prevent.
+// TestRecordDispatchSendsAgentIDOnlyWhenGiven pins the -agent-id flag in
+// its three states: an explicit value is carried verbatim as recorded
+// intent; Cursor and Codex expose no identifier at all and the caller may
+// pass the literal "none", recorded as no id; and a begin that omits the
+// flag is accepted (KAN-322) -- the daemon now stamps the id onto the row
+// from the parent transcript's launch result, so the hand-typed call
+// KAN-212 predicted would be forgotten is no longer an obligation, and an
+// omitted flag means "stamp it automatically", not "no id".
 //
-// The "none" case asserts the key is missing from the body, not that it is
-// empty. "" means "not reported" and must never match another absent id
-// during attribution, so a wire form that spelled absence as a present,
-// empty value would be a value the daemon could store and the attributor
-// could compare.
+// The "none" and "omitted" cases assert the key is missing from the body,
+// not that it is empty. "" means "not reported" and must never match
+// another absent id during attribution, so a wire form that spelled
+// absence as a present, empty value would be a value the daemon could
+// store and the attributor could compare.
 func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	dispatchArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "begin", "-addr", addr, "-timeout", "500ms", "-C", repo,
@@ -730,16 +732,9 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	})
 
 	t.Run("omitted", func(t *testing.T) {
-		repo := gitRepo(t)
-		isolatedStateRoot(t)
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), dispatchArgs(repo, "http://127.0.0.1:1"),
-			strings.NewReader(""), &stdout, &stderr)
-		if code != 2 {
-			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
-		}
-		if !strings.Contains(stderr.String(), "-agent-id is required") {
-			t.Errorf("stderr = %q, want it to name -agent-id as required", stderr.String())
+		sent := send(t)
+		if v, ok := sent["agentId"]; ok {
+			t.Errorf("agentId = %v, want the key absent -- omission means the daemon stamps the id later, not an empty value", v)
 		}
 	})
 }
