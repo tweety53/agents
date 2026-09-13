@@ -186,8 +186,10 @@ func pendingRecordCount(t *testing.T, root, project, name string) int {
 // which outcomes retire. internal/store's own tests already cover what each
 // of these three methods does against a real PostgreSQL.
 type fakeRecordStore struct {
-	mu      sync.Mutex
-	applied []string
+	mu              sync.Mutex
+	applied         []string
+	lastDispatch    *records.Dispatch
+	lastDispatchEnd *records.DispatchEnd
 }
 
 var _ api.RecordStore = (*fakeRecordStore)(nil)
@@ -199,13 +201,36 @@ func (f *fakeRecordStore) record(desc string) {
 }
 
 func (f *fakeRecordStore) RecordDispatch(_ context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
+	f.mu.Lock()
+	d := in
+	f.lastDispatch = &d
+	f.mu.Unlock()
 	f.record(fmt.Sprintf("dispatch %s/%s task=%s role=%s model=%s", projectKey, change, in.TaskID, in.Role, in.Model))
 	return in, nil
 }
 
 func (f *fakeRecordStore) EndDispatch(_ context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
+	f.mu.Lock()
+	e := in
+	f.lastDispatchEnd = &e
+	f.mu.Unlock()
 	f.record(fmt.Sprintf("dispatch-end %s/%s key=%s commit=%s outcome=%s", projectKey, change, in.Key, in.CommitSHA, in.Outcome))
 	return records.Dispatch{Key: in.Key, CommitSHA: in.CommitSHA, Outcome: in.Outcome, EndedAt: &in.EndedAt}, nil
+}
+
+// lastDispatchRow and lastDispatchEndRow hand a test the row the fake last
+// accepted, so a stamp the Apply layer wrote can be asserted on the replay
+// path the way the live route's tests assert theirs.
+func (f *fakeRecordStore) lastDispatchRow() *records.Dispatch {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastDispatch
+}
+
+func (f *fakeRecordStore) lastDispatchEndRow() *records.DispatchEnd {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastDispatchEnd
 }
 
 func (f *fakeRecordStore) UpsertFinding(_ context.Context, projectKey, change string, in records.Finding) (records.Finding, bool, error) {
@@ -644,10 +669,8 @@ func TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow(t *testing.
 	}{
 		{"dispatch, no role", "dispatch", dispatchWithout(func(d *records.Dispatch) { d.Role = "" })},
 		{"dispatch, no model", "dispatch", dispatchWithout(func(d *records.Dispatch) { d.Model = "" })},
-		{"dispatch, no startedAt", "dispatch", dispatchWithout(func(d *records.Dispatch) { d.StartedAt = time.Time{} })},
 		{"dispatch end, no key", "dispatch-end", endWithout(func(e *records.DispatchEnd) { e.Key = "" })},
 		{"dispatch end, no session token", "dispatch-end", endWithout(func(e *records.DispatchEnd) { e.SessionToken = "" })},
-		{"dispatch end, no endedAt", "dispatch-end", endWithout(func(e *records.DispatchEnd) { e.EndedAt = time.Time{} })},
 		{"finding, no ref", "finding", findingWithout(func(f *records.Finding) { f.Ref = "" })},
 		{"finding, no severity", "finding", findingWithout(func(f *records.Finding) { f.Severity = "" })},
 		{"finding, no note", "finding", findingWithout(func(f *records.Finding) { f.Note = "" })},
@@ -679,6 +702,110 @@ func TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow(t *testing.
 			}
 		})
 	}
+}
+
+// TestRecordEntryWithAZeroInstantIsStampedOnReplay pins the daemon-side
+// instant on the replay path (KAN-324): a journalled dispatch or dispatch
+// end carrying no instant is stamped at the moment the replay applies it,
+// never refused. The CLI stamps the attempt instant into its own journal,
+// so a zero instant here is a hand-edited or pre-change entry -- and
+// refusing it would queue the write forever, the exact outcome the
+// stamping rule exists to make impossible. A supplied instant is kept as
+// the replay override, untouched.
+func TestRecordEntryWithAZeroInstantIsStampedOnReplay(t *testing.T) {
+	t.Run("dispatch, no startedAt", func(t *testing.T) {
+		root := t.TempDir()
+		const project, change = "proj-record-stamp", "chg-record-stamp"
+
+		appendRecordWrite(t, root, project, change, "dispatch", func() records.Dispatch {
+			d := testDispatch()
+			d.StartedAt = time.Time{}
+			return d
+		}())
+
+		rs := &fakeRecordStore{}
+		rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+		result, err := rec.Run(context.Background())
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		if result.Applied != 1 || result.Refused != 0 {
+			t.Fatalf("Run result = %+v, want {Applied:1 Refused:0} -- a zero instant is stamped, not refused", result)
+		}
+		stamped := rs.lastDispatchRow()
+		if stamped == nil || stamped.StartedAt.IsZero() {
+			t.Fatalf("the applied row carries a zero startedAt: the replay must stamp the instant it applies")
+		}
+		if time.Since(stamped.StartedAt) > time.Minute {
+			t.Errorf("stamped startedAt = %s, want an instant near the replay", stamped.StartedAt)
+		}
+		if n := pendingRecordCount(t, root, project, change); n != 0 {
+			t.Errorf("pending record entries after replay = %d, want 0", n)
+		}
+	})
+
+	t.Run("dispatch end, no endedAt", func(t *testing.T) {
+		root := t.TempDir()
+		const project, change = "proj-record-stamp", "chg-record-stamp"
+
+		appendRecordWrite(t, root, project, change, "dispatch-end", func() records.DispatchEnd {
+			e := testDispatchEnd()
+			e.EndedAt = time.Time{}
+			return e
+		}())
+
+		rs := &fakeRecordStore{}
+		rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+		result, err := rec.Run(context.Background())
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		if result.Applied != 1 || result.Refused != 0 {
+			t.Fatalf("Run result = %+v, want {Applied:1 Refused:0} -- a zero instant is stamped, not refused", result)
+		}
+		stamped := rs.lastDispatchEndRow()
+		if stamped == nil || stamped.EndedAt.IsZero() {
+			t.Fatalf("the closed row carries a zero endedAt: the replay must stamp the instant it closes")
+		}
+		if time.Since(stamped.EndedAt) > time.Minute {
+			t.Errorf("stamped endedAt = %s, want an instant near the replay", stamped.EndedAt)
+		}
+		if n := pendingRecordCount(t, root, project, change); n != 0 {
+			t.Errorf("pending record entries after replay = %d, want 0", n)
+		}
+	})
+
+	t.Run("supplied instants are kept", func(t *testing.T) {
+		root := t.TempDir()
+		const project, change = "proj-record-stamp", "chg-record-stamp"
+
+		supplied := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+		d := testDispatch()
+		d.StartedAt = supplied
+		e := testDispatchEnd()
+		e.EndedAt = supplied
+		appendRecordWrite(t, root, project, change, "dispatch", d)
+		appendRecordWrite(t, root, project, change, "dispatch-end", e)
+
+		rs := &fakeRecordStore{}
+		rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+		result, err := rec.Run(context.Background())
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		if result.Applied != 2 {
+			t.Fatalf("Run result = %+v, want Applied:2", result)
+		}
+		if got := rs.lastDispatchRow(); got == nil || !got.StartedAt.Equal(supplied) {
+			t.Errorf("supplied startedAt = %v, want the journalled instant kept as the replay override %s", got, supplied)
+		}
+		if got := rs.lastDispatchEndRow(); got == nil || !got.EndedAt.Equal(supplied) {
+			t.Errorf("supplied endedAt = %v, want the journalled instant kept as the replay override %s", got, supplied)
+		}
+	})
 }
 
 // TestRecordStatusEntryWithAnEmptyRefStillReachesTheStore pins the one

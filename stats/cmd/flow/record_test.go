@@ -74,8 +74,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 			[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-task", "6", "-role", "implementer",
 				"-model", "unknown (agent-defined)", "-key", "task-6-implementer",
-				"-session-token", "mf-record-dispatch-ok",
-				"-started-at", "2026-01-02T03:04:05Z"},
+				"-session-token", "mf-record-dispatch-ok"},
 			strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
@@ -122,8 +121,8 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 		if sent["sessionToken"] != "mf-record-dispatch-ok" {
 			t.Errorf("sessionToken = %v, want mf-record-dispatch-ok", sent["sessionToken"])
 		}
-		if sent["startedAt"] != "2026-01-02T03:04:05Z" {
-			t.Errorf("startedAt = %v, want 2026-01-02T03:04:05Z", sent["startedAt"])
+		if sent["startedAt"] != "0001-01-01T00:00:00Z" {
+			t.Errorf("startedAt = %v, want the zero instant -- the daemon stamps the moment it writes the row, never the caller (KAN-324)", sent["startedAt"])
 		}
 	})
 
@@ -257,14 +256,14 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 			name: "dispatch",
 			args: []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258", "-task", "6",
 				"-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
-				"-session-token", "mf-record-dispatch-journal", "-started-at", "2026-01-02T03:04:05Z"},
+				"-session-token", "mf-record-dispatch-journal"},
 			kind: "dispatch",
 		},
 		{
 			name: "dispatch end",
 			args: []string{"record", "dispatch", "end", "-change", "kan-258", "-key", "task-6-implementer",
 				"-session-token", "mf-record-dispatch-journal", "-commit", "abc1234",
-				"-outcome", "completed", "-ended-at", "2026-01-02T03:44:05Z"},
+				"-outcome", "completed"},
 			kind: "dispatch-end",
 		},
 		{
@@ -359,6 +358,73 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 
 // --- caller mistakes exit 2 and journal nothing ---
 
+// TestRecordDispatchJournalCarriesTheAttemptInstant pins the replay
+// override's source: a begin or end the store could not reach stamps the
+// instant its attempt was made into the journalled request, so the replay
+// restores that instant instead of dating the dispatch to the replay
+// (KAN-324). The live request carries nothing -- the daemon stamps its own
+// clock -- so the journal is the only place this CLI ever supplies an
+// instant.
+func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
+	cases := []struct {
+		name  string
+		args  []string
+		field string
+	}{
+		{"begin", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258", "-task", "6",
+			"-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
+			"-session-token", "mf-record-journal-instant"}, "startedAt"},
+		{"end", []string{"record", "dispatch", "end", "-change", "kan-258", "-key", "task-6-implementer",
+			"-session-token", "mf-record-journal-instant", "-commit", "abc1234",
+			"-outcome", "completed"}, "endedAt"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			verbLen := 0
+			for verbLen < len(tc.args) && !strings.HasPrefix(tc.args[verbLen], "-") {
+				verbLen++
+			}
+			args := append([]string{}, tc.args[:verbLen]...)
+			args = append(args, "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo)
+			args = append(args, tc.args[verbLen:]...)
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
+			}
+
+			entries, exists := recordJournalEntries(t, repo, "kan-258")
+			if !exists || len(entries) != 1 {
+				t.Fatalf("record journal entries = %v (exists=%v), want 1", entries, exists)
+			}
+			var body struct {
+				Kind    string          `json:"kind"`
+				Request json.RawMessage `json:"request"`
+			}
+			if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+				t.Fatalf("decode journalled body: %v", err)
+			}
+			var sent map[string]any
+			if err := json.Unmarshal(body.Request, &sent); err != nil {
+				t.Fatalf("decode journalled request: %v", err)
+			}
+			raw, _ := sent[tc.field].(string)
+			stamped, err := time.Parse(time.RFC3339, raw)
+			if err != nil {
+				t.Fatalf("journalled %s = %q, want an RFC 3339 instant the replay can restore", tc.field, raw)
+			}
+			if time.Since(stamped) > time.Minute {
+				t.Errorf("journalled %s = %s, want the attempt instant (within a minute of the call)", tc.field, stamped)
+			}
+		})
+	}
+}
+
 // TestRecordMissingRequiredFlagExitsTwoWithoutJournalling pins the other
 // half of the never-block split: a caller mistake is not a store failure,
 // so it exits 2 and leaves no journal entry to replay. Journalling it
@@ -369,20 +435,19 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 		args []string
 	}{
 		{"dispatch begin without -model", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
-			"-role", "implementer", "-key", "k1", "-session-token", "mf-record-missing-model",
-			"-started-at", "2026-01-02T03:04:05Z"}},
+			"-role", "implementer", "-key", "k1", "-session-token", "mf-record-missing-model"}},
 		{"dispatch begin without -change", []string{"record", "dispatch", "begin", "-agent-id", "none",
-			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-missing-change",
+			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-missing-change"}},
+		{"dispatch begin with retired -started-at", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
+			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-retired-started",
 			"-started-at", "2026-01-02T03:04:05Z"}},
-		{"dispatch begin without -started-at", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
-			"-role", "implementer", "-model", "opus", "-key", "k1", "-session-token", "mf-record-missing-started"}},
 		{"dispatch begin without -key", []string{"record", "dispatch", "begin", "-agent-id", "none", "-change", "kan-258",
-			"-role", "implementer", "-model", "opus", "-session-token", "mf-record-missing-key",
-			"-started-at", "2026-01-02T03:04:05Z"}},
+			"-role", "implementer", "-model", "opus", "-session-token", "mf-record-missing-key"}},
 		{"dispatch end without -key", []string{"record", "dispatch", "end", "-change", "kan-258",
-			"-session-token", "mf-record-missing-end-key", "-ended-at", "2026-01-02T03:44:05Z"}},
-		{"dispatch end without -ended-at", []string{"record", "dispatch", "end", "-change", "kan-258",
-			"-key", "k1", "-session-token", "mf-record-missing-ended"}},
+			"-session-token", "mf-record-missing-end-key"}},
+		{"dispatch end with retired -ended-at", []string{"record", "dispatch", "end", "-change", "kan-258",
+			"-key", "k1", "-session-token", "mf-record-retired-ended",
+			"-ended-at", "2026-01-02T03:44:05Z"}},
 		{"finding without -note", []string{"record", "finding", "-change", "kan-258",
 			"-ref", "F1", "-slot", "principles", "-severity", "major", "-status", "open"}},
 		{"status without -ref", []string{"record", "status", "-change", "kan-258", "-status", "fixed"}},
@@ -430,7 +495,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "architect", "-model", "opus", "-key", "k1",
-			"-session-token", "mf-record-unknown-role", "-started-at", "2026-01-02T03:04:05Z"},
+			"-session-token", "mf-record-unknown-role"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
@@ -469,7 +534,7 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "planner", "-model", "opus", "-key", "k1",
-			"-session-token", "mf-record-planner-role", "-started-at", "2026-01-02T03:04:05Z"},
+			"-session-token", "mf-record-planner-role"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
@@ -500,7 +565,7 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "conductor", "-model", "sonnet", "-key", "conductor",
-			"-session-token", "mf-record-conductor-role", "-started-at", "2026-01-02T03:04:05Z"},
+			"-session-token", "mf-record-conductor-role"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
@@ -531,7 +596,7 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "k1",
-			"-session-token", "mf-record-verifier-role", "-started-at", "2026-01-02T03:04:05Z"},
+			"-session-token", "mf-record-verifier-role"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
@@ -563,7 +628,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "k1",
-			"-session-token", "mf-$(date +%s)", "-started-at", "2026-01-02T03:04:05Z"},
+			"-session-token", "mf-$(date +%s)"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
@@ -615,7 +680,7 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	dispatchArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "begin", "-addr", addr, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "panel-primary",
-			"-session-token", "mf-record-agent-id", "-started-at", "2026-01-02T03:04:05Z"}
+			"-session-token", "mf-record-agent-id"}
 		return append(args, extra...)
 	}
 
@@ -703,7 +768,7 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 
 	args := []string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-principles",
-		"-session-token", "mf-record-diff-base", "-started-at", "2026-01-02T03:04:05Z"}
+		"-session-token", "mf-record-diff-base"}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), append(args, extra...), strings.NewReader(""), &stdout, &stderr)
@@ -768,8 +833,7 @@ func TestRecordDispatchBeginDiffBaseIsOptional(t *testing.T) {
 func TestDispatchEndAcceptsAgentID(t *testing.T) {
 	endArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "end", "-addr", addr, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-key", "panel-primary", "-session-token", "mf-record-end-agent-id",
-			"-ended-at", "2026-01-02T03:44:05Z"}
+			"-change", "kan-258", "-key", "panel-primary", "-session-token", "mf-record-end-agent-id"}
 		return append(args, extra...)
 	}
 
@@ -838,8 +902,7 @@ func causeEndRun(t *testing.T, extra ...string) (int, bytes.Buffer, bytes.Buffer
 
 	var stdout, stderr bytes.Buffer
 	args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-		"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause",
-		"-ended-at", "2026-01-02T03:44:05Z"}
+		"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause"}
 	args = append(args, extra...)
 	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout, stderr, contacted, repo
@@ -927,7 +990,7 @@ func TestDispatchEndCauseAccepted(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause",
-			"-outcome", "blocked", "-cause", "environment", "-ended-at", "2026-01-02T03:44:05Z"},
+			"-outcome", "blocked", "-cause", "environment"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
@@ -1539,8 +1602,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
-			"-key", "task-6-implementer", "-session-token", "mf-record-pair",
-			"-started-at", "2026-01-02T03:04:05Z"},
+			"-key", "task-6-implementer", "-session-token", "mf-record-pair"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("begin exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1554,7 +1616,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 	code = run(context.Background(),
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-pair",
-			"-commit", "abc1234", "-outcome", "completed", "-ended-at", "2026-01-02T03:44:05Z"},
+			"-commit", "abc1234", "-outcome", "completed"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("end exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1572,7 +1634,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 		"sessionToken": "mf-record-pair",
 		"commitSha":    "abc1234",
 		"outcome":      "completed",
-		"endedAt":      "2026-01-02T03:44:05Z",
+		"endedAt":      "0001-01-01T00:00:00Z",
 	} {
 		if sent[field] != want {
 			t.Errorf("end body %s = %v, want %q", field, sent[field], want)
@@ -1607,7 +1669,7 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-end-404",
-			"-outcome", "completed", "-ended-at", "2026-01-02T03:44:05Z"},
+			"-outcome", "completed"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
@@ -2835,7 +2897,7 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "extreme",
-			"-key", "k1", "-session-token", "mf-record-unknown-effort", "-started-at", "2026-01-02T03:04:05Z"},
+			"-key", "k1", "-session-token", "mf-record-unknown-effort"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {

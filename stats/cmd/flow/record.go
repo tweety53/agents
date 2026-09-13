@@ -148,11 +148,11 @@ func validateFindingReproducer(reproducer string) error {
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model -agent-id id|none [-diff-base sha]
-                             -key key -session-token token -started-at rfc3339
+                             -key key -session-token token
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
-                             [-agent-id id] -ended-at rfc3339
+                             [-agent-id id]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -320,6 +320,15 @@ records the command text before the shell expands it, so a substitution
 would be recorded identically by every caller and identify nothing. See
 validateSessionToken (stage.go) for the whole of that reasoning, including
 the shape no check at this layer can catch.
+
+A dispatch's start and end instants are NOT caller inputs. The daemon
+stamps startedAt when it writes the begin row and endedAt when it closes
+it, at its own clock -- the clock the transcript attribution shares -- so
+a hand-typed approximation of the time can never gate an attribution
+again (KAN-324). A journalled write that is replayed later still carries
+its original instant: the CLI stamps the attempt instant into the
+journalled request, and the daemon keeps a supplied instant as the replay
+override rather than re-stamping it.
 `
 
 // runRecord implements `flow record`. Every subcommand but `render` and
@@ -605,7 +614,10 @@ func runRecordDispatchVerb(ctx context.Context, args []string, stdout, stderr io
 // runRecordDispatchBegin implements `flow record dispatch begin`: the
 // opening call, sent as the dispatch starts, carrying everything already
 // known then -- the task, the role, the slot, the model, the harness's
-// agent id, the run's session token and the start instant.
+// agent id and the run's session token. The start instant is not among
+// them: the daemon stamps startedAt when it writes the row, at its own
+// clock (KAN-324), so a caller-typed approximation of the time can never
+// gate an attribution again.
 //
 // IT IS SENT AT THE START AND NOT AT THE CLOSE, and that is the whole
 // reason this command is a pair rather than the single call it once was.
@@ -664,7 +676,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta -- optional, since an implementer and a slot reading the whole diff record none")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
-	startedAt := fset.String("started-at", "", "when the dispatch started, RFC 3339 -- the instant the harvester attributes its cost from (required)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -675,7 +686,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		[2]string{"-agent-id", *agentID},
 		[2]string{"-key", *key},
 		[2]string{"-session-token", *sessionToken},
-		[2]string{"-started-at", *startedAt},
 	) {
 		return 2
 	}
@@ -694,11 +704,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
-	started, err := time.Parse(time.RFC3339, *startedAt)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: -started-at %q is not an RFC 3339 instant: %v\n", *startedAt, err)
-		return 2
-	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -706,6 +711,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		return 1
 	}
 
+	// StartedAt is sent as nothing at all: the daemon stamps it at the
+	// moment it writes the row. A write that journals stamps the attempt
+	// instant taken BEFORE the call, so the replay restores the instant the
+	// original attempt was made rather than dating the dispatch to the
+	// replay.
+	attemptAt := time.Now()
 	in := records.Dispatch{
 		AgentID:      *agentID,
 		Key:          *key,
@@ -716,11 +727,13 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		Effort:       *effort,
 		DiffBase:     *diffBase,
 		SessionToken: *sessionToken,
-		StartedAt:    started,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.RecordDispatch(ctx, projectKey, f.change, in)
 	})
+	if callErr != nil {
+		in.StartedAt = attemptAt
+	}
 	if callErr == nil {
 		// The seq is the store's own allocation, and the identifier a
 		// rendered record and a finding's -dispatch-seq name this
@@ -734,8 +747,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 }
 
 // runRecordDispatchEnd implements `flow record dispatch end`: the closing
-// call, sent as the dispatch finishes, carrying the three facts knowable
-// only then -- the commit it produced, how it ended, and when.
+// call, sent as the dispatch finishes, carrying the two facts knowable
+// only then -- the commit it produced and how it ended. The end instant is
+// not among them: the daemon stamps endedAt when it closes the row
+// (KAN-324), the same rule begin's start instant follows.
 //
 // WITHOUT IT THE ATTRIBUTION WINDOW NEVER CLOSES. A dispatch row with no
 // end instant is an open window, and an open window contains every later
@@ -760,7 +775,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	outcome := fset.String("outcome", "", "how the dispatch ended, e.g. completed")
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
-	endedAt := fset.String("ended-at", "", "when the dispatch ended, RFC 3339 -- the instant its attribution window closes (required)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -768,7 +782,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	if !requireRecordFlags(stderr,
 		[2]string{"-key", *key},
 		[2]string{"-session-token", *sessionToken},
-		[2]string{"-ended-at", *endedAt},
 	) {
 		return 2
 	}
@@ -790,11 +803,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
-	ended, err := time.Parse(time.RFC3339, *endedAt)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: -ended-at %q is not an RFC 3339 instant: %v\n", *endedAt, err)
-		return 2
-	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -802,18 +810,26 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		return 1
 	}
 
+	// EndedAt is sent as nothing at all: the daemon stamps it at the
+	// moment it closes the row. A write that journals stamps the attempt
+	// instant taken BEFORE the call, so the replay closes the window at
+	// the instant the original attempt was made rather than dating the
+	// close to the replay.
+	attemptAt := time.Now()
 	in := records.DispatchEnd{
 		SessionToken: *sessionToken,
 		Key:          *key,
 		CommitSHA:    *commit,
 		Outcome:      *outcome,
 		Cause:        *cause,
-		EndedAt:      ended,
 		AgentID:      *agentID,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)
 	})
+	if callErr != nil {
+		in.EndedAt = attemptAt
+	}
 	if callErr == nil {
 		fmt.Fprintf(stdout, "updated: dispatch %d\n", out.Seq)
 	}
