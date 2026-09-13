@@ -847,7 +847,10 @@ def check_tests(task: TaskFields, diff_text: str) -> List[str]:
         if not spec.pattern.search(diff_text):
             violations.append(
                 f"task {task.id}: declared test {spec.label} not found in "
-                "the diff"
+                "the diff — a **Tests:** field is parsed, not read: every "
+                "backticked token in it is a declared test name, prose "
+                "about coverage belongs outside the field, and a task "
+                "adding no tests opens the field with `none`"
             )
     return violations
 

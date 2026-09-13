@@ -3422,6 +3422,61 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 105: lifecycle annotations do not count as @Test" || fail "case 105: rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 106 (KAN-274): a **Tests:** field written as prose that names a
+# guard script — the exact trap KAN-77's task 3 hit — reports the parse
+# rule alongside the missing name, so the failure names the misused field
+# and not only a test the plan never declared.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Prose field naming a script
+
+**Files:** `alpha.txt`
+**Tests:** covered by the existing guards — `check-references.sh` and `check-contract-budget.sh`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'no tests here\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 106: prose field naming a script fails" || fail "case 106: rc=$RC out=$OUT"
+case "$OUT" in
+  *"check-references.sh"*"not found in the diff"*"parsed, not read"*)
+    pass "case 106: reports the parse rule with the missing name" ;;
+  *) fail "case 106: expected the parse-rule hint beside the missing name, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 107 (KAN-274): a genuinely missing declared test keeps naming the
+# test itself — the parse-rule hint rides along on every missing-test
+# message, legitimate declarations included.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Genuine missing test
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'no tests here\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 107: genuine missing test fails" || fail "case 107: rc=$RC out=$OUT"
+case "$OUT" in
+  *"test_alpha"*"not found in the diff"*"parsed, not read"*)
+    pass "case 107: names the test first, parse rule second" ;;
+  *) fail "case 107: expected the test name then the parse-rule hint, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
