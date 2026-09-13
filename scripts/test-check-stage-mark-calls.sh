@@ -561,7 +561,7 @@ new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
 flow record dispatch -change <name> -task 3 -role implementer -model opus \
-  -commit abc1234 -outcome completed -session-token "mf-$(date +%s)" -started-at <ts>
+  -commit abc1234 -outcome completed -session-token "mf-$(date +%s)"
 ```
 EOF
 run_guard "$FIXTURE"
@@ -582,7 +582,7 @@ new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
 flow record dispatch -change <name> -task 3 -role implementer -model opus \
-  -commit abc1234 -outcome completed -session-token mf-abc123 -started-at <ts>
+  -commit abc1234 -outcome completed -session-token mf-abc123
 ```
 EOF
 run_guard "$FIXTURE"
@@ -603,7 +603,7 @@ new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
 flow record dispatch -change <name> -role reviewer -slot Primary -model sonnet \
-  -outcome completed -started-at <ts>
+  -outcome completed
 ```
 EOF
 run_guard "$FIXTURE"
@@ -625,7 +625,7 @@ PHASE_FILE="$FIXTURE/brainstorm.md"
 cat >"$PHASE_FILE" <<'EOF'
 ```bash
 flow record dispatch begin -change <name> -role planner -model opus \
-  -key planner-opus -session-token "mf-$(date +%s)" -started-at <ts>
+  -key planner-opus -session-token "mf-$(date +%s)"
 ```
 EOF
 rm -f "$FIXTURE_FILE"
