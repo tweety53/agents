@@ -291,7 +291,7 @@ type Source struct {
 	// ReadNew reads path from offset to EOF, exactly ReadNewRecords'
 	// contract (transcript.go): records and commands from the complete
 	// portion only, the new offset covering no partial trailing line.
-	ReadNew func(path string, offset int64) ([]Record, []CommandRecord, []AgentLaunch, int64, error)
+	ReadNew func(path string, offset int64, openAgentCalls map[string]bool) (Batch, error)
 	// ReadAllCmds reads path whole for commands only, exactly
 	// ReadAllCommands' contract (transcript.go): no Records, no offset
 	// read or written -- the retried-give-up scan's shape.
@@ -454,6 +454,16 @@ type Watcher struct {
 	dispatchMetaCycles map[string]int
 	gaveUpDispatchMeta map[string]bool
 
+	// openAgentCalls carries, per transcript path, the agent tool_use ids
+	// no tool_result has resolved yet -- the set the next read joins
+	// denials against, so a dispatch whose launch never came can still be
+	// recognised as denied when its error result lands in a later batch.
+	// Bounded like the pending lists: a path whose set outgrows the cap
+	// is cleared wholesale rather than grown without end, losing only the
+	// ability to join a straddled denial -- never a pairing that already
+	// happened.
+	openAgentCalls map[string]map[string]bool
+
 	// pendingBegins and pendingLaunches carry, per transcript path, the
 	// begins and launches KAN-322's pairing has seen but not yet paired.
 	// A batch boundary may split the pair -- the launch result and the
@@ -499,6 +509,7 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		gaveUpDispatchMeta:  make(map[string]bool),
 		pendingBegins:       make(map[string][]dispatchBeginEvent),
 		pendingLaunches:     make(map[string][]AgentLaunch),
+		openAgentCalls:      make(map[string]map[string]bool),
 	}
 }
 
@@ -581,11 +592,13 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 				continue
 			}
 
-			records, commands, launches, newOffset, err := set.source.ReadNew(path, offset)
+			batch, err := set.source.ReadNew(path, offset, w.openAgentCalls[path])
 			if err != nil {
 				w.warn("harvest: read transcript failed, will retry", "path", path, "error", err)
 				continue
 			}
+			records, commands, launches, denials, newOffset :=
+				batch.Records, batch.Commands, batch.Launches, batch.Denials, batch.NewOffset
 
 			matchedHere := w.matchSessionTokens(pendingSessionTokens, commands, matchedSessions)
 
@@ -666,7 +679,8 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			// session-token resolution or lost to a concurrent harvester is
 			// re-read from the same offset next cycle, so its launches are
 			// processed exactly once too.
-			w.stampDispatchAgents(ctx, path, commands, launches)
+			w.stampDispatchAgents(ctx, path, commands, launches, denials)
+			w.rememberOpenAgentCalls(path, batch.OpenCalls)
 
 			// Once this batch has actually committed, decide whether this
 			// path needs a future backfill visit (F4): hasMeta true means
@@ -1044,7 +1058,11 @@ const maxStampTimeTolerance = 2 * time.Minute
 const maxPendingStampEvents = 8
 
 // beginCommandShape is what a command must contain to pair with a launch:
-// the begin verb itself plus the three flags that identify its row. A
+// the begin verb itself plus the three flags that identify its row. It
+// deliberately re-encodes the CLI's own required-flag contract instead of
+// importing it: the harvester parses transcript TEXT the CLI never sees,
+// and internal/harvest imports nothing from cmd/ (the dependency would run
+// the wrong way), so the two lists are kept in step by this note. A
 // diagnostic that merely mentions one of them (a grep quoting a token, or
 // a mention of the key without the rest) fails the shape and pairs with
 // nothing -- the mention-versus-invocation distinction
@@ -1165,8 +1183,8 @@ func commandFlagValue(command, flag string) (string, bool) {
 // return. A stamp that fails loses that one row's automatic id -- the
 // row stays empty, ordinary on the harnesses that expose no id at all --
 // and every other row is unaffected.
-func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands []CommandRecord, launches []AgentLaunch) {
-	if len(commands) == 0 && len(launches) == 0 {
+func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands []CommandRecord, launches []AgentLaunch, denials []time.Time) {
+	if len(commands) == 0 && len(launches) == 0 && len(denials) == 0 {
 		return
 	}
 
@@ -1176,6 +1194,33 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	}
 	begins = append(w.pendingBegins[path], begins...)
 	launches = append(w.pendingLaunches[path], launches...)
+
+	// A denied dispatch never launched, so the begin it left pending must
+	// never claim a later launch: retire every begin within tolerance of a
+	// denial -- this batch's or a previous one's, the begin always
+	// preceding its own attempt's denial. The retire is silent: a denied
+	// dispatch is ordinary, and its row simply keeps no id from this
+	// pairing.
+	if len(denials) > 0 {
+		kept := begins[:0]
+		for _, begin := range begins {
+			denied := false
+			for _, at := range denials {
+				delta := at.Sub(begin.StartedAt)
+				if delta < 0 {
+					delta = -delta
+				}
+				if delta <= maxStampTimeTolerance {
+					denied = true
+					break
+				}
+			}
+			if !denied {
+				kept = append(kept, begin)
+			}
+		}
+		begins = kept
+	}
 
 	// Candidates pair nearest-first: every (begin, launch) pair within
 	// tolerance is considered, closest delta first, and a pair is taken
@@ -1293,6 +1338,34 @@ func appendPending[T any](pending, added []T) []T {
 		pending = pending[len(pending)-maxPendingStampEvents:]
 	}
 	return pending
+}
+
+// maxOpenAgentCalls bounds one path's open agent-call set. A dispatch
+// round is a handful of calls; the cap absorbs any real round plus a
+// straddled one, and a set that somehow outgrows it is cleared wholesale
+// rather than grown without end.
+const maxOpenAgentCalls = 64
+
+// rememberOpenAgentCalls carries one batch's still-unresolved agent
+// tool_use ids into the next read, so a denial landing in a later batch
+// can still be joined to its tool call. The set replaces the previous
+// one -- the batch's parser already merged what was carried in -- and is
+// bounded by wholesale clearing, the lossy-is-safe trade the field's own
+// doc comment states.
+func (w *Watcher) rememberOpenAgentCalls(path string, ids []string) {
+	if len(ids) == 0 {
+		delete(w.openAgentCalls, path)
+		return
+	}
+	if len(ids) > maxOpenAgentCalls {
+		delete(w.openAgentCalls, path)
+		return
+	}
+	set := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	w.openAgentCalls[path] = set
 }
 
 // Still no sidecar (hasMeta false), a failure encoding or committing the

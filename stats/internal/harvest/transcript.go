@@ -27,6 +27,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 )
@@ -516,10 +518,114 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 	return out
 }
 
+// Batch is one transcript read's results: the token records and Bash
+// commands KAN-172's session-token resolution reads, KAN-322's agent
+// launches, the dispatch attempts that demonstrably failed (a denied or
+// errored Agent/Task tool result, whose begin must never claim a later
+// launch), and the agent tool_use ids still unresolved by any result --
+// the set a caller carries into the next read so a denial landing in a
+// later batch can still be joined to its tool call.
+type Batch struct {
+	Records   []Record
+	Commands  []CommandRecord
+	Launches  []AgentLaunch
+	Denials   []time.Time
+	OpenCalls []string
+	NewOffset int64
+}
+
+// agentToolNames are the tool names whose tool_use dispatches a subagent,
+// confirmed against real transcripts for both harnesses this package
+// reads ("Agent" on Claude Code and ZCode; "Task" is Claude Code's
+// historical name). Extend only with a transcript sample.
+var agentToolNames = []string{"Agent", "Task"}
+
+// ParseDispatchEvents decodes the dispatch-attempt facts from complete:
+// every async agent launch (ParseAgentLaunches' own extraction, returned
+// separately by ReadNewRecords), every denied or failed one -- a
+// tool_result carrying is_error whose tool_use_id names an
+// agentToolNames tool call, resolved within this batch or against
+// openAgentCalls carried from the previous read -- and the agent tool_use
+// ids no result in this batch resolved (stillOpen), which the caller
+// carries forward so a straddled call can still be joined.
+//
+// A denial is the fact that a begin's dispatch never launched: the
+// watcher uses it to retire the pending begin, so a begin whose launch
+// was denied can never claim a later dispatch's agent id. Only
+// agent-named tool calls count -- a denied Bash call says nothing about
+// any dispatch.
+func ParseDispatchEvents(complete []byte, openAgentCalls map[string]bool) (denials []time.Time, stillOpen []string) {
+	open := make(map[string]bool, len(openAgentCalls)+8)
+	for id, isAgent := range openAgentCalls {
+		if isAgent {
+			open[id] = true
+		}
+	}
+	lineIndex := 0
+	start := 0
+	for start < len(complete) {
+		idx := bytes.IndexByte(complete[start:], '\n')
+		if idx < 0 {
+			break
+		}
+		end := start + idx + 1
+		line := bytes.TrimSpace(complete[start:end])
+		start = end
+		if len(line) == 0 {
+			lineIndex++
+			continue
+		}
+
+		var raw rawLine
+		if err := json.Unmarshal(line, &raw); err != nil {
+			lineIndex++
+			continue
+		}
+		switch raw.Type {
+		case recordTypeAssistant:
+			if raw.Message == nil {
+				break
+			}
+			for _, block := range contentBlocks(raw.Message.Content) {
+				if block.Type != "tool_use" || block.ID == "" || !slices.Contains(agentToolNames, block.Name) {
+					continue
+				}
+				open[block.ID] = true
+			}
+		case "user":
+			if raw.Message == nil {
+				break
+			}
+			for _, block := range contentBlocks(raw.Message.Content) {
+				if block.Type != "tool_result" || block.ToolUseID == "" {
+					continue
+				}
+				if _, known := open[block.ToolUseID]; !known {
+					continue
+				}
+				delete(open, block.ToolUseID)
+				if !block.IsError {
+					continue
+				}
+				if ts, err := time.Parse(time.RFC3339Nano, raw.Timestamp); err == nil {
+					denials = append(denials, ts)
+				}
+			}
+		}
+		lineIndex++
+	}
+	for id := range open {
+		stillOpen = append(stillOpen, id)
+	}
+	sort.Strings(stillOpen)
+	return denials, stillOpen
+}
+
 // ReadNewRecords reads path from offset to EOF, splits off any partial
-// trailing line (SplitCompleteLines), parses the assistant records and
-// the Bash commands found in the complete portion, and returns both
-// alongside the byte offset a caller should persist as "consumed" --
+// trailing line (SplitCompleteLines), parses the assistant records, the
+// Bash commands, the agent launches and the dispatch-attempt facts found
+// in the complete portion, and returns them as a Batch alongside the byte
+// offset a caller should persist as "consumed" --
 // offset + len(complete), never len(raw): a partial final line must
 // never be counted as read, or a restart that catches it mid-write would
 // skip the rest of that same line forever once the writer finishes it.
@@ -541,20 +647,29 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 // read has already passed -- see its own doc comment for why that does
 // not reopen the "second scan" this comment otherwise still holds true
 // against.
-func ReadNewRecords(path string, offset int64) (records []Record, commands []CommandRecord, launches []AgentLaunch, newOffset int64, err error) {
+func ReadNewRecords(path string, offset int64, openAgentCalls map[string]bool) (Batch, error) {
 	f, err := openAt(path, offset)
 	if err != nil {
-		return nil, nil, nil, offset, err
+		return Batch{NewOffset: offset}, err
 	}
 	defer f.Close()
 
 	raw, err := io.ReadAll(f)
 	if err != nil {
-		return nil, nil, nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
+		return Batch{NewOffset: offset}, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
 	}
 
 	complete, _ := SplitCompleteLines(raw)
-	return append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...), ParseCommandRecords(complete), ParseAgentLaunches(complete), offset + int64(len(complete)), nil
+	records := append(ParseAssistantRecords(complete), ParseSignalRecords(complete)...)
+	denials, stillOpen := ParseDispatchEvents(complete, openAgentCalls)
+	return Batch{
+		Records:   records,
+		Commands:  ParseCommandRecords(complete),
+		Launches:  ParseAgentLaunches(complete),
+		Denials:   denials,
+		OpenCalls: stillOpen,
+		NewOffset: offset + int64(len(complete)),
+	}, nil
 }
 
 // ReadAllCommands reads path from byte 0 to its current EOF and returns

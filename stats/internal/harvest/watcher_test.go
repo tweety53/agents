@@ -3120,7 +3120,12 @@ func stampFixtureLines(lines ...string) []byte {
 	return []byte(strings.Join(lines, "\n") + "\n")
 }
 
-const stampBeginLine = `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow record dispatch begin -change kan-322 -role implementer -key task-1-implementer -session-token mf-kan322 -started-at 2026-01-01T00:00:00Z"}}]}}`
+// stampBeginCommand is the begin invocation's own text, kept separate
+// from the line fixture so tests that build a transcript line around a
+// MODIFIED command marshal the command text, never the whole line.
+const stampBeginCommand = "flow record dispatch begin -change kan-322 -role implementer -key task-1-implementer -session-token mf-kan322 -started-at 2026-01-01T00:00:00Z"
+
+const stampBeginLine = `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"` + stampBeginCommand + `"}}]}}`
 
 const stampLaunchLine = `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a68cee7239419a7e7"}}`
 
@@ -3154,7 +3159,7 @@ func TestWatcherStampsLaunchAgainstPrecedingBegin(t *testing.T) {
 // TestWatcherCarriesBeginAcrossBatchBoundary pins the cross-batch case:
 // the begin commits in one batch and the launch lands in bytes the next
 // RunOnce reads, so the pairing must survive between cycles -- one begin
-// per path carried forward, exactly as w.dispatchBegins' doc comment
+// per path carried forward, exactly as the watcher's own pending lists'
 // states.
 func TestWatcherCarriesBeginAcrossBatchBoundary(t *testing.T) {
 	dir := t.TempDir()
@@ -3224,7 +3229,6 @@ func TestWatcherDeniedLaunchKeepsFollowingPairingCorrect(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	denied := `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"PreToolUse hook denied the Agent call"}]}}`
-	_ = denied
 	begin2 := strings.Replace(stampBeginLine, "task-1-implementer", "task-2-reviewer", 1)
 	begin2 = strings.Replace(begin2, "mf-kan322", "mf-kan322-b", 1)
 	begin2 = strings.Replace(begin2, "-started-at 2026-01-01T00:00:00Z", "-started-at 2026-01-01T00:00:02Z", 1)
@@ -3325,5 +3329,60 @@ func appendLine(t *testing.T, path, line string) {
 	}
 	if err := f.Close(); err != nil {
 		t.Fatalf("close: %v", err)
+	}
+}
+
+// TestWatcherDeniedBeginNeverClaimsLaterLaunch is the fix the panel's
+// stale-begin finding demanded: a begin whose dispatch was denied -- an
+// errored Agent tool result -- is retired, never left pending, so it
+// cannot claim a later launch across a batch boundary before the
+// launch's true begin arrives. The later launch waits and pairs with the
+// begin that actually names it.
+func TestWatcherDeniedBeginNeverClaimsLaterLaunch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	agentUse := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uA","name":"Agent","input":{}}]}}`
+	denied := `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"uA","is_error":true,"content":"PreToolUse hook denied the Agent call"}]}}`
+	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, agentUse, denied), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (denied batch): %v", err)
+	}
+	if len(deps.stamps) != 0 {
+		t.Fatalf("got %d stamps in the denied batch, want 0", len(deps.stamps))
+	}
+
+	// Batch 2: a panel round's launch, 59s after the denial -- inside the
+	// tolerance the retired begin would have abused.
+	launch := strings.Replace(stampLaunchLine, "00:00:01Z", "00:01:00Z", 1)
+	appendLine(t, path, launch)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (launch batch): %v", err)
+	}
+	if len(deps.stamps) != 0 {
+		t.Fatalf("got %d stamps, want 0 -- the denied begin must not claim this launch: %+v", len(deps.stamps), deps.stamps)
+	}
+
+	// Batch 3: the launch's true begin, recorded after the launches as a
+	// panel round records them; the carried launch pairs with it.
+	begin2 := strings.Replace(stampBeginCommand, "task-1-implementer", "task-2-reviewer", 1)
+	begin2 = strings.Replace(begin2, "mf-kan322", "mf-kan322-b", 1)
+	begin2 = strings.Replace(begin2, "-started-at 2026-01-01T00:00:00Z", "-started-at 2026-01-01T00:01:00Z", 1)
+	commandJSON, err := json.Marshal(begin2)
+	if err != nil {
+		t.Fatalf("marshal begin: %v", err)
+	}
+	appendLine(t, path, `{"type":"assistant","timestamp":"2026-01-01T00:01:01Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(commandJSON)+`}}]}}`)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (begin batch): %v", err)
+	}
+
+	want := []stampCall{{"mf-kan322-b", "task-2-reviewer", "a68cee7239419a7e7"}}
+	if len(deps.stamps) != 1 || deps.stamps[0] != want[0] {
+		t.Errorf("stamps = %+v, want %+v", deps.stamps, want)
 	}
 }

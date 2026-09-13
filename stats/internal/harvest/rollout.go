@@ -250,23 +250,28 @@ func ParseRolloutCommandRecords(complete []byte) []CommandRecord {
 // function's offset discipline verbatim: a partial trailing line is split
 // off and never counted as consumed, and a file shorter than offset is
 // ErrOffsetBeyondEOF, never silently reread from 0. It returns no agent
-// launches: a rollout file carries no launch-status tool result, a ZCode
-// dispatch's agent id being recoverable only from the subagent file's own
-// name (AgentIDFromRolloutPath).
-func ReadRolloutNewRecords(path string, offset int64) ([]Record, []CommandRecord, []AgentLaunch, int64, error) {
+// launches and no denials: a rollout file carries no launch-status tool
+// result, a ZCode dispatch's agent id being recoverable only from the
+// subagent file's own name (AgentIDFromRolloutPath), and no Agent/Task
+// tool_use blocks to join denials against.
+func ReadRolloutNewRecords(path string, offset int64, openAgentCalls map[string]bool) (Batch, error) {
 	f, err := openAt(path, offset)
 	if err != nil {
-		return nil, nil, nil, offset, err
+		return Batch{NewOffset: offset}, err
 	}
 	defer f.Close()
 
 	raw, err := io.ReadAll(f)
 	if err != nil {
-		return nil, nil, nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
+		return Batch{NewOffset: offset}, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
 	}
 
 	complete, _ := SplitCompleteLines(raw)
-	return ParseRolloutRecords(complete), ParseRolloutCommandRecords(complete), nil, offset + int64(len(complete)), nil
+	return Batch{
+		Records:   ParseRolloutRecords(complete),
+		Commands:  ParseRolloutCommandRecords(complete),
+		NewOffset: offset + int64(len(complete)),
+	}, nil
 }
 
 // ReadRolloutAllCommands reads path from byte 0 to its current EOF and

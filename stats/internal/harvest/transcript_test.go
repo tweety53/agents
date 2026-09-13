@@ -155,15 +155,15 @@ func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
 		t.Fatalf("write growing fixture: %v", err)
 	}
 
-	firstPass, _, _, offsetAfterFirst, err := harvest.ReadNewRecords(path, 0)
+	firstPass, err := harvest.ReadNewRecords(path, 0, nil)
 	if err != nil {
 		t.Fatalf("ReadNewRecords (truncated): %v", err)
 	}
-	if len(firstPass) != 6 {
-		t.Fatalf("first pass got %d records, want 6", len(firstPass))
+	if len(firstPass.Records) != 6 {
+		t.Fatalf("first pass got %d records, want 6", len(firstPass.Records))
 	}
-	if int(offsetAfterFirst) != len(complete) {
-		t.Fatalf("offset after first pass = %d, want %d (exactly the complete portion)", offsetAfterFirst, len(complete))
+	if int(firstPass.NewOffset) != len(complete) {
+		t.Fatalf("offset after first pass = %d, want %d (exactly the complete portion)", firstPass.NewOffset, len(complete))
 	}
 
 	full := readFixture(t, mainThreadFixture)
@@ -171,18 +171,18 @@ func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
 		t.Fatalf("complete the write: %v", err)
 	}
 
-	secondPass, _, _, offsetAfterSecond, err := harvest.ReadNewRecords(path, offsetAfterFirst)
+	secondPass, err := harvest.ReadNewRecords(path, firstPass.NewOffset, nil)
 	if err != nil {
 		t.Fatalf("ReadNewRecords (resumed): %v", err)
 	}
-	if len(secondPass) != 1 {
-		t.Fatalf("second pass got %d records, want exactly 1 (the record that was missing)", len(secondPass))
+	if len(secondPass.Records) != 1 {
+		t.Fatalf("second pass got %d records, want exactly 1 (the record that was missing)", len(secondPass.Records))
 	}
-	if secondPass[0].Usage.ThinkingTokens != 37 {
-		t.Errorf("resumed record thinking tokens = %d, want 37", secondPass[0].Usage.ThinkingTokens)
+	if secondPass.Records[0].Usage.ThinkingTokens != 37 {
+		t.Errorf("resumed record thinking tokens = %d, want 37", secondPass.Records[0].Usage.ThinkingTokens)
 	}
-	if int(offsetAfterSecond) != len(full) {
-		t.Errorf("offset after second pass = %d, want %d (end of file)", offsetAfterSecond, len(full))
+	if int(secondPass.NewOffset) != len(full) {
+		t.Errorf("offset after second pass = %d, want %d (end of file)", secondPass.NewOffset, len(full))
 	}
 }
 
@@ -247,7 +247,7 @@ func TestReadNewRecordsOffsetBeyondEOFIsReported(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	_, _, _, _, err := harvest.ReadNewRecords(path, 10_000)
+	_, err := harvest.ReadNewRecords(path, 10_000, nil)
 	if !errors.Is(err, harvest.ErrOffsetBeyondEOF) {
 		t.Fatalf("ReadNewRecords error = %v, want ErrOffsetBeyondEOF", err)
 	}
@@ -472,21 +472,21 @@ func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	records, commands, launches, newOffset, err := harvest.ReadNewRecords(path, 0)
+	batch, err := harvest.ReadNewRecords(path, 0, nil)
 	if err != nil {
 		t.Fatalf("ReadNewRecords: %v", err)
 	}
-	if len(records) != 1 {
-		t.Fatalf("got %d token records, want 1", len(records))
+	if len(batch.Records) != 1 {
+		t.Fatalf("got %d token records, want 1", len(batch.Records))
 	}
-	if len(commands) != 1 || commands[0].Command != "flow stage begin -session-token mf-abc123" {
-		t.Fatalf("got %+v, want one command record for mf-abc123", commands)
+	if len(batch.Commands) != 1 || batch.Commands[0].Command != "flow stage begin -session-token mf-abc123" {
+		t.Fatalf("got %+v, want one command record for mf-abc123", batch.Commands)
 	}
-	if len(launches) != 0 {
-		t.Errorf("got %d launches, want 0 (no launch in this fixture)", len(launches))
+	if len(batch.Launches) != 0 {
+		t.Errorf("got %d launches, want 0 (no launch in this fixture)", len(batch.Launches))
 	}
-	if int(newOffset) != len(content) {
-		t.Errorf("newOffset = %d, want %d", newOffset, len(content))
+	if int(batch.NewOffset) != len(content) {
+		t.Errorf("newOffset = %d, want %d", batch.NewOffset, len(content))
 	}
 }
 
@@ -539,11 +539,11 @@ func TestParseAgentLaunchesIgnoresNonLaunchResults(t *testing.T) {
 	}
 }
 
-// TestParseAgentLaunchesDeduplicatesRepeatedLines pins the one
-// launch per line rule: a single line can carry one toolUseResult, so a
-// repeated line (a re-read overlap) must not yield a second launch for
-// the same dispatch.
-func TestParseAgentLaunchesDeduplicatesRepeatedLines(t *testing.T) {
+// TestParseAgentLaunchesOnePerLine pins the one launch per line
+// rule: each line carries at most one toolUseResult, so two lines that
+// each carry one yield two launches, one per line -- and a single line
+// never yields more than one.
+func TestParseAgentLaunchesOnePerLine(t *testing.T) {
 	line := `{"type":"user","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a68cee7239419a7e7"}}` + "\n"
 	got := harvest.ParseAgentLaunches([]byte(line + line))
 	if len(got) != 2 {
@@ -573,5 +573,61 @@ func TestParseCommandRecordsCarriesLineNumbers(t *testing.T) {
 	}
 	if got[1].Line != 2 {
 		t.Errorf("second command Line = %d, want 2", got[1].Line)
+	}
+}
+
+// TestParseDispatchEventsJoinsDeniedAgentCall is KAN-322's denial fix:
+// an errored tool_result whose tool_use_id names an Agent/Task tool call
+// is a dispatch attempt that never launched, and the watcher retires the
+// begin it left pending. A denied Bash call says nothing about any
+// dispatch and yields nothing; a successful agent result resolves its
+// call without a denial.
+func TestParseDispatchEventsJoinsDeniedAgentCall(t *testing.T) {
+	complete := []byte(
+		`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uA","name":"Agent","input":{}}]}}` + "\n" +
+			`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uB","name":"Bash","input":{"command":"ls"}}]}}` + "\n" +
+			`{"type":"user","timestamp":"2026-01-01T00:00:02Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"uB","is_error":true,"content":"PreToolUse hook denied"}]}}` + "\n" +
+			`{"type":"user","timestamp":"2026-01-01T00:00:03Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"uA","is_error":true,"content":"PreToolUse hook denied the Agent call"}]}}` + "\n")
+
+	denials, stillOpen := harvest.ParseDispatchEvents(complete, nil)
+	if len(denials) != 1 {
+		t.Fatalf("got %d denials, want 1: %v", len(denials), denials)
+	}
+	wantTS, _ := time.Parse(time.RFC3339Nano, "2026-01-01T00:00:03Z")
+	if !denials[0].Equal(wantTS) {
+		t.Errorf("denial timestamp = %v, want %v", denials[0], wantTS)
+	}
+	if len(stillOpen) != 0 {
+		t.Errorf("stillOpen = %v, want empty (every call resolved)", stillOpen)
+	}
+}
+
+// TestParseDispatchEventsCarriesOpenCallsAcrossBatches pins the
+// straddled-call join: a batch whose Agent tool_use carries no result
+// reports the id in stillOpen, and the NEXT read -- handed that set back
+// -- joins a denial landing there to the same call. Without the carry,
+// a dispatch denied across a batch boundary would leave its begin
+// pending and free to steal a later launch.
+func TestParseDispatchEventsCarriesOpenCallsAcrossBatches(t *testing.T) {
+	batch1 := []byte(
+		`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uA","name":"Agent","input":{}}]}}` + "\n")
+
+	denials, stillOpen := harvest.ParseDispatchEvents(batch1, nil)
+	if len(denials) != 0 {
+		t.Fatalf("got %d denials before any result, want 0", len(denials))
+	}
+	if len(stillOpen) != 1 || stillOpen[0] != "uA" {
+		t.Fatalf("stillOpen = %v, want [uA]", stillOpen)
+	}
+
+	carried := map[string]bool{"uA": true}
+	batch2 := []byte(
+		`{"type":"user","timestamp":"2026-01-01T00:00:05Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"uA","is_error":true,"content":"Permission for this action was denied"}]}}` + "\n")
+	denials, stillOpen = harvest.ParseDispatchEvents(batch2, carried)
+	if len(denials) != 1 {
+		t.Fatalf("got %d denials across the boundary, want 1", len(denials))
+	}
+	if len(stillOpen) != 0 {
+		t.Errorf("stillOpen = %v, want empty (the carried call resolved)", stillOpen)
 	}
 }
