@@ -371,10 +371,12 @@ func ParseAssistantRecords(complete []byte) []Record {
 //
 // Line is the command's own line index within the complete bytes it was
 // parsed from (0-based, counting every line, not only ones that parse to
-// something). KAN-322's watcher pairing needs it: a launch is paired with
-// the most recent dispatch-begin command at a smaller line, and only line
-// positions can state that order across the several parse passes over the
-// same bytes.
+// something -- transcriptLines is the one numbering rule all three
+// extraction passes share). KAN-322's pairing keys on time, not line
+// order, so no production reader consumes Line yet; it is kept as the
+// record of where an event sits in its file, which is what let the
+// misnumbered-continue defect the review panel caught (a skipped
+// lineIndex on a non-assistant line) surface at all.
 type CommandRecord struct {
 	SessionID string
 	Command   string
@@ -409,6 +411,19 @@ type AgentLaunch struct {
 // to another row.
 const launchStatus = "async_launched"
 
+// transcriptLines splits complete into its lines, each trimmed and
+// paired with its 0-based index in the ORIGINAL line sequence -- blank
+// lines keep their index, so every parser's Line field numbers the file
+// the same way. complete always ends in a newline, so the final split
+// element is the empty remainder and carries no index a caller can see.
+func transcriptLines(complete []byte) (lines [][]byte) {
+	raw := bytes.Split(complete, []byte("\n"))
+	for _, line := range raw {
+		lines = append(lines, bytes.TrimSpace(line))
+	}
+	return lines
+}
+
 // ParseCommandRecords decodes every Bash tool_use command found in
 // complete's assistant lines. Unlike ParseAssistantRecords, it does not
 // require the line to carry a "usage" object: a mark's session token must
@@ -426,20 +441,10 @@ const launchStatus = "async_launched"
 // only reads and never writes.
 func ParseCommandRecords(complete []byte) []CommandRecord {
 	var out []CommandRecord
-	lineIndex := 0
-	start := 0
-	for start < len(complete) {
-		idx := bytes.IndexByte(complete[start:], '\n')
-		if idx < 0 {
-			break // complete always ends in '\n'; unreachable in practice.
-		}
-		end := start + idx + 1
-		line := bytes.TrimSpace(complete[start:end])
-		start = end
+	for lineIndex, line := range transcriptLines(complete) {
 		if len(line) == 0 {
 			continue
 		}
-
 		var raw rawLine
 		if err := json.Unmarshal(line, &raw); err != nil {
 			continue
@@ -460,7 +465,6 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 			}
 			out = append(out, CommandRecord{SessionID: raw.SessionID, Command: input.Command, Line: lineIndex})
 		}
-		lineIndex++
 	}
 	return out
 }
@@ -481,24 +485,12 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 // by hand.
 func ParseAgentLaunches(complete []byte) []AgentLaunch {
 	var out []AgentLaunch
-	lineIndex := 0
-	start := 0
-	for start < len(complete) {
-		idx := bytes.IndexByte(complete[start:], '\n')
-		if idx < 0 {
-			break // complete always ends in '\n'; unreachable in practice.
-		}
-		end := start + idx + 1
-		line := bytes.TrimSpace(complete[start:end])
-		start = end
+	for lineIndex, line := range transcriptLines(complete) {
 		if len(line) == 0 {
-			lineIndex++
 			continue
 		}
-
 		var raw rawLine
 		if err := json.Unmarshal(line, &raw); err != nil {
-			lineIndex++
 			continue
 		}
 		if raw.Type == "user" && raw.ToolUseResult != nil &&
@@ -513,7 +505,6 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 				})
 			}
 		}
-		lineIndex++
 	}
 	return out
 }
@@ -561,24 +552,12 @@ func ParseDispatchEvents(complete []byte, openAgentCalls map[string]bool) (denia
 			open[id] = true
 		}
 	}
-	lineIndex := 0
-	start := 0
-	for start < len(complete) {
-		idx := bytes.IndexByte(complete[start:], '\n')
-		if idx < 0 {
-			break
-		}
-		end := start + idx + 1
-		line := bytes.TrimSpace(complete[start:end])
-		start = end
+	for _, line := range transcriptLines(complete) {
 		if len(line) == 0 {
-			lineIndex++
 			continue
 		}
-
 		var raw rawLine
 		if err := json.Unmarshal(line, &raw); err != nil {
-			lineIndex++
 			continue
 		}
 		switch raw.Type {
@@ -612,7 +591,6 @@ func ParseDispatchEvents(complete []byte, openAgentCalls map[string]bool) (denia
 				}
 			}
 		}
-		lineIndex++
 	}
 	for id := range open {
 		stillOpen = append(stillOpen, id)

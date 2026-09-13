@@ -464,6 +464,13 @@ type Watcher struct {
 	// happened.
 	openAgentCalls map[string]map[string]bool
 
+	// pendingDenials carries, per transcript path, the denied dispatch
+	// attempts whose begin may not have arrived yet -- a panel round
+	// records its begins AFTER the launches, so a denial can land a batch
+	// before the begin it should retire. Bounded like the other pending
+	// lists.
+	pendingDenials map[string][]time.Time
+
 	// pendingBegins and pendingLaunches carry, per transcript path, the
 	// begins and launches KAN-322's pairing has seen but not yet paired.
 	// A batch boundary may split the pair -- the launch result and the
@@ -509,6 +516,7 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		gaveUpDispatchMeta:  make(map[string]bool),
 		pendingBegins:       make(map[string][]dispatchBeginEvent),
 		pendingLaunches:     make(map[string][]AgentLaunch),
+		pendingDenials:      make(map[string][]time.Time),
 		openAgentCalls:      make(map[string]map[string]bool),
 	}
 }
@@ -1129,14 +1137,26 @@ func dispatchBeginFromInvocation(invocation string) (dispatchBeginEvent, bool) {
 
 // commandFlagValue reads one flag's value out of an invocation's text:
 // the next whitespace-delimited token after the flag, with one layer of
-// surrounding single or double quotes stripped. The values a dispatcher
-// types are validated literals (never a shell substitution), so this is
+// surrounding single or double quotes stripped. The flag must begin at a
+// word boundary -- preceded by whitespace or the start of the text -- so
+// a `-change add-keyboard-shortcuts` slug containing the substring `-key`
+// is never read as a -key flag. The values a dispatcher types are
+// validated literals (never a shell substitution), so this is
 // deliberately not a shell parser -- a shape it cannot read yields no
 // value, and no value stamps nothing.
 func commandFlagValue(command, flag string) (string, bool) {
-	idx := strings.Index(command, flag)
-	if idx < 0 {
-		return "", false
+	offset := 0
+	idx := -1
+	for {
+		next := strings.Index(command[offset:], flag)
+		if next < 0 {
+			return "", false
+		}
+		idx = next + offset
+		if idx == 0 || command[idx-1] == ' ' || command[idx-1] == '\t' {
+			break
+		}
+		offset = idx + 1
 	}
 	rest := strings.TrimLeft(command[idx+len(flag):], "	 ")
 	if rest == "" {
@@ -1194,33 +1214,7 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	}
 	begins = append(w.pendingBegins[path], begins...)
 	launches = append(w.pendingLaunches[path], launches...)
-
-	// A denied dispatch never launched, so the begin it left pending must
-	// never claim a later launch: retire every begin within tolerance of a
-	// denial -- this batch's or a previous one's, the begin always
-	// preceding its own attempt's denial. The retire is silent: a denied
-	// dispatch is ordinary, and its row simply keeps no id from this
-	// pairing.
-	if len(denials) > 0 {
-		kept := begins[:0]
-		for _, begin := range begins {
-			denied := false
-			for _, at := range denials {
-				delta := at.Sub(begin.StartedAt)
-				if delta < 0 {
-					delta = -delta
-				}
-				if delta <= maxStampTimeTolerance {
-					denied = true
-					break
-				}
-			}
-			if !denied {
-				kept = append(kept, begin)
-			}
-		}
-		begins = kept
-	}
+	denials = append(w.pendingDenials[path], denials...)
 
 	// Candidates pair nearest-first: every (begin, launch) pair within
 	// tolerance is considered, closest delta first, and a pair is taken
@@ -1260,15 +1254,42 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 		return a.launchIdx < b.launchIdx
 	})
 
+	// A denial is evidence that a begin's dispatch never launched. A begin
+	// may stamp only when its launch is STRICTLY nearer than every denial
+	// within tolerance: where a denial sits as near or nearer, the begin
+	// may be the denied attempt's own (a panel round launches its slots
+	// together and records their begins together, so the two are
+	// indistinguishable by time), and stamping would attribute one
+	// dispatch's identity to another row. Such a begin is retired -- its
+	// decision is final, because every later launch is farther still -- and
+	// the row keeps no id, the ordinary silence. The retirement is
+	// therefore per-begin and evidence-bound, never a blanket window: an
+	// innocent concurrent begin whose launch is strictly nearer still
+	// stamps.
 	takenBegin := make([]bool, len(begins))
 	claimed := make([]bool, len(launches))
 	for _, c := range candidates {
 		if takenBegin[c.beginIdx] || claimed[c.launchIdx] {
 			continue
 		}
+		begin := begins[c.beginIdx]
+		ambiguous := false
+		for _, at := range denials {
+			delta := at.Sub(begin.StartedAt)
+			if delta < 0 {
+				delta = -delta
+			}
+			if delta < c.delta {
+				ambiguous = true
+				break
+			}
+		}
+		if ambiguous {
+			takenBegin[c.beginIdx] = true
+			continue
+		}
 		takenBegin[c.beginIdx] = true
 		claimed[c.launchIdx] = true
-		begin := begins[c.beginIdx]
 		stamped, err := w.deps.StampDispatchAgent(ctx, begin.SessionToken, begin.Key, launches[c.launchIdx].AgentID)
 		if err != nil {
 			w.warn("harvest: stamp dispatch agent failed, the row keeps no id from this launch",
@@ -1284,35 +1305,24 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 		}
 	}
 
-	// Whatever remains unpaired stays pending for the next batch, bounded:
-	// oldest dropped, so neither list can grow without end. A dropped
-	// event never stamps -- the ordinary silence, never a wrong pairing.
-	w.pendingBegins[path] = appendPending(w.pendingBegins[path], dropPaired(begins, launches))
-	w.pendingLaunches[path] = appendPending(w.pendingLaunches[path], unclaimed(launches, claimed))
+	// Whatever remains unpaired or unclaimed REPLACES the pending lists --
+	// the merged lists already contain the carried events, so appending
+	// survivors onto them would double-store every event that survives two
+	// passes and let a stale begin claim a later launch. Bounded: oldest
+	// dropped, so neither list can grow without end. A dropped event never
+	// stamps -- the ordinary silence, never a wrong pairing.
+	w.pendingBegins[path] = appendPending(nil, survivors(begins, takenBegin))
+	w.pendingLaunches[path] = appendPending(nil, unclaimed(launches, claimed))
+	w.pendingDenials[path] = appendPending(w.pendingDenials[path], denials)
 }
 
-// dropPaired removes the begins this pass consumed -- after the pass, a
-// begin still unpaired is out of tolerance of every unpaired launch (the
-// pass would have claimed it otherwise), so the only begins worth keeping
-// are those no launch at all is within tolerance of: their launches may
-// still arrive in a later batch. A begin in reach only of launches other
-// begins already took is dropped -- re-pairing it next cycle would stamp
-// the same agent id onto a second row.
-func dropPaired(begins []dispatchBeginEvent, launches []AgentLaunch) []dispatchBeginEvent {
+// survivors returns the begins no pass consumed -- neither paired with a
+// launch nor retired as ambiguous against a denial. Their launches may
+// still arrive in a later batch.
+func survivors(begins []dispatchBeginEvent, taken []bool) []dispatchBeginEvent {
 	var out []dispatchBeginEvent
-	for _, begin := range begins {
-		inReach := false
-		for _, launch := range launches {
-			delta := launch.Timestamp.Sub(begin.StartedAt)
-			if delta < 0 {
-				delta = -delta
-			}
-			if delta <= maxStampTimeTolerance {
-				inReach = true
-				break
-			}
-		}
-		if !inReach {
+	for i, begin := range begins {
+		if !taken[i] {
 			out = append(out, begin)
 		}
 	}

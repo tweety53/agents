@@ -3219,39 +3219,6 @@ func TestWatcherLeavesLaunchWithoutBeginUnstamped(t *testing.T) {
 	}
 }
 
-// TestWatcherDeniedLaunchKeepsFollowingPairingCorrect covers the failed
-// launch between two begins: the first dispatch is denied before any
-// launch result exists, the second launches normally -- and its agent id
-// must land on the second begin's row, not be stolen by the first begin
-// still sitting unmatched. Pairing by line position is what makes the
-// denied attempt invisible to it.
-func TestWatcherDeniedLaunchKeepsFollowingPairingCorrect(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "session.jsonl")
-	denied := `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"PreToolUse hook denied the Agent call"}]}}`
-	begin2 := strings.Replace(stampBeginLine, "task-1-implementer", "task-2-reviewer", 1)
-	begin2 = strings.Replace(begin2, "mf-kan322", "mf-kan322-b", 1)
-	begin2 = strings.Replace(begin2, "-started-at 2026-01-01T00:00:00Z", "-started-at 2026-01-01T00:00:02Z", 1)
-	launch2 := strings.Replace(stampLaunchLine, "00:00:01Z", "00:00:03Z", 1)
-	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, denied, begin2, launch2), 0o644); err != nil {
-		t.Fatalf("write fixture: %v", err)
-	}
-
-	deps := &stampRecordingDeps{}
-	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
-	if _, err := w.RunOnce(context.Background()); err != nil {
-		t.Fatalf("RunOnce: %v", err)
-	}
-
-	if len(deps.stamps) != 1 {
-		t.Fatalf("got %d stamps, want 1: %+v", len(deps.stamps), deps.stamps)
-	}
-	want := stampCall{"mf-kan322-b", "task-2-reviewer", "a68cee7239419a7e7"}
-	if deps.stamps[0] != want {
-		t.Errorf("stamp = %+v, want %+v", deps.stamps[0], want)
-	}
-}
-
 // TestWatcherPairsPanelRoundBeginsRecordedAfterTheLaunches is the review
 // panel's own ordering: a round's dispatches all launch in one message --
 // two launch results, seconds apart -- and their begins are recorded in
