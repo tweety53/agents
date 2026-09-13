@@ -453,6 +453,16 @@ type Watcher struct {
 	// same reasons tokenCycles and gaveUpTokens are not.
 	dispatchMetaCycles map[string]int
 	gaveUpDispatchMeta map[string]bool
+
+	// dispatchBegins carries, per transcript path, the most recent
+	// `flow record dispatch begin` command KAN-322's pairing has seen
+	// whose launch has not yet been read. A batch boundary may split the
+	// pair -- the begin command commits in one harvest batch, the launch
+	// result lands in the next -- so the last begin survives into the
+	// next RunOnce, exactly one per path: a later begin always supersedes
+	// an earlier one, and a launch always pairs with the begin nearest
+	// before it.
+	dispatchBegins map[string]dispatchBeginEvent
 }
 
 // NewWatcher builds a Watcher over sources (each root scanned recursively
@@ -481,6 +491,7 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		pendingDispatchMeta: make(map[string]map[int64]string),
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
+		dispatchBegins:      make(map[string]dispatchBeginEvent),
 	}
 }
 
@@ -563,7 +574,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 				continue
 			}
 
-			records, commands, _, newOffset, err := set.source.ReadNew(path, offset)
+			records, commands, launches, newOffset, err := set.source.ReadNew(path, offset)
 			if err != nil {
 				w.warn("harvest: read transcript failed, will retry", "path", path, "error", err)
 				continue
@@ -641,6 +652,14 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			// merging its dispatch deltas now would add them a second time
 			// when it does.
 			w.attributeDispatches(ctx, records, path)
+
+			// KAN-322: the launch tool results this batch just committed name the
+			// agent ids the dispatch protocol no longer asks a dispatcher to type.
+			// Only reached here, after the batch applied: a batch withheld for
+			// session-token resolution or lost to a concurrent harvester is
+			// re-read from the same offset next cycle, so its launches are
+			// processed exactly once too.
+			w.stampDispatchAgents(ctx, path, commands, launches)
 
 			// Once this batch has actually committed, decide whether this
 			// path needs a future backfill visit (F4): hasMeta true means
@@ -980,6 +999,167 @@ func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path
 		if err := w.deps.MergeDispatchMetrics(ctx, dispatchID, patch); err != nil {
 			w.warn("harvest: merge dispatch metrics failed, this batch's figures for it are lost", "path", path, "dispatch_id", dispatchID, "error", err)
 		}
+	}
+}
+
+// dispatchBeginEvent is the pairing-relevant slice of a
+// `flow record dispatch begin` command found in a transcript: the row the
+// launch's agent id will be stamped onto is named by (sessionToken, key),
+// the same two literals the begin call itself carries, so no session-id
+// resolution and no window inference stands between the launch and the
+// row it belongs to.
+type dispatchBeginEvent struct {
+	SessionToken string
+	Key          string
+}
+
+// beginCommandShape is what a command must contain to pair with a launch:
+// the begin verb itself plus the three flags that identify its row. A
+// diagnostic that merely mentions one of them (a grep quoting a token, or
+// a mention of the key without the rest) fails the shape and pairs with
+// nothing -- the mention-versus-invocation distinction
+// matchSessionTokens already draws, applied to the same class of
+// transcript text.
+var beginCommandShape = []string{
+	"flow record dispatch begin",
+	"-key",
+	"-session-token",
+	"-started-at",
+}
+
+// dispatchBeginFromCommand judges one Bash command's text as a possible
+// dispatch begin and extracts its row identity. Every shape literal must
+// be present, and each flag must carry a value -- the CLI itself refuses
+// a begin without them, so a command missing one is a mention or a
+// mistype, never a row opener.
+func dispatchBeginFromCommand(command string) (dispatchBeginEvent, bool) {
+	for _, part := range beginCommandShape {
+		if !strings.Contains(command, part) {
+			return dispatchBeginEvent{}, false
+		}
+	}
+	token, ok := commandFlagValue(command, "-session-token")
+	if !ok {
+		return dispatchBeginEvent{}, false
+	}
+	key, ok := commandFlagValue(command, "-key")
+	if !ok {
+		return dispatchBeginEvent{}, false
+	}
+	return dispatchBeginEvent{SessionToken: token, Key: key}, true
+}
+
+// commandFlagValue reads one flag's value out of a command's text: the
+// next whitespace-delimited token after the flag, with one layer of
+// surrounding single or double quotes stripped. The values a dispatcher
+// types are validated literals (never a shell substitution), so this is
+// deliberately not a shell parser -- a shape it cannot read yields no
+// value, and no value stamps nothing.
+func commandFlagValue(command, flag string) (string, bool) {
+	idx := strings.Index(command, flag)
+	if idx < 0 {
+		return "", false
+	}
+	rest := strings.TrimLeft(command[idx+len(flag):], "	 ")
+	if rest == "" {
+		return "", false
+	}
+	end := strings.IndexAny(rest, " 	")
+	if end < 0 {
+		end = len(rest)
+	}
+	value := rest[:end]
+	value = strings.Trim(value, `'"`)
+	if value == "" {
+		return "", false
+	}
+	return value, true
+}
+
+// stampDispatchAgents pairs KAN-322's agent launches with the dispatch
+// begin commands that precede them -- in this batch by line position, or
+// across a batch boundary through the one begin per path carried in
+// w.dispatchBegins -- and stamps each pair's agent id onto its row via
+// deps' DispatchAgentStamper. The stamp fills only an empty agent_id
+// (store.StampDispatchAgent's own contract), so a hand-typed id always
+// wins and a replayed or duplicated stamp cannot corrupt a row that
+// already carries one.
+//
+// Pairing is by line position alone: the launch's agent id belongs to the
+// begin nearest before it, which is the ordering the dispatch protocol
+// itself produces (record begin, then dispatch) and the reason a denied
+// or failed launch between two begins never mis-pairs its siblings. A
+// launch with no begin before it -- a dispatch recorded by a caller whose
+// transcript the daemon does not read, or a run predating the begin
+// command's flags -- stamps nothing: silence, not a guess.
+//
+// The failure posture is attributeDispatches' own: log, step over, never
+// return. A stamp that fails loses that one row's automatic id -- the
+// row stays empty, ordinary on the harnesses that expose no id at all --
+// and every other row is unaffected.
+func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands []CommandRecord, launches []AgentLaunch) {
+	if len(commands) == 0 && len(launches) == 0 {
+		return
+	}
+
+	// This batch's begins, in line order; the carried begin, if any, is
+	// older than every line here by construction (its batch committed
+	// before this one was read).
+	begins := make([]struct {
+		line  int
+		event dispatchBeginEvent
+	}, 0, len(commands))
+	for _, c := range commands {
+		if ev, ok := dispatchBeginFromCommand(c.Command); ok {
+			begins = append(begins, struct {
+				line  int
+				event dispatchBeginEvent
+			}{c.Line, ev})
+		}
+	}
+
+	carried, hasCarried := w.dispatchBegins[path]
+	for _, launch := range launches {
+		var best dispatchBeginEvent
+		found := hasCarried
+		if found {
+			best = carried
+		}
+		for _, b := range begins {
+			if b.line >= launch.Line {
+				continue
+			}
+			if !found {
+				best, found = b.event, true
+				continue
+			}
+			// begins is in file order, so the last match wins.
+			best = b.event
+		}
+		if !found {
+			continue
+		}
+		stamped, err := w.deps.StampDispatchAgent(ctx, best.SessionToken, best.Key, launch.AgentID)
+		if err != nil {
+			w.warn("harvest: stamp dispatch agent failed, the row keeps no id from this launch",
+				"path", path, "key", best.Key, "agent_id", launch.AgentID, "error", err)
+			continue
+		}
+		if !stamped {
+			// No empty row under (session-token, key): the begin fell back
+			// to a journal not yet replayed, the row carries a hand-typed
+			// id already, or the key names a row this transcript cannot
+			// see. All ordinary; nothing to stamp, nothing to log.
+			continue
+		}
+	}
+
+	// Carry the batch's last begin forward even when no launch paired with
+	// it: its launch may still be bytes this path has not written yet. A
+	// batch with no begins leaves the carried one untouched -- exactly the
+	// cross-batch case this field exists for.
+	if len(begins) > 0 {
+		w.dispatchBegins[path] = begins[len(begins)-1].event
 	}
 }
 

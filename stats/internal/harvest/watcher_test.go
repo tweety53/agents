@@ -3092,3 +3092,155 @@ func TestScanRetriedTokensReadsRolloutCommands(t *testing.T) {
 		t.Fatalf("commitCount = %d, want 0: the retry scan must never re-attribute the file's usage", sink.commitCount)
 	}
 }
+
+// stampRecordingDeps satisfies harvest.Deps by recording every
+// StampDispatchAgent call, leaving every other method as NoDeps' no-op --
+// sessionBinderDeps' own shape, applied to the KAN-322 stamper.
+type stampRecordingDeps struct {
+	harvest.NoDeps
+
+	stamps []stampCall
+}
+
+type stampCall struct {
+	sessionToken string
+	key          string
+	agentID      string
+}
+
+func (d *stampRecordingDeps) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (bool, error) {
+	d.stamps = append(d.stamps, stampCall{sessionToken, key, agentID})
+	return true, nil
+}
+
+// stampFixtureLines builds a transcript's lines: one per argument, joined
+// newline-terminated, so a test can state begin/launch lines and read
+// their pairing off the result.
+func stampFixtureLines(lines ...string) []byte {
+	return []byte(strings.Join(lines, "\n") + "\n")
+}
+
+const stampBeginLine = `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow record dispatch begin -change kan-322 -role implementer -key task-1-implementer -session-token mf-kan322 -started-at 2026-01-01T00:00:00Z"}}]}}`
+
+const stampLaunchLine = `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a68cee7239419a7e7"}}`
+
+// TestWatcherStampsLaunchAgainstPrecedingBegin is KAN-322's watcher-level
+// wiring check: a begin command and the launch result that follows it, in
+// one batch, stamp the launch's agent id onto the row the begin named --
+// through deps' DispatchAgentStamper, once the batch has actually
+// committed.
+func TestWatcherStampsLaunchAgainstPrecedingBegin(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, stampLaunchLine), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	if len(deps.stamps) != 1 {
+		t.Fatalf("got %d stamps, want 1: %+v", len(deps.stamps), deps.stamps)
+	}
+	want := stampCall{"mf-kan322", "task-1-implementer", "a68cee7239419a7e7"}
+	if deps.stamps[0] != want {
+		t.Errorf("stamp = %+v, want %+v", deps.stamps[0], want)
+	}
+}
+
+// TestWatcherCarriesBeginAcrossBatchBoundary pins the cross-batch case:
+// the begin commits in one batch and the launch lands in bytes the next
+// RunOnce reads, so the pairing must survive between cycles -- one begin
+// per path carried forward, exactly as w.dispatchBegins' doc comment
+// states.
+func TestWatcherCarriesBeginAcrossBatchBoundary(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (begin batch): %v", err)
+	}
+	if len(deps.stamps) != 0 {
+		t.Fatalf("got %d stamps before the launch existed, want 0", len(deps.stamps))
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("open for append: %v", err)
+	}
+	if _, err := f.WriteString(stampLaunchLine + "\n"); err != nil {
+		t.Fatalf("append launch: %v", err)
+	}
+	f.Close()
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (launch batch): %v", err)
+	}
+	if len(deps.stamps) != 1 {
+		t.Fatalf("got %d stamps after the launch landed, want 1", len(deps.stamps))
+	}
+	want := stampCall{"mf-kan322", "task-1-implementer", "a68cee7239419a7e7"}
+	if deps.stamps[0] != want {
+		t.Errorf("stamp = %+v, want %+v", deps.stamps[0], want)
+	}
+}
+
+// TestWatcherLeavesLaunchWithoutBeginUnstamped is the silence case: a
+// launch whose transcript holds no begin command before it stamps
+// nothing -- there is no row to name, and guessing one would be exactly
+// the misattribution the pairing exists to avoid.
+func TestWatcherLeavesLaunchWithoutBeginUnstamped(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, stampFixtureLines(stampLaunchLine), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if len(deps.stamps) != 0 {
+		t.Errorf("got %d stamps, want 0: %+v", len(deps.stamps), deps.stamps)
+	}
+}
+
+// TestWatcherDeniedLaunchKeepsFollowingPairingCorrect covers the failed
+// launch between two begins: the first dispatch is denied before any
+// launch result exists, the second launches normally -- and its agent id
+// must land on the second begin's row, not be stolen by the first begin
+// still sitting unmatched. Pairing by line position is what makes the
+// denied attempt invisible to it.
+func TestWatcherDeniedLaunchKeepsFollowingPairingCorrect(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	denied := `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"PreToolUse hook denied the Agent call"}]}}`
+	begin2 := strings.Replace(stampBeginLine, "task-1-implementer", "task-2-reviewer", 1)
+	begin2 = strings.Replace(begin2, "mf-kan322", "mf-kan322-b", 1)
+	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, denied, begin2, stampLaunchLine), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	if len(deps.stamps) != 1 {
+		t.Fatalf("got %d stamps, want 1: %+v", len(deps.stamps), deps.stamps)
+	}
+	want := stampCall{"mf-kan322-b", "task-2-reviewer", "a68cee7239419a7e7"}
+	if deps.stamps[0] != want {
+		t.Errorf("stamp = %+v, want %+v", deps.stamps[0], want)
+	}
+}

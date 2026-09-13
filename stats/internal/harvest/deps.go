@@ -6,16 +6,31 @@ import (
 	"time"
 )
 
+// DispatchAgentStamper fills an empty agent_id on one dispatch row,
+// named by the (sessionToken, key) pair its own begin command carried --
+// KAN-322's automatic capture of the id the harness reports at launch.
+// The store implementation fills only a row whose agent_id is empty and
+// reports whether it stamped, so a hand-typed id always wins and a
+// launch whose row is absent or already named changes nothing.
+//
+// Defined here, at the consumer, per go-interface-design, like every
+// other interface in this file: internal/harvest never imports
+// internal/store, and *store.Store satisfies this with no adapter once
+// store.Store.StampDispatchAgent exists.
+type DispatchAgentStamper interface {
+	StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (stamped bool, err error)
+}
+
 // Deps is everything a Watcher needs beyond its root, its sink and its
 // Attributor. It is one required parameter rather than a set of
-// functional options (KAN-173): each of the four interfaces it composes
+// functional options (KAN-173): each of the interfaces it composes
 // is optional in a type signature but mandatory in practice --
 // production supplies exactly one real implementation of each, and all
-// four come from the same *store.Store -- so an omitted option
+// of them come from the same *store.Store -- so an omitted option
 // compiled, tested green, and ran inert. Twice (KAN-16, KAN-172).
 //
-// Composing the four rather than restating their methods is what makes
-// a fifth dependency a compile error too: adding a method to any
+// Composing the interfaces rather than restating their methods is what makes
+// a missing dependency a compile error too: adding a method to any
 // constituent breaks every implementation that has not grown it.
 type Deps interface {
 	Pricer
@@ -23,6 +38,7 @@ type Deps interface {
 	DispatchMetricsSink
 	DispatchWindowSource
 	AgentWindowSource
+	DispatchAgentStamper
 }
 
 // AgentWindowSource answers which dispatch rows carry an agentId -- the
@@ -97,4 +113,9 @@ func (NoDeps) DispatchWindowsForSession(ctx context.Context, sessionID string) (
 // DispatchWindowsForAgent always reports no dispatch windows.
 func (NoDeps) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]DispatchWindow, error) {
 	return nil, nil
+}
+
+// StampDispatchAgent stamps nothing and reports false.
+func (NoDeps) StampDispatchAgent(ctx context.Context, sessionToken, key, agentID string) (stamped bool, err error) {
+	return false, nil
 }
