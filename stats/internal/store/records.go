@@ -433,6 +433,15 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 // the column NULL: a finding no single dispatch raised is a legitimate
 // case, and this column records the raising slot where it is known rather
 // than refusing the finding where it is not.
+// severityIsMinor reports whether a severity word names Minor, the only
+// severity a `deferred <reason>` status is legal beside. The match is
+// case-insensitive because severity is free text a caller writes verbatim
+// and every severity comparison this package's queries make is
+// case-insensitive (ILIKE), so a lowercase "minor" is still Minor here.
+func severityIsMinor(severity string) bool {
+	return strings.EqualFold(severity, "minor")
+}
+
 func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in records.Finding) (records.Finding, bool, error) {
 	var (
 		out         records.Finding
@@ -447,6 +456,15 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 
 	if in.Category != "" && !strings.HasPrefix(in.Status, "deferred") {
 		return records.Finding{}, false, fmt.Errorf("%w: %s in %s/%s", ErrCategoryNotDeferred, in.Ref, projectKey, change)
+	}
+	// The raise path carries both severity and status in the one row, so
+	// the update path's Minor-only rule (SetFindingStatus's ILIKE clause)
+	// is checkable here before the statement runs: a deferral raised
+	// beside any other severity is refused with the same sentinel the
+	// update refuses with, or the SPA's deferred-Minor numerator would
+	// silently count a Critical the caller called deferred.
+	if strings.HasPrefix(in.Status, "deferred") && !severityIsMinor(in.Severity) {
+		return records.Finding{}, false, fmt.Errorf("%w: %s in %s/%s has severity %s, not Minor", ErrDeferredNotMinor, in.Ref, projectKey, change, in.Severity)
 	}
 
 	err := s.pool.QueryRow(ctx, `

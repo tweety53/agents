@@ -3290,3 +3290,54 @@ func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordFindingRefusesADeferredNonMinorBeforeTheStore pins the raise
+// verb's half of the Minor-only rule (KAN-508's F5, review panel round 0):
+// the CLI can see both -severity and -status in the same invocation, so a
+// deferral beside any severity but Minor is refused with exit 2 before any
+// network call -- a dead addr proves the refusal, since a fall through to
+// the write path would journal and exit 0 -- the same pre-store shape
+// validateFindingCategory gives the category rule. A Minor (either case)
+// passes the validator and falls through to the network path, journalling
+// as every unreachable write does.
+func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	for _, tc := range []struct{ name, severity string }{
+		{name: "Critical", severity: "Critical"},
+		{name: "Important", severity: "Important"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), []string{"record", "finding", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-508", "-ref", "F1", "-slot", "principles", "-severity", tc.severity,
+				"-status", "deferred cosmetic dead code", "-category", "cosmetic",
+				"-reproducer", "none — wording only", "-note", "a wording finding"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2 (the validator must refuse before the store is contacted); stderr:\n%s", code, stderr.String())
+			}
+			entries, _ := recordJournalEntries(t, repo, "kan-508")
+			if len(entries) != 0 {
+				t.Fatalf("a refused write was journalled anyway: %d entries", len(entries))
+			}
+		})
+	}
+	for _, tc := range []struct{ name, severity string }{
+		{name: "Minor passes through", severity: "Minor"},
+		{name: "lowercase minor passes through", severity: "minor"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), []string{"record", "finding", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-508-ok", "-ref", "F1", "-slot", "principles", "-severity", tc.severity,
+				"-status", "deferred cosmetic dead code", "-category", "cosmetic",
+				"-reproducer", "none — wording only", "-note", "a wording finding"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code == 2 {
+				t.Fatalf("exit code = 2, want the validator to pass the deferral through to the network path; stderr:\n%s", stderr.String())
+			}
+		})
+	}
+}

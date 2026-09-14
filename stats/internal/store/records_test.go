@@ -272,6 +272,44 @@ func TestConcurrentRecordDispatchDoesNotCollide(t *testing.T) {
 // change's contract with Postgres, not an incidental identifier Postgres
 // picked -- an edit renaming it would otherwise fail nowhere until a real
 // concurrent write lost a row.
+// TestUpsertFindingDeferredMinorOnly pins the raise-path half of the
+// Minor-only rule (KAN-508's F5, review panel round 0): SetFindingStatus
+// refuses a deferral beside any severity but Minor, and the raise path
+// must refuse the identical shape, or a finding recorded deferred beside
+// Critical lands in the store and the SPA's deferred-Minor numerator
+// silently counts it. Severity matches case-insensitively, the update
+// path's own ILIKE rule, so a lowercase "minor" is still Minor.
+func TestUpsertFindingDeferredMinorOnly(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-deferred-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	critical := baseFinding("F1", 0)
+	critical.Status = "deferred cosmetic dead-code removal only"
+	critical.Category = "cosmetic"
+	_, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", critical)
+	if !errors.Is(err, store.ErrDeferredNotMinor) {
+		t.Fatalf("UpsertFinding deferred beside Critical: err = %v, want store.ErrDeferredNotMinor", err)
+	}
+
+	minor := baseFinding("F2", 0)
+	minor.Severity = "Minor"
+	minor.Status = "deferred cosmetic dead-code removal only"
+	minor.Category = "cosmetic"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", minor); err != nil {
+		t.Fatalf("UpsertFinding deferred beside Minor: %v", err)
+	}
+
+	lowercase := baseFinding("F3", 0)
+	lowercase.Severity = "minor"
+	lowercase.Status = "deferred doc wording only"
+	lowercase.Category = "doc-only"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", lowercase); err != nil {
+		t.Fatalf("UpsertFinding deferred beside lowercase minor: %v -- severity is matched case-insensitively, the update path's own rule", err)
+	}
+}
+
 func TestUpsertFindingRefusesADuplicateRef(t *testing.T) {
 	st, pool := newRecordStore(t)
 	ctx := context.Background()

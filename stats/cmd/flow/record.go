@@ -124,6 +124,26 @@ func validateFindingCategory(category, status string) error {
 	return fmt.Errorf("-category %q is not one of: %s", category, strings.Join(findingCategories, ", "))
 }
 
+// validateFindingDeferralSeverity judges a deferral's severity on the
+// raise verb, where -severity and -status ride the same invocation: the
+// store refuses a deferral beside any severity but Minor -- the update
+// path's own rule, ErrDeferredNotMinor -- and this mirrors it here so the
+// caller mistake is refused before any network call rather than
+// journalled for a replay the store can only refuse a second time, the
+// same pre-store shape validateFindingCategory gives the category rule.
+// Severity matches case-insensitively, the store's own rule. `record
+// status` cannot run this check: it names no severity, the row's own
+// severity being exactly what the store consults.
+func validateFindingDeferralSeverity(severity, status string) error {
+	if !strings.HasPrefix(status, "deferred") {
+		return nil
+	}
+	if strings.EqualFold(severity, "minor") {
+		return nil
+	}
+	return fmt.Errorf("-status %q is only valid beside a Minor severity, not %s", status, severity)
+}
+
 // validateFindingReproducer judges a finding's -reproducer before the store
 // is contacted. Empty is always an error -- a finding with no reproducer at
 // all is a finding nobody can act on. Where the first word is exactly
@@ -926,6 +946,10 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		return 2
 	}
 	if err := validateFindingCategory(*category, *status); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	if err := validateFindingDeferralSeverity(*severity, *status); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
