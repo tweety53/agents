@@ -800,6 +800,25 @@ func isDefinitiveRecordOutcome(err error) bool {
 		return true
 	case errors.Is(err, store.ErrFindingNotFound):
 		return true
+	case errors.Is(err, store.ErrDeferredNotMinor):
+		// A deferral the store refused because the row's severity is not
+		// Minor is the store having been reached and having answered
+		// 409 for the identical body -- it will answer 409 again on every
+		// future replay. The CLI journals the write whenever the store is
+		// down, because `record status` names no severity and cannot know
+		// the row's own; retiring it is the same call ErrFindingNotFound
+		// above gets, for the same reason -- leaving it queued would
+		// block every valid entry behind it forever without ever making
+		// progress.
+		return true
+	case errors.Is(err, store.ErrCategoryNotDeferred):
+		// The category counterpart of the case above: a category on a
+		// non-deferred status is the same class of contradiction, mapped
+		// 409 by the same mapper, refused identically forever. The CLI
+		// refuses the shape before any network call, so a journal only
+		// carries it from an older client -- which is exactly when
+		// retiring, not queueing, is wanted.
+		return true
 	default:
 		return false
 	}

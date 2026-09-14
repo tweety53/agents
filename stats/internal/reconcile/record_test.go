@@ -621,6 +621,49 @@ func TestUndecodableRecordEntryIsRefusedAndAppliesEntryBehindIt(t *testing.T) {
 	}
 }
 
+// deferredNotMinorRecordStore answers every finding-status write with
+// store.ErrDeferredNotMinor -- the store having been reached and having
+// refused a deferral whose row's severity is not Minor, the identical
+// refusal on every replay.
+type deferredNotMinorRecordStore struct{ fakeRecordStore }
+
+func (deferredNotMinorRecordStore) SetFindingStatus(context.Context, string, string, string, string, string) error {
+	return fmt.Errorf("%w: F1 in proj/chg has severity Critical, not Minor", store.ErrDeferredNotMinor)
+}
+
+// TestStatusRefusedAsNotMinorIsRetiredAndAppliesEntryBehindIt pins the
+// replay half of the Minor-only rule (KAN-508's F4, review panel round 0):
+// a journalled deferral the live route answers 409 for -- the CLI
+// journals it whenever the store is down, since record status cannot see
+// the row's severity -- is a definitive refusal, retired exactly like a
+// finding ref naming no row, never a stall that blocks every valid entry
+// queued behind it.
+func TestStatusRefusedAsNotMinorIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-notminor", "chg-record-notminor"
+
+	appendRecordWrite(t, root, project, change, "status", recordStatusRequest{Ref: "F1", Status: "deferred cosmetic dead code only"})
+	appendRecordWrite(t, root, project, change, "finding", testFinding("F2", "open"))
+
+	rs := &deferredNotMinorRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 1 {
+		t.Fatalf("Run result = %+v, want {Applied:1 Refused:1} -- a not-Minor refusal must retire, not block the valid entry behind it", result)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		"finding proj-record-notminor/chg-record-notminor ref=F2 status=open",
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (both entries retired)", n)
+	}
+}
+
 // --- a journalled entry missing a required field is refused, not written ---
 
 // TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow pins the
