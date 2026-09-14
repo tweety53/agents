@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
@@ -547,6 +549,41 @@ func (h *recordHandler) runRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rec)
+}
+
+// renderRecord serves GET /api/v1/records/{project}/{change}/render/{kind}:
+// the change's record for one kind, already rendered. Rendering lives here
+// rather than in the CLI because the daemon is versioned with the store it
+// reads -- an installed CLI predating a store-schema advance once rendered
+// stamped rows as "not measured", silently and with exit 0 -- so the
+// envelope the CLI fetches can never disagree with the rows behind it.
+//
+// A change the store has never heard of is fabricated into the empty run
+// records.RenderKind applies its ledger/panel asymmetry to -- the same
+// fact runRecord's own 404 states, pre-answered here so the CLI's read
+// needs no second meaning for 404 (see runRecordRender, whose only 404 is
+// a daemon too old to carry this route).
+func (h *recordHandler) renderRecord(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+	kind := r.PathValue("kind")
+
+	if !slices.Contains(records.Kinds(), kind) {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("unknown record kind %q: it is one of %s", kind, strings.Join(records.Kinds(), ", ")))
+		return
+	}
+
+	rec, err := h.store.RunRecord(r.Context(), project, change)
+	if err != nil {
+		if !errors.Is(err, store.ErrChangeNotFound) {
+			status, msg := mapStoreError(h.logger, fmt.Sprintf("read the run record for %s/%s", project, change), err)
+			writeError(w, status, msg)
+			return
+		}
+		rec = records.Run{Change: change}
+	}
+
+	body, ok := records.RenderKind(kind, rec)
+	writeJSON(w, http.StatusOK, records.Rendered{Missing: !ok, Body: body})
 }
 
 // costStatus serves GET /api/v1/records/{project}/{change}/cost-status: how

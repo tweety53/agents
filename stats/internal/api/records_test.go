@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -1591,5 +1592,178 @@ func TestSetFindingStatusRouteAnswers409ForCategoryOffDeferral(t *testing.T) {
 		map[string]any{"status": "fixed", "category": "cosmetic"})
 	if status != http.StatusConflict {
 		t.Fatalf("PATCH a category onto a non-deferred status = %d (%s), want 409", status, body)
+	}
+}
+
+// --- the rendered record ---
+
+// renderPath is the render route's path for one project/change/kind.
+func renderPath(project, change, kind string) string {
+	return recordsPath(project, change) + "/render/" + kind
+}
+
+// TestRenderRouteServesWhatRenderKindRendersFromTheSameRows pins the
+// route's one obligation: the envelope body is exactly records.RenderKind
+// over the same rows GET of the whole record returns -- never a second
+// rendering that could drift from the rows behind it.
+func TestRenderRouteServesWhatRenderKindRendersFromTheSameRows(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus")); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed POST dispatches = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	code, body := doGet(t, ts, renderPath("proj", "kan-1", "ledger"))
+	if code != http.StatusOK {
+		t.Fatalf("GET render/ledger = %d (%s), want 200", code, body)
+	}
+
+	var got records.Rendered
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.Missing {
+		t.Fatalf("render/ledger reported missing for a change with dispatches")
+	}
+
+	code, raw := doGet(t, ts, recordsPath("proj", "kan-1"))
+	if code != http.StatusOK {
+		t.Fatalf("GET record = %d (%s), want 200", code, raw)
+	}
+	var run records.Run
+	if err := json.Unmarshal([]byte(raw), &run); err != nil {
+		t.Fatalf("decode run record %s: %v", raw, err)
+	}
+	want, ok := records.RenderKind("ledger", run)
+	if !ok {
+		t.Fatalf("RenderKind reported missing over rows the record route returned")
+	}
+	if got.Body != want {
+		t.Errorf("render/ledger body differs from RenderKind over the same rows")
+	}
+}
+
+// TestRenderRouteLedgerWithoutDispatchesIsMissing carries the ledger's
+// half of the render asymmetry through the route: no dispatch rows is a
+// 200 envelope with missing set, never an empty ledger a reader could
+// mistake for a real one.
+func TestRenderRouteLedgerWithoutDispatchesIsMissing(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	code, body := doGet(t, ts, renderPath("proj", "kan-1", "ledger"))
+	if code != http.StatusOK {
+		t.Fatalf("GET render/ledger = %d (%s), want 200", code, body)
+	}
+	var got records.Rendered
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if !got.Missing || got.Body != "" {
+		t.Errorf("envelope = %+v, want missing with an empty body", got)
+	}
+}
+
+// TestRenderRoutePanelWithoutFindingsStillRenders carries the panel's half
+// through the route: a panel with no findings still renders, declaring
+// findings-total: 0 -- reporting missing here would leave no record for
+// check-unfinished-work.sh to read, manufacturing the outstanding state
+// the clean panel proved absent.
+func TestRenderRoutePanelWithoutFindingsStillRenders(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	code, body := doGet(t, ts, renderPath("proj", "kan-1", "panel"))
+	if code != http.StatusOK {
+		t.Fatalf("GET render/panel = %d (%s), want 200", code, body)
+	}
+	var got records.Rendered
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.Missing {
+		t.Fatalf("render/panel reported missing for a clean panel; the zero form is the record")
+	}
+	if !strings.Contains(got.Body, "findings-total: 0") {
+		t.Errorf("zero-form panel does not declare findings-total: 0:\n%s", got.Body)
+	}
+}
+
+// TestRenderRouteAnswersAnUnknownChangeFromTheEmptyRun pins the
+// fabrication the handler applies to store.ErrChangeNotFound: a change
+// the store has never heard of is answered from the empty run -- the
+// ledger missing, the panel in its zero form -- so the CLI's read of this
+// route never needs a second meaning for 404.
+func TestRenderRouteAnswersAnUnknownChangeFromTheEmptyRun(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	for kind, wantMissing := range map[string]bool{"ledger": true, "panel": false} {
+		code, body := doGet(t, ts, renderPath("proj", "kan-unknown", kind))
+		if code != http.StatusOK {
+			t.Fatalf("GET render/%s = %d (%s), want 200", kind, code, body)
+		}
+		var got records.Rendered
+		if err := json.Unmarshal([]byte(body), &got); err != nil {
+			t.Fatalf("decode response body %s: %v", body, err)
+		}
+		if got.Missing != wantMissing {
+			t.Errorf("render/%s missing = %v, want %v", kind, got.Missing, wantMissing)
+		}
+	}
+}
+
+// TestRenderRouteRejectsAnUnknownKindWithoutReachingTheStore pins that a
+// kind outside records.Kinds() is a caller mistake judged before the
+// store is touched -- the route's validation, not the renderer's default
+// branch, is what keeps an unrecognised kind from ever rendering.
+func TestRenderRouteRejectsAnUnknownKindWithoutReachingTheStore(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.runRecordErr = errors.New("store must not be reached")
+
+	code, body := doGet(t, ts, renderPath("proj", "kan-1", "nope"))
+	if code != http.StatusBadRequest {
+		t.Fatalf("GET render/nope = %d (%s), want 400", code, body)
+	}
+	if fs.recordCalls != 0 {
+		t.Errorf("store was called %d times for an unknown kind; the refusal must come first", fs.recordCalls)
+	}
+}
+
+// TestRenderRouteMapsAStoreError pins that a store failure the handler
+// cannot fabricate around maps through mapStoreError -- the render route
+// answers like every other read, never with an envelope that would read
+// as a real rendering of nothing.
+func TestRenderRouteMapsAStoreError(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.runRecordErr = errors.New("store is broken")
+
+	code, _ := doGet(t, ts, renderPath("proj", "kan-1", "panel"))
+	if code != http.StatusInternalServerError {
+		t.Fatalf("GET render/panel over a broken store = %d, want 500", code)
+	}
+}
+
+// TestRenderRoutePanelOverAFindingHoldingChangeRendersTheRows pins the
+// panel half of the route against rows that exist -- every other panel
+// case here runs on an empty store, so a handler that rendered the zero
+// form regardless of the rows would pass them all.
+func TestRenderRoutePanelOverAFindingHoldingChangeRendersTheRows(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed POST findings = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	code, body := doGet(t, ts, renderPath("proj", "kan-1", "panel"))
+	if code != http.StatusOK {
+		t.Fatalf("GET render/panel = %d (%s), want 200", code, body)
+	}
+	var got records.Rendered
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.Missing {
+		t.Fatalf("render/panel reported missing over a change holding a finding")
+	}
+	if !strings.Contains(got.Body, "findings-total: 1") || !strings.Contains(got.Body, "| F1 |") {
+		t.Errorf("rendered panel does not carry the finding's row and total:\n%s", got.Body)
 	}
 }
