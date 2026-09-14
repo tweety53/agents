@@ -518,6 +518,12 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, invoke
 > superpowers:systematic-debugging before writing a fix. An expected RED step needs no invocation.
 
+> **PROVE THE GUARD BITES:** When this task's tests assert on configuration or file content — a
+> guard script, an embedded config, a fixture file — a passing run alone is not evidence: break
+> the property the assertion protects, run the guard or the test against the broken state and
+> capture its failure, then restore and capture the pass. Report both runs. "The pattern is now
+> stricter" is intent, not evidence — the failing run against the broken state is the evidence.
+
 > **REQUIRED READING:** the engineering principles section of the context bundle below — your
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them.

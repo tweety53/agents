@@ -69,6 +69,13 @@
 # fix commit that lacks one at the fix step rather than discovering the
 # regression next round — at the panel-fix subagent dispatch in
 # review-panel.md alone, the same single site MUTATION PROOF occupies.
+# KAN-328 added an eleventh required paragraph — PROVE THE GUARD BITES,
+# which tells an implementer whose tests assert on configuration or file
+# content that a passing run is not evidence: break the property the
+# assertion protects, run the guard or the test against the broken state and capture
+# its failure, restore, capture the pass — at the implementer dispatch in
+# implement.md alone, beside the TDD and systematic-debugging REQUIRED
+# SUB-SKILL paragraphs.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -107,6 +114,7 @@
 #   **NO DELEGATION:**                 skills/flow/implement.md     2   (none)
 #   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
 #   **NO DELEGATION:**                 skills/flow/verify-and-handoff.md 1 (none)
+#   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
 #
 #   REPRODUCE, DON'T READ shared phrases: "crosses a boundary", "the store,
 #   the filesystem, a guard, a real transcript", "exercise the real thing"
@@ -146,6 +154,13 @@
 #   panel-fix subagent dispatch in review-panel.md alone — the implementer
 #   dispatch and the panel slot dispatch are not sites: the fix round is
 #   the only dispatch that lands a fix commit.
+#
+#   PROVE THE GUARD BITES shared phrases (no variants — every block
+#   carrying the label must carry all three): "assert on configuration or
+#   file content", "break the property the assertion protects", "against
+#   the broken state". Required once, at the implementer dispatch in
+#   implement.md alone — the gated per-task reviewer dispatch is not a
+#   site: reviewers judge a diff, they do not run the task's guards.
 #
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
@@ -241,6 +256,7 @@ declare -A ENTRY_LABEL=(
   [handshake]="**MODEL HANDSHAKE:**"
   [independent]="**INDEPENDENT PASSES:**"
   [delegation]="**NO DELEGATION:**"
+  [prove]="**PROVE THE GUARD BITES:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
@@ -254,6 +270,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [handshake]="the first line of your first reply${US}and nothing else on that line${US}before any tool call"
   [independent]="starts from \`final-review.diff\`${US}raise it again under this pass${US}before beginning the next pass"
   [delegation]="Never call the \`Agent\` tool${US}never spawn a subagent${US}the leaf of this run"
+  [prove]="assert on configuration or file content${US}break the property the assertion protects${US}against the broken state"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -269,6 +286,7 @@ declare -A ENTRY_VARIANTS=(
   [handshake]=""
   [independent]=""
   [delegation]=""
+  [prove]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -281,10 +299,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {
