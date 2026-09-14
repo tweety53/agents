@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """check-plan-shape.py — check that a `tasks.md` is SHAPED so the guard
 that will later judge its commits (`check-task-commit-fields.py`) can
-actually read it. Ten findings, F1-F10 (F1-F6's canonical definitions,
+actually read it. Eleven findings, F1-F11 (F1-F6's canonical definitions,
 decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
 parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
 second copy is a Single Source of Truth violation, the same class of drift
-check-plan-provenance.py's own docstring warns against; F7-F10's canonical
+check-plan-provenance.py's own docstring warns against; F7-F11's canonical
 definitions are the rows in the Findings list below).
 
 This guard IMPORTS the real parsers rather than reimplementing their
@@ -33,7 +33,7 @@ Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it
      without ambiguity (including a file with zero findings; a file with
      zero TASKS is F5, not clean — see below).
-  1  one or more of F1-F10 found. Printed one per line as
+  1  one or more of F1-F11 found. Printed one per line as
      `file:line: message`, naming the task id (F5 excepted: a file with no
      tasks has no task id to name).
   2  invocation error — wrong argument count, or the file cannot be read.
@@ -111,10 +111,25 @@ field-shaped line inside a worked example is not a declaration.
       one report rejects the plan, and every further cycle in the same
       graph names the same defect, so the search stops there. A
       self-reference is the one-node cycle. A task whose fence never
-      closes is skipped for every one of F7-F10 (F3b's existing early
+      closes is skipped for every one of F7-F11 (F3b's existing early
       return covers its own body; its unresolved field reads as absent,
       the serial default, exactly as plan-dispatch-bundles.py would read
       it).
+
+  F11 A file named in more than one task's `**Files:**` list with no
+      declared `**After:**` edge between a co-owning pair. Owners are
+      read from `parse_task_fields`'s own `files` lists across the whole
+      plan (the first whole-plan check over Files; F9/F10 are the After
+      graph's own). Two tasks editing one file is the shared-file
+      conflict shape KAN-339's self-review recorded — three rebase
+      conflicts, all in one file two tasks legitimately overlapped — so
+      the pair owes the plan one explicit ordering note: a GATING
+      declared `**After:**` edge in either direction (`select_after`'s
+      ids). The serial default — an absent field — is implicit and notes
+      nothing, and `none` declares independence, not an order. Reported
+      once per unordered pair at the LATER task's `**Files:**` line,
+      naming both tasks and the path. A task whose fence never closes is
+      skipped as an owner, F3b's convention: its fields are unread.
 
 A duplicate task id (two task lines sharing one id) is check-task-build-
 green.py's own violation, not this guard's: `collect_task_ids` de-
@@ -450,6 +465,61 @@ def check_file(path: str) -> List[str]:
         )
 
     violations.extend(_check_after_references(path, lines))
+    violations.extend(_check_file_ownership(path, lines))
+    return violations
+
+
+def _check_file_ownership(path: str, lines: List[str]) -> List[str]:
+    """F11 — a file two tasks own with no declared ordering between them.
+
+    Owners come from `parse_task_fields`'s own `files` lists, one task at
+    a time in plan order, each id checked once (collect_task_ids's
+    first-occurrence convention, the same one select_task resolves by).
+    An ordering is a GATING declared `**After:**` edge between the pair
+    in either direction — `select_after`'s own `ids`; the serial default
+    (an absent field) is implicit and notes nothing, and `none` declares
+    independence, not an order. A task whose fence never closes is
+    skipped as an owner, F3b's convention: its fields are unread.
+    """
+    violations: List[str] = []
+    owners: Dict[str, List[str]] = {}
+    files_lines: Dict[str, int] = {}
+    declared: Dict[str, Set[str]] = {}
+    seen: Set[str] = set()
+    for task in iter_tasks(lines):
+        if task.id in seen:
+            continue
+        seen.add(task.id)
+        if unclosed_fence(task.lines) is not None:
+            continue  # F3b: this task's fields are unread
+        fields = parse_task_fields(lines, task.id)
+        for name in fields.files:
+            owners.setdefault(name, []).append(task.id)
+        field = select_after(task.lines)
+        if field is not None and field.ids is not None:
+            declared[task.id] = set(field.ids)
+        files_field = _first_field_line(task.lines, task.body_start, "Files")
+        if files_field is not None:
+            files_lines[task.id] = files_field.line
+
+    for name, ids in owners.items():
+        if len(ids) < 2:
+            continue
+        for index, later in enumerate(ids[1:], start=1):
+            for earlier in ids[:index]:
+                unordered = (
+                    later not in declared.get(earlier, ())
+                    and earlier not in declared.get(later, ())
+                )
+                if unordered:  # F11
+                    violations.append(
+                        f"{path}:{files_lines.get(later, 1)}: task {later}'s "
+                        f"**Files:** also names `{name}`, first named by task "
+                        f"{earlier}, and no **After:** ordering is declared "
+                        "between the two — two tasks editing one file is the "
+                        "shared-file conflict this check exists to make "
+                        "explicit"
+                    )
     return violations
 
 

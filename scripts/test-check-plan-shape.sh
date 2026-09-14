@@ -686,6 +686,107 @@ run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 25: a fieldless plan passes" || fail "case 25: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 25: output byte-identical to before this task" || fail "case 25: expected empty output, out=$OUT"
 
+# ===========================================================================
+# Case 26 (F11): one file named by two tasks' **Files:** blocks with no
+# declared **After:** edge between the pair -> exit 1, one finding anchored
+# at the LATER task's **Files:** line, naming both tasks and the path.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a again\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 26 (F11): a file two unordered tasks own fails" || fail "case 26 (F11): rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 2's **Files:** also names \`a.txt\`"*"task 1"*"no **After:** ordering"*) pass "case 26 (F11): names the path, both tasks, and the missing ordering" ;;
+  *) fail "case 26 (F11): expected the F11 shared-file message, out=$OUT" ;;
+esac
+# Exact file:line prefix, the F1/F3a discipline: the fixture's second
+# task's **Files:** line is physical line 9 (task 1 at 1, blank 2, Files 3,
+# Tests 4, Commit 5, blank 6, task 2 at 7, blank 8, Files 9); an off-by-one
+# in the anchor passes every substring assertion while naming the wrong
+# line.
+case "$OUT" in
+  "$TASKS_MD:9: task 2's **Files:** also names"*) pass "case 26 (F11): the exact file:line prefix is line 9" ;;
+  *) fail "case 26 (F11): expected the message to be prefixed \"$TASKS_MD:9:\", out=$OUT" ;;
+esac
+assert_mutation_removes_finding "F11" "$TASKS_MD" "no **After:** ordering" "case 26"
+
+# ===========================================================================
+# Case 27 (F11): the same shared file with an explicit edge — task 2
+# declares `**After:** Task 1` — is exactly the note the finding asks for
+# and passes clean.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a again\n'
+  printf '**After:** Task 1\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 27 (F11): a declared edge over the shared file passes" || fail "case 27 (F11): rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 27 (F11): no output" || fail "case 27 (F11): expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 28 (F11): `**After:** none` is an explicit declaration of
+# INDEPENDENCE, not an ordering — a pair sharing a file with one side
+# declaring `none` still fails.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a again\n'
+  printf '**After:** none\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 28 (F11): After: none over a shared file fails" || fail "case 28 (F11): rc=$RC out=$OUT"
+case "$OUT" in
+  *"no **After:** ordering"*) pass "case 28 (F11): the none declaration is not an ordering" ;;
+  *) fail "case 28 (F11): expected the F11 shared-file message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 29 (F11): a task whose fence never closes is skipped as an owner
+# (F3b's convention — its fields are unread), so its fenced **Files:**
+# mention of the shared file draws the F3b finding and nothing else.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Unclosed fence\n\n'
+  printf '```\n'
+  printf '**Files:** `a.txt`\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a again\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 29 (F11): the unclosed-fence task fails on F3b" || fail "case 29 (F11): rc=$RC out=$OUT"
+[ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = "1" ] && pass "case 29 (F11): exactly one violation line — the fence, no F11" || fail "case 29 (F11): expected exactly one violation line, out=$OUT"
+case "$OUT" in
+  *"no **After:** ordering"*) fail "case 29 (F11): F11 fired on a task whose fields are unread, out=$OUT" ;;
+  *) pass "case 29 (F11): the fenced owner is skipped" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
