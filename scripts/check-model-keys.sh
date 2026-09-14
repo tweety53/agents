@@ -16,16 +16,23 @@
 # stricter on purpose — it exists so that fallback never has to happen in the
 # first place, so a mismatch here is a hard failure, not a silent drop.
 #
-# The valid-model set is never hardcoded: it is extracted from
-# `<agents repo>/stats/internal/store/settings.go`'s own `ValidModels` map
-# literal, so a model added there is valid here without a second edit.
+# The valid-model set is asked, not regexed: `flow settings models` prints
+# the harness's compiled-in `ValidModels` set (the same store.ValidModels
+# the daemon serves), one name per line, and the checkout's own
+# settings.go is cross-checked against it. When the two agree, the CLI set
+# governs. When they drift — an installed binary predating the checkout —
+# the source set governs the verdict, so a stale install cannot fail a
+# value the checkout declares, and the drift is announced with each
+# side's unique members. The map-literal parse is also the offline
+# fallback when the CLI cannot answer at all.
 #
 # A key that is absent is not a violation — absence is a supported, valid
 # state per project-configuration.md's own "Optional" rows.
 #
 # Exit 0 when every present key is valid, 1 when any is invalid, 2 when it
-# cannot answer at all (settings.go missing/unreadable, or a project root
-# that is not a readable directory).
+# cannot answer at all (no usable `flow settings models` answer AND a
+# settings.go that is missing/unreadable or yields no members, or a project
+# root that is not a readable directory).
 set -uo pipefail
 
 die() {
@@ -38,27 +45,84 @@ source "$SCRIPT_DIR/lib/project-section.sh"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SETTINGS_GO="$REPO_ROOT/stats/internal/store/settings.go"
 
-[[ -r "$SETTINGS_GO" ]] || die "cannot read $SETTINGS_GO"
+[[ -r "$SETTINGS_GO" ]] && HAS_SOURCE=1 || HAS_SOURCE=0
 
-# Extract the ValidModels map literal's quoted keys — the lines between
-# `var ValidModels = map[string]bool{` and its closing `}`, each of shape
-# `"name": true,`. Read from the actual source rather than a guessed list,
-# per this guard's own header above.
-VALID_MODELS=()
-while IFS= read -r m; do
-  VALID_MODELS+=("$m")
-done < <(awk '
-  /^var ValidModels = map\[string\]bool\{/ { grabbing = 1; next }
-  grabbing && /^\}/ { exit }
-  grabbing {
-    if (match($0, /"[^"]+"/)) {
-      s = substr($0, RSTART + 1, RLENGTH - 2)
-      print s
+# The map-literal extraction shared by the offline fallback and the
+# cross-check: the quoted keys between `var ValidModels =
+# map[string]bool{` and its closing `}`, each of shape `"name": true,`.
+source_set() {
+  awk '
+    /^var ValidModels = map\[string\]bool\{/ { grabbing = 1; next }
+    grabbing && /^\}/ { exit }
+    grabbing {
+      if (match($0, /"[^"]+"/)) {
+        s = substr($0, RSTART + 1, RLENGTH - 2)
+        print s
+      }
     }
-  }
-' "$SETTINGS_GO")
+  ' "$SETTINGS_GO"
+}
+SOURCE_SET=""
+[[ "$HAS_SOURCE" -eq 1 ]] && SOURCE_SET="$(source_set)"
 
-[[ "${#VALID_MODELS[@]}" -gt 0 ]] || die "no ValidModels members found in $SETTINGS_GO"
+# Ask the installed `flow` CLI first — its `settings models` subcommand
+# prints the compiled-in set with no daemon needed. Its stderr is relayed
+# to this guard's stderr rather than discarded, so a warn-but-answer ask
+# is still visible, and the fallback announcement below can say why the
+# ask failed, not only that it did.
+VALID_MODELS=()
+ASK_NOTE=" — no flow on PATH"
+if command -v flow >/dev/null 2>&1; then
+  ASK_ERR="$(mktemp "${TMPDIR:-/tmp}/check-model-keys-askerr.XXXXXX")"
+  while IFS= read -r m; do
+    [[ -n "$m" ]] && VALID_MODELS+=("$m")
+  done < <(flow settings models 2>"$ASK_ERR")
+  if [[ -s "$ASK_ERR" ]]; then
+    ASK_NOTE=" — $(tr '\n' ' ' < "$ASK_ERR" | sed 's/[[:space:]]*$//')"
+    # Relay only when the ask answered: on a failed ask the fallback
+    # announcement below already embeds the same diagnostic, and one
+    # emission per stderr stream is the difference between a warning and
+    # noise.
+    if [[ "${#VALID_MODELS[@]}" -gt 0 ]]; then
+      echo "check-model-keys: flow settings models reported:${ASK_NOTE}" >&2
+    fi
+  elif [[ "${#VALID_MODELS[@]}" -eq 0 ]]; then
+    ASK_NOTE=" — empty answer"
+  else
+    ASK_NOTE=""
+  fi
+  rm -f "$ASK_ERR"
+fi
+
+if [[ "${#VALID_MODELS[@]}" -eq 0 ]]; then
+  echo "check-model-keys: no answer from flow settings models${ASK_NOTE} — falling back to parsing $SETTINGS_GO" >&2
+  [[ "$HAS_SOURCE" -eq 1 ]] || die "cannot read $SETTINGS_GO"
+  [[ -n "$SOURCE_SET" ]] || die "no ValidModels members found in $SETTINGS_GO"
+  while IFS= read -r m; do
+    VALID_MODELS+=("$m")
+  done <<< "$SOURCE_SET"
+elif [[ -n "$SOURCE_SET" ]]; then
+  # The CLI answered and the source is readable: compare the two. Drift
+  # means the installed binary predates the checkout — the
+  # check-installed-rules.sh class of failure — and is named with each
+  # side's unique members. On drift the source set governs the verdict
+  # below, so a stale install cannot fail a value the checkout declares;
+  # the announcement is what tells the operator to rebuild flow.
+  DRIFT="$(comm -3 \
+    <(printf '%s\n' "${VALID_MODELS[@]}" | sort -u) \
+    <(printf '%s\n' "$SOURCE_SET" | sort -u))"
+  if [[ -n "$DRIFT" ]]; then
+    echo "check-model-keys: installed flow's ValidModels set disagrees with $SETTINGS_GO — rebuild or reinstall flow; left column only-in-CLI, right column only-in-source:" >&2
+    printf '%s\n' "$DRIFT" >&2
+    echo "check-model-keys: the source set governs this run's verdict while the install is stale" >&2
+    VALID_MODELS=()
+    while IFS= read -r m; do
+      VALID_MODELS+=("$m")
+    done <<< "$SOURCE_SET"
+  fi
+elif [[ "$HAS_SOURCE" -eq 1 ]]; then
+  echo "check-model-keys: note — $SETTINGS_GO yielded no ValidModels members; the source cross-check is off (did the map literal's shape change?)" >&2
+fi
 
 is_valid_model() {
   local target="$1" m
