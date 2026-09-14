@@ -741,12 +741,27 @@ and 13 below as written, committing and pushing nothing.
    <spec's basename> — searched <mockups dir>, no frame for <views>`, naming what was searched, and
    continue. Not declared → report `mockups: not declared` and continue. The sidecar's shape is
    canonical in **visual verification** (`skills/flow-contracts/project-configuration.md`).
-11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
+11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
-    pair, the composite's absolute path, the frame id, its `diff=` ratio, what was seen, its
+    pair, the composite's path in `<changeRoot>/visual-verification/`, the frame id, its `diff=`
+    ratio, what was seen, its
     band pairing's unpaired and over-tolerance bands with their causes, its seam pairing's
     unpaired seams and off-centre lines with theirs, and the
-    frame's element × property matrix from step 10.
+    frame's element × property matrix from step 10. **Every evidence file the record cites is in
+    the repository when the record is written.** A cited file the change has not itself placed in
+    the repository — a step-9 capture — is copied into
+    `<changeRoot>/visual-verification/evidence/` first, and the entry cites
+    the copy
+    by its path relative to the record, naming the `evidence` subdirectory and the file's own
+    name — a subdirectory
+    the compose step never writes into, so a copy cannot take a composite's name; a file the
+    change has already placed in the repository — a committed baseline, or the composite the
+    compose step just wrote into `<changeRoot>/visual-verification/` — is cited at that
+    in-repository path. No entry cites the
+    worktree-absolute path of a file the worktree holds alone — KAN-29's record cited two
+    screenshots that way, they died with `worktree remove --force` at archive, and the record
+    kept two dead citations. The report block below keeps its absolute paths: it is the live
+    run's handoff, not the committed record.
 12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **Resolve the
     `regression checkout` root the same way every other declared app root in this file is
