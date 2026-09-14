@@ -494,7 +494,12 @@ def _check_file_ownership(path: str, lines: List[str]) -> List[str]:
             continue  # F3b: this task's fields are unread
         fields = parse_task_fields(lines, task.id)
         for name in fields.files:
-            owners.setdefault(name, []).append(task.id)
+            named = owners.setdefault(name, [])
+            # A repeated token within ONE task's own list is one owner:
+            # a pair needs two tasks, and a self-pair would name a remedy
+            # only a self-reference could satisfy (F10's one-node cycle).
+            if task.id not in named:
+                named.append(task.id)
         field = select_after(task.lines)
         if field is not None and field.ids is not None:
             declared[task.id] = set(field.ids)

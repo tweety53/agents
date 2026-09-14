@@ -8,9 +8,9 @@
 # REAL fixture files on disk — never a copy of its logic, never its Python
 # internals imported and asserted on directly.
 #
-# One case per finding (F1-F6), a clean-plan case, a no-arg aggregation
+# One case per finding (F1-F11), a clean-plan case, a no-arg aggregation
 # case, and three exit-2 cases (missing sibling module, unreadable file,
-# usage error). Additionally, for each of F1-F6, a MUTATION case: a
+# usage error). Additionally, for each of F1-F6 and F11, a MUTATION case: a
 # throwaway copy of check-plan-shape.py with that finding's own check
 # disabled (via sed against a line this file tags `# F<n>`) is run against
 # the SAME fixture, and the finding's message must then be ABSENT — proving
@@ -766,18 +766,29 @@ esac
 
 # ===========================================================================
 # Case 29 (F11): a task whose fence never closes is skipped as an owner
-# (F3b's convention — its fields are unread), so its fenced **Files:**
-# mention of the shared file draws the F3b finding and nothing else.
+# (F3b's convention — its fields are unread). The unclosed fence opens in
+# task 2's own body, AFTER its real **Files:** line, so task 2 is a real
+# task that owns `a.txt` — and the file-wide fence state leaves task 1 and
+# task 2 both real. With the owner-skip deleted from _check_file_ownership,
+# task 2 pairs with task 1 and F11 fires: the real guard reports ONE line
+# (F3b), the mutant TWO, which is exactly what this case's one-line
+# assertion pins. The fence must open after the fields: a fence opened
+# before a later task line swallows that line (iter_tasks tracks fence
+# state file-wide), the later task never exists, and no fixture shape
+# could then tell the skip from its absence.
 # ===========================================================================
 new_fixture
 {
-  printf -- '- [ ] 1. Unclosed fence\n\n'
-  printf '```\n'
-  printf '**Files:** `a.txt`\n\n'
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
   printf -- '- [ ] 2. Second task\n\n'
   printf '**Files:** `a.txt`\n'
   printf '**Tests:** `test_a`\n'
-  printf '**Commit:** add a again\n'
+  printf '**Commit:** add a again\n\n'
+  printf '```\n'
+  printf 'unterminated\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 29 (F11): the unclosed-fence task fails on F3b" || fail "case 29 (F11): rc=$RC out=$OUT"
@@ -786,6 +797,22 @@ case "$OUT" in
   *"no **After:** ordering"*) fail "case 29 (F11): F11 fired on a task whose fields are unread, out=$OUT" ;;
   *) pass "case 29 (F11): the fenced owner is skipped" ;;
 esac
+
+# ===========================================================================
+# Case 30 (F11): a repeated token within ONE task's own **Files:** list is
+# one owner, never a pair — the guard stays clean, with no self-pair
+# finding naming "two tasks" where one task exists.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Dup token\n\n'
+  printf '**Files:** `a.txt`, `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 30 (F11): a duplicate token in one task is not a pair" || fail "case 30 (F11): rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 30 (F11): no output" || fail "case 30 (F11): expected no output, got: $OUT"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
