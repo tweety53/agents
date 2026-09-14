@@ -486,6 +486,58 @@ var renderKinds = map[string]struct{ dir, suffix string }{
 // should render them.
 func Kinds() []string { return []string{"ledger", "panel"} }
 
+// Rendered is the envelope the daemon's render route answers with: the
+// rendered Markdown body, or Missing when the kind has no record to
+// render. The CLI never constructs a record's content itself — an
+// installed CLI predating a store-schema advance once rendered stamped
+// rows as "not measured", silently and with exit 0 — so the daemon,
+// versioned with the store it reads, renders and this envelope carries
+// the result, including the fact that there is nothing to carry.
+type Rendered struct {
+	Missing bool   `json:"missing"`
+	Body    string `json:"body"`
+}
+
+// RenderKind renders one kind, reporting whether there is a record to
+// write. THE TWO KINDS ANSWER THAT QUESTION DIFFERENTLY, and the
+// asymmetry is the point rather than an oversight.
+//
+// A LEDGER WITH NO DISPATCH ROWS IS MISSING. A change nothing was
+// dispatched for genuinely has no ledger, and an empty one on disk would
+// be indistinguishable from a real ledger that happened to be empty --
+// the distinction the run-record requirement insists stays reportable.
+//
+// A PANEL WITH NO FINDINGS IS STILL A PANEL, and always renders.
+// the review-panel economics requirement requires a record
+// with no total line to count as outstanding whatever else it contains,
+// and says a panel that raised no finding says so with `findings-total: 0`
+// -- "which is a declaration and clears, where silence is not". Reporting
+// MISSING for a clean panel writes no record, so check-unfinished-work.sh
+// finds none and reports OUTSTANDING for a change that is genuinely clean:
+// the render would manufacture the very state the panel proved absent.
+// RenderPanel already emits the zero form correctly -- the total line, no
+// markers, and the matching empty reproducer block -- so the only thing
+// that ever suppressed it was this rule.
+//
+// The command is invoked at panel close, so THAT INVOCATION is the
+// evidence a panel ran. Nothing in the store has to stand in for it, and
+// no sentinel row is written to make one.
+func RenderKind(kind string, run Run) (string, bool) {
+	switch kind {
+	case "ledger":
+		if len(run.Dispatches) == 0 {
+			return "", false
+		}
+		return RenderLedger(run), true
+	case "panel":
+		return RenderPanel(run), true
+	default:
+		// Unreachable when kind comes from Kinds(), the route's own
+		// validation -- the only producers of this argument.
+		return "", false
+	}
+}
+
 // Destination resolves where kind's record for change renders to under
 // repoRoot, and refuses rather than returning a path it cannot vouch for.
 //

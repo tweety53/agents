@@ -858,3 +858,53 @@ func TestRenderPanelLineageColumn(t *testing.T) {
 		}
 	}
 }
+
+// --- RenderKind: the missing/always asymmetry, server-side ---
+
+// TestRenderKindLedgerWithoutDispatchesIsMissing pins the ledger's half
+// of the asymmetry the render route applies: a change nothing was
+// dispatched for has no ledger, and reporting missing -- rather than
+// rendering an empty one -- is what keeps an empty file on disk
+// indistinguishable from a real ledger that happened to be empty.
+func TestRenderKindLedgerWithoutDispatchesIsMissing(t *testing.T) {
+	body, ok := records.RenderKind("ledger", records.Run{Change: "demo"})
+	if ok {
+		t.Fatalf("RenderKind(ledger, no dispatches) reported a record; want missing")
+	}
+	if body != "" {
+		t.Errorf("body = %q, want empty alongside missing", body)
+	}
+}
+
+// TestRenderKindLedgerWithDispatchesRenders is the other side of that
+// same rule: rows in the store are a ledger, whatever their content, and
+// RenderKind hands the real rendering back rather than a verdict on it.
+func TestRenderKindLedgerWithDispatchesRenders(t *testing.T) {
+	run := records.Run{Change: "demo", Dispatches: []records.Dispatch{{
+		ID: 1, Seq: 1, Role: "implementer", Model: "sonnet", Outcome: "completed",
+		StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+	}}}
+	body, ok := records.RenderKind("ledger", run)
+	if !ok {
+		t.Fatalf("RenderKind(ledger, one dispatch) reported missing; want a record")
+	}
+	if body != records.RenderLedger(run) {
+		t.Errorf("RenderKind body differs from RenderLedger over the same run")
+	}
+}
+
+// TestRenderKindPanelWithoutFindingsStillRenders carries the review-panel
+// economics requirement's rule over from the CLI: a panel that raised no
+// finding still renders, declaring `findings-total: 0` -- a declaration
+// and a clear, where MISSING would write no record at all and
+// check-unfinished-work.sh would read the absent file as outstanding for
+// a change that is genuinely clean.
+func TestRenderKindPanelWithoutFindingsStillRenders(t *testing.T) {
+	body, ok := records.RenderKind("panel", records.Run{Change: "demo"})
+	if !ok {
+		t.Fatalf("RenderKind(panel, no findings) reported missing; want the zero-form panel")
+	}
+	if !strings.Contains(body, "findings-total: 0") {
+		t.Errorf("zero-form panel does not declare findings-total: 0:\n%s", body)
+	}
+}
