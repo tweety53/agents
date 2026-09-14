@@ -280,6 +280,61 @@ esac
 rm -rf "$FIXTURE"
 
 # ---------------------------------------------------------------------------
+# 6. Companion presence (kan-387): every check-*.sh guard in the fixture
+#    root must carry a test-check-*.sh companion, or the runner refuses
+#    the suite with exit 1, naming the guard and the missing harness, and
+#    runs nothing — the gap is a suite-contract violation, not a harness
+#    result. A balanced fixture (guard plus companion) passes through to
+#    the ordinary run.
+# ---------------------------------------------------------------------------
+new_clean_fixture
+cat > "$FIXTURE/check-lonely.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'LONELY-SHOULD-NEVER-RUN-MARKER\n'
+EOF
+chmod +x "$FIXTURE/check-lonely.sh"
+run_runner "$FIXTURE"
+if [ "$RC" -eq 1 ]; then
+  pass "case 6a: a fixture with an uncompanioned guard exits 1"
+else
+  fail "case 6a: expected exit 1, got $RC — out=$OUT"
+fi
+case "$OUT" in
+  *check-lonely.sh*) pass "case 6a: the guard is named" ;;
+  *) fail "case 6a: the uncompanioned guard is not named — out=$OUT" ;;
+esac
+case "$OUT" in
+  *test-check-lonely.sh*) pass "case 6a: the missing companion is named" ;;
+  *) fail "case 6a: the missing companion is not named — out=$OUT" ;;
+esac
+case "$OUT" in
+  *LONELY-SHOULD-NEVER-RUN-MARKER*|*ALPHA-OUT-MARKER*)
+    fail "case 6a: the runner ran harnesses despite the companion gap — out=$OUT" ;;
+  *) pass "case 6a: nothing ran — the refusal fires before any harness" ;;
+esac
+
+new_clean_fixture
+cat > "$FIXTURE/check-paired.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'PAIRED-GUARD\n'
+EOF
+cat > "$FIXTURE/test-check-paired.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$FIXTURE/check-paired.sh" "$FIXTURE/test-check-paired.sh"
+run_runner "$FIXTURE"
+if [ "$RC" -eq 0 ]; then
+  pass "case 6b: a balanced fixture (guard plus companion) exits 0"
+else
+  fail "case 6b: expected exit 0, got $RC — out=$OUT"
+fi
+case "$OUT" in
+  *companion*) fail "case 6b: a balanced fixture reported a companion gap — out=$OUT" ;;
+  *) pass "case 6b: a balanced fixture never reports a companion gap" ;;
+esac
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0

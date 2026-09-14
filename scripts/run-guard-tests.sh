@@ -18,6 +18,17 @@
 # is never silently skipped. Verified byte-identical to today's 40 lines by
 # design.md's own measurement.
 #
+# COMPANION PRESENCE (kan-387): every check-*.sh guard in TEST_ROOT gets a
+# test-check-*.sh companion mutation harness — the repo's convention since
+# KAN-197, until now enforced only by review-panel judgment. A guard whose
+# companion is missing is refused before anything runs: one stderr line per
+# gap naming the guard and the missing harness, then exit 1 — a detected
+# violation of the suite's contract, the same code a failing harness gets,
+# never exit 2's "cannot answer". The scan is the same flat TEST_ROOT glob
+# the harness discovery uses (never recursive, never a hand-maintained
+# list), which is also what lets this runner's own harness exercise the
+# check through a RUN_GUARD_TESTS_ROOT fixture.
+#
 # RUN_GUARD_TESTS_ROOT (design.md's runner-root-override): an explicit,
 # opt-in override honoured only when set — copied verbatim from
 # check-references.sh's own CHECK_REFERENCES_ROOT idiom rather than writing
@@ -57,6 +68,21 @@ for f in "$TEST_ROOT"/test-*.sh; do
   [ -e "$f" ] || continue
   HARNESSES+=("$f")
 done
+
+MISSING_COMPANIONS=()
+for f in "$TEST_ROOT"/check-*.sh; do
+  [ -e "$f" ] || continue
+  name="$(basename "$f" .sh)"
+  [ -e "$TEST_ROOT/test-$name.sh" ] || MISSING_COMPANIONS+=("$(basename "$f")")
+done
+
+if [ "${#MISSING_COMPANIONS[@]}" -gt 0 ]; then
+  for guard in "${MISSING_COMPANIONS[@]}"; do
+    printf 'run-guard-tests: %s has no companion test-%s.sh\n' "$guard" "${guard%.sh}" >&2
+  done
+  printf 'run-guard-tests: every check-*.sh guard gets a test-check-*.sh companion — add the missing harnesses\n' >&2
+  exit 1
+fi
 
 if [ "${#HARNESSES[@]}" -eq 0 ]; then
   printf 'run-guard-tests: no test-*.sh harnesses found under %s\n' "$TEST_ROOT" >&2
