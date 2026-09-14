@@ -837,6 +837,34 @@ func (c *Client) GetCostStatus(ctx context.Context, project, change string) (rec
 	return out, nil
 }
 
+// GetRenderedRecord fetches project/change's record for one kind, already
+// rendered by the daemon. The envelope carries the Markdown body, or
+// Missing with an empty body when the kind has no record to render -- a
+// fact about the rows, answered by the daemon versioned with the store
+// that holds them, never constructed from a schema this binary may predate.
+//
+// Like GetRunRecord's own read it is classified ErrNotFound (404) or
+// ErrUnavailable for everything else. The render route itself answers an
+// unknown change from the empty run rather than a 404, so a 404 here can
+// only mean a daemon too old to carry the route at all -- the caller stops
+// on that, and must never fall back to rendering locally.
+func (c *Client) GetRenderedRecord(ctx context.Context, project, change, kind string) (records.Rendered, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.recordsURL(project, change)+"/render/"+kind, nil)
+	if err != nil {
+		return records.Rendered{}, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return records.Rendered{}, err
+	}
+	var out records.Rendered
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.Rendered{}, err
+	}
+	return out, nil
+}
+
 // RecordDecision records one run's dynamic decision for project/change, or
 // replaces the one already recorded under the same session token, and
 // returns the row the daemon stored together with which of the two it did.

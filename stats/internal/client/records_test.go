@@ -198,6 +198,10 @@ func TestRecordCallsFallBackWhenNothingTrustworthyAnswers(t *testing.T) {
 			_, err := c.GetRunRecord(context.Background(), "proj", "kan-1")
 			return err
 		},
+		"GetRenderedRecord": func(c *client.Client) error {
+			_, err := c.GetRenderedRecord(context.Background(), "proj", "kan-1", "ledger")
+			return err
+		},
 	}
 
 	for name, call := range calls {
@@ -437,5 +441,50 @@ func TestClientRecordDecisionRoundTrip(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].SessionToken != "mf-decide-1" {
 		t.Fatalf("ListDecisions = %+v, want the one decision just recorded", got)
+	}
+}
+
+// TestGetRenderedRecordReadsTheEnvelope pins the rendered-record read:
+// the request hits the render route for the named kind, a 200 envelope is
+// decoded as the daemon sent it -- body, or missing with an empty body --
+// and a 404 stays ErrNotFound, the skew signal runRecordRender stops on.
+func TestGetRenderedRecordReadsTheEnvelope(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/records/proj/kan-1/render/ledger" {
+			t.Errorf("request = %s %s, want GET /api/v1/records/proj/kan-1/render/ledger", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"missing":false,"body":"# SDD ledger\n"}`))
+	}))
+	defer srv.Close()
+
+	got, err := client.New(srv.URL, srv.Client()).GetRenderedRecord(context.Background(), "proj", "kan-1", "ledger")
+	if err != nil {
+		t.Fatalf("GetRenderedRecord: %v", err)
+	}
+	if got.Missing || got.Body != "# SDD ledger\n" {
+		t.Errorf("envelope = %+v, want the daemon's body and not missing", got)
+	}
+
+	missing := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"missing":true,"body":""}`))
+	}))
+	defer missing.Close()
+	got, err = client.New(missing.URL, missing.Client()).GetRenderedRecord(context.Background(), "proj", "kan-1", "ledger")
+	if err != nil {
+		t.Fatalf("GetRenderedRecord (missing): %v", err)
+	}
+	if !got.Missing || got.Body != "" {
+		t.Errorf("envelope = %+v, want missing with an empty body", got)
+	}
+
+	skew := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"404 page not found"}`))
+	}))
+	defer skew.Close()
+	if _, err := client.New(skew.URL, skew.Client()).GetRenderedRecord(context.Background(), "proj", "kan-1", "ledger"); !errors.Is(err, client.ErrNotFound) {
+		t.Errorf("GetRenderedRecord against a route-less daemon = %v, want ErrNotFound", err)
 	}
 }
