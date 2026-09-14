@@ -113,7 +113,21 @@ command:
 - **At `IN_PROGRESS`, bare**, `/flow` integrates on the first such invocation and archives on the
   next, once the branch has merged.
 
-### A fix never moves the state
+**The bare invocation that starts integrate must be an actual new `/flow` (or `/flow <name>`)
+command from the operator — never inferred from anything said inside a still-running turn.** A
+running `/flow` turn is mid fix run, mid a question the run itself asked, or simply still executing
+— and an instruction the operator gives during that turn, however explicit ("merge and push", "go
+ahead", an answer to an unrelated question with a trailing aside about landing the branch), is
+conversation, not a re-invocation. It never substitutes for the operator closing that turn and
+separately typing `/flow` again. This is what the human gate at `IN_PROGRESS`
+(**States**, above) actually rests on: the state transition table's "bare" column means a bare
+*command*, not a quiet moment in an ongoing one. **Concretely: never chain straight from a fix, a
+mid-turn question, or a dispatched-agent report into integrate's unfinished-work gate, its landing
+question, or any git action the chosen route performs — even when the operator's own words include
+"merge and push" — without the turn first ending and a fresh bare invocation starting it.** On a
+mismatch, treat it exactly as **Wrong state for this command** below already requires: report what
+was said, name the bare re-invocation as what actually starts integrate, and stop rather than
+inferring consent.
 
 Implementation advances the state **only** from `STARTED` to `IN_PROGRESS`. A fix run at
 `IN_PROGRESS` writes the state back exactly as it found it.

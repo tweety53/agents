@@ -64,6 +64,11 @@ script — but signals 1 and 3 still run, and still run in this order.
 
 ### Run 1 — the branch is not merged
 
+**Run 1 itself only starts from a fresh bare `/flow` (or `/flow <name>`) invocation — never inline,
+mid-turn, off something the operator said while a prior turn was still running.** See **The bare
+invocation that starts integrate must be an actual new command** (`pipeline.md`); this is the exact
+gate that section exists for, and nothing below overrides it.
+
 **Check for unfinished work first — before the landing question and before any git action.**
 `check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]` prints one verdict line and
 exits 0 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the
