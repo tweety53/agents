@@ -45,6 +45,10 @@ Current flow settings:
   self-review model:  <selfReviewModel, or "(fable — store default)" when empty>
 ```
 
+Then run step 3's conductor-depth check against the **stored** roster and print its line when it
+fires — a roster saved before the check existed surfaces its gap here too, not only when the
+operator changes something.
+
 ### 2. Offer to change each field
 
 Ask about the three fields the settings store actually holds — `defaultModel`, `reviewers` and
@@ -94,6 +98,22 @@ the CLI (omitting it means empty), but this skill always passes it explicitly �
 resolves to the value read in step 1, exactly as the other fields do — so a no-op run of this skill
 never silently resets it to empty. Pass the value just confirmed for each field that changed, and
 the value read in step 1 for each field that did not.
+
+**Before the write, tell the operator which slots cannot dispatch as themselves here.** The
+roster's slots spawn as **The roster** (`skills/flow/review-panel.md`) spawns them — on
+`flow-review`, or on `flow-<effort>` where the panel is dynamic — and a conductor whose harness
+offers neither substitutes a harness-provided type (`general-purpose`) for those slots. Compare
+each confirmed slot's spawn type against the agent types this session's own harness offers at
+conductor depth, and when the type is absent print one line ahead of the write, naming every
+affected slot in roster order:
+
+```
+⚠ roster: no `flow-review` agent type at conductor depth — primary, principles, bugbot will be substituted (general-purpose) at panel time
+```
+
+The write proceeds either way: this line is the report KAN-398 asked for — the operator learns at
+save time, not mid-panel, that a configured slot has no agent type here — never a gate. Never
+block the save on it and never drop a slot to silence it.
 
 A non-zero exit means the store rejected the write (an invalid model or reviewer name) or could not
 be reached. Print the CLI's stderr verbatim — it names the specific bad value on a rejection — and
