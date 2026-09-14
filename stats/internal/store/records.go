@@ -382,6 +382,15 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	return out, nil
 }
 
+// severityIsMinor reports whether a severity word names Minor, the only
+// severity a `deferred <reason>` status is legal beside. The match is
+// case-insensitive because severity is free text a caller writes verbatim
+// and every severity comparison this package's queries make is
+// case-insensitive (ILIKE), so a lowercase "minor" is still Minor here.
+func severityIsMinor(severity string) bool {
+	return strings.EqualFold(severity, "minor")
+}
+
 // UpsertFinding records one review-panel finding, or updates the one
 // already recorded under the same ref for the same change, and reports
 // which of the two it did. A ref is unique per change, not per round: a
@@ -433,15 +442,6 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 // the column NULL: a finding no single dispatch raised is a legitimate
 // case, and this column records the raising slot where it is known rather
 // than refusing the finding where it is not.
-// severityIsMinor reports whether a severity word names Minor, the only
-// severity a `deferred <reason>` status is legal beside. The match is
-// case-insensitive because severity is free text a caller writes verbatim
-// and every severity comparison this package's queries make is
-// case-insensitive (ILIKE), so a lowercase "minor" is still Minor here.
-func severityIsMinor(severity string) bool {
-	return strings.EqualFold(severity, "minor")
-}
-
 func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in records.Finding) (records.Finding, bool, error) {
 	var (
 		out         records.Finding

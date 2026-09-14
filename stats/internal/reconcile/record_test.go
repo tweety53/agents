@@ -624,10 +624,12 @@ func TestUndecodableRecordEntryIsRefusedAndAppliesEntryBehindIt(t *testing.T) {
 // deferredNotMinorRecordStore answers every finding-status write with
 // store.ErrDeferredNotMinor -- the store having been reached and having
 // refused a deferral whose row's severity is not Minor, the identical
-// refusal on every replay.
+// refusal on every replay. The receiver is a pointer on purpose: the
+// embedded fakeRecordStore opens with a sync.Mutex, and a value receiver
+// copies it, which go vet's copylocks analyzer fails the package for.
 type deferredNotMinorRecordStore struct{ fakeRecordStore }
 
-func (deferredNotMinorRecordStore) SetFindingStatus(context.Context, string, string, string, string, string) error {
+func (*deferredNotMinorRecordStore) SetFindingStatus(context.Context, string, string, string, string, string) error {
 	return fmt.Errorf("%w: F1 in proj/chg has severity Critical, not Minor", store.ErrDeferredNotMinor)
 }
 
@@ -657,6 +659,46 @@ func TestStatusRefusedAsNotMinorIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
 	}
 	assertAppliedCalls(t, rs.appliedCalls(), []string{
 		"finding proj-record-notminor/chg-record-notminor ref=F2 status=open",
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (both entries retired)", n)
+	}
+}
+
+// categoryContradictionRecordStore answers every finding-status write with
+// store.ErrCategoryNotDeferred -- the category counterpart of the
+// not-Minor refusal above, mapped 409 by the same API mapper.
+type categoryContradictionRecordStore struct{ fakeRecordStore }
+
+func (*categoryContradictionRecordStore) SetFindingStatus(context.Context, string, string, string, string, string) error {
+	return fmt.Errorf("%w: F1 in proj/chg", store.ErrCategoryNotDeferred)
+}
+
+// TestStatusRefusedAsCategoryContradictionIsRetiredAndAppliesEntryBehindIt
+// is F10 (mutation, fix re-run 1): the ErrCategoryNotDeferred case in
+// isDefinitiveRecordOutcome had no test feeding it, so deleting the case
+// left the package green and the F4 stall regressable for that half. The
+// same retirement the not-Minor refusal gets, pinned for its twin.
+func TestStatusRefusedAsCategoryContradictionIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-catcon", "chg-record-catcon"
+
+	appendRecordWrite(t, root, project, change, "status", recordStatusRequest{Ref: "F1", Status: "fixed"})
+	appendRecordWrite(t, root, project, change, "finding", testFinding("F2", "open"))
+
+	rs := &categoryContradictionRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 1 {
+		t.Fatalf("Run result = %+v, want {Applied:1 Refused:1} -- a category-contradiction refusal must retire, not block the valid entry behind it", result)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		"finding proj-record-catcon/chg-record-catcon ref=F2 status=open",
 	})
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {

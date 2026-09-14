@@ -280,7 +280,7 @@ func TestConcurrentRecordDispatchDoesNotCollide(t *testing.T) {
 // silently counts it. Severity matches case-insensitively, the update
 // path's own ILIKE rule, so a lowercase "minor" is still Minor.
 func TestUpsertFindingDeferredMinorOnly(t *testing.T) {
-	st, _ := newRecordStore(t)
+	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-deferred-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
@@ -291,6 +291,22 @@ func TestUpsertFindingDeferredMinorOnly(t *testing.T) {
 	_, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", critical)
 	if !errors.Is(err, store.ErrDeferredNotMinor) {
 		t.Fatalf("UpsertFinding deferred beside Critical: err = %v, want store.ErrDeferredNotMinor", err)
+	}
+	// The refusal must leave no row behind. The upsert is a single
+	// autocommit statement, so a guard moved after the statement would
+	// still return this error -- while the deferred-Critical row the
+	// guard exists to keep out of the deferred-Minor numerator had
+	// already landed. F9, mutation fix re-run 1: asserting only the
+	// error let exactly that mutant survive.
+	var landed int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM findings f JOIN changes c ON c.id = f.change_id WHERE c.project_key = $1 AND f.ref = $2",
+		projectKey, "F1",
+	).Scan(&landed); err != nil {
+		t.Fatalf("count findings after the refused deferral: %v", err)
+	}
+	if landed != 0 {
+		t.Fatalf("findings rows for the refused ref = %d, want 0 -- the refusal must leave nothing behind", landed)
 	}
 
 	minor := baseFinding("F2", 0)
