@@ -351,7 +351,7 @@ and 13 below as written, committing and pushing nothing.
    the cropped frame as `<composite stem>.frame.png`, the capture's own size; for every pair, run
 
    ```bash
-   measure-visual-properties.sh <changeRoot>/visual-verification/<stem>.frame.png <capture PNG> --scale 1 --props bands
+   measure-visual-properties.sh <changeRoot>/visual-verification/<stem>.frame.png <capture PNG> --scale 1 --props bands,seams
    ```
 
    and read `delta.bands` (the script's header is canonical for the property): every band the
@@ -369,9 +369,28 @@ and 13 below as written, committing and pushing nothing.
    with `edge #0088b0` against `#d7d3d3` — the outlined-accent variant shipped as the grey one —
    and the answer rows' `since_pair` short by the padding the row lacked; Q1 pre-fix: the
    ACTIVITY card and the GOAL segmented control each `missing` as the frame's bordered band and
-   `extra` as the capture's unbordered one). What a band cannot see — a segmented control's cell
-   dividers, a wrapped label's internal alignment, a glyph, a corner radius — the per-control
-   sweeps below still measure.
+   `extra` as the capture's unbordered one).
+
+   **A band is one row of the page's structure and sees nothing across it, so the same call's
+   seam pairing is the second read: `delta.seams`, the vertical structure inside every boxed
+   band.** A segmented control with its two cell dividers gone and its wrapped labels
+   left-anchored where the frame centres them is one band in both images, the same height and
+   the same border colour, and pairs clean (KAN-437 fix round 5, Q1's GOAL control: both shipped
+   past the band pairing and every sweep, and an operator found them by eye). For every boxed
+   band — a bordered or filled control, a card, a hairline; never a bare text row — the script
+   lists its seams (an outer border's side, a cell divider, a filled cell) paired in order, and
+   for every cell between two paired seams its text lines with their `offset` from the cell's
+   centre and their `left` and `right` insets. **Every `missing` seam, every `extra` seam, every
+   seam pair whose `since_pair` or `width` delta exceeds 2px or whose `colour` distance exceeds
+   12, every cell whose line `count` differs, and every line whose `offset` delta exceeds 2px
+   is a departure until a cause is named that a seam or a line cannot carry.** Text width never
+   moves a seam, so a data difference explains no seam; a line's width is data, so an `offset`
+   delta whose `left` delta is within 2px (or whose `right` is) is a left- (right-) anchored
+   label whose text differs — the cause is then the transcription, and it is named — where an
+   `offset` delta with `left` and `right` both moved by the same amount is a label anchored to a
+   different edge than the frame's, a departure whatever the text reads. What the seams cannot
+   see — a divider in a row with no border or fill, the label of a filled cell, a glyph, a
+   corner radius — the per-control sweeps below still measure.
 
    **A full-page match — a clean composite read, a structural match — is necessary, never
    sufficient: verify at the control level, measure rather than eyeball, and exercise the states
@@ -522,10 +541,13 @@ and 13 below as written, committing and pushing nothing.
       and a verifier who has matched every label and number walks away satisfied. The
       horizontal inks — every hairline, rule, fill band and border edge the frame draws across
       the page — are the frame's bands, and the band pairing above has already listed each one
-      `missing` or paired with its colour; this sweep reads that list and adds the vertical
-      inks the bands cannot see: run `measure-visual-properties.sh` with `--props runs` on the
-      frame alone, the region a full-width row through the centre of each segmented control,
-      bordered card and multi-column row, write down every run whose colour is neither the
+      `missing` or paired with its colour; the vertical inks inside every bordered or filled
+      band — a control's sides, its cell dividers, a card's inner rules — are its seams, and the
+      seam pairing above has listed each one the same way; this sweep reads both lists and adds
+      the vertical inks neither can see, the dividers of a row with no border or fill: run
+      `measure-visual-properties.sh` with `--props runs` on the
+      frame alone, the region a full-width row through the centre of each such row, write down
+      every run whose colour is neither the
       background's nor a text run's — its position and length — then the same region on the
       capture, and pair the lists: a run on the frame's list with no counterpart on the
       capture's is a departure, whatever the row's text reads. This sweep runs on a frame whose
@@ -572,7 +594,7 @@ and 13 below as written, committing and pushing nothing.
       | size | `ink.height` — the cap-height, the font-size stand-in — and `ink.width` | `box.width` × `box.height` | the run's `length` — a rule's thickness |
       | position | `ink.left`, `ink.top` in the container crop | `gap` on all four sides; `box.left`/`box.top` | the run's `from` |
       | stretch | `ink.left` and the container width minus `ink.left + ink.width` — the insets from each container edge | `gap.left` and `gap.right` to the image edge, or to the neighbour, and `box.width` against the container's | the run's extent on the crossing scan line |
-      | alignment | the two insets above, compared: equal is centred | `content.padding`, all four sides | — |
+      | alignment | the two insets above, compared: equal is centred; for a line inside a boxed band's cell, its `offset`, `left` and `right` from the seam pairing | `content.padding`, all four sides | — |
       | border | — | `border` per side and its colour | — |
       | fill | — | `fill.colour` and `share` | the run's `colour` |
       | radius | — | `radius` per corner | — |
@@ -722,7 +744,8 @@ and 13 below as written, committing and pushing nothing.
 11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's absolute path, the frame id, its `diff=` ratio, what was seen, its
-    band pairing's unpaired and over-tolerance bands with their causes, and the
+    band pairing's unpaired and over-tolerance bands with their causes, its seam pairing's
+    unpaired seams and off-centre lines with theirs, and the
     frame's element × property matrix from step 10.
 12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **Resolve the
@@ -763,6 +786,7 @@ and 13 below as written, committing and pushing nothing.
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
 - <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause or `departure`>
+- <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over 2px with its `left` and `right` deltas, each with its named cause or `departure`>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
@@ -776,7 +800,8 @@ non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
 verifier reports in a composite**, **a frame on the change's declared list with no line in the
 report, a composed frame with no `bands:` line or with a `missing`, `extra` or over-tolerance
-band whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the
+band whose line names no cause, a composed frame with no `seams:` line or with a `missing`,
+`extra` or over-tolerance seam or an off-centre line whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the
 frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason
 — the parent's own reconciliation, step 10**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole

@@ -16,7 +16,7 @@ Interface:
     --ref-b x,y,w,h       both images: scale = ref-b width / ref-a width
                           (heights must agree with that factor within 5%)
     --props <list>        comma-separated subset of box,radius,border,fill,
-                          shadow,content,gap,ink,runs (default: all)
+                          shadow,content,gap,ink,runs,bands,seams (default: all)
     --edge <n>            adjacent-pixel colour jump (RGB Euclidean, 0-441)
                           that counts as a hard edge (default 24)
     --noise <n>           colour distance to background below which a pixel
@@ -115,15 +115,52 @@ Properties (pixels of the region's own image; `null` where not found):
            wrong colour (KAN-437 fix round 5: all four passed a composite
            whose diff ratio was already 0.3 from data and fonts alone).
            Vertical structure — a segmented control's inter-cell dividers,
-           a wrapped label's internal alignment — is not a band; `runs` and
-           `ink` per control still read those.
+           a wrapped label's internal alignment — is not a band; `seams`
+           reads those.
+  seams    the vertical structure inside each BOXED band — a band whose
+           first row's ink spans at least half the band's ink width: a
+           bordered or filled control, a card, a hairline; never a bare
+           text row, whose glyph stems would otherwise read as seams. Per
+           boxed band (its `top`, `height`, `gap_above`, `edge`, `colour`
+           as in `bands`): `seams`, every maximal run of columns inked over
+           at least 90% of the band's height and of one modal colour
+           (adjacent columns further than `--edge` apart start a new seam)
+           — an outer border's side, a cell divider, a filled cell — with
+           `left`, `width`, `gap_left` (columns since the previous seam)
+           and `colour`; and `cells`, the spans between consecutive seams,
+           each with `left`, `width` and its `lines`: every maximal run of
+           rows carrying ink inside the span, rows inked across 90% of the
+           span (a border, an underline) excluded, with `top`, `height`,
+           `left` and `right` (the ink's inset from each cell edge) and
+           `offset` (the ink's centre minus the cell's centre, negative
+           when left of it). `delta.seams` pairs the boxed bands as `bands`
+           does, then within each paired band pairs the seams in order by
+           `since_pair` (columns since the last paired seam) and `width`,
+           listing `missing` and `extra` seams and per pair the `gap_left`,
+           `since_pair`, `width` and `colour` deltas; cells pair where both
+           bounding seams paired consecutively, and their lines pair by
+           index with `count` per image and per pair the `offset`, `left`
+           and `right` deltas. Text width never moves a seam, so a missing
+           seam is a divider the capture omits; a wrapped label whose lines
+           are centred in the frame and left-anchored in the capture reads
+           as an `offset` delta of half the slack with a `left` delta of the
+           same size, while a left-anchored label whose width is data reads
+           as an `offset` delta with `left` unchanged (KAN-437 fix round 5:
+           the GOAL control's two dividers and its wrapped labels' centring
+           both shipped wrong past every band and every sweep). A filled
+           cell is a seam, not a cell — its lines are not read; a divider in
+           a row with no border or fill sits in an unboxed band and is not
+           read either.
 
 Output (stdout): one JSON object — `a`, `b` (when given), `scale`, and
 `delta`: for every numeric leaf, `a`, `a_scaled` (`a` × scale for lengths,
 `a` unchanged for ratios and opacities), `b`, `abs` (b − a_scaled) and `pct`
 (abs / a_scaled × 100, null when a_scaled is 0); for every colour, the RGB
 Euclidean distance; for `bands`, `delta.bands` is the paired list above and
-`delta.bands_summary` its `paired`/`missing`/`extra` counts. Thresholds are
+`delta.bands_summary` its `paired`/`missing`/`extra` counts; for `seams`,
+`delta.seams` is the per-band paired list above and `delta.seams_summary`
+its `paired`/`missing`/`extra` seam counts, `bands_unpaired` (boxed bands
+with no counterpart) and `lines` (`paired`/`unpaired`). Thresholds are
 the caller's: this script flags nothing.
 
 Exit codes:
@@ -147,10 +184,13 @@ except ImportError:
     print("measure-visual-properties: Pillow is required — python3 -m pip install pillow", file=sys.stderr)
     sys.exit(2)
 
-ALL_PROPS = ("box", "radius", "border", "fill", "shadow", "content", "gap", "ink", "runs", "bands")
+ALL_PROPS = ("box", "radius", "border", "fill", "shadow", "content", "gap", "ink", "runs", "bands", "seams")
 # Properties that read the region as a whole page: background is the modal
 # colour and the corners need not be background.
-PAGE_PROPS = ("bands",)
+PAGE_PROPS = ("bands", "seams")
+# Share of a band's height a column must ink to be a seam, and of a cell's
+# width a row must ink to be a rule rather than a text line.
+FULL = 0.9
 # Numeric leaves that are not lengths and therefore are not scaled.
 UNSCALED = ("ratio", "approx_opacity", "peak_delta", "share")
 
@@ -464,9 +504,65 @@ class Region:
             prev_end = y - 1
         return bands
 
+    def measure_seams(self, bands):
+        out = []
+        for band in bands:
+            y0, h = band["top"], band["height"]
+            ys = range(y0, y0 + h)
+            cols = [[c for c in (self.at(x, y) for y in ys) if not self.is_bg(c)] for x in range(self.w)]
+            inked = [x for x, col in enumerate(cols) if col]
+            first_row = sum(1 for x in inked if not self.is_bg(self.at(x, y0)))
+            if first_row * 2 < inked[-1] - inked[0] + 1:
+                continue  # a bare text row: its glyph stems are not seams
+            seams = []
+            for x, col in enumerate(cols):
+                if len(col) < FULL * h:
+                    continue
+                colour = Counter(col).most_common(1)[0][0]
+                if seams and seams[-1]["right"] == x - 1 and dist(colour, seams[-1]["rgb"]) < self.edge:
+                    seams[-1]["right"] = x
+                else:
+                    seams.append({"left": x, "right": x, "rgb": colour})
+            cells = []
+            for s, t in zip(seams, seams[1:]):
+                x0, x1 = s["right"] + 1, t["left"] - 1
+                if x1 < x0:
+                    continue
+                span = x1 - x0 + 1
+                lines, run = [], None
+                for y in ys:
+                    xs = [x for x in range(x0, x1 + 1) if not self.is_bg(self.at(x, y))]
+                    if not xs or len(xs) >= FULL * span:  # empty, or a rule across the cell
+                        run = None
+                        continue
+                    if run is None:
+                        run = {"top": y, "height": 0, "l": xs[0], "r": xs[-1]}
+                        lines.append(run)
+                    run["height"] += 1
+                    run["l"], run["r"] = min(run["l"], xs[0]), max(run["r"], xs[-1])
+                cells.append({
+                    "left": x0,
+                    "width": span,
+                    "lines": [{
+                        "top": ln["top"] - y0,
+                        "height": ln["height"],
+                        "left": ln["l"] - x0,
+                        "right": x1 - ln["r"],
+                        "offset": round((ln["l"] + ln["r"]) / 2 - (x0 + x1) / 2, 1),
+                    } for ln in lines],
+                })
+            prev = -1
+            for s in seams:
+                s["width"] = s.pop("right") - s["left"] + 1
+                s["gap_left"] = s["left"] - prev - 1
+                s["colour"] = hexcolour(s.pop("rgb"))
+                prev = s["left"] + s["width"] - 1
+            out.append(dict(band, seams=seams, cells=cells))
+        return out
+
     def measure(self, props):
         out = {"background": hexcolour(self.bg)}
-        needs_box = [p for p in props if p not in ("ink", "runs", "bands")]
+        needs_box = [p for p in props if p not in ("ink", "runs", "bands", "seams")]
         if needs_box:
             box = self.measure_box()
             if "box" in props:
@@ -493,8 +589,12 @@ class Region:
             out["ink"] = self.measure_ink()
         if "runs" in props:
             out["runs"] = self.measure_runs()
-        if "bands" in props:
-            out["bands"] = self.measure_bands()
+        if "bands" in props or "seams" in props:
+            bands = self.measure_bands()
+            if "bands" in props:
+                out["bands"] = bands
+            if "seams" in props:
+                out["seams"] = self.measure_seams(bands)
         return out
 
 
@@ -519,39 +619,36 @@ def number_delta(av, bv, scale):
     return {"a": av, "a_scaled": round(scaled, 2), "b": bv, "abs": round(ab, 2), "pct": None if scaled == 0 else round(ab / scaled * 100, 1)}
 
 
-def pair_bands(a, b, scale):
-    """Pair the frame's bands with the capture's in order. A band pairs when
-    its gap since the last pair and its height both match within a
-    tolerance of 8px plus a quarter of the taller band, so a padding defect
-    shows once as that pair's `gap_above` delta and the bands below it still
-    pair, instead of every band below reading as shifted — and a 2px rule
-    never pairs with a text row that happens to sit where the rule was.
+def pair_in_order(a, b, scale, pos, size, gap, colours):
+    """Pair the frame's bands (or seams) with the capture's in order along
+    one axis — `pos`/`size`/`gap` name the record's keys. A record pairs
+    when its gap since the last pair and its size both match within a
+    tolerance of 8px plus a quarter of the larger record, so a padding
+    defect shows once as that pair's gap delta and the records after it
+    still pair, instead of every one after reading as shifted — and a 2px
+    rule never pairs with a text row that happens to sit where the rule was.
 
     ponytail: greedy in-order pairing; a shift larger than the tolerance
-    unpairs one band and resyncs on the next — enough for a page of rows,
+    unpairs one record and resyncs on the next — enough for a page of rows,
     replace with sequence alignment if frames with many near-identical
     bands mis-pair."""
     out, i, j = [], 0, 0
-    a_anchor, b_anchor = -1, -1  # bottom row of the last paired band, per image
+    a_anchor, b_anchor = -1, -1  # last row/column of the last paired record, per image
     while i < len(a) or j < len(b):
         if i < len(a) and j < len(b):
-            ga = (a[i]["top"] - a_anchor - 1) * scale
-            gb = b[j]["top"] - b_anchor - 1
-            tol = 8 + max(a[i]["height"] * scale, b[j]["height"]) / 4
-            if abs(gb - ga) <= tol and abs(b[j]["height"] - a[i]["height"] * scale) <= tol:
-                out.append({
-                    "status": "paired",
-                    "a": a[i],
-                    "b": b[j],
-                    "gap_above": number_delta(a[i]["gap_above"], b[j]["gap_above"], scale),
-                    # Distance from the last PAIRED band, so a padding lost
-                    # around a missing divider still reads as one number here.
-                    "since_pair": number_delta(a[i]["top"] - a_anchor - 1, gb, scale),
-                    "height": number_delta(a[i]["height"], b[j]["height"], scale),
-                    "edge": colour_delta(a[i]["edge"], b[j]["edge"]),
-                    "colour": colour_delta(a[i]["colour"], b[j]["colour"]),
-                })
-                a_anchor, b_anchor = a[i]["top"] + a[i]["height"] - 1, b[j]["top"] + b[j]["height"] - 1
+            ga = (a[i][pos] - a_anchor - 1) * scale
+            gb = b[j][pos] - b_anchor - 1
+            tol = 8 + max(a[i][size] * scale, b[j][size]) / 4
+            if abs(gb - ga) <= tol and abs(b[j][size] - a[i][size] * scale) <= tol:
+                pair = {"status": "paired", "a": a[i], "b": b[j], gap: number_delta(a[i][gap], b[j][gap], scale)}
+                # Distance from the last PAIRED record, so a padding lost
+                # around a missing divider still reads as one number here.
+                pair["since_pair"] = number_delta(a[i][pos] - a_anchor - 1, gb, scale)
+                pair[size] = number_delta(a[i][size], b[j][size], scale)
+                for c in colours:
+                    pair[c] = colour_delta(a[i][c], b[j][c])
+                out.append(pair)
+                a_anchor, b_anchor = a[i][pos] + a[i][size] - 1, b[j][pos] + b[j][size] - 1
                 i += 1
                 j += 1
                 continue
@@ -570,16 +667,61 @@ def pair_bands(a, b, scale):
     return out
 
 
+def pair_bands(a, b, scale):
+    return pair_in_order(a, b, scale, "top", "height", "gap_above", ("edge", "colour"))
+
+
+def count_status(pairs):
+    return {s: sum(1 for p in pairs if p["status"] == s) for s in ("paired", "missing", "extra")}
+
+
+def pair_seams(a, b, scale):
+    """Pair the boxed bands, then each band's seams; a cell pairs where its
+    two bounding seams paired with consecutive seams in the other image, and
+    its lines pair by index."""
+    out = []
+    summary = {"paired": 0, "missing": 0, "extra": 0, "bands_unpaired": 0, "lines": {"paired": 0, "unpaired": 0}}
+    for band in pair_bands(a, b, scale):
+        entry = {"status": band["status"], "a": band["a"] and {"top": band["a"]["top"], "height": band["a"]["height"]}, "b": band["b"] and {"top": band["b"]["top"], "height": band["b"]["height"]}}
+        if band["status"] != "paired":
+            summary["bands_unpaired"] += 1
+            out.append(entry)
+            continue
+        sa, sb = band["a"]["seams"], band["b"]["seams"]
+        seams = pair_in_order(sa, sb, scale, "left", "width", "gap_left", ("colour",))
+        for k, v in count_status(seams).items():
+            summary[k] += v
+        # Index of each paired seam in its own list, in order.
+        idx = [(sa.index(p["a"]), sb.index(p["b"])) for p in seams if p["status"] == "paired"]
+        cells = []
+        for (ia, ib), (ja, jb) in zip(idx, idx[1:]):
+            if ja != ia + 1 or jb != ib + 1:
+                continue
+            ca, cb = band["a"]["cells"][ia], band["b"]["cells"][ib]
+            lines = [{
+                "offset": number_delta(la["offset"], lb["offset"], scale),
+                "left": number_delta(la["left"], lb["left"], scale),
+                "right": number_delta(la["right"], lb["right"], scale),
+            } for la, lb in zip(ca["lines"], cb["lines"])]
+            summary["lines"]["paired"] += len(lines)
+            summary["lines"]["unpaired"] += abs(len(ca["lines"]) - len(cb["lines"]))
+            cells.append({"a": ia, "b": ib, "count": {"a": len(ca["lines"]), "b": len(cb["lines"])}, "lines": lines})
+        out.append(dict(entry, seams=seams, cells=cells))
+    return out, summary
+
+
 def delta(a, b, scale):
     out = {}
     if "bands" in a and "bands" in b:
         pairs = pair_bands(a["bands"], b["bands"], scale)
         out["bands"] = pairs
-        out["bands_summary"] = {s: sum(1 for p in pairs if p["status"] == s) for s in ("paired", "missing", "extra")}
+        out["bands_summary"] = count_status(pairs)
+    if "seams" in a and "seams" in b:
+        out["seams"], out["seams_summary"] = pair_seams(a["seams"], b["seams"], scale)
     bl = dict(leaves(b))
     for key, av in leaves(a):
         bv = bl.get(key)
-        if key == "bands":
+        if key in ("bands", "seams"):
             continue
         if isinstance(av, str) and av.startswith("#") and isinstance(bv, str) and bv.startswith("#"):
             out[key] = colour_delta(av, bv)

@@ -148,7 +148,7 @@ skills/flow/primary-reviewer-prompt.md 6955
 skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 69680
 skills/flow/security-reviewer-prompt.md 5730
-skills/flow/verify-and-handoff.md 75832
+skills/flow/verify-and-handoff.md 78439
 skills/flow-contracts/SKILL.md 9665
 skills/flow-contracts/artifacts-registry-rationale.md 6981
 skills/flow-contracts/artifacts-registry.md 6719

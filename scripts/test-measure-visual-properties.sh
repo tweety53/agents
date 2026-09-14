@@ -223,5 +223,67 @@ else
   fail "case 7: expected '4 4 0 3 True [2.0, 2.0] [-12.0, -12.0] 230', got '$got'"
 fi
 
+# Case 8: `seams` reads the vertical structure inside a boxed band — the
+# KAN-437 GOAL segmented control: a 1px-bordered 3-cell control whose two
+# dividers and whose wrapped labels' centring both shipped wrong past the
+# band pairing (one band in both images, same height, same edge) and every
+# sweep. The frame: a title text row above (unboxed — its stems must produce
+# no seams), the control with both dividers, a one-line centred label in
+# cells 1 and 3 and a two-line centred label of unequal widths in cell 3.
+# The capture: the first divider absent, the second present, cell 3's two
+# lines left-anchored 8px in, and cell 1's label wider (data).
+make_control() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+from PIL import Image, ImageDraw
+path, broken = sys.argv[1], sys.argv[2] == "broken"
+PAGE, RULE, TEXT = (0xF3, 0xF2, 0xF2), (0xD7, 0xD3, 0xD3), (0x20, 0x1E, 0x1D)
+im = Image.new("RGB", (340, 160), PAGE)
+d = ImageDraw.Draw(im)
+d.rectangle((20, 20, 21, 31), fill=TEXT)                             # title: a text row — one ascender stem spanning the band's height
+d.rectangle((26, 24, 20 + (110 if broken else 90), 31), fill=TEXT)   # and its x-height body, width is data
+L, T, R, B = 20, 60, 319, 107                                        # the control: 300x48, 3 cells of 98 inside a 1px border
+d.rectangle((L, T, R, B), outline=RULE, width=1)
+for x in (L + 100, L + 200):
+    if x == L + 100 and broken:
+        continue                                                     # the missing divider
+    d.line((x, T + 1, x, B - 1), fill=RULE)
+def label(x0, x1, y, w, left_anchor=None):
+    l = x0 + 8 if left_anchor else (x0 + x1 + 1 - w) // 2
+    d.rectangle((l, y, l + w - 1, y + 9), fill=TEXT)
+label(L + 1, L + 99, 79, 70 if broken else 50)                       # cell 1: one line, width is data
+label(L + 101, L + 199, 79, 50)                                      # cell 2: one line
+label(L + 201, R - 1, 72, 60, broken)                                # cell 3: two lines, 60 and 40 wide
+label(L + 201, R - 1, 86, 40, broken)
+im.save(path)
+PY
+}
+make_control "$DIR/control-frame.png" ok
+make_control "$DIR/control-capture.png" broken
+got="$("$GUARD" "$DIR/control-frame.png" "$DIR/control-capture.png" --scale 1 --props seams | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+s = d["delta"]["seams_summary"]
+frame_boxed = [b["top"] for b in d["a"]["seams"]]
+band = next(b for b in d["delta"]["seams"] if b["status"] == "paired")
+missing = [(p["a"]["left"], p["a"]["width"], p["a"]["colour"]) for p in band["seams"] if p["status"] == "missing"]
+cells = {(c["a"], c["b"]): [(l["offset"]["abs"], l["left"]["abs"]) for l in c["lines"]] for c in band["cells"]}
+print(frame_boxed, s["paired"], s["missing"], s["extra"], s["bands_unpaired"], s["lines"], missing, cells)
+')"
+# Only the control is boxed (the title row is not, so its stems make no
+# seam). Of the frame'"'"'s four seams the left border, the second divider and
+# the right border pair and the first divider is missing at x=120. Cell
+# pairs: only frame cell 2 with capture cell 1 (frame cells 0 and 1 have no
+# counterpart across the missing divider). Its two lines: the 60-wide one
+# reads offset -11 (centred at 8+30 against 49) with `left` -11; the
+# 40-wide one offset -21 with `left` -21 — a slack of half the cell width
+# minus the text, not a data width, which would leave `left` at 0.
+want="[60] 3 1 0 0 {'paired': 2, 'unpaired': 0} [(120, 1, '#d7d3d3')] {(2, 1): [(-11.0, -11.0), (-21.0, -21.0)]}"
+if [ "$got" = "$want" ]; then
+  pass "case 8: seams lists the missing cell divider and the wrapped label's lines left-anchored where the frame centres them, reads no seam from a text row's stems, and pairs cells across a data width"
+else
+  fail "case 8: expected \"$want\", got \"$got\""
+fi
+
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]
