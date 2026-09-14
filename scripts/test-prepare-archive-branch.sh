@@ -405,6 +405,74 @@ else
   fail "stash appearing mid-run exits 2 naming the stash (rc=$RC)"
 fi
 
+# --- KAN-355: a dirty refusal names the files and classifies them against ---
+# --- the change's own branch, resolved from the _landing-<name> sibling.  ---
+
+# new_change_worktree -> creates the apply worktree $WT/.worktrees/fixture on
+# a branch named `fixture` (the `<name>` a landing path `_landing-fixture`
+# derives) and commits CHANGE_FILE on it, so the branch's diff against the
+# merge-base with main names exactly that file.
+new_change_worktree() {
+  CHANGE_FILE="$1"
+  git -C "$WT" worktree add -q -b fixture "$WT/.worktrees/fixture"
+  echo changed > "$WT/.worktrees/fixture/$CHANGE_FILE"
+  git -C "$WT/.worktrees/fixture" add "$CHANGE_FILE"
+  git -C "$WT/.worktrees/fixture" commit -qm "the change's edit"
+}
+
+# 16. dirty-files-named-and-classified-as-change-output: the landing
+#     worktree is dirty on a file the change's own branch changed. Expect
+#     exit 1; stderr names the file and says it looks like this change's
+#     output; stdout stays empty.
+new_checkout
+new_change_worktree file.txt
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+echo dirty >> "$LANDING/file.txt"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "dirty-files-named-and-classified-as-change-output" 1 "dirty"
+case "$ERR" in
+  *"file.txt -- looks like this change's output"*) \
+    pass "dirty-files-named-and-classified-as-change-output: file.txt named as change output" ;;
+  *) fail "dirty-files-named-and-classified-as-change-output: expected stderr to classify file.txt as change output, got '$ERR'" ;;
+esac
+
+# 17. dirty-files-named-and-classified-as-not-change-output: the landing
+#     worktree is dirty on a file the change's branch never touched. Expect
+#     exit 1; stderr names the file and says it does not look like this
+#     change's output.
+new_checkout
+new_change_worktree feature.txt
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+echo dirty >> "$LANDING/file.txt"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "dirty-files-named-and-classified-as-not-change-output" 1 "dirty"
+case "$ERR" in
+  *"file.txt -- does not look like this change's output"*) \
+    pass "dirty-files-named-and-classified-as-not-change-output: file.txt named as not change output" ;;
+  *) fail "dirty-files-named-and-classified-as-not-change-output: expected stderr to classify file.txt as not change output, got '$ERR'" ;;
+esac
+
+# 18. dirty-files-named-without-a-change-worktree: no sibling apply worktree
+#     beside the landing worktree, so there is no change branch to classify
+#     against. Expect exit 1; every dirty file still named, the block saying
+#     classification is unavailable.
+new_checkout
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+echo dirty >> "$LANDING/file.txt"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "dirty-files-named-without-a-change-worktree" 1 "dirty"
+case "$ERR" in
+  *"file.txt"*) pass "dirty-files-named-without-a-change-worktree: file.txt still named" ;;
+  *) fail "dirty-files-named-without-a-change-worktree: expected stderr to name file.txt, got '$ERR'" ;;
+esac
+case "$ERR" in
+  *cannot\ classify*) pass "dirty-files-named-without-a-change-worktree: classification said unavailable" ;;
+  *) fail "dirty-files-named-without-a-change-worktree: expected stderr to say classification is unavailable, got '$ERR'" ;;
+esac
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

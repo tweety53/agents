@@ -20,7 +20,15 @@
 #            fast-forwarded <base>. stdout: "<started-from> -> <archive-branch>".
 #   Exit 1   A named refusal: <landing-worktree>'s parent directory is not
 #            named `.worktrees` (step 2b), a dirty working tree (on <base> or
-#            off it), a detached HEAD, an existing <archive-branch> that is
+#            off it — the refusal then names every dirty entry on stderr and,
+#            when the landing path's leaf is `_landing-<name>` beside an
+#            existing apply worktree whose branch `<name>` exists, says for
+#            each entry whether it looks like this change's output, meaning
+#            the entry's path is changed on `<name>` relative to its
+#            merge-base with <base>; when that worktree or branch is missing
+#            the entries are still named, under an unavailable-classification
+#            line, and nothing is guessed), a detached HEAD, an existing
+#            <archive-branch> that is
 #            not descended from origin/<base>, or a <base> or <archive-branch>
 #            argument whose name fails the shape check validate_branch_name()
 #            applies (see step 2 below) — a name is refused before any git
@@ -82,9 +90,10 @@
 #   4. Read HEAD. Detached -> exit 1.
 #   5. HEAD is <base> and the tree is dirty -> exit 1: a dirty tree is
 #      refused wherever it is, because the changes would otherwise ride onto
-#      the archive branch unremarked.
+#      the archive branch unremarked; the refusal names every dirty entry
+#      and classifies it against the change's own branch (see exit 1).
 #      HEAD is anything else and the tree is dirty -> exit 1, naming both
-#      the branch found and <base>.
+#      the branch found and <base>, with the same per-entry report.
 #      Otherwise (clean, on <base> or not) -> check out <base> if not
 #      already on it.
 #   6. Fast-forward <base> to origin/<base> with `git merge --ff-only`,
@@ -212,19 +221,96 @@ if [ -z "$CUR" ]; then
   exit 1
 fi
 
-DIRTY=""
-if [ -n "$(git -C "$LANDING" status --porcelain --untracked-files=normal 2>/dev/null)" ]; then
-  DIRTY=1
-fi
+# resolve_change_branch — resolve the change's own branch and the paths it
+# changed, or record that it cannot be resolved. The change name comes from
+# the landing path itself: by construction it is
+# <project>/.worktrees/_landing-<name>, and the apply worktree
+# <project>/.worktrees/<name> with its branch <name> sits beside it. Sets
+# CHANGE_BRANCH empty when the leaf is not `_landing-<name>`, the sibling
+# worktree does not exist, or the branch <name> does not resolve — the
+# report then names the files without classifying them rather than guessing.
+resolve_change_branch() {
+  CHANGE_BRANCH=""
+  CHANGED_FILES=""
+  local leaf name apply mb
+  leaf="$(basename "$LANDING")"
+  case "$leaf" in
+    _landing-?*) ;;
+    *) return 0 ;;
+  esac
+  name="${leaf#_landing-}"
+  apply="$(dirname "$LANDING")/$name"
+  [ -d "$apply" ] || return 0
+  git -C "$apply" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  git -C "$apply" rev-parse -q --verify "refs/heads/$name" >/dev/null 2>&1 || return 0
+  CHANGE_BRANCH="$name"
+  mb="$(git -C "$apply" merge-base "$CHANGE_BRANCH" "$BASE" 2>/dev/null)" || return 0
+  CHANGED_FILES="$(git -C "$apply" diff --name-only "$mb" "$CHANGE_BRANCH" 2>/dev/null)" || CHANGED_FILES=""
+}
+
+# path_changed <path> — is <path> among CHANGED_FILES? An exact match, or —
+# for a porcelain directory entry, which ends in `/` — any changed path
+# under it. Literal `case` matching, not grep: a path is data, never a
+# pattern.
+path_changed() {
+  local p="$1" f
+  case "$p" in
+    */) p="$p*" ;;
+  esac
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+      $p) return 0 ;;
+    esac
+  done <<EOF
+$CHANGED_FILES
+EOF
+  return 1
+}
+
+# report_dirty_files — one stderr line per dirty entry, after the refusal
+# line: the porcelain status and path, then whether the path looks like this
+# change's output. A renamed entry is classified by its new path. Refusal
+# output never touches stdout, whose one success line is the only thing a
+# caller composes.
+report_dirty_files() {
+  resolve_change_branch
+  echo "prepare-archive-branch: dirty files:" >&2
+  if [ -z "$CHANGE_BRANCH" ]; then
+    echo "prepare-archive-branch:   (cannot classify -- no change worktree with a branch beside $LANDING)" >&2
+  fi
+  local entry path
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    path="${entry:3}"
+    case "$path" in
+      *' -> '*) path="${path##* -> }" ;;
+    esac
+    if [ -n "$CHANGE_BRANCH" ] && path_changed "$path"; then
+      echo "prepare-archive-branch:   $entry -- looks like this change's output (changed on '$CHANGE_BRANCH')" >&2
+    elif [ -n "$CHANGE_BRANCH" ]; then
+      echo "prepare-archive-branch:   $entry -- does not look like this change's output (not changed on '$CHANGE_BRANCH')" >&2
+    else
+      echo "prepare-archive-branch:   $entry" >&2
+    fi
+  done <<EOF
+$DIRTY_LIST
+EOF
+}
+
+DIRTY_LIST=""
+DIRTY_LIST="$(git -C "$LANDING" status --porcelain --untracked-files=normal 2>/dev/null || true)"
 
 if [ "$CUR" = "$BASE" ]; then
-  if [ -n "$DIRTY" ]; then
+  if [ -n "$DIRTY_LIST" ]; then
     echo "prepare-archive-branch: $LANDING has a dirty working tree on '$BASE' — refusing" >&2
+    report_dirty_files
     exit 1
   fi
 else
-  if [ -n "$DIRTY" ]; then
+  if [ -n "$DIRTY_LIST" ]; then
     echo "prepare-archive-branch: $LANDING is on '$CUR' with uncommitted changes, not '$BASE' — refusing" >&2
+    report_dirty_files
     exit 1
   fi
 fi
