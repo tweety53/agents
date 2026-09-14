@@ -67,10 +67,14 @@ Properties (pixels of the region's own image; `null` where not found):
            shadow band) and the next non-background pixel on the same scan
            line, out to the image's edge — the spacing to the nearest
            neighbour; `null` when the scan line reaches the image edge.
-  ink      bounding box of every non-background pixel in the region. Needs
-           no control edge: crop to a run of capital letters and request
-           `--props ink` — its height is the cap-height, the font-size
-           stand-in.
+  ink      bounding box of every non-background pixel in the region, and
+           `colour` — the modal colour of those pixels. Needs no control
+           edge: crop to a run of capital letters and request `--props ink`
+           — its height is the cap-height, the font-size stand-in; its
+           `left`/`top` in a crop spanning the container are the run's
+           position and, against the crop's width, its alignment; its
+           `colour` is the text's tint, which no other property reads on a
+           run with no box (KAN-437).
   runs     colour runs along the region's centre row and centre column:
            `from`/`to` (region-relative), `length` and `colour` of every
            stretch of pixels within `--noise` of the stretch's first pixel.
@@ -369,8 +373,13 @@ class Region:
                     xs.append(x)
                     ys.append(y)
         if not xs:
-            return {"width": None, "height": None}
-        return {"left": min(xs), "top": min(ys), "width": max(xs) - min(xs) + 1, "height": max(ys) - min(ys) + 1}
+            return {"width": None, "height": None, "colour": None}
+        # The tint of the ink itself — a text run has no box for `content` to
+        # look inside, so this is the one reading of a label's colour (KAN-437
+        # final verification: a caption and a summary row shipped in the wrong
+        # colour on a frame whose every label had been transcribed).
+        tint = Counter(self.at(x, y) for x, y in zip(xs, ys)).most_common(1)[0][0]
+        return {"left": min(xs), "top": min(ys), "width": max(xs) - min(xs) + 1, "height": max(ys) - min(ys) + 1, "colour": hexcolour(tint)}
 
     def measure_runs(self):
         cx, cy = self.w // 2, self.h // 2

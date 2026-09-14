@@ -496,7 +496,59 @@ and 13 below as written, committing and pushing nothing.
       element it fixed (KAN-437 final verification, Q2 and Q3: Q2's "HOW IT GOT THERE" rows had
       their label text fixed and were re-checked for that text only, and Q3 was passed as
       matching on its labels and values; the hairline rules both frames draw above, between and
-      below their rows were never in the app, and an operator found both by hand).
+      below their rows were never in the app, and an operator found both by hand). The column
+      sees a row's top and bottom edges only; a full-width row through each row's centre is the
+      same reading for its left and right ones.
+
+   **Every element the frame draws, on every property the script measures — a matrix per
+   frame, never a list of sweeps done.** Every sweep above is anchored on one kind of element
+   and asks the question its own incident taught: a control's kind and box, a text run's
+   content, a bounded row's gaps, a column's ink. An element outside every anchor — a headline
+   figure, a caption, a summary row, a slider's track and thumb, a row's own border — is
+   transcribed at most, and a property no sweep names is read by nobody: the text sweep judges
+   what a run says and never its colour or its size, the row sweep measures the gaps around a
+   row and never how far the row stretches, and the per-control crop is asked for the one number
+   the last incident made memorable. The report's `sweeps:` line then names the sweeps, not the
+   numbers, so a round that re-checked one defect reads exactly like a round that measured the
+   frame (KAN-437 final verification, Q1 and Q2, one operator pass after `12a64fa`: Q1's ACTIVITY
+   rows lacked their grey borders, its GOAL segments' labels sat off-centre in their cells, and its
+   fat/carbs slider drew another track and thumb; Q2's headline figure was the wrong size, its
+   PROTEIN/CARBS/FAT row the wrong colour and inset where the frame runs edge to edge, its "HOW IT
+   GOT THERE" caption the wrong colour and its rows spaced differently from the dividers — seven
+   departures across colour, size, width, alignment, border and control kind, on two frames
+   already fixed and re-verified more than once, every one of them a property the script
+   measures and none of them a cell any sweep asked for). Before a frame is called matching:
+
+   1. **Enumerate the elements from the frame, not the capture and not the last report** —
+      every visually distinct thing it draws, top to bottom: each text run (a heading, a figure,
+      a label, a caption, a unit), each control (a field, a button, a segment, a slider's track
+      and its thumb separately, an icon), each row, card or section container, each rule, divider
+      and fill band. An element in the capture the frame does not draw is itself a row, marked
+      `extra`. A fix run enumerates afresh from the frame — the previous round's departures are
+      cells in the new matrix, never its rows.
+   2. **Fill every column for every row from the script's own output**, one call per element:
+
+      | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |
+      |---|---|---|---|
+      | kind | the run's role (heading, figure, caption…) | the control's kind, per sweep 1 | rule / fill band |
+      | content | the transcription, per sweep 5 | `content` size and `content.colour` | — |
+      | colour | `ink.colour` | `fill.colour`, `border.colour`, `content.colour` | the run's `colour` |
+      | size | `ink.height` — the cap-height, the font-size stand-in — and `ink.width` | `box.width` × `box.height` | the run's `length` — a rule's thickness |
+      | position | `ink.left`, `ink.top` in the container crop | `gap` on all four sides; `box.left`/`box.top` | the run's `from` |
+      | stretch | `ink.left` and the container width minus `ink.left + ink.width` — the insets from each container edge | `gap.left` and `gap.right` to the image edge, or to the neighbour, and `box.width` against the container's | the run's extent on the crossing scan line |
+      | alignment | the two insets above, compared: equal is centred | `content.padding`, all four sides | — |
+      | border | — | `border` per side and its colour | — |
+      | fill | — | `fill.colour` and `share` | the run's `colour` |
+      | radius | — | `radius` per corner | — |
+      | shadow | — | `shadow` per side | — |
+
+      Every cell holds the frame's number, the capture's and the `delta` — or n/a — `<why>`: the
+      column does not apply to the row's class (the dashes above), or the script exited 1 on a
+      region no widening resolved, with the region tried. A cell left empty, or a cell filled by
+      eye, is the sweep-name report again. The matrix rides `visual-verification.md` (step 11)
+      under the frame's entry, and the report's `matrix:` line counts its rows and its n/a
+      cells; the parent opens the frame beside the matrix and a visible element with no row, or
+      an empty cell, blocks as a departure would.
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -629,7 +681,8 @@ and 13 below as written, committing and pushing nothing.
    canonical in **visual verification** (`skills/flow-contracts/project-configuration.md`).
 11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
-    pair, the composite's absolute path, the frame id, its `diff=` ratio, and what was seen.
+    pair, the composite's absolute path, the frame id, its `diff=` ratio, what was seen, and the
+    frame's element × property matrix from step 10.
 12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **Resolve the
     `regression checkout` root the same way every other declared app root in this file is
@@ -669,6 +722,7 @@ and 13 below as written, committing and pushing nothing.
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
+- <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - visual-verification.md: written | not written — <reason>
 ```
@@ -679,7 +733,9 @@ a genuine `capture` failure, a stack that could not be started, **a `fingerprint
 non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
 verifier reports in a composite**, **a frame on the change's declared list with no line in the
-report — the parent's own reconciliation, step 10**, and **a defect the
+report, and a composed frame with no `matrix:` line, a matrix row missing for an element the
+frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason
+— the parent's own reconciliation, step 10**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
 point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
 both test suites, and obvious the moment the page was opened.

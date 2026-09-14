@@ -135,5 +135,35 @@ else
   fail "case 5: expected '#1e6fe0 #9e9e9e 152', got '$got'"
 fi
 
+# Case 6: `ink.colour` is a text run's tint (KAN-437 final verification: a
+# caption and a summary row shipped in the wrong colour; a run has no box, so
+# `content.colour` cannot be asked). Same glyph run, one grey and one blue,
+# in a crop spanning the container's width — height, left and colour all read.
+make_text() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+from PIL import Image, ImageDraw
+path, tint = sys.argv[1], tuple(int(sys.argv[2][i:i + 2], 16) for i in (0, 2, 4))
+im = Image.new("RGB", (200, 40), (0xEA, 0xE9, 0xE9))
+d = ImageDraw.Draw(im)
+for x in (24, 40, 56):  # three 10x14 "capitals"
+    d.rectangle((x, 13, x + 9, 26), fill=tint)
+im.save(path)
+PY
+}
+make_text "$DIR/text-grey.png" 9e9e9e
+make_text "$DIR/text-blue.png" 1e6fe0
+got="$("$GUARD" "$DIR/text-grey.png" "$DIR/text-blue.png" --scale 1 --props ink | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+a = d["a"]["ink"]
+print(a["left"], a["height"], a["colour"], d["b"]["ink"]["colour"], round(d["delta"]["ink.colour"]["distance"]))
+')"
+if [ "$got" = "24 14 #9e9e9e #1e6fe0 152" ]; then
+  pass "case 6: ink reads a text run's position, cap-height and tint, and the delta carries the tint distance"
+else
+  fail "case 6: expected '24 14 #9e9e9e #1e6fe0 152', got '$got'"
+fi
+
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]
