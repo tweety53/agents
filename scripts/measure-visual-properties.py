@@ -89,12 +89,42 @@ Properties (pixels of the region's own image; `null` where not found):
            (2) where to crop — every run boundary is an edge a region can
            sit on, read before any property that needs a box. No `delta`:
            compare the two lists by eye.
+  bands    the region's horizontal structure, whole-page: every maximal run
+           of rows holding a non-background pixel is a band — a text line,
+           a control, a card, a 1px divider — with `top`, `height`,
+           `gap_above` (background rows since the previous band), `edge`
+           (the modal non-background colour of the band's first row: a
+           control's border or a card's fill, whichever the eye meets
+           first) and `colour` (the modal non-background colour of the whole
+           band). Background is the region's modal colour, not its corner,
+           and no corner needs to be background: the region is the whole
+           capture and the whole cropped frame. Unlike every other
+           property, `bands` has a structural `delta`: the two lists are
+           paired in order by the gap since the last pair, and every band
+           the frame draws with no counterpart in the capture is listed
+           `missing`, every capture band the frame lacks `extra`, and each
+           pair carries its `gap_above`, `since_pair` (rows since the last
+           paired band — the one number a lost padding shows as when the
+           divider beside it is also missing), `height`, `edge` and
+           `colour` deltas. Text content differing between the two does not
+           unpair a band — a band is geometry and non-background ink, never
+           what the text says — so the departures this lists are exactly
+           the ones a data difference cannot explain: a divider the frame
+           draws and the capture omits, a row padding the capture lacks, a
+           surface fill swapped for the page colour, a button border in the
+           wrong colour (KAN-437 fix round 5: all four passed a composite
+           whose diff ratio was already 0.3 from data and fonts alone).
+           Vertical structure — a segmented control's inter-cell dividers,
+           a wrapped label's internal alignment — is not a band; `runs` and
+           `ink` per control still read those.
 
 Output (stdout): one JSON object — `a`, `b` (when given), `scale`, and
 `delta`: for every numeric leaf, `a`, `a_scaled` (`a` × scale for lengths,
 `a` unchanged for ratios and opacities), `b`, `abs` (b − a_scaled) and `pct`
 (abs / a_scaled × 100, null when a_scaled is 0); for every colour, the RGB
-Euclidean distance. Thresholds are the caller's: this script flags nothing.
+Euclidean distance; for `bands`, `delta.bands` is the paired list above and
+`delta.bands_summary` its `paired`/`missing`/`extra` counts. Thresholds are
+the caller's: this script flags nothing.
 
 Exit codes:
   0  measured.
@@ -117,7 +147,10 @@ except ImportError:
     print("measure-visual-properties: Pillow is required — python3 -m pip install pillow", file=sys.stderr)
     sys.exit(2)
 
-ALL_PROPS = ("box", "radius", "border", "fill", "shadow", "content", "gap", "ink", "runs")
+ALL_PROPS = ("box", "radius", "border", "fill", "shadow", "content", "gap", "ink", "runs", "bands")
+# Properties that read the region as a whole page: background is the modal
+# colour and the corners need not be background.
+PAGE_PROPS = ("bands",)
 # Numeric leaves that are not lengths and therefore are not scaled.
 UNSCALED = ("ratio", "approx_opacity", "peak_delta", "share")
 
@@ -145,7 +178,7 @@ def parse_box(text):
 
 
 class Region:
-    def __init__(self, path, box, edge, noise):
+    def __init__(self, path, box, edge, noise, page=False):
         try:
             with Image.open(path) as im:
                 self.im = im.convert("RGB")
@@ -160,6 +193,9 @@ class Region:
             sys.exit(2)
         self.px = self.im.load()
         self.edge, self.noise = edge, noise
+        if page:
+            self.bg = Counter(self.at(x, y) for y in range(self.h) for x in range(self.w)).most_common(1)[0][0]
+            return
         self.bg = self.at(0, 0)
         for x, y in ((self.w - 1, 0), (0, self.h - 1), (self.w - 1, self.h - 1)):
             if dist(self.at(x, y), self.bg) > noise:
@@ -400,9 +436,37 @@ class Region:
             ]
         return out
 
+    def measure_bands(self):
+        bands = []
+        prev_end = -1
+        y = 0
+        while y < self.h:
+            row = [self.at(x, y) for x in range(self.w)]
+            if all(self.is_bg(c) for c in row):
+                y += 1
+                continue
+            top = y
+            edge = Counter(c for c in row if not self.is_bg(c)).most_common(1)[0][0]
+            ink = Counter()
+            while y < self.h:
+                row = [c for c in (self.at(x, y) for x in range(self.w)) if not self.is_bg(c)]
+                if not row:
+                    break
+                ink.update(row)
+                y += 1
+            bands.append({
+                "top": top,
+                "height": y - top,
+                "gap_above": top - prev_end - 1,
+                "edge": hexcolour(edge),
+                "colour": hexcolour(ink.most_common(1)[0][0]),
+            })
+            prev_end = y - 1
+        return bands
+
     def measure(self, props):
         out = {"background": hexcolour(self.bg)}
-        needs_box = [p for p in props if p not in ("ink", "runs")]
+        needs_box = [p for p in props if p not in ("ink", "runs", "bands")]
         if needs_box:
             box = self.measure_box()
             if "box" in props:
@@ -429,6 +493,8 @@ class Region:
             out["ink"] = self.measure_ink()
         if "runs" in props:
             out["runs"] = self.measure_runs()
+        if "bands" in props:
+            out["bands"] = self.measure_bands()
         return out
 
 
@@ -441,25 +507,84 @@ def leaves(d, prefix=""):
             yield key, v
 
 
+def colour_delta(av, bv):
+    ca = tuple(int(av[i:i + 2], 16) for i in (1, 3, 5))
+    cb = tuple(int(bv[i:i + 2], 16) for i in (1, 3, 5))
+    return {"a": av, "b": bv, "distance": round(dist(ca, cb), 1)}
+
+
+def number_delta(av, bv, scale):
+    scaled = av * scale
+    ab = bv - scaled
+    return {"a": av, "a_scaled": round(scaled, 2), "b": bv, "abs": round(ab, 2), "pct": None if scaled == 0 else round(ab / scaled * 100, 1)}
+
+
+def pair_bands(a, b, scale):
+    """Pair the frame's bands with the capture's in order. A band pairs when
+    its gap since the last pair and its height both match within a
+    tolerance of 8px plus a quarter of the taller band, so a padding defect
+    shows once as that pair's `gap_above` delta and the bands below it still
+    pair, instead of every band below reading as shifted — and a 2px rule
+    never pairs with a text row that happens to sit where the rule was.
+
+    ponytail: greedy in-order pairing; a shift larger than the tolerance
+    unpairs one band and resyncs on the next — enough for a page of rows,
+    replace with sequence alignment if frames with many near-identical
+    bands mis-pair."""
+    out, i, j = [], 0, 0
+    a_anchor, b_anchor = -1, -1  # bottom row of the last paired band, per image
+    while i < len(a) or j < len(b):
+        if i < len(a) and j < len(b):
+            ga = (a[i]["top"] - a_anchor - 1) * scale
+            gb = b[j]["top"] - b_anchor - 1
+            tol = 8 + max(a[i]["height"] * scale, b[j]["height"]) / 4
+            if abs(gb - ga) <= tol and abs(b[j]["height"] - a[i]["height"] * scale) <= tol:
+                out.append({
+                    "status": "paired",
+                    "a": a[i],
+                    "b": b[j],
+                    "gap_above": number_delta(a[i]["gap_above"], b[j]["gap_above"], scale),
+                    # Distance from the last PAIRED band, so a padding lost
+                    # around a missing divider still reads as one number here.
+                    "since_pair": number_delta(a[i]["top"] - a_anchor - 1, gb, scale),
+                    "height": number_delta(a[i]["height"], b[j]["height"], scale),
+                    "edge": colour_delta(a[i]["edge"], b[j]["edge"]),
+                    "colour": colour_delta(a[i]["colour"], b[j]["colour"]),
+                })
+                a_anchor, b_anchor = a[i]["top"] + a[i]["height"] - 1, b[j]["top"] + b[j]["height"] - 1
+                i += 1
+                j += 1
+                continue
+            if ga < gb:
+                out.append({"status": "missing", "a": a[i], "b": None})
+                i += 1
+            else:
+                out.append({"status": "extra", "a": None, "b": b[j]})
+                j += 1
+        elif i < len(a):
+            out.append({"status": "missing", "a": a[i], "b": None})
+            i += 1
+        else:
+            out.append({"status": "extra", "a": None, "b": b[j]})
+            j += 1
+    return out
+
+
 def delta(a, b, scale):
     out = {}
+    if "bands" in a and "bands" in b:
+        pairs = pair_bands(a["bands"], b["bands"], scale)
+        out["bands"] = pairs
+        out["bands_summary"] = {s: sum(1 for p in pairs if p["status"] == s) for s in ("paired", "missing", "extra")}
     bl = dict(leaves(b))
     for key, av in leaves(a):
         bv = bl.get(key)
+        if key == "bands":
+            continue
         if isinstance(av, str) and av.startswith("#") and isinstance(bv, str) and bv.startswith("#"):
-            ca = tuple(int(av[i:i + 2], 16) for i in (1, 3, 5))
-            cb = tuple(int(bv[i:i + 2], 16) for i in (1, 3, 5))
-            out[key] = {"a": av, "b": bv, "distance": round(dist(ca, cb), 1)}
+            out[key] = colour_delta(av, bv)
         elif isinstance(av, (int, float)) and isinstance(bv, (int, float)):
-            scaled = av if any(seg in UNSCALED for seg in key.split(".")) else av * scale
-            ab = bv - scaled
-            out[key] = {
-                "a": av,
-                "a_scaled": round(scaled, 2),
-                "b": bv,
-                "abs": round(ab, 2),
-                "pct": None if scaled == 0 else round(ab / scaled * 100, 1),
-            }
+            out[key] = number_delta(av, bv, 1 if any(seg in UNSCALED for seg in key.split(".")) else scale)
         elif av is None or bv is None:
             out[key] = {"a": av, "b": bv, "abs": None, "pct": None}
     return out
@@ -511,11 +636,12 @@ def main(argv):
         print("measure-visual-properties: --scale/--ref-*/--region-b need a second image", file=sys.stderr)
         sys.exit(2)
 
+    page = all(p in PAGE_PROPS for p in props)
     result = {}
     try:
-        result["a"] = Region(args.image_a, args.region_a, args.edge, args.noise).measure(props)
+        result["a"] = Region(args.image_a, args.region_a, args.edge, args.noise, page).measure(props)
         if args.image_b:
-            result["b"] = Region(args.image_b, args.region_b, args.edge, args.noise).measure(props)
+            result["b"] = Region(args.image_b, args.region_b, args.edge, args.noise, page).measure(props)
             result["scale"] = scale
             result["delta"] = delta(result["a"], result["b"], scale)
     except Unresolved as e:

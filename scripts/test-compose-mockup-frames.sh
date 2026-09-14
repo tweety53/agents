@@ -413,6 +413,10 @@ SIZE="$(python3 -c "from PIL import Image; i=Image.open('$OUT/g1-dash.png'); pri
 # removed the 52 status rows and the 2 border columns.
 MID="$(python3 -c "from PIL import Image; print(Image.open('$OUT/g1-dash.png').getpixel((112, 0)))")"
 [ "$MID" = "(255, 0, 0)" ] && pass "case 20: the middle panel starts at the content area, not the status line" || fail "case 20: mid=$MID"
+# The cropped frame is written beside the composite at the capture's own
+# size — the ruler every later measurement is taken against with --scale 1.
+FRAME_SIZE="$(python3 -c "from PIL import Image; i=Image.open('$OUT/g1-dash.frame.png'); print(f'{i.size[0]}x{i.size[1]}')" 2>&1)"
+[ "$FRAME_SIZE" = "96x60" ] && pass "case 20: the cropped frame is written as <stem>.frame.png at the capture's size" || fail "case 20: frame size=$FRAME_SIZE"
 
 # ===========================================================================
 # Case 21: the caption band is detected per frame — two frames of different

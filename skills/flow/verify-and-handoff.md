@@ -341,6 +341,38 @@ and 13 below as written, committing and pushing nothing.
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value, Pillow absent, included) blocks.
 
+   **The difference panel cannot show a structural departure, so the first read of every pair
+   is the script's band pairing, never the panel.** The panel is white wherever any channel
+   differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
+   frame's own annotations alone (KAN-437 final verification: every composed frame read
+   `diff=0.20`–`0.52`). A 1px rule the capture omits, a row padding it lacks, a surface fill
+   swapped for the page colour, a button border in the wrong colour: each moves the ratio by
+   under a hundredth and vanishes in that white. Beside every composite the compose step writes
+   the cropped frame as `<composite stem>.frame.png`, the capture's own size; for every pair, run
+
+   ```bash
+   measure-visual-properties.sh <changeRoot>/visual-verification/<stem>.frame.png <capture PNG> --scale 1 --props bands
+   ```
+
+   and read `delta.bands` (the script's header is canonical for the property): every band the
+   frame draws, paired with the capture's in order, a text or data difference never unpairing
+   one. **Every `missing` band, every `extra` band, and every pair whose `since_pair`,
+   `gap_above` or `height` delta exceeds 2px or whose `edge` or `colour` distance exceeds 12 is
+   a departure until a cause is named that a band cannot carry** — a wrapped label (a `height`
+   delta on a text band, confirmed by transcription), a frame annotation outside the app's own
+   ink; an empty-versus-populated state is precondition 2 below, a spec to fix, never a cause to
+   accept. Data never creates or removes a band, moves a divider or recolours a border, so "the
+   seed data differs" explains none of them. The pairing resyncs after an unpaired band; a pair
+   count far below the frame's band count is itself the finding that the layout differs
+   wholesale, and the composite is then read to say how (KAN-437 fix round 5, Q2 pre-fix: the
+   frame's four "HOW IT GOT THERE" hairlines listed `missing`, the "Adjust first" band paired
+   with `edge #0088b0` against `#d7d3d3` — the outlined-accent variant shipped as the grey one —
+   and the answer rows' `since_pair` short by the padding the row lacked; Q1 pre-fix: the
+   ACTIVITY card and the GOAL segmented control each `missing` as the frame's bordered band and
+   `extra` as the capture's unbordered one). What a band cannot see — a segmented control's cell
+   dividers, a wrapped label's internal alignment, a glyph, a corner radius — the per-control
+   sweeps below still measure.
+
    **A full-page match — a clean composite read, a structural match — is necessary, never
    sufficient: verify at the control level, measure rather than eyeball, and exercise the states
    a resting frame does not show.** Full-page comparison catches wrong regions and wrong overall
@@ -463,10 +495,12 @@ and 13 below as written, committing and pushing nothing.
       sticky bar, a toolbar, a list section, a dialog's action row — gap-measured on the side
       facing each bound, in both images, before the row is called matching.** Which rows are
       bounded is read from the frame, never from the capture: a capture that omits the frame's
-      hairline shows no bounded row to measure, and the sweep below is what finds the omission.
-      Read the `gap` block of the
-      per-control measurement below for the row's controls and report the four numbers per
-      image: the script scans past the region to the next neighbour, so the number is already in
+      hairline shows no bounded row to measure, and the band pairing above is what finds the
+      omission. The top and bottom gaps are the row band's `gap_above` and its successor's in
+      the band pairing above, already paired per image; the left and right gaps are read from
+      the `gap` block of the
+      per-control measurement below for the row's controls: the script scans past the region to
+      the next neighbour, so the number is already in
       the JSON of every measurement this step makes and costs nothing beyond reading it. This
       sweep runs on every such row, unprompted: the spacing rule below answers a claim or a
       complaint, and a row nobody claimed anything about was never measured. Nothing else here
@@ -485,20 +519,22 @@ and 13 below as written, committing and pushing nothing.
       Every sweep above starts from something the capture shows or the text says: a control, a
       text run, a row, a value. A line the frame draws and the capture omits is on none of those
       lists, and the composite's ratio barely moves for a 1px rule, so nothing above asks for it
-      and a verifier who has matched every label and number walks away satisfied. Before the
-      frame is called matching, run `measure-visual-properties.sh` with `--props runs` on the
-      frame alone, the region a full-height column through each list, section and card, and
-      write down every run whose colour is neither the background's nor a text row's — its
-      position and length — then the same region on the capture, and pair the lists: a run on
-      the frame's list with no counterpart on the capture's is a departure, whatever the row's
-      text reads. This sweep runs on a frame whose content already matches and on a frame
+      and a verifier who has matched every label and number walks away satisfied. The
+      horizontal inks — every hairline, rule, fill band and border edge the frame draws across
+      the page — are the frame's bands, and the band pairing above has already listed each one
+      `missing` or paired with its colour; this sweep reads that list and adds the vertical
+      inks the bands cannot see: run `measure-visual-properties.sh` with `--props runs` on the
+      frame alone, the region a full-width row through the centre of each segmented control,
+      bordered card and multi-column row, write down every run whose colour is neither the
+      background's nor a text run's — its position and length — then the same region on the
+      capture, and pair the lists: a run on the frame's list with no counterpart on the
+      capture's is a departure, whatever the row's text reads. This sweep runs on a frame whose
+      content already matches and on a frame
       already fixed for something else — a fix run re-verifies the whole frame, never the
       element it fixed (KAN-437 final verification, Q2 and Q3: Q2's "HOW IT GOT THERE" rows had
       their label text fixed and were re-checked for that text only, and Q3 was passed as
       matching on its labels and values; the hairline rules both frames draw above, between and
-      below their rows were never in the app, and an operator found both by hand). The column
-      sees a row's top and bottom edges only; a full-width row through each row's centre is the
-      same reading for its left and right ones.
+      below their rows were never in the app, and an operator found both by hand).
 
    **Every element the frame draws, on every property the script measures — a matrix per
    frame, never a list of sweeps done.** Every sweep above is anchored on one kind of element
@@ -565,7 +601,11 @@ and 13 below as written, committing and pushing nothing.
 
    with each region a crop around that one control and a background margin on every side —
    `--props runs` on that crop first where its edges are in doubt, since every run boundary it
-   lists is an edge the region can sit on, and a miscrop is the glance again — and
+   lists is an edge the region can sit on, and a miscrop is the glance again; and `--edge`
+   lowered below the distance `runs` reports between a control's fill and its background where
+   that distance is under the default 24, since a surface-on-page card (gymie: `#eae9e9` on
+   `#f3f2f2`, 15.6 apart) has no hard edge at the default and exits 1 on every box property
+   until it is — and
    read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
    (KAN-30 fix round 10; the script's own header is canonical for its options, properties, output
    and exit codes). Two readings the eye reliably gets wrong: an icon's tint is `content.colour`,
@@ -681,7 +721,8 @@ and 13 below as written, committing and pushing nothing.
    canonical in **visual verification** (`skills/flow-contracts/project-configuration.md`).
 11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
-    pair, the composite's absolute path, the frame id, its `diff=` ratio, what was seen, and the
+    pair, the composite's absolute path, the frame id, its `diff=` ratio, what was seen, its
+    band pairing's unpaired and over-tolerance bands with their causes, and the
     frame's element × property matrix from step 10.
 12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **Resolve the
@@ -721,6 +762,7 @@ and 13 below as written, committing and pushing nothing.
 - <view>: <absolute PNG path> — <what was seen, including any defect>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
+- <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause or `departure`>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
@@ -733,7 +775,8 @@ a genuine `capture` failure, a stack that could not be started, **a `fingerprint
 non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
 verifier reports in a composite**, **a frame on the change's declared list with no line in the
-report, and a composed frame with no `matrix:` line, a matrix row missing for an element the
+report, a composed frame with no `bands:` line or with a `missing`, `extra` or over-tolerance
+band whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the
 frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason
 — the parent's own reconciliation, step 10**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole

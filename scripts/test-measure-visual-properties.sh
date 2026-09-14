@@ -165,5 +165,63 @@ else
   fail "case 6: expected '24 14 #9e9e9e #1e6fe0 152', got '$got'"
 fi
 
+# Case 7: `bands` pairs a whole page's horizontal structure and lists what a
+# data difference cannot explain (KAN-437 fix round 5: four defects on one
+# screen passed a composite already 0.3 white from data and fonts). The
+# frame: a header bar (surface grey on page grey — closer than `--edge`, so
+# no box, but further than `--noise`, so a band), three text rows separated
+# by 2px dividers, an outlined accent button. The capture: the same rows
+# with different text widths, the dividers absent, the row padding halved,
+# the button's border grey, the header bar in the page colour.
+make_page() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+from PIL import Image, ImageDraw
+path, broken = sys.argv[1], sys.argv[2] == "broken"
+PAGE, SURFACE, RULE, TEXT, ACCENT, GREY = (0xF3, 0xF2, 0xF2), (0xEA, 0xE9, 0xE9), (0xD7, 0xD3, 0xD3), (0x20, 0x1E, 0x1D), (0x00, 0x88, 0xB0), (0xD7, 0xD3, 0xD3)
+im = Image.new("RGB", (300, 400), PAGE)
+d = ImageDraw.Draw(im)
+if not broken:
+    d.rectangle((0, 0, 299, 39), fill=SURFACE)          # header bar
+y = 80
+pad = 6 if broken else 12
+for i, w in enumerate((120, 90, 150)):
+    y += pad
+    d.rectangle((20, y, 20 + w + (30 if broken else 0), y + 15), fill=TEXT)  # text row, width is data
+    y += 16 + pad
+    if not broken:
+        d.rectangle((20, y, 279, y + 1), fill=RULE)      # divider
+    y += 2
+y += 40
+d.rectangle((20, y, 279, y + 47), outline=GREY if broken else ACCENT, width=2)
+im.save(path)
+PY
+}
+make_page "$DIR/page-frame.png" ok
+make_page "$DIR/page-capture.png" broken
+got="$("$GUARD" "$DIR/page-frame.png" "$DIR/page-capture.png" --scale 1 --props bands | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+s = d["delta"]["bands_summary"]
+pairs = d["delta"]["bands"]
+missing = [p["a"] for p in pairs if p["status"] == "missing"]
+rules = sum(1 for m in missing if m["height"] == 2 and m["colour"] == "#d7d3d3")
+header = any(m["height"] == 40 and m["colour"] == "#eae9e9" for m in missing)
+rows = [p for p in pairs if p["status"] == "paired" and p["a"]["height"] == 16]
+button = next(p for p in pairs if p["status"] == "paired" and p["a"]["height"] == 48)
+print(s["paired"], s["missing"], s["extra"], rules, header, [p["gap_above"]["abs"] for p in rows][1:], [p["since_pair"]["abs"] for p in rows][1:], round(button["edge"]["distance"]))
+')"
+# 4 paired (three rows, the button); 4 missing (header, three rules). The
+# second and third rows: `gap_above` reads +2 (14 to the previous row in the
+# capture against 12 to the rule in the frame — a different neighbour), and
+# `since_pair` reads -12 (14 since the previous row against 12+2+12): the
+# lost padding is the latter number, and only it. The button border is 230
+# units from accent.
+if [ "$got" = "4 4 0 3 True [2.0, 2.0] [-12.0, -12.0] 230" ]; then
+  pass "case 7: bands lists the missing rules and header band, the halved row padding as since_pair and the button's grey border, and pairs the rows across a text-width difference"
+else
+  fail "case 7: expected '4 4 0 3 True [2.0, 2.0] [-12.0, -12.0] 230', got '$got'"
+fi
+
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]

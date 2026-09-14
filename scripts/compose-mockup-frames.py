@@ -29,6 +29,10 @@ margin above the caption band, and it is detected rather than declared
 because content-hugging frames differ in height from one another. The
 difference panel is white wherever any channel differs and black
 elsewhere, so a departure reads as shape rather than as a colour blend.
+The cropped frame itself is also written as `<out dir>/<screenshot name
+without .png>.frame.png` — the same size as the capture, so
+`measure-visual-properties.sh <that>.frame.png <capture> --scale 1` needs no
+region arithmetic to compare the two.
 
 Exit codes:
   0  every map line composed; one `<composite path> diff=<ratio>` per line
@@ -273,6 +277,10 @@ def main(argv):
                 )
                 continue
             mock = mock.crop(box)
+            # The cropped frame is the calibrated ruler every later
+            # measurement is taken against (scale 1 to the capture), so it is
+            # written beside the composite rather than re-derived by hand.
+            mock.save(os.path.join(out_dir, f"{stem}.frame.png"))
 
             if cap.size != mock.size:
                 findings.append(
