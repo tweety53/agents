@@ -1002,20 +1002,86 @@ func TestDispatchEndCauseAccepted(t *testing.T) {
 
 // --- render ---
 
-// renderRunRecordJSON is the body a genuine daemon answers
-// GET /api/v1/records/{project}/{change} with: one dispatch and one
-// finding, enough for both renderings to have rows.
-const renderRunRecordJSON = `{"change":"demo",
-  "dispatches":[{"id":1,"seq":1,"taskId":"11","role":"implementer","model":"unknown (agent-defined)","commitSha":"abc1234","outcome":"completed","startedAt":"2026-01-02T03:04:05Z"}],
-  "findings":[{"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n","status":"fixed","reproducer":"none — prose only"}]}`
+// renderRun is the run the render tests' daemon has already rendered: one
+// dispatch and one finding, enough for both renderings to have rows.
+var renderRun = records.Run{
+	Change: "demo",
+	Dispatches: []records.Dispatch{{
+		ID: 1, Seq: 1, TaskID: "11", Role: "implementer",
+		Model: "unknown (agent-defined)", CommitSHA: "abc1234", Outcome: "completed",
+		StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+	}},
+	Findings: []records.Finding{{
+		Ref: "F1", Round: 0, Slot: "Bugbot", Severity: "Minor",
+		Location: "a.go:1", Note: "n", Status: "fixed",
+		Reproducer: "none — prose only",
+	}},
+}
 
-// renderDaemon answers the run-record GET with body, and fails the test if
-// the CLI sends any other request -- a render reads and writes nothing.
-func renderDaemon(t *testing.T, body string) http.HandlerFunc {
+// renderDaemon answers the render route with the envelope the map names
+// per kind (missing for any kind absent from it) and fails the test if the
+// CLI touches any other GET route -- a render fetches, it never asks for
+// rows to render itself.
+func renderDaemon(t *testing.T, envelopes map[string]records.Rendered) http.HandlerFunc {
 	t.Helper()
 	return genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("render sent a %s request; a render only reads", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/render/") {
+			t.Errorf("render touched %s; the record's rows are the daemon's to render, not the CLI's", r.URL.Path)
+		}
+		kind := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+		env, ok := envelopes[kind]
+		if !ok {
+			// A kind the test daemon holds no envelope for is a fetch the
+			// test never intended: failing loudly here keeps a wrong-kind
+			// fetch from reading as a 200 empty record.
+			t.Errorf("render fetched kind %q; the test daemon holds no envelope for it", kind)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(env); err != nil {
+			t.Errorf("encode envelope: %v", err)
+		}
+	})
+}
+
+// missingRenderLedger is the envelope map for a ledger the store holds no
+// dispatch rows for -- the daemon applied the asymmetry, and the CLI's
+// part is only to report it.
+func missingRenderLedger() map[string]records.Rendered {
+	return map[string]records.Rendered{"ledger": {Missing: true}}
+}
+
+// renderedPanelEnvelope is the envelope map for a panel the daemon has
+// already rendered from run -- for a clean run, the zero form.
+func renderedPanelEnvelope(t *testing.T, run records.Run) map[string]records.Rendered {
+	t.Helper()
+	return map[string]records.Rendered{"panel": mustEnvelope(t, "panel", run)}
+}
+
+// mustEnvelope builds the not-missing envelope a daemon answers with for
+// a kind over a run.
+func mustEnvelope(t *testing.T, kind string, run records.Run) records.Rendered {
+	t.Helper()
+	body, ok := records.RenderKind(kind, run)
+	if !ok {
+		t.Fatalf("RenderKind(%s) reported missing for the fixture run; the test needs a body", kind)
+	}
+	return records.Rendered{Body: body}
+}
+
+// runRecordDaemon answers GET /api/v1/records/{project}/{change} with body
+// -- the whole-record read the findings and dispatches verbs consume. The
+// render tests use renderDaemon instead: their CLI asks for rendered
+// documents, never for rows.
+func runRecordDaemon(t *testing.T, body string) http.HandlerFunc {
+	t.Helper()
+	return genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("record read sent a %s request", r.Method)
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(body))
@@ -1029,7 +1095,10 @@ func TestRecordRenderWritesBothFilesAndPrintsRendered(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	srv := httptest.NewServer(renderDaemon(t, renderRunRecordJSON))
+	srv := httptest.NewServer(renderDaemon(t, map[string]records.Rendered{
+		"ledger": mustEnvelope(t, "ledger", renderRun),
+		"panel":  mustEnvelope(t, "panel", renderRun),
+	}))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -1087,7 +1156,7 @@ func TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing(t *testing.T)
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	srv := httptest.NewServer(renderDaemon(t, `{"change":"demo","dispatches":[],"findings":[]}`))
+	srv := httptest.NewServer(renderDaemon(t, missingRenderLedger()))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -1131,7 +1200,7 @@ func TestRecordRenderPanelWithNoFindingsStillWritesTheRecord(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	srv := httptest.NewServer(renderDaemon(t, `{"change":"demo","dispatches":[],"findings":[]}`))
+	srv := httptest.NewServer(renderDaemon(t, renderedPanelEnvelope(t, records.Run{Change: "demo"})))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -1194,16 +1263,22 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	// renderDaemon itself is GET-only -- correct for the tests that call
 	// only `record render`. This test also shells out to the guard below,
 	// which (since check-unfinished-work.sh's own advisory verdict write)
-	// POSTs its verdict to this same FLOW_ADDR. That write's outcome is
-	// irrelevant here -- the guard's own combined output already silences
-	// it -- so this handler answers GET with the render body and accepts
-	// any other method rather than failing the test over it.
+	// POSTs its verdict to this same FLOW_ADDR, and reads the change's
+	// findings through `flow record findings` against it. That write's
+	// outcome is irrelevant here -- the guard's own combined output already
+	// silences it -- so this handler answers the render route with the
+	// zero-form envelope, every other GET with the empty change's rows,
+	// and accepts any other method rather than failing the test over it.
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusCreated)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
+		if strings.Contains(r.URL.Path, "/render/") {
+			_ = json.NewEncoder(w).Encode(records.Rendered{Body: records.RenderPanel(records.Run{Change: "demo"})})
+			return
+		}
 		_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"findings":[]}`))
 	}))
 	defer srv.Close()
@@ -1348,7 +1423,9 @@ func TestRecordRenderReusesTheFirstRendersDate(t *testing.T) {
 		t.Fatalf("write first render: %v", err)
 	}
 
-	srv := httptest.NewServer(renderDaemon(t, renderRunRecordJSON))
+	srv := httptest.NewServer(renderDaemon(t, map[string]records.Rendered{
+		"ledger": mustEnvelope(t, "ledger", renderRun),
+	}))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -1373,6 +1450,103 @@ func TestRecordRenderReusesTheFirstRendersDate(t *testing.T) {
 	}
 	if strings.Contains(string(body), "first render") {
 		t.Errorf("the existing dated file was not overwritten:\n%s", body)
+	}
+}
+
+// TestRecordRenderStopsLoudlyOnADaemonWithoutTheRoute pins the one
+// non-journalled read failure: the render route answering 404 can only
+// mean a daemon too old to carry it (a current daemon answers an unknown
+// change from the empty run and a missing ledger as the envelope), and a
+// local-render fallback there would put the record's content back under
+// this binary's vintage -- the silent staleness this verb exists to
+// remove. So the skew exits non-zero, names the fix, and writes nothing.
+func TestRecordRenderStopsLoudlyOnADaemonWithoutTheRoute(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`404 page not found`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo", "-kind", "all", "-repo", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatalf("exit code = 0, want non-zero against a daemon without the render route; stdout:\n%s", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "render route") {
+		t.Errorf("stderr = %q, want it to name the render route the daemon lacks", stderr.String())
+	}
+	if strings.Contains(stdout.String(), "rendered:") || strings.Contains(stdout.String(), "MISSING:") || strings.Contains(stdout.String(), "journalled:") {
+		t.Errorf("stdout = %q, want no outcome line at all -- a stop writes nothing and reports nothing rendered", stdout.String())
+	}
+	ledgers, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "ledgers", "*"))
+	if err != nil {
+		t.Fatalf("glob ledgers: %v", err)
+	}
+	if len(ledgers) != 0 {
+		t.Errorf("the skewed stop wrote %v; nothing must be written", ledgers)
+	}
+	reviews, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "reviews", "*"))
+	if err != nil {
+		t.Fatalf("glob reviews: %v", err)
+	}
+	if len(reviews) != 0 {
+		t.Errorf("the skewed stop wrote %v; nothing must be written", reviews)
+	}
+}
+
+// TestRecordRenderJournalsEveryKindWhenOneKindFails pins the mixed
+// outcome the panel caught: a daemon that answers the ledger and dies on
+// the panel must leave NOTHING on disk and report `journalled:` for every
+// kind -- a half-answer that wrote the earlier kind's file under a stderr
+// line claiming nothing was rendered is the contradiction this verb's
+// outcome table cannot carry. Every kind is fetched before any file is
+// written, so the fetch that failed takes the whole run to the
+// journalled path with the earlier kind's body still in memory only.
+func TestRecordRenderJournalsEveryKindWhenOneKindFails(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/render/panel") {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(mustEnvelope(t, "ledger", renderRun))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"store is down"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo", "-kind", "all", "-repo", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 -- an unreachable store journals, it does not fail; stderr:\n%s", code, stderr.String())
+	}
+	for _, kind := range []string{"ledger", "panel"} {
+		if !strings.Contains(stdout.String(), "journalled: "+kind+"\n") {
+			t.Errorf("stdout = %q, want journalled: %s among the outcome lines", stdout.String(), kind)
+		}
+	}
+	if strings.Contains(stdout.String(), "rendered:") || strings.Contains(stdout.String(), "MISSING:") {
+		t.Errorf("stdout = %q, want no rendered:/MISSING: line -- nothing was written", stdout.String())
+	}
+	written, err := filepath.Glob(filepath.Join(repo, ".superpowers", "sdd", "*", "*"))
+	if err != nil {
+		t.Fatalf("glob .superpowers/sdd: %v", err)
+	}
+	if len(written) != 0 {
+		t.Errorf("the half-answer wrote %v; stderr's nothing-rendered line must stay true", written)
 	}
 }
 
@@ -2137,7 +2311,7 @@ func TestRecordIncidentsPrintsArray(t *testing.T) {
 	isolatedStateRoot(t)
 
 	body := `[{"id":1,"guard":"check-unfinished-work","symptom":"s","recovery":"r","minutesLost":5,"occurredAt":"2026-01-02T03:04:05Z"}]`
-	srv := httptest.NewServer(renderDaemon(t, body))
+	srv := httptest.NewServer(runRecordDaemon(t, body))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -2362,7 +2536,7 @@ func TestRecordFindingsPrintsJSONArray(t *testing.T) {
 	  {"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"fixed","reproducer":"none — prose only"},
 	  {"ref":"F2","round":0,"slot":"Security","severity":"Major","location":"b.go:2","note":"n2","status":"open","reproducer":"scripts/x.sh"}
 	]}`
-	srv := httptest.NewServer(renderDaemon(t, body))
+	srv := httptest.NewServer(runRecordDaemon(t, body))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -2515,7 +2689,7 @@ func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testi
 	isolatedStateRoot(t)
 
 	body := `{"change":"demo","dispatches":[{"id":1,"seq":1,"role":"implementer","model":"sonnet","startedAt":"2026-01-01T00:00:00Z"}],"findings":null}`
-	srv := httptest.NewServer(renderDaemon(t, body))
+	srv := httptest.NewServer(runRecordDaemon(t, body))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -2548,7 +2722,7 @@ func TestRunRecordDispatchesPrintsDispatchesAsJSONArray(t *testing.T) {
 	  {"id":1,"seq":1,"key":"panel-fix-1","role":"panel-fix","model":"sonnet","sessionToken":"mf-tok","startedAt":"2026-09-10T09:00:00Z"},
 	  {"id":2,"seq":2,"key":"panel-fix-1-retry","role":"panel-fix","model":"sonnet","sessionToken":"mf-tok","startedAt":"2026-09-10T09:05:00Z"}
 	]}`
-	srv := httptest.NewServer(renderDaemon(t, body))
+	srv := httptest.NewServer(runRecordDaemon(t, body))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
@@ -2648,7 +2822,7 @@ func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
 	isolatedStateRoot(t)
 
 	body := `{"change":"demo","findings":[{"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"fixed","reproducer":"none — prose only"}],"dispatches":null}`
-	srv := httptest.NewServer(renderDaemon(t, body))
+	srv := httptest.NewServer(runRecordDaemon(t, body))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer

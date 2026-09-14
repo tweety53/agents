@@ -1242,6 +1242,15 @@ type recordStatusRequest struct {
 // runRecordRender implements `flow record render`: the read half of this
 // verb, and what makes a change's archive readable without a daemon.
 //
+// The record's content is decided by the daemon, never by this binary:
+// each kind is fetched already rendered from
+// GET /api/v1/records/{project}/{change}/render/{kind} and written as it
+// arrives. An installed CLI predating a store-schema advance once rendered
+// stamped rows as "not measured" -- silently, with exit 0 -- so rendering
+// lives beside the rows, in the one binary versioned with the store that
+// reads them, and this verb's job is to carry the result to disk without
+// constructing any of it.
+//
 // It reports ONE OUTCOME WORD PER KIND, and the three that exit 0 are
 // three different facts rather than three shades of success:
 //
@@ -1249,17 +1258,29 @@ type recordStatusRequest struct {
 //	MISSING: ledger    the store holds no dispatch rows for the change
 //	journalled: <kind> the store could not be reached; nothing was written
 //
-// MISSING IS THE LEDGER'S ALONE. A panel always renders, because a panel
-// that raised no finding has to SAY so -- see renderRecordKind, which
-// carries the reasoning and the requirement it comes from.
+// MISSING arrives inside the envelope -- the daemon applied
+// records.RenderKind's ledger/panel asymmetry -- and a panel always
+// renders, because a panel that raised no finding has to SAY so.
+//
+// EVERY KIND IS FETCHED BEFORE ANY FILE IS WRITTEN, so a run the store
+// cannot answer for every one of its kinds reports `journalled:` for all
+// of them and writes nothing -- the outcome word's own "nothing was
+// written" stays literally true of a partial answer.
 //
 // `journalled:` is the odd one, and deliberately so: there is nothing to
 // journal for a READ. The word records that the render did not happen and
 // why, in the vocabulary the write subcommands already use, rather than
 // writing an empty record that a reader could not tell from a real one.
 // Non-zero keeps its single existing meaning -- a write attempted and
-// refused or failed -- so a caller branching on the exit status never
-// reads an empty record as a failure.
+// refused or failed, or a read the daemon could not truthfully answer --
+// so a caller branching on the exit status never reads an empty record as
+// a failure. The one read-only case that joins it is the render route's
+// own 404: a current daemon never answers one (an unknown change is
+// answered from the empty run, a missing ledger as the envelope), so a
+// 404 can only mean a daemon too old to carry the route at all. Rendering
+// locally there would put the record's content back under this binary's
+// vintage -- the exact failure this move exists to remove -- so the skew
+// stops the run with nothing written instead.
 //
 // THE DESTINATIONS ARE RESOLVED BEFORE THE STORE IS CONTACTED. A refused
 // change name or a destination outside the repository is a caller
@@ -1307,29 +1328,37 @@ func runRecordRender(ctx context.Context, args []string, stdout, stderr io.Write
 		return 1
 	}
 
-	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	switch {
-	case callErr == nil:
-	case errors.Is(callErr, client.ErrNotFound):
-		// The store was reached and has never heard of this change, which
-		// is "no rows of any kind" and reports as MISSING below -- not a
-		// failure. GetRunRecord already distinguishes it from a change
-		// that exists and holds nothing, and both answer the render's
-		// question the same way.
-		run = records.Run{Change: f.change}
-	default:
-		for _, k := range kinds {
-			fmt.Fprintf(stdout, "journalled: %s\n", k)
+	// The two-phase shape the outcome table's own words rest on -- see
+	// EVERY KIND above.
+	fetched := make(map[string]records.Rendered, len(kinds))
+	for _, k := range kinds {
+		out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Rendered, error) {
+			return cl.GetRenderedRecord(ctx, projectKey, f.change, k)
+		})
+		switch {
+		case callErr == nil:
+			fetched[k] = out
+		case errors.Is(callErr, client.ErrNotFound):
+			// The render route answered 404 -- see the outcome table above
+			// for why this is a stop and never a local fallback. The cause
+			// is named here rather than passed through %v: ErrNotFound's
+			// sentinel text says "change not found", and the change is not
+			// what is missing -- the route is.
+			fmt.Fprintf(stderr, "flow: render %s: the daemon answered 404 — it carries no render route\n", k)
+			fmt.Fprintln(stderr, "⚠ flow: the daemon predates the render route — upgrade it; nothing rendered")
+			return 1
+		default:
+			for _, rest := range kinds {
+				fmt.Fprintf(stdout, "journalled: %s\n", rest)
+			}
+			fmt.Fprintln(stderr, "⚠ flow: store unreachable — nothing rendered")
+			return 0
 		}
-		fmt.Fprintln(stderr, "⚠ flow: store unreachable — nothing rendered")
-		return 0
 	}
 
 	for _, k := range kinds {
-		body, ok := renderRecordKind(k, run)
-		if !ok {
+		out := fetched[k]
+		if out.Missing {
 			fmt.Fprintf(stdout, "MISSING: %s — no rows for %s\n", k, f.change)
 			continue
 		}
@@ -1342,7 +1371,7 @@ func runRecordRender(ctx context.Context, args []string, stdout, stderr io.Write
 			fmt.Fprintf(stderr, "flow: create %s: %v\n", filepath.Dir(dests[k]), err)
 			return 1
 		}
-		if err := os.WriteFile(dests[k], []byte(body), 0o644); err != nil {
+		if err := os.WriteFile(dests[k], []byte(out.Body), 0o644); err != nil {
 			fmt.Fprintf(stderr, "flow: write %s: %v\n", dests[k], err)
 			return 1
 		}
@@ -1920,44 +1949,4 @@ func resolveRenderKinds(kind string) ([]string, error) {
 		return []string{kind}, nil
 	}
 	return nil, fmt.Errorf("-kind %q is not one of: %s, all", kind, strings.Join(records.Kinds(), ", "))
-}
-
-// renderRecordKind renders one kind, reporting whether there is a record
-// to write. THE TWO KINDS ANSWER THAT QUESTION DIFFERENTLY, and the
-// asymmetry is the point rather than an oversight.
-//
-// A LEDGER WITH NO DISPATCH ROWS IS MISSING. A change nothing was
-// dispatched for genuinely has no ledger, and an empty one on disk would
-// be indistinguishable from a real ledger that happened to be empty --
-// the distinction the run-record requirement insists stays reportable.
-//
-// A PANEL WITH NO FINDINGS IS STILL A PANEL, and always renders.
-// the review-panel economics requirement requires a record
-// with no total line to count as outstanding whatever else it contains,
-// and says a panel that raised no finding says so with `findings-total: 0`
-// -- "which is a declaration and clears, where silence is not". Reporting
-// MISSING for a clean panel writes no record, so check-unfinished-work.sh
-// finds none and reports OUTSTANDING for a change that is genuinely clean:
-// the render would manufacture the very state the panel proved absent.
-// RenderPanel already emits the zero form correctly -- the total line, no
-// markers, and the matching empty reproducer block -- so the only thing
-// that ever suppressed it was this rule.
-//
-// The command is invoked at panel close, so THAT INVOCATION is the
-// evidence a panel ran. Nothing in the store has to stand in for it, and
-// no sentinel row is written to make one.
-func renderRecordKind(kind string, run records.Run) (string, bool) {
-	switch kind {
-	case "ledger":
-		if len(run.Dispatches) == 0 {
-			return "", false
-		}
-		return records.RenderLedger(run), true
-	case "panel":
-		return records.RenderPanel(run), true
-	default:
-		// Unreachable: resolveRenderKinds has already refused any other
-		// value, and it is the only producer of this argument.
-		return "", false
-	}
 }
