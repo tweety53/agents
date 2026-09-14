@@ -421,7 +421,7 @@ git commit -m "feat(flow/scripts): extract lint/test/run commands into the dispa
 **Regression:** n/a — no test declared
 **Baseline:** n/a — no test declared
 **Commit:** `docs(flow-contracts): cut restating passages from jira-followups.md`
-**After:** Task 2
+**After:** Task 1, 2, 3, 4
 
   - [ ] **Step 1: Read the whole file against the rest of the flow-contracts tree**
 
@@ -467,7 +467,7 @@ git commit -m "docs(flow-contracts): cut restating passages from jira-followups.
 **Regression:** n/a — no test declared
 **Baseline:** n/a — no test declared
 **Commit:** `docs(flow): cut restating passages from review-panel.md`
-**After:** Task 1, 3
+**After:** Task 1, 2, 3, 4, 5
 
   - [ ] **Step 1: Read the whole file against `implement.md` and `pipeline.md`**
 
@@ -509,7 +509,7 @@ git commit -m "docs(flow): cut restating passages from review-panel.md"
 **Regression:** n/a — no test declared
 **Baseline:** n/a — no test declared
 **Commit:** `docs(flow-contracts): cut restating passages from pipeline.md`
-**After:** Task 2
+**After:** Task 1, 2, 3, 4, 5, 6
 
   - [ ] **Step 1: Read the whole file against `skills/flow/SKILL.md` and `handoff-blocks.md`**
 
@@ -550,7 +550,7 @@ git commit -m "docs(flow-contracts): cut restating passages from pipeline.md"
 **Regression:** n/a — no test declared
 **Baseline:** n/a — no test declared
 **Commit:** `docs(flow-contracts): cut restating passages from state-file.md`
-**After:** Task 2
+**After:** Task 1, 2, 3, 4, 5, 6, 7
 
   - [ ] **Step 1: Read the whole file against `jira-integration.md`, `finish-contract-run1.md`, and
   `finish-contract-run2.md`**
@@ -602,7 +602,7 @@ the actual commit Task 9 makes — the `proposal.md` measurement append stays un
 **Regression:** n/a — no test declared
 **Baseline:** n/a — no test declared
 **Commit:** `docs(flow-contracts): fix two .flow/project.md citations missing their root prefix`
-**After:** Task 1, 2, 3, 4
+**After:** Task 1, 2, 3, 4, 5, 6, 7, 8
 
   - [ ] **Step 1: Re-run the router eager-load measurement**
 
