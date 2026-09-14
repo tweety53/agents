@@ -473,6 +473,90 @@ case "$ERR" in
   *) fail "dirty-files-named-without-a-change-worktree: expected stderr to say classification is unavailable, got '$ERR'" ;;
 esac
 
+# 19. merge-base-failure-classifies-nothing: the change branch shares no
+#     ancestor with <base> (an orphan root), so no diff can be computed.
+#     Expect exit 1; every file still named, the block saying classification
+#     is unavailable, and no definitive negative claim anywhere.
+new_checkout
+git -C "$WT" worktree add -q -b tmp-root "$WT/.worktrees/fixture"
+git -C "$WT/.worktrees/fixture" checkout -q --orphan fixture
+echo changed > "$WT/.worktrees/fixture/feature.txt"
+git -C "$WT/.worktrees/fixture" add feature.txt
+git -C "$WT/.worktrees/fixture" commit -qm "orphan root"
+git -C "$WT/.worktrees/fixture" branch -D tmp-root
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+echo dirty >> "$LANDING/file.txt"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "merge-base-failure-classifies-nothing" 1 "dirty"
+case "$ERR" in
+  *"file.txt"*) pass "merge-base-failure-classifies-nothing: file.txt still named" ;;
+  *) fail "merge-base-failure-classifies-nothing: expected stderr to name file.txt, got '$ERR'" ;;
+esac
+case "$ERR" in
+  *cannot\ classify*) pass "merge-base-failure-classifies-nothing: classification said unavailable" ;;
+  *) fail "merge-base-failure-classifies-nothing: expected stderr to say classification is unavailable, got '$ERR'" ;;
+esac
+case "$ERR" in
+  *"does not look like this change's output"*) \
+    fail "merge-base-failure-classifies-nothing: made a definitive negative claim" ;;
+  *) pass "merge-base-failure-classifies-nothing: no definitive negative claim" ;;
+esac
+
+# 20. glob-metacharacter-filenames-match-literally: a dirty file literally
+#     named `data*.txt` must not match a changed `data1.txt`. Expect exit 1;
+#     stderr says the dirty file does not look like this change's output.
+new_checkout
+new_change_worktree data1.txt
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+echo stray > "$LANDING/data*.txt"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "glob-metacharacter-filenames-match-literally" 1 "dirty"
+if printf '%s' "$ERR" | grep -qF "data*.txt -- does not look like this change's output"; then
+  pass "glob-metacharacter-filenames-match-literally: data*.txt named as not change output"
+else
+  fail "glob-metacharacter-filenames-match-literally: expected stderr to classify data*.txt as not change output, got '$ERR'"
+fi
+
+# 21. non-ascii-filenames-classify-unquoted: a dirty file whose name git
+#     would C-quote (non-ASCII) is classified on its literal path, both in
+#     the verdict and in the reported name. Expect exit 1; stderr says the
+#     file looks like this change's output.
+new_checkout
+printf 'base' > "$WT/café.txt"
+git -C "$WT" add café.txt
+git -C "$WT" commit -qm "seed non-ascii"
+new_change_worktree café.txt
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+echo dirty >> "$LANDING/café.txt"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "non-ascii-filenames-classify-unquoted" 1 "dirty"
+case "$ERR" in
+  *"café.txt -- looks like this change's output"*) \
+    pass "non-ascii-filenames-classify-unquoted: café.txt named as change output, unquoted" ;;
+  *) fail "non-ascii-filenames-classify-unquoted: expected stderr to classify café.txt as change output, got '$ERR'" ;;
+esac
+
+# 22. off-base-refusal-classifies-with-a-sibling: the landing worktree sits
+#     on an unrelated branch, dirty, with a sibling change worktree present.
+#     Expect exit 1; stderr names both branches and still classifies the
+#     dirty file against the change's.
+new_checkout
+new_change_worktree file.txt
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+git -C "$LANDING" checkout -q -b other
+echo dirty >> "$LANDING/file.txt"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "off-base-refusal-classifies-with-a-sibling" 1 "other"
+case "$ERR" in
+  *"file.txt -- looks like this change's output"*) \
+    pass "off-base-refusal-classifies-with-a-sibling: file.txt classified on the off-base refusal" ;;
+  *) fail "off-base-refusal-classifies-with-a-sibling: expected stderr to classify file.txt, got '$ERR'" ;;
+esac
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

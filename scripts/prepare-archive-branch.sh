@@ -244,23 +244,31 @@ resolve_change_branch() {
   git -C "$apply" rev-parse --git-dir >/dev/null 2>&1 || return 0
   git -C "$apply" rev-parse -q --verify "refs/heads/$name" >/dev/null 2>&1 || return 0
   CHANGE_BRANCH="$name"
-  mb="$(git -C "$apply" merge-base "$CHANGE_BRANCH" "$BASE" 2>/dev/null)" || return 0
-  CHANGED_FILES="$(git -C "$apply" diff --name-only "$mb" "$CHANGE_BRANCH" 2>/dev/null)" || CHANGED_FILES=""
+  mb="$(git -C "$apply" merge-base "$CHANGE_BRANCH" "$BASE" 2>/dev/null)" || {
+    CHANGE_BRANCH=""
+    return 0
+  }
+  CHANGED_FILES="$(git -C "$apply" -c core.quotePath=false diff --name-only "$mb" "$CHANGE_BRANCH" 2>/dev/null)" || {
+    CHANGE_BRANCH=""
+    CHANGED_FILES=""
+    return 0
+  }
 }
 
-# path_changed <path> — is <path> among CHANGED_FILES? An exact match, or —
-# for a porcelain directory entry, which ends in `/` — any changed path
-# under it. Literal `case` matching, not grep: a path is data, never a
-# pattern.
+# path_changed <path> — is <path> among CHANGED_FILES? An exact, fully
+# literal match; a porcelain directory entry, which ends in `/`, also
+# matches any changed path under it — the one deliberate wildcard, whose
+# prefix stays literal because the quoted word keeps its glob characters
+# data. Neither side is ever used as a pattern for the other.
 path_changed() {
   local p="$1" f
-  case "$p" in
-    */) p="$p*" ;;
-  esac
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     case "$f" in
-      $p) return 0 ;;
+      "$p") return 0 ;;
+    esac
+    case "$p" in
+      */) case "$f" in "$p"*) return 0 ;; esac ;;
     esac
   done <<EOF
 $CHANGED_FILES
@@ -299,7 +307,7 @@ EOF
 }
 
 DIRTY_LIST=""
-DIRTY_LIST="$(git -C "$LANDING" status --porcelain --untracked-files=normal 2>/dev/null || true)"
+DIRTY_LIST="$(git -C "$LANDING" -c core.quotePath=false status --porcelain --untracked-files=normal 2>/dev/null || true)"
 
 if [ "$CUR" = "$BASE" ]; then
   if [ -n "$DIRTY_LIST" ]; then
