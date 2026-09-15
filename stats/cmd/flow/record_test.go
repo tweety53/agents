@@ -3527,3 +3527,214 @@ func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordSubstitutionCommand pins `flow record substitution`'s three
+// outcomes: a live store records the row with a CLI-stamped recordedAt, a
+// dead store falls back to the journal under kind "substitution", and a
+// -shape outside the closed vocabulary is a caller mistake refused before
+// the store is ever contacted.
+func TestRecordSubstitutionCommand(t *testing.T) {
+	t.Run("writes the substitution", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var gotPath string
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			var err error
+			gotBody, err = readAll(r)
+			if err != nil {
+				t.Errorf("read request body: %v", err)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"guard":"gather-dispatch-context","shape":"cross-repo","substitution":"composed the dispatch bundle by hand","recordedAt":"2026-01-02T03:04:05Z"}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "substitution", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-417", "-guard", "gather-dispatch-context", "-shape", "cross-repo",
+				"-substitution", "composed the dispatch bundle by hand"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if !strings.HasSuffix(gotPath, "/kan-417/substitutions") {
+			t.Errorf("request path = %s, want it to end in /kan-417/substitutions", gotPath)
+		}
+
+		var sent map[string]any
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+		}
+		if sent["guard"] != "gather-dispatch-context" {
+			t.Errorf("guard = %v, want gather-dispatch-context", sent["guard"])
+		}
+		if sent["shape"] != "cross-repo" {
+			t.Errorf("shape = %v, want cross-repo", sent["shape"])
+		}
+		if sent["substitution"] != "composed the dispatch bundle by hand" {
+			t.Errorf("substitution = %v, want the verbatim substitution", sent["substitution"])
+		}
+		if v, ok := sent["recordedAt"]; !ok || v == "" || v == "0001-01-01T00:00:00Z" {
+			t.Errorf("recordedAt = %v, want a non-zero instant the CLI stamped", v)
+		}
+	})
+
+	t.Run("falls back to the journal", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "substitution", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-417", "-guard", "check-task-commit-fields", "-shape", "cross-repo",
+				"-substitution", "checked every commit message by hand"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "store unreachable") {
+			t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
+		}
+
+		entries, exists := recordJournalEntries(t, repo, "kan-417")
+		if !exists || len(entries) != 1 {
+			t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
+		}
+		var body struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+			t.Fatalf("decode journalled body: %v", err)
+		}
+		if body.Kind != "substitution" {
+			t.Errorf("journalled kind = %q, want substitution", body.Kind)
+		}
+	})
+
+	t.Run("refuses a shape outside the closed set", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "substitution", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-417", "-guard", "gather-dispatch-context", "-shape", "all",
+				"-substitution", "s"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 2 {
+			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "-shape") {
+			t.Errorf("stderr = %q, want it to name -shape as the offender", stderr.String())
+		}
+		if _, exists := recordJournalEntries(t, repo, "kan-417"); exists {
+			t.Errorf("a refused caller mistake was journalled")
+		}
+	})
+}
+
+// TestRecordSubstitutionsReadback pins `flow record substitutions`' read
+// contract: the array verbatim, newest first as the daemon answers it, []
+// for no rows, and a loud non-zero failure on an unreachable store.
+func TestRecordSubstitutionsReadback(t *testing.T) {
+	t.Run("prints the array verbatim", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		body := `[{"id":1,"change":"kan-417","guard":"gather-dispatch-context","shape":"cross-repo","substitution":"composed by hand","recordedAt":"2026-01-02T03:04:05Z"}]`
+		var gotQuery string
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.RawQuery
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "substitutions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-guard", "gather-dispatch-context", "-shape", "cross-repo"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if got := strings.TrimRight(stdout.String(), "\n"); got != body {
+			t.Errorf("stdout = %q, want the array verbatim %q", got, body)
+		}
+		if !strings.Contains(gotQuery, "guard=gather-dispatch-context") {
+			t.Errorf("query = %q, want guard=gather-dispatch-context", gotQuery)
+		}
+		if !strings.Contains(gotQuery, "shape=cross-repo") {
+			t.Errorf("query = %q, want shape=cross-repo", gotQuery)
+		}
+	})
+
+	t.Run("empty for no rows", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "substitutions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if got := strings.TrimRight(stdout.String(), "\n"); got != "[]" {
+			t.Fatalf("stdout = %q, want exactly []", got)
+		}
+	})
+
+	t.Run("refuses a shape outside the closed set", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "substitutions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-shape", "all"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 2 {
+			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "-shape") {
+			t.Errorf("stderr = %q, want it to name -shape as the offender", stderr.String())
+		}
+	})
+
+	t.Run("dead port fails loudly", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "substitutions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code == 0 {
+			t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
+		}
+		if strings.Contains(stdout.String(), "[") {
+			t.Errorf("stdout = %q, want no JSON array when the store is unreachable", stdout.String())
+		}
+		if stderr.Len() == 0 {
+			t.Error("stderr is empty, want it to report the unreachable store")
+		}
+	})
+}

@@ -64,6 +64,17 @@ var recordEfforts = []string{"low", "medium", "high", "default"}
 // explain (KAN-510).
 var recordCauses = []string{"environment", "test-failure", "missing-fixture"}
 
+// recordShapes is the closed set `-shape` accepts on `flow record
+// substitution`: the pipeline's own topology vocabulary for a change --
+// the same words gather-dispatch-context.sh's eighth argument validates and
+// Hazard.Applies composes with. `all` is deliberately absent: it is a
+// bundle-composition wildcard, never a shape a change has. Checked before
+// the store is ever contacted, the recordEfforts precedent -- an
+// unrecognised shape is a caller mistake, and letting it fall through to
+// the never-block fallback would journal a write a replay could only ever
+// be refused for a second time.
+var recordShapes = []string{"single-repo", "cross-repo"}
+
 // validateFindingStatus judges a finding's status the way validateRole
 // judges -role, before the store is ever contacted: "open" and "fixed" are
 // the two terminal words, and "withdrawn" and "deferred" are each legal
@@ -196,6 +207,11 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -guard guard -symptom text -recovery text
                              -minutes-lost n [-change name]
        flow record incidents [-addr url] [-timeout dur] [-C dir]
+       flow record substitution [-addr url] [-timeout dur] [-C dir]
+                             -change name -guard guard
+                             -shape single-repo|cross-repo -substitution text
+       flow record substitutions [-addr url] [-timeout dur] [-C dir]
+                             [-guard guard] [-shape single-repo|cross-repo]
        flow record render   [-addr url] [-timeout dur] [-C dir]
                              -change name -kind ledger|panel|all -repo dir
        flow record journal-count [-C dir] -change name
@@ -270,6 +286,17 @@ own read contract, verbatim. Both writes journal on store failure like
 every other write; a (change, guard) pair verdict false-positive holds no
 verdict for is refused outright rather than journalled, since a replay of
 it could never succeed.
+
+substitution and substitutions are a conductor's record of a guard it
+could not run (KAN-417): substitution stores which guard failed, on which
+project topology (-shape, the pipeline's own single-repo/cross-repo
+vocabulary) and what substitution was used, journalling on store failure
+like every other write; substitutions reads a project's guard
+substitutions back as a JSON array, newest first, restricted by -guard or
+-shape where given, findings' own read contract, verbatim. -shape is
+checked against the closed set before the store is ever contacted, the
+recordEfforts precedent -- a write outside it is a caller mistake, and
+letting it journal would only ever be refused a second time on replay.
 
 incident and incidents are a project's log of a guard actually costing
 time: incident records what went wrong, the recovery taken and how many
@@ -378,6 +405,10 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordVerdict(ctx, args[1:], stdout, stderr)
 	case "verdicts":
 		return runRecordVerdicts(ctx, args[1:], stdout, stderr)
+	case "substitution":
+		return runRecordSubstitution(ctx, args[1:], stdout, stderr)
+	case "substitutions":
+		return runRecordSubstitutions(ctx, args[1:], stdout, stderr)
 	case "incident":
 		return runRecordIncident(ctx, args[1:], stdout, stderr)
 	case "incidents":
@@ -540,11 +571,10 @@ func recordJournalPath(projectKey, name string) string {
 // recordJournalBody is what gets journalled for a record write that could
 // not reach the store: the write's own kind ("dispatch", "dispatch-end",
 // "finding", "status", "verdict", "verdict-false-positive", "incident",
-// "decision", "pass" or "mutation") alongside the exact wire request that
-// would have been sent, so
-// the reconciler has everything it needs to replay it without this file
-// needing a second encoding. It is the same shape stageMarkJournalBody
-// carries, for the same reason.
+// "substitution", "decision", "pass" or "mutation") alongside the exact
+// wire request that would have been sent, so the reconciler has everything
+// it needs to replay it without this file needing a second encoding. It is
+// the same shape stageMarkJournalBody carries, for the same reason.
 type recordJournalBody struct {
 	Kind    string `json:"kind"`
 	Request any    `json:"request"`
@@ -1628,6 +1658,108 @@ func runRecordVerdicts(ctx context.Context, args []string, stdout, stderr io.Wri
 	body, err := json.Marshal(out)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: encode verdicts: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
+	return 0
+}
+
+// runRecordSubstitution implements `flow record substitution`: one guard
+// hand-substitution on one change (KAN-417) -- which guard could not be
+// run, on which project topology, and what substitution was used --
+// journalled on any store failure exactly as every other record write is.
+//
+// RecordedAt is stamped here, from time.Now(), rather than left to the
+// store, for the same reason runRecordVerdict stamps it: the CLI is the
+// one caller that knows when the substitution actually happened, and a
+// journalled write replayed minutes or hours later must not report the
+// replay's own instant as that moment.
+func runRecordSubstitution(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record substitution", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	guard := fset.String("guard", "", "the guard that could not be run (required)")
+	shape := fset.String("shape", "", "the project topology the guard failed on -- one of: "+strings.Join(recordShapes, ", ")+" (required)")
+	substitution := fset.String("substitution", "", "what was used in the guard's place, verbatim (required)")
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-guard", *guard},
+		[2]string{"-shape", *shape},
+		[2]string{"-substitution", *substitution},
+	) {
+		return 2
+	}
+	if !slices.Contains(recordShapes, *shape) {
+		fmt.Fprintf(stderr, "flow: -shape %q is not one of: %s\n", *shape, strings.Join(recordShapes, ", "))
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in := records.Substitution{
+		Guard:        *guard,
+		Shape:        *shape,
+		Substitution: *substitution,
+		RecordedAt:   time.Now(),
+	}
+	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Substitution, error) {
+		return cl.RecordSubstitution(ctx, projectKey, f.change, in)
+	})
+	if callErr == nil {
+		fmt.Fprintln(stdout, "recorded: substitution")
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "substitution", in, stderr)
+}
+
+// runRecordSubstitutions implements `flow record substitutions`: a
+// project's guard substitutions, newest first, as a JSON array --
+// `findings`' own read contract, verbatim (see runRecordFindings' doc
+// comment for the whole of it). It takes no -change, exactly as `verdicts`
+// takes none: the read is scoped to {project} alone, since a substitution
+// list spans every change on the project.
+func runRecordSubstitutions(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record substitutions", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f)
+	guard := fset.String("guard", "", "restrict to one guard; empty means every guard")
+	shape := fset.String("shape", "", "restrict to one topology; empty means every topology")
+
+	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if *shape != "" && !slices.Contains(recordShapes, *shape) {
+		fmt.Fprintf(stderr, "flow: -shape %q is not one of: %s\n", *shape, strings.Join(recordShapes, ", "))
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.Substitution, error) {
+		return cl.ListSubstitutions(ctx, projectKey, *guard, *shape)
+	})
+	if callErr != nil {
+		fmt.Fprintf(stderr, "flow: substitutions: %v\n", callErr)
+		return 1
+	}
+	if out == nil {
+		out = []records.Substitution{}
+	}
+	body, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode substitutions: %v\n", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))
