@@ -89,6 +89,13 @@ type RecordStore interface {
 	// reason the hazard methods state above.
 	InsertSuiteRun(ctx context.Context, projectKey string, run records.SuiteRun) (records.SuiteRun, error)
 	ListSuiteRuns(ctx context.Context, projectKey, suite string, limit int) ([]records.SuiteRun, error)
+
+	// RecordTaskCount and ListTaskCounts are KAN-415's per-change
+	// plan-growth observations -- append-only rows read back as a series
+	// -- and on RecordStore for the reason the suite-run methods state
+	// above: nothing replays them.
+	RecordTaskCount(ctx context.Context, projectKey, change string, in records.TaskCount) (records.TaskCount, error)
+	ListTaskCounts(ctx context.Context, projectKey, change string) ([]records.TaskCount, error)
 }
 
 // var _ RecordStore = (*store.Store)(nil) verifies at compile time that the
@@ -477,6 +484,53 @@ func (h *recordHandler) listDecisions(w http.ResponseWriter, r *http.Request) {
 	out, err := h.store.ListDecisions(r.Context(), project, change)
 	if err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("list decisions for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// recordTaskCount serves POST /api/v1/records/{project}/{change}/task-counts:
+// one observation of the change plan's total task count (KAN-415). Every
+// insert is a new row -- an observation is recorded once as the fact
+// arises, and the 201/200 split the upsert routes make has no meaning
+// here, exactly as recordPass says. A total that is not a positive
+// integer counts no plan and is a 400 before the store is touched.
+func (h *recordHandler) recordTaskCount(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.TaskCount
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if in.TotalTasks <= 0 {
+		writeError(w, http.StatusBadRequest, "totalTasks must be a positive integer")
+		return
+	}
+
+	out, err := h.store.RecordTaskCount(r.Context(), project, change, in)
+	if err != nil {
+		if errors.Is(err, store.ErrInvalidTaskCount) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record task count for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+// listTaskCounts serves GET /api/v1/records/{project}/{change}/task-counts:
+// the change's observations oldest first -- the series the planned and
+// appended derivations read.
+func (h *recordHandler) listTaskCounts(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	out, err := h.store.ListTaskCounts(r.Context(), project, change)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list task counts for %s/%s", project, change), err)
 		writeError(w, status, msg)
 		return
 	}

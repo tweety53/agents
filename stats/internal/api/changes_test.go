@@ -112,6 +112,13 @@ type fakeStore struct {
 	recordPassErr     error
 	recordMutationErr error
 
+	// --- task-count bookkeeping (KAN-415, internal/api/records_test.go's
+	// fakeStore methods operate on these) ---
+	taskCounts         []taskCountRecord
+	nextTaskCountID    int64
+	recordTaskCountErr error
+	listTaskCountsErr  error
+
 	// lastListVerdictsGuard and lastListVerdictsFalsePositiveOnly record
 	// the args ListVerdicts was last called with, so a test can assert the
 	// handler forwarded the query it parsed rather than merely that some

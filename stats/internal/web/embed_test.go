@@ -479,6 +479,14 @@ func (fakeStore) ListSuiteRuns(context.Context, string, string, int) ([]records.
 	return nil, nil
 }
 
+func (fakeStore) RecordTaskCount(context.Context, string, string, records.TaskCount) (records.TaskCount, error) {
+	return records.TaskCount{}, nil
+}
+
+func (fakeStore) ListTaskCounts(context.Context, string, string) ([]records.TaskCount, error) {
+	return nil, nil
+}
+
 func (fakeStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
 	return records.Decision{}, false, nil
 }

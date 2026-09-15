@@ -88,6 +88,14 @@ func (nopRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]rec
 	return nil, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) RecordTaskCount(context.Context, string, string, records.TaskCount) (records.TaskCount, error) {
+	return records.TaskCount{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListTaskCounts(context.Context, string, string) ([]records.TaskCount, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
 	return records.Decision{}, false, errRecordStoreNotExercised
 }
@@ -115,6 +123,14 @@ func (f *fakeRecordStore) InsertSuiteRun(context.Context, string, records.SuiteR
 }
 
 func (f *fakeRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RecordTaskCount(context.Context, string, string, records.TaskCount) (records.TaskCount, error) {
+	return records.TaskCount{}, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) ListTaskCounts(context.Context, string, string) ([]records.TaskCount, error) {
 	return nil, errRecordStoreNotExercised
 }
 

@@ -1773,3 +1773,123 @@ func TestRenderRoutePanelOverAFindingHoldingChangeRendersTheRows(t *testing.T) {
 		t.Errorf("rendered panel does not carry the finding's row and total:\n%s", got.Body)
 	}
 }
+
+// taskCountRecord is fakeStore's in-memory stand-in for a
+// change_task_counts row. See dispatchRecord's doc comment for why the
+// owning identity sits beside the row rather than inside it.
+type taskCountRecord struct {
+	count      records.TaskCount
+	projectKey string
+	changeName string
+}
+
+// RecordTaskCount mirrors store.Store.RecordTaskCount's contract: rows are
+// allocated ids, an unknown change is store.ErrChangeNotFound, and every
+// call appends -- no upsert, the series is the trend.
+func (f *fakeStore) RecordTaskCount(_ context.Context, projectKey, change string, in records.TaskCount) (records.TaskCount, error) {
+	f.recordCalls++
+	if f.recordTaskCountErr != nil {
+		return records.TaskCount{}, f.recordTaskCountErr
+	}
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok {
+		return records.TaskCount{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+	f.nextTaskCountID++
+	in.ID = f.nextTaskCountID
+	in.ObservedAt = time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	f.taskCounts = append(f.taskCounts, taskCountRecord{count: in, projectKey: projectKey, changeName: change})
+	return in, nil
+}
+
+// ListTaskCounts mirrors store.Store.ListTaskCounts' ordering: oldest
+// first -- the order the planned/appended derivations read.
+func (f *fakeStore) ListTaskCounts(_ context.Context, projectKey, change string) ([]records.TaskCount, error) {
+	if f.listTaskCountsErr != nil {
+		return nil, f.listTaskCountsErr
+	}
+	var out []records.TaskCount
+	for _, tc := range f.taskCounts {
+		if tc.projectKey == projectKey && tc.changeName == change {
+			out = append(out, tc.count)
+		}
+	}
+	return out, nil
+}
+
+// TestRecordTaskCountRouteAnswers201 pins the write route's shape: the
+// stored row comes back 201-carried with the store's own stamps, and a
+// second POST is a second observation, never a replacement.
+func TestRecordTaskCountRouteAnswers201(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/task-counts"
+
+	resp, body := postJSON(t, url, map[string]any{"totalTasks": 22})
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("first POST task-counts = %d (%s), want 201", resp.StatusCode, body)
+	}
+	var got records.TaskCount
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.ID == 0 || got.TotalTasks != 22 || got.ObservedAt.IsZero() {
+		t.Errorf("response row = %+v, want the recorded row with id and observedAt stamps", got)
+	}
+
+	second, secondBody := postJSON(t, url, map[string]any{"totalTasks": 46})
+	if second.StatusCode != http.StatusCreated {
+		t.Fatalf("second POST task-counts = %d (%s), want 201", second.StatusCode, secondBody)
+	}
+	if len(fs.taskCounts) != 2 {
+		t.Errorf("store holds %d observations, want 2 -- the second write replaced instead of appending", len(fs.taskCounts))
+	}
+}
+
+// TestRecordTaskCountRouteRejectsANonPositiveTotal: a total that counts no
+// plan is a caller mistake answered 400 before the store is reached, so
+// the refusal is the handler's own message, not a store error remapped.
+func TestRecordTaskCountRouteRejectsANonPositiveTotal(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/task-counts"
+
+	for _, total := range []int{0, -3} {
+		resp, body := postJSON(t, url, map[string]any{"totalTasks": total})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("POST totalTasks %d = %d (%s), want 400", total, resp.StatusCode, body)
+		}
+	}
+	if len(fs.taskCounts) != 0 || fs.recordCalls != 0 {
+		t.Errorf("store reached for a refused body: %d rows, %d calls, want none", len(fs.taskCounts), fs.recordCalls)
+	}
+}
+
+// TestListTaskCountsRouteOldestFirst pins that the route hands back exactly
+// the array the store returned, in the oldest-first order ListTaskCounts
+// documents -- the order planned and appended are derived in.
+func TestListTaskCountsRouteOldestFirst(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/task-counts"
+
+	for _, total := range []int{22, 30, 46} {
+		resp, body := postJSON(t, url, map[string]any{"totalTasks": total})
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("POST task-counts %d = %d (%s), want 201", total, resp.StatusCode, body)
+		}
+	}
+
+	status, body := doGet(t, ts, recordsPath("proj", "kan-1")+"/task-counts")
+	if status != http.StatusOK {
+		t.Fatalf("GET task-counts = %d (%s), want 200", status, body)
+	}
+	var got []records.TaskCount
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("task counts = %d, want 3", len(got))
+	}
+	for i, want := range []int{22, 30, 46} {
+		if got[i].TotalTasks != want {
+			t.Errorf("task counts[%d].TotalTasks = %d, want %d (oldest first)", i, got[i].TotalTasks, want)
+		}
+	}
+}
