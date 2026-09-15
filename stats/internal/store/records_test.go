@@ -1587,7 +1587,7 @@ func TestUsageDuringAnUnfinishedDispatchIsAttributedToIt(t *testing.T) {
 
 	// A harvest tick landing while the dispatch is still running, over a
 	// sidechain record timestamped half an hour into it.
-	deltas, _, err := harvest.NewDispatchAttributor(st).Attribute(ctx, []harvest.Record{{
+	deltas, err := harvest.NewDispatchAttributor(st).Attribute(ctx, []harvest.Record{{
 		Timestamp:   in.StartedAt.Add(30 * time.Minute),
 		SessionID:   sessionID,
 		IsSidechain: true,
@@ -1657,7 +1657,7 @@ func TestAClosedDispatchStopsClaimingLaterUsage(t *testing.T) {
 		t.Errorf("closed row = commit %q outcome %q, want abc1234/completed", closed.CommitSHA, closed.Outcome)
 	}
 
-	deltas, _, err := harvest.NewDispatchAttributor(st).Attribute(ctx, []harvest.Record{{
+	deltas, err := harvest.NewDispatchAttributor(st).Attribute(ctx, []harvest.Record{{
 		Timestamp:   endedAt.Add(5 * time.Minute),
 		SessionID:   sessionID,
 		IsSidechain: true,
@@ -1897,134 +1897,6 @@ func TestMarkDispatchesUnattributedRepeatStampIsIdempotent(t *testing.T) {
 
 	if want := json.RawMessage(`{"tokens":{"input":10},"unattributed":{"reason":"session never bound"}}`); !jsonEqual(t, byID[measuredRecorded.ID], want) {
 		t.Errorf("metrics after a reason change = %s, want %s -- the new stamp must replace the old reason and candidates, not retain a stale candidates figure", byID[measuredRecorded.ID], want)
-	}
-}
-
-// TestMarkDispatchesUnattributedByID pins MarkDispatchesUnattributed's own
-// dispatch-grain ambiguity counterpart (task 6's own corrections,
-// tasks.md): exactly the dispatches named by id have the reason merged
-// into their metrics bag, a dispatch whose id was not named is untouched
-// even though it shares the same session token as one that was, and a
-// named dispatch that already carries a real tokens figure keeps it --
-// the same "a measurement is never destroyed by a later stamp" contract
-// TestMarkDispatchesUnattributed pins for the token-based method, proven
-// here for the id-based one.
-func TestMarkDispatchesUnattributedByID(t *testing.T) {
-	st, _ := newRecordStore(t)
-	ctx := context.Background()
-	projectKey := fmt.Sprintf("proj-unattributed-byid-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
-
-	const (
-		token  = "mf-unattributed-byid"
-		reason = "matched more than one dispatch"
-	)
-
-	// unmeasured and measured share one session token and are both named
-	// by id -- exactly the ambiguity shape bestDispatchWindow reports: two
-	// dispatches under the same session that a record's agent id or
-	// timestamp could not tell apart.
-	unmeasured := baseDispatch("implementer", "opus")
-	unmeasured.SessionToken = token
-	unmeasuredRecorded, err := st.RecordDispatch(ctx, projectKey, "kan-1", unmeasured)
-	if err != nil {
-		t.Fatalf("RecordDispatch unmeasured: %v", err)
-	}
-
-	measured := baseDispatch("reviewer", "sonnet")
-	measured.SessionToken = token
-	measuredRecorded, err := st.RecordDispatch(ctx, projectKey, "kan-1", measured)
-	if err != nil {
-		t.Fatalf("RecordDispatch measured: %v", err)
-	}
-	if err := st.MergeDispatchMetrics(ctx, measuredRecorded.ID, json.RawMessage(`{"tokens":{"input":10}}`)); err != nil {
-		t.Fatalf("MergeDispatchMetrics: %v", err)
-	}
-
-	// untouched carries the very same session token but its id is never
-	// named -- proving the id-based stamp reaches only the rows it is
-	// told to, not every dispatch under the shared token the way
-	// MarkDispatchesUnattributed does.
-	untouched := baseDispatch("panel-fix", "opus")
-	untouched.SessionToken = token
-	untouchedRecorded, err := st.RecordDispatch(ctx, projectKey, "kan-1", untouched)
-	if err != nil {
-		t.Fatalf("RecordDispatch untouched: %v", err)
-	}
-
-	if err := st.MarkDispatchesUnattributedByID(ctx, []int64{unmeasuredRecorded.ID, measuredRecorded.ID}, reason, 2); err != nil {
-		t.Fatalf("MarkDispatchesUnattributedByID: %v", err)
-	}
-
-	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
-	if err != nil {
-		t.Fatalf("RunRecord: %v", err)
-	}
-	if len(rec.Dispatches) != 3 {
-		t.Fatalf("RunRecord returned %d dispatches, want 3", len(rec.Dispatches))
-	}
-	byID := make(map[int64]json.RawMessage, len(rec.Dispatches))
-	for _, d := range rec.Dispatches {
-		byID[d.ID] = d.Metrics
-	}
-
-	if want := json.RawMessage(`{"unattributed":{"reason":"matched more than one dispatch","candidates":2}}`); !jsonEqual(t, byID[unmeasuredRecorded.ID], want) {
-		t.Errorf("unmeasured dispatch metrics = %s, want %s", byID[unmeasuredRecorded.ID], want)
-	}
-	if want := json.RawMessage(`{"tokens":{"input":10},"unattributed":{"reason":"matched more than one dispatch","candidates":2}}`); !jsonEqual(t, byID[measuredRecorded.ID], want) {
-		t.Errorf("measured dispatch metrics = %s, want %s -- a real tokens figure must survive the stamp", byID[measuredRecorded.ID], want)
-	}
-	if want := json.RawMessage(`{}`); !jsonEqual(t, byID[untouchedRecorded.ID], want) {
-		t.Errorf("dispatch whose id was not named metrics = %s, want %s -- the stamp must not reach a dispatch outside the given ids, even one sharing the same session token", byID[untouchedRecorded.ID], want)
-	}
-}
-
-// TestMarkDispatchesUnattributedByIDRepeatStampIsIdempotent is
-// MarkDispatchesUnattributedByID's own counterpart of
-// TestMarkDispatchesUnattributedRepeatStampIsIdempotent above: a multi-minute
-// review panel round spans many 5s harvest cycles, and attributeDispatches
-// restamps the same candidate set on every one of them. candidates must not
-// inflate with each restamp.
-func TestMarkDispatchesUnattributedByIDRepeatStampIsIdempotent(t *testing.T) {
-	st, _ := newRecordStore(t)
-	ctx := context.Background()
-	projectKey := fmt.Sprintf("proj-unattributed-byid-repeat-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
-
-	const (
-		token  = "mf-unattributed-byid-repeat"
-		reason = "matched more than one dispatch"
-	)
-
-	measured := baseDispatch("reviewer", "sonnet")
-	measured.SessionToken = token
-	measuredRecorded, err := st.RecordDispatch(ctx, projectKey, "kan-1", measured)
-	if err != nil {
-		t.Fatalf("RecordDispatch measured: %v", err)
-	}
-	if err := st.MergeDispatchMetrics(ctx, measuredRecorded.ID, json.RawMessage(`{"tokens":{"input":10}}`)); err != nil {
-		t.Fatalf("MergeDispatchMetrics: %v", err)
-	}
-
-	ids := []int64{measuredRecorded.ID}
-	if err := st.MarkDispatchesUnattributedByID(ctx, ids, reason, 2); err != nil {
-		t.Fatalf("MarkDispatchesUnattributedByID (1st): %v", err)
-	}
-	if err := st.MarkDispatchesUnattributedByID(ctx, ids, reason, 2); err != nil {
-		t.Fatalf("MarkDispatchesUnattributedByID (2nd): %v", err)
-	}
-
-	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
-	if err != nil {
-		t.Fatalf("RunRecord: %v", err)
-	}
-	byID := make(map[int64]json.RawMessage, len(rec.Dispatches))
-	for _, d := range rec.Dispatches {
-		byID[d.ID] = d.Metrics
-	}
-
-	if want := json.RawMessage(`{"tokens":{"input":10},"unattributed":{"reason":"matched more than one dispatch","candidates":2}}`); !jsonEqual(t, byID[measuredRecorded.ID], want) {
-		t.Errorf("metrics after two identical stamps = %s, want %s -- candidates must not double on a repeat stamp, and the real tokens figure must still survive", byID[measuredRecorded.ID], want)
 	}
 }
 

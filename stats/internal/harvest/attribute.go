@@ -3,8 +3,8 @@ package harvest
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -411,6 +411,27 @@ type MetricsPatch struct {
 	// (0005_jsonb_deep_add.sql's own doc comment), which is correct here
 	// for the same reason it is correct for Effort.
 	Speed string `json:"speed,omitempty"`
+	// Apportioned is the dispatch row's concurrency-attribution record
+	// (KAN-414): when a record's usage reached this dispatch apportioned
+	// across concurrent candidates rather than attributed outright, the
+	// patch carries how many record-shares arrived that way. It is a
+	// pointer so a dispatch nothing was apportioned to writes no key at
+	// all, and its Records count is a plain additive leaf, the one shape
+	// jsonb_deep_add can accumulate correctly across a dispatch's many
+	// batches. Only the dispatch grain sets it -- stage-run attribution
+	// has no candidates to apportion across.
+	Apportioned *ApportionedDelta `json:"apportioned,omitempty"`
+}
+
+// ApportionedDelta is the concurrency-attribution field apportioned
+// dispatches carry in their metrics bag, under the top-level "apportioned"
+// key: Records is how many record-shares this dispatch received through
+// apportionment, as opposed to attribution outright. It is the read-side
+// counterpart of DispatchDelta.ApportionedRecords, and
+// internal/records' ledger rendering reads it to qualify the token line
+// of a dispatch whose figures were partly shared.
+type ApportionedDelta struct {
+	Records int64 `json:"records"`
 }
 
 // Attributor assigns parsed transcript records to open stage windows and
@@ -687,27 +708,6 @@ func NewDispatchAttributor(windows DispatchWindowSource) *DispatchAttributor {
 	return &DispatchAttributor{windows: windows}
 }
 
-// AmbiguousDispatch is one set of dispatch ids that bestDispatchWindow
-// could not choose among for some record -- either its identity pass
-// found the record's agent id on more than one window, or (only when the
-// identity pass found none at all) its interval pass found the record's
-// timestamp inside more than one window. DispatchIDs is that whole
-// candidate set, sorted ascending for a deterministic caller (task 6,
-// tasks.md: "the watcher must stamp every candidate").
-//
-// Attribute (below) reports one AmbiguousDispatch per distinct candidate
-// set a batch's records actually hit, not one per record: two records
-// colliding on the exact same set of dispatches have nothing further to
-// tell a caller that stamps every id in the set once, and the stamp
-// itself (store.Store.MarkDispatchesUnattributedByID) merges via the
-// jsonb "||" operator, which is idempotent under an identical repeat
-// stamp -- restamping the same candidate set leaves it unchanged rather
-// than inflating it, so a caller that chose to restamp an identical set
-// anyway would still be correct, just wasteful.
-type AmbiguousDispatch struct {
-	DispatchIDs []int64
-}
-
 // DispatchDelta is one dispatch's contribution from a single attribution
 // pass -- Tokens is DispatchAttributor.Attribute's and
 // attributeAgentFileRecords' previous return value unchanged in meaning,
@@ -715,9 +715,19 @@ type AmbiguousDispatch struct {
 // accumulated from every record -- signal or usage -- this pass credits
 // to it, mirroring Tokens' own Sidechain-only rule (both methods' own doc
 // comments say why only sidechain records reach either pass at all).
+//
+// ApportionedRecords counts the record-shares this dispatch received
+// through apportionment (KAN-414) -- records bestDispatchWindow could not
+// attribute to one window, split across the candidates instead -- as
+// opposed to shares attributed outright. It rides the metrics patch as
+// the dispatch row's concurrency-attribution record, so a figure built
+// partly from apportioned shares is visible as such; it is additive under
+// jsonb_deep_add, which is what makes one counter per batch merge into a
+// correct total.
 type DispatchDelta struct {
-	Tokens  TokenDelta
-	Signals Signals
+	Tokens             TokenDelta
+	Signals            Signals
+	ApportionedRecords int64
 }
 
 // Attribute assigns every *sidechain* record in records to the dispatch
@@ -725,14 +735,17 @@ type DispatchDelta struct {
 // selects -- the window recording the record's own agent id where one is
 // reported on both sides, and otherwise the window whose interval contains
 // its timestamp. It returns one TokenDelta per touched dispatch, keyed by
-// the dispatch row's id, together with every distinct set of dispatch ids
-// a record could not be told apart between (AmbiguousDispatch) -- the
-// candidates bestDispatchWindow's own third return value names, which
-// this method used to discard outright. A caller with somewhere to record
-// an ambiguity (Watcher.attributeDispatches, via
-// SessionTokenBinder.MarkDispatchesUnattributedByID) now has the ids to
-// name; a caller with nowhere to record it is free to ignore the second
-// return value exactly as every caller did before this existed.
+// the dispatch row's id.
+//
+// A record bestDispatchWindow cannot attribute to one window -- its agent
+// id or timestamp matched more than one candidate -- is no longer
+// discarded (KAN-414): its usage is apportioned across the candidates
+// pro-rata by window duration, each share landing in that candidate's
+// delta beside an incremented ApportionedRecords, so the dispatch rows
+// carry the spend instead of naming it lost. bestDispatchWindow's
+// candidates come back in windows order, so apportionRecord sorts them by
+// dispatch id first -- the tie-break its remainder rule uses must not
+// depend on the order DispatchWindowsForSession happened to answer in.
 //
 // Only sidechain records are attributed here, and they land in the
 // Sidechain bucket alone. A dispatching session's own main-thread tokens
@@ -757,15 +770,14 @@ type DispatchDelta struct {
 // Like Attributor.Attribute, this is a pure computation over records and
 // whatever DispatchWindowsForSession answers, and records whose session
 // or timestamp matches no window at all (bestDispatchWindow's ok=false,
-// candidates=nil case) are silently not attributed and not reported as
-// ambiguous -- there is nothing to name a candidate set for. Unlike it,
-// the deltas it produces are not committed atomically with the batch's
-// offset -- see Watcher's own doc comment on the second pass for what
-// that costs and why it is accepted.
-func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (map[int64]DispatchDelta, []AmbiguousDispatch, error) {
+// candidates=nil case) are silently not attributed -- there is nothing to
+// apportion across. Unlike it, the deltas it produces are not committed
+// atomically with the batch's offset -- see Watcher's own doc comment on
+// the second pass for what that costs and why it is accepted.
+func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (map[int64]DispatchDelta, error) {
 	deltas := make(map[int64]DispatchDelta)
 	if len(records) == 0 {
-		return deltas, nil, nil
+		return deltas, nil
 	}
 
 	// Filtering to sidechain records here, rather than inside the
@@ -774,24 +786,16 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 	// DispatchWindowsForSession query.
 	bySession, sessionOrder := groupBySession(records, func(r Record) bool { return r.IsSidechain })
 
-	var ambiguous []AmbiguousDispatch
-	seenAmbiguous := make(map[string]bool)
-
 	for _, sessionID := range sessionOrder {
 		windows, err := a.windows.DispatchWindowsForSession(ctx, sessionID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("harvest: dispatch windows for session %s: %w", sessionID, err)
+			return nil, fmt.Errorf("harvest: dispatch windows for session %s: %w", sessionID, err)
 		}
 		for _, r := range bySession[sessionID] {
 			w, ok, candidates := bestDispatchWindow(windows, r.AgentID, r.Timestamp)
 			if !ok {
-				if len(candidates) > 0 {
-					ids := dispatchIDsOf(candidates)
-					key := dispatchIDsKey(ids)
-					if !seenAmbiguous[key] {
-						seenAmbiguous[key] = true
-						ambiguous = append(ambiguous, AmbiguousDispatch{DispatchIDs: ids})
-					}
+				if len(candidates) > 1 {
+					apportionRecord(r, candidates, deltas)
 				}
 				continue
 			}
@@ -804,33 +808,170 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 		}
 	}
 
-	return deltas, ambiguous, nil
+	return deltas, nil
 }
 
-// dispatchIDsOf returns windows' DispatchIDs, sorted ascending -- both for
-// a deterministic AmbiguousDispatch.DispatchIDs and so dispatchIDsKey
-// produces the same key regardless of the order
-// DispatchWindowsForSession happened to return windows in.
-func dispatchIDsOf(windows []DispatchWindow) []int64 {
-	ids := make([]int64, len(windows))
-	for i, w := range windows {
-		ids[i] = w.DispatchID
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	return ids
-}
+// apportionRecord splits one ambiguous record's usage across its candidate
+// dispatch windows pro-rata by duration (KAN-414), crediting each share
+// to that candidate's Sidechain bucket and counting one apportioned
+// record-share per candidate.
+//
+// Weights are the windows' own spans: a closed window weighs its full
+// [StartedAt, EndedAt), an open one -- no stored end to weigh -- accrues
+// to the record's own timestamp, the span it has demonstrably already
+// covered. A record the identity pass matched may sit outside a
+// candidate's interval entirely; its negative contribution clamps to
+// zero, and a candidate set with no positive weight between them falls
+// back to an equal split (splitInt64's), so the record is still shared
+// rather than dropped on a technicality.
+//
+// The candidates are sorted by dispatch id first, and the split is
+// integer arithmetic with the remainder handed out by largest fractional
+// share, ties to the lower dispatch id: shares are tokens, so they must
+// sum back to exactly the record's usage, and the result must not depend
+// on the order DispatchWindowsForSession answered in.
+//
+// The record's Signals are not apportioned and not credited: a signal is
+// an event -- one tool call, one compaction -- that happened once, in one
+// place a set of indistinguishable candidates cannot name, and splitting
+// an event counter across candidates would invent fractional events
+// rather than measure anything. This is the one piece of the old discard
+// behaviour that survives: ambiguous records contributed no signals
+// before, and they still contribute none.
+func apportionRecord(r Record, candidates []DispatchWindow, deltas map[int64]DispatchDelta) {
+	sorted := append([]DispatchWindow(nil), candidates...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].DispatchID < sorted[j].DispatchID })
 
-// dispatchIDsKey renders a sorted id slice as a map key, for deduplicating
-// AmbiguousDispatch entries in Attribute above.
-func dispatchIDsKey(ids []int64) string {
-	var b strings.Builder
-	for i, id := range ids {
-		if i > 0 {
-			b.WriteByte(',')
+	weights := make([]float64, len(sorted))
+	for i, w := range sorted {
+		end := r.Timestamp
+		if w.EndedAt != nil {
+			end = *w.EndedAt
 		}
-		b.WriteString(strconv.FormatInt(id, 10))
+		d := end.Sub(w.StartedAt).Seconds()
+		if d < 0 {
+			d = 0
+		}
+		weights[i] = d
 	}
-	return b.String()
+
+	shards := splitUsage(r.Usage, weights)
+	for i, w := range sorted {
+		d := deltas[w.DispatchID]
+		d.Tokens.Sidechain.add(shards[i])
+		d.ApportionedRecords++
+		deltas[w.DispatchID] = d
+	}
+}
+
+// splitUsage divides one record's usage into len(weights) shards, one per
+// candidate window, by apportioning each numeric field independently.
+// CacheSplitKnown rides every shard unchanged: it is a fact about how the
+// record's cache-creation total was reported, not about how it is shared,
+// and Bucket.add's 5m/1h-vs-unknown rule reads it per shard exactly as it
+// did for the whole record. Speed is not copied -- the dispatch grain
+// never carries it.
+func splitUsage(u Usage, weights []float64) []Usage {
+	fields := []int64{
+		u.InputTokens,
+		u.CacheCreationInputTokens,
+		u.CacheCreation5mTokens,
+		u.CacheCreation1hTokens,
+		u.CacheReadInputTokens,
+		u.OutputTokens,
+		u.ThinkingTokens,
+	}
+	parts := make([][]int64, len(fields))
+	for i, v := range fields {
+		parts[i] = splitInt64(v, weights)
+	}
+	out := make([]Usage, len(weights))
+	for j := range out {
+		out[j] = Usage{
+			InputTokens:              parts[0][j],
+			CacheCreationInputTokens: parts[1][j],
+			CacheCreation5mTokens:    parts[2][j],
+			CacheCreation1hTokens:    parts[3][j],
+			CacheSplitKnown:          u.CacheSplitKnown,
+			CacheReadInputTokens:     parts[4][j],
+			OutputTokens:             parts[5][j],
+			ThinkingTokens:           parts[6][j],
+		}
+	}
+	return out
+}
+
+// splitInt64 divides v across the weights, returning one share per weight
+// summing to exactly v. Weights are proportional shares (durations, in
+// any unit); a zero or negative total weight means no candidate can be
+// ranked over another, so v is split equally, remainder to the earlier
+// index. Otherwise each weight takes its floor share and the leftover
+// units -- the largest-remainder rule -- go to the weights with the
+// largest fractional shares, ties to the earlier index, which apportionRecord
+// has already aligned with the lower dispatch id.
+func splitInt64(v int64, weights []float64) []int64 {
+	out := make([]int64, len(weights))
+	if v == 0 {
+		return out
+	}
+	n := len(weights)
+	if n == 0 {
+		return out
+	}
+
+	var total float64
+	for _, w := range weights {
+		if w > 0 {
+			total += w
+		}
+	}
+	if total <= 0 {
+		base, rem := v/int64(n), int(v%int64(n))
+		for i := range out {
+			out[i] = base
+			if i < rem {
+				out[i]++
+			}
+		}
+		return out
+	}
+
+	type fracIndex struct {
+		frac float64
+		idx  int
+	}
+	fracs := make([]fracIndex, 0, n)
+	var assigned int64
+	for i, w := range weights {
+		if w < 0 {
+			w = 0
+		}
+		f := float64(v) * (w / total)
+		out[i] = int64(math.Floor(f))
+		assigned += out[i]
+		fracs = append(fracs, fracIndex{frac: f - math.Floor(f), idx: i})
+	}
+	sort.Slice(fracs, func(i, j int) bool {
+		if fracs[i].frac != fracs[j].frac {
+			return fracs[i].frac > fracs[j].frac
+		}
+		return fracs[i].idx < fracs[j].idx
+	})
+	// Each remainder unit goes to the current largest fractional share,
+	// ties to the lower index; the grown share re-enters the ranking so a
+	// second unit can land elsewhere. The remainder is smaller than the
+	// candidate count, so the linear scans cost nothing.
+	for rem := v - assigned; rem > 0; rem-- {
+		best := 0
+		for i := 1; i < len(fracs); i++ {
+			if fracs[i].frac > fracs[best].frac {
+				best = i
+			}
+		}
+		out[fracs[best].idx]++
+		fracs[best].frac++
+	}
+	return out
 }
 
 // bestDispatchWindow returns the dispatch window a record belongs to, in

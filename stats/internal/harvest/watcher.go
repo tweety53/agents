@@ -171,12 +171,11 @@ const maxDispatchMetaBackfillCycles = maxSessionTokenResolutionCycles
 // imports internal/store, so this package is testable against a fake with
 // no PostgreSQL required. The daemon wires a real implementation backed by
 // *store.Store, whose UnresolvedSessionTokens, BindSession,
-// RecordSessionTokenGiveUp, PersistedGiveUps and
-// MarkDispatchesUnattributedByID methods are written to match this
-// interface exactly -- widened by task 6 (tasks.md,
-// kan-212-persist-per-dispatch-cost-tokens-model-and-role) to carry the
-// give-up half of that change alongside the binding half it already
-// carried.
+// RecordSessionTokenGiveUp, PersistedGiveUps and MarkDispatchesUnattributed
+// methods are written to match this interface exactly -- widened by task 6
+// (tasks.md, kan-212-persist-per-dispatch-cost-tokens-model-and-role) to
+// carry the give-up half of that change alongside the binding half it
+// already carried.
 //
 // GiveUp is declared here, in internal/harvest, rather than in
 // internal/store -- store.Store.PersistedGiveUps returns it directly, with
@@ -186,10 +185,11 @@ const maxDispatchMetaBackfillCycles = maxSessionTokenResolutionCycles
 // this interface grows.
 //
 // Widened again by task 6.1 (tasks.md) to add MarkDispatchesUnattributed,
-// the token form: task 6 stamped a dispatch-grain ambiguity by id
-// (MarkDispatchesUnattributedByID) but left the give-up itself stamping
-// nothing, so the "session never bound" state task 8 renders had no
-// producer.
+// the token form: the give-up itself was stamping nothing, so the "session
+// never bound" state task 8 renders had no producer. Its
+// MarkDispatchesUnattributedByID sibling left the interface with KAN-414:
+// a dispatch-grain ambiguity stopped being a stampable failure when it
+// became an apportionment.
 type SessionTokenBinder interface {
 	// UnresolvedSessionTokens returns every stage run id and its session
 	// token for which no session has yet been bound.
@@ -220,24 +220,14 @@ type SessionTokenBinder interface {
 	// now carries the mark a prior process never found binds on this
 	// process's own bounded window.
 	PersistedGiveUps(ctx context.Context) ([]GiveUp, error)
-	// MarkDispatchesUnattributedByID stamps exactly the dispatches named
-	// by ids with the reason their cost could not be attributed, and how
-	// many candidates could not be told apart. attributeDispatches calls
-	// this for the dispatch-grain second pass's own ambiguous outcome
-	// (DispatchAttributor.Attribute's AmbiguousDispatch) -- by dispatch
-	// id, not by session token, because the candidates are specific rows
-	// and stamping every dispatch under their shared session would also
-	// stamp siblings that attributed correctly.
-	MarkDispatchesUnattributedByID(ctx context.Context, ids []int64, reason string, candidates int) error
 	// MarkDispatchesUnattributed stamps every dispatch recorded under
 	// token with the reason its session's cost could not be attributed,
 	// and, when positive, how many candidates an ambiguous match could
 	// not tell apart -- resolveSessionTokens' own two give-up branches
 	// call this immediately after RecordSessionTokenGiveUp, with that
 	// branch's own reason (task 6.1, tasks.md, "stamp the dispatches of
-	// a session that never bound"). Distinct from
-	// MarkDispatchesUnattributedByID above, and not a substitute for it:
-	// a session that never bound leaves every one of its dispatches
+	// a session that never bound"). A session that never bound leaves
+	// every one of its dispatches
 	// uncosted, which this token form expresses by stamping the whole
 	// session at once; a dispatch-grain ambiguity concerns specific
 	// rows, which the id form expresses by naming exactly those rows and
@@ -266,17 +256,15 @@ type GiveUp struct {
 // session_token_giveups.reason -- tell a token that never appeared from
 // one that appeared twice, which are different failures kan-302's own
 // investigation needs told apart.
+//
+// The dispatch-grain ambiguity this block once named a third reason for
+// ("matched more than one dispatch") is no longer a failure at all:
+// KAN-414 made it an apportionment, and the record's spend lands on the
+// candidates pro-rata instead of being written off (apportionRecord,
+// attribute.go).
 const (
 	reasonSessionNeverBound = "session never bound"
 	reasonSessionAmbiguous  = "matched more than one session"
-	// reasonDispatchAmbiguous is what attributeDispatches persists for a
-	// dispatch-grain ambiguity (DispatchAttributor.Attribute's
-	// AmbiguousDispatch) -- distinct from either session-token reason
-	// above, since this failure is not about a session ever binding at
-	// all: it is two or more already-bound dispatches that a record's
-	// agent id or timestamp could not tell apart (bestDispatchWindow's
-	// own doc comment, attribute.go).
-	reasonDispatchAmbiguous = "matched more than one dispatch"
 )
 
 // Source is one transcript source: a root to walk for *.jsonl files and the
@@ -909,72 +897,40 @@ func dispatchAgentIDForPath(path string) (string, bool) {
 // understated rather than wrong -- a whole stage run's usage would be
 // neither.
 //
-// Where DispatchAttributor.Attribute reports an ambiguity -- a record
-// whose agent id or timestamp matched more than one dispatch -- this
-// stamps every candidate as unattributed (task 6, tasks.md, "do not
-// stamp a dispatch that attributed"), through
-// SessionTokenBinder.MarkDispatchesUnattributedByID rather than
-// dispatchMetrics: the stamp is store bookkeeping about a dispatch's
-// metrics bag, the same shape RecordSessionTokenGiveUp and
-// PersistedGiveUps already are, not a token delta. Every Watcher now
-// carries a SessionTokenBinder as part of deps (KAN-173), so this stamp
-// is always written -- the "nowhere to write it" case this comment used
-// to describe no longer exists.
+// Where a record's agent id or timestamp matched more than one dispatch --
+// the ambiguity this pass once wrote off by stamping every candidate
+// unattributed -- Attribute now apportions its usage across the candidates
+// pro-rata by duration (KAN-414, apportionRecord), and the apportioned
+// shares merge through MergeDispatchMetrics beside the outright ones, each
+// touched candidate's patch carrying the concurrency-attribution record
+// (MetricsPatch.Apportioned) that says part of its figure was shared. The
+// "do not stamp a dispatch that attributed" rule (task 6, tasks.md) has no
+// work left to do: nothing is stamped, so nothing attributed can be
+// contradicted by a stamp.
 func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, path string) {
 	if agentID, ok := dispatchAgentIDForPath(path); ok {
 		w.attributeAgentFile(ctx, records, path, agentID)
 		return
 	}
 
-	deltas, ambiguous, err := w.dispatchAttributor.Attribute(ctx, records)
+	deltas, err := w.dispatchAttributor.Attribute(ctx, records)
 	if err != nil {
 		w.warn("harvest: attribute dispatch windows failed, this batch's dispatch figures are lost", "path", path, "error", err)
 		return
 	}
 
 	for dispatchID, dd := range deltas {
-		patch, err := json.Marshal(MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}})
+		mp := MetricsPatch{Tokens: dd.Tokens, Signals: &SignalsDelta{Sidechain: dd.Signals}}
+		if dd.ApportionedRecords > 0 {
+			mp.Apportioned = &ApportionedDelta{Records: dd.ApportionedRecords}
+		}
+		patch, err := json.Marshal(mp)
 		if err != nil {
 			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
 			continue
 		}
 		if err := w.deps.MergeDispatchMetrics(ctx, dispatchID, patch); err != nil {
 			w.warn("harvest: merge dispatch metrics failed, this batch's figures for it are lost", "path", path, "dispatch_id", dispatchID, "error", err)
-		}
-	}
-
-	for _, a := range ambiguous {
-		// Filter out any candidate this very call already merged real
-		// tokens for above: DispatchAttributor.Attribute computes deltas
-		// and ambiguous independently, per record, so the same batch can
-		// legitimately attribute one record to a dispatch cleanly while a
-		// different record's agent id remains ambiguous between that same
-		// dispatch and another one (bestDispatchWindow's identity pass
-		// matches on AgentID alone, ignoring the record's own timestamp,
-		// so two windows sharing an AgentID make every id-carrying record
-		// ambiguous across both regardless of which one it actually falls
-		// in). Stamping an attributed dispatch unattributed here would
-		// contradict task 6 step 4's own words, "Do not stamp a dispatch
-		// that attributed" -- so a candidate already present in deltas is
-		// dropped from the stamp, never merely overwritten by it.
-		//
-		// candidates is still the ambiguity's full, unfiltered size
-		// (len(a.DispatchIDs)), not len(ids): what a stamped dispatch
-		// could not be told apart from is a fact about that record's
-		// identity match, unchanged by whether a sibling candidate
-		// happened to attribute something else in this same batch.
-		var ids []int64
-		for _, id := range a.DispatchIDs {
-			if _, attributed := deltas[id]; attributed {
-				continue
-			}
-			ids = append(ids, id)
-		}
-		if len(ids) == 0 {
-			continue
-		}
-		if err := w.deps.MarkDispatchesUnattributedByID(ctx, ids, reasonDispatchAmbiguous, len(a.DispatchIDs)); err != nil {
-			w.warn("harvest: mark dispatches unattributed failed", "path", path, "dispatch_ids", ids, "error", err)
 		}
 	}
 }

@@ -10,13 +10,13 @@ import (
 )
 
 // TestUnattributedReasonStringsMatchTheLedgersCopy pins internal/records'
-// duplicated copy of the three "unattributed" reason strings this package
-// declares -- reasonSessionNeverBound, reasonSessionAmbiguous and
-// reasonDispatchAmbiguous -- against the actual constants, rather than
-// against a second hand-typed copy of them.
+// duplicated copy of the "unattributed" reason strings this package still
+// declares -- reasonSessionNeverBound and reasonSessionAmbiguous -- against
+// the actual constants, rather than against a second hand-typed copy of
+// them.
 //
 // WHY THE DUPLICATION EXISTS, AND WHY THIS TEST LIVES HERE RATHER THAN
-// REMOVING IT. internal/records/render.go restates these three literals
+// REMOVING IT. internal/records/render.go restates these literals
 // because internal/records must not import internal/harvest -- it is the
 // wire shape every layer depends on, and importing the harvester into it
 // to reuse four field names would invert that dependency. The tradeoff is
@@ -67,12 +67,13 @@ func TestUnattributedReasonStringsMatchTheLedgersCopy(t *testing.T) {
 			bag:    `{"unattributed":{"reason":` + jsonString(reasonSessionAmbiguous) + `,"candidates":2}}`,
 			want:   "cost unattributed — the session token matched 2 sessions",
 		},
-		{
-			name:   "reasonDispatchAmbiguous",
-			reason: reasonDispatchAmbiguous,
-			bag:    `{"unattributed":{"reason":` + jsonString(reasonDispatchAmbiguous) + `,"candidates":3}}`,
-			want:   "cost unattributed — indistinguishable from 3 concurrent dispatches",
-		},
+		// reasonDispatchAmbiguous's case is gone with KAN-414: the
+		// dispatch-grain ambiguity it named is an apportionment now, not
+		// a give-up reason this package produces. internal/records keeps
+		// its copy of the literal and its wording for rows stamped before
+		// the change, rendered through tokenLine's own case -- pinned
+		// there, not here, since no producer constant survives to pin
+		// against.
 	}
 
 	for _, tc := range cases {

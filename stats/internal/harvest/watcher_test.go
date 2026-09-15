@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1263,10 +1262,6 @@ func (d sessionBinderDeps) PersistedGiveUps(ctx context.Context) ([]harvest.Give
 	return d.binder.PersistedGiveUps(ctx)
 }
 
-func (d sessionBinderDeps) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64, reason string, candidates int) error {
-	return d.binder.MarkDispatchesUnattributedByID(ctx, ids, reason, candidates)
-}
-
 func (d sessionBinderDeps) MarkDispatchesUnattributed(ctx context.Context, token, reason string, candidates int) error {
 	return d.binder.MarkDispatchesUnattributed(ctx, token, reason, candidates)
 }
@@ -1461,36 +1456,31 @@ type crossedTokenRun struct {
 	startedAt    time.Time
 }
 
-// noopGiveUpAndAmbiguityRecorder is the shared no-op stand-in for the four
-// SessionTokenBinder methods (task 6, tasks.md) that record give-ups and
-// dispatch-grain ambiguity -- RecordSessionTokenGiveUp, PersistedGiveUps,
-// MarkDispatchesUnattributedByID and MarkDispatchesUnattributed. Embedded
-// by both fakeSessionTokenStore and togglableSessionTokenBinder below,
-// neither of whose own tests drives a give-up or an ambiguity, so both
-// need these four to exist only to keep satisfying the widened
+// noopGiveUpRecorder is the shared no-op stand-in for the three
+// SessionTokenBinder methods (task 6, tasks.md) that record give-ups --
+// RecordSessionTokenGiveUp, PersistedGiveUps and MarkDispatchesUnattributed.
+// Embedded by both fakeSessionTokenStore and togglableSessionTokenBinder below,
+// neither of whose own tests drives a give-up, so all
+// three need to exist only to keep satisfying the widened
 // harvest.SessionTokenBinder, never to record anything.
-type noopGiveUpAndAmbiguityRecorder struct{}
+type noopGiveUpRecorder struct{}
 
-func (noopGiveUpAndAmbiguityRecorder) RecordSessionTokenGiveUp(_ context.Context, _, _ string, _ time.Time) error {
+func (noopGiveUpRecorder) RecordSessionTokenGiveUp(_ context.Context, _, _ string, _ time.Time) error {
 	return nil
 }
 
-func (noopGiveUpAndAmbiguityRecorder) PersistedGiveUps(_ context.Context) ([]harvest.GiveUp, error) {
+func (noopGiveUpRecorder) PersistedGiveUps(_ context.Context) ([]harvest.GiveUp, error) {
 	return nil, nil
 }
 
-func (noopGiveUpAndAmbiguityRecorder) MarkDispatchesUnattributedByID(_ context.Context, _ []int64, _ string, _ int) error {
-	return nil
-}
-
-func (noopGiveUpAndAmbiguityRecorder) MarkDispatchesUnattributed(_ context.Context, _, _ string, _ int) error {
+func (noopGiveUpRecorder) MarkDispatchesUnattributed(_ context.Context, _, _ string, _ int) error {
 	return nil
 }
 
 // fakeSessionTokenStore implements both harvest.SessionTokenBinder and
 // harvest.WindowSource over the same in-memory runs map.
 type fakeSessionTokenStore struct {
-	noopGiveUpAndAmbiguityRecorder
+	noopGiveUpRecorder
 	runs map[int64]*crossedTokenRun
 }
 
@@ -1653,10 +1643,6 @@ type countingSessionTokenBinder struct {
 	seededGiveUps         []harvest.GiveUp
 	persistedGiveUpsCalls int
 
-	// unattributedCalls is one entry per MarkDispatchesUnattributedByID
-	// call, in call order.
-	unattributedCalls []unattributedCall
-
 	// unattributedTokenCalls is one entry per MarkDispatchesUnattributed
 	// (the token form) call, in call order. unattributedTokenErr, when
 	// set, is what every such call returns -- TestGiveUpStampsItsOwnDispatches'
@@ -1665,16 +1651,6 @@ type countingSessionTokenBinder struct {
 	// own outcome from standing.
 	unattributedTokenCalls []unattributedTokenCall
 	unattributedTokenErr   error
-}
-
-// unattributedCall is one MarkDispatchesUnattributedByID call's
-// arguments, predicted from store.Store.MarkDispatchesUnattributedByID
-// (records.go) -- ids, not a session token, since a dispatch-grain
-// ambiguity names specific rows (task 6's own corrections, tasks.md).
-type unattributedCall struct {
-	ids        []int64
-	reason     string
-	candidates int
 }
 
 // unattributedTokenCall is one MarkDispatchesUnattributed call's
@@ -1741,14 +1717,6 @@ func (c *countingSessionTokenBinder) RecordSessionTokenGiveUp(_ context.Context,
 func (c *countingSessionTokenBinder) PersistedGiveUps(_ context.Context) ([]harvest.GiveUp, error) {
 	c.persistedGiveUpsCalls++
 	return c.seededGiveUps, nil
-}
-
-// MarkDispatchesUnattributedByID records its call rather than doing
-// anything with ids, reason or candidates -- this fake is never asked to
-// answer a later read of them, only to prove they were passed.
-func (c *countingSessionTokenBinder) MarkDispatchesUnattributedByID(_ context.Context, ids []int64, reason string, candidates int) error {
-	c.unattributedCalls = append(c.unattributedCalls, unattributedCall{ids: ids, reason: reason, candidates: candidates})
-	return nil
 }
 
 // MarkDispatchesUnattributed records its call (the token form, task 6.1)
@@ -2048,7 +2016,7 @@ func TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle(t *testing.T) {
 // from before the binder existed, and only later-written bytes were ever
 // scanned against the newly-pending token.
 type togglableSessionTokenBinder struct {
-	noopGiveUpAndAmbiguityRecorder
+	noopGiveUpRecorder
 	sessionToken string
 	stageRunID   int64
 	pending      bool
@@ -2351,18 +2319,24 @@ func TestEchoedMarkExampleIsAnAcceptedResidual(t *testing.T) {
 }
 
 // fakeDispatchMetricsSink is DispatchMetricsSink's minimal in-memory
-// stand-in for TestAmbiguousDispatchIsStamped below -- it only needs to
-// prove whether a merge happened, not to reproduce jsonb_deep_add's own
-// merge semantics the way fakeHarvestSink does for the stage grain.
+// stand-in for TestWatcherMergesApportionedDispatchMetrics below -- it
+// records every merge call's raw patch so the test can assert the
+// apportioned figures the watcher marshalled, not merely that a merge
+// happened.
 type fakeDispatchMetricsSink struct {
-	merged map[int64]int // dispatchID -> call count
+	merged  map[int64]int // dispatchID -> call count
+	patches map[int64][]json.RawMessage
 }
 
-func (s *fakeDispatchMetricsSink) MergeDispatchMetrics(_ context.Context, dispatchID int64, _ json.RawMessage) error {
+func (s *fakeDispatchMetricsSink) MergeDispatchMetrics(_ context.Context, dispatchID int64, patch json.RawMessage) error {
 	if s.merged == nil {
 		s.merged = map[int64]int{}
 	}
 	s.merged[dispatchID]++
+	if s.patches == nil {
+		s.patches = map[int64][]json.RawMessage{}
+	}
+	s.patches[dispatchID] = append(s.patches[dispatchID], patch)
 	return nil
 }
 
@@ -2467,17 +2441,14 @@ func TestGiveUpIsPersisted(t *testing.T) {
 
 // TestGiveUpStampsItsOwnDispatches is task 6.1 (tasks.md, "Stamp a
 // given-up session's own dispatches"): task 6 wired the give-up itself
-// into RecordSessionTokenGiveUp and a dispatch-grain ambiguity into
-// MarkDispatchesUnattributedByID, but left nothing stamping the
+// into RecordSessionTokenGiveUp, but left nothing stamping the
 // dispatches of a session that gave up -- the "cost unattributed --
 // session never bound" state task 8 renders had no producer at all.
 // Both of resolveSessionTokens' give-up branches must call
 // MarkDispatchesUnattributed (the token form) immediately after
 // RecordSessionTokenGiveUp, carrying that branch's own reason -- a
 // session that never bound leaves every one of its dispatches uncosted,
-// which the token form expresses; the id form (MarkDispatchesUnattributedByID)
-// names specific rows for a narrower, dispatch-grain ambiguity and is not
-// a substitute for it.
+// which the token form expresses.
 func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
 	t.Run("bounded window exhausted", func(t *testing.T) {
 		dir := t.TempDir()
@@ -2866,85 +2837,24 @@ func TestRetryStillBounded(t *testing.T) {
 	}
 }
 
-// TestAmbiguousDispatchIsStamped is task 5 step 5 (tasks.md): where the
-// dispatch-grain second pass's bestDispatchWindow (attribute.go) refuses
-// to attribute a record because it matched more than one dispatch by
-// agent id -- the identity pass's own ambiguous case,
-// TestDispatchDuplicateAgentIDAttributesToNeither's scenario in
-// attribute_test.go, driven here through a real Watcher rather than
-// Attribute directly -- the Watcher must stamp every candidate as
-// unattributed with the ambiguity's reason and candidate count, and must
-// never merge dispatch metrics for a record it refused to attribute.
-func TestAmbiguousDispatchIsStamped(t *testing.T) {
-	dir := t.TempDir()
-	binder := &countingSessionTokenBinder{}
-
-	dispatchWindows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
-		mainSessionID: {
-			panelWindow(t, 1, "agent-one", "2026-01-01T00:10:00Z"),
-			panelWindow(t, 2, "agent-one", "2026-01-01T00:10:00.5Z"),
-		},
-	}}
-	dispatchSink := &fakeDispatchMetricsSink{}
-
-	line := fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:10:30Z","sessionId":%q,"isSidechain":true,"agentId":"agent-one","message":{"model":"claude-opus-5","usage":{"input_tokens":5,"output_tokens":1}}}`+"\n", mainSessionID)
-	if err := os.WriteFile(filepath.Join(dir, "panel.jsonl"), []byte(line), 0o644); err != nil {
-		t.Fatalf("write panel.jsonl: %v", err)
-	}
-
-	stageWindows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
-	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(stageWindows), sessionBinderAndDispatchDeps{
-		sessionBinderDeps: sessionBinderDeps{binder: binder},
-		windows:           dispatchWindows,
-		sink:              dispatchSink,
-	}, nil)
-
-	if _, err := w.RunOnce(context.Background()); err != nil {
-		t.Fatalf("RunOnce: %v", err)
-	}
-
-	if len(dispatchSink.merged) != 0 {
-		t.Fatalf("dispatch metrics merged = %v, want none: two dispatches recording the same agent id is ambiguous, and an ambiguous record must not attribute to either", dispatchSink.merged)
-	}
-	if len(binder.unattributedCalls) != 1 {
-		t.Fatalf("MarkDispatchesUnattributedByID called %d times, want exactly 1: %v", len(binder.unattributedCalls), binder.unattributedCalls)
-	}
-	got := binder.unattributedCalls[0]
-	if got.reason == "" {
-		t.Fatalf("unattributed reason is empty, want a reason naming the ambiguity")
-	}
-	if got.candidates != 2 {
-		t.Fatalf("unattributed candidates = %d, want 2 (the two dispatches the record's agent id matched)", got.candidates)
-	}
-	if !reflect.DeepEqual(got.ids, []int64{1, 2}) {
-		t.Fatalf("unattributed ids = %v, want [1 2] -- the ambiguity names specific dispatch rows, not the session token", got.ids)
-	}
-}
-
-// TestDispatchThatAttributedIsNeverStampedUnattributed is the regression
-// test for review finding F2 (this change's own review panel):
-// TestAmbiguousDispatchIsStamped above only ever drives a batch whose
-// ambiguous candidates receive no tokens at all, so it never caught a
-// dispatch that is *both* merged with real tokens *and* named in the same
-// batch's ambiguous stamp -- contradicting task 6 step 4's own words, "Do
-// not stamp a dispatch that attributed."
+// TestWatcherMergesApportionedDispatchMetrics drives the KAN-414 behaviour
+// through a real Watcher: where the dispatch-grain second pass's
+// bestDispatchWindow (attribute.go) cannot attribute a record to one
+// dispatch -- two windows sharing the record's agent id -- the watcher no
+// longer stamps the candidates unattributed (the discard path this
+// change removes); it merges each candidate its pro-rata share of the
+// record's usage instead, with the concurrency-attribution record riding
+// the same patch. A clean record in the same batch still attributes
+// outright, exactly as it always did.
 //
-// The two panel windows below share agent id "agent-one", exactly as
-// TestAmbiguousDispatchIsStamped's do, so a record carrying that id is
-// ambiguous between dispatch 1 and dispatch 2 regardless of its own
-// timestamp (bestDispatchWindow's identity pass ignores the interval
-// entirely, attribute.go). This batch adds a second, sidechain record
-// besides that one: no agent id at all, timestamped at 00:10:00.2 --
-// inside dispatch 1's own interval but before dispatch 2's opens at
-// 00:10:00.5 -- so the interval pass (bestDispatchWindow's fallback)
-// attributes it cleanly to dispatch 1 alone, in the very same batch that
-// also reports [1, 2] as ambiguous. Dispatch 1 must receive its merged
-// tokens and must never appear in the unattributed stamp; dispatch 2,
-// which this batch attributed nothing to, is the only one left to stamp
-// -- still carrying the ambiguity's own full candidate count (2), not the
-// filtered id count (1).
-func TestDispatchThatAttributedIsNeverStampedUnattributed(t *testing.T) {
+// The two panel windows below share agent id "agent-one" and run 60s and
+// 59.5s, so the ambiguous record's 5 input tokens split 3 and 2 (largest
+// remainder, dispatch-id tie-break); the clean record -- no agent id,
+// timestamped before dispatch 2 opens -- credits dispatch 1 alone with its
+// full 99. Dispatch 1's one patch therefore carries sidechain input 102
+// and apportioned records 1, and dispatch 2's carries input 2 and
+// apportioned records 1.
+func TestWatcherMergesApportionedDispatchMetrics(t *testing.T) {
 	dir := t.TempDir()
 	binder := &countingSessionTokenBinder{}
 
@@ -2974,27 +2884,31 @@ func TestDispatchThatAttributedIsNeverStampedUnattributed(t *testing.T) {
 		t.Fatalf("RunOnce: %v", err)
 	}
 
-	if dispatchSink.merged[1] != 1 {
-		t.Fatalf("dispatch 1 merged = %d, want 1: the clean record's tokens must still reach the sink", dispatchSink.merged[1])
+	if dispatchSink.merged[1] != 1 || dispatchSink.merged[2] != 1 {
+		t.Fatalf("merges = %v, want one patch per candidate dispatch", dispatchSink.merged)
+	}
+	if len(binder.unattributedTokenCalls) != 0 {
+		t.Fatalf("token-form stamps = %v, want none -- the ambiguity is apportioned now, not given up", binder.unattributedTokenCalls)
 	}
 
-	for _, call := range binder.unattributedCalls {
-		for _, id := range call.ids {
-			if id == 1 {
-				t.Fatalf("dispatch 1 stamped unattributed (%+v) despite receiving real tokens in the same batch -- task 6 step 4: %q", call, "Do not stamp a dispatch that attributed")
-			}
-		}
+	var patch1, patch2 harvest.MetricsPatch
+	if err := json.Unmarshal(dispatchSink.patches[1][0], &patch1); err != nil {
+		t.Fatalf("unmarshal dispatch 1 patch: %v", err)
 	}
-
-	if len(binder.unattributedCalls) != 1 {
-		t.Fatalf("MarkDispatchesUnattributedByID called %d times, want exactly 1 (for dispatch 2 alone): %v", len(binder.unattributedCalls), binder.unattributedCalls)
+	if err := json.Unmarshal(dispatchSink.patches[2][0], &patch2); err != nil {
+		t.Fatalf("unmarshal dispatch 2 patch: %v", err)
 	}
-	got2 := binder.unattributedCalls[0]
-	if !reflect.DeepEqual(got2.ids, []int64{2}) {
-		t.Fatalf("unattributed ids = %v, want [2] -- dispatch 1 attributed in this batch and must be filtered out of the stamp", got2.ids)
+	if got := patch1.Tokens.Sidechain.Input; got != 102 {
+		t.Errorf("dispatch 1 sidechain input = %d, want 102 (the clean record's 99 plus its 3/5 share)", got)
 	}
-	if got2.candidates != 2 {
-		t.Fatalf("unattributed candidates = %d, want 2 -- the true size of the ambiguity, not the filtered id count", got2.candidates)
+	if patch1.Apportioned == nil || patch1.Apportioned.Records != 1 {
+		t.Errorf("dispatch 1 apportioned = %+v, want one apportioned record share", patch1.Apportioned)
+	}
+	if got := patch2.Tokens.Sidechain.Input; got != 2 {
+		t.Errorf("dispatch 2 sidechain input = %d, want 2 (its 2/5 share)", got)
+	}
+	if patch2.Apportioned == nil || patch2.Apportioned.Records != 1 {
+		t.Errorf("dispatch 2 apportioned = %+v, want one apportioned record share", patch2.Apportioned)
 	}
 }
 

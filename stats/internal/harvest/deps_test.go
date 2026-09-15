@@ -51,10 +51,6 @@ func TestNoDepsReturnsZeroValuesAndNoError(t *testing.T) {
 		t.Errorf("PersistedGiveUps: got %v, want nil slice", giveUps)
 	}
 
-	if err := d.MarkDispatchesUnattributedByID(ctx, []int64{1, 2}, "reason", 2); err != nil {
-		t.Errorf("MarkDispatchesUnattributedByID: got error %v, want nil", err)
-	}
-
 	if err := d.MarkDispatchesUnattributed(ctx, "token", "reason", 2); err != nil {
 		t.Errorf("MarkDispatchesUnattributed: got error %v, want nil", err)
 	}

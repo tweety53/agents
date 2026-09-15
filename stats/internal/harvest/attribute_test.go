@@ -1056,7 +1056,7 @@ func TestDispatchWindowAttributesSidechainUsage(t *testing.T) {
 	}}
 	a := harvest.NewDispatchAttributor(windows)
 
-	deltas, _, err := a.Attribute(context.Background(), records)
+	deltas, err := a.Attribute(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
@@ -1112,7 +1112,7 @@ func TestDispatchWindowIgnoresMainThreadUsage(t *testing.T) {
 	}}
 	a := harvest.NewDispatchAttributor(windows)
 
-	deltas, _, err := a.Attribute(context.Background(), records)
+	deltas, err := a.Attribute(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
@@ -1164,7 +1164,7 @@ func TestDispatchAttributionLeavesStageAttributionUnchanged(t *testing.T) {
 	dispatches := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
 		bySession: map[string][]harvest.DispatchWindow{mainSessionID: {dispatchWindow(t, 77)}},
 	})
-	if _, _, err := dispatches.Attribute(context.Background(), records); err != nil {
+	if _, err := dispatches.Attribute(context.Background(), records); err != nil {
 		t.Fatalf("dispatch Attribute: %v", err)
 	}
 
@@ -1208,7 +1208,7 @@ func TestRecordOutsideEveryDispatchWindowIsNotAttributed(t *testing.T) {
 	}}
 	a := harvest.NewDispatchAttributor(windows)
 
-	deltas, _, err := a.Attribute(context.Background(), sidechainRecords(t))
+	deltas, err := a.Attribute(context.Background(), sidechainRecords(t))
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
@@ -1242,7 +1242,7 @@ func TestDispatchWindowIntervalIsHalfOpen(t *testing.T) {
 			bySession: map[string][]harvest.DispatchWindow{mainSessionID: order},
 		})
 
-		deltas, _, err := a.Attribute(context.Background(), sidechainRecords(t))
+		deltas, err := a.Attribute(context.Background(), sidechainRecords(t))
 		if err != nil {
 			t.Fatalf("order %v: Attribute: %v", order, err)
 		}
@@ -1306,7 +1306,7 @@ func attributeInEveryOrder(t *testing.T, windows []harvest.DispatchWindow, recor
 		a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
 			bySession: map[string][]harvest.DispatchWindow{mainSessionID: order},
 		})
-		deltas, _, err := a.Attribute(context.Background(), records)
+		deltas, err := a.Attribute(context.Background(), records)
 		if err != nil {
 			t.Fatalf("order %v: Attribute: %v", dispatchIDs(order), err)
 		}
@@ -1477,7 +1477,7 @@ func TestDispatchIdentityBeatsInterval(t *testing.T) {
 	a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
 		bySession: map[string][]harvest.DispatchWindow{mainSessionID: windows},
 	})
-	deltas, _, err := a.Attribute(context.Background(), records)
+	deltas, err := a.Attribute(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
@@ -1486,45 +1486,114 @@ func TestDispatchIdentityBeatsInterval(t *testing.T) {
 	}
 }
 
-// TestDispatchDuplicateAgentIDAttributesToNeither is the identity pass's own
-// ambiguous case: two dispatches recording the same agent id, with a record
-// carrying that id landing inside both windows. A tie broken by interval or
-// by row order would reintroduce the same silent misattribution this change
-// removes, one layer down -- so the returned map must be empty, not resolved
-// by either fallback.
-func TestDispatchDuplicateAgentIDAttributesToNeither(t *testing.T) {
+// TestAttributeApportionsAmbiguousRecordsProRataByDuration is the
+// identity pass's own ambiguous case, resolved by apportioning instead of
+// by discarding (KAN-414): two dispatches recording the same agent id,
+// with a record carrying that id landing inside both windows. The
+// record's usage is split pro-rata by window duration -- a 1-minute and a
+// 3-minute window sharing an id split 8 input tokens 2 and 6 -- and each
+// candidate's delta records that it received one apportioned share. The
+// split must hold in every window order, which the dispatch-id tie-break
+// in the remainder rule is what guarantees.
+func TestAttributeApportionsAmbiguousRecordsProRataByDuration(t *testing.T) {
 	windows := []harvest.DispatchWindow{
-		panelWindow(t, 1, "agent-one", "2026-01-01T00:10:00Z"),
-		panelWindow(t, 2, "agent-one", "2026-01-01T00:10:00.5Z"),
+		{DispatchID: 1, AgentID: "agent-one", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 2, AgentID: "agent-one", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:13:00Z"))},
 	}
 	records := []harvest.Record{
-		sidechainRecord(t, "agent-one", "2026-01-01T00:10:30Z", 5),
+		sidechainRecord(t, "agent-one", "2026-01-01T00:10:30Z", 8),
 	}
 
 	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
-		if len(deltas) != 0 {
-			t.Fatalf("deltas = %v, want empty: two dispatches record the same agent id, so the identity pass is ambiguous and must not fall back to the interval or to row order", deltas)
+		if got := deltas[1].Tokens.Sidechain.Input; got != 2 {
+			t.Errorf("dispatch 1 input = %d, want 2 -- one minute of four", got)
+		}
+		if got := deltas[2].Tokens.Sidechain.Input; got != 6 {
+			t.Errorf("dispatch 2 input = %d, want 6 -- three minutes of four", got)
+		}
+		for _, id := range []int64{1, 2} {
+			if got := deltas[id].ApportionedRecords; got != 1 {
+				t.Errorf("dispatch %d apportioned records = %d, want 1", id, got)
+			}
 		}
 	})
 }
 
-// TestDispatchAmbiguousOverlapAttributesToNone is the kan-295 case in
-// miniature: three windows with byte-identical intervals and no agent id on
-// either side, so the identity pass finds no candidate and the interval pass
-// finds three. The returned map must be empty -- not that the
-// latest-started window wins, which is exactly the silent misattribution
-// this change removes.
-func TestDispatchAmbiguousOverlapAttributesToNone(t *testing.T) {
+// TestAttributeApportionmentConservesUsage pins the split's own
+// accounting: shares are integers, so a record whose usage does not divide
+// evenly across identical candidates must still be credited in full --
+// every token lands somewhere, and the apportioned-records count names
+// one share per candidate.
+func TestAttributeApportionmentConservesUsage(t *testing.T) {
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 21, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 22, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
-		{DispatchID: 23, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 	}
-	records := []harvest.Record{sidechainRecord(t, "", "2026-01-01T00:10:30Z", 3)}
+	records := []harvest.Record{
+		{Timestamp: mustParse(t, "2026-01-01T00:10:30Z"), SessionID: mainSessionID, IsSidechain: true,
+			Usage: harvest.Usage{InputTokens: 5, OutputTokens: 7}},
+	}
 
 	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
-		if len(deltas) != 0 {
-			t.Fatalf("deltas = %v, want empty: three windows contain the record and none carries an agent id, so the interval pass is ambiguous too -- not that the latest-started window wins", deltas)
+		var input, output int64
+		for _, d := range deltas {
+			input += d.Tokens.Sidechain.Input
+			output += d.Tokens.Sidechain.Output
+		}
+		if input != 5 || output != 7 {
+			t.Fatalf("apportioned totals = input %d output %d, want input 5 output 7 -- the split conserves the record's usage", input, output)
+		}
+		if deltas[21].Tokens.Sidechain.Input < 2 || deltas[22].Tokens.Sidechain.Input < 2 {
+			t.Fatalf("inputs %d and %d, want a 3/2 split -- no candidate may be left with nothing a fair share owes it",
+				deltas[21].Tokens.Sidechain.Input, deltas[22].Tokens.Sidechain.Input)
+		}
+		if deltas[21].Tokens.Sidechain.Input == deltas[22].Tokens.Sidechain.Input {
+			t.Fatalf("inputs %d and %d, want the odd token on exactly one candidate (largest remainder, dispatch-id tie-break)",
+				deltas[21].Tokens.Sidechain.Input, deltas[22].Tokens.Sidechain.Input)
+		}
+		for _, id := range []int64{21, 22} {
+			if got := deltas[id].ApportionedRecords; got != 1 {
+				t.Errorf("dispatch %d apportioned records = %d, want 1", id, got)
+			}
+		}
+	})
+}
+
+// TestAttributeApportionmentEqualSplitsZeroDurationCandidates covers the
+// zero-weight fallback: a window whose StartedAt equals its EndedAt has no
+// duration to weight by, so when every candidate is weightless the record
+// is split equally rather than dropped on a technicality.
+func TestAttributeApportionmentEqualSplitsZeroDurationCandidates(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 31, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:00Z"))},
+		{DispatchID: 32, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:00Z"))},
+	}
+	records := []harvest.Record{sidechainRecord(t, "a1", "2026-01-01T00:15:00Z", 4)}
+
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+		if deltas[31].Tokens.Sidechain.Input != 2 || deltas[32].Tokens.Sidechain.Input != 2 {
+			t.Fatalf("inputs %d and %d, want 2 and 2 -- equal split when no candidate has a duration to weight by",
+				deltas[31].Tokens.Sidechain.Input, deltas[32].Tokens.Sidechain.Input)
+		}
+	})
+}
+
+// TestAttributeOpenWindowAccruesToRecordTimestamp pins the open-window
+// weight: a dispatch that has not ended yet has no stored duration, so its
+// weight accrues to the record's own timestamp -- the interval the window
+// has demonstrably already covered -- while the closed candidate beside it
+// weights its full span.
+func TestAttributeOpenWindowAccruesToRecordTimestamp(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 41, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 42, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: nil},
+	}
+	records := []harvest.Record{sidechainRecord(t, "a1", "2026-01-01T00:10:30Z", 9)}
+
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+		if deltas[41].Tokens.Sidechain.Input != 6 || deltas[42].Tokens.Sidechain.Input != 3 {
+			t.Fatalf("inputs %d and %d, want 6 and 3 -- a full minute weights double the open window's accrued half minute",
+				deltas[41].Tokens.Sidechain.Input, deltas[42].Tokens.Sidechain.Input)
 		}
 	})
 }
@@ -1551,10 +1620,11 @@ func TestDispatchSameAgentIDNarrowedByInterval(t *testing.T) {
 	})
 }
 
-// TestDispatchSameAgentIDOutsideBothStaysAmbiguous guards the other
-// direction: an id-matched record inside neither window is still refused,
-// with both windows reported as the candidates.
-func TestDispatchSameAgentIDOutsideBothStaysAmbiguous(t *testing.T) {
+// TestDispatchSameAgentIDOutsideBothApportions guards the other direction:
+// an id-matched record inside neither window is still apportioned across
+// the candidates -- equal durations here, so an equal split -- rather than
+// being resolved by a guess or dropped on the floor.
+func TestDispatchSameAgentIDOutsideBothApportions(t *testing.T) {
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 41, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 42, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:20:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:21:00Z"))},
@@ -1564,15 +1634,13 @@ func TestDispatchSameAgentIDOutsideBothStaysAmbiguous(t *testing.T) {
 	a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
 		bySession: map[string][]harvest.DispatchWindow{mainSessionID: windows},
 	})
-	deltas, ambiguous, err := a.Attribute(context.Background(), records)
+	deltas, err := a.Attribute(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
-	if len(deltas) != 0 {
-		t.Fatalf("deltas = %v, want empty", deltas)
-	}
-	if len(ambiguous) != 1 || len(ambiguous[0].DispatchIDs) != 2 {
-		t.Fatalf("ambiguous = %+v, want one entry naming dispatches 41 and 42", ambiguous)
+	if deltas[41].Tokens.Sidechain.Input != 3 || deltas[42].Tokens.Sidechain.Input != 2 {
+		t.Fatalf("inputs %d and %d, want 3 and 2 -- the odd token of an equal split lands on the lower dispatch id",
+			deltas[41].Tokens.Sidechain.Input, deltas[42].Tokens.Sidechain.Input)
 	}
 }
 
@@ -1590,7 +1658,7 @@ func TestDispatchNonOverlappingIntervalStillAttributes(t *testing.T) {
 	a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
 		bySession: map[string][]harvest.DispatchWindow{mainSessionID: windows},
 	})
-	deltas, _, err := a.Attribute(context.Background(), records)
+	deltas, err := a.Attribute(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}

@@ -386,13 +386,15 @@ var (
 	_ harvest.DispatchWindowSource = (*store.Store)(nil)
 	_ harvest.DispatchMetricsSink  = (*store.Store)(nil)
 	_ sweep.AbandonedSweeper       = (*store.Store)(nil)
-	// *store.Store satisfies the widened harvest.SessionTokenBinder (task
-	// 6, kan-212-persist-per-dispatch-cost-tokens-model-and-role) with no
+	// *store.Store satisfies harvest.SessionTokenBinder (task 6,
+	// kan-212-persist-per-dispatch-cost-tokens-model-and-role) with no
 	// adapter either: RecordSessionTokenGiveUp, PersistedGiveUps and
-	// MarkDispatchesUnattributedByID are written to match it exactly,
+	// MarkDispatchesUnattributed are written to match it exactly,
 	// PersistedGiveUps returning harvest.GiveUp directly for the same
 	// reason DispatchWindowsForSession returns harvest.DispatchWindow
-	// directly, above.
+	// directly, above. (Its MarkDispatchesUnattributedByID sibling left
+	// the interface with KAN-414, when the dispatch-grain ambiguity it
+	// stamped became an apportionment; the store method went with it.)
 	_ harvest.SessionTokenBinder = (*store.Store)(nil)
 	// harvest.Deps composes Pricer, SessionTokenBinder,
 	// DispatchMetricsSink and DispatchWindowSource -- the four checks

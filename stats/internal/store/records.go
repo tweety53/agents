@@ -762,56 +762,6 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 	return nil
 }
 
-// MarkDispatchesUnattributedByID stamps exactly the dispatches named by
-// ids with the reason their cost could not be attributed -- the
-// dispatch-grain second pass's own ambiguity counterpart of
-// MarkDispatchesUnattributed above, added beside it rather than in place
-// of it (task 6's own corrections, tasks.md): the two reasons have
-// genuinely different scopes. MarkDispatchesUnattributed stamps every
-// dispatch under a session token, which is correct only for "session
-// never bound" -- every dispatch of that session really is uncosted. A
-// dispatch-grain ambiguity (bestDispatchWindow, internal/harvest,
-// attribute.go) names specific rows -- the candidates a record's agent id
-// or timestamp could not tell apart -- and stamping every dispatch under
-// their shared session would also stamp siblings that attributed
-// correctly. Zero ids is a no-op, not an error: nothing to stamp is not a
-// failure.
-//
-// The stamp merges via the jsonb "||" operator, for the same reason
-// MarkDispatchesUnattributed's own does: a dispatch that was measured and
-// then found ambiguous is a contradiction this method must not resolve by
-// destroying the measurement, so an existing "tokens" key survives the
-// merge untouched alongside the new "unattributed" key -- and a repeat
-// stamp for the same candidate set, which a multi-minute review panel
-// round produces on every 5s harvest cycle that still sees it, leaves
-// candidates unchanged instead of summing it (F18, review panel round 1).
-//
-// candidates is included in the payload only when positive, for the same
-// reason MarkDispatchesUnattributed's own is: a non-positive value omits
-// the key entirely rather than writing a 0 that would read as a
-// measurement.
-func (s *Store) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64, reason string, candidates int) error {
-	if len(ids) == 0 {
-		return nil
-	}
-
-	unattributed := map[string]any{"reason": reason}
-	if candidates > 0 {
-		unattributed["candidates"] = candidates
-	}
-	patch, err := json.Marshal(map[string]any{"unattributed": unattributed})
-	if err != nil {
-		return fmt.Errorf("store: marshal unattributed patch for dispatch ids %v: %w", ids, err)
-	}
-
-	if _, err := s.pool.Exec(ctx, `
-		UPDATE dispatches SET metrics = metrics || $2::jsonb WHERE id = ANY($1)
-	`, ids, patch); err != nil {
-		return fmt.Errorf("store: mark dispatches unattributed by id %v: %w", ids, err)
-	}
-	return nil
-}
-
 // DispatchWindowsForSession returns every dispatch attributable to
 // sessionID, as the harvest.DispatchWindow shape attribution needs and
 // nothing more -- the dispatch-grain counterpart of the stage windows

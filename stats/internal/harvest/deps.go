@@ -90,11 +90,6 @@ func (NoDeps) PersistedGiveUps(ctx context.Context) ([]GiveUp, error) {
 	return nil, nil
 }
 
-// MarkDispatchesUnattributedByID stamps nothing and never fails.
-func (NoDeps) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64, reason string, candidates int) error {
-	return nil
-}
-
 // MarkDispatchesUnattributed stamps nothing and never fails.
 func (NoDeps) MarkDispatchesUnattributed(ctx context.Context, token, reason string, candidates int) error {
 	return nil
