@@ -662,6 +662,81 @@ func (s *Store) SetFindingStatus(ctx context.Context, projectKey, change, ref, s
 	return fmt.Errorf("%w: %s in %s/%s", ErrFindingNotFound, ref, projectKey, change)
 }
 
+// ListFindingPatterns answers the registry question a panel asks before it
+// trusts its own recall: for each pattern labeled anywhere in the project,
+// how many findings carry it, across how many changes, and when the first
+// and last occurrences were labeled. The pattern name is the normalized
+// form the write path stored, so all of a pattern's spellings count as the
+// one row that answers the recurrence question. Rows order most-recurring
+// first, name breaking ties, so the summary reads as a ranking without a
+// second query.
+func (s *Store) ListFindingPatterns(ctx context.Context, projectKey string) ([]records.FindingPatternSummary, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT fp.pattern, count(*), count(DISTINCT c.name), min(fp.created_at), max(fp.created_at)
+		FROM finding_patterns fp
+		JOIN changes c ON c.id = fp.change_id
+		WHERE c.project_key = $1
+		GROUP BY fp.pattern
+		ORDER BY count(*) DESC, fp.pattern
+	`, projectKey)
+	if err != nil {
+		return nil, fmt.Errorf("store: list finding patterns for %s: %w", projectKey, err)
+	}
+	defer rows.Close()
+
+	var out []records.FindingPatternSummary
+	for rows.Next() {
+		var r records.FindingPatternSummary
+		if err := rows.Scan(&r.Pattern, &r.Occurrences, &r.Changes, &r.FirstSeen, &r.LastSeen); err != nil {
+			return nil, fmt.Errorf("store: scan finding pattern summary: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list finding patterns for %s: %w", projectKey, err)
+	}
+	return out, nil
+}
+
+// ListFindingPatternOccurrences is the detail read behind one summary row:
+// every finding the project has labeled with the pattern, joined with its
+// change and finding identity and ordered oldest labeling first, so a
+// panel reads the recurrence as history rather than as a count. The name
+// is normalized here exactly as the write path normalizes it, so a caller
+// need not guess the canonical spelling; a name no finding carries is an
+// empty list, the same contract the findings reads keep.
+func (s *Store) ListFindingPatternOccurrences(ctx context.Context, projectKey, pattern string) ([]records.FindingPatternOccurrence, error) {
+	pattern = normalizePattern(pattern)
+	if pattern == "" {
+		return nil, fmt.Errorf("%w: %q", ErrFindingPatternInvalid, pattern)
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.name, f.ref, f.severity, f.status, f.note, fp.created_at
+		FROM finding_patterns fp
+		JOIN changes c ON c.id = fp.change_id
+		JOIN findings f ON f.change_id = fp.change_id AND f.ref = fp.finding_ref
+		WHERE c.project_key = $1 AND fp.pattern = $2
+		ORDER BY fp.created_at, c.name, f.ref
+	`, projectKey, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("store: list occurrences of finding pattern %s for %s: %w", pattern, projectKey, err)
+	}
+	defer rows.Close()
+
+	var out []records.FindingPatternOccurrence
+	for rows.Next() {
+		var r records.FindingPatternOccurrence
+		if err := rows.Scan(&r.Change, &r.Ref, &r.Severity, &r.Status, &r.Note, &r.RecordedAt); err != nil {
+			return nil, fmt.Errorf("store: scan finding pattern occurrence: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list occurrences of finding pattern %s for %s: %w", pattern, projectKey, err)
+	}
+	return out, nil
+}
+
 // RecordDecision records one run's dynamic decision, or replaces the one
 // already recorded under the same session token for the same change --
 // exactly UpsertFinding's shape, moved from ref to session token as the key

@@ -3274,3 +3274,116 @@ func TestRunRecordCarriesPattern(t *testing.T) {
 		t.Errorf("F2 read back as ref %q pattern %q, want an empty pattern", rec.Findings[1].Ref, rec.Findings[1].Pattern)
 	}
 }
+
+// TestListFindingPatternsSummarizesRecurrence pins the registry summary:
+// occurrences counted across every change of the project, distinct change
+// names counted once, first and last seen bracketing them, and the rows
+// ordered most-recurring first -- the answer to "is this a fourth
+// instance" a panel queries instead of recalling.
+func TestListFindingPatternsSummarizesRecurrence(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-pattern-registry-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+	other := fmt.Sprintf("proj-pattern-registry-other-%d", time.Now().UnixNano())
+	seedChange(t, st, other, "kan-9")
+
+	label := func(project, change, ref, pattern string) {
+		t.Helper()
+		f := baseFinding(ref, 0)
+		f.Pattern = pattern
+		if _, _, err := st.UpsertFinding(ctx, project, change, records.Finding(f)); err != nil {
+			t.Fatalf("UpsertFinding %s/%s %s with pattern %s: %v", project, change, ref, pattern, err)
+		}
+	}
+	// restyled-row-loses-its-handler: three occurrences across two
+	// changes; shared-decode-swallow: one; the other project: one the
+	// summary must never count.
+	label(projectKey, "kan-1", "F1", "Restyled Row Loses its Handler!")
+	label(projectKey, "kan-1", "F2", "restyled-row-loses-its-handler")
+	label(projectKey, "kan-2", "F1", "restyled row loses its handler")
+	label(projectKey, "kan-2", "F2", "shared-decode-swallow")
+	label(other, "kan-9", "F1", "restyled-row-loses-its-handler")
+
+	got, err := st.ListFindingPatterns(ctx, projectKey)
+	if err != nil {
+		t.Fatalf("ListFindingPatterns: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("ListFindingPatterns returned %d rows, want 2", len(got))
+	}
+	if got[0].Pattern != "restyled-row-loses-its-handler" {
+		t.Errorf("first row = %q, want the most-recurring pattern", got[0].Pattern)
+	}
+	if got[0].Occurrences != 3 {
+		t.Errorf("occurrences = %d, want 3 -- three spellings are one pattern", got[0].Occurrences)
+	}
+	if got[0].Changes != 2 {
+		t.Errorf("changes = %d, want 2 -- kan-1 and kan-2, counted once each", got[0].Changes)
+	}
+	if got[0].FirstSeen.After(got[0].LastSeen) {
+		t.Errorf("first seen %v after last seen %v", got[0].FirstSeen, got[0].LastSeen)
+	}
+	if got[1].Pattern != "shared-decode-swallow" || got[1].Occurrences != 1 || got[1].Changes != 1 {
+		t.Errorf("second row = %+v, want shared-decode-swallow once in one change", got[1])
+	}
+
+	empty, err := st.ListFindingPatterns(ctx, fmt.Sprintf("proj-pattern-none-%d", time.Now().UnixNano()))
+	if err != nil {
+		t.Fatalf("ListFindingPatterns on a project with no patterns: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("ListFindingPatterns on an unlabeled project = %d rows, want 0", len(empty))
+	}
+}
+
+// TestListFindingPatternOccurrencesListsPastFindings pins the detail read:
+// every past finding behind one pattern, joined with its change and
+// finding identity, oldest labeling first -- the recurrence evidence
+// itself, not a count of it.
+func TestListFindingPatternOccurrencesListsPastFindings(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-pattern-occur-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	raised := baseFinding("F1", 0)
+	raised.Pattern = "restyled-row-loses-its-handler"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", raised); err != nil {
+		t.Fatalf("first occurrence: %v", err)
+	}
+	again := raised
+	again.Status = "fixed"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-2", again); err != nil {
+		t.Fatalf("second occurrence: %v", err)
+	}
+
+	got, err := st.ListFindingPatternOccurrences(ctx, projectKey, "Restyled Row Loses its Handler")
+	if err != nil {
+		t.Fatalf("ListFindingPatternOccurrences: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("ListFindingPatternOccurrences returned %d rows, want 2", len(got))
+	}
+	if got[0].Change != "kan-1" || got[0].Ref != "F1" {
+		t.Errorf("first occurrence = %s/%s, want kan-1/F1 -- ordered oldest labeling first", got[0].Change, got[0].Ref)
+	}
+	if got[0].Severity != raised.Severity || got[0].Note != raised.Note {
+		t.Errorf("first occurrence carries severity %q note %q, want the finding's own", got[0].Severity, got[0].Note)
+	}
+	if got[1].Change != "kan-2" || got[1].Status != "fixed" {
+		t.Errorf("second occurrence = %s/%s status %q, want kan-2/F1 at its current status", got[1].Change, got[1].Ref, got[1].Status)
+	}
+
+	// A name nothing carries is an empty list, not an error -- the read
+	// contract every findings query shares.
+	none, err := st.ListFindingPatternOccurrences(ctx, projectKey, "pattern-nobody-labeled")
+	if err != nil {
+		t.Fatalf("ListFindingPatternOccurrences on an unknown pattern: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("unknown pattern returned %d rows, want 0", len(none))
+	}
+}
