@@ -543,6 +543,7 @@ EXPECTED_ZERO_RULE_FILES=(
   "rules/dependency-versions.mdc"
   "rules/design-mockups-are-specs.mdc"
   "rules/dispatch-carries-the-baseline.mdc"
+  "rules/fix-determinism-at-the-source.mdc"
   "rules/lint-fix-priority.mdc"
   "rules/never-touch-production.mdc"
 )

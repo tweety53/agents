@@ -161,6 +161,8 @@ declare_if_present "rules/dependency-versions.mdc" \
   "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
 declare_if_present "rules/design-mockups-are-specs.mdc" \
   "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
+declare_if_present "rules/fix-determinism-at-the-source.mdc" \
+  "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
 declare_if_present "rules/never-touch-production.mdc" \
   "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
 declare_if_present "skills/flow/engineering-principles.md" \

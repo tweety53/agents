@@ -124,6 +124,7 @@ rules/context7.mdc 2376
 rules/dependency-versions.mdc 2331
 rules/design-mockups-are-specs.mdc 3891
 rules/dispatch-carries-the-baseline.mdc 3918
+rules/fix-determinism-at-the-source.mdc 4487
 rules/kotlin-backend-development-standard.mdc 9641
 rules/lint-fix-priority.mdc 2961
 rules/flow-manual-review.mdc 5630
