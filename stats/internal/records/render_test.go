@@ -215,20 +215,17 @@ func TestRenderLedgerDistinguishesAnAbsentMeasurementFromAZeroOne(t *testing.T) 
 // --- task 7: the four cost states a ledger tells apart ---
 //
 // internal/store's MarkDispatchesUnattributed and
-// MarkDispatchesUnattributedByID, and internal/harvest/watcher.go's
-// resolveSessionTokens and attributeDispatches, are the only producers of
+// internal/harvest/watcher.go's resolveSessionTokens are the producers of
 // the metrics bag's top-level "unattributed" key, and they write exactly
-// three reason strings: reasonSessionNeverBound ("session never bound"),
-// reasonSessionAmbiguous ("matched more than one session") and
-// reasonDispatchAmbiguous ("matched more than one dispatch"). The delta
-// spec's requirement ("The record says why a dispatch has no cost",
-// the run-record requirement) names all three, plus `not measured`:
-// "session never bound", "the session token matched N sessions" and
-// "indistinguishable from N concurrent dispatches" -- the last one
-// attribute.go's dispatch-window ambiguity, which is exactly what
-// reasonDispatchAmbiguous names. The two ambiguities carry counts of
+// two reason strings today: reasonSessionNeverBound ("session never
+// bound") and reasonSessionAmbiguous ("matched more than one session").
+// The third, reasonDispatchAmbiguous ("matched more than one dispatch"),
+// had its producer removed by KAN-414 -- the dispatch-window ambiguity it
+// named is an apportionment now, not a write-off -- but its literal and
+// wording stay renderable for rows stamped before the change, and the
+// tests below still pin them. The two ambiguities carried counts of
 // different things -- sessions and dispatches -- so the delta spec
-// requires them to render differently, and task 8 renders all three
+// required them to render differently, and task 8 rendered all three
 // reasons under their own wording.
 
 // TestLedgerSaysSessionNeverBound covers task 7 step 1: a bag carrying
@@ -334,6 +331,55 @@ func TestLedgerPrefersTokensOverUnattributed(t *testing.T) {
 	}
 	if strings.Contains(out, "cost unattributed") {
 		t.Errorf("a real measurement must outrank a stale unattributed stamp, but the ledger rendered the unattributed wording anyway:\n%s", out)
+	}
+}
+
+// TestTokenLineRendersApportionedQualifier covers KAN-414: a bag carrying
+// a real `tokens` object alongside the concurrency-attribution record the
+// harvester writes when part of the figure was apportioned across
+// concurrent dispatches renders the figures AND names that provenance --
+// a shared figure must stay distinguishable from one attributed outright,
+// which is the whole reason the field is recorded.
+func TestTokenLineRendersApportionedQualifier(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"tokens":{"main":{"input":100,"output":20,"cache_read":5,"cache_creation":3},"sidechain":{"input":7,"output":1,"cache_read":0,"cache_creation":0}},"apportioned":{"records":3}}`),
+		}},
+	})
+
+	want := "- Tokens: input 107, output 21, cache read 5, cache creation 3 — 3 records apportioned across concurrent dispatches\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("an apportioned dispatch must render its figures with the apportioned qualifier %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+	}
+	if strings.Contains(out, "cost unattributed") {
+		t.Errorf("an apportioned dispatch is measured, not unattributed:\n%s", out)
+	}
+}
+
+// TestTokenLineWithoutTokensIgnoresApportioned pins the pointer rule on
+// the read side: an `apportioned` record without a `tokens` object is
+// contradictory input the render resolves the same way it resolves a
+// stale `unattributed` stamp -- no figures means `not measured`, never an
+// invented zero or a qualifier hanging on nothing.
+func TestTokenLineWithoutTokensIgnoresApportioned(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"apportioned":{"records":3}}`),
+		}},
+	})
+
+	want := "- Tokens: not measured\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("an apportioned record without figures must render %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+	}
+	if strings.Contains(out, "apportioned across") {
+		t.Errorf("a qualifier must never render without figures to qualify:\n%s", out)
 	}
 }
 

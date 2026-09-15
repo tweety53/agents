@@ -242,7 +242,10 @@ func passLogRounds(r Run) []int {
 
 // dispatchMetrics is the part of a dispatch's metrics bag the ledger
 // reads: the token figures internal/harvest's second attribution pass
-// merges in, under the bag's top-level "tokens" key.
+// merges in, under the bag's top-level "tokens" key, plus the
+// concurrency-attribution record KAN-414 added under "apportioned" --
+// how many record-shares reached this dispatch apportioned across
+// concurrent candidates rather than attributed outright.
 //
 // It is declared here rather than shared with internal/harvest's
 // MetricsPatch on purpose. This package is the wire shape every layer
@@ -256,19 +259,36 @@ func passLogRounds(r Run) []int {
 // is told from one measured at zero. Unattributed is a POINTER for the
 // same reason: a bag with no "unattributed" key at all -- the ordinary
 // shape of everything this task's producers have not stamped -- must stay
-// distinguishable from an explicit, empty one. See tokenLine.
+// distinguishable from an explicit, empty one. Apportioned is a pointer
+// for the same reason again: most dispatches carry no such key, and a
+// zero count would read as a measurement of sharing. See tokenLine.
 type dispatchMetrics struct {
-	Tokens       *tokenTotals  `json:"tokens"`
-	Unattributed *unattributed `json:"unattributed"`
+	Tokens       *tokenTotals      `json:"tokens"`
+	Unattributed *unattributed     `json:"unattributed"`
+	Apportioned  *apportionedDelta `json:"apportioned"`
+}
+
+// apportionedDelta is the bag's "apportioned" object: the
+// concurrency-attribution record internal/harvest's apportionRecord writes
+// for a dispatch whose figures include shares split across concurrent
+// candidates (KAN-414), where the discard-and-stamp path it replaced used
+// to write an "unattributed" object. Records is additive -- a count of
+// record-shares -- so it accumulates correctly across a dispatch's many
+// batches, unlike the candidate count the old stamp carried.
+type apportionedDelta struct {
+	Records int64 `json:"records"`
 }
 
 // unattributed is the bag's "unattributed" object: the reason
-// internal/store's MarkDispatchesUnattributed /
-// MarkDispatchesUnattributedByID and internal/harvest/watcher.go's
-// resolveSessionTokens / attributeDispatches recorded for a dispatch whose
-// cost could not be attributed, plus the candidate count for the two
-// reasons that are ambiguities. Candidates is meaningless, and left at its
-// zero value, for reasonSessionNeverBound, which is not an ambiguity.
+// internal/store's MarkDispatchesUnattributed and
+// internal/harvest/watcher.go's resolveSessionTokens recorded for a
+// dispatch whose cost could not be attributed, plus the candidate count
+// for the two reasons that are ambiguities. Candidates is meaningless,
+// and left at its zero value, for reasonSessionNeverBound, which is not
+// an ambiguity. (The third producer, the watcher's dispatch-grain
+// stamp, was removed by KAN-414 when that ambiguity became an
+// apportionment; reasonDispatchAmbiguous's literal and its wording stay
+// for rows stamped before the change.)
 type unattributed struct {
 	Reason     string `json:"reason"`
 	Candidates int    `json:"candidates"`
@@ -337,7 +357,15 @@ type tokenBucket struct {
 // explicit `"tokens": null`, `{}`, `null` and whitespace all leave it nil.
 //
 // A `tokens` object that IS present renders whatever it carries, zeros
-// included. An explicit zero is a real figure and is not hidden.
+// included. An explicit zero is a real figure and is not hidden. Where an
+// "apportioned" record sits beside it (KAN-414), the figures are the sum
+// of outright attribution and shares split across concurrent candidates,
+// so the line names that provenance after the figures -- the reader must
+// be able to tell a wholly measured dispatch from one partly apportioned,
+// which is the whole reason the record is written. An "apportioned"
+// record WITHOUT tokens is contradictory input, resolved the same way a
+// stale stamp is: only a measurement can carry the qualifier, and no
+// figures still renders `not measured`.
 //
 // TOKENS OUTRANKS UNATTRIBUTED. A dispatch can carry both: a session
 // marked given up after a dispatch under it was already measured is a
@@ -372,11 +400,15 @@ func tokenLine(raw json.RawMessage) string {
 	if m.Tokens != nil {
 		t := *m.Tokens
 		sum := func(a, b int64) int64 { return a + b }
-		return fmt.Sprintf("input %d, output %d, cache read %d, cache creation %d",
+		line := fmt.Sprintf("input %d, output %d, cache read %d, cache creation %d",
 			sum(t.Main.Input, t.Sidechain.Input),
 			sum(t.Main.Output, t.Sidechain.Output),
 			sum(t.Main.CacheRead, t.Sidechain.CacheRead),
 			sum(t.Main.CacheCreation, t.Sidechain.CacheCreation))
+		if m.Apportioned != nil && m.Apportioned.Records > 0 {
+			line += fmt.Sprintf(" — %d records apportioned across concurrent dispatches", m.Apportioned.Records)
+		}
+		return line
 	}
 	if m.Unattributed != nil && m.Unattributed.Reason != "" {
 		switch m.Unattributed.Reason {

@@ -357,10 +357,12 @@ type Run struct {
 // change's dispatches carry no cost figure, and, for those that do not,
 // why -- one count per raw reason a producer stamped
 // (internal/harvest/watcher.go's resolveSessionTokens and
-// internal/store's MarkDispatchesUnattributed /
-// MarkDispatchesUnattributedByID). It exists so `flow record cost-status`
-// can state a change's cost honestly, at a handoff, without deriving the
-// figure by hand -- see that command's own doc comment.
+// internal/store's MarkDispatchesUnattributed; the third producer,
+// MarkDispatchesUnattributedByID, was removed by KAN-414 when the
+// dispatch-grain ambiguity it stamped became an apportionment, so the
+// rows it stamped are historic ones). It exists so `flow record
+// cost-status` can state a change's cost honestly, at a handoff, without
+// deriving the figure by hand -- see that command's own doc comment.
 //
 // Reasons is keyed by the reason string verbatim, the same value
 // tokenLine (render.go) switches on -- never its rendered prose -- since
