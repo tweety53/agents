@@ -504,6 +504,21 @@ tasks' blocks (per design.md's `scope-tasks-not-files`); a named id the plan doe
 exit 2, a plan defect reported like a missing `**Files:**` field. The panel's and the fix
 subagent's bundles (`skills/flow/review-panel.md`) keep the five-argument call and the whole plan.
 
+**A guard you could not run is hand-substituted only on the record (KAN-417).** When a guard this
+file calls — the gather above, `check-task-commit-fields.sh` at task close — exits non-zero,
+cannot resolve this change's topology, or is absent, and you go on by composing its facts,
+checking its contract, or running its step by hand, record the substitution at the moment you
+make it, never in the handoff prose alone:
+
+```bash
+flow record substitution -change <name> -guard <guard-name> -shape <shape> -substitution "<what you ran instead>"
+```
+
+`<shape>` is the same computed value the gather above took (`cross-repo` or `single-repo`), and
+`-substitution` carries the command or manual step actually used, verbatim. The write journals on
+store failure like every record write and never blocks the run — the row is the evidence a later
+cross-repo fix is justified and shaped by, which silence cannot hold.
+
 Every implementer dispatch **must** carry:
 
 > **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
