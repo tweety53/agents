@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -474,21 +473,14 @@ func RenderLedger(r Run) string {
 // name nothing.
 var changeNameAllowed = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
-// datedFile matches a rendered file's date prefix digit by digit. A bare
-// `*-<change><suffix>` would also match a DIFFERENT change whose name ends
-// in this one -- `2020-01-01-other-demo.md` for the change `demo` -- and
-// reusing that path would overwrite that change's record. The retired
-// script's `find` was anchored for exactly this reason.
-const datedFilePrefix = `^[0-9]{4}-[0-9]{2}-[0-9]{2}-`
-
 // renderKinds maps a kind to the directory it renders into and the
 // filename suffix it takes.
 //
 // The directories are untracked — .superpowers/ is gitignored — so a
 // rendered record lives with its worktree and is never committed. The
 // suffixes are the ones the retired preserve-session-records.sh passed for
-// each directory, kept so gather-self-review-context.sh's dated search
-// keeps matching.
+// each directory, kept so gather-self-review-context.sh's own label for
+// each source keeps matching the file on disk.
 var renderKinds = map[string]struct{ dir, suffix string }{
 	"ledger": {filepath.Join(".superpowers", "sdd", "ledgers"), ".md"},
 	"panel":  {filepath.Join(".superpowers", "sdd", "reviews"), "-panel.md"},
@@ -573,15 +565,21 @@ func RenderKind(kind string, run Run) (string, bool) {
 //     as the path exists, so a symlinked ANCESTOR cannot smuggle a
 //     not-yet-created leaf out either.
 //
-// The date is fixed at the FIRST render for a change: an existing dated
-// file is reused, so a fix round overwrites in place rather than leaving
-// one dated duplicate per round. That rule is carried over verbatim from
-// the retired script and is the only thing about it that survives.
+// The destination is `<dir>/<change><suffix>` — keyed on the change, never
+// on the render date (kan-399). A date-stamped name multiplied one change's
+// records: KAN-29 ended with a `2026-09-01` ledger in the backend worktree
+// and a `2026-09-03` ledger in the other two, three copies of one change's
+// records under three names. The name is now stable, so every render
+// overwrites in place and a fix round leaves no duplicate; a caller that
+// renders per worktree (the skills render into the canonical worktree only)
+// can no longer mint a second name for the same rows. A legacy dated file
+// is abandoned, not adopted: the one reader, gather-self-review-context.sh,
+// searches the change-keyed name and the render that feeds it is fresh.
 //
 // Destination creates nothing. The caller makes the directory and writes
 // the file, so a render that reports MISSING leaves no empty directory
 // behind.
-func Destination(repoRoot, kind, change string, today time.Time) (string, error) {
+func Destination(repoRoot, kind, change string) (string, error) {
 	spec, ok := renderKinds[kind]
 	if !ok {
 		return "", fmt.Errorf("unknown record kind %q: it is one of %s", kind, strings.Join(Kinds(), ", "))
@@ -603,10 +601,7 @@ func Destination(repoRoot, kind, change string, today time.Time) (string, error)
 		return "", fmt.Errorf("destination %q resolves outside the repository root %q — refusing to write through it", dir, root)
 	}
 
-	if existing := existingDatedFile(dir, change, spec.suffix); existing != "" {
-		return existing, nil
-	}
-	return filepath.Join(dir, today.UTC().Format("2006-01-02")+"-"+change+spec.suffix), nil
+	return filepath.Join(dir, change+spec.suffix), nil
 }
 
 // resolveAsFarAsItExists resolves every symlink in p that exists, and
@@ -644,29 +639,4 @@ func containedIn(root, path string) bool {
 		return false
 	}
 	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-// existingDatedFile is the change's already-rendered file in dir, or "".
-// Sorted, so that the choice among several is deterministic rather than
-// whatever order the filesystem happened to answer in.
-func existingDatedFile(dir, change, suffix string) string {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return ""
-	}
-	pattern := regexp.MustCompile(datedFilePrefix + regexp.QuoteMeta(change+suffix) + `$`)
-	var found []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if pattern.MatchString(e.Name()) {
-			found = append(found, e.Name())
-		}
-	}
-	if len(found) == 0 {
-		return ""
-	}
-	sort.Strings(found)
-	return filepath.Join(dir, found[0])
 }

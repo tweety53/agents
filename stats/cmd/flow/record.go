@@ -1309,12 +1309,9 @@ func runRecordRender(ctx context.Context, args []string, stdout, stderr io.Write
 		return 2
 	}
 
-	// Fixed once for the whole run, so that two kinds rendered together
-	// can never straddle midnight and take different dates.
-	today := time.Now().UTC()
 	dests := make(map[string]string, len(kinds))
 	for _, k := range kinds {
-		dest, err := records.Destination(*repo, k, f.change, today)
+		dest, err := records.Destination(*repo, k, f.change)
 		if err != nil {
 			fmt.Fprintf(stderr, "flow: %v\n", err)
 			return 1

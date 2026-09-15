@@ -1407,10 +1407,12 @@ func TestRecordRenderRefusesADestinationOutsideTheRepo(t *testing.T) {
 	}
 }
 
-// TestRecordRenderReusesTheFirstRendersDate pins the date rule carried
-// over from the retired script: a fix round overwrites the change's
-// existing dated file rather than leaving one dated duplicate per round.
-func TestRecordRenderReusesTheFirstRendersDate(t *testing.T) {
+// TestRecordRenderWritesTheChangeKeyedNameBesideNoLegacy pins the
+// filename rule (kan-399): the render writes `<change>.md`, never a
+// date-stamped name, and a legacy dated file left by an older binary is
+// abandoned rather than adopted -- the fresh render does not overwrite it
+// and does not mint a second dated copy.
+func TestRecordRenderWritesTheChangeKeyedNameBesideNoLegacy(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
@@ -1418,9 +1420,9 @@ func TestRecordRenderReusesTheFirstRendersDate(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir ledgers: %v", err)
 	}
-	first := filepath.Join(dir, "2020-01-01-demo.md")
-	if err := os.WriteFile(first, []byte("first render\n"), 0o644); err != nil {
-		t.Fatalf("write first render: %v", err)
+	legacy := filepath.Join(dir, "2020-01-01-demo.md")
+	if err := os.WriteFile(legacy, []byte("dated render\n"), 0o644); err != nil {
+		t.Fatalf("write legacy render: %v", err)
 	}
 
 	srv := httptest.NewServer(renderDaemon(t, map[string]records.Rendered{
@@ -1437,19 +1439,29 @@ func TestRecordRenderReusesTheFirstRendersDate(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
-	got, err := filepath.Glob(filepath.Join(dir, "*.md"))
+	// Resolved, like every Destination expectation: on macOS t.TempDir()'s
+	// /var differs from its real /private/var, and the destination carries
+	// the resolved form.
+	resolvedWant, err := filepath.EvalSymlinks(filepath.Join(dir, "demo.md"))
 	if err != nil {
-		t.Fatalf("glob ledgers: %v", err)
+		t.Fatalf("resolve want: %v", err)
 	}
-	if len(got) != 1 || got[0] != first {
-		t.Fatalf("ledger files = %v, want only the existing %s overwritten in place", got, first)
+	if !strings.Contains(stdout.String(), "rendered: "+resolvedWant) {
+		t.Errorf("stdout = %q, want it to report rendered: %s", stdout.String(), resolvedWant)
 	}
-	body, err := os.ReadFile(first)
+	body, err := os.ReadFile(resolvedWant)
 	if err != nil {
-		t.Fatalf("read ledger: %v", err)
+		t.Fatalf("read change-keyed ledger: %v", err)
 	}
-	if strings.Contains(string(body), "first render") {
-		t.Errorf("the existing dated file was not overwritten:\n%s", body)
+	if !strings.Contains(string(body), "unknown (agent-defined)") {
+		t.Errorf("the change-keyed file does not hold the fresh render:\n%s", body)
+	}
+	legacyBody, err := os.ReadFile(legacy)
+	if err != nil {
+		t.Fatalf("read legacy ledger: %v", err)
+	}
+	if string(legacyBody) != "dated render\n" {
+		t.Errorf("the legacy dated file was modified:\n%s", legacyBody)
 	}
 }
 

@@ -571,16 +571,15 @@ func TestRenderPanelUnchangedByDiffBase(t *testing.T) {
 // explicitly, before any path is built.
 func TestDestinationRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
 	root := t.TempDir()
-	today := time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)
 
 	for _, name := range []string{"../escape", "a/b", "de*mo", "de?mo", "[demo]", "-leading", ".leading", ""} {
-		got, err := records.Destination(root, "ledger", name, today)
+		got, err := records.Destination(root, "ledger", name)
 		if err == nil {
 			t.Errorf("Destination(%q) = %q, want a refusal", name, got)
 		}
 	}
 
-	if _, err := records.Destination(root, "ledger", "kan-258.store_native-1", today); err != nil {
+	if _, err := records.Destination(root, "ledger", "kan-258.store_native-1"); err != nil {
 		t.Errorf("Destination refused a real change name: %v", err)
 	}
 }
@@ -601,7 +600,7 @@ func TestDestinationRefusesADestinationOutsideTheRepoRoot(t *testing.T) {
 		t.Fatalf("symlink ledgers: %v", err)
 	}
 
-	got, err := records.Destination(root, "ledger", "demo", time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC))
+	got, err := records.Destination(root, "ledger", "demo")
 	if err == nil {
 		t.Fatalf("Destination followed a symlink out of the repository and returned %q", got)
 	}
@@ -615,24 +614,27 @@ func TestDestinationRefusesADestinationOutsideTheRepoRoot(t *testing.T) {
 	}
 }
 
-// TestDestinationReusesAnExistingDatedFile pins the one rule carried over
-// verbatim from the retired script: the date is fixed at the FIRST render
-// for a change, so a fix round overwrites in place instead of leaving one
-// dated duplicate per round.
-func TestDestinationReusesAnExistingDatedFile(t *testing.T) {
+// TestDestinationNamesTheRecordAfterTheChange pins the record filename's
+// own rule (kan-399): the name is keyed on the change, never on the render
+// date. A date-stamped name let one change's records multiply -- KAN-29
+// ended with three worktrees holding the same change's ledger under three
+// different dates -- so the destination is `<change><suffix>` and every
+// render overwrites it in place. A pre-existing legacy dated file is NOT
+// adopted, and a different change whose name ENDS in this one does not
+// collide: the exact name decides.
+func TestDestinationNamesTheRecordAfterTheChange(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, ".superpowers", "sdd", "ledgers")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir ledgers: %v", err)
 	}
-	existing := filepath.Join(dir, "2020-01-01-demo.md")
-	if err := os.WriteFile(existing, []byte("first render\n"), 0o644); err != nil {
-		t.Fatalf("write existing: %v", err)
+	legacy := filepath.Join(dir, "2020-01-01-demo.md")
+	if err := os.WriteFile(legacy, []byte("dated render\n"), 0o644); err != nil {
+		t.Fatalf("write legacy dated file: %v", err)
 	}
-	// A different change whose name ENDS in this one must not be reused --
-	// the retired script's `find` was anchored digit by digit for exactly
-	// this reason.
-	if err := os.WriteFile(filepath.Join(dir, "2019-01-01-other-demo.md"), []byte("other\n"), 0o644); err != nil {
+	// A different change whose name ENDS in this one must never be written
+	// through or read back as this change's own.
+	if err := os.WriteFile(filepath.Join(dir, "other-demo.md"), []byte("other\n"), 0o644); err != nil {
 		t.Fatalf("write other change's file: %v", err)
 	}
 
@@ -640,35 +642,42 @@ func TestDestinationReusesAnExistingDatedFile(t *testing.T) {
 	// every symlink already resolved, which on macOS makes t.TempDir()'s
 	// /var differ from its real /private/var. Comparing against the
 	// unresolved path would fail for a reason that has nothing to do with
-	// the date rule under test.
-	want, err := filepath.EvalSymlinks(existing)
+	// the naming rule under test.
+	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
-		t.Fatalf("resolve existing: %v", err)
+		t.Fatalf("resolve root: %v", err)
 	}
+	want := filepath.Join(resolvedRoot, ".superpowers", "sdd", "ledgers", "demo.md")
 
-	got, err := records.Destination(root, "ledger", "demo", time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC))
+	got, err := records.Destination(root, "ledger", "demo")
 	if err != nil {
 		t.Fatalf("Destination: %v", err)
 	}
 	if got != want {
-		t.Fatalf("Destination = %q, want the existing dated file %q", got, want)
+		t.Fatalf("Destination = %q, want the change-keyed name %q", got, want)
+	}
+
+	again, err := records.Destination(root, "ledger", "demo")
+	if err != nil {
+		t.Fatalf("Destination again: %v", err)
+	}
+	if again != got {
+		t.Fatalf("Destination = %q on the second call, want the same %q so every render overwrites in place", again, got)
 	}
 }
 
-// TestDestinationNamesThePanelRecordAsTheArchiveAlreadyDoes pins the
-// panel record's filename to `<date>-<change>-panel.md`, the suffix the
-// retired preserve-session-records.sh passed for that directory and the
-// one gather-self-review-context.sh's dated search matches.
-func TestDestinationNamesThePanelRecordAsTheArchiveAlreadyDoes(t *testing.T) {
+// TestDestinationNamesThePanelRecordWithThePanelSuffix pins the panel
+// record's filename to `<change>-panel.md` under reviews/ -- the suffix
+// gather-self-review-context.sh's own label names.
+func TestDestinationNamesThePanelRecordWithThePanelSuffix(t *testing.T) {
 	root := t.TempDir()
-	today := time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)
 
-	got, err := records.Destination(root, "panel", "demo", today)
+	got, err := records.Destination(root, "panel", "demo")
 	if err != nil {
 		t.Fatalf("Destination: %v", err)
 	}
-	if want := "2026-08-22-demo-panel.md"; filepath.Base(got) != want {
-		t.Errorf("panel destination = %q, want the archive's own name %q", filepath.Base(got), want)
+	if want := "demo-panel.md"; filepath.Base(got) != want {
+		t.Errorf("panel destination = %q, want the panel-suffixed name %q", filepath.Base(got), want)
 	}
 	if dir := filepath.Base(filepath.Dir(got)); dir != "reviews" {
 		t.Errorf("panel destination directory = %q, want reviews", dir)
