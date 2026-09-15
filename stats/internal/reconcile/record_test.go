@@ -65,11 +65,11 @@ func (nopRecordStore) RecordIncident(context.Context, string, records.Incident) 
 }
 
 func (nopRecordStore) ListFindingPatterns(context.Context, string) ([]records.FindingPatternSummary, error) {
-	return nil, errors.New("not implemented")
+	return nil, errRecordStoreNotExercised
 }
 
 func (nopRecordStore) ListFindingPatternOccurrences(context.Context, string, string) ([]records.FindingPatternOccurrence, error) {
-	return nil, errors.New("not implemented")
+	return nil, errRecordStoreNotExercised
 }
 
 func (nopRecordStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
@@ -294,11 +294,11 @@ func (f *fakeRecordStore) RecordIncident(_ context.Context, projectKey string, i
 }
 
 func (f *fakeRecordStore) ListFindingPatterns(context.Context, string) ([]records.FindingPatternSummary, error) {
-	return nil, errors.New("not implemented")
+	return nil, errRecordStoreNotExercised
 }
 
 func (f *fakeRecordStore) ListFindingPatternOccurrences(context.Context, string, string) ([]records.FindingPatternOccurrence, error) {
-	return nil, errors.New("not implemented")
+	return nil, errRecordStoreNotExercised
 }
 
 func (f *fakeRecordStore) ListIncidents(context.Context, string) ([]records.Incident, error) {

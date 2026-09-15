@@ -3398,4 +3398,10 @@ func TestListFindingPatternOccurrencesRefusesSeparatorsOnly(t *testing.T) {
 	if !errors.Is(err, store.ErrFindingPatternInvalid) {
 		t.Fatalf("err = %v, want store.ErrFindingPatternInvalid", err)
 	}
+	// The message quotes the caller's own spelling, not the normalized
+	// (empty) name -- an identifier-dropping refusal tells the caller
+	// nothing about what it refused (round-1 F11).
+	if !strings.Contains(err.Error(), `"!!! --- !!!"`) {
+		t.Errorf("err = %v, want it to quote the caller input verbatim", err)
+	}
 }

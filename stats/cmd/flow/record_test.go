@@ -3897,3 +3897,31 @@ func TestRecordFindingPatternsEmptyRegistryPrintsEmptyArray(t *testing.T) {
 		t.Fatalf("stdout = %q, want exactly []", got)
 	}
 }
+
+// TestRecordFindingPatternEmptyDetailPrintsEmptyArray pins the detail
+// verb's nil-guard (KAN-416 panel round-1 F10): the daemon answers a
+// pattern nothing carries with a JSON null, and this verb — like its
+// plural sibling — must print exactly [].
+func TestRecordFindingPatternEmptyDetailPrintsEmptyArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`null`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-name", "pattern-nobody-labeled"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if got := strings.TrimRight(stdout.String(), "\n"); got != "[]" {
+		t.Fatalf("stdout = %q, want exactly []", got)
+	}
+}
