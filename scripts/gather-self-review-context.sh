@@ -144,13 +144,11 @@
 #      matched, so changes committed before a rename keep resolving.
 #
 # NOTE on sources 1 and 2: `flow record render` writes these under
-# .superpowers/sdd/{ledgers,reviews}/ with a LEADING DATE, e.g.
-# "2026-08-01-demo.md", never literally "<name>.md" — this script's messages
-# still name the source using the plain "<name>.md" / "<name>-panel.md" form,
-# matching the wording this repository's archived kan-23-myflow-self-review
-# change's delta spec states verbatim in its scenarios, but the SEARCH below
-# uses the real, date-prefixed filename shape so a source that exists is
-# actually found.
+# .superpowers/sdd/{ledgers,reviews}/ keyed on the change — "<name>.md" and
+# "<name>-panel.md"; kan-399 retired the leading render date — so the SEARCH
+# below and the labels above name the same file. A change rendered by an
+# older, date-stamping binary leaves its dated copies behind; this gather
+# reads the file the current render just wrote and never a legacy one.
 #
 # NOTE on the "skipped:" stream: the design doc originally said stderr; this
 # was corrected to stdout to match that same kan-23-myflow-self-review delta
@@ -163,7 +161,7 @@
 # (stats/internal/records/render.go): one leading alphanumeric, then letters,
 # digits, '.', '_' and '-'. A name containing '/' or a glob metacharacter must
 # not be used to build a path or to build the `find -name` pattern used to
-# locate the dated ledger/panel files, for the same reasons that function's
+# locate the ledger/panel files, for the same reasons that function's
 # comment states.
 set -euo pipefail
 
@@ -419,17 +417,19 @@ PANEL_LABEL=".superpowers/sdd/reviews/$NAME-panel.md"
 TASKS_LABEL="$ARCHIVED_PATH/tasks.md"
 GITLOG_LABEL="git log --stat"
 
-# find_dated <dir> <suffix> — the most recent "<date>-<name><suffix>" file
-# under <dir>, or empty. Anchored digit-by-digit exactly as
-# records.existingDatedFile's own search is (stats/internal/records/render.go,
-# datedFilePrefix): a bare "*-${NAME}${suffix}" would also match a DIFFERENT
-# change whose name ends in this one.
-find_dated() {
+# find_record_file <dir> <suffix> — the change's "<name><suffix>" record
+# file under <dir>, or empty. An EXACT -name match: `find -name` is a
+# full-string glob, and the allowlist above keeps glob metacharacters out
+# of $NAME, so a DIFFERENT change whose name ends in this one
+# (`other-demo.md` for the change `demo`) cannot match — the anchor the old
+# digit-by-digit date pattern provided is carried by the exact name. The
+# name is the one records.Destination writes
+# (stats/internal/records/render.go): keyed on the change, never on the
+# render date (kan-399).
+find_record_file() {
   local dir="$1" suffix="$2"
   [ -n "$dir" ] && [ -d "$dir" ] || return 0
-  find "$dir" -maxdepth 1 \
-    -name "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-${NAME}${suffix}" \
-    2>/dev/null | sort | tail -1
+  find "$dir" -maxdepth 1 -name "${NAME}${suffix}" 2>/dev/null | tail -1
 }
 
 # resolve_file <path> — print <path> with every symlink resolved, both on the
@@ -612,7 +612,7 @@ REFUSED=()
 LEDGER_FILE=""
 PANEL_FILE=""
 if [ -n "$REPO_ROOT" ]; then
-  ledger_candidate="$(find_dated "$REPO_ROOT/.superpowers/sdd/ledgers" ".md")"
+  ledger_candidate="$(find_record_file "$REPO_ROOT/.superpowers/sdd/ledgers" ".md")"
   if [ -n "$ledger_candidate" ]; then
     check_boundary "$ledger_candidate" "$REPO_ROOT"
     if [ "$BOUNDARY_REFUSED" -eq 1 ]; then
@@ -621,7 +621,7 @@ if [ -n "$REPO_ROOT" ]; then
       LEDGER_FILE="$BOUNDARY_RESOLVED"
     fi
   fi
-  panel_candidate="$(find_dated "$REPO_ROOT/.superpowers/sdd/reviews" "-panel.md")"
+  panel_candidate="$(find_record_file "$REPO_ROOT/.superpowers/sdd/reviews" "-panel.md")"
   if [ -n "$panel_candidate" ]; then
     check_boundary "$panel_candidate" "$REPO_ROOT"
     if [ "$BOUNDARY_REFUSED" -eq 1 ]; then

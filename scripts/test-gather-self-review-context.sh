@@ -75,11 +75,11 @@ new_repo() {
 # add_ledger / add_panel / add_tasks — write one of the three file sources.
 add_ledger() {
   mkdir -p "$REPO/.superpowers/sdd/ledgers"
-  printf 'LEDGER-BODY\n' > "$REPO/.superpowers/sdd/ledgers/2026-01-01-demo.md"
+  printf 'LEDGER-BODY\n' > "$REPO/.superpowers/sdd/ledgers/demo.md"
 }
 add_panel() {
   mkdir -p "$REPO/.superpowers/sdd/reviews"
-  printf 'PANEL-BODY\n' > "$REPO/.superpowers/sdd/reviews/2026-01-01-demo-panel.md"
+  printf 'PANEL-BODY\n' > "$REPO/.superpowers/sdd/reviews/demo-panel.md"
 }
 add_tasks() {
   printf 'TASKS-BODY\n' > "$ARCHIVED/tasks.md"
@@ -289,7 +289,7 @@ OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside.XXXXXX")"
 TREES+=("$OUTSIDE")
 printf 'SECRET-OUTSIDE-CONTENT\n' > "$OUTSIDE/secret.txt"
 mkdir -p "$REPO/.superpowers/sdd/ledgers"
-ln -s "$OUTSIDE/secret.txt" "$REPO/.superpowers/sdd/ledgers/2026-01-01-demo.md"
+ln -s "$OUTSIDE/secret.txt" "$REPO/.superpowers/sdd/ledgers/demo.md"
 add_panel
 add_tasks
 add_commits
@@ -1410,7 +1410,7 @@ TREES+=("$WORKTREE_K493")
 WORKTREE_K493="$(cd -P "$WORKTREE_K493" && pwd -P)"
 mkdir -p "$WORKTREE_K493/.superpowers/sdd/ledgers" \
   "$WORKTREE_K493/spectre/changes/archive/2026-01-01-demo"
-printf 'LEDGER-WORKTREE-ROOT\n' > "$WORKTREE_K493/.superpowers/sdd/ledgers/2026-01-01-demo.md"
+printf 'LEDGER-WORKTREE-ROOT\n' > "$WORKTREE_K493/.superpowers/sdd/ledgers/demo.md"
 printf 'TASKS-WORKTREE-ROOT\n' > "$WORKTREE_K493/spectre/changes/archive/2026-01-01-demo/tasks.md"
 OUTSIDE_CWD_K493="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-worktree-root.XXXXXX")"
 TREES+=("$OUTSIDE_CWD_K493")
