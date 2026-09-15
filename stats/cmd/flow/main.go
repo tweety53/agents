@@ -43,6 +43,7 @@ commands:
   settings set         write the harness-wide settings record
   settings models      print the harness's fixed set of valid model identifiers
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
+  tasks count <change> record one observation of a plan's task count
   hazard add/remove    record, or retire, one per-project hazard (see: flow hazard)
   hazards              print a project's hazards as a JSON array
   suite record/list    time a command and record its runtime; read recorded suite runtimes (see: flow suite)

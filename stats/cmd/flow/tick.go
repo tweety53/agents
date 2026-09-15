@@ -138,3 +138,26 @@ func tickTask(plan []byte, taskID string) ([]byte, int, error) {
 
 	return bytes.Join(lines, []byte("\n")), steps, nil
 }
+
+// countTasks returns the number of column-0 task checkbox lines in plan.
+// Fence state is tracked across the whole scan exactly as tickTask tracks
+// it, so a task line shown inside a fenced example is documentation, not
+// structure -- the same rule plan_grammar.py's iter_tasks applies to the
+// same file.
+func countTasks(plan []byte) int {
+	count := 0
+	inFence := false
+	for _, line := range bytes.Split(plan, []byte("\n")) {
+		if fencePattern.Match(line) {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		if taskLinePattern.Match(line) {
+			count++
+		}
+	}
+	return count
+}

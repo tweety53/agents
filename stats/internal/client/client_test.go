@@ -932,6 +932,14 @@ func (stubStageStore) ListSuiteRuns(context.Context, string, string, int) ([]rec
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RecordTaskCount(context.Context, string, string, records.TaskCount) (records.TaskCount, error) {
+	return records.TaskCount{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListTaskCounts(context.Context, string, string) ([]records.TaskCount, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
 	return records.Decision{}, false, errStageStoreNotImplemented
 }
