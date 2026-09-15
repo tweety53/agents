@@ -543,7 +543,10 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
-> contradicts the plan** (`skills/flow-contracts/plan-provenance.md`).
+> contradicts the plan** (`skills/flow-contracts/plan-provenance.md`). Report a correction your
+> measurement produced — a tag to retag, a number to replace, a `**Files:**` entry to add — as the
+> exact field and its corrected value, so it can be transcribed into the record in place
+> (**The record carries its own corrections**, below).
 
 Every implementer dispatch **must** also carry:
 
@@ -675,6 +678,24 @@ runs on that task; the whole-branch panel (`skills/flow/review-panel.md`) is sti
 review. **A gated task's tick defers until its reviewer closes clean.** A step's checkbox tracks
 the step and gates nothing. A red task's checkbox is ticked together with its partner's, on their
 one commit's gate verdict.
+
+**The record carries its own corrections.** When a measurement or a commit disproves what a task
+record declares, the record is corrected in place, at the task-close boundary and where the wrong
+claim sits — a `predicted:` or `unverified:` tag the run has answered retagged `measured:` with
+the command and ref that answered it, a wrong number replaced, a `**Files:**` field widened to the
+paths the commit really needed, a fold into a squash partner stated in the task — never left to
+disagree silently with what the run did. The implementer never edits `<project>/spectre/changes/`
+(**FLOW — COMMIT-PER-TASK**, above): it discloses each correction in its report as the exact
+field and its corrected value, and the parent transcribes it into the record before the guard runs
+on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is the
+one correction whose disclosure has a mechanical record: `check-task-commit-fields.sh` runs
+against the record as it stood, refuses the commit, and names every undeclared path; the parent
+judges the deviation legitimate or not on exactly that refusal, and only a legitimate one is
+transcribed and the guard re-run green. The review gate's undeclared-path arm reads the paths the
+refusal named — the pre-correction declaration lives in the refusal, not in any field the
+transcription can overwrite — so the disclosure cannot disarm the gate. This is expected practice
+on every task, not one implementer's habit (KAN-29's self-review: corrections recorded in the task
+itself made that panel's bookkeeping findings cheap to adjudicate; KAN-407 makes it the rule).
 
 **The gated per-task reviewer.** One combined reviewer per gate-fired task — spec compliance and
 code quality together — dispatched beside the group implementers, on the task's group's
