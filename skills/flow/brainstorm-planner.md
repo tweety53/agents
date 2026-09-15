@@ -357,7 +357,14 @@ with `**Build:**` per **The build-green tag**
   test declarations (`@Test` and its language equivalents), never from a test run, and each
   task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field
   names, so two tasks dispatched in parallel count independently — neither's baseline depends on
-  the other's edits.
+  the other's edits. The counts are exact integers: `after=~N` is unparseable by the guard and
+  silently disables the re-measurement. A Baseline that records a plan-provenance `<!-- measured:
+  <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
+  `check-task-commit-fields.sh` re-runs that command at the commit's parent and at the commit, and
+  a count differing from the declared one fails the task — record a command whose stdout is one
+  integer (the `| grep -c` pipelines in kan-271 and kan-298's plans are the shape), and read
+  "never from a test run" as constraining how the declared numbers are derived at plan time, not
+  the guard's re-measurement.
 - `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
   the task's own `**Files:**` field carries, per **Commit scopes name the module**
   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
