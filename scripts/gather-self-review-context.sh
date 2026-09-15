@@ -418,18 +418,21 @@ TASKS_LABEL="$ARCHIVED_PATH/tasks.md"
 GITLOG_LABEL="git log --stat"
 
 # find_record_file <dir> <suffix> — the change's "<name><suffix>" record
-# file under <dir>, or empty. An EXACT -name match: `find -name` is a
-# full-string glob, and the allowlist above keeps glob metacharacters out
-# of $NAME, so a DIFFERENT change whose name ends in this one
-# (`other-demo.md` for the change `demo`) cannot match — the anchor the old
-# digit-by-digit date pattern provided is carried by the exact name. The
-# name is the one records.Destination writes
-# (stats/internal/records/render.go): keyed on the change, never on the
-# render date (kan-399).
+# file under <dir>, or empty. An EXACT -name match on regular files AND
+# symlinks (-type f -o -type l: a directory named "<name><suffix>" is never
+# selected for cat, while a symlink stays a candidate so check_boundary
+# below can refuse it loudly rather than the search folding the attack into
+# an innocent absence): `find -name` is a full-string glob, and the
+# allowlist above keeps glob metacharacters out of $NAME, so a DIFFERENT
+# change whose name ends in this one (`other-demo.md` for the change
+# `demo`) cannot match — the anchor the old digit-by-digit date pattern
+# provided is carried by the exact name. The name is the one
+# records.Destination writes (stats/internal/records/render.go): keyed on
+# the change, never on the render date (kan-399).
 find_record_file() {
   local dir="$1" suffix="$2"
   [ -n "$dir" ] && [ -d "$dir" ] || return 0
-  find "$dir" -maxdepth 1 -name "${NAME}${suffix}" 2>/dev/null | tail -1
+  find "$dir" -maxdepth 1 \( -type f -o -type l \) -name "${NAME}${suffix}" 2>/dev/null
 }
 
 # resolve_file <path> — print <path> with every symlink resolved, both on the
