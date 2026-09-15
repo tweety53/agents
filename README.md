@@ -30,6 +30,7 @@ agents-data/
 │   ├── context7.mdc                   ← fetch library docs through Context7, not from memory (always-on)
 │   ├── fix-determinism-at-the-source.mdc  ← fix a flaky test at its cause; widening a tolerance is not a fix (always-on)
 │   ├── dispatch-carries-the-baseline.mdc  ← every subagent dispatch carries the agent-baseline pointer (always-on)
+│   ├── commit-scope-is-the-module.mdc  ← a commit's scope names the module it moved (always-on)
 │   ├── agent-baseline.md              ← NOT a rule: the file a dispatched subagent is told to read, listing every rule above and pointing at its installed full text
 │   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.flow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
 ├── hooks/
