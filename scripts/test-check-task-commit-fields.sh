@@ -3630,6 +3630,357 @@ case "$OUT" in
   *) fail "case 111: expected the camelCase clause in the tree message, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Cases 112-121 (KAN-409): a **Baseline:** carrying a recorded
+# `<!-- measured: <command> @ <ref> -->` comment has that command re-run at
+# the commit's parent and at the commit, each in a throwaway detached
+# worktree, and a count that differs from the declared one fails the task.
+# Every unsupported shape skips, never fails: no recorded command, a
+# command that exits non-zero or prints no single integer, and two DISTINCT
+# recorded commands (two comments sharing one command but naming different
+# refs are the kan-298 shape and verify). The checked worktree's own
+# checkout never moves (the KAN-423 incident) and no throwaway worktree is
+# left registered.
+# ===========================================================================
+
+# Case 112: the recorded command's counts match the declaration -> exit 0.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Measured baseline matches
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=6
+<!-- measured: cat counter.txt @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 112: recorded command matching the declaration passes" || fail "case 112: rc=$RC out=$OUT"
+
+# Case 113: the recorded command's after-count disagrees -> exit 1, naming
+# both the declared and the measured counts.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Measured baseline after is stale
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=9
+<!-- measured: cat counter.txt @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 113: stale after-count fails" || fail "case 113: rc=$RC out=$OUT"
+case "$OUT" in
+  *"declares before=5 after=9"*"measures before=5 after=6"*)
+    pass "case 113: names declared and measured counts" ;;
+  *) fail "case 113: expected declared and measured counts in output, out=$OUT" ;;
+esac
+
+# Case 114: the recorded command's before-count disagrees -> exit 1.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Measured baseline before is stale
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=4 after=6
+<!-- measured: cat counter.txt @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 114: stale before-count fails" || fail "case 114: rc=$RC out=$OUT"
+
+# Case 115: no measured comment -> the dynamic check skips, and a
+# declaration no command could confirm never fails on its own.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Unmeasured baseline skips
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=37 after=38
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 115: no recorded command skips the dynamic check" || fail "case 115: rc=$RC out=$OUT"
+
+# Case 116: the recorded command exits non-zero -> skip, not fail.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Failing measurement skips
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=6
+<!-- measured: false @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 116: a failing recorded command skips" || fail "case 116: rc=$RC out=$OUT"
+
+# Case 117: the recorded command prints no single integer -> skip.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Non-integer measurement skips
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=6
+<!-- measured: printf 'five' @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 117: a non-integer measurement skips" || fail "case 117: rc=$RC out=$OUT"
+
+# Case 118: two DISTINCT recorded commands -> skip (no command is THE
+# task's measurement).
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Ambiguous measurement skips
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=6
+<!-- measured: cat counter.txt @ branch main -->
+<!-- measured: cat counter.txt | wc -c @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 118: two distinct recorded commands skip" || fail "case 118: rc=$RC out=$OUT"
+
+# Case 119: two comments sharing ONE command across different refs — the
+# kan-298 shape — are one distinct command and verify.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. One command across two refs verifies
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=6
+<!-- measured: cat counter.txt @ branch main -->
+<!-- measured: cat counter.txt @ branch other -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 119: one command across two refs verifies" || fail "case 119: rc=$RC out=$OUT"
+
+# Case 120: the checked worktree's HEAD is where it was, and no throwaway
+# worktree is left registered, after a measured run (the KAN-423 rule).
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Measured run leaves the worktree alone
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=6
+<!-- measured: cat counter.txt @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+HEAD_BEFORE="$(git -C "$REPO" rev-parse HEAD)"
+TREES_BEFORE="$(git -C "$REPO" worktree list --porcelain | grep -c '^worktree ')"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 120: measured run passes" || fail "case 120: rc=$RC out=$OUT"
+[ "$(git -C "$REPO" rev-parse HEAD)" = "$HEAD_BEFORE" ] \
+  && pass "case 120: the checked worktree's HEAD never moved" \
+  || fail "case 120: HEAD moved from $HEAD_BEFORE"
+[ "$(git -C "$REPO" worktree list --porcelain | grep -c '^worktree ')" = "$TREES_BEFORE" ] \
+  && pass "case 120: no throwaway worktree left registered" \
+  || fail "case 120: a worktree leaked"
+
+# Case 121: the recorded command may be a pipeline — its stdout is read as
+# one integer all the same.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Pipeline measurement
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=1 after=1
+<!-- measured: cat counter.txt | wc -l @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 121: a pipeline measurement verifies" || fail "case 121: rc=$RC out=$OUT"
+
+# Case 122 (KAN-409 fix round, F3): an @-bearing recorded command — the @
+# inside quotes, not the grammar's space-padded ` @ ` separator — is not
+# truncated, so its measurement is taken and a stale declaration fails.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. At-bearing measurement
+
+**Files:** `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=1 after=99
+<!-- measured: grep -o '"'"'@'"'"' counter.txt | wc -l @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a@\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "seed counter"
+printf 'a@\nb@\n' > "$REPO/counter.txt"
+git -C "$REPO" add counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 122: an at-bearing command is measured, not truncated" || fail "case 122: rc=$RC out=$OUT"
+case "$OUT" in
+  *"measures before=1 after=2"*)
+    pass "case 122: names the real measured counts" ;;
+  *) fail "case 122: expected the measured counts in output, out=$OUT" ;;
+esac
+
+# Case 123 (KAN-409 fix round, F1): one distinct recorded command defines
+# the Baseline's declared unit — the static @Test delta check skips, so a
+# static delta mismatch on a measured-and-matching Baseline no longer
+# fails a commit the recorded measurement verifies.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Measured command supersedes the static count
+
+**Files:** `alpha.txt`, `counter.txt`
+**Tests:** none — a counter file, not a test
+**Baseline:** before=5 after=6
+<!-- measured: cat counter.txt @ branch main -->
+**Commit:** bump counter
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '@Test fun a() {}\n@Test fun b() {}\n@Test fun c() {}\n' > "$REPO/alpha.txt"
+printf '5\n' > "$REPO/counter.txt"
+git -C "$REPO" add alpha.txt counter.txt
+git -C "$REPO" commit -q -m "seed"
+printf '@Test fun a() {}\n@Test fun b() {}\n@Test fun c() {}\n# prose only\n' > "$REPO/alpha.txt"
+printf '6\n' > "$REPO/counter.txt"
+git -C "$REPO" add alpha.txt counter.txt
+git -C "$REPO" commit -q -m "bump counter"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 123: a measured-and-matching Baseline passes despite a static @Test delta mismatch" || fail "case 123: rc=$RC out=$OUT"
+
+# Case 124 (KAN-409 fix round, F4): a recorded command gets a wall-clock
+# ceiling — past it the measurement skips and the guard returns, rather
+# than hanging. The ceiling is pinned to one second in-process and the
+# case asserts the guard-call RETURNS within 15s against a 30s command.
+new_repo
+printf 'root2\n' > "$REPO/root2.txt"
+git -C "$REPO" add root2.txt
+git -C "$REPO" commit -q -m "second root"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+SECONDS_CEILING_TEST=0
+# No `timeout` on macOS — perl's alarm is the portable wall-clock ceiling.
+perl -e 'alarm shift; exec @ARGV or exit 127' 15 python3 - "$REPO" "$SHA" <<PYEOF && SECONDS_CEILING_TEST=1
+import importlib.util
+import pathlib
+import sys
+
+script = pathlib.Path("$SCRIPT_DIR") / "check-task-commit-fields.py"
+spec = importlib.util.spec_from_file_location("ctcf", script)
+module = importlib.util.module_from_spec(spec)
+sys.modules["ctcf"] = module
+spec.loader.exec_module(module)
+module.MEASURED_TIMEOUT_SECONDS = 1
+result = module._run_measured_at(sys.argv[1], sys.argv[2], "sleep 30")
+sys.exit(0 if result is None else 3)
+PYEOF
+RC=$?
+[ "$SECONDS_CEILING_TEST" -eq 1 ] && [ "$RC" -eq 0 ] \
+  && pass "case 124: a recorded command past the ceiling skips and the guard returns" \
+  || fail "case 124: python rc=$RC ceiling-test=$SECONDS_CEILING_TEST (a hang dies on the perl alarm, non-zero)"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

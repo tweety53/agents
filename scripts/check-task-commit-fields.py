@@ -31,6 +31,28 @@ every declared name would trivially match itself. `Case <N>` labels stay
 diff-checked only, and a value opening with `none` declares no names, both
 per the `Tests:` grammar below.
 
+KAN-409 adds the one dynamic check the rest of this guard never does: a
+`**Baseline:**` whose field records a plan-provenance `<!-- measured:
+<command> @ <ref> -->` comment has that command RE-RUN — at the commit's
+parent for `before` and at the commit for `after`, each inside a throwaway
+detached `git worktree` of the checked worktree's repository, never the
+checked worktree's own checkout (KAN-423: the checkout under a running
+conductor must not move) — and a measured count that differs from the
+declared one is a violation naming both (`check_baseline_measured`).
+`check_baseline_counts` above stays for a Baseline with no recorded
+command; when exactly one distinct command IS recorded, it supersedes the
+static count — the command then defines the declared unit, and the
+declaration is verified against what it measures, never against both. Every
+unsupported shape SKIPS, never fails, per the same kan-100 rule KAN-442's
+removal left standing: no Baseline declared, no recorded command, a command
+that exits non-zero or prints anything but one integer or runs past the
+MEASURED_TIMEOUT_SECONDS ceiling, two DISTINCT recorded commands (two
+comments sharing one command across different refs are the
+kan-271/kan-298 shape and are one command), or a temp worktree that cannot
+be created. The cost KAN-442 removed — two full suites per task, paid
+unconditionally — is here paid only where the plan author recorded a
+command, which is the plan opting in.
+
 Scope is one task, in one tasks.md, in one worktree, checked against one
 commit (and its parent) — unlike check-task-build-green.py, which scans an
 entire tasks.md's tags in one pass. The one exception is a folded pair,
@@ -229,8 +251,10 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field, replace
 from typing import Dict, List, NamedTuple, Optional, Pattern, Tuple
 
@@ -283,6 +307,24 @@ CASE_LABEL_RE = re.compile(r"\bCase\s+(\d+)\b", re.IGNORECASE)
 NONE_OPEN_RE = re.compile(r"^[\s*_]*none\b", re.IGNORECASE)
 BASELINE_COUNTS_RE = re.compile(r"before=(\d+)\s+after=(\d+)")
 
+# One plan-provenance `measured:` comment (skills/flow-contracts/
+# plan-provenance.md's grammar: `measured:<command> @ <ref>`, in an HTML
+# comment). The command group is non-greedy up to the grammar's separator —
+# `@` preceded and followed by whitespace — so an `@` inside the command
+# (`grep -o '@Test'`) is command text, never a separator. A command that
+# itself carries a space-padded ` @ ` is NOT detected as malformed: its
+# tail folds into the ref and the TRUNCATED command is what gets measured
+# (panel re-run: `echo 7 @ x` records `echo 7` and yields a verdict), so a
+# command needing a separator of its own belongs in a script named by a
+# `measured:` one-liner, not inline.
+MEASURED_RE = re.compile(r"<!--\s*measured:\s*(.+?)\s+@\s+(.+?)\s*-->")
+
+# The wall-clock ceiling on one recorded-command run (KAN-409 fix round,
+# panel F4): a recorded command that hangs must not hang the guard. Ten
+# minutes covers a real measurement command — the plan author recorded it
+# as runnable — and expiry is the skip path below, never a verdict.
+MEASURED_TIMEOUT_SECONDS = 600
+
 # check_commit_scope's grammar: a declared Commit: subject is
 # `<type>(<scope>): <rest>` or the Conventional Commits breaking-change form
 # `<type>(<scope>)!: <rest>`; a subject with no parenthesised scope before
@@ -324,6 +366,12 @@ class TaskFields:
     allowed_collateral: List[str] = field(default_factory=list)
     commit: Optional[str] = None
     baseline: Optional[Tuple[int, int]] = None
+    # The distinct `measured:` commands recorded on the Baseline field, in
+    # field order — the commands `check_baseline_measured` re-runs when
+    # exactly one of them exists. Parsed from the same joined value
+    # `baseline` is, so a comment the field's own parser saw is a command
+    # this list carries, never a second scan of the raw lines.
+    baseline_measured: List[str] = field(default_factory=list)
     build: Optional[str] = None  # "green", "red", or None (no tag)
     # The raw `Squash-with:` value as written, or None when the field is
     # absent. Kept so a red task whose field is present but yields no partner
@@ -449,6 +497,11 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         if baseline_match
         else None
     )
+    baseline_measured: List[str] = []
+    for measured_match in MEASURED_RE.finditer(baseline_value):
+        command = measured_match.group(1).strip()
+        if command and command not in baseline_measured:
+            baseline_measured.append(command)
 
     # The tag is the first `**Build:**` line in the body, its kind the
     # `green`/`red` prefix of that line's value (None when malformed),
@@ -479,6 +532,7 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         allowed_collateral=_extract_backtick_tokens(collateral_value),
         commit=commit_value,
         baseline=baseline_counts,
+        baseline_measured=baseline_measured,
         build=tag.kind if tag is not None else None,
         squash_value=squash_value,
         squash_partners=squash_partners,
@@ -953,6 +1007,14 @@ def check_baseline_counts(
     after_count = count_test_annotations(worktree, commit_sha, changed_files)
     if before_count == 0 and after_count == 0:
         return []
+    # One distinct recorded command supersedes this static count (KAN-409
+    # fix round, panel F1): the command then DEFINES the declared unit, and
+    # check_baseline_measured verifies the declaration against what that
+    # command measures. Stacking the two let the @Test prose this guard's
+    # own source carries (docstrings included) fail a commit whose recorded
+    # measurement agreed with the declaration.
+    if len(task.baseline_measured) == 1:
+        return []
     declared_before, declared_after = task.baseline
     if after_count - before_count == declared_after - declared_before:
         return []
@@ -960,6 +1022,85 @@ def check_baseline_counts(
         f"task {task.id}: **Baseline:** declares before={declared_before} "
         f"after={declared_after}, but the changed files count @Test "
         f"before={before_count} after={after_count}"
+    ]
+
+
+def _run_measured_at(worktree: str, sha: str, command: str) -> Optional[int]:
+    """Run the recorded command at <sha> inside a throwaway detached
+    worktree of <worktree>'s repository, and return the single integer it
+    prints on stdout — or None when anything about the environment makes
+    the measurement unavailable: a temp worktree that cannot be created or
+    removed, a command that exits non-zero, or a stdout that is not one
+    integer. None is the skip path, never a verdict (the kan-100 rule the
+    module docstring states). The worktree is created with `--detach`, so
+    no branch moves and no checked-out tree is touched — the checked
+    worktree's own checkout, the one a running conductor and the next
+    implementer stand in (KAN-423), never changes state — and it is removed
+    again in every path below. One run is bounded by
+    MEASURED_TIMEOUT_SECONDS (panel F4): expiry lands in the same skip."""
+    tmp = tempfile.mkdtemp(prefix="ctcf-measured-")
+    added = False
+    try:
+        run_git(worktree, ["worktree", "add", "--detach", "--quiet", tmp, sha])
+        added = True
+        result = subprocess.run(
+            ["bash", "-c", command],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=MEASURED_TIMEOUT_SECONDS,
+        )
+        if result.returncode != 0:
+            return None
+        stdout = result.stdout.strip()
+        if not re.fullmatch(r"\d+", stdout):
+            return None
+        return int(stdout)
+    except (RuntimeError, OSError, subprocess.TimeoutExpired):
+        return None
+    finally:
+        if added:
+            subprocess.run(
+                ["git", "-C", worktree, "worktree", "remove", "--force", tmp],
+                capture_output=True,
+            )
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_baseline_measured(
+    task: TaskFields, worktree: str, parent_sha: str, commit_sha: str
+) -> List[str]:
+    """The Baseline field's one recorded measurement command, re-run at the
+    commit's parent (`before`) and at the commit (`after`), must measure
+    exactly the declared counts — the dynamic counterpart to
+    check_baseline_counts' static @Test delta, and the mechanical detector
+    for the wrong delta and wrong predictions that run's reviewers caught
+    only by hand (KAN-409). Skips — never fails — whenever the measurement
+    cannot be taken (see _run_measured_at), when the task declares no
+    Baseline, and when the field records no command or more than one
+    DISTINCT command: which command would be THE task's measurement is then
+    unknowable, and guessing one would check the declaration against
+    nothing."""
+    if task.baseline is None:
+        return []
+    if len(task.baseline_measured) != 1:
+        return []
+    measured: Dict[str, int] = {}
+    for point, sha in (("before", parent_sha), ("after", commit_sha)):
+        count = _run_measured_at(worktree, sha, task.baseline_measured[0])
+        if count is None:
+            return []
+        measured[point] = count
+    declared_before, declared_after = task.baseline
+    if (
+        measured["before"] == declared_before
+        and measured["after"] == declared_after
+    ):
+        return []
+    return [
+        f"task {task.id}: **Baseline:** declares before={declared_before} "
+        f"after={declared_after}, but the recorded measurement command "
+        f"measures before={measured['before']} after={measured['after']}"
     ]
 
 
@@ -1163,6 +1304,9 @@ def check_task_commit(
     violations += check_tests(task, diff_text)
     violations += check_baseline_counts(
         task, worktree, changed_files, resolved_parent, commit_sha
+    )
+    violations += check_baseline_measured(
+        task, worktree, resolved_parent, commit_sha
     )
     violations += check_tests_in_tree(task, worktree, commit_sha, tasks_md_path)
     violations += check_commit_subject(folded, actual_subject)
