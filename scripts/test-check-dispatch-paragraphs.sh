@@ -141,6 +141,12 @@
 # GUARD_BITES_BLOCK; case 60 is the label absent entirely from implement.md;
 # cases 61-63 are one case per required phrase, each dropped in turn.
 #
+# Cases 64-68 cover KAN-405's REPORT, DON'T DECIDE paragraph, required once
+# in implement.md (the implementer dispatch) and nowhere else: case 1's own
+# implement.md fixture and CLEAN_IMPLEMENT now carry one correct
+# DECIDE_BLOCK; case 64 is the label absent entirely from implement.md;
+# cases 65-68 are one case per required phrase, each dropped in turn.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -582,6 +588,40 @@ GUARD_BITES_BLOCK_NO_BROKEN_STATE='> **PROVE THE GUARD BITES:** When this task'"
 > capture its failure, then restore and capture the pass. Report both runs. "The pattern is now
 > stricter" is intent, not evidence — the failing run against the mutated input is the evidence.'
 
+# The REPORT, DON'T DECIDE paragraph, reproduced verbatim from
+# skills/flow/implement.md (KAN-405).
+DECIDE_BLOCK='> **REPORT, DON'"'"'T DECIDE:** A question only the operator can settle — a spec point no recorded
+> decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
+> name — is reported, never decided in code. Where the plan can proceed, implement it as written
+> and carry the question in your REPORT FILE; where it cannot proceed without the answer, report
+> BLOCKED. A decision you make silently is a decision nobody recorded.'
+
+# Variants of DECIDE_BLOCK, each with exactly one required phrase dropped
+# while staying a plausible paragraph — cases 65-68.
+DECIDE_BLOCK_NO_OPERATOR='> **REPORT, DON'"'"'T DECIDE:** A question the implementer cannot answer alone — a spec point no recorded
+> decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
+> name — is reported, never decided in code. Where the plan can proceed, implement it as written
+> and carry the question in your REPORT FILE; where it cannot proceed without the answer, report
+> BLOCKED. A decision you make silently is a decision nobody recorded.'
+
+DECIDE_BLOCK_NO_REPORTED='> **REPORT, DON'"'"'T DECIDE:** A question only the operator can settle — a spec point no recorded
+> decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
+> name — is raised with the operator, never settled in code. Where the plan can proceed,
+> implement it as written and carry the question in your REPORT FILE; where it cannot proceed
+> without the answer, report BLOCKED. A decision you make silently is a decision nobody recorded.'
+
+DECIDE_BLOCK_NO_CARRY='> **REPORT, DON'"'"'T DECIDE:** A question only the operator can settle — a spec point no recorded
+> decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
+> name — is reported, never decided in code. Where the plan can proceed, implement it as written
+> and record the question in your report; where it cannot proceed without the answer, report
+> BLOCKED. A decision you make silently is a decision nobody recorded.'
+
+DECIDE_BLOCK_NO_BLOCKED='> **REPORT, DON'"'"'T DECIDE:** A question only the operator can settle — a spec point no recorded
+> decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
+> name — is reported, never decided in code. Where the plan can proceed, implement it as written
+> and carry the question in your REPORT FILE; where it cannot proceed without the answer, hand the
+> plan back as blocked. A decision you make silently is a decision nobody recorded.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -605,7 +645,8 @@ write_site() {
 # DELEGATION blocks (panel slot, panel-fix dispatch), same as its two
 # TOOLS blocks (KAN-484), and one PIXEL PROBE block (the panel-fix
 # dispatch, KAN-496); implement.md carries one PROVE THE GUARD BITES block
-# (the implementer dispatch, KAN-328). new_root already seeded
+# (the implementer dispatch, KAN-328) and one REPORT, DON'T DECIDE block
+# (the implementer dispatch, KAN-405). new_root already seeded
 # verify-and-handoff.md
 # with its own required TOOLS, MODEL HANDSHAKE and NO DELEGATION blocks —
 # brainstorm.md is no longer a dispatch site (kan-488) and is seeded with
@@ -644,6 +685,8 @@ write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 $IMPLEMENTER_BLOCK
 
 $GUARD_BITES_BLOCK
+
+$DECIDE_BLOCK
 
 $REVIEWER_BLOCK
 
@@ -1543,6 +1586,8 @@ CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 $IMPLEMENTER_BLOCK
 
 $GUARD_BITES_BLOCK
+
+$DECIDE_BLOCK
 
 $REVIEWER_BLOCK
 
@@ -2566,6 +2611,215 @@ run_guard
 case "$OUT" in
   *"against the broken state"*) pass "case 63: names the missing phrase" ;;
   *) fail "case 63: expected 'against the broken state' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 64: the REPORT, DON'T DECIDE label is absent entirely from
+# implement.md (KAN-405) — exit 1, names the file and the missing block.
+# The fixture is CLEAN_IMPLEMENT with the DECIDE_BLOCK removed.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$GUARD_BITES_BLOCK
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 64: exits 1" || fail "case 64: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"REPORT, DON'T DECIDE"*) pass "case 64: names implement.md and the missing REPORT, DON'T DECIDE block" ;;
+  *) fail "case 64: expected implement.md and REPORT, DON'T DECIDE named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 65: a REPORT, DON'T DECIDE block is present but missing "only the
+# operator can settle" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$GUARD_BITES_BLOCK
+
+$DECIDE_BLOCK_NO_OPERATOR
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 65: exits 1" || fail "case 65: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"only the operator can settle"*) pass "case 65: names the missing phrase" ;;
+  *) fail "case 65: expected 'only the operator can settle' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 66: a REPORT, DON'T DECIDE block is present but missing "reported,
+# never decided in code" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$GUARD_BITES_BLOCK
+
+$DECIDE_BLOCK_NO_REPORTED
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 66: exits 1" || fail "case 66: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"reported, never decided in code"*) pass "case 66: names the missing phrase" ;;
+  *) fail "case 66: expected 'reported, never decided in code' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 67: a REPORT, DON'T DECIDE block is present but missing "carry the
+# question in your REPORT FILE" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$GUARD_BITES_BLOCK
+
+$DECIDE_BLOCK_NO_CARRY
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 67: exits 1" || fail "case 67: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"carry the question in your REPORT FILE"*) pass "case 67: names the missing phrase" ;;
+  *) fail "case 67: expected 'carry the question in your REPORT FILE' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 68: a REPORT, DON'T DECIDE block is present but missing "report
+# BLOCKED" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$GUARD_BITES_BLOCK
+
+$DECIDE_BLOCK_NO_BLOCKED
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 68: exits 1" || fail "case 68: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"report BLOCKED"*) pass "case 68: names the missing phrase" ;;
+  *) fail "case 68: expected 'report BLOCKED' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then

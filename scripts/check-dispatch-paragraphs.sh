@@ -75,7 +75,13 @@
 # assertion protects, run the guard or the test against the broken state and capture
 # its failure, restore, capture the pass — at the implementer dispatch in
 # implement.md alone, beside the TDD and systematic-debugging REQUIRED
-# SUB-SKILL paragraphs.
+# SUB-SKILL paragraphs. KAN-405 added a twelfth required paragraph —
+# REPORT, DON'T DECIDE, which tells an implementer that a question only the
+# operator can settle is reported, never decided in code: carried to the
+# REPORT FILE where the plan can proceed, a BLOCKED report where it cannot,
+# because a decision the implementer makes silently is one nobody recorded —
+# at the implementer dispatch in implement.md alone, the same single site
+# PROVE THE GUARD BITES occupies.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -115,6 +121,7 @@
 #   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
 #   **NO DELEGATION:**                 skills/flow/verify-and-handoff.md 1 (none)
 #   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
+#   **REPORT, DON'T DECIDE:**          skills/flow/implement.md     1   (none)
 #
 #   REPRODUCE, DON'T READ shared phrases: "crosses a boundary", "the store,
 #   the filesystem, a guard, a real transcript", "exercise the real thing"
@@ -161,6 +168,14 @@
 #   the broken state". Required once, at the implementer dispatch in
 #   implement.md alone — the gated per-task reviewer dispatch is not a
 #   site: reviewers judge a diff, they do not run the task's guards.
+#
+#   REPORT, DON'T DECIDE shared phrases (no variants — every block
+#   carrying the label must carry all four): "only the operator can
+#   settle", "reported, never decided in code", "carry the question in your
+#   REPORT FILE", "report BLOCKED". Required once, at the implementer
+#   dispatch in implement.md alone — the gated per-task reviewer dispatch
+#   is not a site: reviewers judge a diff, they do not settle operator
+#   questions.
 #
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
@@ -257,6 +272,7 @@ declare -A ENTRY_LABEL=(
   [independent]="**INDEPENDENT PASSES:**"
   [delegation]="**NO DELEGATION:**"
   [prove]="**PROVE THE GUARD BITES:**"
+  [decide]="**REPORT, DON'T DECIDE:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
@@ -271,6 +287,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [independent]="starts from \`final-review.diff\`${US}raise it again under this pass${US}before beginning the next pass"
   [delegation]="Never call the \`Agent\` tool${US}never spawn a subagent${US}the leaf of this run"
   [prove]="assert on configuration or file content${US}break the property the assertion protects${US}against the broken state"
+  [decide]="only the operator can settle${US}reported, never decided in code${US}carry the question in your REPORT FILE${US}report BLOCKED"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -287,6 +304,7 @@ declare -A ENTRY_VARIANTS=(
   [independent]=""
   [delegation]=""
   [prove]=""
+  [decide]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -299,10 +317,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {
