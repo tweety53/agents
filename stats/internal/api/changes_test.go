@@ -80,6 +80,21 @@ type fakeStore struct {
 	recordIncidentErr error
 	listIncidentsErr  error
 
+	// --- guard hand-substitution bookkeeping (KAN-417,
+	// internal/api/records_test.go's fakeStore methods operate on these)
+	// ---
+	substitutions      []substitutionRecord
+	nextSubstitutionID int64
+
+	recordSubstitutionErr error
+	listSubstitutionsErr  error
+
+	// lastListSubstitutionsGuard and lastListSubstitutionsShape record the
+	// args ListSubstitutions was last called with, the same way
+	// lastListVerdictsGuard does.
+	lastListSubstitutionsGuard string
+	lastListSubstitutionsShape string
+
 	// --- hazard bookkeeping (KAN-452, internal/api/hazards_test.go's
 	// fakeStore methods operate on these) ---
 	hazards        []hazardRecord

@@ -382,6 +382,8 @@ func (f *fakeStore) RecordIncident(_ context.Context, projectKey string, in reco
 }
 
 // ListIncidents mirrors store.Store.ListIncidents' ordering: newest first.
+// ListIncidents mirrors store.Store.ListIncidents' filtering: guard == ""
+// means every guard, and falsePositiveOnly restricts to flagged rows.
 func (f *fakeStore) ListIncidents(_ context.Context, projectKey string) ([]records.Incident, error) {
 	f.recordCalls++
 	if f.listIncidentsErr != nil {
@@ -392,6 +394,63 @@ func (f *fakeStore) ListIncidents(_ context.Context, projectKey string) ([]recor
 		if f.incidents[i].projectKey == projectKey {
 			out = append(out, f.incidents[i].incident)
 		}
+	}
+	return out, nil
+}
+
+// substitutionRecord is fakeStore's in-memory stand-in for a
+// guard_substitutions row. See dispatchRecord's doc comment for why the
+// owning identity sits beside the row rather than inside it.
+type substitutionRecord struct {
+	substitution records.Substitution
+	projectKey   string
+	changeName   string
+}
+
+// RecordSubstitution mirrors store.Store.RecordSubstitution: every call
+// inserts a new row (a guard hand-substituted five times in one run is
+// five rows of evidence), and an unknown (projectKey, change) pair is
+// store.ErrChangeNotFound, the condition the handler must answer 404 to.
+func (f *fakeStore) RecordSubstitution(_ context.Context, projectKey, change string, in records.Substitution) (records.Substitution, error) {
+	f.recordCalls++
+	if f.recordSubstitutionErr != nil {
+		return records.Substitution{}, f.recordSubstitutionErr
+	}
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok {
+		return records.Substitution{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+	f.nextSubstitutionID++
+	out := in
+	out.ID = f.nextSubstitutionID
+	out.Change = change
+	f.substitutions = append(f.substitutions, substitutionRecord{substitution: out, projectKey: projectKey, changeName: change})
+	return out, nil
+}
+
+// ListSubstitutions mirrors store.Store.ListSubstitutions' filtering:
+// guard == "" means every guard, shape == "" means every topology. It also
+// records the args it was called with, so a test can assert the handler
+// parsed and forwarded the query rather than merely that some filter fired.
+func (f *fakeStore) ListSubstitutions(_ context.Context, projectKey, guard, shape string) ([]records.Substitution, error) {
+	f.recordCalls++
+	f.lastListSubstitutionsGuard = guard
+	f.lastListSubstitutionsShape = shape
+	if f.listSubstitutionsErr != nil {
+		return nil, f.listSubstitutionsErr
+	}
+	var out []records.Substitution
+	for i := len(f.substitutions) - 1; i >= 0; i-- {
+		s := &f.substitutions[i]
+		if s.projectKey != projectKey {
+			continue
+		}
+		if guard != "" && s.substitution.Guard != guard {
+			continue
+		}
+		if shape != "" && s.substitution.Shape != shape {
+			continue
+		}
+		out = append(out, s.substitution)
 	}
 	return out, nil
 }
@@ -1891,5 +1950,156 @@ func TestListTaskCountsRouteOldestFirst(t *testing.T) {
 		if got[i].TotalTasks != want {
 			t.Errorf("task counts[%d].TotalTasks = %d, want %d (oldest first)", i, got[i].TotalTasks, want)
 		}
+	}
+}
+
+// --- guard hand-substitutions (KAN-417) ---
+
+// substitutionBody builds a substitutions POST body, the way verdictBody
+// and incidentBody do.
+func substitutionBody(guard, shape, substitution string) map[string]any {
+	return map[string]any{"guard": guard, "shape": shape, "substitution": substitution}
+}
+
+// TestApplySubstitutionRecord pins api.ApplySubstitutionRecord's validation: a
+// shape outside the pipeline's own topology vocabulary is refused as
+// ErrInvalidRecord before the store is touched -- `all` included, since it
+// is a bundle-composition wildcard, never a shape a change has -- exactly
+// as an empty guard or substitution is.
+func TestApplySubstitutionRecord(t *testing.T) {
+	fs := &fakeStore{changes: map[string]store.Change{}}
+	fs.changes[changeKey("proj", "kan-1")] = store.Change{Name: "kan-1"}
+	ctx := context.Background()
+
+	in := records.Substitution{Guard: "gather-dispatch-context", Shape: "cross-repo", Substitution: "composed the bundle by hand"}
+	out, err := api.ApplySubstitutionRecord(ctx, fs, "proj", "kan-1", in)
+	if err != nil {
+		t.Fatalf("ApplySubstitutionRecord: %v", err)
+	}
+	if out.ID == 0 || out.Change != "kan-1" {
+		t.Errorf("ApplySubstitutionRecord = %+v, want an allocated id and the change joined in", out)
+	}
+
+	for _, bad := range []string{"", "all", "three-repo", "cross_repo"} {
+		shape := bad
+		_, err := api.ApplySubstitutionRecord(ctx, fs, "proj", "kan-1",
+			records.Substitution{Guard: "g", Shape: shape, Substitution: "s"})
+		if !errors.Is(err, api.ErrInvalidRecord) {
+			t.Errorf("shape %q: error = %v, want errors.Is(_, ErrInvalidRecord)", shape, err)
+		}
+	}
+	_, err = api.ApplySubstitutionRecord(ctx, fs, "proj", "kan-1",
+		records.Substitution{Guard: "", Shape: "cross-repo", Substitution: "s"})
+	if !errors.Is(err, api.ErrInvalidRecord) {
+		t.Errorf("empty guard: error = %v, want errors.Is(_, ErrInvalidRecord)", err)
+	}
+	_, err = api.ApplySubstitutionRecord(ctx, fs, "proj", "kan-1",
+		records.Substitution{Guard: "g", Shape: "cross-repo", Substitution: ""})
+	if !errors.Is(err, api.ErrInvalidRecord) {
+		t.Errorf("empty substitution: error = %v, want errors.Is(_, ErrInvalidRecord)", err)
+	}
+}
+
+// TestRecordSubstitutionHandler pins the route's outcomes: 201 with the
+// stored row for a real change, 400 for a body missing a field or carrying
+// a shape outside the closed vocabulary (a caller mistake judged before
+// the store), and 404 -- not 500 -- for an unknown change, the mapping
+// internal/client's classification depends on.
+func TestRecordSubstitutionHandler(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/substitutions"
+
+	resp, body := postJSON(t, url, substitutionBody("gather-dispatch-context", "cross-repo", "ran git rev-parse in each repo by hand"))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST substitutions = %d (%s), want 201", resp.StatusCode, body)
+	}
+	var got records.Substitution
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.ID == 0 {
+		t.Errorf("id = 0, want the stored row's own id")
+	}
+	if got.Guard != "gather-dispatch-context" || got.Shape != "cross-repo" || got.Substitution == "" {
+		t.Errorf("response = %+v, want the recorded substitution round-tripped", got)
+	}
+	if len(fs.substitutions) != 1 {
+		t.Errorf("store holds %d substitutions, want 1", len(fs.substitutions))
+	}
+
+	before := fs.recordCalls
+	resp, respBody := postJSON(t, url, substitutionBody("gather-dispatch-context", "all", "s"))
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST substitutions with shape=all = %d (%s), want 400", resp.StatusCode, respBody)
+	}
+	if fs.recordCalls != before {
+		t.Errorf("the store was reached for a shape outside the closed vocabulary")
+	}
+
+	for _, field := range []string{"guard", "substitution"} {
+		t.Run("missing "+field, func(t *testing.T) {
+			before := fs.recordCalls
+			b := substitutionBody("gather-dispatch-context", "cross-repo", "s")
+			delete(b, field)
+			resp, respBody := postJSON(t, url, b)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("POST substitutions missing %s = %d (%s), want 400", field, resp.StatusCode, respBody)
+			}
+			if fs.recordCalls != before {
+				t.Errorf("the store was reached for a body missing %s", field)
+			}
+		})
+	}
+
+	resp, respBody = postJSON(t, ts.URL+recordsPath("proj", "kan-nope")+"/substitutions",
+		substitutionBody("gather-dispatch-context", "cross-repo", "s"))
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("POST substitutions for an unknown change = %d (%s), want 404", resp.StatusCode, respBody)
+	}
+}
+
+// TestListSubstitutionsHandler pins that the route parses guard and shape
+// from the query string and forwards exactly what it parsed to the store,
+// and that the array it hands back is the store's own newest-first order.
+func TestListSubstitutionsHandler(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/substitutions"
+
+	first, firstBody := postJSON(t, url, substitutionBody("gather-dispatch-context", "cross-repo", "first"))
+	if first.StatusCode != http.StatusCreated {
+		t.Fatalf("first POST substitutions = %d (%s), want 201", first.StatusCode, firstBody)
+	}
+	second, secondBody := postJSON(t, url, substitutionBody("check-task-commit-fields", "single-repo", "second"))
+	if second.StatusCode != http.StatusCreated {
+		t.Fatalf("second POST substitutions = %d (%s), want 201", second.StatusCode, secondBody)
+	}
+
+	status, body := doGet(t, ts, "/api/v1/substitutions/proj")
+	if status != http.StatusOK {
+		t.Fatalf("GET substitutions = %d (%s), want 200", status, body)
+	}
+	if fs.lastListSubstitutionsGuard != "" || fs.lastListSubstitutionsShape != "" {
+		t.Errorf("no query: store called with (%q, %q), want (\"\", \"\")", fs.lastListSubstitutionsGuard, fs.lastListSubstitutionsShape)
+	}
+	var got []records.Substitution
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if len(got) != 2 || got[0].Substitution != "second" || got[1].Substitution != "first" {
+		t.Errorf("substitutions = %+v, want newest (\"second\") first", got)
+	}
+
+	status, body = doGet(t, ts, "/api/v1/substitutions/proj?guard=gather-dispatch-context&shape=cross-repo")
+	if status != http.StatusOK {
+		t.Fatalf("GET substitutions?guard=...&shape=... = %d (%s), want 200", status, body)
+	}
+	if fs.lastListSubstitutionsGuard != "gather-dispatch-context" || fs.lastListSubstitutionsShape != "cross-repo" {
+		t.Errorf("store called with (%q, %q), want (\"gather-dispatch-context\", \"cross-repo\")", fs.lastListSubstitutionsGuard, fs.lastListSubstitutionsShape)
+	}
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode filtered response body %s: %v", body, err)
+	}
+	if len(got) != 1 || got[0].Substitution != "first" {
+		t.Errorf("filtered substitutions = %+v, want only the cross-repo gather-dispatch-context row", got)
 	}
 }

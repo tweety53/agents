@@ -76,6 +76,13 @@ type RecordStore interface {
 	RecordIncident(ctx context.Context, projectKey string, in records.Incident) (records.Incident, error)
 	ListIncidents(ctx context.Context, projectKey string) ([]records.Incident, error)
 
+	// RecordSubstitution and ListSubstitutions are KAN-417's guard
+	// hand-substitution log -- the record for a guard that never reached a
+	// verdict -- on RecordStore for the reason the verdict methods above
+	// state.
+	RecordSubstitution(ctx context.Context, projectKey, change string, in records.Substitution) (records.Substitution, error)
+	ListSubstitutions(ctx context.Context, projectKey, guard, shape string) ([]records.Substitution, error)
+
 	// AddHazard, ListHazards and RetireHazard are KAN-452's hazard
 	// methods -- the proactive sibling of the guard-log pair above, and on
 	// RecordStore for the same reason.
@@ -273,6 +280,31 @@ func ApplyIncidentRecord(ctx context.Context, rw RecordStore, projectKey string,
 		return records.Incident{}, fmt.Errorf("%w: minutesLost must not be negative", ErrInvalidRecord)
 	}
 	return rw.RecordIncident(ctx, projectKey, in)
+}
+
+// substitutionShapes is the closed set a substitution's Shape accepts: the
+// pipeline's own topology vocabulary for a change -- the same words
+// gather-dispatch-context.sh's eighth argument validates and Hazard.Applies
+// composes with. `all` is deliberately absent: it is a bundle-composition
+// wildcard, never a shape a change has.
+var substitutionShapes = []string{"single-repo", "cross-repo"}
+
+// ApplySubstitutionRecord records one guard hand-substitution against rw
+// (KAN-417), refusing an empty guard or substitution, or a shape outside
+// substitutionShapes, before the store is touched -- a write refused here
+// is refused identically on every replay, so the CLI's own pre-store check
+// mirrors it rather than replacing it. It takes RecordStore rather than
+// RecordWriter -- KAN-451's guard-log methods sit on RecordStore alone (see
+// ApplyVerdictRecord) -- so this is what internal/reconcile's replay of a
+// journalled "substitution" entry shares with this route.
+func ApplySubstitutionRecord(ctx context.Context, rw RecordStore, projectKey, change string, in records.Substitution) (records.Substitution, error) {
+	if in.Guard == "" || in.Substitution == "" {
+		return records.Substitution{}, fmt.Errorf("%w: guard and substitution are both required", ErrInvalidRecord)
+	}
+	if !slices.Contains(substitutionShapes, in.Shape) {
+		return records.Substitution{}, fmt.Errorf("%w: shape %q is not one of: %s", ErrInvalidRecord, in.Shape, strings.Join(substitutionShapes, ", "))
+	}
+	return rw.RecordSubstitution(ctx, projectKey, change, in)
 }
 
 // recordHandler serves the four run-record endpoints. Each is thin: decode
@@ -786,6 +818,51 @@ func (h *recordHandler) listIncidents(w http.ResponseWriter, r *http.Request) {
 	out, err := h.store.ListIncidents(r.Context(), project)
 	if err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("list incidents for %s", project), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// recordSubstitution serves POST
+// /api/v1/records/{project}/{change}/substitutions: one guard
+// hand-substitution on one change (KAN-417). Every call inserts a new row
+// -- a guard hand-substituted five times in one run is five rows of
+// evidence, never one replayed write -- so this always answers 201,
+// exactly as recordVerdict does.
+func (h *recordHandler) recordSubstitution(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.Substitution
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, err := ApplySubstitutionRecord(r.Context(), h.store, project, change, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record substitution for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+// listSubstitutions serves GET
+// /api/v1/substitutions/{project}?guard=&shape=: a project's guard
+// substitutions, newest first, exactly as store.ListSubstitutions returns
+// them. guard absent means every guard; shape absent means every topology.
+func (h *recordHandler) listSubstitutions(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+
+	out, err := h.store.ListSubstitutions(r.Context(), project,
+		r.URL.Query().Get("guard"), r.URL.Query().Get("shape"))
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list substitutions for %s", project), err)
 		writeError(w, status, msg)
 		return
 	}

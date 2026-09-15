@@ -459,6 +459,14 @@ func (fakeStore) ListIncidents(context.Context, string) ([]records.Incident, err
 	return nil, nil
 }
 
+func (fakeStore) RecordSubstitution(context.Context, string, string, records.Substitution) (records.Substitution, error) {
+	return records.Substitution{}, nil
+}
+
+func (fakeStore) ListSubstitutions(context.Context, string, string, string) ([]records.Substitution, error) {
+	return nil, nil
+}
+
 func (fakeStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
 	return records.Hazard{}, nil
 }
