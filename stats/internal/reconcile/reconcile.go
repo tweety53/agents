@@ -595,11 +595,11 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 
 // recordJournalBody mirrors cmd/flow/record.go's own recordJournalBody
 // exactly -- {"kind":"dispatch"|"dispatch-end"|"finding"|"status"|"verdict"|
-// "verdict-false-positive"|"incident"|"decision"|"pass"|"mutation",
+// "verdict-false-positive"|"incident"|"substitution"|"decision"|"pass"|"mutation",
 // "request":<the
 // records.Dispatch, records.DispatchEnd, records.Finding, status request,
 // records.Verdict, records.VerdictFlag, records.Incident,
-// records.Decision, records.Pass or
+// records.Substitution, records.Decision, records.Pass or
 // records.Mutation that was journalled>}. It is a
 // second declaration of the same wire shape for the
 // same reason stageMarkJournalBody is one: cmd/flow is a main package
@@ -731,6 +731,13 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 			return fmt.Errorf("%w: decode incident: %v", errRecordEntryDecodeFailed, err)
 		}
 		_, err := api.ApplyIncidentRecord(ctx, r.recordStore, e.Project, in)
+		return err
+	case "substitution":
+		var in records.Substitution
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode substitution: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplySubstitutionRecord(ctx, r.recordStore, e.Project, e.Name, in)
 		return err
 	case "decision":
 		var in records.Decision

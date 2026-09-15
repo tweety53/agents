@@ -68,6 +68,14 @@ func (nopRecordStore) ListIncidents(context.Context, string) ([]records.Incident
 	return nil, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) RecordSubstitution(context.Context, string, string, records.Substitution) (records.Substitution, error) {
+	return records.Substitution{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListSubstitutions(context.Context, string, string, string) ([]records.Substitution, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
 	return records.Hazard{}, errRecordStoreNotExercised
 }
@@ -278,6 +286,15 @@ func (f *fakeRecordStore) RecordIncident(_ context.Context, projectKey string, i
 }
 
 func (f *fakeRecordStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RecordSubstitution(_ context.Context, projectKey, change string, in records.Substitution) (records.Substitution, error) {
+	f.record(fmt.Sprintf("substitution %s/%s guard=%s shape=%s substitution=%q", projectKey, change, in.Guard, in.Shape, in.Substitution))
+	return in, nil
+}
+
+func (f *fakeRecordStore) ListSubstitutions(context.Context, string, string, string) ([]records.Substitution, error) {
 	return nil, errRecordStoreNotExercised
 }
 
@@ -998,4 +1015,38 @@ func TestReplayAppliesStatusCategory(t *testing.T) {
 	assertAppliedCalls(t, rs.appliedCalls(), []string{
 		"status proj-record-category/chg-record-category ref=F1 status=deferred doc wording only category=doc-only",
 	})
+}
+
+// TestReplaySubstitutionKind is KAN-417's own addition: `flow record
+// substitution` falls back to the journal kind "substitution", which must
+// reach the store through applyRecordEntry's own case arm and retire,
+// exactly as every other record kind does.
+func TestReplaySubstitutionKind(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-substitution", "chg-record-substitution"
+
+	appendRecordWrite(t, root, project, change, "substitution", records.Substitution{
+		Guard:        "gather-dispatch-context",
+		Shape:        "cross-repo",
+		Substitution: "composed the dispatch bundle by hand",
+	})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Journals != 1 || result.Applied != 1 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Journals:1 Applied:1 Refused:0}", result)
+	}
+
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		`substitution proj-record-substitution/chg-record-substitution guard=gather-dispatch-context shape=cross-repo substitution="composed the dispatch bundle by hand"`,
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (applied entry retired)", n)
+	}
 }
