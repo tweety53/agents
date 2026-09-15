@@ -173,10 +173,14 @@ and blocks this handoff exactly as a failed command would, naming the death.
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
-**Confirm this run recorded a ledger:**
+**Confirm this run recorded a ledger** — rendering into the canonical worktree, the member of
+this run's resolved set whose own `<project>/<spec-root>/changes/<name>/tasks.md` exists (the
+same member **1. Check for unfinished work**, `skills/flow/integrate.md`, passes
+check-unfinished-work), never into whichever worktree this pass runs in, so a multi-worktree run
+writes one copy, not one per worktree:
 
 ```bash
-flow record render -change <name> -kind ledger -repo <abs-worktree>
+flow record render -change <name> -kind ledger -repo <canonical-worktree>
 ```
 
 Read the outcome word, not the exit code. `rendered: <dest>` is ordinary. **`MISSING: ledger — no
@@ -860,7 +864,8 @@ pushed as it landed (**Branch backup**, `skills/flow-contracts/git-boundaries.md
 file records a `prUrl`, a PR is already open, so this run also commits
 `<project>/spectre/changes/` and `<project>/docs/research/` and pushes everything to the PR
 branch; otherwise this step commits nothing more. On that path only — and in this order — run
-`flow record render -change <name> -kind all -repo <worktree>`; then `commit-split.sh <worktree>
+`flow record render -change <name> -kind all -repo <canonical-worktree>` (the same member the
+ledger render above targets); then `commit-split.sh <worktree>
 <name> "<impl-msg>" "chore(spectre): plan"`; then push the branch
 `--force-with-lease`, since the split reshaped it. `<impl-msg>`
 covers working-tree edits the operator made at the human gate without staging them — derive it the

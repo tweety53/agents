@@ -163,10 +163,11 @@ artifacts — as **two** commits, never one. The session records stay uncommitte
 
 **Load `skills/flow-contracts/session-records.md`** before rendering, below.
 
-**Render the ledger first**, so a missing one is caught here:
+**Render the ledger first**, so a missing one is caught here — into the `<canonical-worktree>`
+section 1 resolved, so a multi-worktree run writes one copy, not one per worktree:
 
 ```bash
-flow record render -change <name> -kind ledger -repo <worktree>
+flow record render -change <name> -kind ledger -repo <canonical-worktree>
 ```
 
 **A change with no dispatch rows reports `MISSING: ledger` and exits 0** — never a failure. **A
