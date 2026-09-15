@@ -587,6 +587,17 @@ applies **The handshake** stated above, unchanged.
 > and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
 > file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
 
+**The KAN-29 self review credited its implementers for exactly this behaviour — a backdating
+seam, a declined re-litigation of a recorded rule and an own-card asymmetry each reached the
+operator as a recorded decision because the implementer stopped to report instead of building —
+so every implementer dispatch also carries:**
+
+> **REPORT, DON'T DECIDE:** A question only the operator can settle — a spec point no recorded
+> decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
+> name — is reported, never decided in code. Where the plan can proceed, implement it as written
+> and carry the question in your REPORT FILE; where it cannot proceed without the answer, report
+> BLOCKED. A decision you make silently is a decision nobody recorded.
+
 **The plan-last group's implementer dispatch — the group holding the last `bundle <k>` line
 `plan-dispatch-bundles.sh` printed — alone also carries:**
 
