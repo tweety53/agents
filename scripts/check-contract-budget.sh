@@ -147,12 +147,12 @@ skills/flow/implement.md 60323
 skills/flow/integrate.md 18602
 skills/flow/primary-reviewer-prompt.md 6955
 skills/flow/principles-reviewer-prompt.md 13103
-skills/flow/review-panel.md 69680
+skills/flow/review-panel.md 87260
 skills/flow/security-reviewer-prompt.md 5730
 skills/flow/verify-and-handoff.md 99157
 skills/flow-contracts/SKILL.md 9665
 skills/flow-contracts/artifacts-registry-rationale.md 6981
-skills/flow-contracts/artifacts-registry.md 6719
+skills/flow-contracts/artifacts-registry.md 8509
 skills/flow-contracts/build-green.md 6678
 skills/flow-contracts/finish-contract-run1.md 30090
 skills/flow-contracts/finish-contract-run2.md 36019
