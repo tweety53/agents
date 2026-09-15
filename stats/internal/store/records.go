@@ -50,6 +50,13 @@ var ErrFindingLinkInvalid = errors.New("store: finding lineage link is invalid")
 // can land one.
 var ErrCategoryNotDeferred = errors.New("store: deferral category is deferred-only")
 
+// ErrFindingPatternInvalid is returned by UpsertFinding when a finding's
+// pattern names nothing: a value that normalizes to the empty string --
+// punctuation, separators only -- would label an occurrence the registry's
+// every query filters by a name it cannot match, so the write is refused
+// here rather than landing a row only a hand-written SQL query could find.
+var ErrFindingPatternInvalid = errors.New("store: finding pattern normalizes to nothing")
+
 // ErrDispatchNotFound is returned by MergeDispatchMetrics when no dispatch
 // exists under the given id, and by EndDispatch when the change holds no
 // dispatch under the given session token and key.
@@ -533,7 +540,61 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 	out.Category = derefOrEmpty(category)
 	out.Supersedes = derefOrEmpty(supersedes)
 	out.RegressionOf = derefOrEmpty(regression)
+
+	// The pattern occurrence is its own statement, not a CTE folded into
+	// the finding upsert: each half converges on its own named constraint
+	// -- (change_id, ref) and (change_id, finding_ref) -- so a replayed
+	// write lands the same two rows the first attempt did, and a finding
+	// whose occurrence write failed has the finding row a retry can
+	// relabel. A re-sent pattern relabels the occurrence, last-write-wins
+	// -- the same semantics every other finding column's update path has.
+	if in.Pattern != "" {
+		pattern := normalizePattern(in.Pattern)
+		if pattern == "" {
+			return records.Finding{}, false, fmt.Errorf("%w: finding %s in %s/%s carries pattern %q",
+				ErrFindingPatternInvalid, in.Ref, projectKey, change, in.Pattern)
+		}
+		tag, err := s.pool.Exec(ctx, `
+			INSERT INTO finding_patterns (pattern, change_id, finding_ref)
+			SELECT $3, c.id, $4
+			FROM changes c
+			WHERE c.project_key = $1 AND c.name = $2
+			ON CONFLICT ON CONSTRAINT finding_patterns_occurrence_key DO UPDATE SET
+				pattern = EXCLUDED.pattern
+		`, projectKey, change, pattern, in.Ref)
+		if err != nil {
+			return records.Finding{}, false, fmt.Errorf("store: link finding %s to pattern %s for %s/%s: %w", in.Ref, pattern, projectKey, change, err)
+		}
+		if tag.RowsAffected() == 0 {
+			return records.Finding{}, false, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		out.Pattern = pattern
+	}
 	return out, created, nil
+}
+
+// normalizePattern folds a pattern name to the registry's canonical form:
+// lowercase, every run of non-alphanumeric characters folded to a single
+// `-`, no leading or trailing `-` -- the same kebab discipline the change
+// namer applies to an issue summary, so "Restyled Row Loses its Handler!"
+// and "restyled row loses its handler" label one pattern rather than two.
+// A caller typing a pattern twice under two spellings is exactly the
+// recurrence miscount this registry exists to prevent.
+func normalizePattern(s string) string {
+	var b strings.Builder
+	dashed := true
+	for _, r := range strings.ToLower(s) {
+		alnum := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
+		switch {
+		case alnum:
+			b.WriteRune(r)
+			dashed = false
+		case !dashed:
+			b.WriteByte('-')
+			dashed = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
 }
 
 // SetFindingStatus updates one finding's status and its deferral category,
@@ -1134,9 +1195,10 @@ func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.D
 func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Finding, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.deferral_category, f.reproducer,
-		       f.supersedes, f.regression_of
+		       f.supersedes, f.regression_of, fp.pattern
 		FROM findings f
 		LEFT JOIN dispatches d ON d.id = f.dispatch_id
+		LEFT JOIN finding_patterns fp ON fp.change_id = f.change_id AND fp.finding_ref = f.ref
 		WHERE f.change_id = $1
 		ORDER BY NULLIF(regexp_replace(f.ref, '\D', '', 'g'), '')::int NULLS LAST, f.ref
 	`, changeID)
@@ -1155,9 +1217,10 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 			supersedes  *string
 			regression  *string
 			category    *string
+			pattern     *string
 		)
 		if err := rows.Scan(&f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
-			&f.Note, &f.Status, &category, &reproducer, &supersedes, &regression); err != nil {
+			&f.Note, &f.Status, &category, &reproducer, &supersedes, &regression, &pattern); err != nil {
 			return nil, fmt.Errorf("read findings: scan: %w", err)
 		}
 		f.DispatchSeq = dispatchSeq
@@ -1166,6 +1229,7 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 		f.Category = derefOrEmpty(category)
 		f.Supersedes = derefOrEmpty(supersedes)
 		f.RegressionOf = derefOrEmpty(regression)
+		f.Pattern = derefOrEmpty(pattern)
 		out = append(out, f)
 	}
 	if err := rows.Err(); err != nil {

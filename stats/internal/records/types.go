@@ -186,6 +186,13 @@ type DispatchEnd struct {
 // than a hand-read of every reason. It is empty for every other status and
 // for deferrals recorded without naming one -- absence, never a guessed
 // word.
+//
+// Pattern labels the finding an instance of a recurring defect
+// (KAN-416) -- "restyled row loses its handler" -- normalized by the store
+// to lowercase kebab, so a panel can query the pattern's recurrence across
+// changes instead of depending on a reviewer recalling it. It is optional:
+// most findings are not instances of any named pattern, and an empty value
+// is that absence, never a guessed label.
 type Finding struct {
 	Ref          string `json:"ref"`
 	DispatchSeq  *int   `json:"dispatchSeq,omitempty"`
@@ -199,6 +206,35 @@ type Finding struct {
 	Reproducer   string `json:"reproducer,omitempty"`
 	Supersedes   string `json:"supersedes,omitempty"`
 	RegressionOf string `json:"regressionOf,omitempty"`
+	Pattern      string `json:"pattern,omitempty"`
+}
+
+// FindingPatternSummary is one row of the finding-pattern registry: the
+// recurrence facts about one pattern across a whole project -- how many
+// findings carry it, across how many changes, and when the first and last
+// occurrences were labeled. Changes counts distinct change names, so one
+// change restating a finding under a new ref counts once.
+type FindingPatternSummary struct {
+	Pattern     string    `json:"pattern"`
+	Occurrences int       `json:"occurrences"`
+	Changes     int       `json:"changes"`
+	FirstSeen   time.Time `json:"firstSeen"`
+	LastSeen    time.Time `json:"lastSeen"`
+}
+
+// FindingPatternOccurrence is one past finding behind a pattern: the
+// finding-identity a panel reads to judge recurrence, joined from the
+// labeled occurrence's own change and finding. RecordedAt is when the
+// occurrence was labeled, not when the finding was raised -- the findings
+// table carries no raise instant, and the labeling instant is the one fact
+// the registry itself can vouch for.
+type FindingPatternOccurrence struct {
+	Change     string    `json:"change"`
+	Ref        string    `json:"ref"`
+	Severity   string    `json:"severity"`
+	Status     string    `json:"status"`
+	Note       string    `json:"note"`
+	RecordedAt time.Time `json:"recordedAt"`
 }
 
 // Decision is one run's dynamic decision: the whole `## Decision` block as

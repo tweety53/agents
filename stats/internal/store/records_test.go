@@ -3059,3 +3059,218 @@ func TestStampDispatchAgentNoRowReportsFalse(t *testing.T) {
 		t.Errorf("StampDispatchAgent reported true for a row that does not exist")
 	}
 }
+
+// TestUpsertFindingRecordsPattern pins the write path's one new row: a
+// finding raised with a pattern labels one finding_patterns occurrence,
+// under the normalized name, and the finding the caller gets back carries
+// that same normalized form.
+func TestUpsertFindingRecordsPattern(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-pattern-record-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseFinding("F1", 0)
+	in.Pattern = "Restyled Row Loses its Handler!"
+	got, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", in)
+	if err != nil {
+		t.Fatalf("UpsertFinding with a pattern: %v", err)
+	}
+	if got.Pattern != "restyled-row-loses-its-handler" {
+		t.Errorf("UpsertFinding returned pattern %q, want the normalized %q", got.Pattern, "restyled-row-loses-its-handler")
+	}
+
+	var landed int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM finding_patterns fp JOIN changes c ON c.id = fp.change_id WHERE c.project_key = $1 AND fp.finding_ref = $2",
+		projectKey, "F1",
+	).Scan(&landed); err != nil {
+		t.Fatalf("count occurrence rows: %v", err)
+	}
+	if landed != 1 {
+		t.Fatalf("finding_patterns rows for F1 = %d, want exactly 1", landed)
+	}
+
+	var stored string
+	if err := pool.QueryRow(ctx,
+		"SELECT pattern FROM finding_patterns fp JOIN changes c ON c.id = fp.change_id WHERE c.project_key = $1 AND fp.finding_ref = $2",
+		projectKey, "F1",
+	).Scan(&stored); err != nil {
+		t.Fatalf("read stored pattern: %v", err)
+	}
+	if stored != "restyled-row-loses-its-handler" {
+		t.Errorf("stored pattern = %q, want the normalized form, since every recurrence query filters on it", stored)
+	}
+
+	// A finding raised with no pattern labels nothing -- the ordinary
+	// case, and the empty Pattern the wire type reads back as absence.
+	plain := baseFinding("F2", 0)
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", plain); err != nil {
+		t.Fatalf("UpsertFinding without a pattern: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM finding_patterns fp JOIN changes c ON c.id = fp.change_id WHERE c.project_key = $1 AND fp.finding_ref = $2",
+		projectKey, "F2",
+	).Scan(&landed); err != nil {
+		t.Fatalf("count occurrence rows for the unlabeled finding: %v", err)
+	}
+	if landed != 0 {
+		t.Errorf("finding_patterns rows for the unlabeled F2 = %d, want 0", landed)
+	}
+}
+
+// TestUpsertFindingPatternIdempotentOnReplay pins what a journalled replay
+// must produce: the same finding restated with the same pattern lands one
+// occurrence row, never a second -- (change_id, finding_ref) is the
+// convergence point, exactly as findings_ref_key is for the finding row.
+func TestUpsertFindingPatternIdempotentOnReplay(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-pattern-replay-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first := baseFinding("F1", 0)
+	first.Pattern = "restyled-row-loses-its-handler"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", first); err != nil {
+		t.Fatalf("first UpsertFinding: %v", err)
+	}
+	second := first
+	second.Round = 1
+	second.Status = "fixed"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", second); err != nil {
+		t.Fatalf("replayed UpsertFinding: %v", err)
+	}
+
+	var landed int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM finding_patterns fp JOIN changes c ON c.id = fp.change_id WHERE c.project_key = $1 AND fp.finding_ref = $2",
+		projectKey, "F1",
+	).Scan(&landed); err != nil {
+		t.Fatalf("count occurrence rows after the replay: %v", err)
+	}
+	if landed != 1 {
+		t.Fatalf("finding_patterns rows after a replayed write = %d, want exactly 1", landed)
+	}
+}
+
+// TestUpsertFindingNormalizesPattern pins the registry's canonical form:
+// two spellings of one pattern label it identically, a name of separators
+// alone is refused rather than landing an unmatchable row, and an
+// alphanumeric name passes through unchanged.
+func TestUpsertFindingNormalizesPattern(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-pattern-normalize-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	messy := baseFinding("F1", 0)
+	messy.Pattern = "  Restyled   Row -- loses ITS handler!? "
+	got, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", messy)
+	if err != nil {
+		t.Fatalf("UpsertFinding with a messy pattern: %v", err)
+	}
+	if got.Pattern != "restyled-row-loses-its-handler" {
+		t.Errorf("messy pattern normalized to %q, want %q", got.Pattern, "restyled-row-loses-its-handler")
+	}
+
+	plain := baseFinding("F2", 0)
+	plain.Pattern = "already-kebab-42"
+	got, _, err = st.UpsertFinding(ctx, projectKey, "kan-1", plain)
+	if err != nil {
+		t.Fatalf("UpsertFinding with a kebab pattern: %v", err)
+	}
+	if got.Pattern != "already-kebab-42" {
+		t.Errorf("kebab pattern changed to %q, want it passed through", got.Pattern)
+	}
+
+	nothing := baseFinding("F3", 0)
+	nothing.Pattern = " --- !!! ---"
+	_, _, err = st.UpsertFinding(ctx, projectKey, "kan-1", nothing)
+	if !errors.Is(err, store.ErrFindingPatternInvalid) {
+		t.Fatalf("UpsertFinding with a separators-only pattern: err = %v, want store.ErrFindingPatternInvalid", err)
+	}
+	var landed int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM finding_patterns fp JOIN changes c ON c.id = fp.change_id WHERE c.project_key = $1 AND fp.finding_ref = $2",
+		projectKey, "F3",
+	).Scan(&landed); err != nil {
+		t.Fatalf("count occurrence rows after the refused pattern: %v", err)
+	}
+	if landed != 0 {
+		t.Errorf("finding_patterns rows for the refused pattern = %d, want 0", landed)
+	}
+}
+
+// TestUpsertFindingRelabelsPattern pins the update path's semantics: a fix
+// round restating a finding under a different pattern relabels the one
+// occurrence row, last-write-wins -- a finding is one row per ref, and its
+// occurrence is one row beside it, never a growing set of labels.
+func TestUpsertFindingRelabelsPattern(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-pattern-relabel-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first := baseFinding("F1", 0)
+	first.Pattern = "restyled-row-loses-its-handler"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", first); err != nil {
+		t.Fatalf("first UpsertFinding: %v", err)
+	}
+	second := first
+	second.Pattern = "shared-decode-swallow"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", second); err != nil {
+		t.Fatalf("relabeling UpsertFinding: %v", err)
+	}
+
+	var (
+		landed int
+		stored string
+	)
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*), min(pattern) FROM finding_patterns fp JOIN changes c ON c.id = fp.change_id WHERE c.project_key = $1 AND fp.finding_ref = $2",
+		projectKey, "F1",
+	).Scan(&landed, &stored); err != nil {
+		t.Fatalf("read the relabeled occurrence: %v", err)
+	}
+	if landed != 1 {
+		t.Fatalf("finding_patterns rows after a relabel = %d, want exactly 1", landed)
+	}
+	if stored != "shared-decode-swallow" {
+		t.Errorf("relabeled pattern = %q, want the second write's %q", stored, "shared-decode-swallow")
+	}
+}
+
+// TestRunRecordCarriesPattern pins the read join: a change's run record
+// reports each finding's pattern where it has one, and absence where it
+// has none -- the labeled finding a panel reads back is the same fact the
+// registry counts.
+func TestRunRecordCarriesPattern(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-pattern-read-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	labeled := baseFinding("F1", 0)
+	labeled.Pattern = "restyled-row-loses-its-handler"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", labeled); err != nil {
+		t.Fatalf("UpsertFinding labeled: %v", err)
+	}
+	plain := baseFinding("F2", 0)
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", plain); err != nil {
+		t.Fatalf("UpsertFinding unlabeled: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Findings) != 2 {
+		t.Fatalf("RunRecord returned %d findings, want 2", len(rec.Findings))
+	}
+	if rec.Findings[0].Ref != "F1" || rec.Findings[0].Pattern != "restyled-row-loses-its-handler" {
+		t.Errorf("F1 read back as ref %q pattern %q, want the labeled pattern", rec.Findings[0].Ref, rec.Findings[0].Pattern)
+	}
+	if rec.Findings[1].Ref != "F2" || rec.Findings[1].Pattern != "" {
+		t.Errorf("F2 read back as ref %q pattern %q, want an empty pattern", rec.Findings[1].Ref, rec.Findings[1].Pattern)
+	}
+}
