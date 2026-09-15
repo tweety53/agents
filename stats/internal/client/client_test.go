@@ -912,6 +912,14 @@ func (stubStageStore) ListIncidents(context.Context, string) ([]records.Incident
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RecordSubstitution(context.Context, string, string, records.Substitution) (records.Substitution, error) {
+	return records.Substitution{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListSubstitutions(context.Context, string, string, string) ([]records.Substitution, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
 	return records.Hazard{}, errStageStoreNotImplemented
 }

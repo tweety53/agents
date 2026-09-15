@@ -488,3 +488,65 @@ func TestGetRenderedRecordReadsTheEnvelope(t *testing.T) {
 		t.Errorf("GetRenderedRecord against a route-less daemon = %v, want ErrNotFound", err)
 	}
 }
+
+// minimalSubstitution is the smallest substitution a conductor records.
+func minimalSubstitution() records.Substitution {
+	return records.Substitution{
+		Guard:        "gather-dispatch-context",
+		Shape:        "cross-repo",
+		Substitution: "composed the dispatch bundle by hand",
+		RecordedAt:   time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC),
+	}
+}
+
+// TestClientRecordSubstitution pins that a 201 is read as success and that
+// the row the daemon allocated -- its id -- comes back to the caller rather
+// than being discarded with the response body.
+func TestClientRecordSubstitution(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/records/proj/kan-1/substitutions" {
+			t.Errorf("request = %s %s, want POST /api/v1/records/proj/kan-1/substitutions", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":7,"guard":"gather-dispatch-context","shape":"cross-repo","substitution":"composed the dispatch bundle by hand","recordedAt":"2026-09-13T10:00:00Z"}`))
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	got, err := c.RecordSubstitution(context.Background(), "proj", "kan-1", minimalSubstitution())
+	if err != nil {
+		t.Fatalf("RecordSubstitution: %v", err)
+	}
+	if got.ID != 7 || got.Change != "" {
+		t.Errorf("recorded substitution = %+v, want id 7 as the daemon allocated it", got)
+	}
+}
+
+// TestClientListSubstitutions pins that the list read forwards guard and
+// shape as the query string, decodes the JSON array the daemon answers
+// with, and never classifies an answer as ErrNotFound -- this route names
+// no change, so only a transport failure is ErrUnavailable.
+func TestClientListSubstitutions(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/substitutions/proj" {
+			t.Errorf("request = %s %s, want GET /api/v1/substitutions/proj", r.Method, r.URL.Path)
+		}
+		if got := r.URL.Query().Get("guard"); got != "gather-dispatch-context" {
+			t.Errorf("guard query = %q, want gather-dispatch-context", got)
+		}
+		if got := r.URL.Query().Get("shape"); got != "cross-repo" {
+			t.Errorf("shape query = %q, want cross-repo", got)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[{"id":2,"change":"kan-1","guard":"gather-dispatch-context","shape":"cross-repo","substitution":"composed by hand","recordedAt":"2026-09-13T10:00:00Z"}]`))
+	}))
+	defer srv.Close()
+
+	got, err := client.New(srv.URL, srv.Client()).ListSubstitutions(context.Background(), "proj", "gather-dispatch-context", "cross-repo")
+	if err != nil {
+		t.Fatalf("ListSubstitutions: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != 2 || got[0].Change != "kan-1" {
+		t.Errorf("substitutions = %+v, want one row with id 2 and change kan-1", got)
+	}
+}

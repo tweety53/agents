@@ -1035,6 +1035,58 @@ func (c *Client) ListIncidents(ctx context.Context, project string) ([]records.I
 	return out, nil
 }
 
+// --- guard hand-substitutions (KAN-417) ------------------------------------
+
+// substitutionsURL is the project-scoped guard-substitutions collection, the
+// verdicts pair's URL shape with "substitutions" in place of "verdicts".
+func (c *Client) substitutionsURL(project string) string {
+	return c.baseURL + "/api/v1/substitutions/" + url.PathEscape(project)
+}
+
+// RecordSubstitution records one guard hand-substitution for project/change
+// and returns the row the daemon stored, carrying the id it allocated.
+func (c *Client) RecordSubstitution(ctx context.Context, project, change string, in records.Substitution) (records.Substitution, error) {
+	var out records.Substitution
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/substitutions", in,
+		map[int]bool{http.StatusCreated: true}, &out)
+	if err != nil {
+		return records.Substitution{}, err
+	}
+	return out, nil
+}
+
+// ListSubstitutions fetches project's guard substitutions, newest first.
+// guard == "" means every guard; shape == "" means every topology. See
+// ListVerdicts' own doc comment for why this route can answer only
+// ErrUnavailable, never ErrNotFound.
+func (c *Client) ListSubstitutions(ctx context.Context, project, guard, shape string) ([]records.Substitution, error) {
+	q := url.Values{}
+	if guard != "" {
+		q.Set("guard", guard)
+	}
+	if shape != "" {
+		q.Set("shape", shape)
+	}
+	u := c.substitutionsURL(project)
+	if len(q) > 0 {
+		u += "?" + q.Encode()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.Substitution
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // --- hazards (KAN-452) ----------------------------------------------------
 
 // hazardsURL is the project-scoped hazards collection, the incidents pair's
