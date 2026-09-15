@@ -83,6 +83,12 @@ type RecordStore interface {
 	RecordSubstitution(ctx context.Context, projectKey, change string, in records.Substitution) (records.Substitution, error)
 	ListSubstitutions(ctx context.Context, projectKey, guard, shape string) ([]records.Substitution, error)
 
+	// ListFindingPatterns and ListFindingPatternOccurrences are KAN-416's
+	// registry reads -- per-project like the guard-log pair above, and on
+	// RecordStore for the reason that pair states.
+	ListFindingPatterns(ctx context.Context, projectKey string) ([]records.FindingPatternSummary, error)
+	ListFindingPatternOccurrences(ctx context.Context, projectKey, pattern string) ([]records.FindingPatternOccurrence, error)
+
 	// AddHazard, ListHazards and RetireHazard are KAN-452's hazard
 	// methods -- the proactive sibling of the guard-log pair above, and on
 	// RecordStore for the same reason.
@@ -863,6 +869,41 @@ func (h *recordHandler) listSubstitutions(w http.ResponseWriter, r *http.Request
 		r.URL.Query().Get("guard"), r.URL.Query().Get("shape"))
 	if err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("list substitutions for %s", project), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// listFindingPatterns serves GET /api/v1/finding-patterns/{project}: the
+// finding-pattern registry's summary rows, one per pattern labeled anywhere
+// in the project with its recurrence facts. A project with no labeled
+// findings answers an empty list, not an error -- "no pattern yet" is the
+// ordinary state of a young project, not a missing route.
+func (h *recordHandler) listFindingPatterns(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+
+	out, err := h.store.ListFindingPatterns(r.Context(), project)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list finding patterns for %s", project), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// listFindingPatternOccurrences serves GET
+// /api/v1/finding-patterns/{project}/{pattern}: every finding behind one
+// pattern, the recurrence evidence a panel reads instead of recalling it.
+// The pattern arrives URL-escaped and is forwarded verbatim -- normalizing
+// it is the store's rule, applied identically to reads and writes so the
+// two cannot disagree about what a name means.
+func (h *recordHandler) listFindingPatternOccurrences(w http.ResponseWriter, r *http.Request) {
+	project, pattern := r.PathValue("project"), r.PathValue("pattern")
+
+	out, err := h.store.ListFindingPatternOccurrences(r.Context(), project, pattern)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list occurrences of finding pattern %s for %s", pattern, project), err)
 		writeError(w, status, msg)
 		return
 	}

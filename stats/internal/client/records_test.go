@@ -550,3 +550,47 @@ func TestClientListSubstitutions(t *testing.T) {
 		t.Errorf("substitutions = %+v, want one row with id 2 and change kan-1", got)
 	}
 }
+
+// TestClientFindingPatterns pins both registry reads: the summary call hits
+// the project-scoped route, the detail call appends the escaped pattern,
+// and both decode the rows the daemon answers -- so a panel querying
+// recurrence through the CLI reaches the same JSON the registry serves.
+func TestClientFindingPatterns(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.EscapedPath()
+		switch r.URL.EscapedPath() {
+		case "/api/v1/finding-patterns/proj":
+			_, _ = w.Write([]byte(`[{"pattern":"restyled-row-loses-its-handler","occurrences":3,"changes":2,
+				"firstSeen":"2026-09-01T09:00:00Z","lastSeen":"2026-09-12T09:00:00Z"}]`))
+		case "/api/v1/finding-patterns/proj/Restyled%20Row":
+			_, _ = w.Write([]byte(`[{"change":"kan-1","ref":"F1","severity":"major","status":"open",
+				"note":"the restyled row lost its handler","recordedAt":"2026-09-01T09:00:00Z"}]`))
+		default:
+			t.Errorf("unexpected path %q", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+
+	summaries, err := c.ListFindingPatterns(context.Background(), "proj")
+	if err != nil {
+		t.Fatalf("ListFindingPatterns: %v", err)
+	}
+	if len(summaries) != 1 || summaries[0].Pattern != "restyled-row-loses-its-handler" || summaries[0].Occurrences != 3 {
+		t.Errorf("summaries = %+v, want one row for the restyled-row pattern with 3 occurrences", summaries)
+	}
+
+	occurrences, err := c.ListFindingPatternOccurrences(context.Background(), "proj", "Restyled Row")
+	if err != nil {
+		t.Fatalf("ListFindingPatternOccurrences: %v", err)
+	}
+	if gotPath != "/api/v1/finding-patterns/proj/Restyled%20Row" {
+		t.Errorf("detail call hit %q, want the escaped pattern path", gotPath)
+	}
+	if len(occurrences) != 1 || occurrences[0].Change != "kan-1" || occurrences[0].Ref != "F1" {
+		t.Errorf("occurrences = %+v, want one kan-1/F1 row", occurrences)
+	}
+}

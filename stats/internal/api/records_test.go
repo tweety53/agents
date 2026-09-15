@@ -2103,3 +2103,82 @@ func TestListSubstitutionsHandler(t *testing.T) {
 		t.Errorf("filtered substitutions = %+v, want only the cross-repo gather-dispatch-context row", got)
 	}
 }
+
+// --- finding-pattern registry (KAN-416) ---
+
+func (f *fakeStore) ListFindingPatterns(_ context.Context, projectKey string) ([]records.FindingPatternSummary, error) {
+	f.recordCalls++
+	f.lastListedPatternsProject = projectKey
+	if f.listFindingPatternsErr != nil {
+		return nil, f.listFindingPatternsErr
+	}
+	return f.findingPatterns, nil
+}
+
+func (f *fakeStore) ListFindingPatternOccurrences(_ context.Context, projectKey, pattern string) ([]records.FindingPatternOccurrence, error) {
+	f.recordCalls++
+	f.lastListedOccProject = projectKey
+	f.lastListedOccPattern = pattern
+	if f.listFindingOccurrencesErr != nil {
+		return nil, f.listFindingOccurrencesErr
+	}
+	return f.findingPatternOccurrences, nil
+}
+
+// TestListFindingPatternsEndpoint pins that the registry route forwards the
+// project it parsed and answers the store's summary rows verbatim as a 200.
+func TestListFindingPatternsEndpoint(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	want := []records.FindingPatternSummary{
+		{Pattern: "restyled-row-loses-its-handler", Occurrences: 3, Changes: 2,
+			FirstSeen: time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC), LastSeen: time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)},
+		{Pattern: "shared-decode-swallow", Occurrences: 1, Changes: 1,
+			FirstSeen: time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC), LastSeen: time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC)},
+	}
+	fs.findingPatterns = want
+
+	status, body := doGet(t, ts, "/api/v1/finding-patterns/proj")
+	if status != http.StatusOK {
+		t.Fatalf("GET finding-patterns = %d (%s), want 200", status, body)
+	}
+	if fs.lastListedPatternsProject != "proj" {
+		t.Errorf("store called with project %q, want %q", fs.lastListedPatternsProject, "proj")
+	}
+	var got []records.FindingPatternSummary
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if len(got) != 2 || got[0].Pattern != want[0].Pattern || got[0].Occurrences != 3 || got[0].Changes != 2 {
+		t.Errorf("response rows = %+v, want the two seeded summaries verbatim", got)
+	}
+}
+
+// TestListFindingPatternOccurrencesEndpoint pins that the detail route
+// forwards both path values -- the pattern verbatim, un-normalized, since
+// normalizing is the store's rule -- and answers the joined occurrence rows
+// as a 200.
+func TestListFindingPatternOccurrencesEndpoint(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.findingPatternOccurrences = []records.FindingPatternOccurrence{
+		{Change: "kan-1", Ref: "F1", Severity: "major", Status: "open",
+			Note: "the restyled row lost its handler", RecordedAt: time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)},
+		{Change: "kan-2", Ref: "F3", Severity: "minor", Status: "fixed",
+			Note: "same swallow, second instance", RecordedAt: time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)},
+	}
+
+	status, body := doGet(t, ts, "/api/v1/finding-patterns/proj/Restyled%20Row")
+	if status != http.StatusOK {
+		t.Fatalf("GET finding-patterns detail = %d (%s), want 200", status, body)
+	}
+	if fs.lastListedOccProject != "proj" || fs.lastListedOccPattern != "Restyled Row" {
+		t.Errorf("store called with (%q, %q), want (%q, %q) -- the pattern forwarded verbatim",
+			fs.lastListedOccProject, fs.lastListedOccPattern, "proj", "Restyled Row")
+	}
+	var got []records.FindingPatternOccurrence
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if len(got) != 2 || got[0].Change != "kan-1" || got[0].Ref != "F1" {
+		t.Errorf("response rows = %+v, want the two seeded occurrences verbatim", got)
+	}
+}

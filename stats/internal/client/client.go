@@ -1003,6 +1003,56 @@ func (c *Client) ListVerdicts(ctx context.Context, project, guard string, falseP
 	return out, nil
 }
 
+// findingPatternsURL is KAN-416's registry endpoint -- project scoped
+// rather than change scoped, per verdictsURL's own reasoning: a pattern's
+// recurrence spans every change on the project, which is the whole fact
+// the registry exists to state.
+func (c *Client) findingPatternsURL(project string) string {
+	return c.baseURL + "/api/v1/finding-patterns/" + url.PathEscape(project)
+}
+
+// ListFindingPatterns fetches project's finding-pattern registry summary:
+// one row per labeled pattern with its recurrence facts. See GetRunRecord's
+// own doc comment for how a non-200 outcome is classified -- this route
+// names no change, so it can answer only ErrUnavailable, never ErrNotFound.
+func (c *Client) ListFindingPatterns(ctx context.Context, project string) ([]records.FindingPatternSummary, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.findingPatternsURL(project), nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.FindingPatternSummary
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListFindingPatternOccurrences fetches every finding behind one pattern,
+// oldest labeling first. The pattern is path-escaped here and forwarded
+// verbatim by the daemon -- the store normalizes the name, the same rule
+// its write path applies, so the caller need not guess the canonical
+// spelling.
+func (c *Client) ListFindingPatternOccurrences(ctx context.Context, project, pattern string) ([]records.FindingPatternOccurrence, error) {
+	u := c.findingPatternsURL(project) + "/" + url.PathEscape(pattern)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.FindingPatternOccurrence
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RecordIncident records one per-project incident -- a guard, what went
 // wrong, the recovery taken and how many minutes it cost -- and returns the
 // row the daemon stored, carrying the id it allocated.

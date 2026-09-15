@@ -920,6 +920,14 @@ func (stubStageStore) ListSubstitutions(context.Context, string, string, string)
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) ListFindingPatterns(context.Context, string) ([]records.FindingPatternSummary, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListFindingPatternOccurrences(context.Context, string, string) ([]records.FindingPatternOccurrence, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
 	return records.Hazard{}, errStageStoreNotImplemented
 }

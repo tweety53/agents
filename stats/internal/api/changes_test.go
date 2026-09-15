@@ -17,6 +17,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -133,6 +134,20 @@ type fakeStore struct {
 	nextTaskCountID    int64
 	recordTaskCountErr error
 	listTaskCountsErr  error
+
+	// --- finding-pattern registry bookkeeping (KAN-416,
+	// internal/api/records_test.go's fakeStore methods operate on these)
+	// --- the canned rows are returned verbatim; the last* fields record
+	// the args the routes forwarded, so a test can assert the handler
+	// passed the project and pattern it parsed rather than merely that
+	// some list came back.
+	findingPatterns           []records.FindingPatternSummary
+	findingPatternOccurrences []records.FindingPatternOccurrence
+	lastListedPatternsProject string
+	lastListedOccProject      string
+	lastListedOccPattern      string
+	listFindingPatternsErr    error
+	listFindingOccurrencesErr error
 
 	// lastListVerdictsGuard and lastListVerdictsFalsePositiveOnly record
 	// the args ListVerdicts was last called with, so a test can assert the
