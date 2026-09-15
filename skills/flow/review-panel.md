@@ -17,8 +17,8 @@ flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -s
 **The pass log is store rows, rendered — never a hand-written file.** Every fact this file records
 about a panel run the parent records as it arises with `flow record pass` or `flow record mutation`
 (`-change <name> -round <n>`, the round `0` for the initial panel and `1..n` for a fix round).
-`flow record render -kind panel` renders them into the panel record's pass-log section under the
-canonical worktree's `.superpowers/sdd/reviews/`, beside the findings.
+`flow record render -kind panel` renders them into the panel record's pass-log section under
+`<abs-worktree>/.superpowers/sdd/reviews/` in the canonical worktree, beside the findings.
 
 ## Check base movement first
 

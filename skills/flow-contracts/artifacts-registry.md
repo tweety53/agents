@@ -21,7 +21,7 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Panel record | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Self-review context bundle | run 2 step 9, on `defer` | `<project>/docs/self-review/<name>-context.md`, committed on `chore/archive-<name>` | `/flow-self-review <name>`, in the same commit as the report |
 | SDD ledger | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
-| Rendered ledger and panel record | `flow record render` | the canonical worktree's `.superpowers/sdd/`, under the change-keyed filename — the renders target the canonical worktree only (kan-399); again under `<landing-worktree>` at run 2 step 9, for the self-review bundle | with the worktree, at run 2; with the landing worktree, at run 2 step 11 |
+| Rendered ledger and panel record | `flow record render` | the canonical worktree's `<abs-worktree>/.superpowers/sdd/`, under the change-keyed filename — the renders target the canonical worktree only (kan-399); again under `<landing-worktree>` at run 2 step 9, for the self-review bundle | with the worktree, at run 2; with the landing worktree, at run 2 step 11 |
 | Brainstorm design document | `/flow`'s creating run | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Dispatch context bundle | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/flow`'s creating run | the state directory | run 2, unconditionally |
