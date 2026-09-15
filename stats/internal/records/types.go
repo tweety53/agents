@@ -366,6 +366,18 @@ type SuiteRun struct {
 	RanAt      time.Time `json:"ranAt"`
 }
 
+// SpecLastRun is one spec file's inventory row: when it last ran and how
+// many changes the project has recorded since -- the unrun-for-N stat
+// KAN-418 wants surfaced rather than discovered by accident. LastRanAt is
+// nil for a spec the inventory named that has no recorded run; its
+// ChangesSince is then the project's whole change count, because the spec
+// has been unrun for every change there is.
+type SpecLastRun struct {
+	Spec         string     `json:"spec"`
+	LastRanAt    *time.Time `json:"lastRanAt"`
+	ChangesSince int        `json:"changesSince"`
+}
+
 // TaskCount is one observation of a change plan's total column-0 task
 // count, recorded when the plan is written and again whenever a fix round
 // appends to it. Planned and appended are derived from the series -- the
