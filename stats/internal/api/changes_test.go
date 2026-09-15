@@ -110,6 +110,12 @@ type fakeStore struct {
 	insertSuiteRunErr error
 	listSuiteRunsErr  error
 
+	// --- spec last-run bookkeeping (KAN-418,
+	// internal/api/specs_test.go's fakeStore methods operate on these) ---
+	specRuns         []specRunRecord
+	recordSpecRunErr error
+	listSpecRunsErr  error
+
 	// --- decision bookkeeping (internal/api/records_test.go's fakeStore
 	// methods operate on these) ---
 	decisions      []decisionRecord

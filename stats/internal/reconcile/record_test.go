@@ -104,6 +104,18 @@ func (nopRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]rec
 	return nil, errRecordStoreNotExercised
 }
 
+// RecordSpecRun and ListSpecLastRuns are here for the same reason
+// ListSuiteRuns is: api.RecordStore gained the spec last-run pair (KAN-418)
+// and every implementer must keep compiling -- the replay path never
+// exercises them.
+func (nopRecordStore) RecordSpecRun(context.Context, string, string, time.Time) (records.SpecLastRun, error) {
+	return records.SpecLastRun{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListSpecLastRuns(context.Context, string, []string) ([]records.SpecLastRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) RecordTaskCount(context.Context, string, string, records.TaskCount) (records.TaskCount, error) {
 	return records.TaskCount{}, errRecordStoreNotExercised
 }
@@ -139,6 +151,18 @@ func (f *fakeRecordStore) InsertSuiteRun(context.Context, string, records.SuiteR
 }
 
 func (f *fakeRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+// RecordSpecRun and ListSpecLastRuns are here for the same reason
+// ListSuiteRuns is: api.RecordStore gained the spec last-run pair (KAN-418)
+// and every implementer must keep compiling -- the replay path never
+// exercises them.
+func (f *fakeRecordStore) RecordSpecRun(context.Context, string, string, time.Time) (records.SpecLastRun, error) {
+	return records.SpecLastRun{}, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) ListSpecLastRuns(context.Context, string, []string) ([]records.SpecLastRun, error) {
 	return nil, errRecordStoreNotExercised
 }
 

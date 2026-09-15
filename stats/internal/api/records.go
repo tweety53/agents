@@ -103,6 +103,14 @@ type RecordStore interface {
 	InsertSuiteRun(ctx context.Context, projectKey string, run records.SuiteRun) (records.SuiteRun, error)
 	ListSuiteRuns(ctx context.Context, projectKey, suite string, limit int) ([]records.SuiteRun, error)
 
+	// RecordSpecRun and ListSpecLastRuns are KAN-418's per-spec last-run
+	// inventory -- the store answering which spec files have and have not
+	// been run, rather than that surfacing by accident -- and on
+	// RecordStore for the reason the suite-run methods state above:
+	// nothing replays them.
+	RecordSpecRun(ctx context.Context, projectKey, spec string, ranAt time.Time) (records.SpecLastRun, error)
+	ListSpecLastRuns(ctx context.Context, projectKey string, specs []string) ([]records.SpecLastRun, error)
+
 	// RecordTaskCount and ListTaskCounts are KAN-415's per-change
 	// plan-growth observations -- append-only rows read back as a series
 	// -- and on RecordStore for the reason the suite-run methods state

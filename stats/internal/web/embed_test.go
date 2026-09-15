@@ -496,6 +496,18 @@ func (fakeStore) ListSuiteRuns(context.Context, string, string, int) ([]records.
 	return nil, nil
 }
 
+// RecordSpecRun and ListSpecLastRuns are here for the same reason
+// ListSuiteRuns is: api.RecordStore gained the spec last-run pair (KAN-418)
+// and every implementer must keep compiling -- this file's tests never
+// exercise the spec routes through fakeStore itself.
+func (fakeStore) RecordSpecRun(context.Context, string, string, time.Time) (records.SpecLastRun, error) {
+	return records.SpecLastRun{}, nil
+}
+
+func (fakeStore) ListSpecLastRuns(context.Context, string, []string) ([]records.SpecLastRun, error) {
+	return nil, nil
+}
+
 func (fakeStore) RecordTaskCount(context.Context, string, string, records.TaskCount) (records.TaskCount, error) {
 	return records.TaskCount{}, nil
 }
