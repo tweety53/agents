@@ -121,6 +121,7 @@ scripts/check-references.sh
 scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
 scripts/check-plan-shape.sh
+scripts/check-task-records.sh
 scripts/check-workspace-isolation.sh
 scripts/check-visual-verification.sh .
 printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .
