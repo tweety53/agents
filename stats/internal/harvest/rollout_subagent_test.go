@@ -104,15 +104,17 @@ func TestAgentIDFromRolloutPath(t *testing.T) {
 
 // rolloutDispatchDeps stands in for the dispatch-grain pass's dependencies
 // over a rollout source: per-agent windows for the agent-file pass, merges
-// and ambiguity stamps recorded, and every inference-pass window lookup
-// counted so a test can assert a batch never reached it.
+// recorded, and every inference-pass window lookup counted so a test can
+// assert a batch never reached it. (The ambiguity stamps it once also
+// recorded left with KAN-414, when stamping became apportioning; the
+// session-query count is what now proves keyed attribution never fell
+// back to inference.)
 type rolloutDispatchDeps struct {
 	harvest.NoDeps
 	windowsByAgent map[string][]harvest.DispatchWindow
 	agentQueries   []string
 	sessionQueries []string
 	merges         map[int64][]json.RawMessage
-	unattributed   [][]int64
 }
 
 func (d *rolloutDispatchDeps) DispatchWindowsForAgent(_ context.Context, agentID string) ([]harvest.DispatchWindow, error) {
@@ -130,11 +132,6 @@ func (d *rolloutDispatchDeps) MergeDispatchMetrics(_ context.Context, dispatchID
 		d.merges = make(map[int64][]json.RawMessage)
 	}
 	d.merges[dispatchID] = append(d.merges[dispatchID], patch)
-	return nil
-}
-
-func (d *rolloutDispatchDeps) MarkDispatchesUnattributedByID(_ context.Context, ids []int64, _ string, _ int) error {
-	d.unattributed = append(d.unattributed, ids)
 	return nil
 }
 
@@ -172,10 +169,7 @@ func TestRolloutSubagentBatchesCreditTheirOwnDispatchUnderConcurrency(t *testing
 	}
 
 	if len(deps.sessionQueries) != 0 {
-		t.Errorf("inference pass queried sessions %v, want none: a batch whose file names its own dispatch is never offered to window inference", deps.sessionQueries)
-	}
-	if len(deps.unattributed) != 0 {
-		t.Errorf("ambiguity stamps = %v, want none: keyed attribution leaves nothing to be told apart", deps.unattributed)
+		t.Errorf("inference pass queried sessions %v, want none: a batch whose file names its own dispatch is never offered to window inference, and keyed attribution leaves nothing to be told apart", deps.sessionQueries)
 	}
 	if len(deps.agentQueries) != 2 {
 		t.Errorf("agent window lookups = %v, want one per dispatch's file", deps.agentQueries)

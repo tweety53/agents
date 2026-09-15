@@ -71,6 +71,13 @@ const recordTypeAssistant = "assistant"
 // cache-creation usage -- and is the fact store.Store.Price (via
 // attribute.go's Bucket) relies on to refuse pricing that portion rather
 // than guessing which rate applied.
+//
+// Every numeric field here is also split field-by-field by splitUsage
+// (attribute.go) when a record's usage is apportioned across concurrent
+// dispatches (KAN-414). A new numeric field MUST be added to splitUsage's
+// field list in the same change: one restated there compiles and tests
+// green but is silently excluded from apportioned shares, splitting every
+// apportioned record's spend without it.
 type Usage struct {
 	InputTokens              int64
 	CacheCreationInputTokens int64

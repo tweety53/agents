@@ -957,19 +957,13 @@ func splitInt64(v int64, weights []float64) []int64 {
 		}
 		return fracs[i].idx < fracs[j].idx
 	})
-	// Each remainder unit goes to the current largest fractional share,
-	// ties to the lower index; the grown share re-enters the ranking so a
-	// second unit can land elsewhere. The remainder is smaller than the
-	// candidate count, so the linear scans cost nothing.
-	for rem := v - assigned; rem > 0; rem-- {
-		best := 0
-		for i := 1; i < len(fracs); i++ {
-			if fracs[i].frac > fracs[best].frac {
-				best = i
-			}
-		}
-		out[fracs[best].idx]++
-		fracs[best].frac++
+	// The remainder is smaller than the candidate count, and the fracs
+	// are already ordered largest-first with ties to the lower index, so
+	// the largest-remainder rule is one unit to each of the first rem
+	// entries -- never more than one to any of them, which is what makes
+	// the split spread instead of piling onto one candidate.
+	for i := 0; i < int(v-assigned); i++ {
+		out[fracs[i].idx]++
 	}
 	return out
 }

@@ -1598,6 +1598,47 @@ func TestAttributeOpenWindowAccruesToRecordTimestamp(t *testing.T) {
 	})
 }
 
+// TestAttributeApportionmentSpreadsRemainderAcrossThree is the
+// largest-remainder rule's own case, the one a two-candidate test cannot
+// catch a regression of (review finding F2, this change's own review
+// panel): three identical candidates splitting 5 input tokens take 2, 2
+// and 1 -- one leftover unit to each of the two largest fractional
+// shares, ties to the lower dispatch id -- never 3 on one candidate.
+func TestAttributeApportionmentSpreadsRemainderAcrossThree(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 51, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 52, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 53, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+	}
+	records := []harvest.Record{sidechainRecord(t, "", "2026-01-01T00:10:30Z", 5)}
+
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.DispatchDelta) {
+		if deltas[51].Tokens.Sidechain.Input != 2 || deltas[52].Tokens.Sidechain.Input != 2 || deltas[53].Tokens.Sidechain.Input != 1 {
+			t.Fatalf("inputs %d, %d, %d, want 2, 2, 1 -- the remainder spreads one unit per largest fractional share, not all of it onto one candidate",
+				deltas[51].Tokens.Sidechain.Input, deltas[52].Tokens.Sidechain.Input, deltas[53].Tokens.Sidechain.Input)
+		}
+	})
+}
+
+// TestSplitInt64LargestRemainderSpreads pins splitInt64's remainder rule
+// directly, at the two shapes the panel found broken (review finding F1):
+// an equal three-way split of 5 spreads the two leftover units 2/2/1, and
+// an unequal split of 100 across weights 1 : 2 : 3.3 lands them 16/32/52
+// -- floors plus one unit each to the largest fractional remainders.
+func TestSplitInt64LargestRemainderSpreads(t *testing.T) {
+	equal := harvest.SplitInt64ForTest(5, []float64{1, 1, 1})
+	if equal[0] != 2 || equal[1] != 2 || equal[2] != 1 {
+		t.Fatalf("SplitInt64ForTest(5, [1 1 1]) = %v, want [2 2 1]", equal)
+	}
+	unequal := harvest.SplitInt64ForTest(100, []float64{1, 2, 3.3})
+	if unequal[0] != 16 || unequal[1] != 32 || unequal[2] != 52 {
+		t.Fatalf("SplitInt64ForTest(100, [1 2 3.3]) = %v, want [16 32 52]", unequal)
+	}
+	if equal[0]+equal[1]+equal[2] != 5 || unequal[0]+unequal[1]+unequal[2] != 100 {
+		t.Fatalf("a split that does not sum back to its input is not a split")
+	}
+}
+
 // TestDispatchSameAgentIDNarrowedByInterval is kan-374's own case: a
 // task-N-implementer-fix-1 dispatch resumed the implementer and so
 // carries its agent id, giving two windows for one id. The record's
