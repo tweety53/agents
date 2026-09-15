@@ -3869,3 +3869,31 @@ func TestRecordFindingPatternVerb(t *testing.T) {
 		t.Errorf("stderr = %q, want it to name -name as required", stderr.String())
 	}
 }
+
+// TestRecordFindingPatternsEmptyRegistryPrintsEmptyArray pins the guard the
+// daemon's null body rides on (KAN-416 panel F5): the store answers an
+// unlabeled project with a JSON null, and the CLI must print exactly []
+// regardless -- a caller scripting against this verb must never see null
+// where the documented contract says an empty array.
+func TestRecordFindingPatternsEmptyRegistryPrintsEmptyArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`null`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding-patterns", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if got := strings.TrimRight(stdout.String(), "\n"); got != "[]" {
+		t.Fatalf("stdout = %q, want exactly []", got)
+	}
+}

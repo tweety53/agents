@@ -575,8 +575,7 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 
 // normalizePattern folds a pattern name to the registry's canonical form:
 // lowercase, every run of non-alphanumeric characters folded to a single
-// `-`, no leading or trailing `-` -- the same kebab discipline the change
-// namer applies to an issue summary, so "Restyled Row Loses its Handler!"
+// `-`, no leading or trailing `-` -- so "Restyled Row Loses its Handler!"
 // and "restyled row loses its handler" label one pattern rather than two.
 // A caller typing a pattern twice under two spellings is exactly the
 // recurrence miscount this registry exists to prevent.
@@ -706,8 +705,8 @@ func (s *Store) ListFindingPatterns(ctx context.Context, projectKey string) ([]r
 // need not guess the canonical spelling; a name no finding carries is an
 // empty list, the same contract the findings reads keep.
 func (s *Store) ListFindingPatternOccurrences(ctx context.Context, projectKey, pattern string) ([]records.FindingPatternOccurrence, error) {
-	pattern = normalizePattern(pattern)
-	if pattern == "" {
+	normalized := normalizePattern(pattern)
+	if normalized == "" {
 		return nil, fmt.Errorf("%w: %q", ErrFindingPatternInvalid, pattern)
 	}
 	rows, err := s.pool.Query(ctx, `
@@ -717,7 +716,7 @@ func (s *Store) ListFindingPatternOccurrences(ctx context.Context, projectKey, p
 		JOIN findings f ON f.change_id = fp.change_id AND f.ref = fp.finding_ref
 		WHERE c.project_key = $1 AND fp.pattern = $2
 		ORDER BY fp.created_at, c.name, f.ref
-	`, projectKey, pattern)
+	`, projectKey, normalized)
 	if err != nil {
 		return nil, fmt.Errorf("store: list occurrences of finding pattern %s for %s: %w", pattern, projectKey, err)
 	}

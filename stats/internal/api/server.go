@@ -523,6 +523,8 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrCategoryNotDeferred):
 		return http.StatusConflict, err.Error()
+	case errors.Is(err, store.ErrFindingPatternInvalid):
+		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):
 		return http.StatusNotFound, err.Error()
 	case errors.Is(err, store.ErrHazardDuplicate):

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -592,5 +593,31 @@ func TestClientFindingPatterns(t *testing.T) {
 	}
 	if len(occurrences) != 1 || occurrences[0].Change != "kan-1" || occurrences[0].Ref != "F1" {
 		t.Errorf("occurrences = %+v, want one kan-1/F1 row", occurrences)
+	}
+}
+
+// TestListFindingPatternOccurrencesEscapesReservedCharacters pins the path
+// escaping (KAN-416 panel F4): a pattern carrying a reserved character must
+// arrive percent-encoded, not truncated at the first one -- an unescaped
+// "row?detail" reaches the daemon as pattern "row", silently answering for
+// the wrong pattern with exit 0.
+func TestListFindingPatternOccurrencesEscapesReservedCharacters(t *testing.T) {
+	var escaped string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		escaped = r.URL.EscapedPath()
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	out, err := c.ListFindingPatternOccurrences(context.Background(), "proj", "row?detail")
+	if err != nil {
+		t.Fatalf("ListFindingPatternOccurrences: %v", err)
+	}
+	if len(out) != 0 {
+		t.Errorf("occurrences = %+v, want an empty list", out)
+	}
+	if escaped == "" || !strings.HasSuffix(escaped, "/row%3Fdetail") {
+		t.Errorf("daemon saw %q, want the path ending in the percent-encoded pattern /row%%3Fdetail", escaped)
 	}
 }

@@ -3,6 +3,7 @@ package web_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -453,6 +454,14 @@ func (fakeStore) ListVerdicts(context.Context, string, string, bool) ([]records.
 
 func (fakeStore) RecordIncident(context.Context, string, records.Incident) (records.Incident, error) {
 	return records.Incident{}, nil
+}
+
+func (fakeStore) ListFindingPatterns(context.Context, string) ([]records.FindingPatternSummary, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (fakeStore) ListFindingPatternOccurrences(context.Context, string, string) ([]records.FindingPatternOccurrence, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (fakeStore) ListIncidents(context.Context, string) ([]records.Incident, error) {

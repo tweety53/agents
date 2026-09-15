@@ -2182,3 +2182,25 @@ func TestListFindingPatternOccurrencesEndpoint(t *testing.T) {
 		t.Errorf("response rows = %+v, want the two seeded occurrences verbatim", got)
 	}
 }
+
+// TestFindingPatternRefusalAnswersBadRequest pins the sentinel's mapping
+// (KAN-416 panel F1): store.ErrFindingPatternInvalid is a caller mistake --
+// a name that normalizes to nothing -- so both routes that can surface it
+// answer 400, never a 500 the CLI would misread as the store being
+// unavailable and journal for a replay that can never succeed.
+func TestFindingPatternRefusalAnswersBadRequest(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+
+	fs.upsertFindingErr = fmt.Errorf("%w: finding F1 in proj/kan-1 carries pattern %q",
+		store.ErrFindingPatternInvalid, " --- !!! ---")
+	resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open"))
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST findings with a separators-only pattern = %d (%s), want 400", resp.StatusCode, body)
+	}
+
+	fs.listFindingOccurrencesErr = store.ErrFindingPatternInvalid
+	status, sbody := doGet(t, ts, "/api/v1/finding-patterns/proj/!!!")
+	if status != http.StatusBadRequest {
+		t.Fatalf("GET finding-patterns detail with a separators-only pattern = %d (%s), want 400", status, sbody)
+	}
+}

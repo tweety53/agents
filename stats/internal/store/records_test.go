@@ -3387,3 +3387,15 @@ func TestListFindingPatternOccurrencesListsPastFindings(t *testing.T) {
 		t.Errorf("unknown pattern returned %d rows, want 0", len(none))
 	}
 }
+
+// TestListFindingPatternOccurrencesRefusesSeparatorsOnly pins the read
+// path's refusal (KAN-416 panel F6): a name that normalizes to nothing is
+// ErrFindingPatternInvalid, symmetric with the write path -- never a
+// silent empty list a caller would read as "no recurrence".
+func TestListFindingPatternOccurrencesRefusesSeparatorsOnly(t *testing.T) {
+	st := newTestStore(t)
+	_, err := st.ListFindingPatternOccurrences(context.Background(), "proj-pattern-refuse", "!!! --- !!!")
+	if !errors.Is(err, store.ErrFindingPatternInvalid) {
+		t.Fatalf("err = %v, want store.ErrFindingPatternInvalid", err)
+	}
+}
