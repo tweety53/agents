@@ -1347,6 +1347,107 @@ func (s *Store) ListVerdicts(ctx context.Context, projectKey, guard string, fals
 	return out, nil
 }
 
+// substitutionColumns is the column list every read of a guard_substitutions
+// row selects, in the order scanSubstitutionRow scans them.
+// ListSubstitutions qualifies it with qualifiedSubstitutionColumns;
+// RecordSubstitution's INSERT ... RETURNING, with changes joined in for the
+// name, qualifies it too.
+const substitutionColumns = `id, guard, shape, substitution, recorded_at`
+
+// qualifiedSubstitutionColumns is substitutionColumns with every name
+// qualified by alias, for the joins -- the same reasoning
+// qualifiedVerdictColumns carries.
+func qualifiedSubstitutionColumns(alias string) string {
+	cols := strings.Split(substitutionColumns, ",")
+	for i, c := range cols {
+		cols[i] = alias + "." + strings.TrimSpace(c)
+	}
+	return strings.Join(cols, ", ")
+}
+
+// scanSubstitutionRow decodes one row of substitutionColumns, plus a change
+// name joined in ahead of it, into a records.Substitution.
+func scanSubstitutionRow(row dispatchRowScanner) (records.Substitution, error) {
+	var (
+		s      records.Substitution
+		change string
+	)
+	if err := row.Scan(&change, &s.ID, &s.Guard, &s.Shape, &s.Substitution, &s.RecordedAt); err != nil {
+		return records.Substitution{}, err
+	}
+	s.Change = change
+	return s, nil
+}
+
+// RecordSubstitution records one guard hand-substitution against a change:
+// which guard could not be run, on which project topology, and what
+// substitution was used instead (KAN-417). Like RecordVerdict it allocates
+// no seq and dedups on nothing: a guard hand-substituted five times in one
+// run is five rows of evidence, never one replayed write, so every call
+// inserts a new row.
+//
+// RecordedAt is the caller's own timestamp, exactly as on RecordVerdict --
+// the CLI stamps time.Now() before the call, so a journalled write replayed
+// later still carries the moment the substitution actually happened rather
+// than the moment the journal was drained.
+//
+// An unknown (projectKey, change) pair is ErrChangeNotFound, the same
+// sentinel RecordVerdict returns for the same shape of failure.
+func (s *Store) RecordSubstitution(ctx context.Context, projectKey, change string, in records.Substitution) (records.Substitution, error) {
+	row := s.pool.QueryRow(ctx, `
+		WITH ins AS (
+			INSERT INTO guard_substitutions (change_id, guard, shape, substitution, recorded_at)
+			SELECT c.id, $3, $4, $5, $6
+			FROM changes c
+			WHERE c.project_key = $1 AND c.name = $2
+			RETURNING `+substitutionColumns+`
+		)
+		SELECT $2, `+qualifiedSubstitutionColumns("ins")+`
+		FROM ins
+	`, projectKey, change, in.Guard, in.Shape, in.Substitution, in.RecordedAt)
+
+	out, err := scanSubstitutionRow(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.Substitution{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		return records.Substitution{}, fmt.Errorf("store: record substitution for %s/%s: %w", projectKey, change, err)
+	}
+	return out, nil
+}
+
+// ListSubstitutions reads a project's guard substitutions, newest first.
+// guard == "" means every guard; shape == "" means every topology. The two
+// filters compose independently, mirroring ListVerdicts' own pair.
+func (s *Store) ListSubstitutions(ctx context.Context, projectKey, guard, shape string) ([]records.Substitution, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.name, `+qualifiedSubstitutionColumns("gs")+`
+		FROM guard_substitutions gs
+		JOIN changes c ON c.id = gs.change_id
+		WHERE c.project_key = $1
+		  AND ($2 = '' OR gs.guard = $2)
+		  AND ($3 = '' OR gs.shape = $3)
+		ORDER BY gs.recorded_at DESC, gs.id DESC
+	`, projectKey, guard, shape)
+	if err != nil {
+		return nil, fmt.Errorf("store: list substitutions for %s: %w", projectKey, err)
+	}
+	defer rows.Close()
+
+	var out []records.Substitution
+	for rows.Next() {
+		v, err := scanSubstitutionRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: list substitutions for %s: scan: %w", projectKey, err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list substitutions for %s: %w", projectKey, err)
+	}
+	return out, nil
+}
+
 // incidentColumns is the column list every read of an incidents row
 // selects, in the order scanIncidentRow scans them. ListIncidents qualifies
 // it with qualifiedIncidentColumns; RecordIncident's plain INSERT ...

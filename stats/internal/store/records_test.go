@@ -2154,6 +2154,141 @@ func TestListVerdictsFiltersByGuardAndFlag(t *testing.T) {
 	}
 }
 
+func baseSubstitution(guard, shape, substitution string, recordedAt time.Time) records.Substitution {
+	return records.Substitution{
+		Guard:        guard,
+		Shape:        shape,
+		Substitution: substitution,
+		RecordedAt:   recordedAt,
+	}
+}
+
+// TestRecordSubstitutionRoundTrip asserts RecordSubstitution returns an
+// allocated ID and that ListSubstitutions reads the row back with Change
+// joined in, exactly as a verdict round-trips -- a substitution is the
+// same shape of row, one per hand-substitution, never deduplicated.
+func TestRecordSubstitutionRoundTrip(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-substitution-roundtrip-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseSubstitution("gather-dispatch-context", "cross-repo",
+		"ran git -C each repo rev-parse HEAD by hand and composed the bundle",
+		time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC))
+	got, err := st.RecordSubstitution(ctx, projectKey, "kan-1", in)
+	if err != nil {
+		t.Fatalf("RecordSubstitution: %v", err)
+	}
+	if got.ID == 0 {
+		t.Errorf("RecordSubstitution returned ID 0, want an allocated id")
+	}
+
+	list, err := st.ListSubstitutions(ctx, projectKey, "", "")
+	if err != nil {
+		t.Fatalf("ListSubstitutions: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("ListSubstitutions returned %d rows, want 1", len(list))
+	}
+	row := list[0]
+	if row.Change != "kan-1" {
+		t.Errorf("Change = %q, want %q", row.Change, "kan-1")
+	}
+	if row.Guard != in.Guard || row.Shape != in.Shape || row.Substitution != in.Substitution {
+		t.Errorf("ListSubstitutions row = %+v, want guard/shape/substitution of %+v round-tripped", row, in)
+	}
+	if !row.RecordedAt.Equal(in.RecordedAt) {
+		t.Errorf("RecordedAt = %v, want %v", row.RecordedAt, in.RecordedAt)
+	}
+}
+
+// TestStoreRejectsSubstitutionShapeOutsideVocabulary asserts the migration's
+// own CHECK is the schema-level backstop behind ApplySubstitutionRecord's
+// validation: a row written past the API layer with a shape outside the
+// closed vocabulary is refused by Postgres, never stored (panel F4).
+func TestStoreRejectsSubstitutionShapeOutsideVocabulary(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-substitution-check-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO guard_substitutions (change_id, guard, shape, substitution, recorded_at)
+		SELECT c.id, 'g', 'all', 's', now() FROM changes c
+		WHERE c.project_key = $1 AND c.name = 'kan-1'
+	`, projectKey)
+	if err == nil || !strings.Contains(err.Error(), "guard_substitutions_shape_check") {
+		t.Fatalf("INSERT with shape 'all' error = %v, want the guard_substitutions_shape_check violation", err)
+	}
+}
+
+// TestRecordSubstitutionReportsUnknownChange asserts an unknown
+// (projectKey, change) pair is ErrChangeNotFound -- the same sentinel
+// RecordVerdict returns for the same shape of failure.
+func TestRecordSubstitutionReportsUnknownChange(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-substitution-missing-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	_, err := st.RecordSubstitution(ctx, projectKey, "kan-nope", baseSubstitution(
+		"gather-dispatch-context", "cross-repo", "n/a", time.Now()))
+	if !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("RecordSubstitution error = %v, want errors.Is(_, store.ErrChangeNotFound)", err)
+	}
+}
+
+// TestListSubstitutionsFilters asserts ListSubstitutions' two filters
+// compose independently and that, whichever filter is applied, the result
+// is newest first.
+func TestListSubstitutionsFilters(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-substitution-filter-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	a, err := st.RecordSubstitution(ctx, projectKey, "kan-1", baseSubstitution(
+		"gather-dispatch-context", "cross-repo", "first", time.Date(2026, 9, 13, 9, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordSubstitution a: %v", err)
+	}
+	b, err := st.RecordSubstitution(ctx, projectKey, "kan-1", baseSubstitution(
+		"gather-dispatch-context", "single-repo", "second", time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordSubstitution b: %v", err)
+	}
+	c, err := st.RecordSubstitution(ctx, projectKey, "kan-1", baseSubstitution(
+		"check-task-commit-fields", "cross-repo", "third", time.Date(2026, 9, 13, 11, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordSubstitution c: %v", err)
+	}
+
+	byGuard, err := st.ListSubstitutions(ctx, projectKey, "gather-dispatch-context", "")
+	if err != nil {
+		t.Fatalf("ListSubstitutions by guard: %v", err)
+	}
+	if len(byGuard) != 2 || byGuard[0].ID != b.ID || byGuard[1].ID != a.ID {
+		t.Errorf("by guard = %+v, want newest first [%d, %d]", byGuard, b.ID, a.ID)
+	}
+
+	byShape, err := st.ListSubstitutions(ctx, projectKey, "", "cross-repo")
+	if err != nil {
+		t.Fatalf("ListSubstitutions by shape: %v", err)
+	}
+	if len(byShape) != 2 || byShape[0].ID != c.ID || byShape[1].ID != a.ID {
+		t.Errorf("by shape = %+v, want newest first [%d, %d]", byShape, c.ID, a.ID)
+	}
+
+	all, err := st.ListSubstitutions(ctx, projectKey, "", "")
+	if err != nil {
+		t.Fatalf("ListSubstitutions unfiltered: %v", err)
+	}
+	if len(all) != 3 || all[0].ID != c.ID || all[1].ID != b.ID || all[2].ID != a.ID {
+		t.Errorf("unfiltered = %+v, want newest first [%d, %d, %d]", all, c.ID, b.ID, a.ID)
+	}
+}
+
 // TestRecordIncidentWithAndWithoutAChange asserts Change is optional on the
 // write side -- empty stores NULL and reads back empty, a known change
 // resolves to its name, and an unknown change name is the same not-found
