@@ -18,13 +18,20 @@ type Period struct {
 }
 
 // LiveStateRow is one row of the live state board: one change, its current
-// state, and when it was last updated.
+// state, and when it was last updated. PlannedTasks and CurrentTasks are
+// the change's first and latest change_task_counts observations (KAN-415)
+// -- nil together when the change was never observed, which is the board's
+// absence-is-never-zero case: no observation reads as no figure, never as
+// a count of zero.
 type LiveStateRow struct {
 	ProjectKey string
 	Name       string
 	State      State
 	UpdatedAt  time.Time
 	UpdatedBy  string
+
+	PlannedTasks *int
+	CurrentTasks *int
 }
 
 // LiveStateBoard lists every change updated within period, optionally
@@ -32,11 +39,26 @@ type LiveStateRow struct {
 // empty slice, never an error.
 func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *string) ([]LiveStateRow, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT project_key, name, state, updated_at, updated_by
-		FROM changes
-		WHERE updated_at >= $1 AND updated_at < $2
-		  AND ($3::text IS NULL OR project_key = $3)
-		ORDER BY updated_at DESC, project_key, name
+		SELECT c.project_key, c.name, c.state, c.updated_at, c.updated_by,
+		       first_obs.total_tasks, latest_obs.total_tasks
+		FROM changes c
+		LEFT JOIN LATERAL (
+			SELECT t.total_tasks
+			FROM change_task_counts t
+			WHERE t.change_id = c.id
+			ORDER BY t.observed_at, t.id
+			LIMIT 1
+		) first_obs ON true
+		LEFT JOIN LATERAL (
+			SELECT t.total_tasks
+			FROM change_task_counts t
+			WHERE t.change_id = c.id
+			ORDER BY t.observed_at DESC, t.id DESC
+			LIMIT 1
+		) latest_obs ON true
+		WHERE c.updated_at >= $1 AND c.updated_at < $2
+		  AND ($3::text IS NULL OR c.project_key = $3)
+		ORDER BY c.updated_at DESC, c.project_key, c.name
 	`, period.From, period.To, project)
 	if err != nil {
 		return nil, fmt.Errorf("store: live state board: %w", err)
@@ -49,7 +71,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 			row   LiveStateRow
 			state string
 		)
-		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy); err != nil {
+		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
+			&row.PlannedTasks, &row.CurrentTasks); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		row.State = State(state)

@@ -1374,3 +1374,62 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 		t.Errorf("kan-default ImplementerGroups = %q, want empty", def.ImplementerGroups)
 	}
 }
+
+// TestLiveStateBoardCarriesPlannedAndCurrentTasks: the board's task-count
+// columns are the first and latest observations of the change's
+// change_task_counts series (KAN-415) -- and a change never observed reads
+// nil, nil, the board's absence-is-never-zero case, never a count of zero.
+func TestLiveStateBoardCarriesPlannedAndCurrentTasks(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-growth-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	if _, err := st.RecordTaskCount(ctx, projectKey, "kan-1", records.TaskCount{TotalTasks: 22}); err != nil {
+		t.Fatalf("RecordTaskCount(22): %v", err)
+	}
+	if _, err := st.RecordTaskCount(ctx, projectKey, "kan-1", records.TaskCount{TotalTasks: 46}); err != nil {
+		t.Fatalf("RecordTaskCount(46): %v", err)
+	}
+
+	period := store.Period{
+		From: time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC),
+	}
+	rows, err := st.LiveStateBoard(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("LiveStateBoard returned %d rows, want 2", len(rows))
+	}
+
+	byName := map[string]LiveStateByName{}
+	for _, row := range rows {
+		byName[row.Name] = LiveStateByName{Planned: row.PlannedTasks, Current: row.CurrentTasks}
+	}
+
+	grown := byName["kan-1"]
+	if grown.Planned == nil || *grown.Planned != 22 {
+		t.Errorf("kan-1 PlannedTasks = %v, want 22", grown.Planned)
+	}
+	if grown.Current == nil || *grown.Current != 46 {
+		t.Errorf("kan-1 CurrentTasks = %v, want 46", grown.Current)
+	}
+
+	unobserved := byName["kan-2"]
+	if unobserved.Planned != nil || unobserved.Current != nil {
+		t.Errorf("kan-2 PlannedTasks/CurrentTasks = %v/%v, want nil/nil",
+			unobserved.Planned, unobserved.Current)
+	}
+}
+
+// LiveStateByName keys a board row's two task-count figures by change name
+// inside TestLiveStateBoardCarriesPlannedAndCurrentTasks -- the board's own
+// row order is by updated_at, which two same-second seeds do not
+// distinguish.
+type LiveStateByName struct {
+	Planned *int
+	Current *int
+}

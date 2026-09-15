@@ -301,6 +301,17 @@ type SuiteRun struct {
 	RanAt      time.Time `json:"ranAt"`
 }
 
+// TaskCount is one observation of a change plan's total column-0 task
+// count, recorded when the plan is written and again whenever a fix round
+// appends to it. Planned and appended are derived from the series -- the
+// first observation and the latest minus it -- never stored, so the rows
+// themselves are the growth trend (KAN-415).
+type TaskCount struct {
+	ID         int64     `json:"id"`
+	TotalTasks int       `json:"totalTasks"`
+	ObservedAt time.Time `json:"observedAt"`
+}
+
 // Pass is one pass-log entry the panel's parent records as it happens --
 // the roster and reduction verdicts, the diff-size figures, the re-run
 // decisions, the fix pass's agents-ran/why/diff-path facts. Before
