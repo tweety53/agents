@@ -251,6 +251,35 @@ type VerdictFlag struct {
 	Reason string `json:"reason"`
 }
 
+// Substitution is one recorded guard hand-substitution: a guard a run's
+// conductor could not run, the project topology it failed on, and the
+// substitution that was used in its place (KAN-417). Verdict is the record
+// a guard that RAN leaves behind; Substitution is the record for the guard
+// that never got that far -- the evidence that would justify and shape a
+// cross-repo fix, which before this row lived only in the handoff prose.
+//
+// Shape is the pipeline's own topology vocabulary for a change --
+// "single-repo" or "cross-repo", the same words gather-dispatch-context.sh's
+// eighth argument validates and Hazard.Applies composes with -- constrained
+// at the store rather than free text: "three-repo" is a kind of cross-repo,
+// and Substitution is where the specifics belong.
+//
+// Change is the change name on the read side (joined from `changes`, the
+// way ListVerdicts reports it) and is left empty on the write side, where
+// the URL already names the change.
+//
+// Every write inserts a new row, exactly as RecordVerdict does: a guard
+// hand-substituted five times in one run is five rows of evidence, never
+// one replayed write.
+type Substitution struct {
+	ID           int64     `json:"id"`
+	Change       string    `json:"change,omitempty"`
+	Guard        string    `json:"guard"`
+	Shape        string    `json:"shape"`
+	Substitution string    `json:"substitution"`
+	RecordedAt   time.Time `json:"recordedAt"`
+}
+
 // Incident is one per-project record of a guard actually costing time: what
 // guard, what went wrong, what recovery was taken and how many minutes it
 // cost. Unlike Verdict, an incident is written by hand -- see this change's
