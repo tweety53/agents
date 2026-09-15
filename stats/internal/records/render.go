@@ -290,6 +290,18 @@ const (
 	reasonDispatchAmbiguous = "matched more than one dispatch"
 )
 
+// reasonNotMeasured is the one wording for the never-measured state -- the
+// word tokenLine renders where a bag carries no tokens figure at all, and
+// the key CostStatusOf counts that same state under. One constant, not two
+// literals: the ledger line and the cost-status count must agree by
+// construction, not by a comment asking them to stay in step (kan-401's
+// review panel, F3). It is deliberately not a producer reason -- no
+// watcher or store writer stamps it -- so a producer could in principle
+// stamp the same literal and collapse into this bucket; no producer does
+// (the three constants above are the whole stamped vocabulary), and the
+// ledger renders an unknown stamp verbatim rather than collapsing it.
+const reasonNotMeasured = "not measured"
+
 // tokenTotals is the bag's "tokens" object: the harvester's two buckets.
 type tokenTotals struct {
 	Main      tokenBucket `json:"main"`
@@ -352,7 +364,7 @@ type tokenBucket struct {
 // and splitting the two here would invite a reader to add them up wrongly.
 func tokenLine(raw json.RawMessage) string {
 	if len(bytes.TrimSpace(raw)) == 0 {
-		return "not measured"
+		return reasonNotMeasured
 	}
 	var m dispatchMetrics
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -379,7 +391,7 @@ func tokenLine(raw json.RawMessage) string {
 			return "cost unattributed — " + neutraliseMarkers(m.Unattributed.Reason)
 		}
 	}
-	return "not measured"
+	return reasonNotMeasured
 }
 
 // orElse is what an unrecorded optional field renders as. A dispatch that

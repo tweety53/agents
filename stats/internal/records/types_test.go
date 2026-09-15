@@ -42,6 +42,18 @@ func TestCostStatusOf(t *testing.T) {
 			wantN:   0,
 			reasons: map[string]int{},
 		},
+		{
+			name:    "an empty metrics bag -- never measured, never stamped -- counted as not measured",
+			bag:     `{}`,
+			wantN:   1,
+			reasons: map[string]int{"not measured": 1},
+		},
+		{
+			name:    "no metrics bag at all -- a hand-built Dispatch, not a store row -- not counted",
+			bag:     ``,
+			wantN:   0,
+			reasons: map[string]int{},
+		},
 	}
 
 	for _, tc := range cases {

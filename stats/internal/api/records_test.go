@@ -855,10 +855,12 @@ func TestRunRecordRouteReturnsDispatchesAndFindingsInOrder(t *testing.T) {
 // costStatus handler (never fakeStore's own bookkeeping) through the HTTP
 // route, over dispatches seeded with the wire shapes records.CostStatusOf
 // distinguishes: one carrying tokens only, one carrying an unattributed
-// stamp only, and one carrying both -- the tokens-outrank-a-stamp
-// contradiction case. It pins the route (GET .../cost-status), the status
-// (200) and the body shape (records.CostStatus's own JSON tags), so a
-// change to any of the three fails this test rather than going unnoticed.
+// stamp only, one carrying both -- the tokens-outrank-a-stamp
+// contradiction case -- and one carrying neither, the empty bag KAN-401's
+// never-measured population is made of. It pins the route
+// (GET .../cost-status), the status (200) and the body shape
+// (records.CostStatus's own JSON tags), so a change to any of the three
+// fails this test rather than going unnoticed.
 func TestCostStatusRouteDerivesFromTheRealRunRecord(t *testing.T) {
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
@@ -869,6 +871,7 @@ func TestCostStatusRouteDerivesFromTheRealRunRecord(t *testing.T) {
 		{"tokens-only", `{"tokens":{"main":{"input":100,"output":20,"cache_read":0,"cache_creation":0},"sidechain":{"input":0,"output":0,"cache_read":0,"cache_creation":0}}}`},
 		{"unattributed-only", `{"unattributed":{"reason":"session never bound"}}`},
 		{"both", `{"tokens":{"main":{"input":5,"output":1,"cache_read":0,"cache_creation":0},"sidechain":{"input":0,"output":0,"cache_read":0,"cache_creation":0}},"unattributed":{"reason":"matched more than one dispatch","candidates":2}}`},
+		{"neither", `{}`},
 	}
 	for _, s := range seed {
 		body := dispatchBody("implementer", "opus")
@@ -889,14 +892,17 @@ func TestCostStatusRouteDerivesFromTheRealRunRecord(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
 		t.Fatalf("decode response body %s: %v", body, err)
 	}
-	if got.Unattributed != 1 {
-		t.Errorf("Unattributed = %d, want 1 -- only unattributed-only counts, tokens-only and both do not", got.Unattributed)
+	if got.Unattributed != 2 {
+		t.Errorf("Unattributed = %d, want 2 -- unattributed-only and the empty bag count, tokens-only and both do not", got.Unattributed)
 	}
 	if got.Reasons["session never bound"] != 1 {
 		t.Errorf("Reasons[session never bound] = %d, want 1", got.Reasons["session never bound"])
 	}
-	if len(got.Reasons) != 1 {
-		t.Errorf("Reasons = %v, want exactly one reason", got.Reasons)
+	if got.Reasons["not measured"] != 1 {
+		t.Errorf("Reasons[not measured] = %d, want 1 -- the empty bag's own reason", got.Reasons["not measured"])
+	}
+	if len(got.Reasons) != 2 {
+		t.Errorf("Reasons = %v, want exactly two reasons", got.Reasons)
 	}
 }
 

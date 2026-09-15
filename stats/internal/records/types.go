@@ -364,8 +364,26 @@ type CostStatus struct {
 // a time: a dispatch carrying a real "tokens" figure is measured, never
 // unattributed, even where it also carries a stale "unattributed" stamp --
 // MarkDispatchesUnattributed's own doc comment explains why that
-// contradiction is possible and why the measurement wins. Only a dispatch
-// with no "tokens" key and a non-empty "unattributed.reason" counts.
+// contradiction is possible and why the measurement wins. A dispatch with
+// no "tokens" key and a non-empty "unattributed.reason" counts under that
+// reason. And a dispatch with neither -- the empty `{}` bag, the permanent
+// shape of everything no producer ever measured or stamped (a dispatch on
+// a harness that writes no transcript, one whose records never reached a
+// window, one recorded before its agent id was known) -- counts too, under
+// the reason `not measured` -- reasonNotMeasured, the same constant
+// tokenLine renders for that state, so the two wordings cannot drift
+// (F3). SKIPPING that population is what made this summary lie by
+// omission (KAN-401): the command's own contract is "how many of a
+// change's dispatches carry NO COST FIGURE", and a bag with no tokens key
+// is exactly that, stamp or no stamp. For every store-produced row the
+// ledger's `not measured` rows and this count therefore agree -- and only
+// for those: a zero-length or unreadable bag renders not-measured wording
+// in the ledger yet counts nothing here, both states documented below.
+//
+// Only a bag that is not there at all -- zero-length raw, a hand-built
+// Dispatch in a test, never a store row (insertDispatch defaults metrics
+// to '{}') -- counts nothing, and an unreadable bag counts nothing rather
+// than being guessed at.
 //
 // It reuses dispatchMetrics and unattributed (render.go) rather than
 // re-declaring the bag's shape a second time here: the two read the same
@@ -387,10 +405,11 @@ func CostStatusOf(r Run) CostStatus {
 			continue
 		}
 		if m.Unattributed == nil || m.Unattributed.Reason == "" {
-			continue
+			reasons[reasonNotMeasured]++
+		} else {
+			reasons[m.Unattributed.Reason]++
 		}
 		unattributedCount++
-		reasons[m.Unattributed.Reason]++
 	}
 	return CostStatus{Unattributed: unattributedCount, Reasons: reasons}
 }
