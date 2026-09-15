@@ -45,6 +45,26 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
       updatedAt: "2026-01-15T10:00:00Z",
       updatedBy: "alice",
       nextCommand: "/flow-fast",
+      plannedTasks: 22,
+      currentTasks: 46,
+    },
+    {
+      projectKey: "kan-16-stats-app",
+      name: "kan-29-never-observed",
+      state: "STARTED",
+      updatedAt: "2026-01-15T09:00:00Z",
+      updatedBy: "bob",
+      nextCommand: "/flow",
+    },
+    {
+      projectKey: "kan-16-stats-app",
+      name: "kan-31-replan-fold",
+      state: "FINISHED",
+      updatedAt: "2026-01-15T08:00:00Z",
+      updatedBy: "carol",
+      nextCommand: "/flow",
+      plannedTasks: 46,
+      currentTasks: 22,
     },
   ]),
   "stage-leaderboard": envelope("stage-leaderboard", [
@@ -165,10 +185,18 @@ describe("views render their fixture response's actual values", () => {
     expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "alice" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "/flow-fast" })).toBeInTheDocument();
+    // Plan growth (KAN-415): the observed change shows planned -> current
+    // with the appended figure; the never-observed one reads as the
+    // absence dash, never as a count of zero.
+    expect(screen.getByRole("cell", { name: "22 → 46 (+24)" })).toBeInTheDocument();
+    // A shrinking series carries its own sign, never a malformed "+-24"
+    // (panel round 0, F1).
+    expect(screen.getByRole("cell", { name: "46 → 22 (-24)" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "—" })).toBeInTheDocument();
     // Its own stat panel: a count of the rows the server returned, never a
     // fabricated total or mean for a categorical "state" column.
     expect(screen.getByRole("heading", { name: "Changes" })).toBeInTheDocument();
-    within(screen.getByRole("region", { name: "Changes" })).getByText("1");
+    within(screen.getByRole("region", { name: "Changes" })).getByText("3");
   });
 
   it("stage leaderboard shows mean, median and p90 cost, and its own stat panels", async () => {

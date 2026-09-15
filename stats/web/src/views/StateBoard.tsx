@@ -32,6 +32,29 @@ function runDetailHref(row: StateBoardRow): string {
   return `#/run/${encodeURIComponent(row.projectKey)}/${encodeURIComponent(row.name)}`;
 }
 
+/**
+ * One row's Plan growth cell (KAN-415): `planned → current (+n)` once the
+ * change has been observed, the bare current figure while growth is zero,
+ * and `—` when it never was -- an unobserved change reads as no figure,
+ * never as a count of zero. The appended figure is the derivation the
+ * store states -- latest minus first -- never a stored column.
+ */
+function planGrowth(row: StateBoardRow): string {
+  const { plannedTasks, currentTasks } = row;
+  if (plannedTasks === undefined || currentTasks === undefined) {
+    return "—";
+  }
+  if (currentTasks === plannedTasks) {
+    return formatInt(plannedTasks);
+  }
+  // The delta carries its own sign: a re-plan fold can leave the plan
+  // smaller than it started, and a naive `(+${delta})` would render that
+  // as `+-24` (panel round 0, F1).
+  const delta = currentTasks - plannedTasks;
+  const growth = delta > 0 ? `+${delta}` : `${delta}`;
+  return `${plannedTasks} → ${currentTasks} (${growth})`;
+}
+
 // The Project column names the project, it does not key it (kan-183): the
 // hash suffix identifies a checkout, not something a reader benefits from
 // parsing. `render` shows the display name; the full key survives as the
@@ -69,6 +92,13 @@ const columns: Column<StateBoardRow>[] = [
     render: (r) => <a href={runDetailHref(r)}>{r.name}</a>,
   },
   { key: "state", header: "State", sortable: true, accessor: (r) => r.state, filterable: true },
+  {
+    key: "planGrowth",
+    header: "Plan growth",
+    sortable: true,
+    accessor: (r) => r.currentTasks ?? null,
+    render: planGrowth,
+  },
   {
     key: "updatedAt",
     header: "Updated",

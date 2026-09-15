@@ -244,6 +244,10 @@ export interface StateBoardRow {
   updatedAt: string;
   updatedBy: string;
   nextCommand: string;
+  /** The change's first and latest task-count observations (KAN-415); absent
+   * when the change was never observed -- absence, never a zero. */
+  plannedTasks?: number;
+  currentTasks?: number;
 }
 
 /** Mirrors costPerChangeRowDTO. */

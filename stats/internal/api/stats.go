@@ -602,6 +602,12 @@ type stateBoardRowDTO struct {
 	UpdatedAt   string `json:"updatedAt"`
 	UpdatedBy   string `json:"updatedBy"`
 	NextCommand string `json:"nextCommand"`
+
+	// PlannedTasks and CurrentTasks are the change's first and latest
+	// task-count observations (KAN-415) -- nil together when the change
+	// was never observed, absence-is-never-zero as the store states it.
+	PlannedTasks *int `json:"plannedTasks,omitempty"`
+	CurrentTasks *int `json:"currentTasks,omitempty"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -636,12 +642,14 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 	out := make([]stateBoardRowDTO, len(rows))
 	for i, r := range rows {
 		out[i] = stateBoardRowDTO{
-			ProjectKey:  r.ProjectKey,
-			Name:        r.Name,
-			State:       string(r.State),
-			UpdatedAt:   r.UpdatedAt.UTC().Format(time.RFC3339Nano),
-			UpdatedBy:   r.UpdatedBy,
-			NextCommand: nextCommandFor(r.State),
+			ProjectKey:   r.ProjectKey,
+			Name:         r.Name,
+			State:        string(r.State),
+			UpdatedAt:    r.UpdatedAt.UTC().Format(time.RFC3339Nano),
+			UpdatedBy:    r.UpdatedBy,
+			NextCommand:  nextCommandFor(r.State),
+			PlannedTasks: r.PlannedTasks,
+			CurrentTasks: r.CurrentTasks,
 		}
 	}
 	return out
