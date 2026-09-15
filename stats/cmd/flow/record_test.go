@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -3737,4 +3738,134 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 			t.Error("stderr is empty, want it to report the unreachable store")
 		}
 	})
+}
+
+// TestRecordFindingPatternFlag pins the write path's new flag: `-pattern`
+// rides on the finding POST's JSON body and a well-formed value reaches the
+// store, while the pattern's normalization stays the store's business --
+// the CLI forwards verbatim what the caller typed.
+func TestRecordFindingPatternFlag(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotPattern string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		raw, _ := io.ReadAll(r.Body)
+		if err := json.Unmarshal(raw, &body); err != nil {
+			t.Fatalf("decode finding body: %v", err)
+		}
+		gotPattern, _ = body["pattern"].(string)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"ref":"F1","round":0,"slot":"principles","severity":"major","note":"n","status":"open","pattern":"restyled-row-loses-its-handler"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-416", "-ref", "F1", "-round", "0", "-slot", "principles",
+			"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh",
+			"-note", "the restyled row lost its handler",
+			"-pattern", "Restyled Row Loses its Handler!"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if gotPattern != "Restyled Row Loses its Handler!" {
+		t.Errorf("body pattern = %q, want the caller's spelling forwarded verbatim -- the store normalizes, not the CLI", gotPattern)
+	}
+}
+
+// TestRecordFindingPatternsVerb pins the registry summary read: a project's
+// patterns as a JSON array on stdout, exit 0, with no -change flag at all --
+// the verdicts-and-incidents project scope, since a pattern's recurrence
+// spans changes.
+func TestRecordFindingPatternsVerb(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/api/v1/finding-patterns/") {
+			t.Errorf("request = %s %s, want GET /api/v1/finding-patterns/<project>", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[{"pattern":"restyled-row-loses-its-handler","occurrences":3,"changes":2,
+			"firstSeen":"2026-09-01T09:00:00Z","lastSeen":"2026-09-12T09:00:00Z"}]`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding-patterns", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	var got []struct {
+		Pattern     string `json:"pattern"`
+		Occurrences int    `json:"occurrences"`
+		Changes     int    `json:"changes"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode stdout as JSON array: %v\nstdout:\n%s", err, stdout.String())
+	}
+	if len(got) != 1 || got[0].Pattern != "restyled-row-loses-its-handler" || got[0].Occurrences != 3 || got[0].Changes != 2 {
+		t.Errorf("patterns = %+v, want one restyled-row row at 3 occurrences in 2 changes", got)
+	}
+}
+
+// TestRecordFindingPatternVerb pins the detail read: `-name` required (exit
+// 2 without it, the caller-mistake contract), the pattern escaped into the
+// path, and a pattern nothing carries printed as exactly "[]" with exit 0.
+func TestRecordFindingPatternVerb(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var requested string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		requested = r.URL.EscapedPath()
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[{"change":"kan-1","ref":"F1","severity":"major","status":"open",
+			"note":"the restyled row lost its handler","recordedAt":"2026-09-01T09:00:00Z"}]`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-name", "Restyled Row"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.HasPrefix(requested, "/api/v1/finding-patterns/") || !strings.HasSuffix(requested, "/Restyled%20Row") {
+		t.Errorf("requested %q, want the project-scoped registry path ending in the escaped pattern", requested)
+	}
+	var got []struct {
+		Change string `json:"change"`
+		Ref    string `json:"ref"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode stdout as JSON array: %v\nstdout:\n%s", err, stdout.String())
+	}
+	if len(got) != 1 || got[0].Change != "kan-1" || got[0].Ref != "F1" {
+		t.Errorf("occurrences = %+v, want one kan-1/F1 row", got)
+	}
+
+	// The caller mistake: no -name, usage on stderr, exit 2.
+	stdout.Reset()
+	stderr.Reset()
+	code = run(context.Background(),
+		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 2 {
+		t.Errorf("missing -name exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "-name is required") {
+		t.Errorf("stderr = %q, want it to name -name as required", stderr.String())
+	}
 }

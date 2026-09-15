@@ -190,11 +190,15 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              [-category cat] [-reproducer cmd]
                              [-dispatch-seq n] -note text
                              [-supersedes F<n>] [-regression-of F<n>]
+                             [-pattern name]
        flow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
                              [-category cat]
        flow record findings [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record finding-patterns [-addr url] [-timeout dur] [-C dir]
+       flow record finding-pattern  [-addr url] [-timeout dur] [-C dir]
+                             -name pattern
        flow record dispatches [-addr url] [-timeout dur] [-C dir]
                              -change name
        flow record verdict  [-addr url] [-timeout dur] [-C dir]
@@ -275,6 +279,21 @@ reach is reported to stderr and exits non-zero, never a silent empty
 array: check-panel-fix-single-dispatch.sh counts rows from this verb, and
 an outage that read as zero rows would pass every round it was blind to.
 
+finding-patterns and finding-pattern query the finding-pattern registry
+(KAN-416), so a panel can ask how often a defect pattern has recurred
+instead of trusting a reviewer's recall of it. finding-patterns prints the
+project's patterns as a JSON array -- pattern, occurrences, changes,
+firstSeen, lastSeen -- most-recurring first; finding-pattern prints one
+pattern's occurrences as a JSON array, oldest labeling first, each row the
+change, ref, severity, status and note of a past finding. Both read a
+project rather than a change -- no -change flag, the verdicts and
+incidents contract -- and both carry findings' read contract, verbatim: a
+pattern nothing carries prints "[]" and exits 0, a store that cannot be
+reached exits non-zero and prints no array. finding-pattern's -name is
+normalized by the store exactly as the write path normalizes it, so any
+spelling of a pattern finds its rows; the -pattern flag on finding is
+normalized by the same rule.
+
 verdict, verdict false-positive and verdicts are a guard's own record of
 what it found: verdict writes the guard's whole verdict line, verbatim, on
 one change; verdict false-positive is an operator's judgment that the most
@@ -323,7 +342,8 @@ The only non-zero exits are caller mistakes -- a missing required flag, an
 unrecognised -role, a -session-token carrying a shell substitution, or a
 -minutes-lost that does not parse as a non-negative integer -- a write the
 store was reached for and refused, and a read (findings, dispatches,
-verdicts, incidents) the store could not answer.
+verdicts, incidents, finding-patterns, finding-pattern) the store could
+not answer.
 
 A dispatch is recorded in TWO calls. "begin" writes the row as the
 dispatch starts; "end" closes it as the dispatch finishes. Both are
@@ -399,6 +419,10 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordFinding(ctx, args[1:], stdout, stderr)
 	case "findings":
 		return runRecordFindings(ctx, args[1:], stdout, stderr)
+	case "finding-patterns":
+		return runRecordFindingPatterns(ctx, args[1:], stdout, stderr)
+	case "finding-pattern":
+		return runRecordFindingPattern(ctx, args[1:], stdout, stderr)
 	case "dispatches":
 		return runRecordDispatches(ctx, args[1:], stdout, stderr)
 	case "verdict":
@@ -958,6 +982,14 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	// in the store's seq lookup.
 	supersedes := fset.String("supersedes", "", "an earlier finding's ref this one supersedes: the same defect re-raised (optional)")
 	regressionOf := fset.String("regression-of", "", "an earlier finding's ref whose fix caused this one (optional)")
+	// The pattern registry (KAN-416): an optional label naming the
+	// recurring defect this finding is an instance of. The store
+	// normalizes it and refuses a name that normalizes to nothing, the
+	// same trust-in-the-store split the lineage flags above take -- only
+	// the store can say what already exists under a spelling, and only
+	// the store's one rule keeps a write and a later lookup of the same
+	// words landing on the same pattern.
+	pattern := fset.String("pattern", "", "the recurring defect pattern this finding is an instance of (optional)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -1006,6 +1038,7 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		Reproducer:   *reproducer,
 		Supersedes:   *supersedes,
 		RegressionOf: *regressionOf,
+		Pattern:      *pattern,
 	}
 	if *dispatchSeq > 0 {
 		in.DispatchSeq = dispatchSeq
@@ -1463,6 +1496,94 @@ func runRecordFindings(ctx context.Context, args []string, stdout, stderr io.Wri
 	body, err := json.Marshal(run.Findings)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: encode findings: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
+	return 0
+}
+
+// runRecordFindingPatterns implements `flow record finding-patterns`: the
+// finding-pattern registry's summary rows, one per pattern labeled anywhere
+// in the project with its recurrence facts -- the query that answers "is
+// this a fourth instance" from rows instead of a reviewer's memory.
+// Project-scoped like `verdicts` and `incidents`, and findings' read
+// contract, verbatim: no rows prints "[]", an unreachable store prints
+// nothing and exits non-zero.
+func runRecordFindingPatterns(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record finding-patterns", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f)
+
+	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.FindingPatternSummary, error) {
+		return cl.ListFindingPatterns(ctx, projectKey)
+	})
+	if callErr != nil {
+		fmt.Fprintf(stderr, "flow: finding-patterns: %v\n", callErr)
+		return 1
+	}
+	if out == nil {
+		out = []records.FindingPatternSummary{}
+	}
+	body, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode finding-patterns: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
+	return 0
+}
+
+// runRecordFindingPattern implements `flow record finding-pattern`: one
+// pattern's occurrences, oldest labeling first -- the recurrence evidence
+// behind one summary row, each row a past finding's identity on its
+// change. -name carries no validation beyond presence, on purpose: the
+// store normalizes it exactly as the write path normalizes it, so any
+// spelling of a pattern finds its rows, and a name nothing carries is an
+// empty array rather than an error.
+func runRecordFindingPattern(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record finding-pattern", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f)
+	name := fset.String("name", "", "the pattern to look up (required)")
+
+	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr, [2]string{"-name", *name}) {
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.FindingPatternOccurrence, error) {
+		return cl.ListFindingPatternOccurrences(ctx, projectKey, *name)
+	})
+	if callErr != nil {
+		fmt.Fprintf(stderr, "flow: finding-pattern: %v\n", callErr)
+		return 1
+	}
+	if out == nil {
+		out = []records.FindingPatternOccurrence{}
+	}
+	body, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode finding-pattern: %v\n", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))
