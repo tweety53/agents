@@ -396,6 +396,13 @@ Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditio
 project's configured plan-provenance guard and its configured build-green guard, if the project
 declares them, and fix any hit.
 
+With the plan validated, record its size as the change's first task-count observation — the
+planned figure every later fix round's growth is measured against (KAN-415):
+
+```bash
+flow tasks count -C <worktree> <name>
+```
+
 ### Decide
 
 **A seeded decision replaces the roll.** When **B** carried `<project>/docs/research/<stem>/decision.json`, copy it

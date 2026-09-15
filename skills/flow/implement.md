@@ -329,6 +329,15 @@ again" and cost a centring check and a colour check before the fill's edge was m
 describe, sync the issue **description** per **Description sync** in Jira integration
 (`skills/flow-contracts/jira-integration.md`). Never transition the issue here.
 
+**The appended plan's growth is recorded.** After the planning pass writes its appends and bumps
+`**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's
+plan-growth series — gate-time re-planning visible as a trend in the app rather than a
+per-change surprise (KAN-415):
+
+```bash
+flow tasks count -C <worktree> <name>
+```
+
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
 ```
