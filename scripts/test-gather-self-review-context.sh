@@ -280,6 +280,36 @@ case "$OUT" in
 esac
 
 # ===========================================================================
+# SECTION: kan-399 F4 — a DIRECTORY named "<name>.md" in the ledgers
+# directory is never selected as the ledger source: find_record_file
+# matches regular files and symlinks only, so the directory is reported
+# absent, the script survives, and the bundle still carries the panel.
+# ===========================================================================
+
+new_repo
+mkdir -p "$REPO/.superpowers/sdd/ledgers/demo.md"
+printf 'NOT-A-LEDGER\n' > "$REPO/.superpowers/sdd/ledgers/demo.md/inner.txt"
+add_panel
+add_tasks
+add_commits
+run_it
+[ "$RC" -eq 0 ] && pass "directory named demo.md: exits 0" \
+  || fail "directory named demo.md: rc=$RC out=$OUT"
+case "$OUT" in
+  *"skipped: .superpowers/sdd/ledgers/demo.md (absent)"*) \
+    pass "directory named demo.md: reported absent, never selected" ;;
+  *) fail "directory named demo.md: not reported absent: $OUT" ;;
+esac
+case "$OUT" in
+  *NOT-A-LEDGER*) fail "directory named demo.md: directory content leaked into bundle: $OUT" ;;
+  *) pass "directory named demo.md: directory content not in bundle" ;;
+esac
+case "$OUT" in
+  *PANEL-BODY*) pass "directory named demo.md: panel still present" ;;
+  *) fail "directory named demo.md: panel missing: $OUT" ;;
+esac
+
+# ===========================================================================
 # SECTION: F1 — a symlink planted at a tracked source location is refused,
 # not read. The symlink's target content must never reach the bundle.
 # ===========================================================================
