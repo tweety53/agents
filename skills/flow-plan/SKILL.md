@@ -201,9 +201,13 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
 
 Every guard those sections invoke resolves per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries
-each one those sections run: `check-worktree-location.sh` and `project-get.sh` (kickoff),
-`check-plan-shape.sh` (D and the gate), `plan-class.sh`, `plan-dispatch-bundles.sh` and
-`plan-dispatch-groups.sh` (Decide).
+each one those sections run: `check-worktree-location.sh <project>` and
+`project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate),
+`plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and
+`plan-dispatch-groups.sh <tasks.md>` (Decide). Each basename above is written with its usage
+arguments so `check-guard-symlinks.sh` reads it as a citation; its rule 6 then fails any symlink
+here that no citation names, so dropping a basename from this list is a lint failure, not a moved
+coverage count (KAN-532).
 
 **On Yes, commit and push the planning artifacts** from the change worktree:
 

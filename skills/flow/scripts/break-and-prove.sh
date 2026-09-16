@@ -1,1 +1,0 @@
-../../../scripts/break-and-prove.sh

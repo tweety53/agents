@@ -375,6 +375,36 @@ N_SHARED_LIB="$(printf '%s\n' "$OUT" | grep -c 'sibling dependency' || true)"
 [ "$N_SHARED_LIB" = "1" ] && pass "F10: the shared sibling is reported exactly once, not once per citing guard" \
   || fail "F10: expected exactly 1 sibling-dependency violation, got $N_SHARED_LIB: $OUT"
 
+# 3f. The citation scan reads ANY token of a fenced command line, not only
+#     the leading one: a pipeline segment, an `&&` continuation and a command
+#     substitution each name a real invocation. All three are never
+#     symlinked, so each must surface as a rule 2 violation.
+new_repo
+add_real_guard "check-pipe.sh" "$PLAIN_GUARD_BODY"
+add_real_guard "check-cont.sh" "$PLAIN_GUARD_BODY"
+add_real_guard "check-subst.sh" "$PLAIN_GUARD_BODY"
+mkdir -p "$REPO/skills/flow/scripts"
+write_skill_md "flow" '# flow fixture
+
+```bash
+git -C <worktree> diff --name-only <base>..HEAD | check-pipe.sh <worktree>
+```
+
+```bash
+some-command <worktree> \
+  && check-cont.sh <worktree> <project>
+```
+
+```bash
+BASE="$(check-subst.sh <worktree>)"
+```
+'
+run_guard "$REPO"
+assert_invalid "a guard named as a pipeline segment, && continuation or command substitution is a rule 2 violation"
+assert_reports "check-pipe.sh" "rule 2 (3f): names the pipeline-segment form"
+assert_reports "check-cont.sh" "rule 2 (3f): names the && continuation form"
+assert_reports "check-subst.sh" "rule 2 (3f): names the command-substitution form"
+
 # ---------------------------------------------------------------------------
 # 4. Rule 3 — no skill text carries a repository-relative scripts/<name> path
 #    in an invoking position. Prose is exempt.
@@ -462,7 +492,14 @@ assert_silent "a \`\`\`shellsession fence is not scanned as bash/sh/zsh (F8)"
 new_repo
 add_real_guard "check-fixed-depth.sh" "$FIXED_DEPTH_GUARD_BODY"
 link_guard "flow" "check-fixed-depth.sh"
-write_skill_md "flow" "# fixture, no citations"
+write_skill_md "flow" '# flow fixture
+
+Run the guard:
+
+```bash
+check-fixed-depth.sh <worktree>
+```
+'
 run_guard "$REPO"
 assert_invalid "a shipped guard deriving \$SCRIPT_DIR/.. is a rule 4 violation"
 assert_reports "check-fixed-depth.sh" "rule 4: names the offending guard"
@@ -484,7 +521,14 @@ assert_silent "an unshipped guard keeping \$SCRIPT_DIR/.. is not a rule 4 violat
 new_repo
 add_real_guard "check-fixed-dirname.sh" "$FIXED_DEPTH_GUARD_BODY_DIRNAME"
 link_guard "flow" "check-fixed-dirname.sh"
-write_skill_md "flow" "# fixture, no citations"
+write_skill_md "flow" '# flow fixture
+
+Run the guard:
+
+```bash
+check-fixed-dirname.sh <worktree>
+```
+'
 run_guard "$REPO"
 assert_invalid "a shipped guard deriving dirname(\$SCRIPT_DIR) is a rule 4 violation (F5)"
 assert_reports "check-fixed-dirname.sh" "rule 4 (F5): names the offending guard (dirname form)"
@@ -495,7 +539,14 @@ assert_reports "rule 4" "rule 4 (F5): names the rule (dirname form)"
 new_repo
 add_real_guard "check-fixed-cdchain.sh" "$FIXED_DEPTH_GUARD_BODY_CD_CHAIN"
 link_guard "flow" "check-fixed-cdchain.sh"
-write_skill_md "flow" "# fixture, no citations"
+write_skill_md "flow" '# flow fixture
+
+Run the guard:
+
+```bash
+check-fixed-cdchain.sh <worktree>
+```
+'
 run_guard "$REPO"
 assert_invalid "a shipped guard deriving cd \$SCRIPT_DIR && cd .. is a rule 4 violation (F5)"
 assert_reports "check-fixed-cdchain.sh" "rule 4 (F5): names the offending guard (cd-chain form)"
@@ -793,11 +844,22 @@ else
 fi
 
 # 8b. Acceptance: a symlink under skills/<skill>/scripts/ is rule 1's
-#     territory, not rule 5's — it must not be re-reported here.
+#     territory, not rule 5's — it must not be re-reported here. The skill's
+#     text cites the guard so the symlink is required (rule 6), keeping this
+#     case about rule 5 alone; "flow-status" stands in because
+#     "flow-settings" is declared expected-zero and cannot carry a required
+#     guard at all.
 new_repo
 add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
-link_guard "flow-settings" "check-foo.sh"
-write_skill_md "flow-settings" "# fixture, no citations"
+link_guard "flow-status" "check-foo.sh"
+write_skill_md "flow-status" '# flow-status fixture
+
+Run the guard:
+
+```bash
+check-foo.sh <worktree>
+```
+'
 run_guard "$REPO"
 assert_silent "a symlink under skills/<skill>/scripts/ is not a rule 5 violation"
 
@@ -847,6 +909,123 @@ mkdir -p "$REPO/skills/flow-contracts/scripts"
 write_skill_md "flow-contracts" "# fixture, no citations"
 run_guard "$REPO"
 assert_silent "a non-symlink entry under skills/flow-contracts/scripts/ is not a rule 1 violation — flow-contracts stays out of rules 1-4's scan"
+
+# ---------------------------------------------------------------------------
+# 9. Rule 6 — every rule-1-clean *.sh symlink a command skill carries must be
+#    in that skill's required set: cited in the skill's own text, delegated
+#    to it, or a sibling dependency (KAN-532, F10). Rule 2 only ever flags a
+#    citation with no symlink; this is the reverse direction, and it is what
+#    turns flow-plan's invoking paragraph into a checked list: dropping a
+#    basename from that paragraph leaves its symlink carried but required by
+#    nothing, which this rule reports instead of letting it move only an
+#    informational coverage count.
+# ---------------------------------------------------------------------------
+
+# 9a. The violation — the exact shape F10 observed: the guard is named in the
+#     skill's prose as a bare backticked basename (a list mention the rule 2
+#     classifier never reads as a citation) and its symlink is carried. The
+#     symlink is required by nothing, so before this rule the tree read green
+#     and the dropped citation cost only a coverage count.
+new_repo
+add_real_guard "check-listed.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow-plan" "check-listed.sh"
+write_skill_md "flow-plan" '# flow-plan fixture
+
+The guard presence list: `check-listed.sh` (kickoff).
+'
+run_guard "$REPO"
+assert_invalid "a carried .sh symlink no citation requires is a rule 6 violation"
+assert_reports "rule 6" "rule 6: names the rule"
+assert_reports "skills/flow-plan/scripts/check-listed.sh" "rule 6: names the carried symlink"
+
+# 9b. The same symlink, cited in an invoking position — the checked-list
+#     state KAN-532 moves flow-plan's own paragraph to. Silent.
+new_repo
+add_real_guard "check-listed.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow-plan" "check-listed.sh"
+write_skill_md "flow-plan" '# flow-plan fixture
+
+Every guard this skill runs: `check-listed.sh <project>` (kickoff).
+'
+run_guard "$REPO"
+assert_silent "a carried .sh symlink its own citation requires is not a rule 6 violation"
+
+# 9c. Sibling-required: the skill cites one guard whose own source resolves a
+#     sibling beside it and carries that sibling's symlink too. The sibling
+#     pair is in the required set, so the carried symlink is not rule 6's.
+new_repo
+add_real_guard "check-with-sib.sh" '#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/check-sibling.sh"'
+add_real_guard "check-sibling.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow" "check-with-sib.sh"
+link_guard "flow" "check-sibling.sh"
+write_skill_md "flow" '# flow fixture
+
+```bash
+check-with-sib.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_silent "a carried .sh symlink a sibling dependency requires is not a rule 6 violation"
+
+# 9d. Out of scope: the lib/ directory symlink every skill carries for its
+#     guards' siblings, and a .py twin, are rule 1's to validate and no
+#     prose list's to declare — rule 6 judges runnable guards, the *.sh
+#     entries every invoking paragraph names.
+new_repo
+add_real_guard "check-py.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow" "check-py.sh"
+mkdir -p "$REPO/scripts/lib"
+printf 'true\n' > "$REPO/scripts/lib/helper.sh"
+ln -s "../../../scripts/lib" "$REPO/skills/flow/scripts/lib"
+printf 'x\n' > "$REPO/scripts/twin.py"
+ln -s "../../../scripts/twin.py" "$REPO/skills/flow/scripts/twin.py"
+write_skill_md "flow" '# flow fixture
+
+```bash
+check-py.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_silent "an uncited lib directory symlink or .py twin is not a rule 6 violation"
+
+# 9e. A dangling .sh symlink is rule 1's finding, never rule 6's — a symlink
+#     that does not resolve is not a working guard the skill carries, and a
+#     double report would blur which rule to fix it under.
+new_repo
+mkdir -p "$REPO/skills/flow/scripts"
+ln -s "../../../scripts/check-absent.sh" "$REPO/skills/flow/scripts/check-absent.sh"
+write_skill_md "flow" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "a dangling .sh symlink is a rule 1 violation"
+if printf '%s\n' "$OUT" | grep -q "rule 6"; then
+  fail "rule 6: a dangling symlink is rule 1's finding alone: $OUT"
+else
+  pass "rule 6: a dangling symlink is rule 1's finding alone"
+fi
+
+# 9f. DECLARED_RULE6 — a carried .sh symlink whose requirement genuinely
+#     lives outside scannable text is exempt when the guard's own source
+#     declares the pair. check-visual-verification.sh is one of the real
+#     declarations (project-configured, resolved through .flow/project.md),
+#     so a fixture skill named flow carrying it uncited stays silent, while
+#     an undeclared neighbour in the same tree still violates.
+new_repo
+add_real_guard "check-visual-verification.sh" "$PLAIN_GUARD_BODY"
+add_real_guard "check-undeclared.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow" "check-visual-verification.sh"
+link_guard "flow" "check-undeclared.sh"
+write_skill_md "flow" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "a declared pair is exempt from rule 6 while an undeclared sibling still violates (9f)"
+if printf '%s\n' "$OUT" | grep -q "check-visual-verification.sh"; then
+  fail "rule 6 (9f): the declared pair must not be reported: $OUT"
+else
+  pass "rule 6 (9f): the declared pair is not reported"
+fi
+assert_reports "check-undeclared.sh" "rule 6 (9f): names the undeclared sibling"
 
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
