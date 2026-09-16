@@ -23,13 +23,13 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | bare `/flow` | run 2, during self-review | **Commits** the self-review report, or the context bundle on `## self review: defer`, on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
 | bare `/flow` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, from the landing worktree, and opens its pull request — never pushes `<base>` |
 | `/flow-status` | — | None — read-only |
-| `/flow-plan` | staging note captured | **Commits once** — the note, its plan and its decision — on `plan-<stem>` in its research worktree, and pushes that commit to `<default-branch>` (**Landing the note**, `skills/flow-plan/SKILL.md`); nothing else, ever |
+| `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
 
-**No command touches the main checkout.** `/flow` creates `<project>/.worktrees/<name>` inside
-`flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` a `_plan-<stem>` research worktree
-at its start, and every read, write, stage, commit and push in the table above happens in a
-worktree. The main checkout is never checked out, staged, committed or written, whatever branch
-it sits on.
+**No command writes the main checkout.** `/flow` creates `<project>/.worktrees/<name>` inside
+`flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
+capture — it reads the main checkout before then and writes nothing — and every write, stage,
+commit and push in the table above happens in a worktree. The main checkout is never checked out,
+staged, committed or written, whatever branch it sits on.
 
 ## Branch backup
 
@@ -39,15 +39,14 @@ commit, a fixup, a panel fix — is followed by `git push origin <branch>` from 
 call that made or verified it. A lost worktree is then rebuilt with `git worktree add <path>
 origin/<branch>`. The one rewrite is integrate's reshape (`reset --soft` to the merge base, then
 the two commits), so that run's push is `git push --force-with-lease origin <branch>`; every other
-push is plain. `/flow-plan`'s research branch is the exception — it is landed onto
-`<default-branch>` and deleted in the same session, so it is never pushed under its own name.
+push is plain.
 
-**The planning paths** are the two that
-**Handoff output** (`skills/flow-contracts/pipeline.md`) names. `/flow`'s implement phase clears them from the index and only
-then stages with them excluded by pathspec — an exclusion governs what an
+**The planning path** is the one **Handoff output** (`skills/flow-contracts/pipeline.md`) names.
+`/flow`'s implement phase clears it from the index and only then stages with it excluded by
+pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
 rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
-bare `/flow` is what commits them.
+bare `/flow` is what commits it.
 
 **A capability spec is implementation, not planning.** `<project>/spectre/specs/<capability>.md`
 states what the system must do, so changing it changes the product exactly as code does: the
@@ -72,8 +71,8 @@ command. See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale
 cases this guards against and why it is a chain rather than `set -e`.
 
 ```bash
-git -C <abs-worktree> reset -q -- spectre/changes/ docs/research/ \
-  && git -C <abs-worktree> add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/research/' \
+git -C <abs-worktree> reset -q -- spectre/changes/ \
+  && git -C <abs-worktree> add -A -- . ':(exclude)spectre/changes/' \
   && { git -C <abs-worktree> add -A -- 'spectre/changes/<id>/link.md' 2>/dev/null || true; } \
   && { git -C <abs-worktree> diff --cached --quiet \
        || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
@@ -92,10 +91,9 @@ trees in every change, so there is nothing about it that varies.
 git's own output and stop.** See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale.md`)
 for what an unguarded sequence would do instead.
 
-**A planning path that is a tracked symlink stops the run, and is never worked around.** When either
-of the two is a symlink — or `<project>/spectre/` is, putting `<project>/spectre/changes/` behind
-one — the
-`git add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/research/'` call exits 128 with
+**A planning path that is a tracked symlink stops the run, and is never worked around.** When
+`<project>/spectre/changes/` is a symlink — or `<project>/spectre/` is, putting it behind one — the
+`git add -A -- . ':(exclude)spectre/changes/'` call exits 128 with
 `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**. Report that message,
 name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bare `git add -A`,
 which puts the planning artifacts into the implementation commit — the one outcome this split

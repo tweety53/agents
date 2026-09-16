@@ -855,16 +855,16 @@ git -C <worktree> status
 git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> **`<project>/spectre/changes/` and `<project>/docs/research/` are never part of a task
-> commit.** `<project>/spectre/specs/` is not one of them — a capability spec belongs in the task
-> commit that implements its requirement. This step only confirms nothing slipped in.
+> **`<project>/spectre/changes/` is never part of a task commit.** `<project>/spectre/specs/`
+> is not planning — a capability spec belongs in the task commit that implements its
+> requirement. This step only confirms nothing slipped in.
 
 **Load `skills/flow-contracts/git-boundaries.md`** before committing below.
 
 **The one planning-commit exception.** Every task and fixup commit already sits on the branch,
 pushed as it landed (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). If the state
 file records a `prUrl`, a PR is already open, so this run also commits
-`<project>/spectre/changes/` and `<project>/docs/research/` and pushes everything to the PR
+`<project>/spectre/changes/` and pushes everything to the PR
 branch; otherwise this step commits nothing more. On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <canonical-worktree>` (the same member the
 ledger render above targets); then `commit-split.sh <worktree>

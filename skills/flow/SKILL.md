@@ -12,21 +12,6 @@ force. Nothing here duplicates that file's own content.
 
 **Announce at start:** "Using flow for change `<name>`."
 
-**Then print the research-seed result**, the second line every run shows once the change name is
-known (which it already is by this point, per **Change name resolution**,
-`skills/flow-contracts/pipeline.md`) — the outcome of `brainstorm-planner.md`'s **Seed from a
-staged research note** check, per its exact-filename rule:
-
-```text
-research seed: found docs/research/<key>.md — seeding brainstorm
-             | none — planning inline in this session
-```
-
-This line alone needs only the resolved name/Jira key, not model resolution — print it here,
-before `Model resolution` runs. The rest of the seeded-path block (below) needs
-`DEFAULT_MODEL`/`REVIEWERS`/the three toggles, so it prints once those resolve, before section
-**B**'s checklist starts.
-
 **Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
 transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
 handoff shape and change-name resolution. Its **State transitions** table is `/flow`'s contract;
@@ -156,24 +141,6 @@ dispatch it changes; an override nobody wrote down is indistinguishable from a m
 is **never** written back to the settings store — `/flow-settings` is the only command that changes
 a global default, per that command's own guardrails.
 
-**On a seeded creating run** (the research-seed line above found a note), print the rest of the
-startup block now, before section **B**'s checklist starts and before any stage past kickoff runs:
-
-```text
-planning:  inline, this session (<DEFAULT_MODEL>)
-toggles:   execution mode <default|dynamic> · implementer model <default|dynamic> · review panel <default|dynamic>
-models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
-decision:  <class / execution / implementer / panel / groups from the recorded decision>
-           | not yet decided — the ## Decision block follows writing-plans
-```
-
-`decision:` reads `flow record decisions -change <name>`'s newest row on a resumed `STARTED` run or
-a fix run; on a seeded creating run the Decide step has not run yet, so the line says so and the
-existing post-writing-plans `## Decision` print (**D**, `skills/flow/brainstorm-planner.md`) <!-- refs-guard:allow -->
-completes it once recorded. **On the no-seed path**, print nothing here — the same
-`planning:`/`toggles:`/`models:` lines join that same post-writing-plans `## Decision` print
-instead, neither moved nor duplicated.
-
 ## Reading the state
 
 ```bash
@@ -275,8 +242,8 @@ one per mark or per phase file.
 - **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
   defines it. A deferred Minor is not open.
-- **Never** commit `<project>/spectre/changes/` or `<project>/docs/research/` in a task or fixup
-  commit. **Never** push, merge, or open a PR outside the integrate/archive branches' own routes.
+- **Never** commit `<project>/spectre/changes/` in a task or fixup commit. **Never** push, merge,
+  or open a PR outside the integrate/archive branches' own routes.
 - **Never** advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch
   writes `FINISHED`.

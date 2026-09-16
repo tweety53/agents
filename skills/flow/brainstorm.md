@@ -15,9 +15,13 @@ only phase that resolves a key.
 
 Then the change name:
 
-- **With a linked issue**, the name is `<lowercased-key>-<slug>`, per **Change naming**
-  (`skills/flow-contracts/jira-integration.md`). Derive the slug from the issue summary when only
-  a key was given.
+- **With a linked issue**, first enumerate the candidate set exactly as **Change name
+  resolution** (`skills/flow-contracts/pipeline.md`) defines it: exactly one candidate whose name
+  starts with `<lowercased-key>-` is this change — a `/flow-plan` capture or an earlier run
+  already named it — resumed at its recorded state, announcing which; more than one is an
+  **AskUserQuestion** listing each (name, state, last modified); none means the name is
+  `<lowercased-key>-<slug>`, per **Change naming** (`skills/flow-contracts/jira-integration.md`).
+  Derive the slug from the issue summary when only a key was given.
 - **Without one**, the name is the descriptive slug alone.
 - If a name or description was given, use it (derive kebab-case from the description if only a
   description was given).
@@ -71,9 +75,12 @@ plan and the decision JSON.
 1. `check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
 2. `git check-ignore -q .worktrees` from the project root. Where it exits non-zero, append
    `<project>/.worktrees/` to `<project>/.git/info/exclude` — never a commit on any branch.
-3. `git -C <project> fetch origin`, then `git worktree add <project>/.worktrees/<name> -b
-   spectre/<name> origin/<default-branch>` — the default branch by name, never HEAD: the main
-   checkout may be on any branch and is never moved.
+3. `git -C <project> fetch origin`, then — when `git -C <project> rev-parse -q --verify
+   origin/spectre/<name>` succeeds, the branch already exists on the remote (a `/flow-plan`
+   capture pushed it, or an earlier run's worktree was removed) — `git worktree add
+   <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise
+   `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — the
+   default branch by name, never HEAD: the main checkout may be on any branch and is never moved.
 4. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
    root, in order, in the foreground — the printed body can carry fence markers and trailing prose
    outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
@@ -151,17 +158,6 @@ flow stage begin -command '/flow' -stage flow.design-approval -harness <harness>
 flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 
-**On the fully-seeded bypass** (**Seed from a staged research note, if one exists**,
-`skills/flow/brainstorm-planner.md`), the checklist and the confirm above never run — but the same
-four marks still fire, back-to-back with no interactive gap between them, so stage bookkeeping
-stays consistent with every other run:
-
-```bash
-flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
-flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
-flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
-```
-
 After the `flow.design-approval` mark above closes, mark `flow.create-artifacts` begin and
 continue directly into **C** — `spectre new` and the three artifacts, in the worktree, uncommitted
 and never staged there, per the existing git-boundaries rule. Mark `flow.create-artifacts` end once
@@ -179,11 +175,10 @@ flow record decision -change <name> -session-token mf-<literal-token> -file <abs
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
 
-**On a no-seed run, the gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`)
+**The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`)
 — the prose summary of the logic to be implemented, the `## Decision` block, **Proceed to implementation?** with **Yes** /
 **No (plan needs updates)**; a **No** revises and re-decides per that section, recording each
-re-decision through the sequence above. A fully-seeded run skips it. Then continue into
-`skills/flow/implement.md` directly.
+re-decision through the sequence above. Then continue into `skills/flow/implement.md` directly.
 
 ## Resume and fix runs
 

@@ -89,10 +89,10 @@ start_conflicting_revert() {
 # stash_planning_files -> the incident's stash: untracked planning files under
 # the tool's default paths, captured into stash@{0}'s third parent and gone
 # from the worktree afterwards. PLAN1/PLAN2 hold the contents asserted later.
-P1="docs/research/plans/kan-423-plan.md"
+P1="spectre/changes/kan-423/proposal.md"
 P2="spectre/changes/kan-423/tasks.md"
 stash_planning_files() {
-  mkdir -p "$REPO/docs/research/plans" "$REPO/spectre/changes/kan-423"
+  mkdir -p "$REPO/spectre/changes/kan-423"
   PLAN1='incident plan body
 '
   PLAN2='- restore the planning files
@@ -398,7 +398,7 @@ case "$OUT" in
   *) fail "case 10: custom path not anchored at $REPO: $OUT" ;;
 esac
 case "$OUT" in
-  *"stash@{0}^3:docs/research"*) fail "case 10: custom path did not replace the defaults: $OUT" ;;
+  *"stash@{0}^3:spectre/changes"*) fail "case 10: custom path did not replace the defaults: $OUT" ;;
   *) pass "case 10: default paths absent from the plan" ;;
 esac
 
@@ -443,6 +443,29 @@ run_tool "$REPO"
 REFLOG=$(printf '%s\n' "$OUT" | grep -c 'HEAD@{' || true)
 [ "$REFLOG" -eq 15 ] && pass "case 12: diagnosis block carries exactly 15 entries" \
   || fail "case 12: expected 15 reflog entries, got $REFLOG"
+
+# ---------------------------------------------------------------------------
+# Case 13: default-path-excludes-docs-research — with NO path argument, the
+# plan restores spectre/changes only; a docs/research/ file in the stash's
+# third parent is not a planning path any more and is never named.
+# ---------------------------------------------------------------------------
+new_repo
+mkdir -p "$REPO/docs/research" "$REPO/spectre/changes/kan-423"
+printf 'retired note\n' >"$REPO/docs/research/kan-423.md"
+printf 'plan\n' >"$REPO/spectre/changes/kan-423/tasks.md"
+git -C "$REPO" stash -q -u
+start_conflicting_revert
+run_tool "$REPO"
+[ "$RC" -eq 0 ] && pass "case 13: default-path dry-run exits 0" \
+  || fail "case 13: expected exit 0, got rc=$RC out=$OUT err=$ERR"
+case "$OUT" in
+  *"show \"stash@{0}^3:spectre/changes/kan-423/tasks.md\""*) pass "case 13: default plan restores the spectre/changes file" ;;
+  *) fail "case 13: no show line for spectre/changes/kan-423/tasks.md: $OUT" ;;
+esac
+case "$OUT" in
+  *"docs/research"*) fail "case 13: default plan still names docs/research: $OUT" ;;
+  *) pass "case 13: docs/research absent from the default plan" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

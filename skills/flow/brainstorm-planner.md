@@ -1,9 +1,9 @@
 # Brainstorm and plan — sections B, C, D
 
 Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing
-`/flow`'s brainstorming stage (or, for the seed-lookup and checklist mechanics **B** defines,
-`/flow-plan` — see **One shared mechanism, not two copies** under **B** below) — no dispatched
-subagent, no relay. Every "you" below addresses that session directly.
+`/flow`'s brainstorming stage — or, for **C**, **D** and **Decide**, a `/flow-plan` capture
+(**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no dispatched subagent, no relay.
+Every "you" below addresses that session directly.
 
 ## B. Basic Workflow #1 — Brainstorming
 
@@ -11,89 +11,6 @@ The `flow.brainstorm` begin mark lives in **Run brainstorming and planning direc
 (`skills/flow/brainstorm.md`), and the `flow.brainstorm` end / `flow.design-approval` begin/end
 marks under **Convergence** below stay exactly where they are, run around the merged HARD GATE
 approval.
-
-### Seed from a staged research note, if one exists
-
-**Before starting the interactive checklist**, check for a note using this exact-filename rule —
-one `test -f`, never a glob, never inference:
-
-- **The change carries a linked Jira issue:** check `<project>/docs/research/<jira-key-lowercased>.md`.
-  This is the exact, mandatory shape `skills/flow-plan/SKILL.md`'s "Staging a Note" writes — see
-  **The strict research-artifact path** there for why it is the only destination a keyed session
-  ever writes.
-- **No linked issue:** check `<project>/docs/research/<name>.md`, where `<name>` is the
-  change's own resolved (slug-only) name. This is the "slug derived from the topic itself" case
-  `skills/flow-plan/SKILL.md` describes — an exact match only when the change's later slug happens
-  to reuse the research session's own topic wording.
-
-A topic captured under different wording than the change later resolves to will not be found by
-this rule at all — that is an accepted limit of a deterministic, exact-filename check, not a defect to patch with
-fuzzy heuristics: guessing which note "probably" matches risks seeding from the wrong topic
-silently.
-
-**If found**, parse it against **The Fixed Section Structure** (`skills/flow-plan/SKILL.md`)
-rather than reading it as loose prose — extract, by name: the `Source:` line, each `##`-level
-topic/thread section, and the step-by-step breakdown section's `###` items. **A note missing any of
-these three required elements is reported by name** (e.g. "the note has no step-by-step breakdown
-section") and the note is still treated as a partial seed, never silently treated as empty and never
-discarded outright for being incomplete. Present the parsed structure — not the raw file — to the
-operator as the starting point for this round:
-
-> "Found a staged research note for this topic at `<path>`. Here's what it already covers: <summary
-> of its sections and step-by-step breakdown>. Starting the brainstorming round from this."
-
-**Seeding never skips the interactive round.** Present the note, then run the full checklist below
-exactly as if no note existed — the note answers what it answers, and the checklist still surfaces
-what it does not, confirms what it does, and gives the operator a chance to correct it.
-
-**Exception: a fully-seeded note skips the checklist entirely.** When the found note carries all
-three of itself, a sibling `<project>/docs/research/<stem>/tasks.md` and a sibling
-`<project>/docs/research/<stem>/decision.json` (**A seeded plan
-and decision ride with the note**, below), the interactive checklist and the merged
-convergence-and-approval confirm are both skipped: present the note's parsed structure as above,
-then continue directly into **C**. A note missing either sibling file — a note alone, or a note
-with only a plan — still runs the full checklist exactly as stated above; this exception applies
-only when every one of the three files is present. `/flow-plan`'s own investigate-then-ask process
-that produced the note (an explicit convergence check per topic — **Closing a topic**,
-`skills/flow-plan/SKILL.md`) already gathered and
-confirmed this content, so a fully-seeded note carries no fresh operator judgment left to gate on —
-this is a second, narrowly-scoped bounded exception to **Stage exit — never the command's own
-judgment** (`skills/flow-contracts/pipeline.md`), alongside its "no channel to ask through"
-exception. The `flow.brainstorm` end and `flow.design-approval` begin/end marks still fire on this
-path, back-to-back with no interactive gap between them — see **Run brainstorming and planning
-directly** (`skills/flow/brainstorm.md`).
-
-**Once the note's content is adopted into this change's own artifacts** (its design content folded
-into `design.md`, its decisions and open questions carried in per **C** below), **delete the staging
-note** rather than leaving it in place. Delete
-it as part of **C**'s artifact-creation commit — it is a planning path, staged and committed the same
-way the rest of `<project>/spectre/changes/` is: **C**'s "Delete the adopted staging note" step
-removes it. If the note only partially seeded this round (a note covering one of several threads the
-round expanded on), still delete it once adopted: its useful content now lives in `design.md`, which
-is the canonical location from that point on.
-
-**Carry the seeded note's path forward to C.** If a note was found and seeded above, remember its
-path (e.g. `<project>/docs/research/kan-326.md`) — **C** deletes exactly that file and only when
-this note-found condition holds.
-
-**A seeded plan and decision ride with the note.** `/flow-plan` writes `<project>/docs/research/<stem>/tasks.md`
-and `<project>/docs/research/<stem>/decision.json` beside a note, `<stem>` being the note's filename without
-`.md` (**The plan and the decision**, `skills/flow-plan/SKILL.md`). When a note was found, test for
-each with one `test -f` on that exact path and carry the paths forward: **D** copies the plan in
-place of writing-plans, **Decide** records the decision in place of the roll, and **C** deletes the
-directory with the note. Either file may be absent — a note captured before this rule — and then
-that one step runs as if nothing had been seeded.
-
-### One shared mechanism, not two copies
-
-`/flow-plan`'s own investigate-then-ask session (`skills/flow-plan/SKILL.md`) reads its
-seed-lookup rule from this section rather than restating it in its own words — the same
-exact-filename check above, keyed the same way off a linked Jira issue or a bare session's own
-slug. `/flow-plan` never runs `spectre new` and creates no worktree, so it applies this section's
-lookup and checklist mechanics without **C**'s artifact-creation step, writing its plan and decision beside the note (**The plan and the decision**, `skills/flow-plan/SKILL.md`) for **D** and **Decide** to take,
-which stay `/flow`'s alone. Keeping the lookup rule in one place is what keeps `/flow`'s inline
-brainstorm checklist and `/flow-plan`'s inline research checklist from drifting apart as either one
-changes.
 
 ### The checklist
 
@@ -224,12 +141,6 @@ change alters gets a task in `tasks.md` naming `<project>/spectre/specs/<capabil
 task's `**Files:**` field — the implementer writes and commits it on the change branch, in that
 task's own commit.
 
-**Delete the adopted staging note, if one was seeded.** If **B** found and seeded a staging note,
-delete that same path (`<project>/docs/research/<jira-key-lowercased>.md` or `<name>.md`, per which
-branch of **B**'s discovery rule matched) now — and its `<project>/docs/research/<stem>/` directory beside it when one
-exists — alongside creating the three artifacts above, and stage the deletion in the same commit.
-Skip this step outright when **B** found no note to seed from.
-
 ### Decisions
 
 `## Decisions` in `design.md` is sourced from the brainstorming dialogue — the approach the user
@@ -285,11 +196,6 @@ flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed 
 ```bash
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
-
-**A seeded plan replaces the invocation below.** When **B** carried `<project>/docs/research/<stem>/tasks.md`, copy it to
-`<changeRoot>/tasks.md`, fold in whatever the checklist round changed — never adopt it blind — and
-skip **superpowers:writing-plans**; the guards at the end of this section still run on the copy.
-Otherwise:
 
 Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan quality: exact
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
@@ -411,12 +317,6 @@ flow tasks count -C <worktree> <name>
 ```
 
 ### Decide
-
-**A seeded decision replaces the roll.** When **B** carried `<project>/docs/research/<stem>/decision.json`, copy it
-unchanged to the decision path named below, print its `## Decision` block with the line
-`seeded from <path>` directly above it, and skip `plan-class.sh` and steps 1–4: its rolls were
-seeded from `<stem>` rather than `<name>`, and the written decision is the one this run records.
-Otherwise:
 
 Run `plan-class.sh <changeRoot>/tasks.md <repos>` — `<repos>` is the size of the resolved worktree
 set. Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls. **You may
@@ -562,19 +462,14 @@ object in `groups`, its rule cell the group's model and effort with its `reason`
 (`groups_override` non-`null`) — mirroring the `class` row's own `override` shape. When `panel` is
 the string `default` the review-panel value cell is `default` and no `↳` row follows it.
 
-**On a no-seed run** (`skills/flow/SKILL.md`'s startup-visibility print skipped the seeded-path <!-- refs-guard:allow -->
-block, since no research seed was found at kickoff), prepend these three lines directly above the
-`## Decision` block — the one place these choices appear for a no-seed run, never printed twice:
+Prepend these three lines directly above the `## Decision` block — the one place these choices
+appear in a run, never printed twice:
 
 ```text
 planning:  inline, this session (<DEFAULT_MODEL>)
 toggles:   execution mode <default|dynamic> · implementer model <default|dynamic> · review panel <default|dynamic>
 models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
 ```
-
-**On a seeded run**, these three lines already printed at kickoff (**Model resolution**,
-`skills/flow/SKILL.md`) — do not print them again here; only the `## Decision` block itself prints,
-completing that earlier block's `decision:` line.
 
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
@@ -584,11 +479,10 @@ flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <na
 
 **The plan is never acted on unread.** Once the Decide step has printed its `## Decision` block,
 print the plan summary below, then ask the gate question in one **AskUserQuestion** call. The
-gate is mandatory: no answer, no landing and no implementation. It runs at the end of every
-`/flow-plan` session (**The plan and the decision**, `skills/flow-plan/SKILL.md`) and in `/flow`
-on every no-seed run, after the `flow.decide` record sequence (**Run brainstorming and planning
-directly**, `skills/flow/brainstorm.md`); a fully-seeded `/flow` run skips it, since the seeded
-plan already passed this gate in `/flow-plan`.
+gate is mandatory: no answer, no commit and no implementation. It runs at the end of every
+`/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) and in `/flow`
+after the `flow.decide` record sequence (**Run brainstorming and planning directly**,
+`skills/flow/brainstorm.md`).
 
 The summary is plain prose, not a listing of `tasks.md`: what will be implemented and how — the
 behaviour being added or changed, the approach taken, the seams and decisions that matter (data

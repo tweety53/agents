@@ -57,20 +57,6 @@ records.
 > (`model-default-sonnet`, `settings-scope`), not recorded per change. `artifactUrl` stays `null` —
 > `/flow` publishes no proposal artifact (`publish-proposal-removed`).
 
-## brainstorm-planner.md — Seed from a staged research note
-
-> This implements design.md's `flow-plan-staging`, the *discovery* half of open
-> question `research-staging-mechanism` (the *write* half is `skills/flow-plan/SKILL.md`'s own
-> job):
-
-> This is
-> `flow-plan-staging`'s explicit choice: seed, never skip.
-
-> This resolves the remaining half of `research-staging-mechanism`
-> left open by design.md: a staging note that outlives its adoption is a second, driftable copy of
-> what the change's own `design.md` now states canonically, and `<project>/docs/research/` is meant
-> to hold notes still waiting for a home, not a permanent archive of every note that found one.
-
 ## integrate.md — preamble
 
 > Run 1, with two folds design.md decides:
@@ -125,6 +111,4 @@ no gap left for it to bridge.
 Pushing the branch at creation and after every commit was asked for in the same instruction, so a
 worktree lost with the machine, or removed by a stray cleanup, is rebuilt from `origin/<branch>`
 rather than lost. The cost accepted: one push per commit, and integrate's push after the
-`reset --soft` reshape becomes `--force-with-lease`, on a branch only the run writes. `/flow-plan`'s
-research branch is not pushed under its own name because it is landed and deleted in the same
-session — a remote copy would outlive the thing it backs up.
+`reset --soft` reshape becomes `--force-with-lease`, on a branch only the run writes.

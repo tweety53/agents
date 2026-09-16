@@ -45,7 +45,7 @@ agents-data/
 │   ├── README.md                      ← flow command map
 │   ├── flow/                          ← /flow — brainstorm, implement behind the review panel, integrate and archive, one command
 │   ├── flow-status/                   ← read-only state report for open changes
-│   ├── flow-plan/                 ← /flow-plan — thinking-partner mode, stages research notes, touches no state
+│   ├── flow-plan/                 ← /flow-plan — thinking-partner mode; a captured session creates the change at STARTED
 │   ├── flow-settings/                 ← /flow-settings — global model/reviewer defaults
 │   ├── flow-self-review/              ← /flow-self-review — run a deferred self-review pass, inline
 │   └── flow-contracts/                ← on-demand contracts; pipeline.md is canonical for the state machine
@@ -106,7 +106,7 @@ that runs it. A name marked ▸ hides substructure and is expanded at level 2 be
 
 Every row below is defined by `/flow`, and `/flow-fast` — the one other command that runs rows —
 marks every one of them too (`skills/flow-fast/SKILL.md`), most as an empty begin/end pair.
-`/flow-status` marks no stages at all and contributes no rows; `/flow-plan` marks the single `plan.session` stage, recorded against the Jira key until `/flow` creates the change. Which phase file under
+`/flow-status` marks no stages at all and contributes no rows; `/flow-plan` marks the single `plan.session` stage, recorded against the Jira key until the session's own `STARTED` write creates the change. Which phase file under
 `skills/flow/` marks each `flow.*` key is **Stage keys** (`skills/flow/SKILL.md`), cited rather
 than repeated as a column here.
 
@@ -170,10 +170,7 @@ superpowers:brainstorming runs its checklist in full and ends with the operator 
 design, which is a hard gate: nothing is created under `spectre/changes/` until that approval
 lands. The approved design is saved under the worktree's gitignored `.superpowers/sdd/` and
 becomes the source for the change's `design.md` artifact — adapted, never duplicated into a
-conflicting second design. Before the checklist opens, the stage checks `docs/research/`
-for a staged note matching this topic (per `/flow-plan`'s staging behaviour below) and, if found,
-seeds the round from it without ever skipping straight to artifact-writing (design.md's
-`flow-plan-staging`).
+conflicting second design.
 
 The stage iterates rather than passing once. After every planning-stage exchange — a round of
 clarifying questions, the approval of a design section, the operator's review of the written spec —
@@ -659,7 +656,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 | `/flow <name>` | `flow` | Single-command pipeline. No state: creates the change, writes `STARTED`, and — same invocation — runs brainstorming (unchanged, fully interactive) then implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question and publishes no proposal artifact. `IN_PROGRESS` with an argument: fix run, state unchanged. `IN_PROGRESS` bare: asks how to land the branch — open PR (default), merge and push, or manual — then, on merge-and-push, continues in the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. Runs no tests, linters or coverage check outside implementation's own verify stage. |
 | *(gate)* | You | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-status [name]` | `flow-status` | Read-only state report for open changes |
-| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/research/` for `/flow`'s brainstorming to seed from |
+| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `/flow-settings` | `flow-settings` | Reads/writes the global model and reviewer defaults every `/flow` run reads from |
 | `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle |
 

@@ -9,7 +9,7 @@
 # call sites (`/flow`'s PR-exception path in verify-and-handoff and its integrate run) one
 # place to call instead of each spelling the chain out inline.
 #
-# Clears the two planning paths from the index, stages everything else, and
+# Clears the planning path from the index, stages everything else, and
 # commits it as the implementation commit — skipped, not failed, if nothing
 # is staged. Then stages the planning paths (and anything else left) and
 # commits that as the planning commit, skipped the same way if empty.
@@ -40,9 +40,9 @@
 # a message or a path.
 #
 # A PLANNING PATH THAT IS A TRACKED SYMLINK IS NEVER WORKED AROUND. If
-# `spectre/changes/` or `docs/research/` is a tracked symlink — or
-# `spectre/` is, putting `spectre/changes/` behind one — `git add -A -- .
-# ':(exclude)spectre/changes/' ':(exclude)docs/research/'` exits 128 with
+# `spectre/changes/` is a tracked symlink — or `spectre/` is, putting
+# `spectre/changes/` behind one — `git add -A -- .
+# ':(exclude)spectre/changes/'` exits 128 with
 # a message naming the path, and stages nothing. `set -euo pipefail` is what
 # propagates that exit code and message as-is — there is no trap or `||`
 # around that call to catch and reinterpret it. The only way past the stop is
@@ -57,8 +57,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/spec-root.sh"
 plan_dir="$(spec_root_leaf "$worktree")/changes/"
 
-git -C "$worktree" reset -q -- "$plan_dir" docs/research/
-git -C "$worktree" add -A -- . ":(exclude)$plan_dir" ':(exclude)docs/research/'
+git -C "$worktree" reset -q -- "$plan_dir"
+git -C "$worktree" add -A -- . ":(exclude)$plan_dir"
 shopt -s nullglob
 link_md_files=("$worktree/$plan_dir"*/link.md)
 shopt -u nullglob

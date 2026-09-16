@@ -116,9 +116,20 @@
 # physical lines alone would miss `-session-token`/`-harness` written on a
 # continuation line, which is precisely how these calls are written today.
 #
+# STAGE KEYS ARE MEMBERS OF README's LEVEL 1 TABLE. A `stage begin`'s
+# `-stage <key>` names a row of README.md's "Level 1 -- the stages of each
+# command" table, the one place the key vocabulary is written down (the
+# daemon re-derives the same table, stats/internal/stages/names.go). A key
+# absent from it -- a typo, a rename that missed a call site -- is a
+# violation here rather than a caller-mistake exit at run time, when the
+# mark silently prints one line and the stage goes unrecorded. The key set
+# is read from README.md at $REPO_ROOT on every run, never hardcoded; a
+# README that yields no key at all is a guard that cannot answer (exit 2).
+#
 # Exit codes: 0 every scanned call is compliant; 1 at least one
-# violation was found; 2 the guard cannot answer at all (a bad path, or an
-# awk/grep failure — never read as "no findings").
+# violation was found; 2 the guard cannot answer at all (a bad path, an
+# awk/grep failure, or no stage key readable from README.md — never read as
+# "no findings").
 set -uo pipefail
 
 die() {
@@ -145,6 +156,22 @@ fi
 for t in "${TARGETS[@]}"; do
   [[ -e "$t" ]] || die "no such file or directory: $t"
 done
+
+# STAGE_KEYS -- one key per line, from README.md's Level 1 table rows
+# (`| \`<verb>.<stage>\` | ... |`). The key shape is stageKeyRE's
+# (stats/internal/stages/names_test.go: `[a-z][a-z-]*\.[a-z][a-z0-9-]*`), so
+# a key the Go side accepts is never dropped here. Read once; empty is a
+# refusal.
+STAGE_KEYS="$(grep -aoE -- '^\| `[a-z][a-z-]*\.[a-z][a-z0-9-]*` \|' "$REPO_ROOT/README.md" 2>/dev/null | tr -d '|` ')"
+[[ -n "$STAGE_KEYS" ]] || die "no stage key readable from $REPO_ROOT/README.md's Level 1 table"
+
+# stage_value <command text> -- the `-stage` argument, bare or quoted, or
+# empty when the flag does not appear.
+stage_value() {
+  local text="$1"
+  printf '%s\n' "$text" | grep -oE -- "-stage[[:space:]]+('[^']*'|\"[^\"]*\"|[^[:space:]]+)" | head -n1 \
+    | sed -E "s/^-stage[[:space:]]+//; s/^'(.*)'\$/\1/; s/^\"(.*)\"\$/\1/"
+}
 
 # assemble_calls <file> — print one line per checked invocation found in
 # <file>, as "<start-line>\t<verb>\t<joined command text>", continuation
@@ -410,6 +437,17 @@ for target in "${TARGETS[@]}"; do
       if [[ -n "$guess" ]]; then
         printf '%s:%s: `stage begin` names a guess, not a resolved change (%s) -- a mark writes, so a guessed name bootstraps a change row that outlives the run; wait until the change name is resolved before marking\n' "$f" "$lineno" "$guess"
         VIOLATIONS=$((VIOLATIONS + 1))
+      fi
+
+      if [[ "$verb" == "flow stage begin" ]]; then
+        stage_key="$(stage_value "$cmd")"
+        if [[ -z "$stage_key" ]]; then
+          printf '%s:%s: `stage begin` carries no -stage key\n' "$f" "$lineno"
+          VIOLATIONS=$((VIOLATIONS + 1))
+        elif ! printf '%s\n' "$STAGE_KEYS" | grep -qxF -- "$stage_key"; then
+          printf '%s:%s: -stage %q is not a key in README.md'"'"'s Level 1 table -- a mark under an unknown key is refused by the daemon as a caller mistake and the stage goes unrecorded; use a listed key or add the row first\n' "$f" "$lineno" "$stage_key"
+          VIOLATIONS=$((VIOLATIONS + 1))
+        fi
       fi
     done < <(assemble_calls "$f")
     # KAN-197 coverage: how many checked calls — `stage begin` and `record
