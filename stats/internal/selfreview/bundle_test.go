@@ -250,10 +250,13 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 	planSHA := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n",
 		"chore(spectre): plan and session records")
 	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
-	// A later commit on the same branch, whose subject carries the change's
-	// name as a proper prefix of a DIFFERENT change's archive subject.
+	// A later commit ON THE ARCHIVE BRANCH, whose subject carries the
+	// change's name as a proper prefix of a DIFFERENT change's archive
+	// subject.
+	runGit(t, repo, "checkout", "chore/archive-demo")
 	commitAll(t, repo, "spectre/changes/archive/demo/notes.md", "note\n",
 		"chore(spectre): archive demo-fix-1")
+	runGit(t, repo, "checkout", "main")
 
 	fc := deriveFinishCommits(ExecRunner{}, repo, "demo")
 	if fc.archive != archiveSHA {

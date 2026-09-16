@@ -80,14 +80,14 @@ func runSelfReviewBundle(ctx context.Context, args []string, stdout, stderr io.W
 		f.dir = wd
 	}
 
-	projectKey, _, err := fallback.ProjectKey(f.dir)
+	projectKey, mainCheckout, err := fallback.ProjectKey(f.dir)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
 
 	bundle, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]byte, error) {
-		return cl.GetSelfReviewBundle(ctx, projectKey, f.change)
+		return cl.GetSelfReviewBundle(ctx, projectKey, f.change, mainCheckout)
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: self-review bundle: %v\n", err)
