@@ -516,8 +516,18 @@ class Region:
             ys = range(y0, y0 + h)
             cols = [[c for c in (self.at(x, y) for y in ys) if not self.is_bg(c)] for x in range(self.w)]
             inked = [x for x, col in enumerate(cols) if col]
-            first_row = sum(1 for x in inked if not self.is_bg(self.at(x, y0)))
-            if first_row * 2 < inked[-1] - inked[0] + 1:
+            # A boxed band's first row is one unbroken run — a border or a
+            # fill — across the band's span. A text row's first row is not:
+            # even 8px small caps whose flat tops ink most of the span are
+            # separate glyphs with a background gap between letters, so its
+            # longest run is a glyph or two. Counting inked pixels missed
+            # that, and read GOAL/PROTEIN captions as controls whose every
+            # stem became a seam.
+            run = longest = 0
+            for x in range(inked[0], inked[-1] + 1):
+                run = run + 1 if not self.is_bg(self.at(x, y0)) else 0
+                longest = max(longest, run)
+            if longest < FULL * (inked[-1] - inked[0] + 1):
                 continue  # a bare text row: its glyph stems are not seams
             seams = []
             for x, col in enumerate(cols):

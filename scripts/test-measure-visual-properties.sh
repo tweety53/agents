@@ -336,5 +336,48 @@ else
   fail "case 9: expected \"$want\", got \"$got\""
 fi
 
+# Case 10: the KAN-437 replay's false boxed bands — an 8px small-caps caption
+# (GOAL / PROTEIN) above the bordered control it labels. Flat-topped caps ink
+# the first row across more than half the caption's span, which a pixel
+# count read as a border, so every stem became a seam and the pair count
+# inflated by the caption's glyphs. The caption's letters are separate
+# blocks with a 1px gap; the control's top border is one unbroken run. Both
+# images carry the caption; only the frame carries the control, so the
+# caption must produce no band at all and the control must be the one
+# missing band.
+make_captioned() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+from PIL import Image, ImageDraw
+path, control = sys.argv[1], sys.argv[2] == "control"
+PAGE, RULE, TEXT = (0xF3, 0xF2, 0xF2), (0xD7, 0xD3, 0xD3), (0x20, 0x1E, 0x1D)
+im = Image.new("RGB", (340, 120), PAGE)
+d = ImageDraw.Draw(im)
+x = 20
+for w in (6, 6, 6, 5, 6, 3, 6):                                      # PROTEIN: seven flat-topped caps, 1px apart
+    d.rectangle((x, 20, x + w - 1, 27), fill=TEXT)
+    x += w + 1
+if control:
+    L, T, R, B = 20, 40, 319, 87                                     # the control the caption labels: 1px border, one divider
+    d.rectangle((L, T, R, B), outline=RULE, width=1)
+    d.line((L + 150, T + 1, L + 150, B - 1), fill=RULE)
+im.save(path)
+PY
+}
+make_captioned "$DIR/captioned-frame.png" control
+make_captioned "$DIR/captioned-capture.png" caption-only
+got="$("$GUARD" "$DIR/captioned-frame.png" "$DIR/captioned-capture.png" --scale 1 --props seams | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+s = d["delta"]["seams_summary"]
+print([(b["top"], len(b["seams"])) for b in d["a"]["seams"]], [b["top"] for b in d["b"]["seams"]], s["paired"], s["bands_unpaired"])
+')"
+want="[(40, 3)] [] 0 1"
+if [ "$got" = "$want" ]; then
+  pass "case 10: a small-caps caption whose flat tops ink most of its span is not a boxed band, while the bordered control under it still is"
+else
+  fail "case 10: expected \"$want\", got \"$got\""
+fi
+
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]
