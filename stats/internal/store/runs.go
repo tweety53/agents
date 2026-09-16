@@ -648,6 +648,14 @@ func buildDispatchRows(raw []runDispatchRowRaw, stages []runStageRow, changeID i
 		tokens, signals := side(d.Metrics, "sidechain")
 		addBucket(&row.Totals, tokens)
 		addSignals(&row.Totals, signals)
+		// The row's tokens.main bucket, where the harvester never writes,
+		// is exactly the figure a caller reported for a same-session
+		// dispatch at close (KAN-525) -- the ledger sums both buckets, and
+		// so does this: a totals pass reading the sidechain bucket alone
+		// would report that dispatch at zero. Signals stay sidechain-only:
+		// a reported dispatch carries no harvest signals at all.
+		reported, _ := side(d.Metrics, "main")
+		addBucket(&row.Totals, reported)
 		row.ServedModels, row.ServedEfforts = signals.ServedModels, signals.ServedEfforts
 		row.Totals.WallClockMs = spanMs(d.StartedAt, d.EndedAt)
 		if b, ok := buckets[row.AgentID]; ok && row.AgentID != "" {
@@ -672,7 +680,11 @@ func buildDispatchRows(raw []runDispatchRowRaw, stages []runStageRow, changeID i
 		if row.Totals.CostUSD == nil {
 			addCost(&row.Totals, d.Metrics)
 		}
-		row.Priced = !tokens.hasCharge() || row.Totals.CostUSD != nil
+		// A reported main bucket bears real chargeable tokens the same way
+		// a harvested sidechain one does, so it belongs in the has-charge
+		// test too: a reported dispatch with no cost figure is unpriced,
+		// never "nothing to price".
+		row.Priced = !(tokens.hasCharge() || reported.hasCharge()) || row.Totals.CostUSD != nil
 		row.Totals.Priced = row.Priced // keep the nested totals bag consistent with the row's own flag
 		row.Mismatch = mismatch(d.Model, d.Effort, signals)
 		if byStatus := findings[d.ID]; len(byStatus) > 0 {

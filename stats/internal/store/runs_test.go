@@ -556,3 +556,99 @@ func TestGroupRunsSeparatesStageRowsByToken(t *testing.T) {
 		t.Errorf("second run Stages = %+v, want only its own flow.verify row", second.Stages)
 	}
 }
+
+// TestListRunsDispatchTotalsIncludeAReportedMainBucket pins the KAN-525
+// fix: buildDispatchRows totals a dispatch from BOTH its tokens buckets.
+// The harvester writes only tokens.sidechain to dispatch rows, so a
+// tokens.main bucket on a row is exactly the figure a caller reported for
+// a same-session dispatch at close -- and a totals pass that reads the
+// sidechain bucket alone reports that dispatch at zero while the ledger
+// renders its figures.
+func TestListRunsDispatchTotalsIncludeAReportedMainBucket(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-runs-reported-main-%d", time.Now().UnixNano())
+	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+
+	if err := st.PutChange(ctx, baseChange(projectKey, "kan-525-runs")); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+
+	const token = "ff-kan525-runs"
+	begin := baseBeginInput(projectKey, "kan-525-runs", "/flow-fast", "flow.kickoff")
+	begin.SessionToken = ptr(token)
+	begin.StartedAt = t0
+	run, err := st.BeginStage(ctx, begin)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, t0.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	d := baseDispatch("implementer", "sonnet")
+	d.SessionToken = token
+	d.Key = "inline-implementer"
+	d.StartedAt = t0.Add(5 * time.Minute)
+	row, err := st.RecordDispatch(ctx, projectKey, "kan-525-runs", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	// A harvest batch first, the way a subagent's row would be fed, then
+	// the caller's report at close -- the coexistence the store's own
+	// end-dispatch SQL preserves.
+	if err := st.MergeDispatchMetrics(ctx, row.ID, json.RawMessage(`{"tokens":{"sidechain":{"input":10,"output":5}}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-525-runs", records.DispatchEnd{
+		SessionToken: token,
+		Key:          "inline-implementer",
+		Outcome:      "completed",
+		EndedAt:      d.StartedAt.Add(time.Minute),
+		Tokens:       &records.TokenReport{Input: 500, Output: 200},
+	}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+
+	// A second, purely-reported dispatch: no sidechain bucket at all, so
+	// its Priced flag turns on the reported charge alone.
+	d2 := baseDispatch("verifier", "sonnet")
+	d2.SessionToken = token
+	d2.Key = "inline-verifier"
+	d2.StartedAt = t0.Add(10 * time.Minute)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-525-runs", d2); err != nil {
+		t.Fatalf("RecordDispatch d2: %v", err)
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-525-runs", records.DispatchEnd{
+		SessionToken: token,
+		Key:          "inline-verifier",
+		Outcome:      "completed",
+		EndedAt:      d2.StartedAt.Add(time.Minute),
+		Tokens:       &records.TokenReport{Input: 500, Output: 200},
+	}); err != nil {
+		t.Fatalf("EndDispatch d2: %v", err)
+	}
+
+	rows, err := st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(rows) != 1 || len(rows[0].Runs) != 1 {
+		t.Fatalf("unexpected runs shape: %+v", rows)
+	}
+	ds := rows[0].Runs[0].Dispatches
+	if len(ds) != 2 {
+		t.Fatalf("got %d dispatches, want 2", len(ds))
+	}
+	dr := ds[0]
+	if dr.Totals.InputTokens != 510 || dr.Totals.OutputTokens != 205 {
+		t.Errorf("dispatch totals = input %d, output %d, want 510/205 -- main and sidechain summed", dr.Totals.InputTokens, dr.Totals.OutputTokens)
+	}
+	pure := ds[1]
+	if pure.Totals.InputTokens != 500 || pure.Totals.OutputTokens != 200 {
+		t.Errorf("pure-reported totals = input %d, output %d, want 500/200 -- the reported figure alone", pure.Totals.InputTokens, pure.Totals.OutputTokens)
+	}
+	if pure.Totals.Priced {
+		t.Errorf("a dispatch bearing reported tokens but no cost figure must not read priced")
+	}
+}
