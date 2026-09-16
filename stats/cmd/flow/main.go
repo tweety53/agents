@@ -48,6 +48,7 @@ commands:
   hazards              print a project's hazards as a JSON array
   suite record/list    time a command and record its runtime; read recorded suite runtimes (see: flow suite)
   spec record/list     mark a spec file as run; read the per-spec last-run inventory (see: flow spec)
+  self-review bundle   print a finished change's self-review context bundle (see: flow self-review)
   workspace-id <name>  print a change's workspace id, derived from its name
 `
 
@@ -94,6 +95,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runSettings(ctx, args[1:], stdout, stderr)
 	case "tasks":
 		return runTasks(ctx, args[1:], stdout, stderr)
+	case "self-review":
+		return runSelfReview(ctx, args[1:], stdout, stderr)
 	case "workspace-id":
 		return runWorkspaceID(ctx, args[1:], stdout, stderr)
 	default:
