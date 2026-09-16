@@ -105,7 +105,9 @@ environment itself failed twice (a missing build prerequisite; KAN-510).
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file. `subagent_type: general-purpose`, the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
-literal `sonnet`, never `DEFAULT_MODEL` and never a session override. Its prompt carries, verbatim:
+literal `sonnet`, never `DEFAULT_MODEL` and never a session override — `glm-5.3-flash` on harness
+`zcode` (**Harness mapping**, `skills/flow-contracts/model-policy.md`), which the handshake below
+then compares against. Its prompt carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.

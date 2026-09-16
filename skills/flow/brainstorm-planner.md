@@ -432,15 +432,15 @@ since nothing dispatched this section. Decide, in this order, each step only whe
 recorded as such:
 
 1. **execution mode** — `inline` (`class` small or regular) or `sdd` (`class` big); default `sdd`.
-2. **implementer/fixer model + effort** — only when step 1 came out `sdd`; from **the tree** below,
-   keyed on `class`. This is the fixer's model and every implementer group's default (step 4).
+2. **implementer/fixer model + effort** — only when step 1 came out `sdd`; chosen per **Model
+   and effort** below. This is the fixer's model and every implementer group's default (step 4).
    Recorded `skipped — inline` when step 1 is inline, `default` when the toggle is off.
 3. **review panel** — roster, compact/experimental, rerun policy, and its **grouping** —
    `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a
    one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
    slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
-   static grouping takes the tree's per-bundle values; a free grouping assigns each dispatch its
-   own, chosen from the tree's values for the class, the choice named in `grouping_reason`; `primary` + `principles`, bundled as one
+   static and a free grouping alike assign each dispatch its own pair per **Model and effort**
+   below; `primary` + `principles`, bundled as one
    dispatch, is the universal floor for every roster this tree assigns — compact or full, every
    class — its `-slot` `primary+principles`, deterministic, no roll. Its spare seat under the
    bundle cap stays empty: nothing else ever joins the floor bundle. A
@@ -464,19 +464,33 @@ recorded as such:
    taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
    reason when `groups_override` is set. **Each group carries its own `model` and `effort`**:
    step 2's implementer value by default, or — only when `IMPLEMENTER_MODEL_TOGGLE` is
-   `dynamic` — a different pair the planner picks for that group alone (a group of mechanical,
-   well-specified tasks on a cheaper model; a group carrying the change's hardest seam one step
-   up), the reason appended to `groups_reason`. On `default` every group is `DEFAULT_MODEL` /
+   `dynamic` — a different pair the planner picks for that group alone per **Model and effort**
+   (a group of mechanical, well-specified tasks on a cheaper model; a group carrying the change's
+   hardest seam one step up), the reason in that group's own `reason`. On `default` every group is `DEFAULT_MODEL` /
    `default`. `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
 
-**The tree**, one row per `class`, `effort` one of `low`/`medium`/`high`:
+**The tree**, one row per `class`:
 
-| class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster; bundle: model/effort) |
+| class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster) |
 |---|---|---|---|---|---|---|
-| small | inline | — | primary; principles | primary; principles | delta | `primary+principles`: sonnet/medium |
-| regular | inline | — | primary; principles; mutation | primary; principles | delta | `primary+principles`: sonnet/high · `mutation`: sonnet/medium |
-| big | sdd | opus/high | primary; principles; mutation; bugbot; security | primary; principles | full | `primary+principles`: opus/high · `mutation+bugbot+security`: sonnet/high |
+| small | inline | — | primary; principles | primary; principles | delta | `primary+principles` |
+| regular | inline | — | primary; principles; mutation | primary; principles | delta | `primary+principles` · `mutation` |
+| big | sdd | chosen | primary; principles; mutation; bugbot; security | primary; principles | full | `primary+principles` · `mutation+bugbot+security` |
+
+#### Model and effort
+
+The tree fixes no model and no effort: every pair a `dynamic` step
+assigns — the implementer/fixer, each panel dispatch, each implementer group — is the planner's
+own choice, `model` any member of the store's `ValidModels` set (`haiku`, `sonnet`, `opus`,
+`fable`; `flow settings models` prints it) and `effort` one of `low`/`medium`/`high`, decided
+from what that dispatch will actually do: the complexity of its tasks, the time and space
+complexity of the code it writes or reviews, and the scalability the change has to hold up under.
+A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency
+seam, a data-model change or a performance-sensitive path sits at the expensive end; nothing in
+between is a default. Each pair carries a one-line `reason` beside it in the JSON and in the
+`## Decision` block's rule cell. **On harness `zcode` the chosen pair is recorded as chosen and
+replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
 
 A compact roster is the floor bundle alone, on the floor bundle's model/effort. `bugbot` and
 `security` are prompt-driven roles like every other slot, dispatched in whichever bundle carries
@@ -498,14 +512,14 @@ Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — o
 run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
 (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `toggles`, `class`, `classMechanical`,
 `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
-(`compact`, `experimental`, `bundle`), `execution`, `implementer` (an object or one of the two
-recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
+(`compact`, `experimental`, `bundle`), `execution`, `implementer` (an object `{model, effort,
+reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
 [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
-`dispatches` (one to two objects `{slots, model, effort}`, `slots` one to three slot ids in roster
+`dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster
 order — the one place a reviewer's model and effort are recorded),
 `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot
 skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
-`roster`), `groups` (objects `{bundles, model, effort}`, `bundles` an array of bundle ids, plus
+`roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
@@ -526,12 +540,12 @@ run's own output once the Decide step completes, filling every cell from what wa
 | Setting            | Toggle           | Result |
 |--------------------|------------------|--------|
 | execution mode     | <default\|dynamic> | <inline\|sdd> |
-| implementer model  | <default\|dynamic> | <"skipped — inline"\|"default"\|model/effort> |
+| implementer model  | <default\|dynamic> — <reason> | <"skipped — inline"\|"default"\|model/effort> |
 | review panel       | <default\|dynamic> | <"default"\|<compact\|full> · <delta\|full> rerun> |
-| ↳ dispatch <n>     | <model> / <effort> | <roles `+`-joined in roster order> |
+| ↳ dispatch <n>     | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
 | ↳ grouping         | free             | <grouping_reason> |
 | implementer groups | —                | <"skipped — inline"\|"mechanical"\|<groups_reason>> |
-| ↳ group <bundle ids> | <model> / <effort> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |
+| ↳ group <bundle ids> | <model> / <effort> — <reason> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |
 ```
 
 One fact per row, every reason in the middle column, nothing printed outside the two tables. The
@@ -539,11 +553,11 @@ first table is the input side — `class`, the four `plan-class.sh` booleans wit
 `repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value
 cell the interpretation. The second is the decision side. `↳` rows are sub-rows of the setting
 above them: one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that
-dispatch's model and effort and its value cell the roles `+`-joined in roster order; a `↳ grouping`
+dispatch's model and effort with its `reason` and its value cell the roles `+`-joined in roster order; a `↳ grouping`
 row only on a free grouping (omitted on a static one); an experimental slot skipped for the cap
 adds `· experimental: skipped — bundle cap` to the review-panel value cell. The implementer-groups
 row is `skipped — inline` on an inline run, else `groups_reason`, followed by one `↳ group` row per
-object in `groups`, its rule cell the group's model and effort and its value cell the bundle ids
+object in `groups`, its rule cell the group's model and effort with its `reason` and its value cell the bundle ids
 (`plan-dispatch-bundles.sh`'s ids), the `(mechanical: …; override: …)` suffix only on a split
 (`groups_override` non-`null`) — mirroring the `class` row's own `override` shape. When `panel` is
 the string `default` the review-panel value cell is `default` and no `↳` row follows it.
@@ -565,6 +579,29 @@ completing that earlier block's `decision:` line.
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
 ```
+
+### Plan review gate
+
+**The plan is never acted on unread.** Once the Decide step has printed its `## Decision` block,
+print the plan summary below, then ask the gate question in one **AskUserQuestion** call. The
+gate is mandatory: no answer, no landing and no implementation. It runs at the end of every
+`/flow-plan` session (**The plan and the decision**, `skills/flow-plan/SKILL.md`) and in `/flow`
+on every no-seed run, after the `flow.decide` record sequence (**Run brainstorming and planning
+directly**, `skills/flow/brainstorm.md`); a fully-seeded `/flow` run skips it, since the seeded
+plan already passed this gate in `/flow-plan`.
+
+The summary is plain prose, not a listing of `tasks.md`: what will be implemented and how — the
+behaviour being added or changed, the approach taken, the seams and decisions that matter (data
+shapes, boundaries, ordering constraints, what was deliberately left out) — in enough detail that
+the operator can judge the logic without opening the plan. No per-task rows, no file, test or
+commit fields. Then the `## Decision` block, verbatim, under it.
+
+Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to
+implementation?** — with exactly two options: **Yes** and **No (plan needs updates)**. On **No**,
+take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none),
+revise `tasks.md`, re-run `check-plan-shape.sh` and the project's configured guards, re-run the
+Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second
+decision row — then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
 
 What happens once this section's plan enrichment completes is stated in **Run brainstorming and
 planning directly** (`skills/flow/brainstorm.md`) — continuing directly into

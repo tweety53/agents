@@ -173,6 +173,8 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    member, wins over the store's `selfReviewModel` field; when both are empty, or `flow settings
    get` cannot reach the store at all, `SELF_REVIEW_MODEL` falls back to the literal `fable`, named
    as a fallback rather than a resolved value exactly as `DEFAULT_MODEL`'s own `sonnet` literal is.
+   On harness `zcode` the dispatch runs on `glm-5.3-flash` / `high` regardless (**Harness
+   mapping**, `skills/flow-contracts/model-policy.md`).
 
    Run `project-get.sh <main-checkout> "self review"` (exit 1: absent) and match the body against
    the three literals `run` / `skip` / `defer` byte-for-byte after trimming leading/trailing

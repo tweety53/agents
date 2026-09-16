@@ -403,7 +403,7 @@ implementer role; on `IMPLEMENTER_MODEL_TOGGLE` `dynamic` it is the group's own 
 decision's `groups` entry, `-effort` its `effort`, and the dispatch's `subagent_type` is
 `flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
-omission. A slot whose model the dispatcher cannot
+omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A slot whose model the dispatcher cannot
 read records the literal `unknown (agent-defined)` and never a guess.
 
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,

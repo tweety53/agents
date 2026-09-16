@@ -295,6 +295,11 @@ filename without `.md`, so the pair is found from the note's path by one exact t
    it is stable by being written down, not by being re-rolled.
 3. **A `## Decision` section in the note**, last, carrying the printed block **Decide**'s own
    output shape defines, so a reader sees the decision without opening the JSON.
+4. **The gate.** With all three written, run **Plan review gate**
+   (`skills/flow/brainstorm-planner.md`) — the plain-prose summary of the logic to be implemented, the `## Decision` block, then
+   **Push artifacts?** with **Yes** / **No (plan needs updates)**. Mandatory, every session that
+   reaches a staging note: **No** revises the plan and re-decides, per that section, and
+   **Landing the note** below starts only on **Yes**.
 
 `/flow`'s seed step takes both files in place of its own writing-plans and Decide work and deletes
 them with the note once adopted (**Seed from a staged research note, if one exists**,
@@ -306,7 +311,8 @@ research artifact until `/flow` adopts it.
 ## Landing the note
 
 A captured staging note is landed in the same session, once the note, `tasks.md` and
-`decision.json` are all written and `check-plan-shape.sh` is clean — never a `design.md`
+`decision.json` are all written, `check-plan-shape.sh` is clean and the gate answered **Yes**
+(**The plan and the decision** above) — never a `design.md`
 addition, which its change's own commits carry. It is committed in the research worktree and
 pushed from there onto `<default-branch>` (`## apps`, `<project>/.flow/project.md`; the remote's
 `HEAD` branch when the table names none):
@@ -351,3 +357,5 @@ flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcom
   never deferrals (see **The Fixed Section Structure**)
 - **Don't leave a staging note without its plan and decision** — the pair beside it is what makes
   the note ready for `/flow`, not an extra
+- **Don't land without the gate** — the prose summary and **Push artifacts?** question run every
+  time; a **No** is another planning round, never a push

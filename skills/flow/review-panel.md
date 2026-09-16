@@ -156,7 +156,7 @@ each entry of the decision's `panel.dispatches` carries its `slots` and its own 
 `effort`, and every slot in it runs on that pair — the dispatch's `subagent_type` is
 `flow-<effort>` — the effort comes from the definition, the model from the Agent tool's own
 `model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded,
-per design.md's `agent-definitions-universal-handshake`. The roster carries no per-slot model. A compact roster
+per design.md's `agent-definitions-universal-handshake`. The roster carries no per-slot model. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A compact roster
 (the decision's `panel.compact`) is recorded with `flow record pass -round 0 -note 'roster: compact — <rolled value>'`; a full
 roster records `roster: full`.
 
@@ -1034,7 +1034,7 @@ writing its fix. **Dispatch it on `DEFAULT_MODEL`** (design.md's `model-default-
 `IMPLEMENTER_MODEL_TOGGLE` `dynamic` with an `sdd` decision, dispatch it instead on the decision's
 `implementer` object** — the fixer's own model and effort, `subagent_type:
 flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
-`-model`/`-effort` below carry that pair. Record
+`-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). Record
 every pass with `flow record pass -round <round>`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.

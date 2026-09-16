@@ -81,58 +81,58 @@ run_guard() {
   set -e
 }
 
-# --- case: 10 tasks, 25 files, repos=1 -> small ---
-new_fixture small-10-25
+# --- case: 8 tasks, 19 files, repos=1 -> small ---
+new_fixture small-8-19
 : >"$TASKS_FILE"
-for i in 1 2 3 4 5 6 7 8; do
+for i in 1 2 3 4 5 6; do
   task_line "$i" "f${i}a.go" "f${i}b.go" "f${i}c.go"
 done
-task_line 9 f9a.go
-task_line 10
+task_line 7 f7a.go
+task_line 8
 run_guard "$TASKS_FILE" 1
-if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^inputs: tasks=10 files=25 repos=1 migration=no spec=no red=no unverified=no$' \
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^inputs: tasks=8 files=19 repos=1 migration=no spec=no red=no unverified=no$' \
   && printf '%s\n' "$OUT" | grep -q '^class: small$'; then
-  pass "10 tasks / 25 files / repos=1 -> small"
+  pass "8 tasks / 19 files / repos=1 -> small"
 else
-  fail "10 tasks / 25 files / repos=1 -> small (rc=$RC out=$OUT)"
+  fail "8 tasks / 19 files / repos=1 -> small (rc=$RC out=$OUT)"
 fi
 
-# --- case: 11 tasks -> regular (one past the new small ceiling) ---
-make_tasks regular-11 11
+# --- case: 9 tasks -> regular (one past the small ceiling) ---
+make_tasks regular-9 9
 run_guard "$TASKS_FILE" 1
 if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: regular$'; then
-  pass "11 tasks -> regular"
+  pass "9 tasks -> regular"
 else
-  fail "11 tasks -> regular (rc=$RC out=$OUT)"
+  fail "9 tasks -> regular (rc=$RC out=$OUT)"
 fi
 
-# --- case: 30 tasks -> big ---
-make_tasks big-30 30
+# --- case: 22 tasks -> big ---
+make_tasks big-22 22
 run_guard "$TASKS_FILE" 1
 if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: big$'; then
-  pass "30 tasks -> big"
+  pass "22 tasks -> big"
 else
-  fail "30 tasks -> big (rc=$RC out=$OUT)"
+  fail "22 tasks -> big (rc=$RC out=$OUT)"
 fi
 
-# --- case: 1 migration + 15 tasks -> big ---
-make_tasks migration-15-big 15 migration
+# --- case: 1 migration + 11 tasks -> big ---
+make_tasks migration-11-big 11 migration
 run_guard "$TASKS_FILE" 1
 if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: big$' \
   && printf '%s\n' "$OUT" | grep -q 'migration=yes'; then
-  pass "1 migration + 15 tasks -> big"
+  pass "1 migration + 11 tasks -> big"
 else
-  fail "1 migration + 15 tasks -> big (rc=$RC out=$OUT)"
+  fail "1 migration + 11 tasks -> big (rc=$RC out=$OUT)"
 fi
 
-# --- case: 1 migration + 14 tasks -> regular ---
-make_tasks migration-14-regular 14 migration
+# --- case: 1 migration + 10 tasks -> regular ---
+make_tasks migration-10-regular 10 migration
 run_guard "$TASKS_FILE" 1
 if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: regular$' \
   && printf '%s\n' "$OUT" | grep -q 'migration=yes'; then
-  pass "1 migration + 14 tasks -> regular"
+  pass "1 migration + 10 tasks -> regular"
 else
-  fail "1 migration + 14 tasks -> regular (rc=$RC out=$OUT)"
+  fail "1 migration + 10 tasks -> regular (rc=$RC out=$OUT)"
 fi
 
 # --- case: the override never appears (the script has none) ---

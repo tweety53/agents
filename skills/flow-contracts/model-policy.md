@@ -35,6 +35,11 @@ panel slot at the panel's model instead and escalates breadth (the conditional S
 and extra-principle slots) rather than the model. See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
 
+**A `dynamic` toggle hands the choice to the planner.** Where `## implementer model` or
+`## review panel` is `dynamic`, the implementer, the fixer and each panel dispatch run on the
+model and effort the Decide step chose for them — any `ValidModels` member, `low`/`medium`/`high`
+— per **Model and effort** (`skills/flow/brainstorm-planner.md`), never on the defaults above.
+
 **An explicit operator instruction overrides either default, in either direction** — raising the
 panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical
 work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
@@ -87,3 +92,16 @@ neither the write into the store nor the render out of it invents a model slug. 
   composer/chat picker.
 - **Codex**: no per-command/skill model override mechanism either — model is a session or profile
   level setting; switch manually before starting a new proposal.
+- **ZCode**: one model, see **Harness mapping** below.
+
+## Harness mapping
+
+**On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
+`DEFAULT_MODEL`, `VERIFY_MODEL`, `SELF_REVIEW_MODEL`, a decision's implementer, group and panel
+pairs, and an operator override alike resolve and are recorded as they would be on Claude Code,
+and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
+`subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's
+ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran
+on, never the pre-mapping value. The handshake compares against `glm-5.3-flash`. The harness is
+the same value the run's `-harness` marks carry (**Stage marks**,
+`skills/flow-contracts/pipeline.md`). No other harness maps anything.

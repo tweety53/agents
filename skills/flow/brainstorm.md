@@ -179,7 +179,11 @@ flow record decision -change <name> -session-token mf-<literal-token> -file <abs
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
 
-Continue into `skills/flow/implement.md` directly.
+**On a no-seed run, the gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`)
+— the prose summary of the logic to be implemented, the `## Decision` block, **Proceed to implementation?** with **Yes** /
+**No (plan needs updates)**; a **No** revises and re-decides per that section, recording each
+re-decision through the sequence above. A fully-seeded run skips it. Then continue into
+`skills/flow/implement.md` directly.
 
 ## Resume and fix runs
 
