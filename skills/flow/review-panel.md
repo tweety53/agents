@@ -1095,8 +1095,9 @@ finding at any severity; an empty-delta re-run whose slots were recorded `not re
 since its last read` counts as clean, and a re-run that re-raises a defect the operator withdrew
 under the handback above is recorded `withdrawn` with the operator's original reason, never
 `open`, and does not stand in the way of that clean round. The last round before the stage close
-is therefore one of three shapes: a pass 1 that raised nothing, a re-run that raised nothing, or a
-round every one of whose findings was Minor, which re-runs no slot and closes beside them. A
+is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose
+only raise was a defect recorded `withdrawn` under the carve-out above, or a round every one of
+whose findings was Minor, which re-runs no slot and closes beside them. A
 re-run that finds a fix incomplete — kan-512's round 1 catching task 10's own correction as F4,
 fixed as task 11 — opens the next fix round under the rules above, and the cycle repeats until a
 re-run comes back clean.
