@@ -732,6 +732,29 @@ case "$OUT" in
   *) fail "case 36: expected an unlisted-key finding, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 37 (KAN-531 F12): the unlisted-key finding's message text is pinned.
+# A message-text-only mutant — a reworded clause, a dropped remediation —
+# changes no exit code and no VIOLATIONS count, so every exit-status and
+# fragment assertion in this file stays green on it. This case asserts the
+# finding's whole line, byte for byte from the `file:line:` prefix through
+# the remediation, so only a guard whose wording survived unchanged passes.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+flow stage begin -command '/flow' -stage flow.kickof. -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 37: the unlisted-key finding still fires" \
+  || fail "case 37: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$FIXTURE_FILE:2: -stage flow.kickof. is not a key in README.md's Level 1 table -- a mark under an unknown key is refused by the daemon as a caller mistake and the stage goes unrecorded; use a listed key or add the row first"*) \
+    pass "case 37: the finding's message text is pinned whole" ;;
+  *) fail "case 37: expected the finding's exact message text, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
