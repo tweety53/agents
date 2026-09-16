@@ -285,5 +285,56 @@ else
   fail "case 8: expected \"$want\", got \"$got\""
 fi
 
+# Case 9: the real KAN-437 pre-fix capture, replayed in shape — the selected
+# cell is filled flush against the left border, so the border seam and the
+# fill seam touch and bound no cell (cell index and seam index part ways),
+# and the capture's control has no outer border at all, so it is not a boxed
+# band. Two runs: `broken` (dividers and centring as in case 8, fill kept)
+# must pair cells past the touching seams without crashing; `unboxed` must
+# list the frame's control under `bands_unpaired` rather than a missing seam.
+make_filled() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+from PIL import Image, ImageDraw
+path, mode = sys.argv[1], sys.argv[2]
+PAGE, RULE, TEXT, FILL = (0xF3, 0xF2, 0xF2), (0xD7, 0xD3, 0xD3), (0x20, 0x1E, 0x1D), (0x00, 0x88, 0xB0)
+im = Image.new("RGB", (340, 160), PAGE)
+d = ImageDraw.Draw(im)
+L, T, R, B = 20, 60, 319, 107
+if mode != "unboxed":
+    d.rectangle((L, T, R, B), outline=RULE, width=1)
+    for x in (L + 100, L + 200):
+        if x == L + 100 and mode == "broken":
+            continue
+        d.line((x, T + 1, x, B - 1), fill=RULE)
+d.rectangle((L + 1, T + 1, L + 99, B - 1), fill=FILL)                # cell 1 filled, flush against the border
+def label(x0, x1, y, w, left_anchor=None):
+    l = x0 + 8 if left_anchor else (x0 + x1 + 1 - w) // 2
+    d.rectangle((l, y, l + w - 1, y + 9), fill=TEXT)
+label(L + 101, L + 199, 79, 50)
+label(L + 201, R - 1, 72, 60, mode != "ok")
+label(L + 201, R - 1, 86, 40, mode != "ok")
+im.save(path)
+PY
+}
+make_filled "$DIR/filled-frame.png" ok
+make_filled "$DIR/filled-broken.png" broken
+make_filled "$DIR/filled-unboxed.png" unboxed
+got="$(for cap in broken unboxed; do "$GUARD" "$DIR/filled-frame.png" "$DIR/filled-$cap.png" --scale 1 --props seams | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+s = d["delta"]["seams_summary"]
+bands = [b["status"] for b in d["delta"]["seams"]]
+cells = {(c["a"], c["b"]): [(l["offset"]["abs"], l["left"]["abs"]) for l in c["lines"]] for b in d["delta"]["seams"] if b["status"] == "paired" for c in b["cells"]}
+print(bands, s["missing"], s["bands_unpaired"], cells)
+'; done)"
+want="['paired'] 1 0 {(3, 2): [(-11.0, -11.0), (-21.0, -21.0)]}
+['missing'] 0 1 {}"
+if [ "$got" = "$want" ]; then
+  pass "case 9: touching border and fill seams bound no cell yet the cells past them still pair, and a control with no outer border is a band the frame boxes and the capture does not"
+else
+  fail "case 9: expected \"$want\", got \"$got\""
+fi
+
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]

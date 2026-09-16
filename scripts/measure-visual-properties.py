@@ -150,7 +150,12 @@ Properties (pixels of the region's own image; `null` where not found):
            both shipped wrong past every band and every sweep). A filled
            cell is a seam, not a cell — its lines are not read; a divider in
            a row with no border or fill sits in an unboxed band and is not
-           read either.
+           read either. A control whose outer border the capture omits is
+           therefore not boxed there at all: it is one of `bands_unpaired`,
+           never a list of missing seams, and its labels' centring goes
+           unread until the border is back (the real KAN-437 pre-fix
+           capture: GOAL and PROTEIN each read as a plain band of the same
+           height and gap as the frame's boxed one).
 
 Output (stdout): one JSON object — `a`, `b` (when given), `scale`, and
 `delta`: for every numeric leaf, `a`, `a_scaled` (`a` × scale for lengths,
@@ -693,11 +698,18 @@ def pair_seams(a, b, scale):
             summary[k] += v
         # Index of each paired seam in its own list, in order.
         idx = [(sa.index(p["a"]), sb.index(p["b"])) for p in seams if p["status"] == "paired"]
+        # Cells keyed by their left column: two touching seams bound no
+        # cell, so cell index and seam index disagree past the first pair.
+        cells_a = {c["left"]: c for c in band["a"]["cells"]}
+        cells_b = {c["left"]: c for c in band["b"]["cells"]}
         cells = []
         for (ia, ib), (ja, jb) in zip(idx, idx[1:]):
             if ja != ia + 1 or jb != ib + 1:
                 continue
-            ca, cb = band["a"]["cells"][ia], band["b"]["cells"][ib]
+            ca = cells_a.get(sa[ia]["left"] + sa[ia]["width"])
+            cb = cells_b.get(sb[ib]["left"] + sb[ib]["width"])
+            if ca is None or cb is None:
+                continue
             lines = [{
                 "offset": number_delta(la["offset"], lb["offset"], scale),
                 "left": number_delta(la["left"], lb["left"], scale),
