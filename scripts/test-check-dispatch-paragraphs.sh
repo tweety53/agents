@@ -147,6 +147,13 @@
 # DECIDE_BLOCK; case 64 is the label absent entirely from implement.md;
 # cases 65-68 are one case per required phrase, each dropped in turn.
 #
+# Cases 69-72 cover KAN-521's ENTRY CONTEXT paragraph, required once in
+# review-panel.md (the panel slot dispatch) and nowhere else: case 1's own
+# review-panel.md fixture and CLEAN_REVIEW_PANEL now carry one correct
+# ENTRY_CONTEXT_BLOCK; case 69 is the label absent entirely from
+# review-panel.md; cases 70-72 are one case per required phrase, each
+# dropped in turn.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -622,6 +629,42 @@ DECIDE_BLOCK_NO_BLOCKED='> **REPORT, DON'"'"'T DECIDE:** A question only the ope
 > and carry the question in your REPORT FILE; where it cannot proceed without the answer, hand the
 > plan back as blocked. A decision you make silently is a decision nobody recorded.'
 
+# The ENTRY CONTEXT paragraph, reproduced verbatim from
+# skills/flow/review-panel.md (KAN-521).
+ENTRY_CONTEXT_BLOCK='> **ENTRY CONTEXT:** `final-review.diff` is your entry artifact, and the touched-files list in
+> this prompt is your named entry context — begin from those two, not from a whole-tree
+> exploration. The list names every path this branch touched, per worktree, with the named
+> contracts among them; read a listed file only as far as the diff and a finding require, and step
+> outside the list only when a finding cannot otherwise be established. Name the coverage trade in
+> your report: which touched files you read in full, which you read only at the diff'"'"'s hunks, and
+> which you deliberately did not read.'
+
+# Variants of ENTRY_CONTEXT_BLOCK, each with exactly one required phrase
+# dropped while staying a plausible paragraph — cases 70-72.
+ENTRY_CONTEXT_BLOCK_NO_NAMED='> **ENTRY CONTEXT:** `final-review.diff` is your entry artifact, and the touched-files list in
+> this prompt is your starting scope — begin from those two, not from a whole-tree
+> exploration. The list names every path this branch touched, per worktree, with the named
+> contracts among them; read a listed file only as far as the diff and a finding require, and step
+> outside the list only when a finding cannot otherwise be established. Name the coverage trade in
+> your report: which touched files you read in full, which you read only at the diff'"'"'s hunks, and
+> which you deliberately did not read.'
+
+ENTRY_CONTEXT_BLOCK_NO_WHOLE_TREE='> **ENTRY CONTEXT:** `final-review.diff` is your entry artifact, and the touched-files list in
+> this prompt is your named entry context — begin from those two rather than wandering the tree.
+> The list names every path this branch touched, per worktree, with the named
+> contracts among them; read a listed file only as far as the diff and a finding require, and step
+> outside the list only when a finding cannot otherwise be established. Name the coverage trade in
+> your report: which touched files you read in full, which you read only at the diff'"'"'s hunks, and
+> which you deliberately did not read.'
+
+ENTRY_CONTEXT_BLOCK_NO_COVERAGE='> **ENTRY CONTEXT:** `final-review.diff` is your entry artifact, and the touched-files list in
+> this prompt is your named entry context — begin from those two, not from a whole-tree
+> exploration. The list names every path this branch touched, per worktree, with the named
+> contracts among them; read a listed file only as far as the diff and a finding require, and step
+> outside the list only when a finding cannot otherwise be established. State the read-coverage
+> call in your report: which touched files you read in full, which you read only at the diff'"'"'s
+> hunks, and which you deliberately did not read.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -646,7 +689,9 @@ write_site() {
 # TOOLS blocks (KAN-484), and one PIXEL PROBE block (the panel-fix
 # dispatch, KAN-496); implement.md carries one PROVE THE GUARD BITES block
 # (the implementer dispatch, KAN-328) and one REPORT, DON'T DECIDE block
-# (the implementer dispatch, KAN-405). new_root already seeded
+# (the implementer dispatch, KAN-405); review-panel.md carries one
+# ENTRY CONTEXT block (the panel slot dispatch, KAN-521). new_root already
+# seeded
 # verify-and-handoff.md
 # with its own required TOOLS, MODEL HANDSHAKE and NO DELEGATION blocks —
 # brainstorm.md is no longer a dispatch site (kan-488) and is seeded with
@@ -679,7 +724,9 @@ $INDEPENDENT_BLOCK
 
 $DELEGATION_BLOCK
 
-$DELEGATION_BLOCK"
+$DELEGATION_BLOCK
+
+$ENTRY_CONTEXT_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -1579,7 +1626,9 @@ $INDEPENDENT_BLOCK
 
 $DELEGATION_BLOCK
 
-$DELEGATION_BLOCK"
+$DELEGATION_BLOCK
+
+$ENTRY_CONTEXT_BLOCK"
 
 CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 
@@ -2820,6 +2869,94 @@ run_guard
 case "$OUT" in
   *"report BLOCKED"*) pass "case 68: names the missing phrase" ;;
   *) fail "case 68: expected 'report BLOCKED' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 69: the ENTRY CONTEXT label is absent entirely from review-panel.md
+# (KAN-521) — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$PIXEL_PROBE_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 69: exits 1" || fail "case 69: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"ENTRY CONTEXT"*) pass "case 69: names review-panel.md and the missing ENTRY CONTEXT block" ;;
+  *) fail "case 69: expected review-panel.md and ENTRY CONTEXT named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 70: an ENTRY CONTEXT block is present but missing "your named entry
+# context" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$ENTRY_CONTEXT_BLOCK_NO_NAMED"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 70: exits 1" || fail "case 70: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"your named entry context"*) pass "case 70: names the missing phrase" ;;
+  *) fail "case 70: expected 'your named entry context' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 71: an ENTRY CONTEXT block is present but missing "not from a
+# whole-tree exploration" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$ENTRY_CONTEXT_BLOCK_NO_WHOLE_TREE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 71: exits 1" || fail "case 71: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"not from a whole-tree exploration"*) pass "case 71: names the missing phrase" ;;
+  *) fail "case 71: expected 'not from a whole-tree exploration' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 72: an ENTRY CONTEXT block is present but missing "the coverage
+# trade" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$ENTRY_CONTEXT_BLOCK_NO_COVERAGE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 72: exits 1" || fail "case 72: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"the coverage trade"*) pass "case 72: names the missing phrase" ;;
+  *) fail "case 72: expected 'the coverage trade' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then
