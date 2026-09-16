@@ -586,8 +586,26 @@ Remove every copy unconditionally once that slot's dispatch closes — completed
 
 ```bash
 # for each copy:
+for f in <worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md \
+         <worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh; do
+  [ -s "$f" ] || continue
+  b="${f#<worktree>-<slot>-<round>/.superpowers/sdd/}"
+  mkdir -p "<worktree>/.superpowers/sdd/$(dirname "$b")"
+  c="<worktree>/.superpowers/sdd/$b"
+  [ -s "$c" ] && [ ! "$f" -nt "$c" ] && continue
+  cp -a "$f" "$c"
+done
 git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
 ```
+
+The fold-back runs inside the removal step itself — on every path that removes a copy,
+completed, timed out or run stopped — because a report the slot resolved onto its dispatched root
+dies with the copy, and KAN-529's round-2 mutation report survived only because the parent session
+had read it earlier. It rescues the slot's reproducers beside its reports — both are recorded as
+worktree-relative paths the parent later runs, and one left only in the copy dangles. A copy-side
+file newer than the canonical one replaces it — the wall-clock re-dispatch's fresh report
+outranking a timed-out attempt's — and the `[ -s ]` tests keep an empty copy-side file from being
+copied.
 
 Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
 reproducer still runs against the real `<worktree>` at verification time, never against any slot's
@@ -615,8 +633,9 @@ Record which standards files were passed, or that none resolved.
 `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` itself, per the REPORT FILE paragraph
 its prompt carries — `<round>` the same value that round's findings carry on `-round` (`0` initial,
 `1..n` fix rounds), `<id>` the resolved reviewer id, never the slot display name. As each slot's
-`flow record dispatch end` is recorded, confirm the file exists and is non-empty (`test -s`); when
-it is not, write it yourself carrying the single line `no verbatim report captured — <reason>`.
+`flow record dispatch end` is recorded, run **The throwaway worktree**'s fold-back for that slot's
+copies first, then confirm the file exists and is non-empty (`test -s`); when it is not, write it
+yourself carrying the single line `no verbatim report captured — <reason>`.
 Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
 slot's report from this context** — record its `F<n>` rows and cite the file, per **Read
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
