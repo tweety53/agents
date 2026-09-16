@@ -488,8 +488,85 @@ fi
 [ -n "$timeoutfork_pid" ] && kill -KILL "$timeoutfork_pid" >/dev/null 2>&1 || true
 pkill -9 -f 'trap .* TERM; sleep 30' >/dev/null 2>&1 || true
 
+# ===========================================================================
+# 19. KAN-524: the SAME reproducer verdict the caller observed pre-fix, seen
+#     again post-fix, is refused as ambiguous — exit 2 naming the expected
+#     convention. The pre-fix verdict is carried in the script's own verdict
+#     vocabulary (0 = defect demonstrated, 1 = not demonstrated), which is
+#     what the panel parent already holds from its `; echo "F<n>: exit $?"`
+#     record of the dispatch-time run. This refusal fires AFTER the
+#     reproducer ran — unlike every shape refusal above, the verdict here is
+#     read from a real execution, so the fixture's RAN marker MUST exist.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/fails-again.sh" "exit 7"
+expect_exit_and_names 'case 19: a post-fix verdict identical to the pre-fix verdict (0/0) is refused' 2 'convention' \
+  "$GUARD" "$wt" "scripts/fails-again.sh" --pre-fix-exit 0
+if [ -e "$wt/RAN" ]; then
+  printf 'ok: case 19 (the reproducer ran before the verdict was read)\n'
+else
+  printf 'FAIL case 19: the ambiguity refusal answered without running the reproducer\n'
+  FAILED=1
+fi
+
+# ===========================================================================
+# 20. The mirrored ambiguity: 1/1 — the reproducer exited 0 pre-fix and
+#     exits 0 post-fix again. Identical under either convention, refused
+#     the same way.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/passes-again.sh" "exit 0"
+expect_exit_and_names 'case 20: a post-fix verdict identical to the pre-fix verdict (1/1) is refused' 2 'convention' \
+  "$GUARD" "$wt" "scripts/passes-again.sh" --pre-fix-exit 1
+
+# ===========================================================================
+# 21. The healthy flip: demonstrated pre-fix (verdict 0), not demonstrated
+#     post-fix (verdict 1) — the fix verified, exit 1, no refusal.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/now-passes.sh" "exit 0"
+expect_exit 'case 21: a flipped verdict (0 pre-fix, 1 post-fix) is the fix verified' 1 \
+  "$GUARD" "$wt" "scripts/now-passes.sh" --pre-fix-exit 0
+
+# ===========================================================================
+# 22. The opposite flip (1 pre-fix, 0 post-fix) is not identical either —
+#     the verdict passes through unchanged, no refusal.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/now-fails.sh" "exit 5"
+expect_exit 'case 22: a flipped verdict (1 pre-fix, 0 post-fix) passes through' 0 \
+  "$GUARD" "$wt" "scripts/now-fails.sh" --pre-fix-exit 1
+
+# ===========================================================================
+# 23. Anything but the script's own two verdict codes is a usage failure —
+#     exit 4, the reproducer never run. A number the verdict vocabulary
+#     cannot answer (2, 3, 4 are this script's own refusal/unverifiable/
+#     cannot-answer codes, not the reproducer's verdict), a non-numeric
+#     token, an empty value, a missing value and a stray third argument are
+#     all reported, never ignored and never read as "no flag".
+# ===========================================================================
+for bad in 2 3 7 -1 zero '' ' '; do
+  wt="$(make_worktree)"
+  fixture "$wt" "scripts/never-runs.sh" "exit 0"
+  if [ -z "$bad" ]; then
+    # An empty value with the flag present means a missing value: the
+    # argument vector ends after the flag name.
+    expect_exit_and_names "case 23.$bad: a missing --pre-fix-exit value is a usage failure" 4 'usage' \
+      "$GUARD" "$wt" "scripts/never-runs.sh" --pre-fix-exit
+  else
+    expect_exit_and_names "case 23.$bad: --pre-fix-exit '$bad' is a usage failure" 4 'usage' \
+      "$GUARD" "$wt" "scripts/never-runs.sh" --pre-fix-exit "$bad"
+  fi
+  assert_not_ran "case 23.$bad" "$wt"
+done
+wt="$(make_worktree)"
+fixture "$wt" "scripts/never-runs.sh" "exit 0"
+expect_exit_and_names 'case 23.stray: a stray third argument is a usage failure' 4 'usage' \
+  "$GUARD" "$wt" "scripts/never-runs.sh" extra-arg
+assert_not_ran 'case 23.stray' "$wt"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'test-run-reproducer: one or more cases failed\n' >&2
   exit 1
 fi
-printf 'test-run-reproducer: all 18 cases plus the metacharacter loop and its control pass\n'
+printf 'test-run-reproducer: all cases plus the metacharacter loop and its control pass\n'

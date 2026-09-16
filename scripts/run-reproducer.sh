@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-reproducer.sh <worktree> <reproducer-command-line>
+# run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>]
 #
 # Runs one finding's reproducer — the command text that follows
 # `finding-reproducer: F<n> ` in a panel record, already validated
@@ -55,9 +55,15 @@
 #   1  defect not demonstrated — the command ran to completion inside the
 #      bound and exited 0; the instruction built on this reproducer cannot
 #      be verified as a fix
-#   2  refused before execution — the command line failed a lexical or
-#      resolved containment/shape check and was never run at all; the
-#      reason is named on stderr
+#   2  refused — one of two classes. The shape class failed a lexical or
+#      resolved containment/shape check before execution and was never run
+#      at all. The ambiguity class (KAN-524) ran to a verdict that is
+#      IDENTICAL to the pre-fix verdict the caller passed in
+#      --pre-fix-exit: a reproducer that answers the same way before and
+#      after the fix demonstrates nothing under either exit-code
+#      convention, and the expected convention is named on stderr. Only
+#      the shape class never executes; the ambiguity class is refused at
+#      its verdict, after a real run.
 #   3  unverifiable — the command was still running at the bound (or a
 #      detached child of it survived the kill sequence) and was killed;
 #      its exit status is read as neither a pass nor a fail. A surviving
@@ -87,13 +93,34 @@ fi
 source "$SCRIPT_DIR/reproducer-metachars.sh"
 
 usage_fail() {
-  echo "run-reproducer: usage: run-reproducer.sh <worktree> <reproducer-command-line>" >&2
+  echo "run-reproducer: usage: run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>]" >&2
   exit 4
 }
 
 WORKTREE="${1:-}"
 CMD_TEXT="${2:-}"
 [ -n "$WORKTREE" ] && [ -n "$CMD_TEXT" ] || usage_fail
+
+# --pre-fix-exit <0|1> — the verdict this reproducer produced when the
+# caller ran it against the defect-present code (this script's own exit
+# vocabulary: 0 = defect demonstrated, 1 = not demonstrated — exactly what
+# the panel parent holds from its `; echo "F<n>: exit $?"` record of the
+# dispatch-time run). On the fix-round re-run, a verdict here that MATCHES
+# the pre-fix one is refused: a reproducer whose exit status is identical
+# pre-fix and post-fix is ambiguous under either convention, and nothing
+# built on it can be verified. Anything but the script's own two verdict
+# codes is a usage failure, reported and never ignored: a bare run (two
+# arguments, no flag) is the dispatch-time decision and decides exactly as
+# it always has.
+PRE_FIX_EXIT=""
+if [ "$#" -ge 3 ]; then
+  [ "$3" = "--pre-fix-exit" ] || usage_fail
+  [ "$#" -eq 4 ] || usage_fail
+  case "$4" in
+    0|1) PRE_FIX_EXIT="$4" ;;
+    *) usage_fail ;;
+  esac
+fi
 
 [ -d "$WORKTREE" ] || { echo "run-reproducer: not a directory: $WORKTREE" >&2; exit 4; }
 # Canonicalise before anything is concatenated onto it, for the same reason
@@ -702,6 +729,20 @@ case "$RC" in
     exit 4
     ;;
 esac
+
+# The ambiguity refusal (KAN-524), checked at the verdict point — after the
+# timeout (exit 3) and cannot-answer (exit 4) dispositions above have had
+# their say, since those runs produced no verdict to compare against. The
+# reproducer HAS run here, which is what separates this exit-2 class from
+# the shape refusals' "never executed" claim above.
+if [ -n "$PRE_FIX_EXIT" ]; then
+  if [ "$RC" -ne 0 ]; then VERDICT=0; else VERDICT=1; fi
+  if [ "$PRE_FIX_EXIT" = "$VERDICT" ]; then
+    emit_captured_output 2
+    echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_EXIT) — a reproducer must exit non-zero while the defect is present and 0 once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
+    exit 2
+  fi
+fi
 
 if [ "$RC" -ne 0 ]; then
   emit_captured_output 1
