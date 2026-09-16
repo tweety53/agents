@@ -10,15 +10,17 @@
 # tree under TMPDIR without touching this repository — never set it for a
 # normal invocation.
 #
-# Five rules, each reported by name with the offending path and line:
+# Six rules, each reported by name with the offending path and line:
 #
 #   1. Every entry under skills/*/scripts/ is a symlink, it resolves, and its
 #      target is relative — an absolute target would bake this machine's
 #      checkout path into the repository.
-#   2. Every guard INVOKED in a skill's own text — a leading word in a
-#      ```bash/sh/zsh fenced command line, or a backtick-quoted basename a
-#      nearby "Run"/"Invoke"/"Execute"/"invocation" names, or one followed by a
-#      `<placeholder>` usage argument — has a symlink in that skill's own
+#   2. Every guard INVOKED in a skill's own text — any token of a
+#      ```bash/sh/zsh fenced command line (a leading word, a pipeline
+#      segment, an `&&` continuation or a command substitution), or a
+#      backtick-quoted basename a nearby "Run"/"Invoke"/"Execute"/"invocation"
+#      names, or one followed by a `<placeholder>` usage argument — has a
+#      symlink in that skill's own
 #      scripts/ directory. A guard's sibling dependency — read from the guard's
 #      OWN source rather than a hardcoded table, by grepping it for
 #      `$SCRIPT_DIR/<name>` — is required exactly where the guard it belongs
@@ -50,6 +52,21 @@
 #      reading alive. Prose already said so once and a session created three
 #      such symlinks anyway, roughly five hours later, in
 #      `skills/flow-fast/`.
+#   6. Every *.sh symlink a command skill carries that rule 1 passes must be
+#      in that skill's required set — cited in the skill's own text,
+#      delegated to it, or a sibling dependency. Rule 2 only ever flags a
+#      citation with no symlink and never the reverse; this is that reverse,
+#      and it is what turns a skill's prose guard list into a checked one:
+#      flow-plan's invoking paragraph named four guards nothing cited, their
+#      symlinks were carried on memory alone, and dropping the basename from
+#      the paragraph — or pruning the "unused" symlink later — moved only an
+#      informational coverage count (KAN-532, F10). Under this rule it is a
+#      violation, so the paragraph's basename list cannot drift from the tree
+#      in either direction without one. A pair whose requirement genuinely
+#      lives outside scannable text — a project-configured guard resolved
+#      through .flow/project.md, or a step canonical in a flow-contract file
+#      rule 2 deliberately does not scan — is exempt via DECLARED_RULE6, the
+#      written declaration in this guard's own source, never inferred.
 #
 # Prints one violation line per finding (`path:line: message`), then the
 # verdict:
@@ -550,28 +567,27 @@ BEGIN {
   if (fence_lang ~ /^(bash|sh|zsh)([ \t]|$)/) scan_fence(raw, FNR)
   next
 }
-function scan_fence(line, lineno,   trimmed, rest, w) {
+function scan_fence(line, lineno,   trimmed, n, i, f, w) {
   trimmed = line
   sub(/^[ \t]+/, "", trimmed)
   if (trimmed ~ /^#/) return
-  # The leading token alone missed two real invocation shapes: `./guard.sh
-  # <args>` (the leading token is `./guard.sh`, which this class never
-  # matched past the `.`) and `bash guard.sh <args>` / `sh guard.sh` / `zsh
-  # guard.sh` (an interpreter named explicitly, with the guard as the SECOND
-  # token). Both are tried in turn; `./` is stripped from either position
-  # before the basename test, since `bash ./guard.sh` combines them.
-  rest = trimmed
-  sub(/^\.\//, "", rest)
-  if (match(rest, /^[A-Za-z0-9._-]+/)) {
-    w = substr(rest, RSTART, RLENGTH)
-    if (w in guards) { printf "%s\t%d\n", w, lineno; return }
-  }
-  if (match(trimmed, /^(bash|sh|zsh)[ \t]+/)) {
-    rest = substr(trimmed, RLENGTH + 1)
-    sub(/^\.\//, "", rest)
-    if (match(rest, /^[A-Za-z0-9._-]+/)) {
-      w = substr(rest, RSTART, RLENGTH)
+  # A guard named as ANY token of a fenced command line is an invocation
+  # shape — the leading-token-only scan missed three real ones: a pipeline
+  # segment (`git diff ... | check-visual-trigger.sh <worktree>`), an `&&`
+  # continuation line whose first token is the operator, and command
+  # substitution (`BASE="$(resolve-base-branch.sh <worktree>)"`), where the
+  # basename is glued to the assignment and only a mid-token match sees it.
+  # Each name-character run of every token is therefore tried against the
+  # guard set, and EVERY guard a line names is emitted — a pipeline citing
+  # two guards (`resolve-...sh | compose-...sh`) must reach the second one,
+  # not stop at the first.
+  n = split(trimmed, toks, /[ \t]+/)
+  for (i = 1; i <= n; i++) {
+    f = toks[i]
+    while (match(f, /[A-Za-z0-9._-]+/) > 0) {
+      w = substr(f, RSTART, RLENGTH)
       if (w in guards) printf "%s\t%d\n", w, lineno
+      f = substr(f, RSTART + RLENGTH)
     }
   }
 }
@@ -823,6 +839,90 @@ while IFS="$(printf '\t')" read -r skill guard citing_file citing_line via; do
     fi
   fi
 done < "$REQUIRED_UNIQUE"
+
+# ===========================================================================
+# RULE 6 — the reverse of rule 2: a command skill must not carry a *.sh
+# symlink that its required set does not name. Scoped to COMMAND_SKILLS_FILE
+# like rules 1-4, and scoped to entries rule 1 PASSES: a non-symlink, a
+# dangling symlink and an absolute-target symlink are rule 1's findings alone,
+# and reporting them here too would blur which rule to fix them under. Only
+# *.sh entries are judged — the runnable guards every invoking paragraph
+# names; the lib/ directory symlink and the .py twins are rule 1's to
+# validate and no prose list's to declare.
+#
+# DECLARED_RULE6 — the pairs whose requirement genuinely lives outside what
+# rule 2's classifier may scan, declared here rather than inferred, on the
+# KAN-197 pattern: a statement this guard's own source makes, that a reviewer
+# can read and question. Declaring is for a guard whose invocation is real
+# but whose citation cannot be carried in the skill's own files without
+# restating a canonical text elsewhere — a project's own `## lint` list
+# (resolved through .flow/project.md, which flow's verify stage runs
+# wholesale) or a step whose procedure is canonical in a flow-contract file
+# rule 2 deliberately does not scan. A guard with no such text anywhere is
+# not declared; it is pruned.
+# ===========================================================================
+DECLARED_RULE6_FILE="$WORK/declared_rule6"
+cat > "$DECLARED_RULE6_FILE" <<'DECLARED_RULE6_EOF'
+flow	check-visual-verification.sh	resolved through a project's own ## visual verification and ## lint configuration, never invoked by flow's own text
+flow	check-task-records.sh	resolved through a project's own ## lint configuration, never invoked by flow's own text
+flow	check-visual-verify-dispatched.sh	invoked per Run 1 (finish-contract-run1.md), which rule 2's scope deliberately does not scan
+DECLARED_RULE6_EOF
+
+REQ_PAIRS_FILE="$WORK/req_pairs"
+awk -F "$(printf '\t')" '{ print $1 "\t" $2 }' "$REQUIRED_UNIQUE" | sort -u > "$REQ_PAIRS_FILE"
+
+while IFS= read -r skill_dir; do
+  [ -n "$skill_dir" ] || continue
+  skill="$(basename -- "$skill_dir")"
+  scripts_dir="$skill_dir/scripts"
+  [ -e "$scripts_dir" ] || continue
+
+  rule6_entries="$WORK/rule6_entries"
+  if ! find "$scripts_dir" -mindepth 1 -maxdepth 1 -name '*.sh' -print 2>"$WORK/find_err" | sort > "$rule6_entries"; then
+    echo "check-guard-symlinks: could not list $scripts_dir for rule 6" >&2
+    cat "$WORK/find_err" >&2
+    exit 2
+  fi
+  if [ -s "$WORK/find_err" ]; then
+    echo "check-guard-symlinks: error while listing $scripts_dir for rule 6" >&2
+    cat "$WORK/find_err" >&2
+    exit 2
+  fi
+
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    # Rule 1's findings alone — see this rule's scope note above.
+    [ -L "$entry" ] || continue
+    target="$(readlink -- "$entry")"
+    case "$target" in
+      /*) continue ;;
+    esac
+    [ -e "$entry" ] || continue
+
+    base="$(basename -- "$entry")"
+    pair="$(printf '%s\t%s' "$skill" "$base")"
+    set +e
+    grep -aqF -- "$pair" "$DECLARED_RULE6_FILE"
+    declared_rc=$?
+    set -e
+    if [ "$declared_rc" -ge 2 ]; then
+      echo "check-guard-symlinks: grep exited $declared_rc while checking $DECLARED_RULE6_FILE for '$skill'+\"$base\" (rule 6)" >&2
+      exit 2
+    fi
+    [ "$declared_rc" -eq 0 ] && continue
+    set +e
+    grep -aqxF -- "$pair" "$REQ_PAIRS_FILE"
+    pair_rc=$?
+    set -e
+    if [ "$pair_rc" -ge 2 ]; then
+      echo "check-guard-symlinks: grep exited $pair_rc while checking $REQ_PAIRS_FILE for '$skill'+\"$base\" (rule 6)" >&2
+      exit 2
+    fi
+    if [ "$pair_rc" -ne 0 ]; then
+      violation "$entry" 0 "carried but required by nothing — no citation in this skill's own text, no delegation and no sibling dependency names $base, so this symlink is dead weight the next cleanup will prune (rule 6)"
+    fi
+  done < "$rule6_entries"
+done < "$COMMAND_SKILLS_FILE"
 
 # ===========================================================================
 # COVERAGE — per-skill count of what rule 2's required set actually holds,

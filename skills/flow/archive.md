@@ -149,8 +149,8 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the branch
    is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it. What is
    specific to *executing* it here: `flow record render -change <name> -kind all -repo
-   <landing-worktree>` first, then the script invocation `gather-self-review-context.sh
-   <archived-change-path> <name> <state-dir> <landing-worktree>`, resolving `<archived-change-path>`
+   <landing-worktree>` first, then the script invocation `gather-self-review-context.sh` with
+   `<archived-change-path> <name> <state-dir> <landing-worktree>`, resolving `<archived-change-path>`
    as `<project>/spectre/changes/archive/<name>/`, physically under `<landing-worktree>` — where
    step 3 moved it — and passing `<landing-worktree>` as the trust anchor: the fourth argument must
    be the repository root the archived path is physically under.

@@ -1038,7 +1038,7 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
 > never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
 > buys a test. Then confirm an existing test fails, and restore.
-> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> `mutate-and-verify.sh <patch-file> <harness>` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script's. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per

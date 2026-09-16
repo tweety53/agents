@@ -1,1 +1,0 @@
-../../../scripts/test-generate-relocation-comparison.sh
