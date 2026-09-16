@@ -1,7 +1,7 @@
 ---
 name: flow-self-review
 description: Run the self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle; file, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
-allowed-tools: Bash(git:*), Bash(scripts/check-self-review-report.sh:*)
+allowed-tools: Bash(git:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
 compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
 ---
@@ -78,18 +78,18 @@ title:
 
 Delete `<bundle>`. Run `<project>/scripts/check-self-review-report.sh` when the project declares
 it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before committing.
-Commit both paths in one commit, re-asserting the branch immediately before committing — the same
-shape `skills/flow/archive.md` step 9's own commit shells use, since the round-trip through the
-five-angle pass and the filing-and-rating prompt above is long enough that the branch is worth
-re-checking rather than trusted from step 1 alone:
+Commit both paths in one commit through the landing chain's one script — the same invocation
+`skills/flow/archive.md` step 9 lands its own report with, differing only in the asserted branch,
+the removed context-bundle path and the `--push` — since the round-trip through the five-angle
+pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking
+rather than trusted from step 1 alone:
 
 ```bash
-[ "$(git branch --show-current)" = "<default-branch>" ] \
-  && git add -- "docs/self-review/<name>-self-review.md" \
-  && git rm -- "docs/self-review/<name>-context.md" \
-  && git commit -m "docs(self-review): <name> self-review report" \
-  && git pull --rebase origin <default-branch> \
-  && git push origin <default-branch>
+land-self-review-report.sh "<project>" "<default-branch>" \
+  "docs(self-review): <name> self-review report" \
+  "docs/self-review/<name>-self-review.md" \
+  "docs/self-review/<name>-context.md" \
+  --push "<default-branch>"
 ```
 
 A branch mismatch stops here — nothing is committed, pulled, or pushed. A rejected push leaves the
