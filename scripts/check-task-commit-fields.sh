@@ -151,6 +151,23 @@ PARENT_SHA="${4:-}"
 CANONICAL_WORKTREE="${5:-}"
 CHANGE_NAME="${6:-}"
 
+# A task id is ONE flat integer — plan_grammar.py's TASK_ID, spectre's own
+# task-line id. Anything else in $2 is a caller mistake, not a plan fact,
+# and it is refused here at the argument boundary rather than flowed down
+# to the grammar: the shape this refusal exists for is a verification loop
+# handing its whole joined task list to this one argument, which used to
+# surface as "task <joined list> not found" — every task reported missing,
+# read as a plan defect, and costing a rerun one call per task to diagnose
+# (KAN-528). A dotted id is no task either (plan_grammar's DOTTED_ID), so
+# the digit test refuses it from here too, where "task 1.2 not found"
+# would have read as the task missing rather than the argument malformed.
+case "$TASK_ID" in
+  '' | *[!0-9]*)
+    could_not_judge "task id argument is not a single flat-integer task id: '$TASK_ID' — a joined multi-task list in one call is the loop-clobber shape; invoke one call per task"
+    exit 2
+    ;;
+esac
+
 if [ ! -d "$WORKTREE" ]; then
   could_not_judge "worktree not found: $WORKTREE"
   exit 2

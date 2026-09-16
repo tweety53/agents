@@ -3981,6 +3981,79 @@ RC=$?
   && pass "case 124: a recorded command past the ceiling skips and the guard returns" \
   || fail "case 124: python rc=$RC ceiling-test=$SECONDS_CEILING_TEST (a hang dies on the perl alarm, non-zero)"
 
+# Cases 125-127 (KAN-528). A verification loop handing its whole joined
+# task list to the one <task-id> argument is the clobber the
+# flow-plan-inits-spectre narrative recorded: every task reported "not
+# found" until rerun one call per task, reading as a plan defect rather
+# than a caller mistake. The wrapper refuses the argument at its own
+# boundary instead — a task id is one flat integer, plan_grammar's
+# TASK_ID, so anything else in $2 is a caller mistake and COULD NOT JUDGE
+# names it — and case 127 pins the loop shape done right, so the refusal
+# can never be read as the loop pattern being unsupportable.
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Add alpha
+
+**Files:** `alpha.txt`
+**Tests:** none — a plain file
+**Commit:** add alpha
+
+- [ ] 2. Add beta
+
+**Files:** `beta.txt`
+**Tests:** none — a plain file
+**Commit:** add beta
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+printf 'beta\n' > "$REPO/beta.txt"
+git -C "$REPO" add beta.txt
+git -C "$REPO" commit -q -m "add beta"
+SHA_ALPHA="$(git -C "$REPO" rev-parse HEAD~1)"
+SHA_BETA="$(git -C "$REPO" rev-parse HEAD)"
+
+# Case 125: the joined id list in one call — refusal, not "not found".
+run_guard "$REPO" "1 2" "$SHA_BETA"
+[ "$RC" -eq 2 ] && pass "case 125: a joined multi-task id refuses with rc=2" || fail "case 125: rc=$RC out=$OUT"
+case "$OUT" in
+  *"COULD NOT JUDGE"*"one call per task"*) pass "case 125: names the caller mistake and the per-task rerun" ;;
+  *) fail "case 125: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"not found"*) fail "case 125: the refusal must not read as every task missing" ;;
+  *) pass "case 125: never reads as the tasks missing from the plan" ;;
+esac
+
+# Case 126: the empty id — the shift-past-end artifact of the same loop
+# shape — refuses at the boundary the same way.
+run_guard "$REPO" "" "$SHA_BETA"
+[ "$RC" -eq 2 ] && pass "case 126: an empty task id refuses with rc=2" || fail "case 126: rc=$RC out=$OUT"
+case "$OUT" in
+  *"COULD NOT JUDGE"*"one call per task"*) pass "case 126: COULD NOT JUDGE naming the caller mistake" ;;
+  *) fail "case 126: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"not found"*) fail "case 126: the refusal must not read as every task missing" ;;
+  *) pass "case 126: never reads as the tasks missing from the plan" ;;
+esac
+
+# Case 127: the loop shape itself, done right — one call per task, both
+# ids, both commits, judged each on its own within one bash loop.
+LOOP_DETAIL=""
+for spec in "1:$SHA_ALPHA" "2:$SHA_BETA"; do
+  tid="${spec%%:*}"
+  sha="${spec##*:}"
+  run_guard "$REPO" "$tid" "$sha"
+  if [ "$RC" -ne 0 ] || grep -q 'not found' <<<"$OUT"; then
+    LOOP_DETAIL="task $tid rc=$RC out=$OUT"
+  fi
+done
+[ -z "$LOOP_DETAIL" ] \
+  && pass "case 127: one call per task judges each task on its own commit" \
+  || fail "case 127: a per-task loop call failed: $LOOP_DETAIL"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
