@@ -34,7 +34,8 @@ agents-data/
 │   ├── agent-baseline.md              ← NOT a rule: the file a dispatched subagent is told to read, listing every rule above and pointing at its installed full text
 │   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.flow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
 ├── hooks/
-│   └── enforce-agent-baseline.py      ← PreToolUse hook: denies a subagent dispatch whose prompt omits the agent-baseline pointer
+│   ├── enforce-agent-baseline.py      ← PreToolUse hook: denies a subagent dispatch whose prompt omits the agent-baseline pointer
+│   └── flow-active-change.py          ← UserPromptSubmit hook: names the session's last /flow change on every plain prompt, so a problem report runs as its fix run
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
@@ -569,8 +570,8 @@ cp -R /path/to/superpowers/skills/* ~/.zcode/skills/
 (On a machine with Claude Code's plugin cache, the source is
 `~/.claude/plugins/cache/claude-plugins-official/superpowers/<version>/skills/`.)
 
-**Step 2 — Register the agent-baseline hook** (the installer prints this snippet and
-leaves the paste to you — the JSON config is yours):
+**Step 2 — Register the agent-baseline and flow-active-change hooks** (the installer
+prints this snippet and leaves the paste to you — the JSON config is yours):
 
 ```jsonc
 // ~/.zcode/cli/config.json
@@ -581,6 +582,11 @@ leaves the paste to you — the JSON config is yours):
       "PreToolUse": [
         { "matcher": "Agent|Task", "hooks": [
           { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/enforce-agent-baseline.py\"" }
+        ] }
+      ],
+      "UserPromptSubmit": [
+        { "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/flow-active-change.py\"" }
         ] }
       ]
     }

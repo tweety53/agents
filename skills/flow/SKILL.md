@@ -186,7 +186,8 @@ flow state get <name-or-best-guess> -C <repo-root>
   (`skills/flow/implement.md`).
 - **Exit 0, `"state": "STARTED"`** — a creating run interrupted before it reached `IN_PROGRESS`. See
   **Resuming at `STARTED`** (`skills/flow/brainstorm.md`).
-- **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run. See
+- **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run — or a plain message, per
+  **A plain message at IN_PROGRESS** below. See
   **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
   (`skills/flow/implement.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument** — an integrate run. See
@@ -194,6 +195,30 @@ flow state get <name-or-best-guess> -C <repo-root>
 - **Exit 0, `"state": "FINISHED"`** — emit the wrong-state handoff from **Wrong state for this
   command** (`skills/flow-contracts/pipeline.md`): the change is archived. Proceed only on an
   explicit override.
+
+### A plain message at IN_PROGRESS
+
+**Trigger.** A message with no `/flow` invocation that reports a problem or asks for a change to
+the change's code or artifacts, in a session whose most recent `/flow` run marked `<name>`. `<name>`
+comes from the `flow: this session's last /flow run marked change <name>` context line
+`hooks/flow-active-change.py` injects, or from this session's own context when no hook is
+registered.
+
+**Gate.** `flow state get <name>` must answer `IN_PROGRESS`. Any other answer, or an unreachable
+store, makes the message an ordinary turn, never a wrong-state handoff, since nothing was invoked.
+
+**Ambiguity prompt.** A message that reads as either a question or a change request asks once,
+shape per **The shape** (`skills/flow-contracts/operator-prompts.md`): **Run this as a fix of
+`<name>`?** — **Yes** *(recommended)* / **No — ordinary turn**. Silence takes Yes and the handoff
+carries the ⚠ line.
+
+**The run.** Announce `Using flow for change <name> — fix run from a plain message`, generate this
+run's own session token per **Generate this run's session token once** below, and continue at **3.
+Documenting a fix, before implementing it** (`skills/flow/implement.md`) with the verbatim message
+as the fix instructions — nothing else about the fix run changes.
+
+**Not a trigger.** A question, a discussion, an unrelated task, a session that never ran `/flow`,
+and a Jira key named in prose without the slash.
 
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow` can invoke — the full list is the union carried by

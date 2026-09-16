@@ -135,7 +135,7 @@ skills/flow-plan/SKILL.md 23290
 skills/flow-self-review/SKILL.md 7102
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
-skills/flow/SKILL.md 17812
+skills/flow/SKILL.md 24125
 skills/flow/SKILL-rationale.md 9490
 skills/flow/archive.md 23452
 skills/flow/brainstorm.md 12712

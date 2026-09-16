@@ -18,7 +18,9 @@ creating run that stopped before implementation), or **`IN_PROGRESS`**. On a cre
 implementation, review and verification orchestrated by this session — implementers and panel
 slots dispatched on the resolved default model — behind the review panel resolved from the
 settings store, ending at `IN_PROGRESS`. Re-invoked with an argument at `IN_PROGRESS`, the
-argument is fix instructions.
+argument is fix instructions. A plain problem report typed with no /flow at all, in the session
+that ran the last /flow <name>, is the same fix run (**A plain message at IN_PROGRESS**,
+skills/flow/SKILL.md).
 Re-invoked bare at `IN_PROGRESS`, it asks how to land the branch; merge-and-push continues in the
 same invocation through archive to `FINISHED`, while open PR and manual stop and hand off.
 
