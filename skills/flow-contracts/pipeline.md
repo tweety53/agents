@@ -64,20 +64,13 @@ could ever arrive through it. An operator who is present but silent is not that 
 gets another round. The same explicit answer may both close the checklist and grant the design
 approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
 
-**A second, narrowly-scoped bounded exception: a fully-seeded research note.** When the note
-`/flow`'s brainstorm stage found carries all three of itself, a seeded plan and a seeded decision,
-the checklist and its confirm are skipped entirely rather than looped — see **Seed from a staged
-research note, if one exists** (`skills/flow/brainstorm-planner.md`) for the exact condition and
-what "fully-seeded" means. This does not generalize to any other stage's loop, and does not weaken
-the exception above: a partial seed still closes only on an explicit operator answer, exactly as
-every other loop in this pipeline does.
-
 See **Convergence** (`skills/flow/brainstorm-planner.md`).
 
 ## Command surface
 
-One command, `/flow`, drives the whole pipeline, plus two read-only commands (`/flow-status`,
-`/flow-plan`) and one standalone, non-pipeline command (`/flow-settings`). **No command accepts
+One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
+one that creates a change at `STARTED` and stops there (`/flow-plan`) and one standalone,
+non-pipeline command (`/flow-settings`). **No command accepts
 a flag.** The only argument is the optional change name — see **Change name resolution**.
 
 An argument that is not a known change name is **reported**, not silently ignored — a silently
@@ -264,8 +257,8 @@ Next:
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work — and no `/flow` step checks out, stages or commits in the main checkout. Resolve
   app roots from `git worktree list` or the state file's `worktrees` keys.
-- **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/research/` before
-  integrating**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
+- **Implementation never stages `<project>/spectre/changes/` before integrating**, and the path
+  is fixed here rather than configured per project. `<project>/spectre/specs/`
   and a change directory's `link.md` are deliberately not on it — see **Git boundaries**
   (`skills/flow-contracts/git-boundaries.md`) for why. The integrate phase
   stages the rest and commits it separately from the implementation, so nothing is lost. See

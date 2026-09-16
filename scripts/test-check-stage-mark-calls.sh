@@ -228,7 +228,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token mf-abc123 <name-or-best-guess>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -246,7 +246,7 @@ new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
 flow stage begin -command '/flow-fast' \
-  -stage flow.state-gate \
+  -stage flow.kickoff \
   -harness <harness> \
   -session-token mf-abc123 <name-or-best-guess>
 ```
@@ -265,7 +265,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name>
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token mf-abc123 <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -282,7 +282,7 @@ run_guard "$FIXTURE"
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage end -command '/flow-fast' -stage flow.state-gate -outcome completed <name-or-best-guess>
+flow stage end -command '/flow-fast' -stage flow.kickoff -outcome completed <name-or-best-guess>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -301,7 +301,7 @@ esac
 # of this guard mishandled it by splitting off an empty last token.
 # ===========================================================================
 new_fixture
-printf '```bash\nflow stage begin -command '"'"'/flow-fast'"'"' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess> \n```\n' >"$FIXTURE_FILE"
+printf '```bash\nflow stage begin -command '"'"'/flow-fast'"'"' -stage flow.kickoff -harness <harness> -session-token mf-abc123 <name-or-best-guess> \n```\n' >"$FIXTURE_FILE"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 15: guessed change name with trailing whitespace is caught" || fail "case 15: rc=$RC out=$OUT"
 case "$OUT" in
@@ -320,7 +320,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best-guess>'
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token mf-abc123 '<name-or-best-guess>'
 ```
 EOF
 run_guard "$FIXTURE"
@@ -336,7 +336,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 "<name-or-best-guess>"
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token mf-abc123 "<name-or-best-guess>"
 ```
 EOF
 run_guard "$FIXTURE"
@@ -358,7 +358,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>  # resolve later
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token mf-abc123 <name-or-best-guess>  # resolve later
 ```
 EOF
 run_guard "$FIXTURE"
@@ -378,7 +378,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token "mf-#abc123" <name>
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token "mf-#abc123" <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -393,7 +393,7 @@ run_guard "$FIXTURE"
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best guess>'
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token mf-abc123 '<name-or-best guess>'
 ```
 EOF
 run_guard "$FIXTURE"
@@ -414,7 +414,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token "mf-\"abc#tok" <name-or-best-guess>
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token "mf-\"abc#tok" <name-or-best-guess>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -431,7 +431,7 @@ esac
 # last token (kan-182 panel finding F8).
 # ===========================================================================
 new_fixture
-printf 'flow stage begin -command '"'"'/flow-fast'"'"' -stage flow.state-gate -harness <harness> -session-token mf-abc123\t<name-or-best-guess>\n' >"$FIXTURE_FILE"
+printf 'flow stage begin -command '"'"'/flow-fast'"'"' -stage flow.kickoff -harness <harness> -session-token mf-abc123\t<name-or-best-guess>\n' >"$FIXTURE_FILE"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 22: tab-separated guessed change name is caught" || fail "case 22: rc=$RC out=$OUT"
 case "$OUT" in
@@ -635,6 +635,77 @@ run_guard "$FIXTURE"
 case "$OUT" in
   *"$PHASE_FILE"*'command substitution'*) pass "case 31: finding names the phase file and the substitution shape" ;;
   *) fail "case 31: expected a phase-file substitution finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 32: a `stage begin` whose -stage key is not a row of README.md's Level 1
+# table -> caught, naming the key. The key set is read from the repository's
+# own README.md, so a renamed or typo'd key at any call site fails here
+# rather than as a silent caller-mistake line at run time.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+flow stage begin -command '/flow-plan' -stage plan.bogus -harness <harness> -session-token fp-abc123 -jira-key <KEY>
+flow stage end   -command '/flow-plan' -stage plan.bogus -jira-key <KEY> -outcome staged
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 32: an unlisted -stage key is caught" \
+  || fail "case 32: rc=$RC out=$OUT"
+case "$OUT" in
+  *"plan.bogus"*"not a key in README.md"*) pass "case 32: the finding names the unlisted key" ;;
+  *) fail "case 32: expected an unlisted-key finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 33: the same call with the listed key plan.session -> exit 0, proving
+# case 32 fails on the key and not on the /flow-plan call shape.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+flow stage begin -command '/flow-plan' -stage plan.session -harness <harness> -session-token fp-abc123 -jira-key <KEY>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 33: a listed -stage key passes" \
+  || fail "case 33: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 34: a listed -stage key written in quotes -> exit 0. Proves
+# stage_value() strips the quotes before the membership test; with the
+# stripping removed this call reads as the key `'flow.kickoff'` and fails.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+flow stage begin -command '/flow' -stage 'flow.kickoff' -harness <harness> -session-token mf-abc123 <name>
+flow stage begin -command '/flow' -stage "flow.brainstorm" -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 34: a quoted listed -stage key passes" \
+  || fail "case 34: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 35: a -stage key that is a strict substring of a listed key
+# (flow.kickof, the trailing f missing) -> caught. The membership test is an
+# exact-line match (grep -qxF); weakened to a substring match (-qF) this
+# near-miss reads as flow.kickoff and passes, so this case pins the exactness.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+flow stage begin -command '/flow' -stage flow.kickof -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 35: a near-miss substring of a listed -stage key is caught" \
+  || fail "case 35: rc=$RC out=$OUT"
+case "$OUT" in
+  *"flow.kickof"*"not a key in README.md"*) pass "case 35: the finding names the near-miss key" ;;
+  *) fail "case 35: expected an unlisted-key finding, out=$OUT" ;;
 esac
 
 if [ "$FAILURES" -gt 0 ]; then

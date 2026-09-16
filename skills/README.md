@@ -46,7 +46,7 @@ still apply.
 | *(gate)* | you | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-fast <name>` | `flow-fast` | Minimal-ceremony `/flow` variant — one invocation from Jira key to landed change: a git worktree for isolation only, inline implementation, project lint plus the tests the change touches, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks; no spectre artifacts, state file, decision record, review panel or guard. |
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
-| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
+| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `/flow-settings` | `flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from |
 | `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle. Standalone, not a pipeline stage. |
 

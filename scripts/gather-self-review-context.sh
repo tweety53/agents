@@ -702,7 +702,7 @@ fi
 # used to check alone). The parent is now accepted as IMPL_SHA only when it
 # is BOTH a non-merge commit (exactly one parent — every commit-split.sh
 # commit is) AND touches at least one path outside spectre/changes/,
-# docs/research/ and the retired docs/superpowers/ (what a real implementation commit is guaranteed to do,
+# the retired docs/research/ and docs/superpowers/ (what a real implementation commit is guaranteed to do,
 # per commit-split.sh's own boundary, and what some unrelated commit
 # sitting just ahead of the plan commit is not), on top of the existing
 # reserved-subject-shape rejections. This is still a heuristic, not a
@@ -774,7 +774,7 @@ if [ -n "$REPO_ROOT" ]; then
 
   # IMPL_SHA derived from PLAN_SHA's first parent (finding G): accepted
   # only when that parent is a non-merge commit touching at least one path
-  # outside spectre/changes/, docs/research/ and docs/superpowers/, and its subject matches none
+  # outside spectre/changes/ and the retired docs/research/ and docs/superpowers/, and its subject matches none
   # of the three reserved plan-/archive-shapes above. Anything else
   # resolves NOTHING rather than a confident wrong answer. The four
   # conditions themselves live in is_real_impl_commit, defined above.

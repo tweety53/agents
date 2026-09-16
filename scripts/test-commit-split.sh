@@ -42,11 +42,10 @@ new_repo() {
   git -C "$REPO" init -q
   git -C "$REPO" config user.email "test@example.com"
   git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/spectre/changes" "$REPO/spectre/specs" "$REPO/docs/research"
+  mkdir -p "$REPO/spectre/changes" "$REPO/spectre/specs"
   printf 'seed\n' > "$REPO/README.md"
   printf 'seed\n' > "$REPO/spectre/changes/seed.md"
   printf 'seed\n' > "$REPO/spectre/specs/seed.md"
-  printf 'seed\n' > "$REPO/docs/research/seed.md"
   git -C "$REPO" add -A
   git -C "$REPO" commit -q -m "seed"
 }
@@ -83,7 +82,7 @@ COUNT="$(git -C "$REPO" log --oneline | wc -l | tr -d ' ')"
 # 2. Implementation commit skipped when only planning paths changed.
 # ===========================================================================
 new_repo
-printf 'plan only\n' > "$REPO/docs/research/only.md"
+printf 'plan only\n' > "$REPO/spectre/changes/only.md"
 set +e
 OUT="$("$SCRIPT" "$REPO" demo "impl: case2" "plan: case2" 2>&1)"
 RC=$?
@@ -146,7 +145,7 @@ esac
 # ===========================================================================
 # 5. A capability spec under spectre/specs/ is IMPLEMENTATION, not planning:
 #    it lands in the implementation commit, and the planning commit is
-#    skipped when nothing under spectre/changes/ or docs/research/ moved.
+#    skipped when nothing under spectre/changes/ moved.
 #    The counterpart half — spectre/changes/ still being planning — is
 #    cases 1 and 2 above.
 # ===========================================================================
@@ -247,6 +246,37 @@ for f in proposal design tasks; do
     fail "case 6: ${f}.md missing from the planning commit"
   fi
 done
+
+# ===========================================================================
+# 7. docs/research/ is IMPLEMENTATION, not planning: the retired staging-note
+#    path is no longer excluded, so a file under it lands in the
+#    implementation commit and the planning commit is skipped.
+# ===========================================================================
+new_repo
+mkdir -p "$REPO/docs/research"
+printf 'note\n' > "$REPO/docs/research/note.md"
+set +e
+OUT="$("$SCRIPT" "$REPO" demo "impl: case7" "plan: case7" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 0 ] || fail "case 7: rc=$RC out=$OUT"
+SUBJECTS="$(log_subjects)"
+case "$SUBJECTS" in
+  *"impl: case7"*) pass "case 7: implementation commit made" ;;
+  *) fail "case 7: implementation commit missing: $SUBJECTS" ;;
+esac
+case "$SUBJECTS" in
+  *"plan: case7"*) fail "case 7: planning commit made for a docs/research-only change: $SUBJECTS" ;;
+  *) pass "case 7: planning commit skipped" ;;
+esac
+CASE7_IMPL_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/impl: case7/ {print $1}')"
+if [ -n "$CASE7_IMPL_SHA" ] \
+  && git -C "$REPO" show --name-only --format= "$CASE7_IMPL_SHA" \
+    | grep -q '^docs/research/note\.md$'; then
+  pass "case 7: docs/research file is in the implementation commit"
+else
+  fail "case 7: docs/research file not in the implementation commit (sha='${CASE7_IMPL_SHA:-none}')"
+fi
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

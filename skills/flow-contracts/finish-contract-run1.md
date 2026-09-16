@@ -232,9 +232,8 @@ that chain then commits from this reshaped state exactly as it always has.
 
 All three routes first commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
-reshaped diff carries, then the `<project>/spectre/changes/` planning artifacts together with the
-deletion of any adopted `<project>/docs/research/` note, subject the fixed literal
-`chore(spectre): plan`.
+reshaped diff carries, then the `<project>/spectre/changes/` planning artifacts, subject the
+fixed literal `chore(spectre): plan`.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with

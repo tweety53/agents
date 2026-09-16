@@ -9,8 +9,7 @@ Do the work the way a careful engineer does it by hand — read, edit, verify, c
 record it the way `/flow` does: every `flow.*` stage mark below, in this order, under one
 session token, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
 `/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`, no state file
-and no three states, no staged-diff gate, no archive branch, no `<project>/docs/research/`
-record, and no pipeline guard. Dispatch, a decision and a review panel exist only where a
+and no three states, no staged-diff gate, no archive branch, and no pipeline guard. Dispatch, a decision and a review panel exist only where a
 `dynamic` toggle decides them (**Dynamic decisions** below). The only isolation is git's: a
 worktree on its own branch. `prepare-workspace.sh`, the per-change
 database, bucket, ports and cache index of **Workspace isolation**
@@ -30,8 +29,8 @@ mark a stage `/flow-fast` has nothing to run for; the mark stays so the run's st
 **Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
 an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never
 a planner or a verifier, and nothing at all on every-toggle-`default`. Never ask a model,
-planning-effort or review question. Never write `<project>/spectre/`,
-`<project>/docs/research/` or a state file. Never set up workspace isolation and never call a
+planning-effort or review question. Never write `<project>/spectre/`
+or a state file. Never set up workspace isolation and never call a
 guard script a cited `skills/flow/` section does not call itself. Never push to a branch other
 than the one the landing route names.
 
@@ -78,7 +77,7 @@ these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>`
 reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha
 `git -C <worktree> rev-parse origin/<default-branch>` prints right after section 3 creates it,
 standing wherever a cited section reads the working notes' merge base; and nothing written to
-`<project>/spectre/`, `<project>/docs/research/` or a state file — `flow record render` is
+`<project>/spectre/` or a state file — `flow record render` is
 skipped, the finding rows are the record. The scripts a cited section calls run as it says.
 
 - **writing-plans**: write `<changeRoot>/tasks.md` in `/flow`'s plan shape — the task line and
@@ -87,7 +86,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit. A re-run replaces the file with
   the fix's own tasks.
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1`, then **Decide** steps 1–4 and **The
-  tree** (`skills/flow/brainstorm-planner.md`) as written — no research seed is ever read, so the
+  tree** (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block under its `planning:`/`toggles:`/`models:` lines.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
