@@ -41,10 +41,9 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 	}
 	g := &fakeGit{
 		responses: map[string]string{
-			"/repo rev-parse --verify --quiet chore/archive-demo": "",
+			"/repo show chore/archive-demo:spectre/changes/archive/demo/tasks.md": "# demo tasks\n",
 		},
 		failOn: map[string]bool{
-			"/repo show chore/archive-demo:spectre/changes/archive/demo/tasks.md":     true,
 			"/repo show chore/archive-demo:spectre/changes/archive/demo/design.md":    true,
 			"/repo show chore/archive-demo:spectre/changes/archive/demo/narrative.md": true,
 		},
@@ -59,6 +58,8 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 		"# Self-review context bundle for demo",
 		"## .superpowers/sdd/ledgers/demo.md",
 		"## .superpowers/sdd/reviews/demo-panel.md",
+		"## spectre/changes/archive/demo/tasks.md",
+		"# demo tasks",
 	} {
 		if !strings.Contains(bundle, want) {
 			t.Errorf("bundle missing %q:\n%s", want, bundle)
@@ -68,7 +69,6 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 		t.Errorf("ledger rendered but reported skipped:\n%s", bundle)
 	}
 	for _, label := range []string{
-		"spectre/changes/archive/demo/tasks.md",
 		"spectre/changes/archive/demo/design.md",
 		"spectre/changes/archive/demo/narrative.md",
 		"git log --stat",
@@ -92,16 +92,42 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 		t.Fatalf("Bundle: %v", err)
 	}
 
-	// The panel record renders unconditionally (records.RenderKind's own
-	// presence rule), so one of the six is always found.
-	if !strings.Contains(bundle, "found: 1 of 6 sources; skipped: 5 of 6 sources") {
+	// A change the store has never heard of renders nothing: the ledger
+	// needs dispatch rows and the panel needs any row at all.
+	if !strings.Contains(bundle, "found: 0 of 6 sources; skipped: 6 of 6 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "## .superpowers/sdd/ledgers/demo.md") {
 		t.Errorf("no dispatch rows, yet a ledger section rendered:\n%s", bundle)
 	}
+	if strings.Contains(bundle, "## .superpowers/sdd/reviews/demo-panel.md") {
+		t.Errorf("no rows at all, yet a panel section rendered:\n%s", bundle)
+	}
 	if !strings.Contains(bundle, "skipped: git log --stat (absent)") {
 		t.Errorf("no repository recorded, yet git log resolved:\n%s", bundle)
+	}
+	if strings.Contains(bundle, "note: repository") {
+		t.Errorf("no repository was supplied, yet an unreadable note appeared:\n%s", bundle)
+	}
+}
+
+// TestBundleAssemblyNotesUnreadableRepo pins the refused-versus-absent
+// split: a supplied repository git cannot read at all is named in a note
+// line, never folded into the same "skipped (absent)" a change that was
+// simply never archived wears.
+func TestBundleAssemblyNotesUnreadableRepo(t *testing.T) {
+	bogus := filepath.Join(t.TempDir(), "not-a-repo")
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{bogus}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	if !strings.Contains(bundle, "note: repository "+bogus+" could not be read") {
+		t.Errorf("unreadable repository not noted:\n%s", bundle)
+	}
+	if !strings.Contains(bundle, "skipped: spectre/changes/archive/demo/tasks.md (absent)") {
+		t.Errorf("unreadable repository's sources not skipped:\n%s", bundle)
 	}
 }
 
@@ -141,7 +167,7 @@ func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
 	planSHA := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n",
 		"chore(spectre): plan and session records")
-	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
+	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
 	if err != nil {
@@ -149,7 +175,7 @@ func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	}
 
 	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
-	for _, sha := range []string{implSHA, planSHA} {
+	for _, sha := range []string{implSHA, planSHA, archiveSHA} {
 		if !strings.Contains(gitLog, "commit "+sha) {
 			t.Errorf("git log section missing commit %s:\n%s", sha, gitLog)
 		}
@@ -163,6 +189,12 @@ func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	}
 }
 
+// TestDeriveFinishCommitsRefusesMergeParent pins the merge gate's visible
+// half: a plan commit whose parent is a merge resolves no implementation
+// commit. The gate and the subject rejections are additionally
+// defence-in-depth against future edits to commit-split.sh — their other
+// conditions are unreachable-dead through this pipeline's own commits, a
+// documented state, not a coverage gap.
 func TestDeriveFinishCommitsRefusesMergeParent(t *testing.T) {
 	repo := gitRepo(t)
 
@@ -189,6 +221,49 @@ func TestDeriveFinishCommitsRefusesMergeParent(t *testing.T) {
 	}
 }
 
+// TestDeriveFinishCommitsRefusesPlanningOnlyParent pins the exclusion's
+// visible half: a plan commit whose parent touched only the planning trees
+// is not an implementation commit, even with an unreserved subject and a
+// single parent.
+func TestDeriveFinishCommitsRefusesPlanningOnlyParent(t *testing.T) {
+	repo := gitRepo(t)
+	commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n", "work")
+	planSHA := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n\t- [ ] step\n",
+		"chore(spectre): plan and session records")
+	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
+
+	fc := deriveFinishCommits(ExecRunner{}, repo, "demo")
+	if fc.impl != "" {
+		t.Errorf("planning-only commit accepted as the implementation commit below %s", planSHA)
+	}
+	if fc.plan == "" || fc.archive == "" {
+		t.Errorf("plan and archive commits must still resolve, got %+v", fc)
+	}
+}
+
+// TestDeriveFinishCommitsSiblingArchiveSubjectLoses pins the archive
+// subject's end anchor: a later sibling change's "archive demo-fix-1"
+// commit must never outrank this change's own archive commit.
+func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
+	repo := gitRepo(t)
+	implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+	planSHA := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n",
+		"chore(spectre): plan and session records")
+	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
+	// A later commit on the same branch, whose subject carries the change's
+	// name as a proper prefix of a DIFFERENT change's archive subject.
+	commitAll(t, repo, "spectre/changes/archive/demo/notes.md", "note\n",
+		"chore(spectre): archive demo-fix-1")
+
+	fc := deriveFinishCommits(ExecRunner{}, repo, "demo")
+	if fc.archive != archiveSHA {
+		t.Errorf("archive sha = %s, want the change's own %s", fc.archive, archiveSHA)
+	}
+	if fc.plan != planSHA || fc.impl != implSHA {
+		t.Errorf("plan/impl = %s/%s, want %s/%s", fc.plan, fc.impl, planSHA, implSHA)
+	}
+}
+
 func TestBundleRefusesInvalidName(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 	if _, err := Bundle("../escape", records.Run{}, nil, g); err == nil {
@@ -210,9 +285,8 @@ func gitRepo(t *testing.T) string {
 
 // writeArchiveBranch creates the archived change's files and commits them
 // on chore/archive-<name>, then returns to main — run 2's archive step in
-// miniature. The commit subject is the exact archive subject the
-// derivation matches.
-func writeArchiveBranch(t *testing.T, repo, name string, files map[string]string) {
+// miniature, returning the archive commit's sha.
+func writeArchiveBranch(t *testing.T, repo, name string, files map[string]string) string {
 	t.Helper()
 	for file, body := range files {
 		path := filepath.Join(repo, "spectre/changes/archive", name, file)
@@ -226,7 +300,13 @@ func writeArchiveBranch(t *testing.T, repo, name string, files map[string]string
 	runGit(t, repo, "checkout", "-b", "chore/archive-"+name)
 	runGit(t, repo, "add", "-A")
 	runGit(t, repo, "commit", "-m", "chore(spectre): archive "+name)
+	out, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sha := strings.TrimSpace(string(out))
 	runGit(t, repo, "checkout", "main")
+	return sha
 }
 
 func commitAll(t *testing.T, repo, file, body, subject string) string {

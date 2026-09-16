@@ -9,35 +9,39 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/tweety53/agents/stats/internal/store"
 )
 
-// selfReviewPath is the bundle route's path for one project/change.
-func selfReviewPath(project, change string) string {
-	return "/api/v1/self-review/" + project + "/" + change + "/bundle"
+// selfReviewPath is the bundle route's path for one project/change; repo
+// rides as the query parameter the caller resolves from its own location
+// inside the repository.
+func selfReviewPath(project, change, repo string) string {
+	p := "/api/v1/self-review/" + project + "/" + change + "/bundle"
+	if repo != "" {
+		p += "?repo=" + repo
+	}
+	return p
 }
 
 // TestSelfReviewBundleHandlerServesAssembledBundle drives the route end to
 // end over a real repository: the ledger renders from the recorded
 // dispatches, and the archived design.md is read out of the
-// chore/archive-<name> branch of the repository the store records for the
-// change — no path arrives with the request.
+// chore/archive-<name> branch of the repository the request named — no
+// path arrives from the store.
 func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 	repo := bundleGitRepo(t)
 	bundleCommit(t, repo, "spectre/changes/kan-1/tasks.md", "- [ ] 1. do it\n",
 		"chore(spectre): plan and session records")
 	bundleArchiveBranch(t, repo, "kan-1", map[string]string{
+		"tasks.md":  "- [ ] 1. do it\n",
 		"design.md": "# kan-1 design\n",
 	})
 
-	ts, fs := recordTestServer(t, "proj", "kan-1")
+	ts, _ := recordTestServer(t, "proj", "kan-1")
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus")); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("seed POST dispatches = %d (%s), want 201", resp.StatusCode, body)
 	}
-	fs.repos[changeKey("proj", "kan-1")] = []store.Repo{{RepoRoot: repo}}
 
-	resp, err := http.Get(ts.URL + selfReviewPath("proj", "kan-1"))
+	resp, err := http.Get(ts.URL + selfReviewPath("proj", "kan-1", repo))
 	if err != nil {
 		t.Fatalf("GET bundle: %v", err)
 	}
@@ -67,27 +71,43 @@ func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 // TestSelfReviewBundleHandlerUnknownChange carries the gather's "a missing
 // source is never fatal" rule through the route: a change the store has
 // never heard of still serves a bundle whose store-side sections report
-// skipped, not a 404 a caller could read as the endpoint refusing.
+// skipped — ledger and panel both, never an empty panel record nobody
+// wrote — not a 404 a caller could read as the endpoint refusing.
 func TestSelfReviewBundleHandlerUnknownChange(t *testing.T) {
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
-	code, body := doGet(t, ts, selfReviewPath("proj", "never-heard"))
+	code, body := doGet(t, ts, selfReviewPath("proj", "never-heard", ""))
 	if code != http.StatusOK {
 		t.Fatalf("GET bundle = %d (%s), want 200", code, body)
 	}
 	if !strings.Contains(body, "skipped: .superpowers/sdd/ledgers/never-heard.md (absent)") {
 		t.Errorf("unknown change's ledger not reported skipped:\n%s", body)
 	}
+	if !strings.Contains(body, "skipped: .superpowers/sdd/reviews/never-heard-panel.md (absent)") {
+		t.Errorf("unknown change's panel not reported skipped:\n%s", body)
+	}
+}
+
+// TestSelfReviewBundleHandlerRefusesRelativeRepo pins the one caller
+// mistake the route itself can see: a repo parameter that is not an
+// absolute path is a 400, before anything reads or renders.
+func TestSelfReviewBundleHandlerRefusesRelativeRepo(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", "relative/path"))
+	if code != http.StatusBadRequest {
+		t.Fatalf("GET bundle = %d (%s), want 400", code, body)
+	}
 }
 
 // TestSelfReviewBundleHandlerStoreFailure keeps the one failure the bundle
-// cannot absorb a failure: a store read that fails for a real reason is a
-// 5xx, never a bundle a caller could mistake for the change's own.
+// cannot absorb: a store read that fails for a real reason is a 5xx, never
+// a bundle a caller could mistake for the change's own.
 func TestSelfReviewBundleHandlerStoreFailure(t *testing.T) {
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.runRecordErr = errors.New("store exploded")
 
-	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1"))
+	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", ""))
 	if code != http.StatusInternalServerError {
 		t.Fatalf("GET bundle = %d (%s), want 500", code, body)
 	}

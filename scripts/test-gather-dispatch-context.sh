@@ -51,7 +51,7 @@ trap cleanup EXIT
 # specs/ subdirectory, and the script no longer reads one.
 #
 # REPO is canonicalized (`cd -P` / `pwd -P`) immediately after creation —
-# the same step gather-self-review-context.sh's own F23 test fixture takes
+# the same step the retired self-review gather's (kan-526) own F23 test fixture takes
 # — because TMPDIR itself sits behind an OS-level alias on macOS
 # (/var/folders/... -> /private/var/folders/...). Without this, comparing
 # REPO's raw mktemp path (lexical) against its cd -P resolution (real) would

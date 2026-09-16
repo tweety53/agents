@@ -890,10 +890,6 @@ func (stubStageStore) RunRecord(context.Context, string, string) (records.Run, e
 	return records.Run{}, errStageStoreNotImplemented
 }
 
-func (stubStageStore) ListChangeRepos(context.Context, string, string) ([]store.Repo, error) {
-	return nil, errStageStoreNotImplemented
-}
-
 // stubStageStore's guard-verdict / incident methods (KAN-451) -- see the
 // doc comment above for why every one of these is unreachable here.
 func (stubStageStore) RecordVerdict(context.Context, string, string, records.Verdict) (records.Verdict, error) {

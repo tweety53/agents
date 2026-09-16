@@ -27,7 +27,7 @@
 # setup.sh distributes skills rather than scripts/ on their own.
 #
 # ONE INLINE COPY IS LEFT, and it is a gap rather than a deliberate
-# exemption. scripts/gather-self-review-context.sh carries its own
+# exemption. scripts/the retired self-review gather (kan-526) carries its own
 # resolve_file (a differently-shaped, non-hardened variant than this file's
 # own — see that script's header), on the same false premise that it did
 # not ship through the farm; it does, and it already sources

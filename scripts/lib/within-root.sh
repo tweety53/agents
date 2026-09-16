@@ -1,9 +1,9 @@
 # scripts/lib/within-root.sh — within_root, defined once.
 #
 # Sourced by scripts/gather-dispatch-context.sh and
-# scripts/gather-self-review-context.sh, both of which used to carry their
+# scripts/the retired self-review gather (kan-526), both of which used to carry their
 # own byte-for-byte copy of this function — gather-dispatch-context.sh's
-# copied verbatim from gather-self-review-context.sh's (that script's own
+# copied verbatim from the retired self-review gather's (kan-526) (that script's own
 # comment said so). This is a security-relevant path BOUNDARY check — the
 # containment test that decides whether a change directory's own content
 # source escapes
@@ -17,7 +17,7 @@
 # too: a guard that ships through the skills/*/scripts/ symlink farm can
 # assume a sibling `lib/` travels with it; a guard reached only by
 # hand-copying a single file into an unrelated project's own tooling cannot.
-# gather-self-review-context.sh DOES ship through the farm —
+# the retired self-review gather (kan-526) DOES ship through the farm —
 # skills/flow/scripts/ carries it,
 # alongside its own `lib` symlink into scripts/lib/ — so it sources
 # this file rather than carrying its own copy.

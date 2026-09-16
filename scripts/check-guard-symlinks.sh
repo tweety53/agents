@@ -182,7 +182,7 @@ violation() {
 # resolve_file <path> -> prints the path's resolved PHYSICAL location on
 # stdout. Sourced from lib/resolve-file.sh rather than defined here — see
 # that file's header for why this guard, unlike the retired
-# gather-self-review-context.sh, may safely source a sibling instead of
+# the retired self-review gather (kan-526), may safely source a sibling instead of
 # carrying its own copy.
 source "$SCRIPT_DIR/lib/resolve-file.sh"
 

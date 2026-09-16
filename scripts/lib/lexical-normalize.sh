@@ -2,11 +2,11 @@
 #
 # Extracted (F34, pass 7 of this change's own review panel) from two
 # byte-for-byte-identical component-stack walks: gather-dispatch-context.sh's
-# own lexical_normalize() and gather-self-review-context.sh's
+# own lexical_normalize() and the retired self-review gather's (kan-526)
 # validate_archived_path() step 2. Each function's own doc comment already
 # said the only real difference between them was what a relative input gets
 # joined onto before the walk runs — gather-dispatch-context.sh joins to
-# this process's own cwd; gather-self-review-context.sh joins to a
+# this process's own cwd; the retired self-review gather (kan-526) joins to a
 # separately-derived trusted root, never a raw cwd read (its own step 2
 # comment explains why: sidestepping an OS-level path alias such as macOS's
 # /tmp -> /private/tmp) — which is exactly the "make it absolute" half of
@@ -21,7 +21,7 @@
 # "SAFELY REACH IT" criterion scripts/lib/resolve-file.sh's own header
 # states, and the same one scripts/lib/within-root.sh already relies on:
 # both callers ship through the skills/*/scripts/ symlink farm
-# (gather-dispatch-context.sh and gather-self-review-context.sh both via
+# (gather-dispatch-context.sh and the retired self-review gather (kan-526) both via
 # skills/flow/scripts/), each
 # alongside its own `lib` symlink into scripts/lib/, so a guard reached
 # through either entry point finds this file exactly where it expects it.

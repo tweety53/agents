@@ -66,11 +66,6 @@ type fakeStore struct {
 	setFindingStatusErr error
 	runRecordErr        error
 
-	// --- self-review bundle bookkeeping (internal/api/selfreview_test.go
-	// and records_test.go's ListChangeRepos operate on these) ---
-	repos              map[string][]store.Repo
-	listChangeReposErr error
-
 	// --- guard verdict / incident bookkeeping (KAN-451,
 	// internal/api/records_test.go's fakeStore methods operate on these)
 	// ---
@@ -226,10 +221,7 @@ func (f *fakeStore) ProjectKeysByDisplayName(_ context.Context, displayName stri
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{
-		changes: map[string]store.Change{},
-		repos:   map[string][]store.Repo{},
-	}
+	return &fakeStore{changes: map[string]store.Change{}}
 }
 
 func changeKey(project, name string) string { return project + "/" + name }

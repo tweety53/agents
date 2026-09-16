@@ -31,6 +31,12 @@ import (
 // branch lives.
 const archiveBranchPrefix = "chore/archive-"
 
+// probeFile is the archived file whose presence decides that a repository
+// carries THIS change's archive, not merely a same-named branch: spectre
+// scaffolds tasks.md for every change, so an archived change always has
+// one.
+const probeFile = "tasks.md"
+
 // liveDir is the working change's directory under the repository's spectre
 // tree — the pathspec the planning-commit query searches.
 const liveDir = "spectre/changes"
@@ -100,23 +106,21 @@ type finishCommits struct {
 func deriveFinishCommits(g Runner, repo, name string) finishCommits {
 	nameRe := regexp.QuoteMeta(name)
 
-	archiveSubject := `^chore\(spectre\): archive ` + nameRe + `$`
-	planSubjectNew := `^chore\(spectre\): plan`
-	planSubjectOld := `^chore\(` + nameRe + `\): plan(, test guide and| and) session records`
+	shapes := reservedShapes(nameRe)
 
 	var out finishCommits
 
 	branch := archiveBranchPrefix + name
 
-	out.archive = firstLine(g.Output(repo, "log", branch, "-E", "--grep="+archiveSubject,
-		"--max-count=1", "--format=%H"))
+	out.archive = trimmedOutput(g.Output(repo, "log", branch, "-E",
+		"--grep="+shapes.archive, "--max-count=1", "--format=%H"))
 
 	// Only the LIVE pathspec is searched, never the archived location:
 	// `git log -- <path>` filters each commit by its own historical tree,
 	// so the planning commit resolves even after run 2's `git mv` renamed
 	// the directory into the archive.
-	out.plan = firstLine(g.Output(repo, "log", branch, "-E",
-		"--grep="+planSubjectNew, "--grep="+planSubjectOld,
+	out.plan = trimmedOutput(g.Output(repo, "log", branch, "-E",
+		"--grep="+shapes.planNew, "--grep="+shapes.planOld,
 		"--max-count=1", "--format=%H",
 		"--", liveDir+"/"+name))
 
@@ -133,6 +137,20 @@ func deriveFinishCommits(g Runner, repo, name string) finishCommits {
 		out.impl = impl
 	}
 	return out
+}
+
+// reservedShapes is the one declaration of the three reserved subject
+// shapes — the current plan-commit literal (a prefix match, no `$`, exactly
+// as the gather anchored it), the pre-rename wording scoped to the change,
+// and the exact archive subject. deriveFinishCommits greps with them and
+// isRealImplCommit rejects against them; one declaration is what keeps the
+// gate and the query from drifting apart.
+func reservedShapes(nameRe string) struct{ planNew, planOld, archive string } {
+	return struct{ planNew, planOld, archive string }{
+		planNew: `^chore\(spectre\): plan`,
+		planOld: `^chore\(` + nameRe + `\): plan(, test guide and| and) session records`,
+		archive: `^chore\(spectre\): archive ` + nameRe + `$`,
+	}
 }
 
 // isRealImplCommit judges plan's first parent by the four conditions the
@@ -152,15 +170,9 @@ func isRealImplCommit(g Runner, repo, impl, nameRe string) bool {
 		return false
 	}
 
-	subject := firstLine(g.Output(repo, "log", "-1", "--format=%s", impl))
-	// The three reserved shapes, with the exact anchors the gather gave
-	// each: the plan-subject rejection is a PREFIX match (no `$`), the
-	// old-wording and archive rejections match to the end.
-	for _, re := range []string{
-		`^chore\(spectre\): plan`,
-		`^chore\(` + nameRe + `\): plan(, test guide and| and) session records`,
-		`^chore\(spectre\): archive ` + nameRe + `$`,
-	} {
+	subject := trimmedOutput(g.Output(repo, "log", "-1", "--format=%s", impl))
+	shapes := reservedShapes(nameRe)
+	for _, re := range []string{shapes.planNew, shapes.planOld, shapes.archive} {
 		if matched, err := regexp.MatchString(re, subject); err == nil && matched {
 			return false
 		}
@@ -191,17 +203,33 @@ func show(g Runner, repo, rev, path string) ([]byte, error) {
 }
 
 // archiveRepo returns the first recorded repository whose
-// chore/archive-<name> branch exists — the repository the archived change
-// physically lives in. Repos are probed in the order the store listed
-// them; a change with no repository carrying the branch yields "".
+// chore/archive-<name> branch carries this change's own archived directory
+// — probed on the archived tasks.md's content, not on branch existence
+// alone: a stale or same-prefixed branch that happens to exist is never
+// the repository the archived change lives in. Repos are probed in the
+// order the caller listed them; a change with no repository carrying the
+// archived directory yields "".
 func archiveRepo(g Runner, repos []string, name string) string {
 	branch := archiveBranchPrefix + name
 	for _, repo := range repos {
-		if _, err := g.Output(repo, "rev-parse", "--verify", "--quiet", branch); err == nil {
+		if _, err := show(g, repo, branch, archiveDir+"/"+name+"/"+probeFile); err == nil {
 			return repo
 		}
 	}
 	return ""
+}
+
+// unreadableRepos names every supplied repository git cannot read at all —
+// the environmental failure class that must never wear the same
+// "skipped (absent)" wording a legitimately never-archived change wears.
+func unreadableRepos(g Runner, repos []string) []string {
+	var broken []string
+	for _, repo := range repos {
+		if _, err := g.Output(repo, "rev-parse", "--git-dir"); err != nil {
+			broken = append(broken, repo)
+		}
+	}
+	return broken
 }
 
 // gitLogSection renders the git-log source's content: `git log --stat -1`
@@ -221,7 +249,7 @@ func gitLogSection(g Runner, repo string, fc finishCommits) string {
 	return b.String()
 }
 
-func firstLine(b []byte, err error) string {
+func trimmedOutput(b []byte, err error) string {
 	if err != nil {
 		return ""
 	}
@@ -231,13 +259,16 @@ func firstLine(b []byte, err error) string {
 // Bundle assembles the whole self-review context bundle for change as one
 // Markdown document: the header, the found/skipped summary line, one
 // `skipped: <label> (absent)` line per absent source, and one `## <label>`
-// section per found source. run renders the ledger and panel sources
-// (records.RenderKind's own presence rule — a change with no dispatch rows
-// has no ledger); repos are the change's recorded repository roots, probed
-// for the archive branch in order; g reads everything git has to answer
-// for. An invalid change name is the one error: the same allowlist
-// records.Destination enforces, checked before the name builds a label or
-// a ref.
+// section per found source. run renders the ledger and panel sources —
+// each present only when the run holds rows of its kind, so a change the
+// store has never heard of reports both skipped rather than rendering
+// empty records nobody wrote; repos are the candidate repository roots the
+// caller supplied, probed for the change's archived directory in order; g
+// reads everything git has to answer for. A repository git cannot read at
+// all is reported in a `note:` line — environmental failure keeps a
+// different wording from legitimate absence. An invalid change name is the
+// one error: the same allowlist records.Destination enforces, checked
+// before the name builds a label or a ref.
 func Bundle(change string, run records.Run, repos []string, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
@@ -254,15 +285,27 @@ func Bundle(change string, run records.Run, repos []string, g Runner) (string, e
 		sources = append(sources, source{label: label, content: content, found: found})
 	}
 
-	ledger, ok := records.RenderKind("ledger", run)
-	add(".superpowers/sdd/ledgers/"+change+".md", ledger, ok)
-	panel, ok := records.RenderKind("panel", run)
-	add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, ok)
+	// The store renders: the ledger needs dispatch rows (RenderKind's own
+	// rule); the panel needs any row at all, so an unknown change's empty
+	// run never renders a findings-total: 0 record nobody wrote.
+	ledger, ledgerOK := records.RenderKind("ledger", run)
+	add(".superpowers/sdd/ledgers/"+change+".md", ledger, ledgerOK)
+	panelHasRows := len(run.Dispatches)+len(run.Findings)+len(run.Passes)+len(run.Mutations) > 0
+	panel, _ := records.RenderKind("panel", run)
+	add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, panelHasRows)
 
 	// The archive-derived sources all come from one repository: the first
-	// recorded one carrying the archive branch. No branch anywhere skips
-	// all of them together — the two store renders above still stand.
+	// supplied one carrying the change's archived directory. No archive
+	// anywhere skips all of them together — the store renders above still
+	// stand. A repository git cannot read at all is named in a note rather
+	// than folded into "absent".
+	var notes []string
 	repo := archiveRepo(g, repos, change)
+	if repo == "" {
+		for _, broken := range unreadableRepos(g, repos) {
+			notes = append(notes, "note: repository "+broken+" could not be read — its archive sources are reported skipped for that reason, not because the change was never archived")
+		}
+	}
 	branch := archiveBranchPrefix + change
 	if repo != "" {
 		for _, file := range []string{"tasks.md", "design.md", "narrative.md"} {
@@ -295,6 +338,10 @@ func Bundle(change string, run records.Run, repos []string, g Runner) (string, e
 	fmt.Fprintf(&b, "# Self-review context bundle for %s\n\n", change)
 	fmt.Fprintf(&b, "found: %d of %d sources; skipped: %d of %d sources\n",
 		len(found), len(sources), len(skipped), len(sources))
+	for _, note := range notes {
+		b.WriteString(note)
+		b.WriteString("\n")
+	}
 	for _, label := range skipped {
 		fmt.Fprintf(&b, "skipped: %s (absent)\n", label)
 	}

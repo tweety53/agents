@@ -73,7 +73,7 @@
 # change may legitimately carry no design.md, and this script performs no
 # judgement about that.
 #
-# VALIDATION. Modelled on scripts/gather-self-review-context.sh's own
+# VALIDATION. Modelled on scripts/the retired self-review gather's (kan-526) own
 # mechanism — read that script's header before touching this one. Each of
 # <worktree>, <change-root> and <principles-path> is:
 #   1. lexically normalized into an absolute path by pure string
@@ -91,7 +91,7 @@
 # For <worktree> and <change-root>, any divergence found in step 3 — an
 # ancestor symlink at any depth, the leaf itself being a symlink, a `..`
 # component, in any combination — means the invocation is refused, exactly
-# as gather-self-review-context.sh's header documents: one general
+# as the retired self-review gather's (kan-526) header documents: one general
 # mechanism rather than several bounded, individually-bypassable checks.
 # They must additionally resolve to an existing directory (not merely pass
 # the lexical/real comparison), and <change-root> must resolve INSIDE
@@ -108,7 +108,7 @@
 # <change-root>'s leaves are, so it is simply resolved and read.
 #
 # THE CHANGE-NAME ALLOWLIST is copied verbatim from
-# gather-self-review-context.sh: one leading alphanumeric, then letters,
+# the retired self-review gather (kan-526): one leading alphanumeric, then letters,
 # digits, '.', '_' and '-'.
 #
 # LEAF VALIDATION. The three CONTENT sources (proposal.md, design.md and
@@ -117,7 +117,7 @@
 # carries no design.md, and a symlinked leaf must not abort a whole
 # dispatching stage the way a malformed invocation does. Each is instead
 # resolved and boundary-checked against <change-root> the same way
-# gather-self-review-context.sh's check_boundary() validates its own leaves
+# the retired self-review gather's (kan-526) check_boundary() validates its own leaves
 # (LEDGER_FILE, PANEL_FILE, TASKS_FILE) before reading them: a leaf that
 # resolves outside <change-root> is refused per-source — omitted from the
 # bundle, reported as "refused", but the run still exits 0 — never treated
@@ -258,7 +258,7 @@ esac
 # relative <path> is joined to this process's own cwd first; the collapse
 # itself (removing `.` and `..` components) is lexically_collapse(), sourced
 # from lib/lexical-normalize.sh (F34, this change's own review panel) rather
-# than carried here, since gather-self-review-context.sh's
+# than carried here, since the retired self-review gather's (kan-526)
 # validate_archived_path() needs the identical collapse, just joined to a
 # different root first (see that file's own header for the full
 # explanation of why only the "make it absolute" half stays local to each
@@ -421,7 +421,7 @@ REFUSED_REASONS=()
 # arguments, so validate_path()'s exit-2-on-mismatch contract does not apply
 # to them: a change legitimately carries no design.md, and "this leaf is a
 # symlink" must not abort a whole dispatching stage. Instead this mirrors
-# gather-self-review-context.sh's check_boundary() + is_refused() pair: `[ -f
+# the retired self-review gather's (kan-526) check_boundary() + is_refused() pair: `[ -f
 # "$path" ]` first (a missing target, including a dangling symlink, is a
 # plain absence — skipped, not refused); then resolve_file() (leaf and every
 # ancestor symlink) and a within_root() boundary check against the third
@@ -433,7 +433,7 @@ REFUSED_REASONS=()
 # "unresolvable"), or that resolves OUTSIDE it ("outside"), is refused
 # per-source: omitted from the bundle, counted separately from "skipped",
 # and the run still exits 0 — the spec's "a missing bundle never stops a
-# run" requirement, and the same disposition gather-self-review-context.sh's
+# run" requirement, and the same disposition the retired self-review gather's (kan-526)
 # header documents for exactly this shape of problem (a per-source
 # trust-boundary violation is not a malformed invocation).
 add_fixed_source() {
@@ -535,7 +535,7 @@ fi
 #
 # project_section <file> <key> -> prints the trimmed body of "## <key>",
 # sourced from lib/project-section.sh (see that file's header for why this
-# script, gather-self-review-context.sh's earlier extraction of
+# script, the retired self-review gather's (kan-526) earlier extraction of
 # within_root, and check-model-keys.sh all source one shared definition
 # rather than each carrying its own copy of the identical awk).
 PROJECT_FILE="$WORKTREE_REAL/.flow/project.md"
