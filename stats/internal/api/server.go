@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/selfreview"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -294,6 +295,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	sh := &stageHandler{store: ss, logger: logger}
 	sth := &statsHandler{store: sts, logger: logger}
 	rh := &recordHandler{store: rs, logger: logger}
+	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, logger: logger}
 	hz := &hazardHandler{store: rs, logger: logger}
 	suh := &suiteHandler{store: rs, logger: logger}
 	sph := &specHandler{store: rs, logger: logger}
@@ -311,6 +313,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}", rh.runRecord)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/cost-status", rh.costStatus)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/render/{kind}", rh.renderRecord)
+	mux.HandleFunc("GET /api/v1/self-review/{project}/{change}/bundle", srb.bundle)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/findings", rh.recordFinding)

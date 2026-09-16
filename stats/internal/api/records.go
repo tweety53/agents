@@ -64,6 +64,12 @@ type RecordStore interface {
 	RecordWriter
 	RunRecord(ctx context.Context, projectKey, change string) (records.Run, error)
 
+	// ListChangeRepos is the self-review bundle route's repository read:
+	// the change's recorded repository roots are what the bundle probes
+	// for the archive branch, so the daemon needs no path from the caller
+	// to know where the change's repository lives.
+	ListChangeRepos(ctx context.Context, projectKey, change string) ([]store.Repo, error)
+
 	// RecordVerdict, FlagVerdictFalsePositive, ListVerdicts, RecordIncident
 	// and ListIncidents are KAN-451's guard-log methods -- see
 	// design.md's schema section for what each table records. They sit on

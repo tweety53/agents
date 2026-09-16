@@ -545,6 +545,22 @@ func (f *fakeStore) RecordDecision(_ context.Context, projectKey, change string,
 	return out, true, nil
 }
 
+// ListChangeRepos is the self-review bundle route's repository read. The
+// fake answers from f.repos (keyed like every change-scoped map here); a
+// change with no recorded repositories returns an empty slice and no
+// error, the store's own rule.
+func (f *fakeStore) ListChangeRepos(_ context.Context, projectKey, change string) ([]store.Repo, error) {
+	f.recordCalls++
+	if f.listChangeReposErr != nil {
+		return nil, f.listChangeReposErr
+	}
+	out := f.repos[changeKey(projectKey, change)]
+	if out == nil {
+		return []store.Repo{}, nil
+	}
+	return out, nil
+}
+
 // ListDecisions mirrors store.Store.ListDecisions' ordering: newest first.
 func (f *fakeStore) ListDecisions(_ context.Context, projectKey, change string) ([]records.Decision, error) {
 	f.recordCalls++
