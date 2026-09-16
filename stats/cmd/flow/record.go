@@ -64,6 +64,52 @@ var recordEfforts = []string{"low", "medium", "high", "default"}
 // explain (KAN-510).
 var recordCauses = []string{"environment", "test-failure", "missing-fixture"}
 
+// tokenReportKeys maps the hyphenated keys `-tokens` accepts onto the
+// TokenReport field each one fills -- the bag's four figures the ledger's
+// token line renders, spelled the way the ledger itself spells them. The
+// map is the closed set: a key outside it is a caller mistake, refused
+// before the store is ever contacted, the recordCauses precedent.
+var tokenReportKeys = map[string]func(*records.TokenReport, int64){
+	"input":          func(r *records.TokenReport, v int64) { r.Input = v },
+	"output":         func(r *records.TokenReport, v int64) { r.Output = v },
+	"cache-read":     func(r *records.TokenReport, v int64) { r.CacheRead = v },
+	"cache-creation": func(r *records.TokenReport, v int64) { r.CacheCreation = v },
+}
+
+// parseTokenReport parses a `-tokens` value: comma-separated key=value
+// pairs over tokenReportKeys' closed set, no duplicate key, every value a
+// non-negative integer. Empty is not an error -- it is "not reported", the
+// flag's own default -- but any value that is present and wrong is a caller
+// mistake, reported before the store is ever contacted (KAN-525).
+func parseTokenReport(value string) (*records.TokenReport, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	report := &records.TokenReport{}
+	seen := map[string]bool{}
+	for _, pair := range strings.Split(value, ",") {
+		key, raw, ok := strings.Cut(pair, "=")
+		if !ok {
+			return nil, fmt.Errorf("-tokens %q must be comma-separated key=value pairs", value)
+		}
+		key = strings.TrimSpace(key)
+		set, ok := tokenReportKeys[key]
+		if !ok {
+			return nil, fmt.Errorf("-tokens key %q is not one of: input, output, cache-read, cache-creation", key)
+		}
+		if seen[key] {
+			return nil, fmt.Errorf("-tokens key %q appears more than once", key)
+		}
+		seen[key] = true
+		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf("-tokens %s=%q is not a non-negative integer", key, raw)
+		}
+		set(report, n)
+	}
+	return report, nil
+}
+
 // recordShapes is the closed set `-shape` accepts on `flow record
 // substitution`: the pipeline's own topology vocabulary for a change --
 // the same words gather-dispatch-context.sh's eighth argument validates and
@@ -183,7 +229,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
-                             [-agent-id id]
+                             [-agent-id id] [-tokens k=v,...]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -385,6 +431,21 @@ refused with any other outcome -- a cause its outcome does not explain,
 or a block whose reason survives only as prose in a verify report, are the
 same defect (KAN-510): "three environment-caused blocks in one run" must
 be a query the store answers, not a footnote in one run's ledger.
+
+-tokens reports the token usage of a same-session (inline) dispatch
+(KAN-525). The harvester attributes only sidechain (subagent-transcript)
+usage to a dispatch row, so a dispatch that ran in the parent session
+itself -- an inline implementer, an inline verifier -- would otherwise read
+"not measured" in the ledger and in every cost summary forever. The value
+is comma-separated key=value pairs; the keys are input, output, cache-read
+and cache-creation, and every value is a non-negative integer. Any
+malformed value is a caller mistake refused before the store is ever
+contacted. The store writes the report into the row's metrics bag under
+"tokens.main" and stamps the row "reported", so the ledger renders the
+figures with a caller-reported qualifier and cost-status counts the
+dispatch as measured -- measured by the caller's own statement, which is
+exactly what makes it coverage of the whole run rather than of the
+dispatched third of it.
 
 -session-token must be a literal, unique token this command writes -- never
 a shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
@@ -860,6 +921,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	outcome := fset.String("outcome", "", "how the dispatch ended, e.g. completed")
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
+	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- the harvester cannot see a dispatch that ran in the parent session, so the caller reports it)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -883,6 +945,11 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 			fmt.Fprintf(stderr, "flow: -cause %q is not one of: %s\n", *cause, strings.Join(recordCauses, ", "))
 			return 2
 		}
+	}
+	report, err := parseTokenReport(*tokens)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
 	}
 	if err := validateSessionToken(*sessionToken); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
@@ -908,6 +975,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		Outcome:      *outcome,
 		Cause:        *cause,
 		AgentID:      *agentID,
+		Tokens:       report,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)

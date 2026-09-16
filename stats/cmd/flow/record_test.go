@@ -3925,3 +3925,107 @@ func TestRecordFindingPatternEmptyDetailPrintsEmptyArray(t *testing.T) {
 		t.Fatalf("stdout = %q, want exactly []", got)
 	}
 }
+
+// --- write-time validation: an inline dispatch's reported tokens (KAN-525) ---
+
+// TestDispatchEndTokensParserRefusals pins the closed grammar -tokens
+// accepts: comma-separated key=value pairs over {input, output,
+// cache-read, cache-creation}, at least one pair, no duplicate key, every
+// value a non-negative integer. Each refusal below is a caller mistake,
+// refused with exit 2 before the store is ever contacted -- the
+// recordEfforts/recordCauses precedent -- and before anything is
+// journalled, since a replay of it could only ever be refused a second
+// time.
+func TestDispatchEndTokensParserRefusals(t *testing.T) {
+	cases := []struct{ name, value string }{
+		{"no equals sign", "input"},
+		{"unknown key", "bandwidth=5"},
+		{"duplicate key", "input=1,input=2"},
+		{"negative", "input=-3"},
+		{"not a number", "input=many"},
+		{"missing value", "input="},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, _, stderr, contacted, repo := causeEndRun(t, "-tokens", tc.value)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for an unparseable -tokens value -- it must be refused first")
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-510"); exists {
+				t.Error("a refused -tokens value wrote a record journal")
+			}
+			if !strings.Contains(stderr.String(), "-tokens") {
+				t.Errorf("stderr does not name -tokens:\n%s", stderr.String())
+			}
+		})
+	}
+}
+
+// TestDispatchEndTokensCarriedOnWire pins the happy path: a well-formed
+// -tokens value rides the end call's body as the `tokens` object, its
+// hyphenated CLI keys stored under the bag's own snake_case names -- and
+// an end that omits -tokens carries no `tokens` key at all, an absent key
+// rather than an empty value, the same contract agentId's omitted case
+// pins.
+func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
+	send := func(t *testing.T, extra ...string) map[string]any {
+		t.Helper()
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			gotBody, err = readAll(r)
+			if err != nil {
+				t.Errorf("read request body: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"sonnet","endedAt":"2026-01-02T03:44:05Z"}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-525", "-key", "inline-implementer", "-session-token", "ff-kan525-tokens"}
+		args = append(args, extra...)
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+
+		var sent map[string]any
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+		}
+		return sent
+	}
+
+	t.Run("reported", func(t *testing.T) {
+		sent := send(t, "-tokens", "input=1234,output=567,cache-read=89,cache-creation=12")
+		tokens, ok := sent["tokens"].(map[string]any)
+		if !ok {
+			t.Fatalf("tokens = %v, want an object", sent["tokens"])
+		}
+		want := map[string]float64{"input": 1234, "output": 567, "cache_read": 89, "cache_creation": 12}
+		if len(tokens) != len(want) {
+			t.Fatalf("tokens = %v, want exactly the four reported keys", tokens)
+		}
+		for k, v := range want {
+			if tokens[k] != v {
+				t.Errorf("tokens[%q] = %v, want %v", k, tokens[k], v)
+			}
+		}
+	})
+
+	t.Run("omitted", func(t *testing.T) {
+		sent := send(t)
+		if v, ok := sent["tokens"]; ok {
+			t.Errorf("tokens = %v, want the key absent -- an end that reports no usage must not write an empty report", v)
+		}
+	})
+}

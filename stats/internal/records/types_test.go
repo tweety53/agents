@@ -1,6 +1,7 @@
 package records_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
@@ -104,5 +105,44 @@ func TestCostStatusOfTalliesTwoSimultaneousReasons(t *testing.T) {
 		if got.Reasons[k] != v {
 			t.Errorf("Reasons[%q] = %d, want %d", k, got.Reasons[k], v)
 		}
+	}
+}
+
+// TestDispatchEndTokenReportMarshalsAllFourKeys pins the wire shape a
+// caller-reported token report takes: all four keys ride the body even
+// when a reported figure is zero -- an explicit zero is a real figure, the
+// same rule render.go's tokenLine applies on the way out -- and an end
+// carrying no report writes no `tokens` key at all.
+func TestDispatchEndTokenReportMarshalsAllFourKeys(t *testing.T) {
+	body, err := json.Marshal(records.DispatchEnd{
+		SessionToken: "ff-kan525",
+		Key:          "inline-implementer",
+		Tokens:       &records.TokenReport{},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var sent map[string]any
+	if err := json.Unmarshal(body, &sent); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	tokens, ok := sent["tokens"].(map[string]any)
+	if !ok {
+		t.Fatalf("tokens = %v, want an object", sent["tokens"])
+	}
+	for _, k := range []string{"input", "output", "cache_read", "cache_creation"} {
+		if v, ok := tokens[k]; !ok {
+			t.Errorf("tokens key %q absent -- a reported zero is a reported figure, never an omitted one", k)
+		} else if v != float64(0) {
+			t.Errorf("tokens[%q] = %v, want 0", k, v)
+		}
+	}
+
+	plain, err := json.Marshal(records.DispatchEnd{SessionToken: "ff-kan525", Key: "inline-implementer"})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if bytes.Contains(plain, []byte(`"tokens"`)) {
+		t.Errorf("a report-less end marshalled a tokens key: %s", plain)
 	}
 }

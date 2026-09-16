@@ -150,14 +150,40 @@ type Dispatch struct {
 // own last-write-wins semantics -- an end that records another outcome with
 // no cause clears it -- so a row never keeps claiming a block its outcome
 // no longer reports (KAN-510).
+//
+// Tokens is the usage the caller reports for a same-session (inline)
+// dispatch (KAN-525). The harvester attributes only sidechain
+// (subagent-transcript) usage to dispatch rows, so a dispatch that ran in
+// the parent session itself -- an inline implementer, an inline verifier --
+// would otherwise carry an empty bag and read "not measured" forever; the
+// caller, which did the work, is the only witness of what it spent, and
+// reports it here at close. It is optional and nil means "not reported":
+// the ordinary case for every subagent dispatch, whose figures still come
+// from the transcript. The figures are the caller's own statement, never
+// verified here -- the store stamps the row so a rendered ledger can say
+// whose statement a token line is.
 type DispatchEnd struct {
-	SessionToken string    `json:"sessionToken"`
-	Key          string    `json:"key"`
-	CommitSHA    string    `json:"commitSha,omitempty"`
-	Outcome      string    `json:"outcome,omitempty"`
-	Cause        string    `json:"cause,omitempty"`
-	EndedAt      time.Time `json:"endedAt"`
-	AgentID      string    `json:"agentId,omitempty"`
+	SessionToken string       `json:"sessionToken"`
+	Key          string       `json:"key"`
+	CommitSHA    string       `json:"commitSha,omitempty"`
+	Outcome      string       `json:"outcome,omitempty"`
+	Cause        string       `json:"cause,omitempty"`
+	EndedAt      time.Time    `json:"endedAt"`
+	AgentID      string       `json:"agentId,omitempty"`
+	Tokens       *TokenReport `json:"tokens,omitempty"`
+}
+
+// TokenReport is the token usage a caller reports for a same-session
+// (inline) dispatch on `flow record dispatch end` (KAN-525): the four
+// figures the ledger's token line renders, under the metrics bag's own
+// snake_case names. Every field is a plain int64 with no omitempty
+// deliberately -- a reported zero is a reported figure, never an omitted
+// one, and a bag this marshals into always carries exactly the four keys.
+type TokenReport struct {
+	Input         int64 `json:"input"`
+	Output        int64 `json:"output"`
+	CacheRead     int64 `json:"cache_read"`
+	CacheCreation int64 `json:"cache_creation"`
 }
 
 // Finding is one review-panel finding. Ref is unique per change, not per
