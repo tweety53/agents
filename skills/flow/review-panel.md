@@ -369,7 +369,13 @@ printed — `recorded: dispatch <seq>` — into each of that slot's `flow record
 `-dispatch-seq <seq>`.
 
 **Every slot must supply, per finding, a reproducer**: a runnable command that demonstrates the
-defect, or the literal exemption form `none — <reason>`. **The exemption form is available to Minor
+defect, or the literal exemption form `none — <reason>`. **The exit-code convention is fixed and
+one-directional: a reproducer exits non-zero when the defect it demonstrates is present, and exits
+0 only when that defect is not** — `run-reproducer.sh` reads a non-zero exit as *defect
+demonstrated* and a 0 exit as *defect not demonstrated*, so a command that exits 0 because its own
+diagnostic succeeded — the inverted convention every kan-512 round-0 reproducer was authored with,
+and had to be hand-corrected out of — reads as the defect already gone. Author it to fail pre-fix
+and pass post-fix. **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
 at Important (KAN-503). A demonstrating command needing a pipe, a
