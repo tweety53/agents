@@ -1,0 +1,46 @@
+{
+  "toggles": {
+    "execution mode": "dynamic",
+    "implementer model": "dynamic",
+    "review panel": "dynamic"
+  },
+  "class": "small",
+  "classMechanical": "small",
+  "override": null,
+  "inputs": {
+    "tasks": 3,
+    "files": 10,
+    "repos": 1,
+    "migration": false,
+    "spec": false,
+    "red": false,
+    "unverified": true
+  },
+  "rolls": {
+    "compact": 27,
+    "experimental": 5,
+    "bundle": 39
+  },
+  "execution": "inline",
+  "implementer": "skipped — inline",
+  "panel": {
+    "compact": true,
+    "rerun": "delta",
+    "roster": [
+      {"slot": "primary", "experimental": false},
+      {"slot": "principles", "experimental": false}
+    ],
+    "experimental": "skipped — bundle cap",
+    "grouping": "free",
+    "dispatches": [
+      {"slots": ["primary", "principles"], "model": "sonnet", "effort": "medium", "reason": "a 60-line stdlib Python hook, a bash harness and prose edits — no concurrency, no data model, nothing performance-sensitive; medium rather than low because the hook's regex over two transcript formats is the one seam worth a careful read"}
+    ],
+    "grouping_reason": "bundle roll 39 ≥ 30 — free grouping; a compact roster is the floor bundle itself, one dispatch on sonnet/medium; experimental 5 < 30 rolled failure-modes (index 5 mod 1), and a compact roster has no second dispatch for it to join — skipped, bundle cap"
+  },
+  "groups": null,
+  "groups_mechanical": null,
+  "groups_override": null,
+  "groups_reason": null,
+  "parent": {"model": "fable", "effort": "medium"},
+  "overrides": {}
+}
