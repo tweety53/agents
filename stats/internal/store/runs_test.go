@@ -651,4 +651,42 @@ func TestListRunsDispatchTotalsIncludeAReportedMainBucket(t *testing.T) {
 	if pure.Totals.Priced {
 		t.Errorf("a dispatch bearing reported tokens but no cost figure must not read priced")
 	}
+
+	// A third, cache-only report: the report's collapsed cache_creation key
+	// must reach the totals -- counted beside the 5m writes, the
+	// conservative treatment pricing.go gives an unknown split -- and must
+	// count as charge, or a dispatch reporting only cache creation would
+	// read priced with no cost figure anywhere.
+	d3 := baseDispatch("planner", "sonnet")
+	d3.SessionToken = token
+	d3.Key = "inline-planner"
+	d3.StartedAt = t0.Add(15 * time.Minute)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-525-runs", d3); err != nil {
+		t.Fatalf("RecordDispatch d3: %v", err)
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-525-runs", records.DispatchEnd{
+		SessionToken: token,
+		Key:          "inline-planner",
+		Outcome:      "completed",
+		EndedAt:      d3.StartedAt.Add(time.Minute),
+		Tokens:       &records.TokenReport{CacheCreation: 40},
+	}); err != nil {
+		t.Fatalf("EndDispatch d3: %v", err)
+	}
+
+	rows, err = st.ListRuns(ctx, store.Period{From: t0.Add(-time.Hour), To: t0.Add(time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	ds = rows[0].Runs[0].Dispatches
+	if len(ds) != 3 {
+		t.Fatalf("got %d dispatches, want 3", len(ds))
+	}
+	cacheOnly := ds[2]
+	if cacheOnly.Totals.CacheWrite5m != 40 {
+		t.Errorf("cache-only reported totals = cacheWrite5m %d, want 40 -- the collapsed report key must reach the totals", cacheOnly.Totals.CacheWrite5m)
+	}
+	if cacheOnly.Totals.Priced {
+		t.Errorf("a dispatch whose only reported figure is cache creation bears charge and must not read priced")
+	}
 }

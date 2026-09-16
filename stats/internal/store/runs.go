@@ -495,10 +495,22 @@ func readBucket(raw json.RawMessage) tokenBucket {
 		Output          int64 `json:"output"`
 		Thinking        int64 `json:"thinking"`
 		CacheRead       int64 `json:"cache_read"`
+		CacheCreation   int64 `json:"cache_creation"`
 		CacheCreation5m int64 `json:"cache_creation_5m"`
 		CacheCreation1h int64 `json:"cache_creation_1h"`
 	}
 	_ = json.Unmarshal(raw, &b)
+	// The collapsed total minus whatever split the bucket does carry is
+	// the unknown-rate remainder -- all of it for a reported bucket
+	// (KAN-525), which carries the collapsed key alone. It is counted
+	// beside the 5m writes, never dropped: chargeableTokens.cost
+	// (pricing.go) bills an unknown split at the 5m rate for the same
+	// conservative reason, and a figure this view reads but pricing
+	// ignores would read exactly like free usage.
+	b.CacheCreation5m += b.CacheCreation - b.CacheCreation5m - b.CacheCreation1h
+	if b.CacheCreation5m < 0 {
+		b.CacheCreation5m = 0
+	}
 	return tokenBucket{b.Input, b.Output, b.Thinking, b.CacheRead, b.CacheCreation5m, b.CacheCreation1h}
 }
 
