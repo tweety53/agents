@@ -658,10 +658,14 @@ REQUIRED_FILE="$WORK/required"
 
 # CITE_UNKNOWN_FILE — invoking-position basenames matching no known guard
 # (KAN-530 F6), one `<basename>\t<lineno>` row per hit, appended by the
-# CITATION_AWK pass below. Appended, never truncated, because the awk runs
-# once per skill .md file and each fresh process would truncate a `>`-opened
-# file on its first write, silently keeping only the last file's rows — the
-# same silent-partial-report class of defect this guard exists to refuse.
+# CITATION_AWK pass below. The load-bearing invariant is the per-file drain at
+# the report site below: each skill .md's rows are reported and drained before
+# the next file's awk runs, which is what keeps every row single-reported at
+# its own citing file. The append (`>>`) is what lets rows survive across
+# those separate awk processes at all — a `>`-opened file would be truncated
+# by the next process's first write — but append alone is not correctness:
+# without the drain, an earlier file's rows would re-report under a later
+# file's path. Harness case 3k pins both halves.
 CITE_UNKNOWN_FILE="$WORK/cite_unknown"
 : > "$CITE_UNKNOWN_FILE"
 
