@@ -310,7 +310,8 @@ recorded with `flow record pass -round <round>`.
 bundle's `-dispatch-seq`. A one-role dispatch is unchanged from today.
 
 **The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
-BUILDS, REPRODUCE DON'T READ, CITATION CHECK, MODEL HANDSHAKE, the reproducer rule — once, then one
+BUILDS, REPRODUCE DON'T READ, CITATION CHECK, ENTRY CONTEXT, MODEL HANDSHAKE, the reproducer rule —
+once, then one
 **PASS `<id>`** section per role in roster order, each carrying exactly the brief that role's solo
 dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`. Mutating
 roles (`mutation`, `bugbot`) are always the last passes of a bundle and still work in their
@@ -461,6 +462,25 @@ one path each**, naming its absolute path alongside `final-review.diff`:
 > pre-panel citation scan, captured before your dispatch. It is informational — its own exit code
 > was not gating — but a stale citation it reports is worth raising as your own finding if it sits
 > in this diff's blast radius.
+
+**Every slot's dispatch prompt also carries the ENTRY CONTEXT paragraph**, the round's
+`[TOUCHED_FILES]` list inlined directly beneath it:
+
+> **ENTRY CONTEXT:** `final-review.diff` is your entry artifact, and the touched-files list in
+> this prompt is your named entry context — begin from those two, not from a whole-tree
+> exploration. The list names every path this branch touched, per worktree, with the named
+> contracts among them; read a listed file only as far as the diff and a finding require, and step
+> outside the list only when a finding cannot otherwise be established. Name the coverage trade in
+> your report: which touched files you read in full, which you read only at the diff's hunks, and
+> which you deliberately did not read.
+
+**Resolve `[TOUCHED_FILES]` before dispatching any slot**, once per round beside the
+`final-review.diff` write above: per worktree in the resolved set, that worktree's
+`git diff --name-status <merge-base>` under a `# worktree: <path> — merge base <sha>` header of
+its own — the same sectioning the diff file uses. The paths under `skills/flow-contracts/` in
+that list are the change's **named contracts**. A diff-reading re-run computes the list from the
+delta's own range instead — `git diff <held-sha> HEAD` per worktree — so the named context
+narrows with the read.
 
 ### No forking, and a wall-clock ceiling on every slot
 
