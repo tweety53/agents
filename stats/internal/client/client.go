@@ -685,6 +685,15 @@ func (c *Client) do(req *http.Request) (body []byte, status int, fromDaemon bool
 	if err != nil {
 		return nil, 0, false, fmt.Errorf("%w: read response body: %v", ErrUnavailable, err)
 	}
+	// A body that fills the cap was cut off mid-read by the LimitReader:
+	// whatever the endpoint, the caller is looking at a truncated answer.
+	// Refusing it loudly is strictly safer than every caller inventing its
+	// own detection -- the decoders mostly catch it by accident, and the
+	// one raw-markdown read (the self-review bundle) would not catch it at
+	// all.
+	if len(body) >= maxResponseBytes {
+		return nil, 0, false, fmt.Errorf("%w: response body filled the %d-byte cap -- truncated, not served whole", ErrUnavailable, maxResponseBytes)
+	}
 	return body, resp.StatusCode, fromDaemon, nil
 }
 

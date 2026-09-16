@@ -29,13 +29,11 @@ func (c *Client) selfReviewBundleURL(project, change, repo string) string {
 // bundle's shape is decided in the one binary versioned with the store
 // that produces it.
 //
-// A body that fills the client's whole response cap is refused rather than
-// returned: a bundle that large was truncated by the cap mid-read, and a
-// partial bundle handed to a reasoning pass is the exact defect the
-// never-a-partial-bundle contract exists to prevent. A 404 is ErrNotFound
-// — this daemon predates the endpoint. Every other non-200, and any
-// transport failure, is ErrUnavailable: a read that cannot be answered
-// reports that it could not, never a partial bundle.
+// A 404 is ErrNotFound — this daemon predates the endpoint. Every other
+// non-200, and any transport failure, is ErrUnavailable: a read that
+// cannot be answered reports that it could not, never a partial bundle.
+// Truncation at the client's response cap is do()'s own refusal, shared by
+// every read.
 func (c *Client) GetSelfReviewBundle(ctx context.Context, project, change, repo string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.selfReviewBundleURL(project, change, repo), nil)
 	if err != nil {
@@ -51,8 +49,6 @@ func (c *Client) GetSelfReviewBundle(ctx context.Context, project, change, repo 
 	}
 
 	switch {
-	case status == http.StatusOK && len(body) >= maxResponseBytes:
-		return nil, fmt.Errorf("%w: bundle filled the %d-byte response cap -- truncated, not served whole", ErrUnavailable, maxResponseBytes)
 	case status == http.StatusOK:
 		return body, nil
 	case status == http.StatusNotFound:
