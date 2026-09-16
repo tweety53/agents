@@ -555,6 +555,10 @@ git -C <worktree> status --porcelain -z | \
     mkdir -p "<worktree>-<slot>-<round>/$(dirname "$f")"
     cp -a "<worktree>/$f" "<worktree>-<slot>-<round>/$f"
   done
+mkdir -p "<worktree>-<slot>-<round>/.superpowers"
+if [ -d "<worktree>/.superpowers/sdd" ]; then
+  cp -a "<worktree>/.superpowers/sdd" "<worktree>-<slot>-<round>/.superpowers/sdd"
+fi
 ```
 
 `git diff HEAD --binary` — against `HEAD`, not a bare `git diff --binary` — is the same "staged and
@@ -567,7 +571,12 @@ there is nothing to transplant — the common case, since task and fix-round wor
 untracked-file loop reads `git status --porcelain -z`, NUL-delimited, into `read -r -d ''` — the
 plain-text `awk` form cannot survive git's quote-escaping of a filename with a space or another
 special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal
-byte string through untouched, regardless of what the filename contains.
+byte string through untouched, regardless of what the filename contains. The scaffold lines after
+the loop exist because the slot dispatched into the copy resolves the bundle paths its prompt names
+— `dispatch-context.md`, and the report file it writes — against its dispatched root: a copy
+without `<abs-worktree>/.superpowers/sdd` sent the panel back to re-brief the slot mid-dispatch and let
+the slot's report resolve onto the copy, where its removal destroyed it (KAN-529). The `-d` test
+keeps a canonical worktree with no bundle yet a no-op rather than a failure.
 
 Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
 that slot as the repository paths to mutate and test in, in place of `<worktree>` (design.md's
