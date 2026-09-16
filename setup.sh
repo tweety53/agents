@@ -399,17 +399,22 @@ install_hooks_zcode() {
     link_into "$hook_file" "$zcode_dir/hooks/$hook_name" "$hook_name"
   done
   config="$zcode_dir/cli/config.json"
+  local baseline_rc=1 active_change_rc=1
   if [[ -f "$config" ]]; then
-    local rc=0
-    grep -q 'enforce-agent-baseline' "$config" || rc=$?
-    require_grep_ok "$rc" "checking $config for the agent-baseline hook"
-    (( rc == 0 )) && return 0
+    baseline_rc=0
+    grep -q 'enforce-agent-baseline' "$config" || baseline_rc=$?
+    require_grep_ok "$baseline_rc" "checking $config for the agent-baseline hook"
+    active_change_rc=0
+    grep -q 'flow-active-change' "$config" || active_change_rc=$?
+    require_grep_ok "$active_change_rc" "checking $config for the flow-active-change hook"
+    (( baseline_rc == 0 && active_change_rc == 0 )) && return 0
   fi
-  echo ""
-  echo "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces"
-  echo "    that subagent dispatches carry the rules. Register it in $config under the"
-  echo "    top-level \"hooks\" key (note: enabled must be true, events nested one level down):"
-  cat <<'SNIPPET'
+  if (( baseline_rc != 0 )); then
+    echo ""
+    echo "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces"
+    echo "    that subagent dispatches carry the rules. Register it in $config under the"
+    echo "    top-level \"hooks\" key (note: enabled must be true, events nested one level down):"
+    cat <<'SNIPPET'
 
   {
     "enabled": true,
@@ -422,7 +427,29 @@ install_hooks_zcode() {
     }
   }
 SNIPPET
-  echo ""
+    echo ""
+  fi
+  if (( active_change_rc != 0 )); then
+    echo ""
+    echo "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem"
+    echo "    report is never named as a fix of the open change. Register it in $config under the"
+    echo "    top-level \"hooks\" key, beside PreToolUse (enabled must be true, events nested one"
+    echo "    level down):"
+    cat <<'SNIPPET'
+
+  {
+    "enabled": true,
+    "events": {
+      "UserPromptSubmit": [
+        { "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/flow-active-change.py\"" }
+        ] }
+      ]
+    }
+  }
+SNIPPET
+    echo ""
+  fi
 }
 
 # install_zcode_env <home-dir>
@@ -503,16 +530,21 @@ install_hooks() {
   # capture the status instead of testing it inline, then let require_grep_ok reject only a
   # real grep failure (rc ≥ 2), the same way every other caller in this script does.
   settings="$claude_dir/settings.json"
+  local baseline_rc=1 active_change_rc=1
   if [[ -f "$settings" ]]; then
-    local rc=0
-    grep -q 'enforce-agent-baseline' "$settings" || rc=$?
-    require_grep_ok "$rc" "checking $settings for the agent-baseline hook"
-    (( rc == 0 )) && return 0
+    baseline_rc=0
+    grep -q 'enforce-agent-baseline' "$settings" || baseline_rc=$?
+    require_grep_ok "$baseline_rc" "checking $settings for the agent-baseline hook"
+    active_change_rc=0
+    grep -q 'flow-active-change' "$settings" || active_change_rc=$?
+    require_grep_ok "$active_change_rc" "checking $settings for the flow-active-change hook"
+    (( baseline_rc == 0 && active_change_rc == 0 )) && return 0
   fi
-  echo ""
-  echo "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces"
-  echo "    that subagent dispatches carry the rules. Add this to \"hooks\" in $settings:"
-  cat <<'SNIPPET'
+  if (( baseline_rc != 0 )); then
+    echo ""
+    echo "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces"
+    echo "    that subagent dispatches carry the rules. Add this to \"hooks\" in $settings:"
+    cat <<'SNIPPET'
 
     "PreToolUse": [
       {
@@ -523,7 +555,24 @@ install_hooks() {
       }
     ]
 SNIPPET
-  echo ""
+    echo ""
+  fi
+  if (( active_change_rc != 0 )); then
+    echo ""
+    echo "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem"
+    echo "    report is never named as a fix of the open change. Add this to \"hooks\" in $settings:"
+    cat <<'SNIPPET'
+
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-active-change.py\"" }
+        ]
+      }
+    ]
+SNIPPET
+    echo ""
+  fi
 }
 
 install_commands() {

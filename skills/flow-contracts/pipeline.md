@@ -90,6 +90,7 @@ ignored word is indistinguishable from a flag that stopped working.
 | `/flow` | *(no state — creates the change)* | `STARTED`, same invocation continuing to `IN_PROGRESS` unless it stops early (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`) |
 | `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still resuming) or `IN_PROGRESS` |
 | `/flow` | `IN_PROGRESS`, with an argument | fix run; state unchanged |
+| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) |
 | `/flow` | `IN_PROGRESS`, bare | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
 | `/flow` | `FINISHED` | wrong-state handoff — the change is archived |
 | `/flow-status` | any — read-only, never block | unchanged |
@@ -110,6 +111,9 @@ command:
 - **At `IN_PROGRESS`, with an argument**, `/flow` resumes the existing worktree and applies a fix,
   documenting it in `proposal.md`/`tasks.md` or a `<name>-fix-N` sub-change first, and refreshing
   the test guide alongside the code so the two surfaces never drift apart.
+- **At `IN_PROGRESS`, with no invocation at all** — a plain message reporting a problem or asking
+  for a change, typed in the session that ran the last `/flow <name>` — is that same fix run, the
+  message its instructions.
 - **At `IN_PROGRESS`, bare**, `/flow` integrates on the first such invocation and archives on the
   next, once the branch has merged.
 
