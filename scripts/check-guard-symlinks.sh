@@ -858,11 +858,11 @@ done < "$SKILL_NAMES_FILE"
 # scanned — which may be a sandboxed CHECK_GUARD_SYMLINKS_ROOT fixture, not
 # this repository). Declaring a name that is not part of the current corpus
 # at all would make it a KAN-197 F3 "declared but never recorded" violation
-# for every fixture that does not happen to carry a "flow-settings" or
-# "flow-self-review" directory of its own — not a real staleness, just a
+# for every fixture that does not happen to carry a "flow-settings"
+# directory of its own — not a real staleness, just a
 # mismatch between this guard's own hardcoded real-repo names and a smaller
 # sandboxed tree. Gating on actual corpus membership keeps F3's protection
-# meaningful for the real repository (both names are real directories here
+# meaningful for the real repository (the one name is a real directory here
 # today) without that false-positive noise in test-check-guard-symlinks.sh's
 # own fixtures, several of which deliberately reuse "flow-settings" as a
 # stand-in and several of which do not.
@@ -884,7 +884,6 @@ declare_if_present() {
 }
 
 declare_if_present "flow-settings" "invokes no guard — a standalone settings command that only calls the flow CLI, with no implementation or verification stage"
-declare_if_present "flow-self-review" "invokes no guard of its own — runs the project's report guard by path, with no implementation or verification stage"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then

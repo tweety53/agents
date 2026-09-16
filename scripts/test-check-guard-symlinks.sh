@@ -757,18 +757,30 @@ assert_ok "the agents repository's own tree validates cleanly"
 #    skills/*/scripts/ and reaches nothing at a skill directory's own top
 #    level, so this rule closes that gap.
 #
-#    Both fixture skills below are named "flow-settings" and
-#    "flow-self-review" — the guard's own two declared-expected-zero
-#    members — so neither fixture's genuinely-empty required set trips the
-#    unrelated KAN-197 coverage check; these cases are about rule 5 alone.
+#    Both fixture skills below are named for real skills whose required
+#    sets stay legal-empty or legal-nonempty without a zero declaration
+#    trip: "flow-settings" is the guard's one declared-expected-zero
+#    member, and "flow-self-review" carries a real linked guard of its own
+#    (as the real skill now does), so neither fixture's required set trips
+#    the unrelated KAN-197 coverage check; these cases are about rule 5
+#    alone.
 # ---------------------------------------------------------------------------
 
 # 8a. The violation: a symlink directly under a skill directory, pointing at
 #     a file in a sibling skill, with no other defect anywhere in the tree.
 new_repo
+add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow-self-review" "check-foo.sh"
+write_skill_md "flow-self-review" '# flow-self-review fixture
+
+**Check guard presence.** Confirm every guard this command invokes:
+
+```bash
+check-foo.sh <worktree>
+```
+'
 mkdir -p "$REPO/skills/flow-self-review"
 printf 'principles\n' > "$REPO/skills/flow-self-review/engineering-principles.md"
-write_skill_md "flow-self-review" "# fixture, no citations"
 write_skill_md "flow-settings" "# fixture, no citations"
 ln -s "../flow-self-review/engineering-principles.md" "$REPO/skills/flow-settings/engineering-principles.md"
 run_guard "$REPO"
