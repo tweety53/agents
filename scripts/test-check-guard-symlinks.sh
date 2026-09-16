@@ -405,6 +405,108 @@ assert_reports "check-pipe.sh" "rule 2 (3f): names the pipeline-segment form"
 assert_reports "check-cont.sh" "rule 2 (3f): names the && continuation form"
 assert_reports "check-subst.sh" "rule 2 (3f): names the command-substitution form"
 
+# 3g. KAN-530 F6 — an invoked basename matching NO known guard. A typo'd
+#     guard name in an invoking paragraph used to fall out of rule 2's
+#     required set silently: the per-skill count dropped and the run still
+#     printed GUARD-SYMLINKS-OK. The prose Run/Invoke shape must flag it.
+#     Uses "flow-settings" (declared expected-zero): the unknown name enters
+#     no required set, so this fixture's zero stays declared and the INVALID
+#     below is the unknown-name flag alone.
+new_repo
+write_skill_md "flow-settings" '# flow-settings fixture
+
+Run `check-typo.sh` before committing.
+'
+run_guard "$REPO"
+assert_invalid "a prose invocation of a .sh basename matching no guard is flagged (KAN-530 F6)"
+assert_reports "check-typo.sh" "rule 2 (KAN-530 F6): names the unknown basename"
+assert_reports "rule 2" "rule 2 (KAN-530 F6): names the rule"
+
+# 3h. KAN-530 F6 — the same defect in the <placeholder> prose shape.
+new_repo
+write_skill_md "flow-settings" '# flow-settings fixture
+
+The invocation is `check-ph-typo.sh <worktree>` as written above.
+'
+run_guard "$REPO"
+assert_invalid "a placeholder invocation of a .sh basename matching no guard is flagged (KAN-530 F6)"
+assert_reports "check-ph-typo.sh" "rule 2 (KAN-530 F6): names the unknown placeholder-form basename"
+
+# 3i. KAN-530 F6 — the same defect in the fence: a bare leading token, and
+#     the second token after an explicit interpreter. Each name-run of every
+#     token is tried, so both surface.
+new_repo
+write_skill_md "flow-settings" '# flow-settings fixture
+
+```bash
+check-lead-typo.sh <worktree>
+```
+
+```bash
+bash check-via-typo.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_invalid "a fence invocation of a .sh basename matching no guard is flagged (KAN-530 F6)"
+assert_reports "check-lead-typo.sh" "rule 2 (KAN-530 F6): names the unknown leading-token basename"
+assert_reports "check-via-typo.sh" "rule 2 (KAN-530 F6): names the unknown interpreter-form basename"
+
+# 3j. KAN-530 F6 — the boundary the .sh shape buys. Prose in an invoking
+#     position naming NO guard at all stays prose: `check-nowhere.sh` is
+#     unknown but never in an invoking position (descriptive sentence, no
+#     Run/Invoke within four words, no placeholder), and `flow` IS in an
+#     invoking position but carries no .sh shape — fences and paragraphs are
+#     full of git/flow/echo lines that name no guard and never will.
+new_repo
+write_skill_md "flow-settings" '# flow-settings fixture
+
+The `check-nowhere.sh` guard reads the marker block. Run `flow status` to see it.
+'
+run_guard "$REPO"
+assert_silent "a non-invoking unknown .sh name and an invoking non-.sh name stay prose (KAN-530 F6)"
+
+# 3k. KAN-530 F6 — the cross-file append-and-drain, pinned. Unknown-name rows
+#     accumulate in one scratch file across the SEPARATE awk processes the
+#     rule-2 loop runs (one per skill .md file), and the per-file drain keeps
+#     each row single-reported. Neither half is exercised by any single-file
+#     fixture: with the drain deleted, a later skill re-reports an earlier
+#     skill's row under its own path; with >> swapped for >, a later file's
+#     first write truncates the earlier file's row away. One spanning fixture
+#     pins both: one unknown name per skill, in two different skills —
+#     exactly one row each, attributed to its own citing file — fails under
+#     either regression. flow-zed also cites a real, symlinked guard, so its
+#     required set is non-empty and the unknown rows are the only violations.
+new_repo
+add_real_guard "check-known.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow-zed" "check-known.sh"
+write_skill_md "flow-settings" '# flow-settings fixture
+
+Run `check-typo.sh` before committing.
+'
+write_skill_md "flow-zed" '# flow-zed fixture
+
+```bash
+check-known.sh <worktree>
+bash check-other-typo.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_invalid "unknown-name rows across two skills are each reported exactly once, at their own citing file (KAN-530 F6)"
+N_TYPO_ROWS="$(printf '%s\n' "$OUT" | grep -c 'check-typo\.sh is invoked' || true)"
+[ "$N_TYPO_ROWS" = "1" ] && pass "3k: the flow-settings row is reported exactly once" \
+  || fail "3k: expected exactly 1 check-typo.sh row, got $N_TYPO_ROWS: $OUT"
+N_OTHER_ROWS="$(printf '%s\n' "$OUT" | grep -c 'check-other-typo\.sh is invoked' || true)"
+[ "$N_OTHER_ROWS" = "1" ] && pass "3k: the flow-zed row is reported exactly once" \
+  || fail "3k: expected exactly 1 check-other-typo.sh row, got $N_OTHER_ROWS: $OUT"
+case "$OUT" in
+  *"skills/flow-settings/SKILL.md:3: check-typo.sh"*) pass "3k: the flow-settings row names its own citing file" ;;
+  *) fail "3k: the check-typo.sh row is not attributed to skills/flow-settings/SKILL.md:3: $OUT" ;;
+esac
+case "$OUT" in
+  *"skills/flow-zed/SKILL.md:5: check-other-typo.sh"*) pass "3k: the flow-zed row names its own citing file" ;;
+  *) fail "3k: the check-other-typo.sh row is not attributed to skills/flow-zed/SKILL.md:5: $OUT" ;;
+esac
+
 # ---------------------------------------------------------------------------
 # 4. Rule 3 — no skill text carries a repository-relative scripts/<name> path
 #    in an invoking position. Prose is exempt.
@@ -450,12 +552,20 @@ assert_silent "a repository-relative path in a descriptive sentence is prose, no
 #     than being invoked by any command. A future "Run
 #     `scripts/check-vocabulary.sh` before committing" must not fail CI
 #     wrongly.
-# Uses "flow-settings" (a declared expected-zero skill): neither citation
-# below is in a form rule 2's classifier reads as a required guard, so this
-# skill's required set is genuinely empty — declaring it here keeps this
-# fixture about rule 3's exemption, not coverage.
+# Uses skill "flow" so the fixture stays about rule 3's exemption, not
+# coverage: flow-settings is the guard's own declared expected-zero skill and
+# cannot carry a required citation. check-references.sh is real and carried
+# because the rule-2 token scan (KAN-532) reads the basename AFTER the
+# `scripts/` prefix of a fenced path — an unknown basename there would trip
+# the KAN-530 F6 flag and make this fixture about rule 2 instead of rule 3 —
+# and rule 6 (KAN-532) then requires that citation to keep the symlink
+# honest. check-vocabulary.sh gets no symlink: its path form appears only in
+# prose, whose backtick span's base stops at `scripts` — adding a
+# carried-but-required symlink would be its own rule 6 violation.
 new_repo
-write_skill_md "flow-settings" '# flow-settings fixture
+add_real_guard "check-references.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow" "check-references.sh"
+write_skill_md "flow" '# flow fixture
 
 Run `scripts/check-vocabulary.sh` before committing.
 

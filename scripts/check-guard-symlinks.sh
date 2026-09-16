@@ -24,7 +24,14 @@
 #      scripts/ directory. A guard's sibling dependency — read from the guard's
 #      OWN source rather than a hardcoded table, by grepping it for
 #      `$SCRIPT_DIR/<name>` — is required exactly where the guard it belongs
-#      beside is required.
+#      beside is required. An invoked basename matching NO guard this
+#      repository ships is itself a rule 2 violation: any `.sh`-shaped name
+#      in an invoking position — the shape every guard here carries — is a
+#      typo'd guard name until proven otherwise, and before KAN-530's F6 such
+#      a name fell out of the required set silently, shrinking that skill's
+#      count while the run still printed GUARD-SYMLINKS-OK. Names without the
+#      `.sh` shape stay prose: invoking text is full of `git`, `flow` and
+#      `echo` that name no guard and never will.
 #   3. No skill text carries a repository-relative `scripts/<name>` path in an
 #      invoking position — a non-comment line inside a bash/sh/zsh fence, or a
 #      "Run"/"Invoke"/"Execute" immediately before the backtick. Prose about
@@ -580,13 +587,19 @@ function scan_fence(line, lineno,   trimmed, n, i, f, w) {
   # Each name-character run of every token is therefore tried against the
   # guard set, and EVERY guard a line names is emitted — a pipeline citing
   # two guards (`resolve-...sh | compose-...sh`) must reach the second one,
-  # not stop at the first.
+  # not stop at the first. KAN-530 F6: a name-run matching no known guard is
+  # flagged when .sh-shaped — a typoed basename the required set used to
+  # lose silently; anything not .sh-shaped (git, flow, echo) stays prose.
+  # A run BEGINNING with a dot is a path fragment, never a basename — the
+  # `.` of `./guard.sh` and the `.sh` of a `*.sh` glob are not guard names —
+  # so only dot-led runs are spared the unknown flag.
   n = split(trimmed, toks, /[ \t]+/)
   for (i = 1; i <= n; i++) {
     f = toks[i]
     while (match(f, /[A-Za-z0-9._-]+/) > 0) {
       w = substr(f, RSTART, RLENGTH)
       if (w in guards) printf "%s\t%d\n", w, lineno
+      else if (w ~ /\.sh$/ && w !~ /^\./) print w "\t" lineno >> unknownfile
       f = substr(f, RSTART + RLENGTH)
     }
   }
@@ -604,19 +617,25 @@ function scan_prose(line, lineno,    s, pos, m, start, m2, span, base, restspan,
     if (match(span, /^[A-Za-z0-9._-]+/)) {
       base = substr(span, RSTART, RLENGTH)
       restspan = substr(span, RLENGTH + 1)
-      if (base in guards) {
-        matched = 0
-        if (restspan ~ /^[ \t]+</) matched = 1
-        if (!matched) {
-          prefix = substr(line, 1, start - 2)
-          n2 = split(prefix, arr, /[ \t]+/)
-          from = n2 - 3
-          if (from < 1) from = 1
-          tailwords = ""
-          for (i = from; i <= n2; i++) tailwords = tailwords " " tolower(arr[i])
-          if (tailwords ~ /(run|invoke|invocation|invoking|execute)/) matched = 1
-        }
-        if (matched) printf "%s\t%d\n", base, lineno
+      matched = 0
+      if (restspan ~ /^[ \t]+</) matched = 1
+      if (!matched) {
+        prefix = substr(line, 1, start - 2)
+        n2 = split(prefix, arr, /[ \t]+/)
+        from = n2 - 3
+        if (from < 1) from = 1
+        tailwords = ""
+        for (i = from; i <= n2; i++) tailwords = tailwords " " tolower(arr[i])
+        if (tailwords ~ /(run|invoke|invocation|invoking|execute)/) matched = 1
+      }
+      if (matched) {
+        if (base in guards) printf "%s\t%d\n", base, lineno
+        # KAN-530 F6: the same flag scan_fence carries — an invoking-position
+        # name matching no known guard is a typoed basename the required set
+        # used to lose silently. The .sh shape keeps ordinary invoking prose
+        # naming no guard at all (Run `flow stage begin`, Run `git push`) in
+        # the prose bucket, where it always lived.
+        else if (base ~ /\.sh$/) print base "\t" lineno >> unknownfile
       }
     }
     # Advance to just past the OPENING backtick of THIS attempt, not past
@@ -636,6 +655,15 @@ function scan_prose(line, lineno,    s, pos, m, start, m2, span, base, restspan,
 
 REQUIRED_FILE="$WORK/required"
 : > "$REQUIRED_FILE"
+
+# CITE_UNKNOWN_FILE — invoking-position basenames matching no known guard
+# (KAN-530 F6), one `<basename>\t<lineno>` row per hit, appended by the
+# CITATION_AWK pass below. Appended, never truncated, because the awk runs
+# once per skill .md file and each fresh process would truncate a `>`-opened
+# file on its first write, silently keeping only the last file's rows — the
+# same silent-partial-report class of defect this guard exists to refuse.
+CITE_UNKNOWN_FILE="$WORK/cite_unknown"
+: > "$CITE_UNKNOWN_FILE"
 
 # DELEGATE_AWK — for a skill that invokes no guard of its own and instead
 # CHAINS another command's stages verbatim (the shape flow-fast had when this
@@ -699,7 +727,7 @@ while IFS= read -r skill_dir; do
       echo "check-guard-symlinks: cannot read $mdfile (rule 2)" >&2
       exit 2
     fi
-    if ! awk -v guardfile="$GUARD_SET_FILE" "$CITATION_AWK" < "$mdfile" > "$WORK/cite_out" 2>"$WORK/cite_err"; then
+    if ! awk -v guardfile="$GUARD_SET_FILE" -v unknownfile="$CITE_UNKNOWN_FILE" "$CITATION_AWK" < "$mdfile" > "$WORK/cite_out" 2>"$WORK/cite_err"; then
       echo "check-guard-symlinks: awk failed scanning $mdfile for rule 2" >&2
       cat "$WORK/cite_err" >&2
       exit 2
@@ -713,6 +741,19 @@ while IFS= read -r skill_dir; do
       [ -n "$guard" ] || continue
       printf '%s\t%s\t%s\t%s\n' "$skill" "$guard" "$mdfile" "$lineno" >> "$REQUIRED_FILE"
     done < "$WORK/cite_out"
+    # KAN-530 F6 — an invoked basename matching no known guard is a violation
+    # at its citing line, through the ordinary violation channel and the
+    # ordinary exit 1, exactly like a missing symlink for a known one: the
+    # whole point is that a typo'd guard name fails the run instead of
+    # quietly shrinking this skill's coverage count.
+    while IFS="$(printf '\t')" read -r ubase ulnno; do
+      [ -n "$ubase" ] || continue
+      violation "$mdfile" "$ulnno" "$ubase is invoked here, but no guard named $ubase exists in this repository's scripts/ — a typo'd guard basename silently drops out of the required set; fix the name or ship the guard (rule 2)"
+    done < "$CITE_UNKNOWN_FILE"
+    # This file's rows are now reported; drain the file so the next skill's
+    # .md does not re-report them — each row is reported exactly once, at its
+    # own citing file and line, which is what the loop above exists to keep.
+    : > "$CITE_UNKNOWN_FILE"
 
     if ! awk "$DELEGATE_AWK" < "$mdfile" > "$WORK/delegate_out" 2>"$WORK/delegate_err"; then
       echo "check-guard-symlinks: awk failed scanning $mdfile for delegation" >&2
