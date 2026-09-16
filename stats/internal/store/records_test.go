@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -3403,5 +3404,223 @@ func TestListFindingPatternOccurrencesRefusesSeparatorsOnly(t *testing.T) {
 	// nothing about what it refused (round-1 F11).
 	if !strings.Contains(err.Error(), `"!!! --- !!!"`) {
 		t.Errorf("err = %v, want it to quote the caller input verbatim", err)
+	}
+}
+
+// TestEndDispatchWritesReportedTokensIntoBag pins the KAN-525 write end to
+// end against a real database: an end carrying a caller's TokenReport
+// stores it under the bag's "tokens.main" and stamps the row "reported" --
+// the two facts the ledger's caller-reported qualifier and CostStatusOf's
+// counted-as-measured rule both read.
+func TestEndDispatchWritesReportedTokensIntoBag(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-dispatch-tokens-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const (
+		token = "ff-kan525-end-tokens"
+		key   = "inline-implementer"
+	)
+	begin := baseBeginInput(projectKey, "kan-1", "/flow-fast", "inline implementation")
+	begin.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	dispatch := baseDispatch("implementer", "sonnet")
+	dispatch.SessionToken = token
+	dispatch.Key = key
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", dispatch); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: token,
+		Key:          key,
+		Outcome:      "completed",
+		EndedAt:      dispatch.StartedAt.Add(time.Minute),
+		Tokens:       &records.TokenReport{Input: 1234, Output: 567, CacheRead: 89, CacheCreation: 12},
+	}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Dispatches) != 1 {
+		t.Fatalf("RunRecord returned %d dispatches, want 1", len(rec.Dispatches))
+	}
+	var bag map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Dispatches[0].Metrics, &bag); err != nil {
+		t.Fatalf("decode metrics bag: %v\nbag: %s", err, rec.Dispatches[0].Metrics)
+	}
+	main, ok := bag["tokens"]
+	if !ok {
+		t.Fatalf("bag carries no tokens key after a reported end: %s", rec.Dispatches[0].Metrics)
+	}
+	// Decoded, never byte-for-byte: the jsonb round trip reorders keys.
+	var tokens struct {
+		Main map[string]float64 `json:"main"`
+	}
+	if err := json.Unmarshal(main, &tokens); err != nil {
+		t.Fatalf("decode tokens: %v\nbag: %s", err, main)
+	}
+	wantMain := map[string]float64{"input": 1234, "output": 567, "cache_read": 89, "cache_creation": 12}
+	if !reflect.DeepEqual(tokens.Main, wantMain) {
+		t.Errorf("tokens.main = %v, want %v", tokens.Main, wantMain)
+	}
+	var reported bool
+	if err := json.Unmarshal(bag["reported"], &reported); err != nil {
+		t.Fatalf("decode reported: %v\nbag: %s", err, rec.Dispatches[0].Metrics)
+	}
+	if !reported {
+		t.Errorf("reported = %v, want true -- the stamp is what tells the ledger whose statement the figures are", reported)
+	}
+}
+
+// TestEndDispatchTokenReplayIsIdempotent pins WHY the report is written as
+// a replace and never a deep-add: a journalled end whose response was lost
+// is replayed carrying the identical report, and an add would sum it onto
+// itself, doubling the one figure the whole change exists to record. The
+// test also merges a harvest-shaped sidechain batch before the ends and
+// pins it unchanged through them -- the replace is scoped to tokens.main,
+// because the harvester's own figures must never be a casualty of the
+// caller's.
+func TestEndDispatchTokenReplayIsIdempotent(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-dispatch-tokens-replay-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const (
+		token = "ff-kan525-end-tokens-replay"
+		key   = "inline-verifier"
+	)
+	begin := baseBeginInput(projectKey, "kan-1", "/flow-fast", "inline implementation")
+	begin.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	dispatch := baseDispatch("verifier", "sonnet")
+	dispatch.SessionToken = token
+	dispatch.Key = key
+	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", dispatch)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	// A harvest batch the way internal/harvest's second attribution pass
+	// sends one: a sidechain delta that jsonb_deep_add sums into the bag.
+	sidechain := `{"tokens":{"sidechain":{"input":10,"output":5,"cache_creation":0,"cache_read":0,"thinking":0}}}`
+	if err := st.MergeDispatchMetrics(ctx, row.ID, json.RawMessage(sidechain)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+
+	report := &records.TokenReport{Input: 500, Output: 200, CacheRead: 30, CacheCreation: 0}
+	end := records.DispatchEnd{
+		SessionToken: token,
+		Key:          key,
+		Outcome:      "completed",
+		EndedAt:      dispatch.StartedAt.Add(time.Minute),
+		Tokens:       report,
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+	// The replay: the same end, the same report, the same key.
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
+		t.Fatalf("replayed EndDispatch: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	// Both buckets compared decoded, never byte-for-byte: the jsonb round
+	// trip reorders keys, and the fact pinned here is the value, not
+	// Postgres's formatting of it.
+	var bag struct {
+		Tokens struct {
+			Main      map[string]float64 `json:"main"`
+			Sidechain map[string]float64 `json:"sidechain"`
+		} `json:"tokens"`
+		Reported bool `json:"reported"`
+	}
+	if err := json.Unmarshal(rec.Dispatches[0].Metrics, &bag); err != nil {
+		t.Fatalf("decode metrics bag: %v\nbag: %s", err, rec.Dispatches[0].Metrics)
+	}
+	wantMain := map[string]float64{"input": 500, "output": 200, "cache_read": 30, "cache_creation": 0}
+	if !reflect.DeepEqual(bag.Tokens.Main, wantMain) {
+		t.Errorf("tokens.main = %v, want %v -- a replayed end must replace, never add, or the replay doubles the report", bag.Tokens.Main, wantMain)
+	}
+	wantSidechain := map[string]float64{"input": 10, "output": 5, "cache_creation": 0, "cache_read": 0, "thinking": 0}
+	if !reflect.DeepEqual(bag.Tokens.Sidechain, wantSidechain) {
+		t.Errorf("tokens.sidechain = %v, want %v -- the caller's report must never overwrite what the harvester measured", bag.Tokens.Sidechain, wantSidechain)
+	}
+	if !bag.Reported {
+		t.Errorf("reported = false, want true after the replay too")
+	}
+}
+
+// TestEndDispatchWithoutTokensLeavesBagUntouched pins the guard on the
+// jsonb_set chain: an end that carries no report writes the metrics column
+// not at all, so the ordinary subagent dispatch's bag -- whatever the
+// harvester has made of it by close time -- survives the end verbatim.
+func TestEndDispatchWithoutTokensLeavesBagUntouched(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-dispatch-no-tokens-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const (
+		token = "ff-kan525-end-no-tokens"
+		key   = "panel-primary"
+	)
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	begin.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	dispatch := baseDispatch("reviewer", "opus")
+	dispatch.SessionToken = token
+	dispatch.Key = key
+	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", dispatch)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	harvested := `{"tokens":{"sidechain":{"input":7,"output":3,"cache_creation":0,"cache_read":0,"thinking":0}}}`
+	if err := st.MergeDispatchMetrics(ctx, row.ID, json.RawMessage(harvested)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: token,
+		Key:          key,
+		Outcome:      "completed",
+		EndedAt:      dispatch.StartedAt.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	// Compared decoded, never byte-for-byte: the jsonb round trip reorders
+	// keys, and the fact this test pins is that the bag holds the same
+	// value, not that Postgres formats it the way the test does.
+	var got, want any
+	if err := json.Unmarshal(rec.Dispatches[0].Metrics, &got); err != nil {
+		t.Fatalf("decode stored bag: %v\nbag: %s", err, rec.Dispatches[0].Metrics)
+	}
+	if err := json.Unmarshal([]byte(harvested), &want); err != nil {
+		t.Fatalf("decode expected bag: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("metrics = %s, want %s -- an end without a report must leave the bag verbatim", rec.Dispatches[0].Metrics, harvested)
 	}
 }

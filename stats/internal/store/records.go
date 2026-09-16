@@ -367,11 +367,51 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 // records a non-blocked outcome with no cause clears a stale cause, and a
 // row never goes on claiming a block its outcome no longer reports
 // (KAN-510).
+//
+// A caller-reported token report (KAN-525) is written into the bag in the
+// same statement, when in.Tokens is non-nil: "tokens.main" is set to the
+// marshalled report and the top-level "reported" stamp to true, and where
+// there is no report the parameter is a real NULL so the whole expression
+// resolves to d.metrics unchanged. REPLACE, never jsonb_deep_add: a
+// journalled end whose response was lost is replayed carrying the
+// identical report, and an add would sum it onto itself -- doubling the
+// one figure this write exists to record -- where a replace is idempotent
+// under the replay the key system already promises. The report lands
+// through a top-level || merge rather than a jsonb_set('{tokens,main}')
+// path deliberately: jsonb_set creates only a path's last element, so on
+// the empty bag an inline dispatch starts from it would silently write
+// nothing -- while || over COALESCE(metrics->'tokens', '{}') both creates
+// the tokens object and preserves a sidechain bucket the harvester may
+// already have written, which the caller's report must never be a
+// casualty of.
 func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
+	// Held as a string, never a []byte: pgx binds a []byte as bytea, and a
+	// bytea reaching the statement's tokens cast reads as NULL -- the
+	// report would silently vanish and only the "reported" stamp would
+	// land. A string binds as text, which the cast reads. Where there is
+	// no report the parameter is a real NULL, never an empty string, since
+	// ''::jsonb is invalid input rather than absence.
+	var reportParam any
+	if in.Tokens != nil {
+		b, err := json.Marshal(in.Tokens)
+		if err != nil {
+			return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: marshal token report: %w", in.Key, projectKey, change, err)
+		}
+		reportParam = string(b)
+	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
 		SET commit_sha = $5, outcome = $6, ended_at = $7, agent_id = COALESCE($8, d.agent_id),
-		    cause = $9
+		    cause = $9,
+		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
+		               ELSE jsonb_set(
+		                     d.metrics || jsonb_build_object(
+		                       'tokens',
+		                       COALESCE(d.metrics->'tokens', '{}'::jsonb)
+		                         || jsonb_build_object('main', $10::text::jsonb)
+		                     ),
+		                     '{reported}', 'true'::jsonb)
+		       END
 		FROM changes c
 		WHERE c.id = d.change_id AND c.project_key = $1 AND c.name = $2
 		  AND d.session_token = $3 AND d.dispatch_key = $4
@@ -379,6 +419,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		projectKey, change, in.SessionToken, in.Key,
 		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
 		nullIfEmpty(in.Cause),
+		reportParam,
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
