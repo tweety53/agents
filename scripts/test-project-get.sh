@@ -44,6 +44,30 @@ write_cfg_bom() {
   printf '\xef\xbb\xbf%s\n' "$1" > "$CFG"
 }
 
+# gitt — git pinned to the fixture: this machine's global and system git
+# config is isolated away, so a hostile commit.gpgsign or a failing global
+# hook cannot kill a fixture build (which would otherwise die silently —
+# the harness would exit before any case ran).
+gitt() {
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git "$@"
+}
+
+# new_git_root <config-text> — new_root plus a real git repository whose HEAD
+# carries .flow/project.md, so the script's HEAD resolution has a HEAD to
+# read. Identity is pinned per commit; no global git state is touched. A
+# fixture commit that fails is a loud harness failure, never a silent exit.
+new_git_root() {
+  new_root
+  write_cfg "$1"
+  gitt -C "$ROOT" init -q >/dev/null 2>&1
+  gitt -C "$ROOT" add .flow/project.md
+  gitt -C "$ROOT" -c user.name=project-get-test -c user.email=project-get-test@example.com \
+    commit -q -m cfg || {
+    echo "FAIL: git fixture commit failed — the harness cannot build its own fixture; rerun with 'bash -x' for the git error" >&2
+    exit 1
+  }
+}
+
 # run_get <arg...> -> sets RC and OUT to the real script's exit code and
 # combined stdout+stderr.
 run_get() {
@@ -222,6 +246,115 @@ if [ "$GOT_BYTES" = "5" ]; then
 else
   fail "case 10: expected 5 bytes ('body\\n'), got $GOT_BYTES bytes"
 fi
+
+# ===========================================================================
+# Cases 11-15: HEAD resolution (KAN-520). When the project root sits inside a
+# git work tree and HEAD carries .flow/project.md, the key resolves from
+# HEAD's copy — a staged-but-uncommitted edit in the working tree must not
+# silently override the landed value (the kan-512 run-2 incident) — and a
+# working tree diverging from HEAD on the key being resolved draws a loud
+# stderr warning.
+# ===========================================================================
+
+# Case 11: a staged working-tree edit loses to HEAD, and the divergence is
+# named loudly.
+new_git_root "## lint
+
+value-a"
+printf '%s\n' "## lint
+
+value-b" > "$CFG"
+gitt -C "$ROOT" add .flow/project.md
+run_get "$ROOT" lint
+assert_rc "case 11" 0
+assert_out_contains "case 11" "value-a"
+assert_out_contains "case 11" "diverges from HEAD"
+case "$OUT" in
+  *"value-b"*) fail "case 11: HEAD must win, but the working tree's value leaked into the output" ;;
+  *) pass "case 11: working tree's divergent value absent" ;;
+esac
+
+# Case 12: a working tree matching HEAD resolves silently and byte-identical
+# to the old behavior.
+new_git_root "## lint
+
+value-a"
+run_get "$ROOT" lint
+assert_rc "case 12" 0
+if [ "$OUT" = "value-a" ]; then
+  pass "case 12: silent when the working tree matches HEAD"
+else
+  fail "case 12: expected exactly 'value-a' with no warning, got: $OUT"
+fi
+
+# Case 13: a config HEAD does not carry yet (untracked, nothing committed)
+# still resolves from the working tree, silently.
+new_root
+write_cfg "## lint
+
+value-b"
+gitt -C "$ROOT" init -q >/dev/null 2>&1
+run_get "$ROOT" lint
+assert_rc "case 13" 0
+if [ "$OUT" = "value-b" ]; then
+  pass "case 13: untracked config falls back to the working tree"
+else
+  fail "case 13: expected exactly 'value-b' with no warning, got: $OUT"
+fi
+
+# Case 14: a working-tree file deleted after HEAD carried it still resolves —
+# from HEAD, not as the old exit 1.
+new_git_root "## lint
+
+value-a"
+rm -f "$CFG"
+run_get "$ROOT" lint
+assert_rc "case 14" 0
+assert_out_contains "case 14" "value-a"
+
+# Case 15: the ambiguity refusal judges HEAD's copy — HEAD declaring a key
+# twice is exit 2 even though the working tree is unambiguous, since HEAD is
+# the text every other stage reads.
+new_git_root "## lint
+
+first
+
+## lint
+
+second"
+write_cfg "## lint
+
+value-b"
+run_get "$ROOT" lint
+assert_rc "case 15" 2
+
+# ===========================================================================
+# Case 16: ambient GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE exported by a caller
+# (a hook, a rebase --exec) must not hijack which repository's HEAD is read —
+# the script resolves $ROOT's HEAD, never another checkout's.
+# ===========================================================================
+new_git_root "## lint
+
+value-a"
+OTHER="$(mktemp -d "${TMPDIR:-/tmp}/project-get-test.XXXXXX")"
+DIRS+=("$OTHER")
+mkdir -p "$OTHER/.flow"
+printf '## lint\n\nhostile\n' > "$OTHER/.flow/project.md"
+gitt -C "$OTHER" init -q >/dev/null 2>&1
+gitt -C "$OTHER" add .flow/project.md
+gitt -C "$OTHER" -c user.name=project-get-test -c user.email=project-get-test@example.com \
+  commit -q -m hostile >/dev/null 2>&1
+set +e
+OUT="$(env GIT_DIR="$OTHER/.git" GIT_WORK_TREE="$OTHER" GIT_INDEX_FILE="$OTHER/.git/index" \
+  "$BIN" "$ROOT" lint 2>&1)"
+RC=$?
+set -e
+assert_rc "case 16" 0
+assert_out_contains "case 16" "value-a"
+case "$OUT" in
+  *"hostile"*) fail "case 16: ambient git env hijacked HEAD resolution" ;;
+  *) pass "case 16: ambient git env ignored" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
