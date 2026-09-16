@@ -708,6 +708,30 @@ case "$OUT" in
   *) fail "case 35: expected an unlisted-key finding, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 36 (KAN-531 F11): a metacharacter near-miss -stage key is caught. The
+# membership test is `grep -qxF` — fixed-string, whole-line. `flow.kickof.`
+# sits in no Level 1 row, but as an ERE whole-line pattern its trailing `.`
+# matches the final `f` of the listed `flow.kickoff`, so a guard that loses
+# the `-F` reads the near-miss as listed and passes this fixture clean. Every
+# earlier fixture key is metacharacter-free and so behaves identically under
+# both readings — this case is the one that diverges, and fails on exactly
+# that mutant.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+flow stage begin -command '/flow' -stage flow.kickof. -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 36: a metacharacter near-miss -stage key is caught" \
+  || fail "case 36: rc=$RC out=$OUT"
+case "$OUT" in
+  *"flow.kickof."*"not a key in README.md"*) pass "case 36: the finding names the near-miss key" ;;
+  *) fail "case 36: expected an unlisted-key finding, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
