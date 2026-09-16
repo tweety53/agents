@@ -81,7 +81,13 @@
 # REPORT FILE where the plan can proceed, a BLOCKED report where it cannot,
 # because a decision the implementer makes silently is one nobody recorded —
 # at the implementer dispatch in implement.md alone, the same single site
-# PROVE THE GUARD BITES occupies.
+# PROVE THE GUARD BITES occupies. KAN-521 added a thirteenth required
+# paragraph — ENTRY CONTEXT, which gives every panel slot dispatch a named
+# entry context (the diff and the inlined touched-files list, the contracts
+# among them named) so a reviewer's exploration starts scoped instead of from
+# the whole tree, and has the reviewer state the coverage trade explicitly in
+# its report — at the panel slot dispatch in review-panel.md alone, carried
+# into every bundled dispatch by the shared-paragraphs list.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -120,6 +126,7 @@
 #   **NO DELEGATION:**                 skills/flow/implement.md     2   (none)
 #   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
 #   **NO DELEGATION:**                 skills/flow/verify-and-handoff.md 1 (none)
+#   **ENTRY CONTEXT:**                 skills/flow/review-panel.md  1   (none)
 #   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
 #   **REPORT, DON'T DECIDE:**          skills/flow/implement.md     1   (none)
 #
@@ -213,6 +220,13 @@
 #   (kan-488): the parent orchestrates directly and runs brainstorming
 #   inline.
 #
+#   ENTRY CONTEXT shared phrases (no variants — every block carrying the
+#   label must carry all three): "your named entry context", "not from a
+#   whole-tree exploration", "the coverage trade". Required once, at the
+#   panel slot dispatch in review-panel.md — the bundle prompt's
+#   shared-paragraphs list carries it into every bundled dispatch, the same
+#   way REPRODUCE, DON'T READ is carried.
+#
 # A BLOCK is a line carrying a label, plus every immediately-following line
 # that continues the same markdown blockquote (a line beginning with `>`) —
 # i.e. the whole paragraph. A block counts toward a required variant only
@@ -273,6 +287,7 @@ declare -A ENTRY_LABEL=(
   [delegation]="**NO DELEGATION:**"
   [prove]="**PROVE THE GUARD BITES:**"
   [decide]="**REPORT, DON'T DECIDE:**"
+  [entry]="**ENTRY CONTEXT:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
@@ -288,6 +303,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [delegation]="Never call the \`Agent\` tool${US}never spawn a subagent${US}the leaf of this run"
   [prove]="assert on configuration or file content${US}break the property the assertion protects${US}against the broken state"
   [decide]="only the operator can settle${US}reported, never decided in code${US}carry the question in your REPORT FILE${US}report BLOCKED"
+  [entry]="your named entry context${US}not from a whole-tree exploration${US}the coverage trade"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -305,6 +321,7 @@ declare -A ENTRY_VARIANTS=(
   [delegation]=""
   [prove]=""
   [decide]=""
+  [entry]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -317,10 +334,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {
