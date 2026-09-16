@@ -521,8 +521,8 @@ var changeNameAllowed = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // The directories are untracked — .superpowers/ is gitignored — so a
 // rendered record lives with its worktree and is never committed. The
 // suffixes are the ones the retired preserve-session-records.sh passed for
-// each directory, kept so gather-self-review-context.sh's own label for
-// each source keeps matching the file on disk.
+// each directory, kept so the record's name stays the label the self-review
+// bundle and the pipeline's records use for each source.
 var renderKinds = map[string]struct{ dir, suffix string }{
 	"ledger": {filepath.Join(".superpowers", "sdd", "ledgers"), ".md"},
 	"panel":  {filepath.Join(".superpowers", "sdd", "reviews"), "-panel.md"},
@@ -615,8 +615,9 @@ func RenderKind(kind string, run Run) (string, bool) {
 // overwrites in place and a fix round leaves no duplicate; a caller that
 // renders per worktree (the skills render into the canonical worktree only)
 // can no longer mint a second name for the same rows. A legacy dated file
-// is abandoned, not adopted: the one reader, gather-self-review-context.sh,
-// searches the change-keyed name and the render that feeds it is fresh.
+// is abandoned, not adopted: every reader of a change's records — the
+// self-review bundle included — keys on the change, and the render that
+// feeds them is fresh.
 //
 // Destination creates nothing. The caller makes the directory and writes
 // the file, so a render that reports MISSING leaves no empty directory

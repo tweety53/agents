@@ -84,8 +84,9 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
 
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
    at `IN_PROGRESS`. The subject is the fixed literal shown, per **Commit scopes name the module**
-   (`<agents repo>/rules/commit-scope-is-the-module.mdc`). `gather-self-review-context.sh` resolves
-   this commit at step 9 by matching that subject line whole — **reproduce it exactly.**
+   (`<agents repo>/rules/commit-scope-is-the-module.mdc`). The self-review bundle (`flow
+   self-review bundle`, step 9) resolves this commit by matching that subject line whole —
+   **reproduce it exactly.**
 
 ```bash
 flow stage end   -command '/flow' -stage flow.commit-archive -outcome completed <name>
@@ -144,16 +145,15 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
 **Load `skills/flow-contracts/jira-integration.md`.** **Transition the issue to Done** after the state write, per **Jira integration**
 (`skills/flow-contracts/jira-integration.md`). A run that stopped at step 7 transitions nothing.
 
-9. **Run self-review.** The procedure — skippable per run with running it the default, gathering
-   input via a script rather than an inline re-read, one combined reasoning pass across all five
-   angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the branch
-   is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it. What is
-   specific to *executing* it here: `flow record render -change <name> -kind all -repo
-   <landing-worktree>` first, then the script invocation `gather-self-review-context.sh` with
-   `<archived-change-path> <name> <state-dir> <landing-worktree>`, resolving `<archived-change-path>`
-   as `<project>/spectre/changes/archive/<name>/`, physically under `<landing-worktree>` — where
-   step 3 moved it — and passing `<landing-worktree>` as the trust anchor: the fourth argument must
-   be the repository root the archived path is physically under.
+9. **Run self-review.** The procedure — skippable per run with running it the default, fetching
+   input as a served bundle rather than an inline re-read, one combined reasoning pass across all
+   five angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the
+   branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it.
+   What is specific to *executing* it here: `flow self-review bundle -change <name>` fetches the
+   whole bundle — flowd serves the ledger and panel record from the store, reads the archived
+   change's files out of the `chore/archive-<name>` branch of the repository the store records for
+   the change, and derives the finish-run commits' git log — so nothing is rendered into the
+   landing worktree first and no path is passed in.
 
    **Resolve `SELF_REVIEW_MODEL` here, where it is consumed** — `/flow`'s **Model resolution**
    (`skills/flow/SKILL.md`) deliberately does not, since no run that stops before archive reads it:
@@ -199,12 +199,13 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    narrative` (the archived `narrative.md` verbatim, or `narrative.md: absent — change predates
    the narrative rule`, then one paragraph this session writes for run 2 itself), to
    `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`; commit
-   with the report's own landing script, path and subject swapped:
+   with the report's own branch-assert shell, path and subject swapped:
 
    ```bash
-   land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
-     "docs(self-review): <name> self-review context bundle" \
-     docs/self-review/<name>-context.md
+   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
+     && git -C <landing-worktree> add -- docs/self-review/<name>-context.md \
+     && { git -C <landing-worktree> diff --cached --quiet \
+          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review context bundle"; }
    ```
 
    Then straight to the `flow stage end … flow.self-review -outcome completed` mark below; no
@@ -247,9 +248,10 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:
 
    ```bash
-   land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
-     "docs(self-review): <name> self-review report" \
-     docs/self-review/<name>-self-review.md
+   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
+     && git -C <landing-worktree> add -- docs/self-review/<name>-self-review.md \
+     && { git -C <landing-worktree> diff --cached --quiet \
+          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review report"; }
    ```
 
    A branch mismatch or a commit that FAILS is reported and stops this commit. The change stays

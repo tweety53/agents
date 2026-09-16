@@ -111,9 +111,9 @@
 # `setup.sh` installs skills rather than `scripts/` on their own — see that
 # review's Disposition section for the full reasoning, carried forward here
 # rather than re-litigated. Left
-# genuinely single-file, out of this change's scope: gather-self-review-context.sh,
-# which is copied into OTHER projects' own tooling standalone and cannot assume
-# any sibling travels with it.
+# genuinely single-file, out of this change's scope: the since-retired
+# gather-self-review-context.sh, which was copied into OTHER projects' own
+# tooling standalone and could not assume any sibling travels with it.
 #
 # A FENCED EXAMPLE INSIDE THE SECTION IS PARSED AS A REAL TABLE, and that is a
 # known limitation rather than an oversight. This guard carries no fence
@@ -127,8 +127,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # resolve_file — sourced from lib/resolve-file.sh; see that file's header for
-# why this guard, unlike gather-self-review-context.sh, may source a sibling
-# instead of carrying its own copy. "One level above $SCRIPT_DIR" is NOT enough to derive the
+# why this guard, unlike the retired gather-self-review-context.sh, may source
+# a sibling instead of carrying its own copy. "One level above $SCRIPT_DIR" is NOT enough to derive the
 # repository root, because this script is now reachable from more than one
 # directory — its real home at <repo>/scripts/, and a skills/<name>/scripts/
 # symlink a command skill carries it under (prepare-workspace.sh's own call

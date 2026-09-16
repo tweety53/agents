@@ -192,15 +192,18 @@ bare `/flow` is the only command that loads this file.
    the change off `FINISHED`. It is skippable per run, with running it the default. A project's
    `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
    decides without asking when present and valid; the per-run prompt is the absent case.
-   **Whichever option runs, the ledger and panel record are rendered from the store first**, with
-   `flow record render -change <name> -kind all -repo <landing-worktree>`: they land under
-   `<project>/.worktrees/_landing-<name>/.superpowers/sdd/`, where `gather-self-review-context.sh` reads them, and
-   the apply worktree that held the run's own copies is gone since step 5. `MISSING:` for a kind
-   is what the gather reports as that source skipped.
-   `defer` — by key or by the prompt's third option — gathers as below, appends `## design.md`
-   (the archived `design.md` verbatim) and `## Session narrative` (the archived `narrative.md`
-   verbatim, or `narrative.md: absent — change predates the narrative rule`, then one paragraph
-   this session writes for run 2 itself), writes the whole to
+   **Whichever option runs, the session fetches the bundle first**, with
+   `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
+   panel record rendered from the store, the archived `tasks.md`, `design.md` and `narrative.md`
+   read out of the `chore/archive-<name>` branch of the repository the store records for the
+   change, and the `git log --stat` of the implementation, planning and archive commits — and
+   prints it as one Markdown document. A source that is absent is reported
+   `skipped: <source> (absent)` inside the bundle, never fatal; nothing is rendered into the
+   landing worktree first, and no path is passed in.
+   `defer` — by key or by the prompt's third option — fetches the bundle as above, appends
+   `## Session narrative` (one paragraph this session writes for run 2 itself; the archived
+   `narrative.md` is already a bundle section, and a change predating the narrative rule has the
+   bundle report it skipped), writes the whole to
    `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, commits
    it on `chore/archive-<name>` with subject `docs(self-review): <name> self-review context
    bundle`, and runs no reasoning pass; step 10 carries the bundle as it carries the report. The
@@ -213,8 +216,8 @@ bare `/flow` is the only command that loads this file.
    model it is already on — no subagent, no dispatch, no `Model:` handshake, no `opus`
    re-dispatch.** `SELF_REVIEW_MODEL` (step 9, `skills/flow/archive.md`) still
    resolves — the store field, a project override, the `fable` fallback — but governs nothing:
-   there is no dispatch left to send it to. It gathers its
-   input by invoking `gather-self-review-context.sh` rather than re-reading files a second time,
+   there is no dispatch left to send it to. It fetches its
+   input with `flow self-review bundle -change <name>` rather than re-reading files a second time,
    and runs **one** combined reasoning pass covering all five angles below, together with the
    operator's 1-5 rating, never as five separate passes — the same session drives
    `AskUserQuestion` for the filing-and-rating prompt either way.

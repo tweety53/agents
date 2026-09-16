@@ -729,7 +729,7 @@ func TestDestinationNamesTheRecordAfterTheChange(t *testing.T) {
 
 // TestDestinationNamesThePanelRecordWithThePanelSuffix pins the panel
 // record's filename to `<change>-panel.md` under reviews/ -- the suffix
-// gather-self-review-context.sh's own label names.
+// the self-review bundle's panel label names.
 func TestDestinationNamesThePanelRecordWithThePanelSuffix(t *testing.T) {
 	root := t.TempDir()
 

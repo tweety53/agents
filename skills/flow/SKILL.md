@@ -193,7 +193,7 @@ confirm every guard `/flow` can invoke — the full list is the union carried by
 `check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`, `check-panel-findings-closed.sh`, `check-panel-fix-single-dispatch.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `plan-class.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`,
 `check-unfinished-work.sh`, `check-visual-trigger.sh`,
 `check-visual-verification.sh`, `check-workspace-isolation.sh`,
-`check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`, `gather-self-review-context.sh`,
+`check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`,
 `mutate-and-verify.sh`, `plan-dispatch-bundles.sh`, `prepare-archive-branch.sh`, `prepare-workspace.sh`,
 `resolve-base-branch.sh`, `resolve-visual-screenshots.sh` and `run-reproducer.sh` — is present there. A complete set prints nothing;
 any absence prints that section's block once, and the run continues under each guard's own hand-run

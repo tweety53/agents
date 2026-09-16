@@ -66,7 +66,7 @@ fi
 # error. Resolving this script's own symlinks first, and deriving the root
 # from ITS real physical location, gives the same answer regardless of which
 # path invoked it. resolve_file itself is sourced from lib/resolve-file.sh —
-# see that file's header for why this guard, unlike
+# see that file's header for why this guard, unlike the retired
 # gather-self-review-context.sh, may source a sibling instead of carrying
 # its own copy. Sourcing only DEFINES the function; it performs no filesystem
 # walk of its own, so doing it here unconditionally does not reintroduce the
