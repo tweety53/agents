@@ -329,8 +329,22 @@ that conflicts is resolved in place per the **Conflict** bullet of **Sync the br
 base** (`skills/flow-contracts/finish-contract-run1.md`). A push the remote rejects (branch
 protection, a non-fast-forward after the pull) leaves the commit on `plan-<stem>`, and the run
 ends by saying so and naming the commit, the branch and the worktree path, both kept — a
-protected default branch is landed by the operator, never retried around. After a push that succeeded, remove the worktree
-and branch (**The research worktree** above). End by naming the landed commit and the Jira key.
+protected default branch is landed by the operator, never retried around. After a push that succeeded,
+fast-forward the main checkout's local `<default-branch>` so the next session finds the note
+without a pull — the push updated the remote only:
+
+```bash
+if [ "$(git -C <project> symbolic-ref --short HEAD)" = "<default-branch>" ]; then
+  git -C <project> merge --ff-only origin/<default-branch>
+else
+  git -C <project> fetch origin <default-branch>:<default-branch>
+fi
+```
+
+Both forms are fast-forward-only and touch no working-tree file the operator edited; if either
+refuses (the local branch has diverged), say so and leave it — never reset. Then remove the
+worktree and branch (**The research worktree** above). End by naming the landed commit and the
+Jira key.
 
 **Close the session's mark here, whichever way the push went** — the note itself was written
 either way:
