@@ -160,10 +160,18 @@ CHANGE_NAME="${6:-}"
 # read as a plan defect, and costing a rerun one call per task to diagnose
 # (KAN-528). A dotted id is no task either (plan_grammar's DOTTED_ID), so
 # the digit test refuses it from here too, where "task 1.2 not found"
-# would have read as the task missing rather than the argument malformed.
+# would have read as the task missing rather than the argument malformed —
+# with its own remediation line, since the fix for a dotted id is a flat
+# id, not a per-task rerun (panel F4). A leading zero ("01") names no task
+# spectre ever wrote either, and gets the same refusal rather than a
+# "task 01 not found" that reads as the task missing (panel F1).
 case "$TASK_ID" in
-  '' | *[!0-9]*)
+  '' | 0* | *[!0-9.]*)
     could_not_judge "task id argument is not a single flat-integer task id: '$TASK_ID' — a joined multi-task list in one call is the loop-clobber shape; invoke one call per task"
+    exit 2
+    ;;
+  *.*)
+    could_not_judge "task id argument is a dotted id, and a dotted id is no task to spectre: '$TASK_ID' — use the task's own flat integer id"
     exit 2
     ;;
 esac

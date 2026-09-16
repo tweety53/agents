@@ -4054,6 +4054,36 @@ done
   && pass "case 127: one call per task judges each task on its own commit" \
   || fail "case 127: a per-task loop call failed: $LOOP_DETAIL"
 
+# Case 128 (panel F2, round 0): the dotted-id refusal the wrapper's
+# comment advertises is pinned here — a dotted id is no task to spectre,
+# so "1.2" refuses at the boundary with its own remediation line (panel
+# F4: the fix for a dotted id is a flat id, not a per-task rerun), never
+# a "task 1.2 not found" that reads as the task missing.
+run_guard "$REPO" "1.2" "$SHA_BETA"
+[ "$RC" -eq 2 ] && pass "case 128: a dotted task id refuses with rc=2" || fail "case 128: rc=$RC out=$OUT"
+case "$OUT" in
+  *"COULD NOT JUDGE"*"use the task's own flat integer id"*) pass "case 128: names the dotted id and its flat-id remediation" ;;
+  *) fail "case 128: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"not found"*) fail "case 128: the refusal must not read as every task missing" ;;
+  *) pass "case 128: never reads as the tasks missing from the plan" ;;
+esac
+
+# Case 129 (panel F1, round 0): a leading zero never names a task
+# spectre wrote — "01" refuses at the boundary, never reads as task 01
+# missing from the plan.
+run_guard "$REPO" "01" "$SHA_BETA"
+[ "$RC" -eq 2 ] && pass "case 129: a leading-zero task id refuses with rc=2" || fail "case 129: rc=$RC out=$OUT"
+case "$OUT" in
+  *"COULD NOT JUDGE"*"one call per task"*) pass "case 129: names the caller mistake and the per-task rerun" ;;
+  *) fail "case 129: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"not found"*) fail "case 129: the refusal must not read as every task missing" ;;
+  *) pass "case 129: never reads as the tasks missing from the plan" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
