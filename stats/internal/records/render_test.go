@@ -630,6 +630,21 @@ func TestDestinationRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
 	}
 }
 
+// TestValidChangeName pins the exported half of the allowlist: the same
+// names Destination refuses, ValidChangeName reports false, so a caller
+// that never builds a destination still applies the same rule before a
+// change name builds any path or ref.
+func TestValidChangeName(t *testing.T) {
+	for _, name := range []string{"../escape", "a/b", "de*mo", "-leading", ".leading", ""} {
+		if records.ValidChangeName(name) {
+			t.Errorf("ValidChangeName(%q) = true, want false", name)
+		}
+	}
+	if !records.ValidChangeName("kan-258.store_native-1") {
+		t.Errorf("ValidChangeName refused a real change name")
+	}
+}
+
 // TestDestinationRefusesADestinationOutsideTheRepoRoot inherits
 // preserve-session-records.sh's Protection 2. The directories under
 // .superpowers/sdd/ are untracked but writable by anything running in the

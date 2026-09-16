@@ -682,3 +682,11 @@ func containedIn(root, path string) bool {
 	}
 	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
+
+// ValidChangeName reports whether change is a plain change name — the same
+// allowlist Destination enforces before a name builds a render path, and
+// the one every other path a change name flows into must apply before it
+// builds one.
+func ValidChangeName(change string) bool {
+	return changeNameAllowed.MatchString(change)
+}
