@@ -963,3 +963,50 @@ func TestRenderKindPanelWithoutFindingsStillRenders(t *testing.T) {
 		t.Errorf("zero-form panel does not declare findings-total: 0:\n%s", body)
 	}
 }
+
+// TestTokenLineMarksCallerReported pins the third provenance a token line
+// can carry (KAN-525): a bag the store wrote from a caller's own -tokens
+// report carries `reported: true`, and the ledger renders the figures with
+// a caller-reported qualifier -- the reader must be able to tell a
+// self-reported figure from a transcript-harvested one, the same rule the
+// apportioned qualifier exists for. A reported stamp without figures is
+// contradictory input and qualifies nothing, the apportioned rule again.
+func TestTokenLineMarksCallerReported(t *testing.T) {
+	t.Run("figures qualify", func(t *testing.T) {
+		out := records.RenderLedger(records.Run{
+			Change: "demo",
+			Dispatches: []records.Dispatch{{
+				Seq: 1, Role: "implementer", Model: "sonnet",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+				Metrics:   json.RawMessage(`{"tokens":{"main":{"input":1234,"output":567,"cache_read":89,"cache_creation":12}},"reported":true}`),
+			}},
+		})
+
+		want := "- Tokens: input 1234, output 567, cache read 89, cache creation 12 — caller-reported\n"
+		if !strings.Contains(out, want) {
+			t.Errorf("a reported dispatch must render its figures with the caller-reported qualifier %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+		}
+		if strings.Contains(out, "not measured") {
+			t.Errorf("a reported dispatch is measured:\n%s", out)
+		}
+	})
+
+	t.Run("no figures qualify nothing", func(t *testing.T) {
+		out := records.RenderLedger(records.Run{
+			Change: "demo",
+			Dispatches: []records.Dispatch{{
+				Seq: 1, Role: "implementer", Model: "sonnet",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+				Metrics:   json.RawMessage(`{"reported":true}`),
+			}},
+		})
+
+		want := "- Tokens: not measured\n"
+		if !strings.Contains(out, want) {
+			t.Errorf("a reported stamp without figures must render %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+		}
+		if strings.Contains(out, "caller-reported") {
+			t.Errorf("a qualifier must never render without figures to qualify:\n%s", out)
+		}
+	})
+}

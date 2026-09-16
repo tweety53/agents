@@ -266,6 +266,13 @@ type dispatchMetrics struct {
 	Tokens       *tokenTotals      `json:"tokens"`
 	Unattributed *unattributed     `json:"unattributed"`
 	Apportioned  *apportionedDelta `json:"apportioned"`
+	// Reported is the KAN-525 provenance stamp the store writes beside a
+	// caller-reported token figure (`flow record dispatch end -tokens`):
+	// the harvester never sets it, so it is the one fact that tells a
+	// self-reported inline dispatch's line from a transcript-harvested
+	// one. A pointer so a bag no producer stamped carries no key at all,
+	// the same shape the other three fields take.
+	Reported *bool `json:"reported"`
 }
 
 // apportionedDelta is the bag's "apportioned" object: the
@@ -407,6 +414,9 @@ func tokenLine(raw json.RawMessage) string {
 			sum(t.Main.CacheCreation, t.Sidechain.CacheCreation))
 		if m.Apportioned != nil && m.Apportioned.Records > 0 {
 			line += fmt.Sprintf(" — %d records apportioned across concurrent dispatches", m.Apportioned.Records)
+		}
+		if m.Reported != nil && *m.Reported {
+			line += " — caller-reported"
 		}
 		return line
 	}
