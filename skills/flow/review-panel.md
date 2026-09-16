@@ -479,7 +479,7 @@ one path each**, naming its absolute path alongside `final-review.diff`:
 `git diff --name-status <merge-base>` under a `# worktree: <path> — merge base <sha>` header of
 its own — the same sectioning the diff file uses. The paths under `skills/flow-contracts/` in
 that list are the change's **named contracts**. A diff-reading re-run computes the list from the
-delta's own range instead — `git diff <held-sha> HEAD` per worktree — so the named context
+delta's own range instead — `git diff --name-status <held-sha> HEAD` per worktree — so the named context
 narrows with the read.
 
 ### No forking, and a wall-clock ceiling on every slot
