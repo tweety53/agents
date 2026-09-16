@@ -199,13 +199,12 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    narrative` (the archived `narrative.md` verbatim, or `narrative.md: absent — change predates
    the narrative rule`, then one paragraph this session writes for run 2 itself), to
    `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`; commit
-   with the report's own branch-assert shell, path and subject swapped:
+   with the report's own landing script, path and subject swapped:
 
    ```bash
-   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
-     && git -C <landing-worktree> add -- docs/self-review/<name>-context.md \
-     && { git -C <landing-worktree> diff --cached --quiet \
-          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review context bundle"; }
+   land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
+     "docs(self-review): <name> self-review context bundle" \
+     docs/self-review/<name>-context.md
    ```
 
    Then straight to the `flow stage end … flow.self-review -outcome completed` mark below; no
@@ -248,10 +247,9 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:
 
    ```bash
-   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
-     && git -C <landing-worktree> add -- docs/self-review/<name>-self-review.md \
-     && { git -C <landing-worktree> diff --cached --quiet \
-          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review report"; }
+   land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
+     "docs(self-review): <name> self-review report" \
+     docs/self-review/<name>-self-review.md
    ```
 
    A branch mismatch or a commit that FAILS is reported and stops this commit. The change stays
