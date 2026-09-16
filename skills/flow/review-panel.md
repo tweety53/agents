@@ -838,7 +838,14 @@ A slot that supplies nothing for a finding has not supplied a legal exemption: r
 as its own open finding.
 
 **Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
-constraints and require it now to exit **0**. **The parent runs these re-runs itself, in its own
+constraints, carrying `--pre-fix-exit <that finding's dispatch-time verdict>` — the code that
+finding's dispatch-time run printed, always `0` or `1`: a run that answered `2`, `3` or `4`
+refused, went unverifiable, or stopped before any dispatch, so nothing re-runs for it — and
+require the reproducer now to exit **0**, which the script answers **1**. The flag makes the
+script refuse (exit 2) a reproducer whose verdict here is identical to its pre-fix verdict —
+ambiguous under either exit-code convention, the expected one named in the script's message — so
+an ambiguous reproducer is recorded unverifiable and put to the operator rather than read as an
+unfinished fix. **The parent runs these re-runs itself, in its own
 Bash calls — never a "verify fixes" reader or any other subagent** (**Dispatch sites — the
 parent's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
