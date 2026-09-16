@@ -1087,6 +1087,17 @@ the run hands back to the operator, one finding at a time:
 
 Only that answer records `withdrawn`, and only with the reason the operator gives.
 
+**A fix round closes on a clean re-run, never on its own verification.** The reproducer re-runs
+and the fix-diff path check above close the findings that fix addressed; they never close the
+panel. After a round whose fix landed on the branch — every `panel-fix` chunk, or the parent's own
+inline fix — the delta re-run the rules above trigger runs before the close guards below do, and
+the stage may close only when that re-run raised no new finding at any severity; an empty-delta
+re-run whose slots were recorded `not re-run — nothing new since its last read` counts as clean.
+The last round before the stage close is always one of two shapes: a pass 1 that raised nothing,
+or a re-run that raised nothing. A re-run that finds a fix incomplete — kan-512's round 1 catching
+task 10's own correction as F4, fixed as task 11 — opens the next fix round under the rules above,
+and the cycle repeats until a re-run comes back clean.
+
 **Before closing the stage**, the parent runs both close guards itself, never a subagent:
 
 ```bash
