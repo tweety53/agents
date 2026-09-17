@@ -57,7 +57,10 @@ UI-test stack below for what an automated stage uses instead.
 **The UI-test stack**, for ad-hoc testing from the main checkout rather than from an apply worktree:
 `make ui-test-up` and `make ui-test-down` (`stats/Makefile`) bring a second, disposable `flowd` up
 on port 4174 against `flow_uitest`, seeded with a fixed fixture, and tear it down again. Point a
-session at it with `FLOW_ADDR=http://127.0.0.1:4174`. Neither target is isolated by the
+session at it with `FLOW_ADDR=http://127.0.0.1:4174` and
+`FLOW_RECORDS_ADDR=http://127.0.0.1:4174` — the record family resolves its own address (see the
+isolation section below), so pointing only `FLOW_ADDR` at 4174 leaves `flow record` reads on the
+protected daemon. Neither target is isolated by the
 `## workspace isolation` section below — that section covers apply worktrees, and this stack is a
 single, main-checkout-only fixture instead.
 
@@ -354,6 +357,15 @@ rolls) rather than running as this run would without the toggle.
 | `database` | `FLOWD_DSN` | `postgres://flow:flow@localhost:5433/flow?sslmode=disable` | `postgres://flow:flow@localhost:5433/flow_<id_underscored>?sslmode=disable` |
 | `port` | `FLOWD_PORT` | `4173` | `+<offset>` |
 | `url` | `FLOW_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:<value:FLOWD_PORT>` |
+| `url` | `FLOW_RECORDS_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:4173` |
+
+**The `FLOW_RECORDS_ADDR` row is deliberately not isolated, and its token-free workspace cell is
+the statement of that.** The record family (`flow record`, `flow self-review bundle`) resolves
+its store address from it, so an apply worktree's dispatch and finding rows land in the
+persistent store the main checkout serves, and a deferred self-review bundle still finds them
+after `scripts/workspace.sh remove` has dropped the `database` row's resource — the exact loss
+kan-468's incomplete bundle reported. The cell could not use the `database` word: that row is
+taken, and cleanup removes what it names — the persistent store must never be a removal target.
 
 | Command | Runs |
 |---------|------|
