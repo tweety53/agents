@@ -381,6 +381,33 @@ install_rules_zcode() {
   echo "  ✓ generated agent-baseline.md (paths rewritten to ~/.zcode)"
 }
 
+# warn_unregistered_hook <config-file> <hook-identifier> <label> [warning-line...]
+# The one per-hook registration check and warning that install_hooks and
+# install_hooks_zcode share: grep <config-file> for <hook-identifier> and, when the
+# hook is not registered — including when the config file does not exist yet — print
+# a blank line, each warning-line, the registration snippet read from stdin, and a
+# closing blank line. A registered hook prints nothing, so a caller whose hooks are
+# all registered needs no early return of its own.
+#
+# `set -e` is on, so grep's normal "no match" (rc 1) must not be allowed to kill the
+# run — the status is captured instead of tested inline, then require_grep_ok rejects
+# only a real grep failure (rc ≥ 2), the same way every other caller in this script
+# does. The helper itself always returns 0: the printed warning is the user's whole
+# remedy, and "unregistered" must never fail the install.
+warn_unregistered_hook() {
+  local config="$1" identifier="$2" label="$3" rc=1
+  shift 3
+  if [[ -f "$config" ]]; then
+    rc=0
+    grep -q "$identifier" "$config" || rc=$?
+    require_grep_ok "$rc" "checking $config for the $label hook"
+  fi
+  (( rc == 0 )) && return 0
+  printf '%s\n' "" "$@"
+  cat
+  printf '\n'
+}
+
 # install_hooks_zcode <zcode-dir>
 # Same contract as install_hooks: link the hook files, report on registration, never
 # edit the JSON. ZCode's registration target differs from Claude's twice over — it is
@@ -399,22 +426,10 @@ install_hooks_zcode() {
     link_into "$hook_file" "$zcode_dir/hooks/$hook_name" "$hook_name"
   done
   config="$zcode_dir/cli/config.json"
-  local baseline_rc=1 active_change_rc=1
-  if [[ -f "$config" ]]; then
-    baseline_rc=0
-    grep -q 'enforce-agent-baseline' "$config" || baseline_rc=$?
-    require_grep_ok "$baseline_rc" "checking $config for the agent-baseline hook"
-    active_change_rc=0
-    grep -q 'flow-active-change' "$config" || active_change_rc=$?
-    require_grep_ok "$active_change_rc" "checking $config for the flow-active-change hook"
-    (( baseline_rc == 0 && active_change_rc == 0 )) && return 0
-  fi
-  if (( baseline_rc != 0 )); then
-    echo ""
-    echo "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces"
-    echo "    that subagent dispatches carry the rules. Register it in $config under the"
-    echo "    top-level \"hooks\" key (note: enabled must be true, events nested one level down):"
-    cat <<'SNIPPET'
+  warn_unregistered_hook "$config" enforce-agent-baseline agent-baseline \
+    "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces" \
+    "    that subagent dispatches carry the rules. Register it in $config under the" \
+    "    top-level \"hooks\" key (note: enabled must be true, events nested one level down):" <<'SNIPPET'
 
   {
     "enabled": true,
@@ -427,15 +442,11 @@ install_hooks_zcode() {
     }
   }
 SNIPPET
-    echo ""
-  fi
-  if (( active_change_rc != 0 )); then
-    echo ""
-    echo "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem"
-    echo "    report is never named as a fix of the open change. Register it in $config under the"
-    echo "    top-level \"hooks\" key, beside PreToolUse (enabled must be true, events nested one"
-    echo "    level down):"
-    cat <<'SNIPPET'
+  warn_unregistered_hook "$config" flow-active-change flow-active-change \
+    "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem" \
+    "    report is never named as a fix of the open change. Register it in $config under the" \
+    "    top-level \"hooks\" key, beside PreToolUse (enabled must be true, events nested one" \
+    "    level down):" <<'SNIPPET'
 
   {
     "enabled": true,
@@ -448,8 +459,6 @@ SNIPPET
     }
   }
 SNIPPET
-    echo ""
-  fi
 }
 
 # install_zcode_env <home-dir>
@@ -526,28 +535,10 @@ install_hooks() {
     hook_name=$(basename "$hook_file")
     link_into "$hook_file" "$claude_dir/hooks/$hook_name" "$hook_name"
   done
-  # `set -e` is on, so grep's normal "no match" (rc 1) must not be allowed to kill the run —
-  # capture the status instead of testing it inline, then let require_grep_ok reject only a
-  # real grep failure (rc ≥ 2), the same way every other caller in this script does.
   settings="$claude_dir/settings.json"
-  local baseline_rc=1 active_change_rc=1 protect_rc=1
-  if [[ -f "$settings" ]]; then
-    baseline_rc=0
-    grep -q 'enforce-agent-baseline' "$settings" || baseline_rc=$?
-    require_grep_ok "$baseline_rc" "checking $settings for the agent-baseline hook"
-    active_change_rc=0
-    grep -q 'flow-active-change' "$settings" || active_change_rc=$?
-    require_grep_ok "$active_change_rc" "checking $settings for the flow-active-change hook"
-    protect_rc=0
-    grep -q 'protect-main-checkout' "$settings" || protect_rc=$?
-    require_grep_ok "$protect_rc" "checking $settings for the protect-main-checkout hook"
-    (( baseline_rc == 0 && active_change_rc == 0 && protect_rc == 0 )) && return 0
-  fi
-  if (( baseline_rc != 0 )); then
-    echo ""
-    echo "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces"
-    echo "    that subagent dispatches carry the rules. Add this to \"hooks\" in $settings:"
-    cat <<'SNIPPET'
+  warn_unregistered_hook "$settings" enforce-agent-baseline agent-baseline \
+    "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces" \
+    "    that subagent dispatches carry the rules. Add this to \"hooks\" in $settings:" <<'SNIPPET'
 
     "PreToolUse": [
       {
@@ -558,13 +549,9 @@ install_hooks() {
       }
     ]
 SNIPPET
-    echo ""
-  fi
-  if (( active_change_rc != 0 )); then
-    echo ""
-    echo "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem"
-    echo "    report is never named as a fix of the open change. Add this to \"hooks\" in $settings:"
-    cat <<'SNIPPET'
+  warn_unregistered_hook "$settings" flow-active-change flow-active-change \
+    "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem" \
+    "    report is never named as a fix of the open change. Add this to \"hooks\" in $settings:" <<'SNIPPET'
 
     "UserPromptSubmit": [
       {
@@ -574,14 +561,10 @@ SNIPPET
       }
     ]
 SNIPPET
-    echo ""
-  fi
-  if (( protect_rc != 0 )); then
-    echo ""
-    echo "  ⚠ The protect-main-checkout hook is installed but NOT registered, so nothing yet stops"
-    echo "    an agent editing, staging or committing in a main checkout on its default branch."
-    echo "    Add this entry to \"PreToolUse\" in $settings:"
-    cat <<'SNIPPET'
+  warn_unregistered_hook "$settings" protect-main-checkout protect-main-checkout \
+    "  ⚠ The protect-main-checkout hook is installed but NOT registered, so nothing yet stops" \
+    "    an agent editing, staging or committing in a main checkout on its default branch." \
+    "    Add this entry to \"PreToolUse\" in $settings:" <<'SNIPPET'
 
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
@@ -590,8 +573,6 @@ SNIPPET
         ]
       }
 SNIPPET
-    echo ""
-  fi
 }
 
 install_commands() {
