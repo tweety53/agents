@@ -800,7 +800,12 @@ and 13 below as written, committing and pushing nothing.
     kept two dead citations. The report block below keeps its absolute paths: it is the live
     run's handoff, not the committed record.
 12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
-    them; with none declared, commit to the change's own branch instead. **Resolve the
+    them; with none declared, commit to the change's own branch instead. **The commit is
+    pathspec-scoped** — `git commit -m "<subject>" -- <the spec, its PNGs, <changeRoot>/visual-verification/>` —
+    carrying only what this stage wrote, never a bare `git commit`: the index of a main checkout
+    may carry a pre-staged foreign tree, and kan-469's plain commit swept ~130 such files into a
+    baselines commit (**A commit a run instructs defaults to the pathspec-scoped form**,
+    `skills/flow-contracts/git-boundaries.md`). **Resolve the
     `regression checkout` root the same way every other declared app root in this file is
     resolved** — from `git worktree list` in that repository, or the state file's `worktrees`
     map, per **Roots in `## apps` are main checkouts** (`skills/flow-contracts/project-configuration.md`) <!-- refs-guard:allow -->
