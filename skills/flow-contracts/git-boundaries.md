@@ -65,6 +65,15 @@ its own `add` after the exclude, guarded so a `link.md`-less change still commit
 
 `git add -A` respects `<project>/.gitignore`. Never force-add.
 
+**A commit a run instructs defaults to the pathspec-scoped form.** `git commit -m "<subject>" -- <paths>`:
+the commit carries only the paths it names, whatever else the index holds. A plain commit takes
+the whole staged tree with it — kan-469's visual-verify step swept a ~130-file pre-staged foreign
+tree into a baselines commit in a main checkout, and kan-468 lost task commits to staged planning
+artifacts the same way — so wherever a run's instructions know the paths a commit should carry,
+the commit names them. The guarded two-commit chain below is the deliberate exception: its
+`add -A` is what picks up operator edits and new files at the human gate, which a
+pathspec-scoped commit would drop.
+
 **Both commits are guarded, and an empty one is skipped rather than failed.** Each commit is
 preceded by a staged-changes test, and the whole sequence is one `&&` chain, run as a single
 command. See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale.md`) for the ordinary
