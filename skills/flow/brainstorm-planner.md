@@ -305,6 +305,13 @@ older plan parses unchanged — the planner never relies on that inference. Name
 tasks this one's own files depend on, `none` when there are none, and write it consistently
 across a `**Squash-with:**` pair (union semantics merge the pair into one bundle).
 
+**A task cites the decision it implements, never restates it.** When a task exists to implement
+an entry of design.md's `## Decisions`, it names that entry by its `**ID:**` in a
+`**Decision:** <id>` field and copies nothing of the entry's text — the decision lives once,
+under `## Decisions`, and the citation is the link. Restated decision prose drifts from its
+entry the first time either is edited, which is why kan-468's seeded plan cited instead. A task
+implementing no recorded decision writes no such field.
+
 Add this header to `tasks.md`:
 
 ```markdown
