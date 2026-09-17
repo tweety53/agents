@@ -216,6 +216,110 @@ func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	}
 }
 
+// TestBundleAssemblyFallsBackToCommittedRecords pins the KAN-552 fallback:
+// a change whose rows never reached the store — the kan-468 failure —
+// still gets its ledger and panel sections, read out of the copies run 2
+// step 4 commits onto the archive branch. The sections are labelled by the
+// committed path, the one provenance that is true of their content.
+func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
+	repo := gitRepo(t)
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md":  "# demo tasks\n",
+		"ledger.md": "# SDD ledger — demo\n",
+		"panel.md":  "# Review panel — demo\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	for _, want := range []string{
+		"## spectre/changes/archive/demo/ledger.md",
+		"# SDD ledger — demo",
+		"## spectre/changes/archive/demo/panel.md",
+		"# Review panel — demo",
+		// tasks.md and the archive commit's git log resolve besides the two
+		// fallback sections; design.md and narrative.md stay skipped.
+		"found: 4 of 6 sources",
+		"skipped: spectre/changes/archive/demo/design.md (absent)",
+		"skipped: spectre/changes/archive/demo/narrative.md (absent)",
+	} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
+	}
+	for _, absent := range []string{
+		"## .superpowers/sdd/ledgers/demo.md",
+		"## .superpowers/sdd/reviews/demo-panel.md",
+		"skipped: spectre/changes/archive/demo/ledger.md",
+		"skipped: spectre/changes/archive/demo/panel.md",
+	} {
+		if strings.Contains(bundle, absent) {
+			t.Errorf("bundle carries %q:\n%s", absent, bundle)
+		}
+	}
+}
+
+// TestBundleAssemblyPrefersStoreRenderOverCommittedRecord pins the
+// precedence: the store is the terminal record, so rows that DID reach it
+// render the sections and the step-4 committed copies are never served
+// beside them.
+func TestBundleAssemblyPrefersStoreRenderOverCommittedRecord(t *testing.T) {
+	repo := gitRepo(t)
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md":  "# demo tasks\n",
+		"ledger.md": "# SDD ledger — demo (stale copy)\n",
+		"panel.md":  "# Review panel — demo (stale copy)\n",
+	})
+	run := records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "sonnet", SessionToken: "mf-demo",
+		}},
+	}
+
+	bundle, err := Bundle("demo", run, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	if !strings.Contains(bundle, "## .superpowers/sdd/ledgers/demo.md") {
+		t.Errorf("store ledger not rendered:\n%s", bundle)
+	}
+	for _, stale := range []string{
+		"## spectre/changes/archive/demo/ledger.md",
+		"## spectre/changes/archive/demo/panel.md",
+		"stale copy",
+	} {
+		if strings.Contains(bundle, stale) {
+			t.Errorf("bundle serves the committed copy beside the store render:\n%s", bundle)
+		}
+	}
+}
+
+// TestBundleAssemblySkipsCommittedRecordsWhenAbsent keeps the fallback
+// honest in the other direction: a readable archive branch that carries no
+// copies leaves the store labels' skip lines exactly as they were.
+func TestBundleAssemblySkipsCommittedRecordsWhenAbsent(t *testing.T) {
+	repo := gitRepo(t)
+	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	for _, want := range []string{
+		"skipped: .superpowers/sdd/ledgers/demo.md (absent)",
+		"skipped: .superpowers/sdd/reviews/demo-panel.md (absent)",
+	} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
+	}
+}
+
 // TestDeriveFinishCommitsRefusesMergeParent pins the merge gate's visible
 // half: a plan commit whose parent is a merge resolves no implementation
 // commit. The gate and the subject rejections are additionally

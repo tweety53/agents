@@ -235,6 +235,22 @@ func show(g Runner, repo, rev, path string) ([]byte, error) {
 	return g.Output(repo, "show", rev+":"+path)
 }
 
+// committedRecord reads one of run 2 step 4's preserved record copies —
+// spectre/changes/archive/<name>/<file> off the change's archive branch —
+// and reports whether it exists. With no archive repository, or a copy the
+// branch does not carry, it reports absence: the fallback exists for the
+// store-less change, never instead of the store.
+func committedRecord(g Runner, repo, branch, name, file string) (string, bool) {
+	if repo == "" {
+		return "", false
+	}
+	content, err := show(g, repo, branch, archiveDir+"/"+name+"/"+file)
+	if err != nil {
+		return "", false
+	}
+	return string(content), true
+}
+
 // archiveRepo returns the first recorded repository whose
 // chore/archive-<name> branch carries this change's own archived directory
 // — probed on the archived tasks.md's content, not on branch existence
@@ -295,13 +311,19 @@ func trimmedOutput(b []byte, err error) string {
 // section per found source. run renders the ledger and panel sources —
 // each present only when the run holds rows of its kind, so a change the
 // store has never heard of reports both skipped rather than rendering
-// empty records nobody wrote; repos are the candidate repository roots the
-// caller supplied, probed for the change's archived directory in order; g
-// reads everything git has to answer for. A repository git cannot read at
-// all is reported in a `note:` line — environmental failure keeps a
-// different wording from legitimate absence. An invalid change name is the
-// one error: the same allowlist records.Destination enforces, checked
-// before the name builds a label or a ref.
+// empty records nobody wrote; a skipped one falls back to the copies run 2
+// step 4 commits onto the archive branch as
+// spectre/changes/archive/<change>/ledger.md and panel.md (KAN-552 — the
+// worktree renders die with the worktree, and rows that never reached the
+// store leave those copies the only source), labelled by the committed
+// path and never served beside a store render that was found; repos are
+// the candidate repository roots the caller supplied, probed for the
+// change's archived directory in order; g reads everything git has to
+// answer for. A repository git cannot read at all is reported in a `note:`
+// line — environmental failure keeps a different wording from legitimate
+// absence. An invalid change name is the one error: the same allowlist
+// records.Destination enforces, checked before the name builds a label or
+// a ref.
 func Bundle(change string, run records.Run, repos []string, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
@@ -318,20 +340,12 @@ func Bundle(change string, run records.Run, repos []string, g Runner) (string, e
 		sources = append(sources, source{label: label, content: content, found: found})
 	}
 
-	// The store renders: the ledger needs dispatch rows (RenderKind's own
-	// rule); the panel needs any row of the run at all, so an unknown
-	// change's empty run never renders a findings-total: 0 record nobody
-	// wrote. records.Run.HasRows is the one home of that row set.
-	ledger, ledgerOK := records.RenderKind("ledger", run)
-	add(".superpowers/sdd/ledgers/"+change+".md", ledger, ledgerOK)
-	panel, _ := records.RenderKind("panel", run)
-	add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, run.HasRows())
-
 	// The archive-derived sources all come from one repository: the first
-	// supplied one carrying the change's archived directory. No archive
-	// anywhere skips all of them together — the store renders above still
-	// stand. A repository git cannot read at all is named in a note rather
-	// than folded into "absent".
+	// supplied one carrying the change's archived directory. Resolved here,
+	// above the store renders, because the fallback below needs it. No
+	// archive anywhere skips all of them together — the store renders
+	// still stand. A repository git cannot read at all is named in a note
+	// rather than folded into "absent".
 	var notes []string
 	repo := archiveRepo(g, repos, change)
 	if repo == "" {
@@ -340,6 +354,29 @@ func Bundle(change string, run records.Run, repos []string, g Runner) (string, e
 		}
 	}
 	branch := archiveBranchPrefix + change
+
+	// The store renders: the ledger needs dispatch rows (RenderKind's own
+	// rule); the panel needs any row of the run at all, so an unknown
+	// change's empty run never renders a findings-total: 0 record nobody
+	// wrote. records.Run.HasRows is the one home of that row set. A render
+	// the store cannot produce falls back to the step-4 committed copy.
+	ledger, ledgerOK := records.RenderKind("ledger", run)
+	if ledgerOK {
+		add(".superpowers/sdd/ledgers/"+change+".md", ledger, true)
+	} else if content, ok := committedRecord(g, repo, branch, change, "ledger.md"); ok {
+		add(archiveDir+"/"+change+"/ledger.md", content, true)
+	} else {
+		add(".superpowers/sdd/ledgers/"+change+".md", "", false)
+	}
+	panel, _ := records.RenderKind("panel", run)
+	if run.HasRows() {
+		add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, true)
+	} else if content, ok := committedRecord(g, repo, branch, change, "panel.md"); ok {
+		add(archiveDir+"/"+change+"/panel.md", content, true)
+	} else {
+		add(".superpowers/sdd/reviews/"+change+"-panel.md", "", false)
+	}
+
 	if repo != "" {
 		for _, file := range []string{"tasks.md", "design.md", "narrative.md"} {
 			label := archiveDir + "/" + change + "/" + file
