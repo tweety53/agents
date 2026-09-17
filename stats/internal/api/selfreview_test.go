@@ -76,7 +76,7 @@ func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 func TestSelfReviewBundleHandlerUnknownChange(t *testing.T) {
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
-	code, body := doGet(t, ts, selfReviewPath("proj", "never-heard", ""))
+	code, body := doGet(t, ts, selfReviewPath("proj", "never-heard", t.TempDir()))
 	if code != http.StatusOK {
 		t.Fatalf("GET bundle = %d (%s), want 200", code, body)
 	}
@@ -107,7 +107,7 @@ func TestSelfReviewBundleHandlerStoreFailure(t *testing.T) {
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.runRecordErr = errors.New("store exploded")
 
-	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", ""))
+	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", t.TempDir()))
 	if code != http.StatusInternalServerError {
 		t.Fatalf("GET bundle = %d (%s), want 500", code, body)
 	}
@@ -160,5 +160,17 @@ func bundleRunGit(t *testing.T, repo string, args ...string) {
 	cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// TestSelfReviewBundleHandlerRequiresRepo pins repo as mandatory: without
+// it the route could only misreport an archived change's sources as
+// absent, so the request is refused before anything is read.
+func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", ""))
+	if code != http.StatusBadRequest {
+		t.Fatalf("GET bundle without repo = %d (%s), want 400", code, body)
 	}
 }

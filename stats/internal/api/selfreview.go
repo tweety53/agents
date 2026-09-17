@@ -40,17 +40,22 @@ type selfreviewHandler struct {
 	logger *slog.Logger
 }
 
-// bundle answers with text/markdown. A change the store has never heard of
-// is not an error — its ledger and panel sections report skipped and the
-// rest of the bundle still serves, the gather's own "a missing source is
-// never fatal" rule. A repo parameter that is not an absolute path is a
-// caller mistake, 400. Only a store read that fails for a real reason is a
-// 5xx: all three mean the caller asked for something no bundle could
-// answer, not that sources were absent.
+// bundle answers with text/markdown. repo is required: without it the
+// route could only report the archive-derived sources skipped, which for
+// an archived change reads as a false fact about the change rather than as
+// the caller mistake it is — a 400 says so plainly. A change the store has
+// never heard of is not an error — its ledger and panel sections report
+// skipped and the rest of the bundle still serves, the gather's own "a
+// missing source is never fatal" rule. Only a store read that fails for a
+// real reason is a 5xx.
 func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 	project, change := r.PathValue("project"), r.PathValue("change")
 	repo := r.URL.Query().Get("repo")
-	if repo != "" && !filepath.IsAbs(repo) {
+	if repo == "" {
+		writeError(w, http.StatusBadRequest, "repo is required: the absolute path of the repository the change's archive lives in")
+		return
+	}
+	if !filepath.IsAbs(repo) {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("repo %q is not an absolute path", repo))
 		return
 	}
@@ -65,23 +70,10 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		rec = records.Run{Change: change}
 	}
 
-	var roots []string
-	if repo != "" {
-		roots = append(roots, repo)
-	}
-
-	bundle, err := selfreview.Bundle(change, rec, roots, h.git)
+	bundle, err := selfreview.Bundle(change, rec, []string{repo}, h.git)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
-	}
-	if repo == "" {
-		// The archive-derived sources were skipped for want of a
-		// repository, not because the change was never archived — say so
-		// in the bundle rather than letting the caller read the skips as
-		// absence. (The CLI always resolves and sends repo; a caller that
-		// omits it is talking to the route by hand.)
-		bundle += "\nnote: no repo parameter was supplied — the archive-derived sources above are skipped for that reason, not because the change was never archived\n"
 	}
 
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
