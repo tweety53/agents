@@ -379,11 +379,13 @@ func runGit(t *testing.T, repo string, args ...string) {
 // seam a test can drive: a PATH-shim git that never returns, an
 // ExecRunner with a tiny Bound. The call must come back with an error well
 // inside the bound — a mutant ignoring the injected Bound would
-// blow this guard on the 10s default.
+// blow this guard on the 10s default. The shim execs sleep so the
+// context kill lands on the git process itself: the real path returns
+// in ~500ms, not after WaitDelay.
 func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 	shimDir := t.TempDir()
 	shim := filepath.Join(shimDir, "git")
-	if err := os.WriteFile(shim, []byte("#!/bin/bash\nsleep 300\n"), 0o755); err != nil {
+	if err := os.WriteFile(shim, []byte("#!/bin/bash\nexec sleep 300\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -401,7 +403,7 @@ func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 		if err == nil {
 			t.Fatal("a hanging git answered successfully under the shim")
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(8 * time.Second):
 		// A mutant that ignores the injected Bound runs the 10s default —
 		// past this guard. The real path returns in ~500ms; WaitDelay only
 		// extends calls whose killed git left pipes held, and sleep does
