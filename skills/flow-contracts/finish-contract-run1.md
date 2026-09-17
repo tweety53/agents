@@ -94,6 +94,7 @@ The relay includes the guard's own hand-verification procedure per **Hand-verify
 verdict** (`skills/flow-contracts/pipeline.md`). **When the script is absent** — a repository that
 does not carry it — read each main checkout by hand with
 `git status --porcelain --untracked-files=no`, keep the lines whose first column is not a space,
+together with any intent-to-add entry's ` A <path>` line,
 ask the same question over what that finds, and say in the handoff that the surfacing was done
 manually; it is never skipped for want of the script.
 

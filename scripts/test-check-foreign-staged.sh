@@ -192,6 +192,24 @@ else
   fail "unmerged entry: expected 'AA f.txt' listed and '— 1', got RC=$RC OUT=<$OUT>"
 fi
 
+# ---- an intent-to-add entry is listed -----------------------------------
+# `git add -N` stages an index entry, so it is index work like any other
+# stage — but porcelain prints its index code blank, ` A ita.txt`, which a
+# first-column filter alone would hide. The preflight's identical status read
+# refuses on it, so the guard lists it: the second-column A is what gives it
+# away (panel finding F2, round 1).
+ITA="$(new_repo intent-to-add)"
+echo pending >"$ITA/pending.txt"
+git -C "$ITA" add -N pending.txt
+run_guard "$ITA"
+if [ "$RC" -eq 0 ] \
+  && printf '%s\n' "$OUT" | grep -qF 'FOREIGN-STAGED:  A pending.txt' \
+  && [ "$(printf '%s\n' "$OUT" | grep -F 'STAGED-FOREIGN: ')" = "STAGED-FOREIGN: $ITA — 1" ]; then
+  pass "intent-to-add entry: the A-index line listed, verdict counts 1"
+else
+  fail "intent-to-add entry: expected ' A pending.txt' listed and '— 1', got RC=$RC OUT=<$OUT>"
+fi
+
 # ---- verdict names the physical path (macOS /tmp symlink) ---------------
 LINK="$WORK/via-link"
 ln -s "$STAGED" "$LINK"

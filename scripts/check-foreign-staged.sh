@@ -31,10 +31,12 @@
 # finding to report. Untracked files are hidden from the status read
 # entirely, exactly as the preflight's assertion hides them.
 #
-# An intent-to-add entry (`git add -N`) prints with a leading-space index
-# code and is therefore not listed — the preflight's identical status read
-# still refuses on it, so the surface's silence there is bounded by the gate
-# that follows.
+# An intent-to-add entry (`git add -N`) is index work like any other stage,
+# but porcelain prints its index code blank — ` A <path>` — so the filter
+# also lists a line whose SECOND column is `A`: that second-column A is the
+# only index-work state a blank first column can hide, and the preflight's
+# identical status read refuses on it, so hiding it would leave the surface
+# silent on a state the very next gate stops for.
 #
 # THE VERDICT NAMES THE PHYSICAL PATH, resolved with `cd … && pwd -P`, so a
 # caller that passed a symlinked path still sees the real checkout named —
@@ -42,7 +44,8 @@
 #
 # HOW TO HAND-VERIFY A STAGED-FOREIGN VERDICT. Run the same read by hand:
 # `git -C <main-checkout> status --porcelain --untracked-files=no` and keep
-# the lines whose first column is not a space — those, and only those, are
+# the lines whose first column is not a space, together with any
+# intent-to-add entry's ` A <path>` line — those, and only those, are
 # the entries the FOREIGN-STAGED lines name.
 set -euo pipefail
 
@@ -69,7 +72,8 @@ COUNT=0
 if [ -n "$STATUS_OUT" ]; then
   while IFS= read -r line; do
     FIRST="${line:0:1}"
-    if [ "$FIRST" != " " ]; then
+    SECOND="${line:1:1}"
+    if [ "$FIRST" != " " ] || [ "$SECOND" = "A" ]; then
       printf 'FOREIGN-STAGED: %s\n' "$line"
       COUNT=$((COUNT + 1))
     fi
