@@ -35,6 +35,7 @@ agents-data/
 │   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.flow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
 ├── hooks/
 │   ├── enforce-agent-baseline.py      ← PreToolUse hook: denies a subagent dispatch whose prompt omits the agent-baseline pointer
+│   ├── protect-main-checkout.py       ← PreToolUse hook: denies edits, staging, commits, stashes and resets in a main checkout on its default branch — work goes in a worktree
 │   └── flow-active-change.py          ← UserPromptSubmit hook: names the session's last /flow change on every plain prompt, so a problem report runs as its fix run
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files

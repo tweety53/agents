@@ -275,8 +275,14 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
     git -C <main-checkout> worktree prune
     ```
 
-    Runs inside step 10's mark. The main checkout itself is never touched by this step or any step
-    above.
+    ```bash
+    refresh-main-checkout.sh <main-checkout> <base>
+    ```
+
+    Runs inside step 10's mark. The refresh, and why the main checkout needs one although no step
+    edited it, are step 11 of **Run 2 — the branch is merged**
+    (`skills/flow-contracts/finish-contract-run2.md`); a `REFRESH-REFUSED` line goes into the
+    handoff verbatim.
 
 ```bash
 flow stage end -command '/flow' -stage flow.push-archive -outcome completed <name>

@@ -530,7 +530,7 @@ install_hooks() {
   # capture the status instead of testing it inline, then let require_grep_ok reject only a
   # real grep failure (rc ≥ 2), the same way every other caller in this script does.
   settings="$claude_dir/settings.json"
-  local baseline_rc=1 active_change_rc=1
+  local baseline_rc=1 active_change_rc=1 protect_rc=1
   if [[ -f "$settings" ]]; then
     baseline_rc=0
     grep -q 'enforce-agent-baseline' "$settings" || baseline_rc=$?
@@ -538,7 +538,10 @@ install_hooks() {
     active_change_rc=0
     grep -q 'flow-active-change' "$settings" || active_change_rc=$?
     require_grep_ok "$active_change_rc" "checking $settings for the flow-active-change hook"
-    (( baseline_rc == 0 && active_change_rc == 0 )) && return 0
+    protect_rc=0
+    grep -q 'protect-main-checkout' "$settings" || protect_rc=$?
+    require_grep_ok "$protect_rc" "checking $settings for the protect-main-checkout hook"
+    (( baseline_rc == 0 && active_change_rc == 0 && protect_rc == 0 )) && return 0
   fi
   if (( baseline_rc != 0 )); then
     echo ""
@@ -570,6 +573,22 @@ SNIPPET
         ]
       }
     ]
+SNIPPET
+    echo ""
+  fi
+  if (( protect_rc != 0 )); then
+    echo ""
+    echo "  ⚠ The protect-main-checkout hook is installed but NOT registered, so nothing yet stops"
+    echo "    an agent editing, staging or committing in a main checkout on its default branch."
+    echo "    Add this entry to \"PreToolUse\" in $settings:"
+    cat <<'SNIPPET'
+
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/protect-main-checkout.py\"" }
+        ]
+      }
 SNIPPET
     echo ""
   fi

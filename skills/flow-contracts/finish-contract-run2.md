@@ -304,9 +304,21 @@ bare `/flow` is the only command that loads this file.
     git -C <main-checkout> worktree prune
     ```
 
-    The main checkout is never checked out, staged or committed by any step above, so there is
-    nothing to restore it from — this step's only job is discarding the throwaway worktree those
-    steps used in its place.
+    Then refresh the main checkout:
+
+    ```bash
+    refresh-main-checkout.sh <main-checkout> <base>
+    ```
+
+    No step above checks out, stages or commits the main checkout — but step 2 positioned
+    `<landing-worktree>` on `<base>` itself, and fast-forwarding and merging there moved the
+    `<base>` pointer the main checkout's HEAD names while its index and worktree stayed at the
+    old tip. Left alone, `git status` there shows the landing in reverse as staged changes, and
+    a later session that trusts it commits, stashes or resets the ghost. The script hard-resets
+    only when the index is byte-for-byte the tree of an earlier `<base>` tip and the worktree
+    equals the index — pure staleness, nothing to lose; anything else is refused by name and
+    reported, never reset. `REFRESH-REFUSED` is reported in the handoff and does not move the
+    change off `FINISHED`.
 
 **The Jira `Done` transition fires before step 9, not after it.** Per **Jira integration**
 (`skills/flow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
