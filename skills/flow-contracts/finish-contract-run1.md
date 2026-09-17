@@ -79,8 +79,9 @@ once per distinct main checkout, and its header is canonical for the verdict gra
 `STAGED-CLEAN` from every repository the run continues into the preflight with nothing more said.
 On any `STAGED-FOREIGN`, every repository's listing is shown together and the run stops to ask,
 exactly once, shape per **Operator prompts** (`skills/flow-contracts/operator-prompts.md`). **An
-exit 2 with no verdict** — a main checkout whose status cannot be read — stops and asks exactly as
-a `STAGED-FOREIGN` does; an inability is never read as `STAGED-CLEAN`.
+exit 2 with no verdict** — a main checkout whose status cannot be read — stops and asks the same
+question a `STAGED-FOREIGN` asks, with nothing to list; an inability is never read as
+`STAGED-CLEAN`.
 
 > **Main checkouts carry foreign staged work — how should the run proceed?**
 > - **Stop — I'll clear it and re-run** *(default, recommended)*
