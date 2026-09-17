@@ -642,6 +642,17 @@ assert_exists "the flow-active-change hook is installed" "$home/.claude/hooks/fl
 assert_contains "an unregistered flow-active-change hook is reported" "$RUN_LOG" \
   "flow-active-change hook is installed but NOT registered"
 
+# Every hook's warning and every printed registration snippet the installers emit is
+# pinned output: the shared registration-warning helper must keep each line byte-identical.
+assert_contains "the unregistered protect-main-checkout hook is reported" "$RUN_LOG" \
+  "protect-main-checkout hook is installed but NOT registered"
+assert_contains "the protect-main-checkout registration snippet is printed" "$RUN_LOG" \
+  '.claude/hooks/protect-main-checkout.py'
+assert_contains "the claude agent-baseline registration snippet is printed" "$RUN_LOG" \
+  '.claude/hooks/enforce-agent-baseline.py'
+assert_contains "the claude flow-active-change registration snippet is printed" "$RUN_LOG" \
+  '.claude/hooks/flow-active-change.py'
+
 # An unbalanced marker renders the wrong amount of text into every block, so it must abort
 # the run rather than ship a half-rule.
 UNBALANCED_FIXTURE="$SANDBOX/fixture-repo-unbalanced-core"
@@ -1057,6 +1068,8 @@ assert_contains "the zcode block points at zcode-local full texts" "$home/.zcode
 assert_not_contains "the zcode block carries no ~/.claude pointer" "$home/.zcode/AGENTS.md" "~/.claude/"
 assert_contains "the claude block keeps its own pointers — no rewrite leak" "$home/.claude/CLAUDE.md" "Full rule: \`~/.claude/rules/cored.md\`"
 assert_contains "the zcode hook registration snippet is printed" "$RUN_LOG" '.zcode/hooks/enforce-agent-baseline.py'
+assert_contains "the zcode flow-active-change registration snippet is printed" "$RUN_LOG" \
+  '.zcode/hooks/flow-active-change.py'
 
 # --- idempotence: a second global must refresh the zcode layer, never duplicate it.
 new_home; home="$HOME_DIR"
