@@ -62,25 +62,30 @@ TMP_LISTS=()
 cleanup_tmp() { [ "${#TMP_LISTS[@]}" -eq 0 ] || rm -f "${TMP_LISTS[@]}"; }
 trap cleanup_tmp EXIT
 
+# Sets LIST to a fresh temp file's path. Called in the parent, never inside
+# a command substitution: a substitution runs in a subshell, whose
+# TMP_LISTS+= dies with it and leaves the EXIT trap nothing to remove —
+# one leaked temp file per guard run (panel round-1 finding F6).
 new_list() {
-  local tmp
-  tmp="$(mktemp "${TMPDIR:-/tmp}/check-python-suppressions.XXXXXX")" || {
+  LIST="$(mktemp "${TMPDIR:-/tmp}/check-python-suppressions.XXXXXX")" || {
     echo "ERROR: mktemp failed — cannot enumerate the scan set" >&2
     exit 2
   }
-  TMP_LISTS+=("$tmp")
-  printf '%s' "$tmp"
+  TMP_LISTS+=("$LIST")
 }
 
 FILES=()
 if [ "$#" -eq 0 ]; then
-  LIST="$(new_list)"
+  new_list
   if ! git -C "$REPO_ROOT" ls-files -z -- '*.py' > "$LIST"; then
     echo "ERROR: git ls-files failed — cannot enumerate the tracked Python" >&2
     exit 2
   fi
   while IFS= read -r -d '' f; do
-    [ -L "$f" ] && continue
+    # The symlink test resolves $f against the caller's cwd unless it is
+    # prefixed — from a foreign cwd every tracked symlink would pass the
+    # test and re-enter the scan set (panel round-1 finding F7).
+    [ -L "$REPO_ROOT/$f" ] && continue
     FILES+=("$REPO_ROOT/$f")
   done < "$LIST"
 else
@@ -91,7 +96,7 @@ else
         *.py) FILES+=("$arg") ;;
       esac
     elif [ -d "$arg" ]; then
-      LIST="$(new_list)"
+      new_list
       if ! find "$arg" -type f -name '*.py' -print0 > "$LIST"; then
         echo "ERROR: find failed on $arg — cannot enumerate the scan set" >&2
         exit 2
