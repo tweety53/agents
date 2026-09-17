@@ -1033,6 +1033,17 @@ against its defect identity. **Inline no source excerpt.**
 > something the report does not, treat it as unchecked and establish it yourself before building
 > on it.
 
+**Every fix subagent's dispatch prompt also carries the FINDINGS ARE INPUT paragraph**:
+
+> **FINDINGS ARE INPUT:** a finding names a defect and suggests a route to fixing it — findings
+> are input, not orders. Your obligation is to resolve the defect the finding names; the
+> suggested route is the raising slot's proposal, never a binding instruction. Where the literal
+> route would break something the code already requires — a required ordering, a declared
+> contract, a stated invariant — take the route that resolves the defect without the damage, and
+> your report records the deviation and justifies it: what the literal route would have broken,
+> and how yours resolves the defect. A silent deviation is an unfixed finding, and so is a
+> literal compliance that leaves the defect standing.
+
 **Every fix subagent's dispatch prompt also carries the PLAN FIELDS paragraph**:
 
 > **PLAN FIELDS:** your fix owns its plan record, as part of the fix itself: when it adds a test
