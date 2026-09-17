@@ -96,7 +96,7 @@ bare `/flow` is the only command that loads this file.
    **Before the `git add -A`, the rendered ledger and panel record are preserved into this
    commit.** The canonical apply worktree's `<abs-worktree>/.superpowers/sdd/ledgers/<name>.md`
    and `<abs-worktree>/.superpowers/sdd/reviews/<name>-panel.md` are copied into
-   `<landing-worktree>/spectre/changes/archive/<name>/` as `ledger.md` and `panel.md` — each when
+   `<project>/spectre/changes/archive/<name>/` as `ledger.md` and `panel.md` — each when
    present, an absent file copying nothing — where they ride the archive commit under the scope
    the check above verifies. The store's rows are the terminal record, but rows that never
    reached it leave the worktree renders the only copies, and step 5 destroys those with the
