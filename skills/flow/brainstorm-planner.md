@@ -45,6 +45,15 @@ the design.
   may be the last question in such a call. This is a scoped override of
   `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
 
+**The seeded-note path is legitimate, never a bypass to prevent.** When the ask arrives already
+converged — a seeded research note whose own text carries the design, its decisions with their
+`**ID:**` lines, and the acceptance criteria (a fully-worked issue description, or the equivalent
+a `/flow-plan` capture or a handoff package brought) — the checklist questions the note already
+answers are answered by the note and never re-asked: the note is the research the checklist would
+gather. A question the note leaves open is still asked, batched as above, and the merged
+convergence-and-approval confirm below runs as written — approval is never seeded. kan-468's run
+converged its plan this way; this paragraph preserves the path.
+
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
 
