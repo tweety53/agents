@@ -368,14 +368,14 @@ and 13 below as written, committing and pushing nothing.
    > step, the band pairing, the seam pairing, the ink inventory (sweep 10), the bounded-row
    > sweep (sweep 9) and the element × property matrix read a frame against the capture, and a
    > project declaring no `mockups` root composes nothing and reports each of them
-   > `n/a — no frame`. The state sweeps run on the captures alone and are the default on every
+   > n/a — no frame. The state sweeps run on the captures alone and are the default on every
    > `flow.visual-verify` run, composed or not: a verification that transcribes no text run
    > (sweep 5), checks no element against its container's bounds (sweep 6), scrolls no region
    > to its end (sweep 7) and re-derives no derived value (sweep 8) is the operator-driven
    > round this stage exists to replace. Where a sweep's wording names the frame for something
    > the capture answers without one — sweep 7's last element reached by name, sweep 5's
    > display precision — the run reads that name against the view's own rendered content;
-   > sweep 6's order comparison needs the frame's list and is reported `n/a — no frame`
+   > sweep 6's order comparison needs the frame's list and is reported n/a — no frame
    > beside the other frame-bound readings.
 
    **The difference panel cannot show a structural departure, so the first read of every pair
@@ -842,7 +842,7 @@ and 13 below as written, committing and pushing nothing.
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's
-  outcome beside `n/a — no frame`; `rows` and `ink` read `n/a — no frame`
+  outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - visual-verification.md: written | not written — <reason>
