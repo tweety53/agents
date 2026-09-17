@@ -1171,8 +1171,10 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 			"override": "two tasks touch the harvest attribution path",
 			"execution": "inline",
 			"implementer": "skipped — inline",
+			"fixer": {"model": "haiku", "effort": "low", "reason": "one-line fixes"},
 			"panel": {
 				"compact": true, "rerun": "delta",
+				"rerun_dispatch": {"model": "haiku", "effort": "low", "reason": "unused by pass 1"},
 				"roster": [
 					{"slot": "primary", "experimental": false},
 					{"slot": "exp-failure-modes", "experimental": true,
@@ -1209,6 +1211,12 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 	}
 	if got.ImplementerModel != "skipped — inline" {
 		t.Errorf("ImplementerModel = %q, want %q", got.ImplementerModel, "skipped — inline")
+	}
+	if got.Fixer != "haiku/low" {
+		t.Errorf("Fixer = %q, want %q", got.Fixer, "haiku/low")
+	}
+	if got.RerunDispatch != "haiku/low" {
+		t.Errorf("RerunDispatch = %q, want %q", got.RerunDispatch, "haiku/low")
 	}
 	if got.RosterSize != 2 {
 		t.Errorf("RosterSize = %d, want 2", got.RosterSize)

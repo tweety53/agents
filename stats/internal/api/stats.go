@@ -795,6 +795,8 @@ type decisionRowDTO struct {
 
 	ImplementerModel  string `json:"implementerModel"`
 	ImplementerEffort string `json:"implementerEffort"`
+	Fixer             string `json:"fixer"`
+	RerunDispatch     string `json:"rerunDispatch"`
 
 	RosterSize       int    `json:"rosterSize"`
 	Compact          bool   `json:"compact"`
@@ -828,6 +830,7 @@ func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
 			Project: r.Project, Change: r.Change, RecordedAt: r.RecordedAt.UTC().Format(time.RFC3339Nano),
 			Class: r.Class, Overridden: r.Overridden, Execution: r.Execution,
 			ImplementerModel: r.ImplementerModel, ImplementerEffort: r.ImplementerEffort,
+			Fixer: r.Fixer, RerunDispatch: r.RerunDispatch,
 			RosterSize: r.RosterSize, Compact: r.Compact, ExperimentalSlot: r.ExperimentalSlot, Rerun: r.Rerun,
 			Grouping: r.Grouping, Dispatches: r.Dispatches, ImplementerGroups: r.ImplementerGroups,
 			WallClockSeconds: r.WallClockSeconds,

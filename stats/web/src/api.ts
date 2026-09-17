@@ -317,6 +317,8 @@ export interface DecisionRow {
   execution: string;
   implementerModel: string;
   implementerEffort: string;
+  fixer: string;
+  rerunDispatch: string;
   rosterSize: number;
   compact: boolean;
   experimentalSlot: string;

@@ -637,7 +637,12 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 // inline" / "default") otherwise -- ImplementerModel carries the model in
 // the first case and the string itself in the second, so the column always
 // has something to show; ImplementerEffort is empty in the second case,
-// since a string carries no effort to read. RosterSize, Compact,
+// since a string carries no effort to read. Fixer reads the decision's
+// "fixer" field the same way, rendered as one "model/effort" string when it
+// is an object and the string itself otherwise; a decision recorded before
+// the fixer pair existed has no key and reads as "". RerunDispatch renders
+// "panel.rerun_dispatch" as "model/effort" when panel is an object carrying
+// one, else "". RosterSize, Compact,
 // ExperimentalSlot and Rerun read the same way from "panel", which is
 // either an object or the bare string "default" -- the zero values (0,
 // false, "", "") stand in for "default" rather than an error, since a
@@ -661,6 +666,8 @@ type DecisionRow struct {
 
 	ImplementerModel  string
 	ImplementerEffort string
+	Fixer             string
+	RerunDispatch     string
 
 	RosterSize       int
 	Compact          bool
@@ -804,6 +811,14 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'object'
 			     THEN COALESCE(sd.decision->'implementer'->>'effort', '')
 			     ELSE '' END,
+			CASE WHEN jsonb_typeof(sd.decision->'fixer') = 'string'
+			     THEN sd.decision->>'fixer'
+			     WHEN jsonb_typeof(sd.decision->'fixer') = 'object'
+			     THEN COALESCE(sd.decision->'fixer'->>'model', '') || '/' || COALESCE(sd.decision->'fixer'->>'effort', '')
+			     ELSE '' END,
+			CASE WHEN pm.panel_is_object AND jsonb_typeof(sd.decision->'panel'->'rerun_dispatch') = 'object'
+			     THEN COALESCE(sd.decision->'panel'->'rerun_dispatch'->>'model', '') || '/' || COALESCE(sd.decision->'panel'->'rerun_dispatch'->>'effort', '')
+			     ELSE '' END,
 			CASE WHEN pm.panel_is_object
 			     THEN COALESCE(jsonb_array_length(sd.decision->'panel'->'roster'), 0)
 			     ELSE 0 END,
@@ -855,6 +870,7 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			&row.Project, &row.Change, &row.RecordedAt,
 			&row.Class, &row.Overridden, &row.Execution,
 			&row.ImplementerModel, &row.ImplementerEffort,
+			&row.Fixer, &row.RerunDispatch,
 			&row.RosterSize, &row.Compact, &row.ExperimentalSlot, &row.Rerun,
 			&row.Grouping, &row.Dispatches, &row.ImplementerGroups,
 			&row.WallClockSeconds,

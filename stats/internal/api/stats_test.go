@@ -505,7 +505,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		sts := &statsFake{decisions: []store.DecisionRow{
 			{Project: "kan", Change: "kan-1", RecordedAt: time.Date(2026, 6, 10, 9, 10, 0, 0, time.UTC),
 				Class: "regular", Overridden: true, Execution: "inline",
-				ImplementerModel: "skipped — inline", ImplementerEffort: "",
+				ImplementerModel: "skipped — inline", ImplementerEffort: "", Fixer: "skipped — inline", RerunDispatch: "haiku/low",
 				RosterSize: 2, Compact: true, ExperimentalSlot: "exp-failure-modes", Rerun: "delta",
 				Grouping: "free", Dispatches: "primary+exp-failure-modes", ImplementerGroups: "",
 				WallClockSeconds: 600, InputTokens: 100, OutputTokens: 50, CacheReadTokens: 20, CostUsd: 1.25,
@@ -523,6 +523,8 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			Overridden        bool    `json:"overridden"`
 			Execution         string  `json:"execution"`
 			ImplementerModel  string  `json:"implementerModel"`
+			Fixer             string  `json:"fixer"`
+			RerunDispatch     string  `json:"rerunDispatch"`
 			RosterSize        int     `json:"rosterSize"`
 			Compact           bool    `json:"compact"`
 			ExperimentalSlot  string  `json:"experimentalSlot"`
@@ -548,7 +550,8 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		}
 		got := rows[0]
 		if got.Project != "kan" || got.Change != "kan-1" || got.Class != "regular" || !got.Overridden ||
-			got.Execution != "inline" || got.ImplementerModel != "skipped — inline" || got.RosterSize != 2 ||
+			got.Execution != "inline" || got.ImplementerModel != "skipped — inline" || got.Fixer != "skipped — inline" ||
+			got.RerunDispatch != "haiku/low" || got.RosterSize != 2 ||
 			!got.Compact || got.ExperimentalSlot != "exp-failure-modes" || got.Rerun != "delta" ||
 			got.Grouping != "free" || got.Dispatches != "primary+exp-failure-modes" || got.ImplementerGroups != "" ||
 			got.WallClockSeconds != 600 || got.InputTokens != 100 || got.OutputTokens != 50 ||

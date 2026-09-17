@@ -120,6 +120,8 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
       execution: "inline",
       implementerModel: "skipped — inline",
       implementerEffort: "",
+      fixer: "skipped — inline",
+      rerunDispatch: "",
       rosterSize: 2,
       compact: true,
       experimentalSlot: "exp-failure-modes",
@@ -148,6 +150,8 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
       execution: "sdd",
       implementerModel: "opus",
       implementerEffort: "high",
+      fixer: "sonnet/medium",
+      rerunDispatch: "haiku/low",
       rosterSize: 5,
       compact: false,
       experimentalSlot: "",
@@ -255,6 +259,8 @@ describe("views render their fixture response's actual values", () => {
     expect(within(sddRow).getByText("static")).toBeInTheDocument();
     expect(within(sddRow).getByText("primary+principles · code-review-low+mutation")).toBeInTheDocument();
     expect(within(sddRow).getByText("1+2 · 3")).toBeInTheDocument();
+    expect(within(sddRow).getByText("sonnet/medium")).toBeInTheDocument();
+    expect(within(sddRow).getByText("haiku/low")).toBeInTheDocument();
 
     // The class × execution summary groups the two runs into their own
     // rows -- "regular / inline" and "regular / sdd" -- each with its own
