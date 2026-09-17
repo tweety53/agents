@@ -77,23 +77,48 @@ checked=0
 swept=0
 sweep_lines=""
 
-# One walk, one record per commit: sha NUL Task-Id value NUL. A commit with
-# no Task-Id trailer reads as an empty value and is not a task commit.
-while IFS= read -r -d '' sha && IFS= read -r -d '' tid; do
-  tid="$(printf '%s' "$tid" | tr -d '[:space:]')"
+# Both walks run as captured commands whose failure is tested, never as
+# process substitutions: a substitution's non-zero exit is discarded, and a
+# discarded git failure printed a clean verdict the guard could not know.
+# Git's own stderr is left visible on a refusal — the guard's line names the
+# stage, git's names the cause. One line per commit: `<sha> <Task-Id value>`
+# — line-wise, not NUL-separated: `git log` emits a newline between entries
+# whatever the format ends with, and a NUL-split record put that newline at
+# the head of every sha after the first — diff-tree refused it and the swept
+# commit went unflagged. A commit with no Task-Id trailer reads as an empty
+# value and is not a task commit.
+log_walk="$(git -C "$WT" log --format='%H %(trailers:key=Task-Id,valueonly)' "$BASE..HEAD")" || {
+  echo "check-task-commit-planning-paths.sh: git log refused the walk in: $WT" >&2
+  exit 2
+}
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  sha="${line%% *}"
+  rest="${line#* }"
+  tid="$(printf '%s' "$rest" | tr -d '[:space:]')"
   [ -n "$tid" ] || continue
   checked=$((checked + 1))
   commit_swept=0
-  while IFS= read -r -d '' path; do
+  paths="$(git -C "$WT" diff-tree -r --no-commit-id --name-only "$sha")" || {
+    echo "check-task-commit-planning-paths.sh: git diff-tree refused the walk on $sha" >&2
+    exit 2
+  }
+  # Newline-separated, deliberately without -z: a command substitution
+  # strips NUL bytes, which would fuse every path into one unmatchable
+  # record; line-wise read survives the capture.
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
     case "$path" in
       "$leaf"/changes/*|docs/superpowers/*)
         sweep_lines="${sweep_lines}TASK-COMMIT-SWEEP: ${sha:0:12} $tid $path"$'\n'
         commit_swept=1
         ;;
     esac
-  done < <(git -C "$WT" diff-tree -r --no-commit-id --name-only -z "$sha")
+  done <<<"$paths"
   [ "$commit_swept" -eq 0 ] || swept=$((swept + 1))
-done < <(git -C "$WT" log --format='%H%x00%(trailers:key=Task-Id,valueonly,unfold)%x00' "$BASE..HEAD")
+done <<EOF
+$log_walk
+EOF
 
 if [ "$swept" -gt 0 ]; then
   printf '%s' "$sweep_lines"

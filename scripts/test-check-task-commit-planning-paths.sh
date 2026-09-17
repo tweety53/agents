@@ -19,9 +19,8 @@
 # or `openspec`) and `docs/superpowers/`. A task commit touching either is
 # the kan-468 defect: staged planning artifacts swept into the task commit.
 #
-# Exit 0 on the clean verdict; exit 1 on the swept verdict; exit 2 with
-# NOTHING on stdout when the arguments are missing, the worktree is not a
-# readable git repository, or <base> does not resolve to a commit.
+# The exit-code contract is the guard's own header's, verbatim — stated
+# once there, cited here rather than copied.
 #
 # Shape copied from test-check-foreign-staged.sh: sandboxed TMPDIR,
 # pass/fail counters, a run_guard capturing stdout and stderr separately.
@@ -232,6 +231,26 @@ if [ "$RC" -eq 1 ] &&
   pass "openspec leaf: exit 1, the project's own changes directory guarded"
 else
   fail "openspec leaf: expected exit 1 naming the openspec path, got RC=$RC OUT=<$OUT>"
+fi
+
+# ---- walk: a swept task commit below a clean one is still flagged ---------
+# Two task commits in the range, the NEWER clean: only the older one sweeps.
+# This is the shape a task-close boundary always sees mid-run, and the case
+# whose first implementation mis-parsed (the newline git log emits between
+# entries landed at the head of the second sha, diff-tree fatalled, and the
+# swept commit went unflagged).
+WALK="$(new_repo walk)"
+BASE_WALK="$(git -C "$WALK" rev-parse HEAD)"
+task_commit "$WALK" "wip" 8 "spectre/changes/kan-1/tasks.md"
+task_commit "$WALK" "feat(app): do the thing" 9 src/app.go
+OLD_WALK_SHA="$(git -C "$WALK" rev-parse HEAD~1 | cut -c1-12)"
+run_guard "$WALK" "$BASE_WALK"
+if [ "$RC" -eq 1 ] &&
+   printf '%s' "$OUT" | grep -q "TASK-COMMIT-SWEEP: $OLD_WALK_SHA 8 spectre/changes/kan-1/tasks.md" &&
+   printf '%s' "$OUT" | grep -q "PLANNING-PATHS-SWEPT: $WALK — 1 task commit(s)"; then
+  pass "walk: swept commit below a clean one flagged, newer one parsed"
+else
+  fail "walk: expected exit 1 naming the older commit, got RC=$RC OUT=<$OUT>"
 fi
 
 # ---- range: a swept commit before <base> stays outside the answer ---------
