@@ -113,3 +113,26 @@ func TestGetSelfReviewBundleUnreachableStoreIsUnavailable(t *testing.T) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
 }
+
+// TestGetSelfReviewBundleAcceptsExactCapBody pins the cap boundary's other
+// half: a body of exactly maxResponseBytes was served whole, and refusing
+// it would call a complete answer truncated. The reader takes one byte
+// past the cap precisely so this case stays a success.
+func TestGetSelfReviewBundleAcceptsExactCapBody(t *testing.T) {
+	head := []byte("# Self-review context bundle for demo\n")
+	body := bytes.Repeat([]byte("x"), 1<<20-len(head))
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(append(head, body...))
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	got, err := c.GetSelfReviewBundle(context.Background(), "proj", "demo", "")
+	if err != nil {
+		t.Fatalf("GetSelfReviewBundle: %v", err)
+	}
+	if len(got) != 1<<20 {
+		t.Errorf("body = %d bytes, want the whole %d", len(got), 1<<20)
+	}
+}
