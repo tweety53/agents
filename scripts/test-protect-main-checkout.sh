@@ -26,6 +26,8 @@
 #   18. Bash `tee <main>/file`                            -> deny
 #   19. Bash `rm <main>/file`                             -> deny
 #   20. Bash `land-self-review-report.sh <main> main ...` -> allow (a script, not a git verb)
+#   21. Bash `mv <elsewhere>/x ~/.Trash/` with cwd = main   -> allow (tilde expands, not cwd-relative)
+#   22. Bash `mv <main>/file /tmp/`                       -> deny (a move out of the checkout removes)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -98,6 +100,11 @@ expect "18 Bash tee into main" deny "$(run "$ROOT" Bash "{\"command\":$(q "echo 
 expect "19 Bash rm in main" deny "$(run "$ROOT" Bash "{\"command\":$(q "rm $MAIN/f.txt")}")"
 expect "20 landing script named, not a git verb" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "land-self-review-report.sh $MAIN main 'docs: x' docs/x.md --push main")}")"
+
+mkdir -p "$ROOT/elsewhere"; touch "$ROOT/elsewhere/x"
+expect "21 tilde destination is not cwd-relative" allow \
+  "$(HOME="$ROOT" run "$MAIN" Bash "{\"command\":$(q "mv $ROOT/elsewhere/x ~/.Trash/")}")"
+expect "22 mv out of main checkout" deny "$(run "$ROOT" Bash "{\"command\":$(q "mv $MAIN/f.txt $ROOT/")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature

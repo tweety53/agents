@@ -11,7 +11,7 @@ landing as staged changes. This hook denies the tools that create such residue:
   * Edit / Write / MultiEdit / NotebookEdit on a path inside such a checkout;
   * Bash commands that run a mutating git verb there (`git commit`, `git -C <main> add`,
     `cd <main> && git reset ...`), or write into it with `sed -i`, `tee`, a `>`/`>>`
-    redirect, `cp`/`mv` destinations, or `rm`.
+    redirect, `cp` destinations, or `mv`/`rm` sources and destinations.
 
 "Main checkout" is the worktree whose git dir IS the common dir — a linked worktree's `--git-dir`
 is `<common>/worktrees/<name>`, so `.worktrees/<change>` and `<repo>-worktrees/<change>` alike
@@ -108,6 +108,7 @@ def protected(path):
 
 
 def resolve(path, cwd):
+    path = os.path.expanduser(path)
     return path if os.path.isabs(path) else os.path.join(cwd, path)
 
 
@@ -171,8 +172,8 @@ def bash_hits(command, cwd):
                     break
                 if not t.startswith("-"):
                     args.append(t)
-            if tok == "rm":
-                hits.extend(resolve(a, cur) for a in args)
+            if tok in ("rm", "mv"):
+                hits.extend(resolve(a, cur) for a in args)  # mv removes its sources too
             elif args:
                 hits.append(resolve(args[-1], cur))
             i += 1
