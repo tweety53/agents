@@ -705,8 +705,10 @@ type DecisionRow struct {
 // joined figure at its zero value -- a decision is a real event on its
 // own, independent of whether anything was ever attributed to its run.
 //
-// Token and cost figures sum dispatches.metrics' "main" and "sidechain"
-// buckets the same way CostPerChange does; outcome counts (fallback,
+// Token figures sum dispatches.metrics' "main" and "sidechain" buckets;
+// cost sums the run's own stage_runs.metrics "cost_usd", where Price
+// writes it, the same source CostPerChange reads -- a dispatch's own
+// metrics bag never carries cost_usd. Outcome counts (fallback,
 // timed-out) use the literal outcome strings skills/flow/*.md's dispatch
 // paragraphs record. FixRounds is the highest findings.round any of the
 // run's own dispatches raised, 0 when none did.
@@ -777,7 +779,6 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 					COALESCE((metrics->'tokens'->'main'->>'cache_read')::numeric, 0)
 					+ COALESCE((metrics->'tokens'->'sidechain'->>'cache_read')::numeric, 0)
 				) AS cache_read_tokens,
-				SUM(COALESCE((metrics->>'cost_usd')::numeric, 0)) AS cost_usd,
 				COUNT(*) FILTER (WHERE outcome = 'fallback') AS fallbacks,
 				COUNT(*) FILTER (WHERE outcome = 'timed-out') AS timed_out
 			FROM run_dispatches
@@ -795,7 +796,8 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 		),
 		runtime_agg AS (
 			SELECT sd.change_id, sd.session_token,
-				EXTRACT(EPOCH FROM (MAX(sr.ended_at) - MIN(sr.started_at))) AS wall_clock_seconds
+				EXTRACT(EPOCH FROM (MAX(sr.ended_at) - MIN(sr.started_at))) AS wall_clock_seconds,
+				SUM(COALESCE((sr.metrics->>'cost_usd')::numeric, 0)) AS cost_usd
 			FROM scoped_decisions sd
 			JOIN stage_runs sr ON sr.change_id = sd.change_id AND sr.session_token = sd.session_token
 			GROUP BY sd.change_id, sd.session_token
@@ -844,7 +846,7 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			COALESCE(da.input_tokens, 0)::bigint,
 			COALESCE(da.output_tokens, 0)::bigint,
 			COALESCE(da.cache_read_tokens, 0)::bigint,
-			COALESCE(da.cost_usd, 0),
+			COALESCE(ra.cost_usd, 0),
 			COALESCE(fa.critical, 0),
 			COALESCE(fa.important, 0),
 			COALESCE(fa.minor, 0),

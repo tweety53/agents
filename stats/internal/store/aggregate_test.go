@@ -1126,11 +1126,16 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 	if err := st.EndStage(ctx, run.ID, runIn.StartedAt.Add(10*time.Minute), "completed"); err != nil {
 		t.Fatalf("EndStage: %v", err)
 	}
+	// Cost lives on the stage run, where Price writes it -- a dispatch's
+	// own metrics bag never carries cost_usd.
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{"cost_usd":1.25}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
 
 	implD := baseDispatch("implementer", "sonnet")
 	implD.SessionToken = token
 	implD.Outcome = "completed"
-	implD.Metrics = json.RawMessage(`{"tokens":{"main":{"input":100,"output":50,"cache_read":20}},"cost_usd":1.25}`)
+	implD.Metrics = json.RawMessage(`{"tokens":{"main":{"input":100,"output":50,"cache_read":20}}}`)
 	implOut, err := st.RecordDispatch(ctx, projectKey, "kan-1", implD)
 	if err != nil {
 		t.Fatalf("RecordDispatch implementer: %v", err)
