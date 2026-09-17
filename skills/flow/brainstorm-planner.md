@@ -354,7 +354,8 @@ recorded as such:
    floor already holds every reading/judgment role; a rolled experimental slot joins the second
    dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree**
    below, keyed on `class` and the rolls. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
-   fix-round re-run dispatch runs on, whatever roles it carries: its `model` is any `ValidModels`
+   fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
+   findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is any `ValidModels`
    member **no `panel.dispatches` entry uses** — a re-review by the model that raised the finding
    is not a second pair of eyes — and its `effort` is `low`, fixed, since a re-run reads a delta
    to confirm a fix and must be short and fast; its `reason` names the model choice only. Default: today's settings-store roster on
@@ -455,7 +456,7 @@ run's own output once the Decide step completes, filling every cell from what wa
 | ↳ fixer            | <model> / <effort> — <reason> | <"skipped — inline"\|"default"\|model/effort> |
 | review panel       | <default\|dynamic> | <"default"\|<compact\|full> · <delta\|full> rerun> |
 | ↳ dispatch <n>     | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
-| ↳ rerun            | <model> / low — <reason> | every fix-round re-run |
+| ↳ rerun            | <model> / low — <reason> | every fix-round re-run, one role per dispatch |
 | ↳ grouping         | free             | <grouping_reason> |
 | implementer groups | —                | <"skipped — inline"\|"mechanical"\|<groups_reason>> |
 | ↳ group <bundle ids> | <model> / <effort> — <reason> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |

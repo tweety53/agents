@@ -331,9 +331,8 @@ Every bundle prompt also carries this paragraph verbatim:
 
 **Re-runs are re-grouped by the same grouping**, carrying only the roles re-running this round — a
 group whose other members are clean dispatches with its re-running members only. On
-`REVIEW_PANEL_TOGGLE` `dynamic` a fix round's re-running roles form one dispatch instead, its
-`-slot` every re-running role `+`-joined in roster order, the bundle cap notwithstanding
-(**Panel re-runs**).
+`REVIEW_PANEL_TOGGLE` `dynamic` a fix round's re-running roles are never bundled: one dispatch per
+role, its `-slot` that role alone (**Panel re-runs**).
 
 The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
 line name the dispatches as `+`-joined groups (`primary+principles · code-review-low+mutation`).
@@ -794,12 +793,19 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round;
-- **on `REVIEW_PANEL_TOGGLE` `dynamic`, every re-running role runs in one dispatch on the
-  decision's `panel.rerun_dispatch` pair** — a model no pass-1 dispatch used, at `low` effort, under
-  the 5-minute ceiling — never on the pair that raised the finding; its prompt states that it is
-  re-reviewing a fix and names the delta path, and each `-model`/`-effort` recorded is that pair
-  (**Bundled dispatch**). The final pass **Rerun policy `full`** adds is pass-1 work and runs on
-  `panel.dispatches` as pass 1 did.
+- **on `REVIEW_PANEL_TOGGLE` `dynamic`, each re-running role runs alone, in its own dispatch, on
+  the decision's `panel.rerun_dispatch` pair** — a model no pass-1 dispatch used, at `low` effort,
+  under the 5-minute ceiling — never on the pair that raised the finding, and never bundled with
+  another role. **The re-run is targeted at what that role raised and nothing else**: in place of
+  its held-sha delta it reads the round's `fix-round-N.diff` plus the sites of its own open
+  findings, each opened at its recorded `file:line` in the current tree, and its prompt lists
+  those `F<n>` rows verbatim, states that it is re-reviewing their fix, and names that diff path.
+  Its verdict is per listed finding — fixed, or not fixed with the reproducer output — plus any
+  defect the fix diff itself introduces at those sites; it re-reads no other part of the branch.
+  A role that raised nothing in the previous round does not re-run under the new-Critical clause
+  above either — with no finding of its own to target it has nothing to re-review. Each
+  `-model`/`-effort` recorded is the rerun pair (**Bundled dispatch**). The final pass **Rerun
+  policy `full`** adds is pass-1 work and runs on `panel.dispatches` as pass 1 did.
 
 **From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
 reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
