@@ -417,6 +417,43 @@ case "$OUT" in
 esac
 assert_shim_fired "$SHIM_DIR" "unreadable unstaged-paths list"
 
+# 9g. `git rev-list` failing on the UNCARRIED capture (KAN-535: the
+#     carried-movement count) is an environment failure, not a verdict:
+#     exit 2 and no verdict line. `^HEAD` is unique to this one `rev-list`
+#     call in the guard — COUNT's call carries the same range but no
+#     exclusion — so matching subcommand AND that argument together fires
+#     on the UNCARRIED capture alone; case 9b's shim, matching `rev-list`
+#     on its own, cannot reach past COUNT. (KAN-535 panel F1.)
+new_repo
+advance_base "$REPO" unrelated1.txt
+SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/base-moved-shim.XXXXXX")"
+REPOS+=("$SHIM_DIR")
+{
+  printf '#!/usr/bin/env bash\n'
+  printf 'if [ "$3" = "rev-list" ] && [ "$7" = "^HEAD" ]; then\n'
+  printf '  : > "%s/.fired"\n' "$SHIM_DIR"
+  printf '  echo "fatal: simulated UNCARRIED read failure" >&2\n'
+  printf '  exit 128\n'
+  printf 'fi\n'
+  printf 'exec %s "$@"\n' "$TEST_GIT_SHIM_REAL_GIT"
+} > "$SHIM_DIR/git"
+chmod +x "$SHIM_DIR/git"
+set +e
+OUT="$(PATH="$SHIM_DIR:$PATH" "$GUARD" "$REPO" "$BASE_REF" "$RECORDED_BASE" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 2 ] && pass "unreadable uncarried count -> exit 2" \
+  || fail "unreadable uncarried count: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  CLEAR*|MOVED*|REFUSE*) fail "unreadable uncarried count: emitted a verdict line: $OUT" ;;
+  *) pass "unreadable uncarried count: emits no verdict line" ;;
+esac
+case "$OUT" in
+  *"uncarried commits"*) pass "unreadable uncarried count: names the failure" ;;
+  *) fail "unreadable uncarried count: no named message: $OUT" ;;
+esac
+assert_shim_fired "$SHIM_DIR" "unreadable uncarried count"
+
 # new_repo_with_origin -> sets REPO, ORIGIN, BASE_REF, RECORDED_BASE
 # A bare `origin`, a clone of it with one commit on `main` (RECORDED_BASE,
 # carrying base.txt and shared.txt), pushed back to origin, and a branch
@@ -554,6 +591,60 @@ esac
 [ "$CHAIN_RC" -ne 128 ] \
   && pass "shim chaining: second shim exited a real-git error, not the first shim's 128" \
   || fail "shim chaining: second shim exited 128, matching the first shim's fatal exit"
+
+# 14. KAN-535: base movement entirely satisfied by commits this branch
+#     already carries — the same commit objects landed on origin/main by
+#     another route while the change was in flight (the shape KAN-516's
+#     integrate run hit: the branch's own research-note commit, pushed
+#     upstream by an unrelated /flow-plan session) — reads as CLEAR,
+#     because rebasing over it replays nothing.
+new_repo_with_origin
+git -C "$REPO" commit -qm "demo note commit" --allow-empty
+DEMO_CARRY="$(git -C "$REPO" rev-parse HEAD)"
+echo demo-work >> "$REPO/shared.txt"
+git -C "$REPO" add shared.txt
+git -C "$REPO" commit -qm "demo work on top"
+git -C "$REPO" push -q origin "$DEMO_CARRY":main
+git -C "$REPO" fetch -q origin
+run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
+case "$OUT" in
+  CLEAR*) pass "movement entirely carried -> CLEAR" ;;
+  *) fail "movement entirely carried: expected CLEAR, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"already carried by this branch"*) pass "movement entirely carried: names the carried movement" ;;
+  *) fail "movement entirely carried: reason missing: $OUT" ;;
+esac
+case "$OUT" in
+  *"origin/main"*) pass "movement entirely carried: verdict names the moved ref origin/main" ;;
+  *) fail "movement entirely carried: verdict does not name origin/main: $OUT" ;;
+esac
+
+# 15. KAN-535: movement only PARTIALLY carried — one commit the branch has,
+#     one it does not — still reads MOVED with the full commit count, so a
+#     rebase that has real work to replay is never skipped by the CLEAR
+#     above.
+new_repo
+git -C "$REPO" commit -qm "carried commit" --allow-empty
+CARRIED="$(git -C "$REPO" rev-parse HEAD)"
+echo demo-work >> "$REPO/shared.txt"
+git -C "$REPO" add shared.txt
+git -C "$REPO" commit -qm "demo work"
+git -C "$REPO" branch -f main "$CARRIED"
+git -C "$REPO" checkout -q main
+echo unrelated >> "$REPO/unrelated1.txt"
+git -C "$REPO" add unrelated1.txt
+git -C "$REPO" commit -qm "unrelated advance"
+git -C "$REPO" checkout -q demo
+run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
+case "$OUT" in
+  MOVED*) pass "movement partially carried -> MOVED" ;;
+  *) fail "movement partially carried: expected MOVED, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"2 commits"*) pass "movement partially carried: names the full commit count" ;;
+  *) fail "movement partially carried: commit count wrong: $OUT" ;;
+esac
 
 # KAN-298: the guard's usage message must state the base-ref substitution
 # rule, not just its synopsis — a bare name alone gives no hint that the

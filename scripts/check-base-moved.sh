@@ -6,6 +6,9 @@
 #
 # Prints ONE verdict line to stdout:
 #   CLEAR:  <worktree> — <ref> has not moved since the recorded merge base
+#   CLEAR:  <worktree> — the <n> commits <ref> gained since the recorded
+#           merge base are all already carried by this branch — nothing to
+#           rebase
 #   MOVED:  <worktree> — <n> commits on <ref> since the recorded merge base;
 #           no overlap with this change's paths
 #   MOVED:  <worktree> — <n> commits on <ref> since the recorded merge base;
@@ -43,7 +46,10 @@
 # paths — which include the index and the working tree, exactly as this guard
 # counts them. A stale recorded merge base — one recorded before a rebase
 # this pipeline performed — is the known structural cause of a movement that
-# is not real.
+# is not real. A CLEAR naming carried movement recounts instead with
+# `git rev-list <recorded-merge-base>..<ref> ^HEAD` — zero means every commit
+# the base gained is already reachable from the branch, the benign cause
+# KAN-535 records.
 set -euo pipefail
 export LC_ALL=C
 
@@ -104,6 +110,23 @@ COUNT="$(git -C "$WORKTREE" rev-list --count --end-of-options "${RECORDED_SHA}..
 
 if [ "$COUNT" = "0" ]; then
   echo "CLEAR: $WORKTREE — $EFFECTIVE_REF has not moved since the recorded merge base"
+  exit 0
+fi
+
+# Movement entirely satisfied by commits this branch already carries
+# (KAN-535) — the same commit objects landed upstream by another route while
+# the change was in flight — needs no rebase: rebasing over it replays
+# nothing, so it reads as CLEAR even though the base moved. `^HEAD` rides
+# after --end-of-options as rev syntax (`^rev` is a rev, not an option), and
+# the capture is checked on its own line like every other git invocation
+# here: a failure is exit 2 with a named message, never a verdict.
+UNCARRIED="$(git -C "$WORKTREE" rev-list --count --end-of-options "${RECORDED_SHA}..${EFFECTIVE_REF}" "^HEAD" 2>/dev/null)" || {
+  echo "check-base-moved: cannot count uncarried commits between $RECORDED_SHA and $EFFECTIVE_REF in $WORKTREE" >&2
+  exit 2
+}
+
+if [ "$UNCARRIED" = "0" ]; then
+  echo "CLEAR: $WORKTREE — the $COUNT commits $EFFECTIVE_REF gained since the recorded merge base are all already carried by this branch — nothing to rebase"
   exit 0
 fi
 
