@@ -257,9 +257,10 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > traceable to a declared task.
 
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
-block and every numeric claim per **Plan provenance**
-(`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
-and **kept**.
+block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan
+provenance** (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged
+`unverified:` and **kept**, and an unverifiable assumption carries `unverified:<what-to-check>` in
+the task that depends on it.
 
 **Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
 with `**Build:**` per **The build-green tag**

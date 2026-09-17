@@ -582,7 +582,8 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > never argue one away without measuring.
 
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
-> Establish the real API before writing against it, and report what you found. When what you
+> Establish the real API before writing against it, and report what you found. An assumption tagged
+> `unverified:` in your task is a guess to confirm before you build on it. When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
 > contradicts the plan** (`skills/flow-contracts/plan-provenance.md`). Report a correction your
 > measurement produced — a tag to retag, a number to replace, a `**Files:**` entry to add — as the
