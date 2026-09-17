@@ -877,6 +877,28 @@ dispatch; a **rejected reproducer shape** (a shell metacharacter, an absolute pa
 a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **unverifiable** and put to
 the operator, never silently rewritten. Exit 2 stops the run.
 
+**The exit-code contract is checked mechanically before any dispatch decision reads a reproducer by
+hand** (KAN-554 — kan-468's panel supplied an Important finding's reproducer whose exit-code
+condition was inverted, and the inversion reached the deferred self-review pass before anything ran
+it):
+
+```bash
+check-panel-reproducer-exit-contract.sh <worktree> <change>
+```
+
+The guard runs every **open** finding's runnable reproducer through `run-reproducer.sh` against the
+worktree, bare, and requires the verdict *defect demonstrated* — the exit-code behaviour an open
+finding's reproducer claims on the tree under review. Findings at any other status claim nothing
+about the current tree and are skipped, as are the exemption and bare-`none` forms the lexical guard
+above owns. Exit 0 proceeds to the per-finding runs below. Exit 1 names every finding whose
+reproducer contradicted its claim, one disposition per class: a reproducer that read *not
+demonstrated* — the inverted class — is bounced exactly as the per-finding run's own answer 1 below,
+once, back to the raising slot; a reproducer the runner refused as unusable is recorded
+**unverifiable** and put to the operator, exactly as the per-finding run's own answer 2 below, since
+a refused reproducer never ran and so carries no passing output a bounce could carry. Exit 2 — any
+reproducer the runner could not verdict: a timeout, a surviving process, a plumbing failure — stops
+the run, the same as the lexical guard's exit 2.
+
 **For each open finding whose record carries a runnable `finding-reproducer:` command**, the
 parent runs it itself, never a subagent — every finding's run and every throwaway worktree
 removal in one Bash call, each run followed by `; echo "F<n>: exit $?"` so every exit code stays
