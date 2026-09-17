@@ -18,6 +18,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-python-suppressions.sh"
 FAILURES=0
 
+# Every fixture directory is registered here and removed by a single EXIT
+# trap, matching test-check-vocabulary.sh's own hygiene: a harness that
+# leaks its fixtures litters the machine it proves things on.
+FIXTURES=()
+cleanup_fixtures() { [ "${#FIXTURES[@]}" -eq 0 ] || rm -rf "${FIXTURES[@]}"; }
+trap cleanup_fixtures EXIT
+
 fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
 pass() { printf 'ok: %s\n' "$1"; }
 
@@ -29,8 +36,19 @@ run_guard() {
   set -e
 }
 
+# run_guard_from <cwd> [guard args...] -> sets RC and OUT, with the guard's
+# working directory set to <cwd> instead of this harness's own
+run_guard_from() {
+  local from="$1"; shift
+  set +e
+  OUT="$(cd "$from" && "$GUARD" "$@" 2>&1)"
+  RC=$?
+  set -e
+}
+
 new_fixture() {
   FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/check-python-suppressions-test.XXXXXX")"
+  FIXTURES+=("$FIXTURE")
 }
 
 # ===========================================================================
@@ -148,6 +166,55 @@ run_guard "$FIXTURE"
 [ "$(printf '%s\n' "$OUT" | grep -c 'noqa')" -eq 1 ] &&
   pass "case 13: hit reported exactly once" ||
   fail "case 13: expected exactly one reported hit, out=$OUT"
+
+# ===========================================================================
+# Case 14: no-args mode is independent of the caller's cwd — the scan set is
+# resolved absolutely from the guard's own repo root, so a run from any
+# other directory answers for the repository (exit 0 clean, 1 markers), and
+# never 2 "cannot answer" on a healthy repo.
+# ===========================================================================
+new_fixture
+run_guard_from "$FIXTURE"
+[ "$RC" -ne 2 ] && pass "case 14: no-args scan independent of caller cwd" || fail "case 14: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 15: a git ls-files failure is exit 2, never a vacuous clean answer —
+# a broken GIT_DIR makes the enumeration fail while the guard's own repo is
+# healthy, exercising exactly the status check the loop cannot observe.
+# ===========================================================================
+new_fixture
+set +e
+OUT="$(GIT_DIR="$FIXTURE/not-a-repo" "$GUARD" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 2 ] && pass "case 15: git enumeration failure is exit 2" || fail "case 15: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 16: a find failure in the args-directory branch is exit 2, never a
+# clean answer over a partial scan — an unreadable subtree makes find exit
+# non-zero. Skipped under root, which no chmod can make unreadable.
+# ===========================================================================
+if [ "$(id -u)" -eq 0 ]; then
+  pass "case 16: skipped under root (no chmod-unreadable directory exists)"
+else
+  new_fixture
+  mkdir -p "$FIXTURE/hidden"
+  printf 'y = 2  # noqa\n' > "$FIXTURE/hidden/secret.py"
+  printf 'z = 3\n' > "$FIXTURE/visible.py"
+  chmod 000 "$FIXTURE/hidden"
+  run_guard "$FIXTURE"
+  chmod 755 "$FIXTURE/hidden"
+  [ "$RC" -eq 2 ] && pass "case 16: find enumeration failure is exit 2" || fail "case 16: rc=$RC out=$OUT"
+fi
+
+# ===========================================================================
+# Case 17: pyright's own `# pyright: ignore` spelling is caught — the
+# header names pyright, so the regex must cover its native marker too.
+# ===========================================================================
+new_fixture
+printf 'x: int = something()  # pyright: ignore\n' > "$FIXTURE/pyright_ignore.py"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 17: pyright: ignore caught" || fail "case 17: rc=$RC out=$OUT"
 
 # ===========================================================================
 if [ "$FAILURES" -eq 0 ]; then
