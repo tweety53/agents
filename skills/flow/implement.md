@@ -864,6 +864,27 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 
 On BLOCKED: pause and report. Never guess.
 
+**Before closing the stage**, the parent runs this guard itself, never a subagent:
+
+```bash
+check-task-reviewer-single-dispatch.sh <worktree> <change> <session-token>
+```
+
+— the token this run stamped on its own dispatches, `<worktree>` the canonical one. Exit 0
+proceeds to the stage close below. Exit 1 names every violation of the gated-
+per-task-reviewer bundling contract above — a bundle carrying more than one non-retry dispatch, a
+retry with no original, a key outside the canonical shape, two gate-fired tasks of the same
+implementer group split across separate reviewer bundles, or (on `small`/`regular`) more than one
+original bundle for the whole run — and is a handback `## Question`, the same shape
+`skills/flow/review-panel.md`'s own `check-panel-fix-single-dispatch.sh` handback carries:
+
+> **The gated per-task reviewer broke the bundled-dispatch shape:** <the guard's violation lines>
+> - **Continue — the violation stays recorded in this run's output** *(default, recommended)* —
+>   the tasks may already be reviewed clean, and the work is real
+> - **Stop the run**
+
+Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
+
 ```bash
 flow stage end -command '/flow' -stage flow.sdd-tdd -outcome completed <name>
 ```
