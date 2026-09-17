@@ -980,6 +980,15 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
+	// The begin handler's mapping, mirrored: "none" is the documented word
+	// for "the harness exposes no id" (see -agent-id's own help), so it
+	// reaches the wire as absence on both halves of the pair. On end that
+	// means "not given here" -- which never clears an identifier begin
+	// already recorded -- rather than the store's placeholder refusal
+	// (KAN-560, panel F2/F4).
+	if *agentID == "none" {
+		*agentID = ""
+	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {

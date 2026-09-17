@@ -878,6 +878,18 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 			t.Errorf("agentId = %v, want the key absent -- an end that omits it must never clear an identifier begin already recorded", v)
 		}
 	})
+
+	// The literal "none" is the documented word for "the harness exposes
+	// no id", and the begin handler maps it to absence before the call;
+	// the end handler mirrors that mapping, so the word reaches the wire
+	// as the same absent key here -- never verbatim, where the store's
+	// placeholder rule would refuse it (KAN-560, panel F2/F4).
+	t.Run("none", func(t *testing.T) {
+		sent := send(t, "-agent-id", "none")
+		if v, ok := sent["agentId"]; ok {
+			t.Errorf("agentId = %v, want the key absent -- \"none\" means absence on both halves of the pair", v)
+		}
+	})
 }
 
 // --- write-time validation: a blocked outcome's cause (KAN-510) ---
