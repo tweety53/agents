@@ -153,7 +153,8 @@ and record explicitly when none were: "no addition this round — the resolved l
 
 **On `REVIEW_PANEL_TOGGLE` `dynamic`**, model and effort belong to the dispatch, not the slot:
 each entry of the decision's `panel.dispatches` carries its `slots` and its own `model` and
-`effort`, and every slot in it runs on that pair — the dispatch's `subagent_type` is
+`effort`, and every slot in it runs on that pair in pass 1 — and in every fix-round re-run on the
+decision's `panel.rerun_dispatch` pair instead (**Panel re-runs**) — the dispatch's `subagent_type` is
 `flow-<effort>` — the effort comes from the definition, the model from the Agent tool's own
 `model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded,
 per design.md's `agent-definitions-universal-handshake`. The roster carries no per-slot model. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A compact roster
@@ -329,7 +330,10 @@ Every bundle prompt also carries this paragraph verbatim:
 **No de-duplication across roles**: the same defect raised by two passes is two `F<n>` rows.
 
 **Re-runs are re-grouped by the same grouping**, carrying only the roles re-running this round — a
-group whose other members are clean dispatches with its re-running members only.
+group whose other members are clean dispatches with its re-running members only. On
+`REVIEW_PANEL_TOGGLE` `dynamic` a fix round's re-running roles form one dispatch instead, its
+`-slot` every re-running role `+`-joined in roster order, the bundle cap notwithstanding
+(**Panel re-runs**).
 
 The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
 line name the dispatches as `+`-joined groups (`primary+principles · code-review-low+mutation`).
@@ -358,8 +362,10 @@ sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
 panel record names every worktree's sha beside the delta path (design.md's
 `diff-base-canonical-sha`). `-model` is `DEFAULT_MODEL` (or this run's override) on
 `REVIEW_PANEL_TOGGLE` `default` and the dispatch's own model from the decision's
-`panel.dispatches` on `dynamic` — bundled or one-role alike, no exception. `-effort` likewise:
-`default` on `REVIEW_PANEL_TOGGLE` `default`, and the dispatch's own effort on `dynamic`.
+`panel.dispatches` on `dynamic` — bundled or one-role alike, no exception — or, on a fix-round
+re-run on `dynamic`, `panel.rerun_dispatch`'s model. `-effort` likewise:
+`default` on `REVIEW_PANEL_TOGGLE` `default`, and the dispatch's own effort on `dynamic`,
+`panel.rerun_dispatch`'s `low` on a re-run.
 
 **`-agent-id` is never typed, never invented** — the daemon captures the launch identifier
 (KAN-322), pairing each launch with the begin whose command sits nearest it in the transcript;
@@ -488,7 +494,9 @@ No panel slot is dispatched onto a skill or agent that forks its own background 
 agent reports to nobody the dispatcher is tracking. Repair it by dispatching the slot on a shape
 that reports back directly; never drop the slot.
 
-Every panel slot carries a 15-minute wall-clock ceiling from its dispatch. The dispatcher
+Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 5 minutes for a
+fix-round re-run dispatch on `REVIEW_PANEL_TOGGLE` `dynamic`, which reads a delta at `low` effort
+and has no business running longer. The dispatcher
 tracks each in-flight slot's elapsed time itself rather than blocking indefinitely on a completion
 notification.
 
@@ -785,7 +793,13 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   delta is empty in every worktree is not dispatched** — record `not re-run —
   nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
-  only through the explicit-request check **The roster** states, at the start of any round.
+  only through the explicit-request check **The roster** states, at the start of any round;
+- **on `REVIEW_PANEL_TOGGLE` `dynamic`, every re-running role runs in one dispatch on the
+  decision's `panel.rerun_dispatch` pair** — a model no pass-1 dispatch used, at `low` effort, under
+  the 5-minute ceiling — never on the pair that raised the finding; its prompt states that it is
+  re-reviewing a fix and names the delta path, and each `-model`/`-effort` recorded is that pair
+  (**Bundled dispatch**). The final pass **Rerun policy `full`** adds is pass-1 work and runs on
+  `panel.dispatches` as pass 1 did.
 
 **From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
 reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
@@ -1093,7 +1107,7 @@ panel-fix -agent-id inline`. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
 writing its fix. **Dispatch it on `DEFAULT_MODEL`** (design.md's `model-default-sonnet`). **On
 `IMPLEMENTER_MODEL_TOGGLE` `dynamic` with an `sdd` decision, dispatch it instead on the decision's
-`implementer` object** — the fixer's own model and effort, `subagent_type:
+`fixer` object** — its own model and effort, chosen apart from the implementer's, `subagent_type:
 flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
 `-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). Record
 every pass with `flow record pass -round <round>`: which agents ran, why,

@@ -10,7 +10,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Defect hunt (Bugbot)"
   model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's
-                                           # panel.dispatches entry carrying this slot on `dynamic`
+                                           # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on `dynamic`
   prompt: |
     You are a defect-hunt reviewer. You are NOT doing a plan-alignment review, a principles
     review, a security audit, or a failure-modes review — other panel slots own those and

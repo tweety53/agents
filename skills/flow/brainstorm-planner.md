@@ -332,10 +332,15 @@ since nothing dispatched this section. Decide, in this order, each step only whe
 recorded as such:
 
 1. **execution mode** — `inline` (`class` small or regular) or `sdd` (`class` big); default `sdd`.
-2. **implementer/fixer model + effort** — only when step 1 came out `sdd`; chosen per **Model
-   and effort** below. This is the fixer's model and every implementer group's default (step 4).
-   Recorded `skipped — inline` when step 1 is inline, `default` when the toggle is off.
-3. **review panel** — roster, compact/experimental, rerun policy, and its **grouping** —
+2. **implementer and fixer model + effort** — only when step 1 came out `sdd`; two pairs, each
+   chosen per **Model and effort** below. The implementer pair is every implementer group's
+   default (step 4). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
+   round does — repair named findings against their reproducers, usually a narrower job than the
+   implementation — so it may differ from the implementer pair in model, effort or both, its
+   `reason` saying why. Both recorded `skipped — inline` when step 1 is inline, `default` when
+   the toggle is off.
+3. **review panel** — roster, compact/experimental, rerun policy, the **rerun pair**, and its
+   **grouping** —
    `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a
    one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
    slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
@@ -348,7 +353,11 @@ recorded as such:
    remaining roles form the second dispatch entirely — there is no overflow case left, since the
    floor already holds every reading/judgment role; a rolled experimental slot joins the second
    dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree**
-   below, keyed on `class` and the rolls. Default: today's settings-store roster on
+   below, keyed on `class` and the rolls. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
+   fix-round re-run dispatch runs on, whatever roles it carries: its `model` is any `ValidModels`
+   member **no `panel.dispatches` entry uses** — a re-review by the model that raised the finding
+   is not a second pair of eyes — and its `effort` is `low`, fixed, since a re-run reads a delta
+   to confirm a fix and must be short and fast; its `reason` names the model choice only. Default: today's settings-store roster on
    `DEFAULT_MODEL` and `default` effort for every dispatch, delta rerun, grouped by the static
    table deterministically (no roll), recorded `default`.
 4. **implementer groups** — on every run whose step 1 came out `sdd` (`## execution mode` toggle or
@@ -381,7 +390,7 @@ recorded as such:
 #### Model and effort
 
 The tree fixes no model and no effort: every pair a `dynamic` step
-assigns — the implementer/fixer, each panel dispatch, each implementer group — is the planner's
+assigns — the implementer, the fixer, each panel dispatch, the rerun pair's model, each implementer group — is the planner's
 own choice, `model` any member of the store's `ValidModels` set (`haiku`, `sonnet`, `opus`,
 `fable`; `flow settings models` prints it) and `effort` one of `low`/`medium`/`high`, decided
 from what that dispatch will actually do: the complexity of its tasks, the time and space
@@ -412,11 +421,13 @@ Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — o
 run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
 (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `toggles`, `class`, `classMechanical`,
 `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
-(`compact`, `experimental`, `bundle`), `execution`, `implementer` (an object `{model, effort,
-reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
+(`compact`, `experimental`, `bundle`), `execution`, `implementer` and `fixer` (each an object
+`{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
 [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
 `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster
-order — the one place a reviewer's model and effort are recorded),
+order — the one place a pass-1 reviewer's model and effort are recorded), `rerun_dispatch` (an object
+`{model, effort, reason}`, the rerun pair — the one place a fix-round re-run's model and effort are
+recorded),
 `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot
 skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
@@ -441,8 +452,10 @@ run's own output once the Decide step completes, filling every cell from what wa
 |--------------------|------------------|--------|
 | execution mode     | <default\|dynamic> | <inline\|sdd> |
 | implementer model  | <default\|dynamic> — <reason> | <"skipped — inline"\|"default"\|model/effort> |
+| ↳ fixer            | <model> / <effort> — <reason> | <"skipped — inline"\|"default"\|model/effort> |
 | review panel       | <default\|dynamic> | <"default"\|<compact\|full> · <delta\|full> rerun> |
 | ↳ dispatch <n>     | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
+| ↳ rerun            | <model> / low — <reason> | every fix-round re-run |
 | ↳ grouping         | free             | <grouping_reason> |
 | implementer groups | —                | <"skipped — inline"\|"mechanical"\|<groups_reason>> |
 | ↳ group <bundle ids> | <model> / <effort> — <reason> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |
@@ -452,15 +465,18 @@ One fact per row, every reason in the middle column, nothing printed outside the
 first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/
 `repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value
 cell the interpretation. The second is the decision side. `↳` rows are sub-rows of the setting
-above them: one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that
-dispatch's model and effort with its `reason` and its value cell the roles `+`-joined in roster order; a `↳ grouping`
+above them: a `↳ fixer` row under the implementer row, its cells the `fixer` value in the
+implementer row's own shape; one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that
+dispatch's model and effort with its `reason` and its value cell the roles `+`-joined in roster order; a `↳ rerun`
+row after the last dispatch row, its rule cell the rerun pair with its `reason`; a `↳ grouping`
 row only on a free grouping (omitted on a static one); an experimental slot skipped for the cap
 adds `· experimental: skipped — bundle cap` to the review-panel value cell. The implementer-groups
 row is `skipped — inline` on an inline run, else `groups_reason`, followed by one `↳ group` row per
 object in `groups`, its rule cell the group's model and effort with its `reason` and its value cell the bundle ids
 (`plan-dispatch-bundles.sh`'s ids), the `(mechanical: …; override: …)` suffix only on a split
 (`groups_override` non-`null`) — mirroring the `class` row's own `override` shape. When `panel` is
-the string `default` the review-panel value cell is `default` and no `↳` row follows it.
+the string `default` the review-panel value cell is `default` and no `↳` row follows it; when
+`implementer` is a string the `↳ fixer` row carries the same string and no pair.
 
 Prepend these three lines directly above the `## Decision` block — the one place these choices
 appear in a run, never printed twice:

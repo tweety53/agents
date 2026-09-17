@@ -8,7 +8,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Security review"
   model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's
-                                           # panel.dispatches entry carrying this slot on `dynamic`
+                                           # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on `dynamic`
   prompt: |
     You are a security-focused reviewer for this project's code. You are NOT doing a
     plan-alignment review, a principles review, or a defect hunt — other panel slots own

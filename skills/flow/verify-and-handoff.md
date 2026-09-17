@@ -1027,7 +1027,7 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 ## Implementation staged — review and test | Implementation committed — review and test
 
 **Change:** <name>
-**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
+**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
 **Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
@@ -1064,7 +1064,8 @@ reduction**, `skills/flow/review-panel.md`), any slot an explicit operator instr
 beyond the resolved list; and, per **Bundled dispatch** and **The `## Decision` block**
 (`skills/flow/review-panel.md`, `skills/flow/brainstorm.md`), whether `REVIEW_PANEL_TOGGLE` was
 `default` or `dynamic`, the run's class, whether the roster was `compact` or `full`, its rerun
-policy (`delta` or `full`), and the dispatch groups as `+`-joined roles — the same fields and
+policy (`delta` or `full`), the dispatch groups as `+`-joined roles and, on `dynamic`, the
+rerun pair — the same fields and
 shape `skills/flow-contracts/handoff-blocks.md`'s `Panel:` line carries for `/flow-status`'s
 regenerated view of the same state.
 

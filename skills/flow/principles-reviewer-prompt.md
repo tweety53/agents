@@ -17,7 +17,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Principles review (Merged)"
   model: <the bundle's own model>             # DEFAULT_MODEL on `default`, the decision's
-                                               # panel.dispatches entry carrying this slot on `dynamic`
+                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on `dynamic`
   prompt: |
     You are an engineering-principles reviewer. You are NOT doing a bug hunt, a
     security audit, or a plan-alignment review — other panel agents own those and

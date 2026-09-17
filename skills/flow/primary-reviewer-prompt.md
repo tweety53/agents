@@ -9,7 +9,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
                                             # flow-<effort> on `dynamic`
   description: "Code review (primary)"
   model: <the bundle's own model>             # DEFAULT_MODEL on `default`, the decision's
-                                               # panel.dispatches entry carrying this slot on `dynamic`
+                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on `dynamic`
   prompt: |
     You are a Senior Code Reviewer with expertise in software architecture, design
     patterns, and best practices. Your job is to review this diff against its plan and

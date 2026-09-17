@@ -97,9 +97,10 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
   written, **Check base movement first** through **Panel re-runs** — the decision's roster,
-  grouping and dispatches on their own model and effort, findings recorded, fixes as that file
-  states them: the parent itself on `inline`, the panel-fix subagent on `sdd`. `default` runs no
-  panel.
+  grouping and dispatches on their own model and effort, every fix-round re-run on its
+  `panel.rerun_dispatch` pair, findings recorded, fixes as that file
+  states them: the parent itself on `inline`, the panel-fix subagent on `sdd` on the decision's
+  `fixer` pair. `default` runs no panel.
 
 The change summary in section 5 then also carries the `## Decision` block and, when a panel ran,
 each finding with its status.
