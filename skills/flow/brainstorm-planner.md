@@ -237,6 +237,16 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > integration-test stage on every change: a step that usually resolves to "nothing to do" trains
 > everyone to skip it.
 
+> **Write a verification change so its found defects become their own tasks.** When a plan's task
+> exists to exercise a surface and report what it finds — a final-verification pass over a feature
+> group, an end-to-end sweep — its `**Allowed-collateral:**` names what the verification commit
+> itself writes, the report or record files the pass produces, never the surface it inspects, and
+> every real defect it finds becomes a new task appended to `tasks.md`, carrying the field family
+> with the fix's own `**Files:**` and `**Allowed-collateral:**` (the KAN-29/KAN-30 precedent). The
+> appended task is what makes the fix declared — `check-task-commit-fields.sh` refuses a commit
+> touching paths no task declared — so the change stays self-contained and every fix stays
+> traceable to a declared task.
+
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block and every numeric claim per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
