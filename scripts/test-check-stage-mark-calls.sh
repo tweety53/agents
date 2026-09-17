@@ -763,9 +763,11 @@ esac
 # whose cmd/flow serves keys of its own and no README.md anywhere -- reads
 # its vocabulary from that stub. Case 38's served key flow.alpha is
 # deliberately absent from the real repository's vocabulary, so against a
-# guard still reading the real README this exact run fails with an
-# unlisted-key finding: the case kills that mutant and proves source and
-# README-independence in one run. Case 39 serves nothing and pins the
+# guard still reading the real README this exact run fails -- the sandbox
+# carries no README.md at all, so that guard dies at its exit-2
+# cannot-answer line rather than an unlisted-key finding; killed either
+# way, the case proves source and README-independence in one run. Case 39
+# serves nothing and pins the
 # exit-2 cannot-answer contract the README read used to own. A sandbox
 # rather than a mutation of the real repository's README, because the guard
 # harnesses run concurrently and a real-file mutation would race them.
