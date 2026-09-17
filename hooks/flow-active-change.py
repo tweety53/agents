@@ -5,12 +5,17 @@ A problem report typed as a plain message, with no /flow prefix, needs to know w
 change it belongs to before the SKILL.md rule can turn it into a fix run. The change name
 is not carried in session state a hook can read directly, but every /flow run marks its
 own stages with `flow stage begin -command '/flow' ... -session-token mf-<token> <name>`,
-and that command is recorded verbatim in the session's transcript. This hook finds the
-last such mark and injects the resolved change name as additional context.
+and the stats daemon harvests those marks out of the session's transcript into its store,
+binding each to the session that made it. This hook asks the store for the change of this
+session's last /flow stage-begin mark -- one GET against /api/v1/stage-runs, whose rows
+carry the owning change's name -- and injects the resolved name as additional context.
 
-Fails open, like enforce-agent-baseline.py: any unexpected input, missing transcript, or
-internal fault exits 0 with no output. A hook that supplies context must never be the
-reason a prompt is refused.
+Fails open, like enforce-agent-baseline.py: any unexpected input, an unreachable store,
+or an answer that names no change exits 0 with no output. A hook that supplies context
+must never be the reason a prompt is refused. A mark younger than the daemon's harvest
+cycle is not in the store yet, and the hook answers nothing in that window rather than
+re-parsing the transcript itself -- a fallback would keep the per-prompt transcript read
+this hook exists to avoid.
 """
 
 import json
@@ -18,32 +23,57 @@ import os
 import re
 import sys
 from typing import Optional
+from urllib import parse, request
 
-MARK_RE = re.compile(
-    r"flow stage begin -command '/flow' [^;|&\n]*?-session-token mf-[A-Za-z0-9_-]+ ([A-Za-z0-9._-]+)"
-)
+DEFAULT_STORE_ADDR = "http://127.0.0.1:4173"
+STORE_TIMEOUT_SECONDS = 2
 
-
-def find_last_change(transcript_path: str) -> Optional[str]:
-    with open(transcript_path, "rb") as f:
-        text = f.read().decode("utf-8", errors="replace")
-    matches = MARK_RE.findall(text)
-    return matches[-1] if matches else None
+# A zcode rollout transcript is named model-io-sess_<id>.jsonl; a claude-code
+# transcript is named after the bare session id. Either way the id survives
+# as the basename minus the model-io-sess_ prefix and the .jsonl suffix.
+ROLLOUT_NAME_RE = re.compile(r"^model-io-sess_(.+)\.jsonl$")
 
 
-def resolve_transcript_path(payload: dict) -> Optional[str]:
+def resolve_session_id(payload: dict) -> Optional[str]:
+    session_id = payload.get("session_id")
+    if isinstance(session_id, str) and session_id:
+        return session_id
+
     transcript_path = payload.get("transcript_path")
     if isinstance(transcript_path, str) and transcript_path:
-        return transcript_path
+        basename = os.path.basename(transcript_path)
+        m = ROLLOUT_NAME_RE.match(basename)
+        if m:
+            return m.group(1)
+        stem, ext = os.path.splitext(basename)
+        if stem and ext == ".jsonl":
+            return stem
 
-    session_id = payload.get("session_id") or os.environ.get("CLAUDE_SESSION_ID")
-    if not session_id:
-        return None
+    env_id = os.environ.get("CLAUDE_SESSION_ID")
+    if env_id:
+        return env_id
+    return None
 
-    root = os.environ.get("FLOW_ZCODE_ROLLOUTS_DIR") or os.path.expanduser(
-        "~/.zcode/cli/rollout"
+
+def last_flow_change(session_id: str) -> Optional[str]:
+    addr = os.environ.get("FLOW_ADDR") or DEFAULT_STORE_ADDR
+    query = parse.urlencode(
+        {
+            "session_id": session_id,
+            "command": "/flow",
+            "sort": "-started_at",
+            "limit": "1",
+        }
     )
-    return os.path.join(root, f"model-io-sess_{session_id}.jsonl")
+    with request.urlopen(
+        f"{addr}/api/v1/stage-runs?{query}", timeout=STORE_TIMEOUT_SECONDS
+    ) as resp:
+        body = json.load(resp)
+
+    runs = body.get("stageRuns")
+    if not isinstance(runs, list) or not runs:
+        return None
+    return runs[0].get("changeName")
 
 
 def main() -> int:
@@ -56,11 +86,11 @@ def main() -> int:
     if isinstance(prompt, str) and prompt.startswith("/"):
         return 0
 
-    transcript_path = resolve_transcript_path(payload)
-    if not transcript_path:
+    session_id = resolve_session_id(payload)
+    if not session_id:
         return 0
 
-    name = find_last_change(transcript_path)
+    name = last_flow_change(session_id)
     if not name:
         return 0
 
