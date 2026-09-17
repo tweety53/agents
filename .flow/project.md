@@ -213,7 +213,8 @@ about one change, not about the state of the repository's text. A lint step that
 a bare tree would fail on every unrelated invocation, so
 the omission is a decision, not an oversight. They are covered instead by their harnesses under
 `## test`.
-`check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
+`check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh`,
+`check-panel-reproducer-exit-contract.sh` and
 `run-reproducer.sh` are excluded for the same reason: they are `/flow` implementation helpers that
 likewise need a change in flight and a worktree passed in, so they are covered by their own
 harnesses under `## test` instead.
