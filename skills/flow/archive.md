@@ -66,15 +66,29 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
 ```
 
 4. **Commit the archive** on `chore/archive-<name>` in `<landing-worktree>` — no push here; step 10
-   carries it.
+   carries it. The rendered ledger and panel record are preserved into this commit first — each
+   when present, an absent file copying nothing; `<canonical-worktree>` resolves as run 1 resolves
+   it (**Finish contract**, `skills/flow-contracts/finish-contract-run1.md`):
 
    ```bash
+   for pair in "ledgers/<name>.md ledger.md" "reviews/<name>-panel.md panel.md"; do
+     set -- $pair
+     [ -f "<canonical-worktree>/.superpowers/sdd/$1" ] \
+       && cp "<canonical-worktree>/.superpowers/sdd/$1" \
+             "<landing-worktree>/spectre/changes/archive/<name>/$2"
+   done
    [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
      && git -C <landing-worktree> add -A \
      && check-archive-scope.sh <landing-worktree> "spectre/changes/" \
      && { git -C <landing-worktree> diff --cached --quiet \
           || git -C <landing-worktree> commit -m "chore(spectre): archive <name>"; }
    ```
+
+   **The copy loop runs before the `add -A`, so the preserved copies ride the archive commit under
+   the scope `check-archive-scope.sh` verifies.** Why the preservation exists — step 5 destroys
+   the worktree the renders live in, and step 9's bundle serves the copies when the store renders
+   report skipped — is step 4 of **Run 2 — the branch is merged**
+   (`skills/flow-contracts/finish-contract-run2.md`), canonical for it.
 
    **`check-archive-scope.sh`** refuses a `git add -A` that staged more than the archive move — see
    step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) for
@@ -150,10 +164,12 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    five angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the
    branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it.
    What is specific to *executing* it here: `flow self-review bundle -change <name>` fetches the
-   whole bundle — flowd serves the ledger and panel record from the store, reads the archived
-   change's files out of the `chore/archive-<name>` branch of the repository the command resolves
-   from its own location (the main checkout its working directory sits in), and derives the
-   finish-run commits' git log — so nothing is rendered into the landing worktree first and no
+   whole bundle — flowd serves the ledger and panel record from the store, falling back, per
+   record, to the copies step 4 committed onto the archive branch when the store yields no render
+   for it, reads the
+   archived change's files out of the `chore/archive-<name>` branch of the repository the command
+   resolves from its own location (the main checkout its working directory sits in), and derives
+   the finish-run commits' git log — so nothing is rendered into the landing worktree first and no
    landing-worktree path is passed in or baked into the bundle.
 
    **Resolve `SELF_REVIEW_MODEL` here, where it is consumed** — `/flow`'s **Model resolution**
@@ -330,13 +346,13 @@ restated in full here beyond one override:
 `--force` will destroy — how many ignored files, which are build output, and which are irreplaceable
 together with whether they were already preserved — and proceed. This is a scoped override of the
 disclosure ask in **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`); it is safe
-here because the records worth keeping are already out of the worktree by this point, committed at
-`flow.preserve-sessions`
-(`skills/flow/integrate.md`). **Checks 1, 2, 3, 5 and 6 remain gates.** Check 6, the live-process
-check, is named explicitly because it is the one this override could plausibly be read as reaching:
-a live process is not a preserved record, so `HELD:` and the guard's exit 2 both stop `/flow` exactly
-as they stop the base contract. Check 4 turning up something genuinely irreplaceable and
-*unpreserved* is not this override's case: stop and ask.
+here because the records worth keeping are already out of the worktree by this point: the change's
+own work is committed and step 1 proved it merged, and the rendered ledger and panel record ride
+the archive commit step 4 made before any removal. **Checks 1, 2, 3, 5 and 6 remain gates.** Check
+6, the live-process check, is named explicitly because it is the one this override could plausibly
+be read as reaching: a live process is not a preserved record, so `HELD:` and the guard's exit 2
+both stop `/flow` exactly as they stop the base contract. Check 4 turning up something genuinely
+irreplaceable and *unpreserved* is not this override's case: stop and ask.
 
 ## Guardrails
 

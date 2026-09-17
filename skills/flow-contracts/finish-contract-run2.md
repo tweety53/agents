@@ -92,6 +92,18 @@ bare `/flow` is the only command that loads this file.
    alongside it. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
    rather than let a stray path land on `chore/archive-<name>` unremarked. This has happened: an archive commit made this
    way reverted skill-file content another change had shipped minutes earlier.
+
+   **Before the `git add -A`, the rendered ledger and panel record are preserved into this
+   commit.** The canonical apply worktree's `<abs-worktree>/.superpowers/sdd/ledgers/<name>.md`
+   and `<abs-worktree>/.superpowers/sdd/reviews/<name>-panel.md` are copied into
+   `<landing-worktree>/spectre/changes/archive/<name>/` as `ledger.md` and `panel.md` — each when
+   present, an absent file copying nothing — where they ride the archive commit under the scope
+   the check above verifies. The store's rows are the terminal record, but rows that never
+   reached it leave the worktree renders the only copies, and step 5 destroys those with the
+   worktree; the committed copies are what step 9's bundle serves when the store renders report
+   skipped. `<canonical-worktree>` is the resolved set's own canonical member
+   (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`), and
+   still exists here — its removal is step 5, after this step.
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below.
@@ -195,7 +207,9 @@ bare `/flow` is the only command that loads this file.
    decides without asking when present and valid; the per-run prompt is the absent case.
    **Whichever option runs, the session fetches the bundle first**, with
    `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
-   panel record rendered from the store, the archived `tasks.md`, `design.md` and `narrative.md`
+   panel record rendered from the store, or, when the store yields no render for that record, read
+   from the copies step 4 committed onto the archive branch, the archived `tasks.md`,
+   `design.md` and `narrative.md`
    read out of the `chore/archive-<name>` branch of the repository the command resolves from its
    own location (the main checkout its working directory sits in — the store carries no repository
    roots for the pipeline's changes), and the `git log --stat` of the implementation, planning and
