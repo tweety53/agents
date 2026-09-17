@@ -8,6 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/tweety53/agents/stats/internal/selfreview"
 	"testing"
 )
 
@@ -177,5 +180,15 @@ func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
 	// was the problem.
 	if !strings.Contains(body, "repo is required") {
 		t.Errorf("400 body = %s, want the missing repo named", body)
+	}
+}
+
+// TestGitBoundInsideWriteBudget pins the bound's relation to the server's
+// own write budget: a git call that hangs costs at most DefaultGitBound,
+// comfortably inside writeTimeout, so the degraded note-bearing bundle is
+// still delivered rather than cut off mid-write.
+func TestGitBoundInsideWriteBudget(t *testing.T) {
+	if selfreview.DefaultGitBound*2 >= 30*time.Second {
+		t.Errorf("git bound %s must sit well inside the write budget 30s (server.go writeTimeout)", selfreview.DefaultGitBound)
 	}
 }
