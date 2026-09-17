@@ -877,8 +877,10 @@ flow stage begin -command '/flow' -stage flow.stage-diff -harness <harness> -ses
 ```
 
 Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one
-commit per completed task, with every fix-round and red-task-partner fixup already folded in via
-`git rebase --autosquash` — no stray `fixup!` commit should remain unsquashed, unless a PR already
+commit per completed task plus each fix round's fix commits on top — a pushed branch takes a
+panel fix as a new commit, never a rewrite (**Panel re-runs**, `skills/flow/review-panel.md`) —
+with every red-task-partner and unpushed-history fixup already folded in via
+`git rebase --autosquash`; no stray `fixup!` commit should remain unsquashed, unless a PR already
 exists (below). From here to the handoff, each stage's `begin` mark rides its first command and
 its `end` mark its last (**Turn discipline**, `skills/flow/implement.md`) <!-- refs-guard:allow -->.
 
