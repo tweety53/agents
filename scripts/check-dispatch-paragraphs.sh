@@ -87,7 +87,17 @@
 # among them named) so a reviewer's exploration starts scoped instead of from
 # the whole tree, and has the reviewer state the coverage trade explicitly in
 # its report — at the panel slot dispatch in review-panel.md alone, carried
-# into every bundled dispatch by the shared-paragraphs list.
+# into every bundled dispatch by the shared-paragraphs list. KAN-564 added a
+# fourteenth required paragraph — FINDINGS ARE INPUT, which tells the
+# panel-fix subagent that a finding names a defect and suggests a route to
+# fixing it — findings are input, not orders — that the subagent's obligation
+# is to resolve the defect the finding names, and that a route deviating from
+# the finding's literal suggestion is taken only when the report records the
+# deviation and justifies it, so a justified deviation like kan-469's F2
+# (shared helpers over the literal route that would have reordered a required
+# clause ordering) stays legal while a silent one does not — at the
+# panel-fix subagent dispatch in review-panel.md alone, the same single site
+# MUTATION PROOF and PIXEL PROBE occupy.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -127,6 +137,7 @@
 #   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
 #   **NO DELEGATION:**                 skills/flow/verify-and-handoff.md 1 (none)
 #   **ENTRY CONTEXT:**                 skills/flow/review-panel.md  1   (none)
+#   **FINDINGS ARE INPUT:**            skills/flow/review-panel.md  1   (none)
 #   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
 #   **REPORT, DON'T DECIDE:**          skills/flow/implement.md     1   (none)
 #
@@ -227,6 +238,14 @@
 #   shared-paragraphs list carries it into every bundled dispatch, the same
 #   way REPRODUCE, DON'T READ is carried.
 #
+#   FINDINGS ARE INPUT shared phrases (no variants — every block carrying
+#   the label must carry all four): "input, not orders", "resolve the defect
+#   the finding names", "records the deviation and justifies it", "A silent
+#   deviation is an unfixed finding". Required once, at the panel-fix
+#   subagent dispatch in review-panel.md alone — the implementer dispatch
+#   and the panel slot dispatch are not sites: the fix round is the only
+#   dispatch that acts on findings.
+#
 # A BLOCK is a line carrying a label, plus every immediately-following line
 # that continues the same markdown blockquote (a line beginning with `>`) —
 # i.e. the whole paragraph. A block counts toward a required variant only
@@ -288,6 +307,7 @@ declare -A ENTRY_LABEL=(
   [prove]="**PROVE THE GUARD BITES:**"
   [decide]="**REPORT, DON'T DECIDE:**"
   [entry]="**ENTRY CONTEXT:**"
+  [findings]="**FINDINGS ARE INPUT:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
@@ -304,6 +324,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [prove]="assert on configuration or file content${US}break the property the assertion protects${US}against the broken state"
   [decide]="only the operator can settle${US}reported, never decided in code${US}carry the question in your REPORT FILE${US}report BLOCKED"
   [entry]="your named entry context${US}not from a whole-tree exploration${US}the coverage trade"
+  [findings]="input, not orders${US}resolve the defect the finding names${US}records the deviation and justifies it${US}A silent deviation is an unfixed finding"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -322,6 +343,7 @@ declare -A ENTRY_VARIANTS=(
   [prove]=""
   [decide]=""
   [entry]=""
+  [findings]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -334,10 +356,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {
