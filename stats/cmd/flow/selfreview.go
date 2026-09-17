@@ -60,7 +60,7 @@ func runSelfReviewBundle(ctx context.Context, args []string, stdout, stderr io.W
 		fmt.Fprint(stderr, selfReviewUsage)
 		return 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if fset.NArg() != 0 {
 		fmt.Fprint(stderr, "flow: expected no positional arguments\n")
 		fmt.Fprint(stderr, selfReviewUsage)

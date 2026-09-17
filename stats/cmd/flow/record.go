@@ -280,6 +280,12 @@ A record write never blocks: on any store failure the intent is journalled,
 one warning line is printed, and the command exits 0. A caller must never
 branch on this command's exit code as a signal about the record.
 
+Every subcommand here, and the self-review bundle command, resolves its
+store address from FLOW_RECORDS_ADDR when it is set, then FLOW_ADDR: the run
+record must outlive an apply worktree, so a project's workspace isolation
+table may point it at a different daemon than the one carrying the run's
+stage marks. An explicit -addr still wins.
+
 pass and mutation carry the review panel's pass log (KAN-331) -- the
 pass-by-pass metadata lines and the fix round's fix-mutation: proof lines
 that the review-panel contract used to have the agent write by hand into
@@ -543,7 +549,26 @@ type recordIdentityFlags struct {
 // (design.md's guard-log routes take {project} alone), so they register
 // this set and nothing else; `incident` registers it plus its own optional
 // -change.
+//
+// The -addr default is resolveRecordsAddr(), and this registration is the
+// one place that decision is wired: the record family's rows must outlive an
+// apply worktree, so this is the only flag set that resolves
+// FLOW_RECORDS_ADDR. `flow self-review bundle` registers through here too,
+// for the same reason. Every verb outside the record family -- hazard,
+// suite, spec, tasks -- registers registerConnFlags instead, whose address
+// follows FLOW_ADDR alone.
 func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
+	fset.StringVar(&f.addr, "addr", resolveRecordsAddr(), "flowd base URL")
+	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
+	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
+}
+
+// registerConnFlags is registerRecordConnFlags for every store-touching
+// verb outside the record family: the same three flags, with -addr
+// resolved from FLOW_ADDR alone. Hazard, suite, spec and tasks telemetry
+// lives and dies with the run that produced it, so it follows the run's
+// daemon; only the record family outlives the workspace.
+func registerConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
@@ -592,7 +617,7 @@ func parseRecordFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string,
 		fmt.Fprint(stderr, recordUsage)
 		return false, 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if err := finishRecordIdentityFlags(fset, f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, recordUsage)
@@ -613,7 +638,7 @@ func parseRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []str
 		fmt.Fprint(stderr, recordUsage)
 		return false, 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if err := finishRecordConnFlags(fset, f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, recordUsage)

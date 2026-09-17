@@ -65,7 +65,7 @@ func runSpecRecord(ctx context.Context, args []string, stdout, stderr io.Writer)
 	fset := flag.NewFlagSet("flow spec record", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	spec := fset.String("spec", "", "the spec file that ran, by basename (required)")
 
 	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
@@ -108,7 +108,7 @@ func runSpecList(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	fset := flag.NewFlagSet("flow spec list", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	dir := fset.String("dir", "", "inventory this directory's *.spec.ts files (optional)")
 	asJSON := fset.Bool("json", false, "print the store's array alone")
 

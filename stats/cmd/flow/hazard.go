@@ -69,7 +69,7 @@ func runHazardAdd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fset := flag.NewFlagSet("flow hazard add", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	name := fset.String("name", "", "a short stable identifier for the hazard (required)")
 	text := fset.String("text", "", "the warning text a dispatch bundle carries (required)")
 	applies := fset.String("applies", "", "all, cross-repo or single-repo (required)")
@@ -114,7 +114,7 @@ func runHazardRemove(ctx context.Context, args []string, stdout, stderr io.Write
 	fset := flag.NewFlagSet("flow hazard remove", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	name := fset.String("name", "", "the hazard's name (required)")
 
 	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
@@ -148,7 +148,7 @@ func runHazards(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fset := flag.NewFlagSet("flow hazards", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	shape := fset.String("shape", "", "filter to this shape plus the always-on rows (optional)")
 	all := fset.Bool("all", false, "include retired rows")
 

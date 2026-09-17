@@ -301,7 +301,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -435,7 +435,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -627,7 +627,7 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)

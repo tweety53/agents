@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"io"
 	"net"
 	"net/http"
@@ -1590,5 +1591,139 @@ func TestStateFindRequiresName(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "usage:") {
 		t.Errorf("stderr = %q, want a usage line", stderr.String())
+	}
+}
+
+func TestResolveRecordsAddr(t *testing.T) {
+	tests := []struct {
+		name       string
+		recordsEnv string
+		recordsSet bool
+		runEnv     string
+		runSet     bool
+		want       string
+	}{
+		{name: "records address wins over the run address", recordsEnv: "http://127.0.0.1:4173", recordsSet: true, runEnv: "http://127.0.0.1:4299", runSet: true, want: "http://127.0.0.1:4173"},
+		{name: "unset records address falls back to the run address", recordsSet: false, runEnv: "http://127.0.0.1:4299", runSet: true, want: "http://127.0.0.1:4299"},
+		{name: "both unset leaves the built-in default", recordsSet: false, runSet: false, want: defaultAddr},
+		{name: "empty records address is treated as unset", recordsEnv: "", recordsSet: true, runEnv: "http://127.0.0.1:4299", runSet: true, want: "http://127.0.0.1:4299"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.recordsSet {
+				t.Setenv("FLOW_RECORDS_ADDR", tt.recordsEnv)
+			} else {
+				t.Setenv("FLOW_RECORDS_ADDR", "")
+				if err := os.Unsetenv("FLOW_RECORDS_ADDR"); err != nil {
+					t.Fatalf("unset FLOW_RECORDS_ADDR: %v", err)
+				}
+			}
+			if tt.runSet {
+				t.Setenv("FLOW_ADDR", tt.runEnv)
+			} else {
+				t.Setenv("FLOW_ADDR", "")
+				if err := os.Unsetenv("FLOW_ADDR"); err != nil {
+					t.Fatalf("unset FLOW_ADDR: %v", err)
+				}
+			}
+			if got := resolveRecordsAddr(); got != tt.want {
+				t.Fatalf("resolveRecordsAddr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
+	t.Run("a records address is named and the run address is not", func(t *testing.T) {
+		t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
+		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
+
+		var stderr bytes.Buffer
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4173")
+
+		if !strings.Contains(stderr.String(), "flow: using FLOW_RECORDS_ADDR=http://127.0.0.1:4173") {
+			t.Errorf("stderr = %q, want the records address named", stderr.String())
+		}
+		if strings.Contains(stderr.String(), "using FLOW_ADDR=") {
+			t.Errorf("stderr = %q, want no run-address line beside the records one", stderr.String())
+		}
+	})
+
+	t.Run("no records address falls back to naming the run address", func(t *testing.T) {
+		t.Setenv("FLOW_RECORDS_ADDR", "")
+		if err := os.Unsetenv("FLOW_RECORDS_ADDR"); err != nil {
+			t.Fatalf("unset FLOW_RECORDS_ADDR: %v", err)
+		}
+		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
+
+		var stderr bytes.Buffer
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
+
+		if !strings.Contains(stderr.String(), "flow: using FLOW_ADDR=http://127.0.0.1:4299") {
+			t.Errorf("stderr = %q, want the run address named", stderr.String())
+		}
+	})
+
+	t.Run("a verb that resolved the run address is not named as records", func(t *testing.T) {
+		t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
+		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
+
+		var stderr bytes.Buffer
+		noteAddrUsage(flag.NewFlagSet("suite", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
+
+		if !strings.Contains(stderr.String(), "flow: using FLOW_ADDR=http://127.0.0.1:4299") {
+			t.Errorf("stderr = %q, want the run address named", stderr.String())
+		}
+		if strings.Contains(stderr.String(), "FLOW_RECORDS_ADDR=") {
+			t.Errorf("stderr = %q, want no records line for an address the records variable did not decide", stderr.String())
+		}
+	})
+
+	t.Run("neither variable decided the address prints nothing", func(t *testing.T) {
+		t.Setenv("FLOW_RECORDS_ADDR", "")
+		t.Setenv("FLOW_ADDR", "")
+		if err := os.Unsetenv("FLOW_RECORDS_ADDR"); err != nil {
+			t.Fatalf("unset FLOW_RECORDS_ADDR: %v", err)
+		}
+		if err := os.Unsetenv("FLOW_ADDR"); err != nil {
+			t.Fatalf("unset FLOW_ADDR: %v", err)
+		}
+
+		var stderr bytes.Buffer
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, defaultAddr)
+
+		if stderr.Len() != 0 {
+			t.Errorf("stderr = %q, want empty", stderr.String())
+		}
+	})
+
+	t.Run("an explicit -addr flag silences the note", func(t *testing.T) {
+		t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
+
+		fset := flag.NewFlagSet("record", flag.ContinueOnError)
+		fset.String("addr", "", "")
+		if err := fset.Set("addr", "http://127.0.0.1:9999"); err != nil {
+			t.Fatalf("set addr: %v", err)
+		}
+
+		var stderr bytes.Buffer
+		noteAddrUsage(fset, &stderr, "http://127.0.0.1:9999")
+
+		if stderr.Len() != 0 {
+			t.Errorf("stderr = %q, want empty", stderr.String())
+		}
+	})
+}
+
+func TestRiderVerbsRegisterTheRunAddress(t *testing.T) {
+	t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
+	t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
+
+	var f recordIdentityFlags
+	fset := flag.NewFlagSet("suite", flag.ContinueOnError)
+	registerConnFlags(fset, &f)
+
+	if f.addr != "http://127.0.0.1:4299" {
+		t.Fatalf("rider -addr default = %q, want the run address %q", f.addr, "http://127.0.0.1:4299")
 	}
 }

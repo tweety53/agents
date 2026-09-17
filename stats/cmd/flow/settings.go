@@ -85,7 +85,7 @@ func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if fset.NArg() != 0 {
 		fmt.Fprintln(stderr, "flow: settings get takes no positional arguments")
 		fmt.Fprint(stderr, settingsUsage)
@@ -124,7 +124,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if fset.NArg() != 0 {
 		fmt.Fprintln(stderr, "flow: settings set takes no positional arguments")
 		fmt.Fprint(stderr, settingsUsage)

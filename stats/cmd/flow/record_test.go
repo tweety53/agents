@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -4028,4 +4029,17 @@ func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
 			t.Errorf("tokens = %v, want the key absent -- an end that reports no usage must not write an empty report", v)
 		}
 	})
+}
+
+func TestRecordFlagsDefaultToTheRecordsAddress(t *testing.T) {
+	t.Setenv("FLOW_ADDR", "http://127.0.0.1:4174")
+	t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:9999")
+
+	var f recordIdentityFlags
+	fset := flag.NewFlagSet("record", flag.ContinueOnError)
+	registerRecordConnFlags(fset, &f)
+
+	if f.addr != "http://127.0.0.1:9999" {
+		t.Fatalf("record -addr default = %q, want the records address %q", f.addr, "http://127.0.0.1:9999")
+	}
 }

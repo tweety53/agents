@@ -174,7 +174,7 @@ func runTasksCount(ctx context.Context, args []string, stdout, stderr io.Writer)
 	fset := flag.NewFlagSet("flow tasks count", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0

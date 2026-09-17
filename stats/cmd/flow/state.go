@@ -45,22 +45,49 @@ func resolveDefaultAddr() string {
 	return defaultAddr
 }
 
-// noteAddrEnvUsage prints one line to stderr naming the address a command
-// is about to use, but only when that address came from FLOW_ADDR rather
-// than from an explicit -addr flag on this invocation: fset.Visit only
-// calls back for a flag actually set on the command line, so "addr" not
-// appearing there means the flag's value is exactly what
-// resolveDefaultAddr() returned as its default.
+// resolveRecordsAddr returns the value the record family's -addr flag
+// registrations (registerRecordConnFlags, which `flow self-review bundle`
+// shares) take as their default: FLOW_RECORDS_ADDR when it is set to a
+// non-empty value, then FLOW_ADDR, then defaultAddr -- the same
+// empty-means-unset reading resolveDefaultAddr applies.
 //
-// This exists because FLOW_ADDR is meant to be exported once per shell
-// session (see README.md's "The UI-test stack"), and an export outlives
-// the command that motivated it -- every `flow state`/`flow stage`
-// run afterwards in that shell silently inherits it, with no other signal,
-// since a successful write exits 0 the same way whether it reached the
-// live daemon or a test one. Call this after fset.Parse succeeds, once
-// per command, so a stray or stale FLOW_ADDR is visible before its
-// effect is.
-func noteAddrEnvUsage(fset *flag.FlagSet, stderr io.Writer) {
+// The record family gets its own variable because the two addresses legitimately
+// differ inside an apply worktree: the workspace resolves FLOW_ADDR to the
+// workspace daemon, whose database `scripts/workspace.sh remove` drops at
+// cleanup, while the run record -- dispatches, findings, and everything else
+// `flow record` writes and `flow self-review bundle` renders -- has to outlive
+// that cleanup, so a deferred self-review bundle is complete regardless of
+// worktree cleanup. Declaring the records address in the project's
+// `## workspace isolation` table (a no-token `url` row) is what puts
+// FLOW_RECORDS_ADDR in a worktree's environment; without the row the record
+// family follows FLOW_ADDR, which keeps a main checkout and a session pointed
+// at a second daemon (the ui-test stack) exactly where they are today.
+func resolveRecordsAddr() string {
+	if v := os.Getenv("FLOW_RECORDS_ADDR"); v != "" {
+		return v
+	}
+	return resolveDefaultAddr()
+}
+
+// noteAddrUsage prints one line to stderr naming the environment variable
+// that decided the address a command is about to use, but only when that
+// address came from the environment rather than from an explicit -addr flag
+// on this invocation: fset.Visit only calls back for a flag actually set on
+// the command line, so "addr" not appearing there means the value is a
+// resolver default. The variable named is the one whose value the address
+// equals -- FLOW_RECORDS_ADDR first, since resolveRecordsAddr consults it
+// before FLOW_ADDR -- so a verb outside the record family never wears a
+// records line for an address the records variable did not decide, and an
+// explicit flag silences the note entirely.
+//
+// This exists because both variables are meant to be exported once per shell
+// session or workspace (see README.md's "The UI-test stack"), and an export
+// outlives the command that motivated it -- every store-touching `flow`
+// command afterwards in that shell silently inherits it, with no other
+// signal, since a successful write exits 0 the same way whether it reached
+// the live daemon or a test one. Call this after fset.Parse succeeds, once
+// per command, so a stray or stale export is visible before its effect is.
+func noteAddrUsage(fset *flag.FlagSet, stderr io.Writer, addr string) {
 	explicit := false
 	fset.Visit(func(fl *flag.Flag) {
 		if fl.Name == "addr" {
@@ -70,7 +97,11 @@ func noteAddrEnvUsage(fset *flag.FlagSet, stderr io.Writer) {
 	if explicit {
 		return
 	}
-	if v := os.Getenv("FLOW_ADDR"); v != "" {
+	if v := os.Getenv("FLOW_RECORDS_ADDR"); v != "" && addr == v {
+		fmt.Fprintf(stderr, "flow: using FLOW_RECORDS_ADDR=%s\n", v)
+		return
+	}
+	if v := os.Getenv("FLOW_ADDR"); v != "" && addr == v {
 		fmt.Fprintf(stderr, "flow: using FLOW_ADDR=%s\n", v)
 	}
 }
@@ -166,7 +197,7 @@ func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (state
 	if err := fset.Parse(args); err != nil {
 		return stateFlags{}, err
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if fset.NArg() != 1 {
 		return stateFlags{}, fmt.Errorf("expected exactly one argument, the change name")
 	}
@@ -362,7 +393,7 @@ func parseStateListFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (s
 	if err := fset.Parse(args); err != nil {
 		return stateListFlags{}, err
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if fset.NArg() != 0 {
 		return stateListFlags{}, fmt.Errorf("state list takes no positional arguments")
 	}
@@ -509,7 +540,7 @@ func parseStateFindFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (s
 	if err := fset.Parse(args); err != nil {
 		return stateListFlags{}, "", err
 	}
-	noteAddrEnvUsage(fset, stderr)
+	noteAddrUsage(fset, stderr, f.addr)
 	if fset.NArg() != 1 {
 		return stateListFlags{}, "", fmt.Errorf("state find takes exactly one argument, the change name")
 	}

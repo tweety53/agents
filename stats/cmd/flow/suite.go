@@ -77,7 +77,7 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 	fset := flag.NewFlagSet("flow suite record", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	suite := fset.String("suite", "", "the name this runtime figure belongs to (required)")
 
 	// Parse stops at --; everything after it is the child command, handed
@@ -142,7 +142,7 @@ func runSuiteList(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fset := flag.NewFlagSet("flow suite list", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerConnFlags(fset, &f)
 	suite := fset.String("suite", "", "list only this suite (optional)")
 	limit := fset.Int("limit", 20, "how many rows to read")
 	asJSON := fset.Bool("json", false, "print the store's array alone")
