@@ -47,7 +47,7 @@ These five rows are **every** Agent-tool dispatch the parent may make, across se
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
 | implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
-| gated per-task reviewer, one per task the review gate fires on | `reviewer` | `task-<n>-reviewer` | section **4** below |
+| gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/verify-and-handoff.md`, **Visual verification** |
@@ -673,8 +673,8 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it. (KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
    recovery.)
-3. **One message launches group N+2's implementer and, for every task whose gate fired, that
-   task's reviewer (below). The next Bash call records every launch's `begin`**.
+3. **One message launches group N+2's implementer and, when any gate fired in group N+1, that
+   group's one reviewer bundle (below). The next Bash call records every launch's `begin`**.
 
 **When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
@@ -721,28 +721,46 @@ transcription can overwrite — so the disclosure cannot disarm the gate. This i
 on every task, not one implementer's habit (KAN-29's self-review: corrections recorded in the task
 itself made that panel's bookkeeping findings cheap to adjudicate; KAN-407 makes it the rule).
 
-**The gated per-task reviewer.** One combined reviewer per gate-fired task — spec compliance and
-code quality together — dispatched beside the group implementers, on the task's group's
-`model`/`effort` pair from the decision's `groups` entry (`DEFAULT_MODEL`/`default` on a run with
-no groups). The reviewer gets the commit-range diff `git diff <task-sha>^..<task-sha>` — a real
-commit diff, never a snapshot of the working tree, which the next implementer is editing. Record
-the dispatch (`-role reviewer`, the same `-task <n>`, `-key task-<n>-reviewer`) and close it with **`-outcome clean` or `-outcome fix`**, so per-task review yield stays
-measurable against the gate. A clean review ticks the task in the same call that closes the
-record. **A fix resumes the task's own group's implementer** (`SendMessage`; recorded as its own
-pair under `task-<n>-implementer-fix-<k>`) with the
-reviewer's report path; it commits `git commit --fixup=<task-sha>`, runs
+**The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
+code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
+the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
+**The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
+goes out in one reviewer Agent call beside group N+2's implementer, on that group's
+`model`/`effort` pair from the decision's `groups` entry. **Groups join into one bundle by the
+decision's `class`**: on `big`, one bundle per group; on `small` or `regular`, every gate-fired
+task of the run waits and goes out in one bundle at the last boundary, on `DEFAULT_MODEL`/`default`
+when the run has no groups. **Never one reviewer dispatch per gate-fired task, and never one per
+group on `small`/`regular`** (KAN-527: nine one-task dispatches on the first twelve tasks of a
+21-task change, before the operator stopped the run — the review-dispatch count tracks the
+change's size, never its task count). Each task inside the bundle keeps its own pass: its own
+commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
+the working tree, which the next implementer is editing — its own verdict and its own report
+file. Record the bundle as one `dispatches` row (`-role reviewer`, `-key task-<n+n+n>-reviewer`
+with the task ids `+`-joined in plan order, the same convention as `panel-<round>-<slot+slot>`;
+`-task <n>` only on a one-task bundle, omitted otherwise) and close it with **`-outcome clean`
+when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's own verdict is
+its report file's `## Verdict`, so per-task review yield stays measurable against the gate. **A
+mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
+closes the record, and every `fix` task takes the fix path below on its own sha, independently
+of its bundle-mates. **A fix resumes the task's own group's implementer** (`SendMessage`; one
+resume per group carrying every `fix` report path of that group's tasks, recorded as its own
+pair under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids); per task, it commits
+`git commit --fixup=<task-sha>`, runs
 `git rebase --autosquash <task-sha>^` — the explicit base is load-bearing: a bare
 `git rebase --autosquash` rebases onto the branch's upstream, absorbing the operator base's
 movement into a task fix — and writes `implementer-report-<k>-fix-<n>.md`. A conflict there is
 between two of the branch's own commits, and the implementer resolves it by hand, keeping both
 sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
 `skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
-parent re-runs the guard on every sha the rebase rewrote, then re-dispatches the reviewer — under
-`task-<n>-reviewer-fix-<k>`, the same convention as the implementer's fix key — on the rewritten
-range `git diff <task-sha>^..<new-task-sha>`. On an inline run the parent applies the fix itself
+parent re-runs the guard on every sha the rebase rewrote, then re-dispatches the reviewer — one
+bundle carrying every fixed task of the group, under `task-<n+n>-reviewer-fix-<k>`, the same
+convention as the implementer's fix key — each pass on its rewritten range
+`git diff <task-sha>^..<new-task-sha>`. On an inline run the parent applies the fixes itself
 with the same commit mechanics, and the re-review is still a dispatch.
 
-Every gated per-task reviewer dispatch **must** carry:
+Every gated reviewer bundle dispatch **must** carry the shared paragraphs below once, then one
+**PASS task-`<n>`** section per gate-fired task in plan order, each carrying that task's record
+from `tasks.md`, its diff range `git diff <task-sha>^..<task-sha>` and its own REPORT FILE line:
 
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
@@ -768,10 +786,17 @@ Every gated per-task reviewer dispatch **must** carry:
 > closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
-> **REPORT FILE:** write your report to
-> `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` as your **last** act — a
-> `## Verdict` section carrying exactly `clean` or `fix`, and, on `fix`, each finding with its
-> file and line. The dispatcher waits on that file's presence, and a fix round's re-review writes
+> **INDEPENDENT PASSES:** each pass reviews its own task's diff range and the code, never an
+> earlier pass's report or conclusions; a defect that sits in two passes' ranges is raised under
+> each. Write each pass's report file before beginning the next pass.
+
+and, inside each **PASS task-`<n>`** section:
+
+> **REPORT FILE:** write this pass's report to
+> `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` before beginning the next pass,
+> the bundle's last one as your **last** act — a `## Verdict` section carrying exactly `clean` or
+> `fix`, and, on `fix`, each finding with its file and line. The dispatcher waits on every pass's
+> file (`test -s` on each), and a fix round's re-review writes
 > `reviewer-report-task-<n>-fix-<k>.md`.
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
