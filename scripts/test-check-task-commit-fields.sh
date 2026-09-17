@@ -4084,6 +4084,132 @@ case "$OUT" in
   *) pass "case 129: never reads as the tasks missing from the plan" ;;
 esac
 
+# ===========================================================================
+# Case 130 (KAN-540): a `Files:` path the commit never touches -> exit 1.
+# The mirror of case 2: check_files only requires the reverse, so a
+# declaration the commit ignores passed — kan-30's task 34 declared one
+# baseline while its commit carried two others, and the guard said nothing.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 130. Declared file untouched
+
+**Files:** `alpha.txt`, `ghost.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha only
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha only"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 130 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 130: a declared file the commit never touches fails" || fail "case 130: rc=$RC out=$OUT"
+case "$OUT" in
+  *"ghost.txt"*"does not touch"*) pass "case 130: names the declared file the commit skips" ;;
+  *) fail "case 130: expected a violation naming ghost.txt untouched, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 131 (KAN-540): the kan-30 task-34 shape — the declared baseline is
+# absent from the diff while the commit carries undeclared ones, so BOTH
+# directions report in one verdict.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 131. Baseline drift both ways
+
+**Files:** `j4-bar-one-face-darwin.png`
+**Tests:** `test_bar`
+**Commit:** swap the bar baseline
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'test_bar\n' > "$REPO/j4-bar-overflow-chip-darwin.png"
+printf 'y\n' > "$REPO/j4-bar-after-roster-select-darwin.png"
+git -C "$REPO" add j4-bar-overflow-chip-darwin.png j4-bar-after-roster-select-darwin.png
+git -C "$REPO" commit -q -m "swap the bar baseline"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 131 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 131: the kan-30 shape fails" || fail "case 131: rc=$RC out=$OUT"
+case "$OUT" in
+  *"one-face"*"does not touch"*) pass "case 131: names the declared baseline the commit skips" ;;
+  *) fail "case 131: expected the untouched-declaration violation, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"overflow-chip"*"not declared"*) pass "case 131: still names the undeclared baseline the commit touches" ;;
+  *) fail "case 131: expected the undeclared-file violation too, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 132 (KAN-540): the fold's UNION declares a file the folded commit
+# never touches -> exit 1 from every id in the fold, the same one-verdict
+# rule cases 30-31 pin for the undeclared direction.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Red half
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** test: add alpha
+**Build:** red
+
+**Squash-with:** Task 2
+
+- [ ] 2. Green half
+
+**Files:** `beta.txt`, `ghost.txt`
+**Commit:** feat: add alpha and beta
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+printf 'b\n' > "$REPO/beta.txt"
+git -C "$REPO" add alpha.txt beta.txt
+git -C "$REPO" commit -q -m "feat: add alpha and beta"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 132: the red id reports the fold's untouched declaration" || fail "case 132: rc=$RC out=$OUT"
+case "$OUT" in
+  *"ghost.txt"*"does not touch"*) pass "case 132: names the untouched file from the red id" ;;
+  *) fail "case 132: expected the untouched-declaration violation, out=$OUT" ;;
+esac
+run_guard "$REPO" 2 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 132: the partner id reaches the same verdict" || fail "case 132: partner rc=$RC out=$OUT"
+case "$OUT" in
+  *"ghost.txt"*"does not touch"*) pass "case 132: names the untouched file from the partner id too" ;;
+  *) fail "case 132: expected the same violation from the partner id, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 133 (KAN-540): a declared file the commit DELETES counts as touched
+# — the check reads the same `git diff --name-only` list check_files does,
+# where a removal is a touch, so the mirror direction deletes cleanly.
+# ===========================================================================
+new_repo
+printf 'a\n' > "$REPO/alpha.txt"
+printf '# test_alpha lives on\n' > "$REPO/beta.txt"
+git -C "$REPO" add alpha.txt beta.txt
+git -C "$REPO" commit -q -m "seed both files"
+write_tasks_md "$REPO" '- [ ] 133. Deletion is a touch
+
+**Files:** `alpha.txt`, `beta.txt`
+**Tests:** `test_alpha`
+**Commit:** drop beta keep alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+git -C "$REPO" rm -q beta.txt
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "drop beta keep alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 133 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 133: a deleted declared file counts as touched" || fail "case 133: rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

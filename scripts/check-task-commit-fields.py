@@ -31,6 +31,14 @@ every declared name would trivially match itself. `Case <N>` labels stay
 diff-checked only, and a value opening with `none` declares no names, both
 per the `Tests:` grammar below.
 
+KAN-540 adds the mirror direction of the `Files:` check: every path the
+task — or its fold's union — declares must appear in the commit's diff
+(`check_declared_files`). kan-30's task 34 declared one baseline while its
+commit carried two others, and the guard that only required the reverse
+passed the record as written. The check reads the same
+`git diff --name-only` list `check_files` does, so a deletion of a declared
+path counts as touching it.
+
 KAN-409 adds the one dynamic check the rest of this guard never does: a
 `**Baseline:**` whose field records a plan-provenance `<!-- measured:
 <command> @ <ref> -->` comment has that command RE-RUN — at the commit's
@@ -229,7 +237,8 @@ sentence, which is what produced false failures against this plan's own
 
 Exit codes:
   0  clean — every checked field matches the real commit.
-  1  violations found — one or more of: an undeclared file, a missing
+  1  violations found — one or more of: an undeclared file, a declared
+     `Files:` path the commit does not touch, a missing
      declared test, a `**Baseline:**` delta the commit does not measure, a
      declared test name the tree does not contain, a commit subject
      mismatch, a `Squash-with:` value that
@@ -895,6 +904,24 @@ def check_files(task: TaskFields, changed_files: List[str]) -> List[str]:
     return violations
 
 
+def check_declared_files(task: TaskFields, changed_files: List[str]) -> List[str]:
+    """Every path the task's `Files:` declares must appear in the commit's
+    diff — the mirror of check_files, which requires the reverse (KAN-540:
+    kan-30's task 34 declared a baseline its commit never carried, and the
+    record then named a surface the branch never had). Same changed-file
+    list check_files reads, so a deletion of a declared path counts as
+    touching it; `Allowed-collateral:` is an allowance, not a declaration,
+    and names nothing that has to appear. The list is deduplicated because
+    the fold union joins partner lists that may repeat a path, and one
+    defect is one violation line, not one per copy."""
+    return [
+        f"task {task.id}: file {path} is declared in Files: but the commit "
+        "does not touch it"
+        for path in dict.fromkeys(task.files)
+        if path not in changed_files
+    ]
+
+
 # TESTS_PARSE_RULE — the parse rule both sibling `Tests:` violation messages
 # state, the diff check's and the tree check's, so one prose-misuse failure
 # is diagnosed one way (panel round 0, F1/F3/F4). The rule is conditional
@@ -1284,10 +1311,17 @@ def check_task_commit(
         return squash_violations
 
     resolved_parent = parent_sha or resolve_parent(worktree, commit_sha)
+    # --no-renames pins the changed-file list against the invoking machine's
+    # git config: rename detection (on by default) elides a rename's source
+    # path, so a commit renaming a declared path would judge differently —
+    # or not at all — on another machine (panel round 0, F1). With it a
+    # rename is what git without detection sees: the old path deleted, the
+    # new added, both listed, both "touched".
     changed_files = [
         p
         for p in run_git(
-            worktree, ["diff", "--name-only", f"{resolved_parent}..{commit_sha}"]
+            worktree,
+            ["diff", "--no-renames", "--name-only", f"{resolved_parent}..{commit_sha}"],
         ).splitlines()
         if p
     ]
@@ -1301,6 +1335,7 @@ def check_task_commit(
     # subject; `task` carries what this task itself declared, which is what
     # Tests: and the declared-scope check are about either way.
     violations += check_files(folded, changed_files)
+    violations += check_declared_files(folded, changed_files)
     violations += check_tests(task, diff_text)
     violations += check_baseline_counts(
         task, worktree, changed_files, resolved_parent, commit_sha
