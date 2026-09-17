@@ -195,11 +195,12 @@ bare `/flow` is the only command that loads this file.
    **Whichever option runs, the session fetches the bundle first**, with
    `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
    panel record rendered from the store, the archived `tasks.md`, `design.md` and `narrative.md`
-   read out of the `chore/archive-<name>` branch of the repository the store records for the
-   change, and the `git log --stat` of the implementation, planning and archive commits — and
-   prints it as one Markdown document. A source that is absent is reported
+   read out of the `chore/archive-<name>` branch of the repository the command resolves from its
+   own location (the main checkout its working directory sits in — the store carries no repository
+   roots for the pipeline's changes), and the `git log --stat` of the implementation, planning and
+   archive commits — and prints it as one Markdown document. A source that is absent is reported
    `skipped: <source> (absent)` inside the bundle, never fatal; nothing is rendered into the
-   landing worktree first, and no path is passed in.
+   landing worktree first, and no landing-worktree path is passed in or baked into the bundle.
    `defer` — by key or by the prompt's third option — fetches the bundle as above, appends
    `## Session narrative` (one paragraph this session writes for run 2 itself; the archived
    `narrative.md` is already a bundle section, and a change predating the narrative rule has the

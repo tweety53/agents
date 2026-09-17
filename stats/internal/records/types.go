@@ -456,6 +456,15 @@ type Run struct {
 	Mutations  []Mutation `json:"mutations"`
 }
 
+// HasRows reports whether the run holds any row of any kind. It is the one
+// home of that row set: a caller deciding whether a change exists in the
+// store at all — the self-review bundle's panel presence, for one — reads
+// it rather than re-enumerating the fields, so a row kind added here is
+// seen by every reader.
+func (r Run) HasRows() bool {
+	return len(r.Dispatches)+len(r.Findings)+len(r.Passes)+len(r.Mutations) > 0
+}
+
 // CostStatus is the wire shape GET .../cost-status answers: how many of a
 // change's dispatches carry no cost figure, and, for those that do not,
 // why -- one count per raw reason a producer stamped

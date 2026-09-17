@@ -681,18 +681,20 @@ func (c *Client) do(req *http.Request) (body []byte, status int, fromDaemon bool
 
 	fromDaemon = resp.Header.Get(daemonHeaderName) == daemonHeaderValue
 
-	body, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	// One byte past the cap tells a complete cap-sized body from a cut
+	// one: a body that filled exactly maxResponseBytes was served whole,
+	// and refusing it would call a complete answer truncated.
+	body, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
 		return nil, 0, false, fmt.Errorf("%w: read response body: %v", ErrUnavailable, err)
 	}
-	// A body that fills the cap was cut off mid-read by the LimitReader:
-	// whatever the endpoint, the caller is looking at a truncated answer.
-	// Refusing it loudly is strictly safer than every caller inventing its
-	// own detection -- the decoders mostly catch it by accident, and the
-	// one raw-markdown read (the self-review bundle) would not catch it at
-	// all.
-	if len(body) >= maxResponseBytes {
-		return nil, 0, false, fmt.Errorf("%w: response body filled the %d-byte cap -- truncated, not served whole", ErrUnavailable, maxResponseBytes)
+	// A body that overflows the cap was cut off mid-read: whatever the
+	// endpoint, the caller is looking at a truncated answer. Refusing it
+	// loudly is strictly safer than every caller inventing its own
+	// detection -- the decoders mostly catch it by accident, and the one
+	// raw-markdown read (the self-review bundle) would not catch it at all.
+	if len(body) > maxResponseBytes {
+		return nil, 0, false, fmt.Errorf("%w: response body overflows the %d-byte cap -- truncated, not served whole", ErrUnavailable, maxResponseBytes)
 	}
 	return body, resp.StatusCode, fromDaemon, nil
 }

@@ -131,6 +131,32 @@ func TestBundleAssemblyNotesUnreadableRepo(t *testing.T) {
 	}
 }
 
+// TestUnreadableRepoProbeIsGitDir pins the health probe's command shape:
+// `rev-parse --git-dir` answers for any repository, commit-less ones
+// included — a mutant probing a ref instead would stamp a false note on a
+// valid repository that simply has no commits yet.
+func TestUnreadableRepoProbeIsGitDir(t *testing.T) {
+	repo := gitRepo(t)
+	g := &fakeGit{
+		responses: map[string]string{
+			repo + " rev-parse --git-dir": repo + "/.git",
+		},
+		failOn: map[string]bool{
+			repo + " show chore/archive-demo:spectre/changes/archive/demo/tasks.md": true,
+		},
+	}
+
+	if _, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, g); err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	for _, call := range g.calls {
+		if strings.HasPrefix(call, repo+" rev-parse") && call != repo+" rev-parse --git-dir" {
+			t.Errorf("health probe issued %q, want rev-parse --git-dir", call)
+		}
+	}
+}
+
 func TestBundleAssemblyReadsArchivedFilesThroughGit(t *testing.T) {
 	repo := gitRepo(t)
 	writeArchiveBranch(t, repo, "demo", map[string]string{

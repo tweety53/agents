@@ -151,9 +151,10 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it.
    What is specific to *executing* it here: `flow self-review bundle -change <name>` fetches the
    whole bundle — flowd serves the ledger and panel record from the store, reads the archived
-   change's files out of the `chore/archive-<name>` branch of the repository the store records for
-   the change, and derives the finish-run commits' git log — so nothing is rendered into the
-   landing worktree first and no path is passed in.
+   change's files out of the `chore/archive-<name>` branch of the repository the command resolves
+   from its own location (the main checkout its working directory sits in), and derives the
+   finish-run commits' git log — so nothing is rendered into the landing worktree first and no
+   landing-worktree path is passed in or baked into the bundle.
 
    **Resolve `SELF_REVIEW_MODEL` here, where it is consumed** — `/flow`'s **Model resolution**
    (`skills/flow/SKILL.md`) deliberately does not, since no run that stops before archive reads it:

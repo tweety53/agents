@@ -14,10 +14,12 @@
 package selfreview
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -58,9 +60,18 @@ type Runner interface {
 // ExecRunner runs the real git binary.
 type ExecRunner struct{}
 
-// Output runs git in repo and returns its stdout.
+// gitCommandBound bounds one git invocation: a hung repository must cost
+// the handler its bound, not an unbounded goroutine and a git process that
+// outlives the request.
+const gitCommandBound = 30 * time.Second
+
+// Output runs git in repo and returns its stdout. The command is bound by
+// gitCommandBound — the daemon serves local repositories, where git either
+// answers in well under a second or is not going to answer at all.
 func (ExecRunner) Output(repo string, args ...string) ([]byte, error) {
-	return exec.Command("git", append([]string{"-C", repo}, args...)...).Output()
+	ctx, cancel := context.WithTimeout(context.Background(), gitCommandBound)
+	defer cancel()
+	return exec.CommandContext(ctx, "git", append([]string{"-C", repo}, args...)...).Output()
 }
 
 // finishCommits is the three-commit spine of the git-log source: the
@@ -286,13 +297,13 @@ func Bundle(change string, run records.Run, repos []string, g Runner) (string, e
 	}
 
 	// The store renders: the ledger needs dispatch rows (RenderKind's own
-	// rule); the panel needs any row at all, so an unknown change's empty
-	// run never renders a findings-total: 0 record nobody wrote.
+	// rule); the panel needs any row of the run at all, so an unknown
+	// change's empty run never renders a findings-total: 0 record nobody
+	// wrote. records.Run.HasRows is the one home of that row set.
 	ledger, ledgerOK := records.RenderKind("ledger", run)
 	add(".superpowers/sdd/ledgers/"+change+".md", ledger, ledgerOK)
-	panelHasRows := len(run.Dispatches)+len(run.Findings)+len(run.Passes)+len(run.Mutations) > 0
 	panel, _ := records.RenderKind("panel", run)
-	add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, panelHasRows)
+	add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, run.HasRows())
 
 	// The archive-derived sources all come from one repository: the first
 	// supplied one carrying the change's archived directory. No archive
