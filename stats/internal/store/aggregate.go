@@ -526,6 +526,11 @@ type ReviewerRow struct {
 // scoping it to the query's own period would make the same slot's
 // description flicker between periods for no reason tied to the roster
 // itself.
+//
+// roster_slots is also the view's membership test: a slot is a row only
+// when some recorded roster names it. Dispatches of other roles (panel-fix,
+// verifier) and one-off reviewers sometimes carry an invented -slot, and
+// without this join each surfaced as a zero-findings row.
 func (s *Store) Reviewers(ctx context.Context, period Period, project, model *string) ([]ReviewerRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH scoped_dispatches AS (
@@ -557,6 +562,10 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 				COUNT(*) FILTER (WHERE status ILIKE 'withdrawn%') AS withdrawn
 			FROM scoped_findings
 			GROUP BY slot
+		),
+		roster_slots AS (
+			SELECT DISTINCT jsonb_path_query(decision, '$.panel.roster[*].slot') #>> '{}' AS slot
+			FROM decisions
 		)
 		SELECT
 			da.slot,
@@ -583,6 +592,7 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			CASE WHEN COALESCE(fa.total, 0) > 0 THEN fa.deferred::float8 / fa.total ELSE 0 END,
 			CASE WHEN COALESCE(fa.total, 0) > 0 THEN fa.withdrawn::float8 / fa.total ELSE 0 END
 		FROM dispatch_agg da
+		JOIN roster_slots rs ON rs.slot = da.slot
 		LEFT JOIN finding_agg fa ON fa.slot = da.slot
 		ORDER BY da.slot
 	`, period.From, period.To, project, model)

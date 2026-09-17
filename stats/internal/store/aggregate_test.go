@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -1056,6 +1057,7 @@ func TestReviewersSplitsBundledSlots(t *testing.T) {
 	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", f); err != nil {
 		t.Fatalf("UpsertFinding: %v", err)
 	}
+	seedRoster(t, st, projectKey, "kan-1", "primary", "principles")
 
 	period := store.Period{
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
@@ -1447,17 +1449,21 @@ func TestReviewersScopesByDispatchStart(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-reviewers-nostage-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	record := func(startedAt time.Time) {
+	record := func(role, slot string, startedAt time.Time) {
 		t.Helper()
-		d := baseDispatch("reviewer", "sonnet")
-		d.Slot = "primary"
+		d := baseDispatch(role, "sonnet")
+		d.Slot = slot
 		d.StartedAt = startedAt
 		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
 			t.Fatalf("RecordDispatch: %v", err)
 		}
 	}
-	record(time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC))
-	record(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)) // at the half-open end: excluded
+	record("reviewer", "primary", time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC))
+	record("reviewer", "primary", time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)) // at the half-open end: excluded
+	// A panel-fix dispatch a session tagged with a slot of its own: no roster
+	// names "fix", so it is not a reviewer and never a row.
+	record("panel-fix", "fix", time.Date(2026, 6, 10, 10, 0, 0, 0, time.UTC))
+	seedRoster(t, st, projectKey, "kan-1", "primary")
 
 	rows, err := st.Reviewers(ctx, store.Period{
 		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
@@ -1468,5 +1474,22 @@ func TestReviewersScopesByDispatchStart(t *testing.T) {
 	}
 	if len(rows) != 1 || rows[0].Slot != "primary" || rows[0].Dispatches != 1 {
 		t.Fatalf("rows = %+v, want one primary row with 1 dispatch", rows)
+	}
+}
+
+// seedRoster records one decision whose panel roster names slots, so the
+// reviewers view -- which shows a slot only when some roster names it --
+// has a roster to consult.
+func seedRoster(t *testing.T, st *store.Store, projectKey, change string, slots ...string) {
+	t.Helper()
+	entries := make([]string, len(slots))
+	for i, s := range slots {
+		entries[i] = fmt.Sprintf(`{"slot": %q}`, s)
+	}
+	if _, _, err := st.RecordDecision(context.Background(), projectKey, change, records.Decision{
+		SessionToken: "mf-roster-" + projectKey,
+		Decision:     json.RawMessage(`{"panel": {"roster": [` + strings.Join(entries, ",") + `]}}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
 	}
 }
