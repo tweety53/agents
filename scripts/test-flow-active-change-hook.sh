@@ -18,7 +18,9 @@ pass() { printf 'ok: %s\n' "$1"; }
 SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/test-flow-active-change-hook.XXXXXX")"
 trap 'rm -rf "$SANDBOX"; [ -n "${STUB_PID:-}" ] && kill "$STUB_PID" 2>/dev/null || true' EXIT
 
-STUB_PORT=18471
+# A free port picked at runtime, not a hard-coded one: an occupied port would
+# fail all nine cases for a reason the hook does not own.
+STUB_PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
 STUB_BODY="$SANDBOX/stub-body.json"
 STUB_STATUS="$SANDBOX/stub-status.txt"
 STUB_LOG="$SANDBOX/stub-log.txt"
