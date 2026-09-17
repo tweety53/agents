@@ -3683,3 +3683,133 @@ func TestSlotsAreCanonicalised(t *testing.T) {
 		t.Errorf("finding slot = %q, want bugbot", got.Slot)
 	}
 }
+
+// --- the agent-id shape rule (KAN-560) ---
+
+// TestRecordDispatchRejectsInvalidAgentID pins KAN-560's write-time rule
+// against the opening half. KAN-469 recorded `flow record dispatch begin
+// -agent-id pending` before the Agent tool had returned a real identifier,
+// and because the daemon stamps a launch id only onto a row whose
+// agent_id is empty, the placeholder would have poisoned the row for the
+// whole run. The refusal must therefore be the store's, on every
+// dispatcher-typed path, before any SQL runs.
+func TestRecordDispatchRejectsInvalidAgentID(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-agentid-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	// The placeholder words are the stand-ins a dispatcher types when it
+	// does not hold the harness's identifier yet; the malformed shapes are
+	// strings no identifier this pipeline records -- ZCode's agent_<uuid>,
+	// Claude Code's bare launch hex, the pipeline's own inline -- could
+	// ever carry, since every one of them is ASCII letters, digits and the
+	// '-' '_' '.' separators.
+	refused := []string{
+		"pending", "Pending", "PENDING", "placeholder", "none", "unknown",
+		"tbd", "todo", "null", "nil", "n/a", "temp", "temporary",
+		"agent pending", "agent/1", "agént", "pending\n",
+	}
+	for _, agentID := range refused {
+		in := baseDispatch("implementer", "opus")
+		in.AgentID = agentID
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); !errors.Is(err, store.ErrAgentIDInvalid) {
+			t.Errorf("RecordDispatch with agent id %q: err = %v, want store.ErrAgentIDInvalid", agentID, err)
+		}
+	}
+
+	// Nothing leaked past the refusals: the next valid write allocates
+	// seq 1, proving a refusal never consumed an append position.
+	in := baseDispatch("implementer", "opus")
+	in.AgentID = "agent_541a9582-890b-417e-a3c3-419047bb4ee6"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+	if err != nil {
+		t.Fatalf("RecordDispatch with a real harness id: %v", err)
+	}
+	if got.Seq != 1 {
+		t.Errorf("seq after %d refused writes = %d, want 1 (a refusal must not consume an append position)", len(refused), got.Seq)
+	}
+	if got.AgentID != in.AgentID {
+		t.Errorf("AgentID = %q, want %q round-tripped", got.AgentID, in.AgentID)
+	}
+}
+
+// TestEndDispatchRejectsInvalidAgentID carries the same rule to the
+// closing half, where Claude Code reports the identifier only once the
+// dispatch has actually launched -- the same temptation to type a
+// stand-in, refused the same way. The refusal must also leave the row it
+// names exactly as begin wrote it, so the daemon's stamp can still fill
+// the identifier later.
+func TestEndDispatchRejectsInvalidAgentID(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-end-agentid-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	begin := baseDispatch("implementer", "opus")
+	begin.Key = "task-1"
+	begin.SessionToken = "mf-end-agentid"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", begin); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	end := records.DispatchEnd{
+		SessionToken: "mf-end-agentid",
+		Key:          "task-1",
+		CommitSHA:    "abc1234",
+		Outcome:      "completed",
+		EndedAt:      time.Date(2026, 8, 22, 9, 30, 0, 0, time.UTC),
+		AgentID:      "pending",
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); !errors.Is(err, store.ErrAgentIDInvalid) {
+		t.Fatalf("EndDispatch with a placeholder agent id: err = %v, want store.ErrAgentIDInvalid", err)
+	}
+
+	// The refusal closed nothing: the row is still an open window, with
+	// its empty identifier intact for the daemon's stamp.
+	var agentID *string
+	var endedAt *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT agent_id, ended_at FROM dispatches WHERE session_token = $1 AND dispatch_key = $2`,
+		"mf-end-agentid", "task-1",
+	).Scan(&agentID, &endedAt); err != nil {
+		t.Fatalf("read the row a refused end names: %v", err)
+	}
+	if agentID != nil {
+		t.Errorf("agent_id = %q after a refused end, want NULL", *agentID)
+	}
+	if endedAt != nil {
+		t.Errorf("ended_at = %v after a refused end, want NULL (the window must stay open)", *endedAt)
+	}
+}
+
+// TestStampDispatchAgentStillAcceptsHarnessShapes pins the boundary
+// KAN-560 draws: the validation covers the dispatcher-typed paths, and the
+// daemon's stamp stays verbatim (its own doc comment records why). Both
+// shapes the harvester actually forwards -- ZCode's agent_<uuid> and
+// Claude Code's bare launch hex -- must stamp onto an unclaimed row.
+func TestStampDispatchAgentStillAcceptsHarnessShapes(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-stamp-agentid-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	for _, agentID := range []string{
+		"agent_541a9582-890b-417e-a3c3-419047bb4ee6",
+		"a68cee7239419a7e7",
+	} {
+		begin := baseDispatch("implementer", "opus")
+		begin.Key = "task-" + agentID
+		begin.SessionToken = "mf-stamp-agentid"
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", begin); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		stamped, err := st.StampDispatchAgent(ctx, "mf-stamp-agentid", begin.Key, agentID)
+		if err != nil {
+			t.Fatalf("StampDispatchAgent with %q: %v", agentID, err)
+		}
+		if !stamped {
+			t.Errorf("StampDispatchAgent with %q reported no rows affected, want the begin's row stamped", agentID)
+		}
+	}
+}

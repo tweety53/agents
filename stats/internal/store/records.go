@@ -62,6 +62,70 @@ var ErrFindingPatternInvalid = errors.New("store: finding pattern normalizes to 
 // dispatch under the given session token and key.
 var ErrDispatchNotFound = errors.New("store: dispatch not found")
 
+// ErrAgentIDInvalid is returned by RecordDispatch and EndDispatch when a
+// non-empty agent id is a placeholder word or a malformed shape -- refused
+// at write time rather than stored (KAN-560). The refusal exists because
+// the daemon stamps a launch identifier only onto a row whose agent_id is
+// still empty (StampDispatchAgent), so a placeholder a dispatcher typed
+// before the launch -- KAN-469's `-agent-id pending` -- would sit on the
+// row forever, block the real identifier from ever being stamped, and
+// leave the dispatch's attribution to the interval rule alone. It is
+// typed so internal/api answers 400 and internal/reconcile retires the
+// journalled write, the same caller-mistake treatment
+// ErrFindingLinkInvalid gets.
+var ErrAgentIDInvalid = errors.New("store: invalid agent id")
+
+// agentIDPlaceholders is the closed set of stand-in words a dispatcher
+// types when it does not hold the harness's identifier yet. Every word
+// claims "an id is coming" or "there is no id" -- which the wire shape
+// already says with an absent value (records.Dispatch.AgentID's doc
+// comment), so such a word carries no information and never names a real
+// identifier. Matched case-insensitively by validateAgentID; the set is
+// closed deliberately, the same way Cause's vocabulary is, so a future
+// stand-in word is added here by a change that names it rather than
+// invented ad hoc by a caller.
+var agentIDPlaceholders = []string{
+	"pending", "placeholder", "none", "unknown", "tbd", "todo",
+	"null", "nil", "n/a", "temp", "temporary",
+}
+
+// validateAgentID applies the one shape rule the dispatcher-typed paths
+// enforce: an absent agent id is ordinary (Codex and Cursor expose none,
+// and `inline` names a same-session dispatch), but a present one is
+// either a placeholder word or a plausible harness identifier, never
+// anything else. The plausible-id test is a charset, not a pattern: every
+// identifier this pipeline has observed -- ZCode's `agent_<uuid>`, Claude
+// Code's bare launch hex, the pipeline's own `inline` -- is ASCII
+// letters, digits and the `-` `_` `.` separators, and the harvester
+// matches the column by exact equality, so whitespace, punctuation or
+// non-ASCII could never match a window and can only be a typo or a
+// stand-in.
+//
+// StampDispatchAgent deliberately does not call this: it stores verbatim
+// what a harness transcript itself carried (its own doc comment records
+// why), and both harness shapes above pass this charset anyway -- the
+// refusal is aimed at the dispatcher-typed paths the KAN-469 placeholder
+// rode in on.
+func validateAgentID(agentID string) error {
+	if agentID == "" {
+		return nil
+	}
+	for _, word := range agentIDPlaceholders {
+		if strings.EqualFold(agentID, word) {
+			return fmt.Errorf("%w: %q is a placeholder word, never a harness id -- omit -agent-id and let the daemon stamp the launch identifier", ErrAgentIDInvalid, agentID)
+		}
+	}
+	for _, r := range agentID {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
+			r == '-', r == '_', r == '.':
+		default:
+			return fmt.Errorf("%w: %q carries %q, which no harness id shape records -- ids are ASCII letters, digits and '-' '_' '.'", ErrAgentIDInvalid, agentID, string(r))
+		}
+	}
+	return nil
+}
+
 // ErrTooManyDispatchSeqCollisions is returned by RecordDispatch when it
 // could not allocate a seq after retrying past every concurrent collision
 // it was willing to absorb -- contention so extreme that the caller, not
@@ -188,6 +252,9 @@ const maxDispatchSeqRetries = 100
 // distinct. `flow record dispatch begin` requires the flag, so that path
 // is not reachable from this repository's own callers.
 func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
+	if err := validateAgentID(in.AgentID); err != nil {
+		return records.Dispatch{}, fmt.Errorf("store: record dispatch for %s/%s: %w", projectKey, change, err)
+	}
 	for range maxDispatchSeqRetries {
 		out, err := s.insertDispatch(ctx, projectKey, change, in)
 		if err == nil {
@@ -398,6 +465,14 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: marshal token report: %w", in.Key, projectKey, change, err)
 		}
 		reportParam = string(b)
+	}
+	// Judged before the statement, not beside ErrDispatchNotFound below:
+	// a placeholder id is the caller's mistake however the lookup lands,
+	// and refusing here leaves the row begin wrote untouched -- the
+	// window stays open and the daemon's stamp can still fill the
+	// identifier (KAN-560).
+	if err := validateAgentID(in.AgentID); err != nil {
+		return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: %w", in.Key, projectKey, change, err)
 	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
