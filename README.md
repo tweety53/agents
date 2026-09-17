@@ -140,7 +140,7 @@ than repeated as a column here.
 | `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |
 | `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
 | `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast` |
-| `flow.self-review` | Self-review (run 2) | `/flow` |
+| `flow.self-review` | Self-review (run 2) | `/flow`, `/flow-fast` |
 | `flow.push-archive` | Push the archive branch and open its PR (run 2) | `/flow`, `/flow-fast` |
 | `plan.session` | Plan session — the whole `/flow-plan` invocation | `/flow-plan` |
 
@@ -658,7 +658,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 | `/flow-status [name]` | `flow-status` | Read-only state report for open changes |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `/flow-settings` | `flow-settings` | Reads/writes the global model and reviewer defaults every `/flow` run reads from |
-| `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle |
+| `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` or `/flow-fast` run deferred, inline on this session's model, from the saved context bundle |
 
 Each row above says what a command is *for*. Its stages, in order — and the human gate that follows
 each — are stated once under

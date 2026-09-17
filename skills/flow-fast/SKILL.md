@@ -1,7 +1,7 @@
 ---
 name: flow-fast
 description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, inline implementation, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file, no pipeline guards. Use for /flow-fast.
-allowed-tools: Bash(flow:*)
+allowed-tools: Bash(flow:*), Bash(land-self-review-report.sh:*)
 license: MIT
 ---
 
@@ -46,13 +46,13 @@ them:
 | **2. Brainstorm** | `flow.brainstorm` |
 | **3. Worktree** | `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
 | **4. Implement** | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
-| **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
+| **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.self-review`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | **6. Preflight** | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two` |
 | **7. Land** | `flow.landing-routes` |
 | **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.push-archive` |
 
-`flow.visual-verify` and `flow.self-review` are deliberately absent: `/flow-fast` runs neither
-stage. This table is what `TestStageKeysMatchFlowFastSkillTable`
+`flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
+the deferred bundle of section 5 alone — never a reasoning pass. This table is what `TestStageKeysMatchFlowFastSkillTable`
 (`<agents repo>/stats/internal/stages/names_test.go`) pins the `/flow-fast` vocabulary to, so a key
 added to a step above without a matching `stages.Table` row — or the reverse — is a test failure
 rather than a mark rejected mid-run.
@@ -189,9 +189,10 @@ flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harnes
 ```
 
 Read `<project>/CLAUDE.md`, `<project>/AGENTS.md` where present, and `<project>/.flow/project.md`'s
-`## lint`, `## test`, `## handoff` and `## default landing route` sections, each read with
-`project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first three,
-and `## handoff` says whether the run stops between them.
+`## lint`, `## test`, `## handoff`, `## self review` and `## default landing route` sections, each
+read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first
+three, `## handoff` says whether the run stops between them, and `## self review` says whether
+section 5 saves a context bundle.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.load-context -outcome completed <name>
@@ -245,14 +246,44 @@ never lands red.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+**Self-review is `defer` or nothing here — this section is canonical for `/flow-fast`'s
+self-review.** With `## self review` `defer` (**Project configuration**,
+`skills/flow-contracts/project-configuration.md`), save the context bundle `/flow-self-review
+<name>` consumes, on this branch, as its own commit; no reasoning pass runs and nothing is asked.
+Every other body — `run`, `skip`, absent, invalid — marks through with nothing written, since
+`/flow-fast` asks no review question and runs no pass. Write
+`<project>/docs/self-review/<name>-context.md`, physically under `<worktree>`, as, in order: the stdout of `flow self-review
+bundle -change <name>` run from the worktree (the store's ledger and, when a panel ran, its
+record; every archive-derived source reports `skipped` — a `/flow-fast` change has no archive
+branch and no planning commit), then `## Branch log` — the output of `git -C <worktree> log
+--stat origin/<default-branch>..<name>`, the implementation commits the bundle's own git-log
+source cannot resolve — then `## Session narrative`, one paragraph this session writes on what it
+did and where it struggled. A re-run replaces the file. Commit and push it through the landing
+chain, asserting the change branch:
+
+```bash
+land-self-review-report.sh "<worktree>" "<name>" \
+  "docs(self-review): <name> self-review context bundle" \
+  docs/self-review/<name>-context.md \
+  --push "<name>"
+```
+
+The bundle lands with the change on every route. `/flow-self-review <name>` then runs the pass
+on `<default-branch>` and deletes the bundle in its report commit.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
 flow stage begin -command '/flow-fast' -stage flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
 flow stage end   -command '/flow-fast' -stage flow.stage-diff -outcome completed <name>
 flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
-what was verified and how; anything deliberately left out. This is the one report the run
-prints.
+what was verified and how; anything deliberately left out; the bundle path when section 5
+saved one. This is the one report the run prints.
 
 **Then the handoff, decided by `## handoff`** (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`): `none` continues to section 6 in this same

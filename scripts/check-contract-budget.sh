@@ -105,7 +105,7 @@ AGENTS.md 18648
 CLAUDE.md 15195
 README.md 59181
 commands-claude/flow-plan.md 1174
-commands-claude/flow-self-review.md 1097
+commands-claude/flow-self-review.md 1106
 commands-claude/flow-settings.md 993
 commands-claude/flow-status.md 1632
 commands-claude/flow-fast.md 3612
@@ -129,7 +129,7 @@ rules/kotlin-backend-development-standard.mdc 9641
 rules/lint-fix-priority.mdc 2961
 rules/flow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
-skills/README.md 4978
+skills/README.md 4994
 skills/flow-fast/SKILL.md 25925
 skills/flow-plan/SKILL.md 23290
 skills/flow-self-review/SKILL.md 7102

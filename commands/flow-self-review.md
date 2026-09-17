@@ -2,7 +2,7 @@
 name: /flow-self-review
 id: flow-self-review
 category: flow
-description: Run a self-review pass a /flow run deferred, inline on this session's model, from the saved context bundle
+description: Run a self-review pass a /flow or /flow-fast run deferred, inline on this session's model, from the saved context bundle
 ---
 
 **Model:** whatever this session runs on — that is the stronger-model choice, so pick it with

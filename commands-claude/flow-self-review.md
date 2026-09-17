@@ -1,6 +1,6 @@
 ---
 model: opus
-description: Run a self-review pass a /flow run deferred, inline on this session's model, from the saved context bundle
+description: Run a self-review pass a /flow or /flow-fast run deferred, inline on this session's model, from the saved context bundle
 ---
 
 Use the **flow-self-review** skill — installed globally, so let your harness resolve it by name

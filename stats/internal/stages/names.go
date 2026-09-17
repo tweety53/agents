@@ -88,7 +88,7 @@ var Table = []Stage{
 	{Key: "flow.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.verify-cleanup", Name: "Verify the cleanup (run 2)", Commands: []Command{Flow}},
 	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.self-review", Name: "Self-review (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.self-review", Name: "Self-review (run 2)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.push-archive", Name: "Push the archive branch and open its PR (run 2)", Commands: []Command{Flow, FlowFast}},
 	// /flow-plan -- one stage: the whole research session, recorded so its
 	// cost joins the change it seeds (docs/superpowers/specs/2026-09-12-run-stats-design.md).

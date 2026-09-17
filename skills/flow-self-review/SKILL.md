@@ -1,15 +1,16 @@
 ---
 name: flow-self-review
-description: Run the self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle; file, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run the self-review pass a `/flow` or `/flow-fast` run deferred, inline on this session's model, from the saved context bundle; file, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
 compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
 ---
 
-Run the self-review reasoning pass a `/flow` run deferred (`## self review: defer`, per
-`skills/flow-contracts/project-configuration.md`), from the context bundle run 2 step 9 saved —
-`skills/flow-contracts/finish-contract-run2.md` step 9 is canonical for that bundle's shape and
-the five-angle table below. **The pass runs inline, in this session, on whatever model it is
+Run the self-review reasoning pass a `/flow` or `/flow-fast` run deferred (`## self review:
+defer`, per `skills/flow-contracts/project-configuration.md`), from the context bundle run 2
+step 9 saved — `skills/flow-contracts/finish-contract-run2.md` step 9 is canonical for that
+bundle's shape and the five-angle table below — or **5. Verify** (`skills/flow-fast/SKILL.md`)
+saved on the change branch before landing. **The pass runs inline, in this session, on whatever model it is
 already on** — no subagent, no dispatch, no `Model:` handshake. Picking a stronger model than the
 same-run pass would have used is done by picking the model this session runs on (`/model`) before
 invoking this command, not by anything this skill itself resolves.

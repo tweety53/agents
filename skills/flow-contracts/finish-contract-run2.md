@@ -186,8 +186,9 @@ bare `/flow` is the only command that loads this file.
    succeeded** — see **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
-9. **Run self-review** — after `FINISHED` is written. **A `/flow-fast` run skips this step
-   entirely** — no reasoning pass runs at all, per that command's own design. Otherwise: a
+9. **Run self-review** — after `FINISHED` is written. **A `/flow-fast` run runs no reasoning pass
+   and no prompt here** — it honours `defer` alone, saving the bundle on its own branch before
+   landing (**5. Verify**, `skills/flow-fast/SKILL.md`, canonical for it). Otherwise: a
    skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. A project's
    `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
