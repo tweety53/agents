@@ -154,6 +154,13 @@
 # review-panel.md; cases 70-72 are one case per required phrase, each
 # dropped in turn.
 #
+# Cases 73-77 cover KAN-564's FINDINGS ARE INPUT paragraph, required once in
+# review-panel.md (the panel-fix subagent dispatch) and nowhere else: case
+# 1's own review-panel.md fixture and CLEAN_REVIEW_PANEL now carry one
+# correct FINDINGS_INPUT_BLOCK; case 73 is the label absent entirely from
+# review-panel.md; cases 74-77 are one case per required phrase, each
+# dropped in turn.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -665,6 +672,55 @@ ENTRY_CONTEXT_BLOCK_NO_COVERAGE='> **ENTRY CONTEXT:** `final-review.diff` is you
 > call in your report: which touched files you read in full, which you read only at the diff'"'"'s
 > hunks, and which you deliberately did not read.'
 
+# The FINDINGS ARE INPUT paragraph, reproduced verbatim from
+# skills/flow/review-panel.md (KAN-564).
+FINDINGS_INPUT_BLOCK='> **FINDINGS ARE INPUT:** a finding names a defect and suggests a route to fixing it — findings
+> are input, not orders. Your obligation is to resolve the defect the finding names; the
+> suggested route is the raising slot'"'"'s proposal, never a binding instruction. Where the literal
+> route would break something the code already requires — a required ordering, a declared
+> contract, a stated invariant — take the route that resolves the defect without the damage, and
+> your report records the deviation and justifies it: what the literal route would have broken,
+> and how yours resolves the defect. A silent deviation is an unfixed finding, and so is a
+> literal compliance that leaves the defect standing.'
+
+# Variants of FINDINGS_INPUT_BLOCK, each with exactly one required phrase
+# dropped while staying a plausible paragraph — cases 74-77.
+FINDINGS_INPUT_BLOCK_NO_INPUT='> **FINDINGS ARE INPUT:** a finding names a defect and suggests a route to fixing it — the
+> finding is the fix'"'"'s brief. Your obligation is to resolve the defect the finding names; the
+> suggested route is the raising slot'"'"'s proposal, never a binding instruction. Where the literal
+> route would break something the code already requires — a required ordering, a declared
+> contract, a stated invariant — take the route that resolves the defect without the damage, and
+> your report records the deviation and justifies it: what the literal route would have broken,
+> and how yours resolves the defect. A silent deviation is an unfixed finding, and so is a
+> literal compliance that leaves the defect standing.'
+
+FINDINGS_INPUT_BLOCK_NO_RESOLVE='> **FINDINGS ARE INPUT:** a finding names a defect and suggests a route to fixing it — findings
+> are input, not orders. Your obligation is to fix what the finding points at; the
+> suggested route is the raising slot'"'"'s proposal, never a binding instruction. Where the literal
+> route would break something the code already requires — a required ordering, a declared
+> contract, a stated invariant — take the route that resolves the defect without the damage, and
+> your report records the deviation and justifies it: what the literal route would have broken,
+> and how yours resolves the defect. A silent deviation is an unfixed finding, and so is a
+> literal compliance that leaves the defect standing.'
+
+FINDINGS_INPUT_BLOCK_NO_JUSTIFY='> **FINDINGS ARE INPUT:** a finding names a defect and suggests a route to fixing it — findings
+> are input, not orders. Your obligation is to resolve the defect the finding names; the
+> suggested route is the raising slot'"'"'s proposal, never a binding instruction. Where the literal
+> route would break something the code already requires — a required ordering, a declared
+> contract, a stated invariant — take the route that resolves the defect without the damage, and
+> your report notes the detour: what the literal route would have broken,
+> and how yours resolves the defect. A silent deviation is an unfixed finding, and so is a
+> literal compliance that leaves the defect standing.'
+
+FINDINGS_INPUT_BLOCK_NO_SILENT='> **FINDINGS ARE INPUT:** a finding names a defect and suggests a route to fixing it — findings
+> are input, not orders. Your obligation is to resolve the defect the finding names; the
+> suggested route is the raising slot'"'"'s proposal, never a binding instruction. Where the literal
+> route would break something the code already requires — a required ordering, a declared
+> contract, a stated invariant — take the route that resolves the defect without the damage, and
+> your report records the deviation and justifies it: what the literal route would have broken,
+> and how yours resolves the defect. An undeclared detour helps nobody, and so does a
+> literal compliance that leaves the defect standing.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -690,7 +746,8 @@ write_site() {
 # dispatch, KAN-496); implement.md carries one PROVE THE GUARD BITES block
 # (the implementer dispatch, KAN-328) and one REPORT, DON'T DECIDE block
 # (the implementer dispatch, KAN-405); review-panel.md carries one
-# ENTRY CONTEXT block (the panel slot dispatch, KAN-521). new_root already
+# ENTRY CONTEXT block (the panel slot dispatch, KAN-521) and one FINDINGS
+# ARE INPUT block (the panel-fix dispatch, KAN-564). new_root already
 # seeded
 # verify-and-handoff.md
 # with its own required TOOLS, MODEL HANDSHAKE and NO DELEGATION blocks —
@@ -726,7 +783,9 @@ $DELEGATION_BLOCK
 
 $DELEGATION_BLOCK
 
-$ENTRY_CONTEXT_BLOCK"
+$ENTRY_CONTEXT_BLOCK
+
+$FINDINGS_INPUT_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -1628,7 +1687,9 @@ $DELEGATION_BLOCK
 
 $DELEGATION_BLOCK
 
-$ENTRY_CONTEXT_BLOCK"
+$ENTRY_CONTEXT_BLOCK
+
+$FINDINGS_INPUT_BLOCK"
 
 CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 
@@ -2903,7 +2964,9 @@ $INDEPENDENT_BLOCK
 
 $DELEGATION_BLOCK
 
-$DELEGATION_BLOCK"
+$DELEGATION_BLOCK
+
+$FINDINGS_INPUT_BLOCK"
 run_guard
 [ "$RC" -eq 1 ] && pass "case 69: exits 1" || fail "case 69: expected exit 1, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -2957,6 +3020,112 @@ run_guard
 case "$OUT" in
   *"the coverage trade"*) pass "case 72: names the missing phrase" ;;
   *) fail "case 72: expected 'the coverage trade' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 73: the FINDINGS ARE INPUT label is absent entirely from
+# review-panel.md (KAN-564) — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$PIXEL_PROBE_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK
+
+$ENTRY_CONTEXT_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 73: exits 1" || fail "case 73: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"FINDINGS ARE INPUT"*) pass "case 73: names review-panel.md and the missing FINDINGS ARE INPUT block" ;;
+  *) fail "case 73: expected review-panel.md and FINDINGS ARE INPUT named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 74: a FINDINGS ARE INPUT block is present but missing "input, not
+# orders" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$FINDINGS_INPUT_BLOCK_NO_INPUT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 74: exits 1" || fail "case 74: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"input, not orders"*) pass "case 74: names the missing phrase" ;;
+  *) fail "case 74: expected 'input, not orders' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 75: a FINDINGS ARE INPUT block is present but missing "resolve the
+# defect the finding names" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$FINDINGS_INPUT_BLOCK_NO_RESOLVE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 75: exits 1" || fail "case 75: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"resolve the defect the finding names"*) pass "case 75: names the missing phrase" ;;
+  *) fail "case 75: expected 'resolve the defect the finding names' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 76: a FINDINGS ARE INPUT block is present but missing "records the
+# deviation and justifies it" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$FINDINGS_INPUT_BLOCK_NO_JUSTIFY"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 76: exits 1" || fail "case 76: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"records the deviation and justifies it"*) pass "case 76: names the missing phrase" ;;
+  *) fail "case 76: expected 'records the deviation and justifies it' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 77: a FINDINGS ARE INPUT block is present but missing "A silent
+# deviation is an unfixed finding" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$FINDINGS_INPUT_BLOCK_NO_SILENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 77: exits 1" || fail "case 77: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"A silent deviation is an unfixed finding"*) pass "case 77: names the missing phrase" ;;
+  *) fail "case 77: expected 'A silent deviation is an unfixed finding' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then
