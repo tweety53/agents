@@ -771,7 +771,9 @@ mixed-verdict bundle is handled per task**: every clean task is ticked in the sa
 closes the record, and every `fix` task takes the fix path below on its own sha, independently
 of its bundle-mates. **A fix resumes the task's own group's implementer** (`SendMessage`; one
 resume per group carrying every `fix` report path of that group's tasks, recorded as its own
-pair under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids); per task, it commits
+pair under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids); per task, it stages the
+changed paths (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only, so
+a fix that adds a file stages first) and commits
 `git commit --fixup=<task-sha> -- <the changed paths>` — the pathspec-scoped default (**A commit a
 run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`)
 — runs

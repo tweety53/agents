@@ -749,15 +749,17 @@ did not already carry.** Only re-runs after a fix are scoped. Record
 
 **A branch the remote already holds takes the fix as one new commit on top, never a rewrite.**
 This is the normal case: the branch is pushed with every commit (**Branch backup**,
-`skills/flow-contracts/git-boundaries.md`), so the fix is a plain
+`skills/flow-contracts/git-boundaries.md`), so the fix stages the changed paths
+(`git add -- <the changed paths>` — a pathspec commit reads tracked paths only) and is a plain
 `git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**A commit a
 run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`),
 so it carries only the paths the finding named, whatever else the index holds — pushed
 plain like any other commit, and every downstream commit keeps its sha — folding instead via `git
 commit --fixup=<task-sha>` + `git rebase --autosquash` rewrote tasks 7–10's shas in kan-469's
 `gymie-frontend` run and forced a `git push --force-with-lease` re-sync with the remote.
-**Rewrite-based folding is for unpushed history only**: the fixup — `git commit
---fixup=<task-sha> -- <the changed paths>`, scoped by the same default — targets the **original** task
+**Rewrite-based folding is for unpushed history only**: the fixup — stage first
+(`git add -- <the changed paths>`), then `git commit --fixup=<task-sha> -- <the changed paths>`,
+scoped by the same default — targets the **original** task
 commit (`<task-sha>`), and the autosquash folds it in immediately, before anything pushes — that
 route's own diff is `git diff "$FIX_BASE"..<task-sha>`, read once the fold has landed.
 
