@@ -891,6 +891,7 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 		d := baseDispatch("reviewer", "sonnet")
 		d.Slot = slot
 		d.StageRunID = &stageRunID
+		d.StartedAt = in.StartedAt
 		out, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
 		if err != nil {
 			t.Fatalf("RecordDispatch %s: %v", slot, err)
@@ -1041,6 +1042,7 @@ func TestReviewersSplitsBundledSlots(t *testing.T) {
 	d := baseDispatch("reviewer", "sonnet")
 	d.Slot = "primary+principles"
 	d.StageRunID = &stageRunID
+	d.StartedAt = in.StartedAt
 	bundle, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
 	if err != nil {
 		t.Fatalf("RecordDispatch: %v", err)
@@ -1432,4 +1434,39 @@ func TestLiveStateBoardCarriesPlannedAndCurrentTasks(t *testing.T) {
 type LiveStateByName struct {
 	Planned *int
 	Current *int
+}
+
+// TestReviewersScopesByDispatchStart pins that the view attributes a
+// dispatch to the period containing ITS OWN started_at and never requires
+// a stage_run_id: nothing that records a dispatch (flow record dispatch
+// begin) sets that column, so a join through stage_runs left the live view
+// empty from its first day.
+func TestReviewersScopesByDispatchStart(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-reviewers-nostage-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	record := func(startedAt time.Time) {
+		t.Helper()
+		d := baseDispatch("reviewer", "sonnet")
+		d.Slot = "primary"
+		d.StartedAt = startedAt
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+	}
+	record(time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC))
+	record(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)) // at the half-open end: excluded
+
+	rows, err := st.Reviewers(ctx, store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Slot != "primary" || rows[0].Dispatches != 1 {
+		t.Fatalf("rows = %+v, want one primary row with 1 dispatch", rows)
+	}
 }

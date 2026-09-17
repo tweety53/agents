@@ -492,8 +492,11 @@ type ReviewerRow struct {
 }
 
 // Reviewers reports one row per role -- design.md's "Stats views ›
-// reviewers" -- for every dispatch whose slot is set and whose stage run
-// started within period (and, when project/model is non-nil, matches it).
+// reviewers" -- for every dispatch whose slot is set and whose own
+// started_at falls within period (and, when project/model is non-nil,
+// matches it). It scopes on the dispatch's start, never through
+// stage_run_id: that column is nullable and nothing that records a
+// dispatch sets it, so a join on it returns no rows at all.
 //
 // A bundle is one dispatches row whose slot carries several roles
 // "+"-joined (design.md's compound-slot-one-row-per-bundle); scoped_dispatches
@@ -528,9 +531,8 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		WITH scoped_dispatches AS (
 			SELECT d.id, d.change_id, unnest(string_to_array(d.slot, '+')) AS slot
 			FROM dispatches d
-			JOIN stage_runs sr ON sr.id = d.stage_run_id
 			JOIN changes c ON c.id = d.change_id
-			WHERE sr.started_at >= $1 AND sr.started_at < $2
+			WHERE d.started_at >= $1 AND d.started_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)
 			  AND ($4::text IS NULL OR d.model = $4)
 			  AND d.slot IS NOT NULL

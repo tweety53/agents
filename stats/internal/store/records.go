@@ -315,7 +315,7 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		SELECT
 			c.id, $3,
 			COALESCE((SELECT MAX(d.seq) FROM dispatches d WHERE d.change_id = c.id), 0) + 1,
-			$4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18
+			$4, $5, canonical_slot($6), $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
@@ -523,7 +523,7 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 		SELECT
 			c.id,
 			(SELECT d.id FROM dispatches d WHERE d.change_id = c.id AND d.seq = $4::int),
-			$3, $5, $6, $7, $8, $9, $10, $12, $11, $13, $14
+			$3, $5, canonical_slot($6), $7, $8, $9, $10, $12, $11, $13, $14
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+findingsRefConstraint+` DO UPDATE SET

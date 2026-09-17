@@ -3624,3 +3624,62 @@ func TestEndDispatchWithoutTokensLeavesBagUntouched(t *testing.T) {
 		t.Errorf("metrics = %s, want %s -- an end without a report must leave the bag verbatim", rec.Dispatches[0].Metrics, harvested)
 	}
 }
+
+// TestSlotsAreCanonicalised pins canonical_slot (0028_canonical_slots.sql):
+// every historical spelling of a role collapses to the roster's own
+// lower-kebab name, on the way in for dispatches and findings alike, so
+// the reviewers view shows one row per role instead of one per casing.
+func TestSlotsAreCanonicalised(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	cases := map[string]string{
+		"primary":                            "primary",
+		"Primary":                            "primary",
+		"Primary primary":                    "primary",
+		"agents-Primary":                     "primary",
+		"gymie-CodeReviewLow":                "code-review-low",
+		"Code review (low)":                  "code-review-low",
+		"Code-review-low":                    "code-review-low",
+		"codereview":                         "code-review-low",
+		"primary a580c6aba41590858":          "primary",
+		"mutation ae79592cfd705c374":         "mutation",
+		"Visual verification":                "visual-verify",
+		"VisualVerify":                       "visual-verify",
+		"PanelFix":                           "panel-fix",
+		"Go audit — correctness":             "go-audit-correctness",
+		"per-task review (tasks 9-10)":       "per-task-review-tasks-9-10",
+		"primary+principles+Code-review-low": "primary+principles+code-review-low",
+		"exp-failure-modes":                  "exp-failure-modes",
+	}
+	for in, want := range cases {
+		var got string
+		if err := pool.QueryRow(ctx, "SELECT canonical_slot($1)", in).Scan(&got); err != nil {
+			t.Fatalf("canonical_slot(%q): %v", in, err)
+		}
+		if got != want {
+			t.Errorf("canonical_slot(%q) = %q, want %q", in, got, want)
+		}
+	}
+
+	projectKey := fmt.Sprintf("proj-slots-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	d := baseDispatch("reviewer", "sonnet")
+	d.Slot = "Code review (low)"
+	disp, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if disp.Slot != "code-review-low" {
+		t.Errorf("dispatch slot = %q, want code-review-low", disp.Slot)
+	}
+	f := baseFinding("F1", 1)
+	f.Slot = "Bugbot"
+	got, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", f)
+	if err != nil {
+		t.Fatalf("UpsertFinding: %v", err)
+	}
+	if got.Slot != "bugbot" {
+		t.Errorf("finding slot = %q, want bugbot", got.Slot)
+	}
+}
