@@ -1,0 +1,1 @@
+../../../scripts/check-panel-reproducer-exit-contract.sh
