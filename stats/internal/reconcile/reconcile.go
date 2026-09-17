@@ -829,6 +829,15 @@ func isDefinitiveRecordOutcome(err error) bool {
 		// carries it from an older client -- which is exactly when
 		// retiring, not queueing, is wanted.
 		return true
+	case errors.Is(err, store.ErrAgentIDInvalid):
+		// A placeholder or malformed agent id (KAN-560) is the same class
+		// again: the refusal keys on the request body alone, the live
+		// route answers 400 for the identical body, and every future
+		// replay would be refused identically. Retiring it is the same
+		// call the two cases above get -- leaving it queued would block
+		// every valid entry behind it forever without ever making
+		// progress.
+		return true
 	default:
 		return false
 	}

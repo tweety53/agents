@@ -748,6 +748,15 @@ func (*categoryContradictionRecordStore) SetFindingStatus(context.Context, strin
 	return fmt.Errorf("%w: F1 in proj/chg", store.ErrCategoryNotDeferred)
 }
 
+// invalidAgentIDRecordStore answers every dispatch write with
+// store.ErrAgentIDInvalid -- the agent-id counterpart of the
+// category-contradiction refusal above, mapped 400 by the same API mapper.
+type invalidAgentIDRecordStore struct{ fakeRecordStore }
+
+func (*invalidAgentIDRecordStore) RecordDispatch(context.Context, string, string, records.Dispatch) (records.Dispatch, error) {
+	return records.Dispatch{}, fmt.Errorf("%w: %q is a placeholder word, never a harness id", store.ErrAgentIDInvalid, "pending")
+}
+
 // TestStatusRefusedAsCategoryContradictionIsRetiredAndAppliesEntryBehindIt
 // is F10 (mutation, fix re-run 1): the ErrCategoryNotDeferred case in
 // isDefinitiveRecordOutcome had no test feeding it, so deleting the case
@@ -772,6 +781,38 @@ func TestStatusRefusedAsCategoryContradictionIsRetiredAndAppliesEntryBehindIt(t 
 	}
 	assertAppliedCalls(t, rs.appliedCalls(), []string{
 		"finding proj-record-catcon/chg-record-catcon ref=F2 status=open",
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (both entries retired)", n)
+	}
+}
+
+// TestDispatchRefusedForAnInvalidAgentIDIsRetiredAndAppliesEntryBehindIt
+// is the agent-id counterpart of the category-contradiction retirement
+// above (KAN-560): a dispatch write the store refused for a placeholder or
+// malformed agent id is refused identically on every replay -- the
+// refusal keys on the request body alone -- so retiring it is what stops
+// one bad entry blocking every valid entry behind it forever.
+func TestDispatchRefusedForAnInvalidAgentIDIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-agentid", "chg-record-agentid"
+
+	appendRecordWrite(t, root, project, change, "dispatch", testDispatch())
+	appendRecordWrite(t, root, project, change, "finding", testFinding("F2", "open"))
+
+	rs := &invalidAgentIDRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 1 {
+		t.Fatalf("Run result = %+v, want {Applied:1 Refused:1} -- an invalid-agent-id refusal must retire, not block the valid entry behind it", result)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		"finding proj-record-agentid/chg-record-agentid ref=F2 status=open",
 	})
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {
