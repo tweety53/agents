@@ -364,6 +364,20 @@ and 13 below as written, committing and pushing nothing.
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value, Pillow absent, included) blocks.
 
+   > **The `mockups` declaration gates the frame comparison, never the sweeps.** The compose
+   > step, the band pairing, the seam pairing, the ink inventory (sweep 10), the bounded-row
+   > sweep (sweep 9) and the element × property matrix read a frame against the capture, and a
+   > project declaring no `mockups` root composes nothing and reports each of them
+   > `n/a — no frame`. The state sweeps run on the captures alone and are the default on every
+   > `flow.visual-verify` run, composed or not: a verification that transcribes no text run
+   > (sweep 5), checks no element against its container's bounds (sweep 6), scrolls no region
+   > to its end (sweep 7) and re-derives no derived value (sweep 8) is the operator-driven
+   > round this stage exists to replace. Where a sweep's wording names the frame for something
+   > the capture answers without one — sweep 7's last element reached by name, sweep 5's
+   > display precision — the run reads that name against the view's own rendered content;
+   > sweep 6's order comparison needs the frame's list and is reported `n/a — no frame`
+   > beside the other frame-bound readings.
+
    **The difference panel cannot show a structural departure, so the first read of every pair
    is the script's band pairing, never the panel.** The panel is white wherever any channel
    differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
@@ -826,6 +840,9 @@ and 13 below as written, committing and pushing nothing.
 - <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause or `departure`>
 - <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over 2px with its `left` and `right` deltas, each with its named cause or `departure`>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
+- per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
+  ink — the same sweep line at capture scope; `order`, `rows` and `ink` read
+  `n/a — no frame`
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - visual-verification.md: written | not written — <reason>
