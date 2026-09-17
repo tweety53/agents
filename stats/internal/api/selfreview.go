@@ -75,6 +75,14 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if repo == "" {
+		// The archive-derived sources were skipped for want of a
+		// repository, not because the change was never archived — say so
+		// in the bundle rather than letting the caller read the skips as
+		// absence. (The CLI always resolves and sends repo; a caller that
+		// omits it is talking to the route by hand.)
+		bundle += "\nnote: no repo parameter was supplied — the archive-derived sources above are skipped for that reason, not because the change was never archived\n"
+	}
 
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
