@@ -173,4 +173,9 @@ func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
 	if code != http.StatusBadRequest {
 		t.Fatalf("GET bundle without repo = %d (%s), want 400", code, body)
 	}
+	// The refusal names itself: a caller reading only the body learns repo
+	// was the problem.
+	if !strings.Contains(body, "repo is required") {
+		t.Errorf("400 body = %s, want the missing repo named", body)
+	}
 }

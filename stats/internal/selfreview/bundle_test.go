@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -371,5 +372,35 @@ func runGit(t *testing.T, repo string, args ...string) {
 	cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// TestExecRunnerBoundKillsHangingGit pins the bound itself, through the
+// seam a test can drive: a PATH-shim git that never returns, an
+// ExecRunner with a tiny Bound. The call must come back with an error well
+// inside the bound — unbounded, it would hang the test to its own timeout.
+func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
+	shimDir := t.TempDir()
+	shim := filepath.Join(shimDir, "git")
+	if err := os.WriteFile(shim, []byte("#!/bin/bash\nsleep 300\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	repo := t.TempDir()
+	runner := ExecRunner{Bound: 500 * time.Millisecond}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := runner.Output(repo, "rev-parse", "HEAD")
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("a hanging git answered successfully under the shim")
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("Output ignored the bound — still blocked 30s in")
 	}
 }

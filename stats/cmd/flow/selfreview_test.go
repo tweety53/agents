@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -36,11 +38,18 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 		t.Errorf("request path = %s", gotPath)
 	}
 	// The resolved main checkout must ride to the daemon as the repo
-	// parameter: the archive-derived sources are read from the repository
-	// the caller's own location resolves to, and a regression that drops
-	// it would leave every archive source silently absent.
-	if !strings.Contains(gotQuery, "repo=") {
-		t.Errorf("request query = %q, want the repo parameter carried", gotQuery)
+	// parameter, pinned to its VALUE, not just a prefix: the
+	// archive-derived sources are read from the repository the caller's
+	// own location resolves to, and a regression that sends the raw -C
+	// directory — or nothing — would leave every archive source silently
+	// absent.
+	resolved, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRepo := "repo=" + url.QueryEscape(resolved)
+	if !strings.Contains(gotQuery, wantRepo) {
+		t.Errorf("request query = %q, want %q carried", gotQuery, wantRepo)
 	}
 	if !strings.Contains(stdout.String(), "# Self-review context bundle for demo") {
 		t.Errorf("stdout = %q", stdout.String())

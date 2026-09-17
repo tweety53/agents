@@ -146,3 +146,22 @@ func TestDispatchEndTokenReportMarshalsAllFourKeys(t *testing.T) {
 		t.Errorf("a report-less end marshalled a tokens key: %s", plain)
 	}
 }
+
+// TestRunHasRowsSeesEveryRowKind pins the row set: a run holding only
+// passes, or only mutations, is a run with rows — a panel-bearing record
+// the self-review bundle must render rather than report skipped.
+func TestRunHasRowsSeesEveryRowKind(t *testing.T) {
+	if (records.Run{}).HasRows() {
+		t.Error("an empty run has no rows")
+	}
+	for name, run := range map[string]records.Run{
+		"dispatches": {Dispatches: []records.Dispatch{{Seq: 1}}},
+		"findings":   {Findings: []records.Finding{{Ref: "F1"}}},
+		"passes":     {Passes: []records.Pass{{Note: "roster: full"}}},
+		"mutations":  {Mutations: []records.Mutation{{Path: "x.go"}}},
+	} {
+		if !run.HasRows() {
+			t.Errorf("a %s-only run has rows; HasRows said otherwise", name)
+		}
+	}
+}

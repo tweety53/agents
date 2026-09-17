@@ -57,21 +57,39 @@ type Runner interface {
 	Output(repo string, args ...string) ([]byte, error)
 }
 
-// ExecRunner runs the real git binary.
-type ExecRunner struct{}
-
-// gitCommandBound bounds one git invocation: a hung repository must cost
+// defaultGitBound bounds one git invocation: a hung repository must cost
 // the handler its bound, not an unbounded goroutine and a git process that
-// outlives the request.
-const gitCommandBound = 30 * time.Second
+// outlives the request. It sits comfortably inside the API server's
+// writeTimeout, so a bundle degraded by a bound-exceeded call still gets
+// served. ExecRunner's Bound field overrides it per runner — the seam the
+// bound's own test drives a sleeping git through.
+const defaultGitBound = 10 * time.Second
 
-// Output runs git in repo and returns its stdout. The command is bound by
-// gitCommandBound — the daemon serves local repositories, where git either
-// answers in well under a second or is not going to answer at all.
-func (ExecRunner) Output(repo string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), gitCommandBound)
+// waitAfterKill bounds how long Wait may stay blocked on pipes a killed
+// git's descendants still hold: without it, a textconv filter or credential
+// helper that ignores the signal defeats the bound entirely.
+const waitAfterKill = 5 * time.Second
+
+// ExecRunner runs the real git binary. A zero Bound means defaultGitBound.
+type ExecRunner struct {
+	Bound time.Duration
+}
+
+// Output runs git in repo and returns its stdout. The command is bound —
+// the daemon serves local repositories, where git either answers in well
+// under a second or is not going to answer at all — and its wait is
+// itself bounded past the kill, so no pipe-holding descendant can hang the
+// call past the bound.
+func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
+	bound := r.Bound
+	if bound == 0 {
+		bound = defaultGitBound
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), bound)
 	defer cancel()
-	return exec.CommandContext(ctx, "git", append([]string{"-C", repo}, args...)...).Output()
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", repo}, args...)...)
+	cmd.WaitDelay = waitAfterKill
+	return cmd.Output()
 }
 
 // finishCommits is the three-commit spine of the git-log source: the
