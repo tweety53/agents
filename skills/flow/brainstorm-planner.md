@@ -237,6 +237,15 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > integration-test stage on every change: a step that usually resolves to "nothing to do" trains
 > everyone to skip it.
 
+> **Open a task that verifies a reported behaviour with the reproduce-first step.** When a task's
+> job is confirming or refuting a report — an operator's defect report, a review or self-review
+> finding, a claimed behaviour — its first step reproduces the report against the untouched tree,
+> before any edit. Write the step into the task's own step text — "reproduce before touching
+> anything; do not guess" — never as intent the task leaves implicit: the implementer reads its
+> task, and a report reproduced before anything is touched is what closes a non-defect with no
+> code change, while an edit made before reproducing destroys the evidence the task set out to
+> gather.
+
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block and every numeric claim per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
