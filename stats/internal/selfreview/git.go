@@ -57,7 +57,7 @@ type Runner interface {
 	Output(repo string, args ...string) ([]byte, error)
 }
 
-// defaultGitBound bounds one git invocation: a hung repository must cost
+// DefaultGitBound bounds one git invocation: a hung repository must cost
 // the handler its bound, not an unbounded goroutine and a git process that
 // outlives the request. It sits comfortably inside the API server's
 // writeTimeout, so a bundle degraded by a bound-exceeded call still gets
@@ -74,7 +74,7 @@ const DefaultGitBound = 10 * time.Second
 // helper that ignores the signal defeats the bound entirely.
 const waitAfterKill = 5 * time.Second
 
-// ExecRunner runs the real git binary. A zero Bound means defaultGitBound.
+// ExecRunner runs the real git binary. A zero Bound means DefaultGitBound.
 type ExecRunner struct {
 	Bound time.Duration
 }

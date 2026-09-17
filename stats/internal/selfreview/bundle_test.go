@@ -378,7 +378,8 @@ func runGit(t *testing.T, repo string, args ...string) {
 // TestExecRunnerBoundKillsHangingGit pins the bound itself, through the
 // seam a test can drive: a PATH-shim git that never returns, an
 // ExecRunner with a tiny Bound. The call must come back with an error well
-// inside the bound — unbounded, it would hang the test to its own timeout.
+// inside the bound — a mutant ignoring the injected Bound would
+// blow this guard on the 10s default.
 func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 	shimDir := t.TempDir()
 	shim := filepath.Join(shimDir, "git")
@@ -400,7 +401,11 @@ func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 		if err == nil {
 			t.Fatal("a hanging git answered successfully under the shim")
 		}
-	case <-time.After(30 * time.Second):
-		t.Fatal("Output ignored the bound — still blocked 30s in")
+	case <-time.After(5 * time.Second):
+		// A mutant that ignores the injected Bound runs the 10s default —
+		// past this guard. The real path returns in ~500ms; WaitDelay only
+		// extends calls whose killed git left pipes held, and sleep does
+		// not.
+		t.Fatal("Output ignored the injected bound — still blocked 5s in")
 	}
 }
