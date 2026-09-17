@@ -195,18 +195,18 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    with no interactive channel to present this prompt still runs self-review, exactly as an explicit
    **Yes** would.
 
-   **On `defer`** — by key or by the prompt's third option — run the script exactly as above and
-   write its stdout, then `## design.md` (the archived `design.md` verbatim) and `## Session
-   narrative` (the archived `narrative.md` verbatim, or `narrative.md: absent — change predates
-   the narrative rule`, then one paragraph this session writes for run 2 itself), to
+   **On `defer`** — by key or by the prompt's third option — fetch the bundle exactly as above
+   (`flow self-review bundle -change <name>`) and write its stdout, then `## Session narrative`
+   (one paragraph this session writes for run 2 itself — the archived `design.md` and
+   `narrative.md` are bundle sections now, and a change predating the narrative rule has the
+   bundle report it skipped), to
    `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`; commit
-   with the report's own branch-assert shell, path and subject swapped:
+   with the report's own landing script, path and subject swapped:
 
    ```bash
-   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
-     && git -C <landing-worktree> add -- docs/self-review/<name>-context.md \
-     && { git -C <landing-worktree> diff --cached --quiet \
-          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review context bundle"; }
+   land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
+     "docs(self-review): <name> self-review context bundle" \
+     docs/self-review/<name>-context.md
    ```
 
    Then straight to the `flow stage end … flow.self-review -outcome completed` mark below; no
@@ -216,7 +216,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    **On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass
    itself, inline — no subagent, no dispatch, no `Model:` handshake, no `opus` re-dispatch.**
    `SELF_REVIEW_MODEL` still resolves, purely as a recorded value, but governs
-   nothing here: there is no dispatch left to send it to. Feed the script's output and the
+   nothing here: there is no dispatch left to send it to. Feed the bundle's content and the
    five angles cited below directly into this session's own reasoning, then continue straight into
    the filing-and-rating prompt below — the same session already driving `AskUserQuestion`.
 
@@ -249,10 +249,9 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:
 
    ```bash
-   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
-     && git -C <landing-worktree> add -- docs/self-review/<name>-self-review.md \
-     && { git -C <landing-worktree> diff --cached --quiet \
-          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review report"; }
+   land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
+     "docs(self-review): <name> self-review report" \
+     docs/self-review/<name>-self-review.md
    ```
 
    A branch mismatch or a commit that FAILS is reported and stops this commit. The change stays
