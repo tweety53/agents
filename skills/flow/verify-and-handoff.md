@@ -841,8 +841,8 @@ and 13 below as written, committing and pushing nothing.
 - <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over 2px with its `left` and `right` deltas, each with its named cause or `departure`>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
-  ink — the same sweep line at capture scope; `order`, `rows` and `ink` read
-  `n/a — no frame`
+  ink — the same sweep line at capture scope; `order` carries its containment half's
+  outcome beside `n/a — no frame`; `rows` and `ink` read `n/a — no frame`
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - visual-verification.md: written | not written — <reason>
