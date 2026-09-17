@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/stages"
 )
 
 // --- stage begin: records identity and instant ---
@@ -1112,5 +1113,37 @@ func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
 			}
 		})
+	}
+}
+
+// --- stage keys: serves the documented vocabulary ---
+
+// TestStageKeysSubcommandPrintsServedKeys pins `flow stage keys` to the
+// served source: stdout is exactly stages.Keys(), one key per line, with a
+// clean exit and no store contact. The check-stage-mark-calls guard
+// consumes this output as the stage-key vocabulary's one served source, so
+// an empty, padded or reordered printing would move the guard off the
+// documented table this package validates marks against.
+func TestStageKeysSubcommandPrintsServedKeys(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "keys"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
+	}
+	want := ""
+	for _, key := range stages.Keys() {
+		want += key + "\n"
+	}
+	if want == "" {
+		t.Fatal("stages.Keys() is empty -- the served vocabulary vanished")
+	}
+	if stdout.String() != want {
+		t.Errorf("stdout = %q, want the served keys one per line %q", stdout.String(), want)
 	}
 }

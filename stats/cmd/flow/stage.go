@@ -42,10 +42,16 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
        flow stage wrap [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
                         -command cmd -stage key -session-token token (<change> | -jira-key KEY)
                         -- <work command and args...>
+       flow stage keys
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
 -- the stages of each command table's Key column; an undocumented key is
 rejected before it ever reaches the store.
+
+stage keys prints every documented stage key, one per line, from this
+checkout's own internal/stages table -- the vocabulary's one served source;
+the check-stage-mark-calls guard consumes this output rather than keeping a
+transcription of its own.
 
 -jira-key records a /flow-plan session against its Jira key before the change
 exists; it replaces the <change> argument and is accepted for the plan.session
@@ -78,6 +84,8 @@ func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStageEnd(ctx, args[1:], stderr)
 	case "wrap":
 		return runStageWrap(ctx, args[1:], stdin, stdout, stderr)
+	case "keys":
+		return runStageKeys(stdout)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
 		fmt.Fprint(stderr, stageUsage)
@@ -546,6 +554,19 @@ func endStage(ctx context.Context, addr string, timeout time.Duration, req clien
 
 	cl := client.New(addr, &http.Client{Timeout: timeout})
 	return cl.EndStage(reqCtx, req)
+}
+
+// runStageKeys implements `flow stage keys`: the served stage-key
+// vocabulary, one key per line, exit 0. It is deliberately pure local
+// output -- no store contact, no project resolution, no flags -- because
+// its consumer, the check-stage-mark-calls guard, runs it from any
+// checkout at lint time and must get the checked-out tree's own
+// internal/stages table, never a daemon's and never an installed binary's.
+func runStageKeys(stdout io.Writer) int {
+	for _, key := range stages.Keys() {
+		fmt.Fprintln(stdout, key)
+	}
+	return 0
 }
 
 // runStageWrap implements `flow stage wrap`: one call that marks begin,

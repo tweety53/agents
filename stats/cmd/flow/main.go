@@ -29,6 +29,7 @@ commands:
   stage begin <name>  record the start of one documented pipeline stage
   stage end <name>    record the end, outcome and metrics of a stage
   stage wrap <name>   mark begin, run the work named after --, mark end
+  stage keys          print every documented stage key, one per line
   record dispatch     record one subagent dispatch of a change's run record
   record finding      record one review-panel finding, or replace it
   record status       set one recorded finding's status
