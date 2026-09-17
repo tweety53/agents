@@ -118,6 +118,7 @@ the reason this key exists. `make web-build` is `npm ci && npm run build` in `st
 ```bash
 scripts/check-vocabulary.sh
 scripts/check-references.sh
+scripts/check-python-suppressions.sh
 scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
 scripts/check-plan-shape.sh
