@@ -197,7 +197,7 @@ if not _GRAMMAR_PATH.is_file():
     sys.exit(2)
 sys.path.insert(0, str(_LIB_DIR))
 
-from plan_grammar import (  # noqa: E402
+from plan_grammar import (
     AFTER_FIELD_RE,
     FENCE_RE,
     after_ids,

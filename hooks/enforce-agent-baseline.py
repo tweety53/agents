@@ -88,5 +88,5 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception:  # noqa: BLE001 - fail open, never block work on a hook fault
+    except Exception:  # fail open, never block work on a hook fault
         sys.exit(0)
