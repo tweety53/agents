@@ -969,6 +969,12 @@ where the counted set carries no `@Test` at either revision, per the skip-not-fa
 contains fails with it. A test added to the commit with no `**Baseline:**` declared and no
 `**Tests:**` naming it stays the walk's judgment.
 
+**The round close runs the project's configured build-green guard too, when the project declares
+one (**The guard's scope**, `skills/flow-contracts/build-green.md`), over the plan's `tasks.md` —
+a non-zero exit does not close the round; it goes to the handback.** This is the gate that holds a
+plan appended to mid-run to the tags it published under: tasks a fix round appends carrying
+`**Build:** pending` keep the round open until every tag reads `green` or `red` (KAN-538).
+
 This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
 neither Bugbot nor Mutation is in the resolved roster or added this run is exactly where the round's own proof
 is the only mutation reasoning that happens at all.
@@ -1183,6 +1189,14 @@ violation, a key outside the canonical shape — and is a handback `## Question`
 > - **Stop the run**
 
 Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
+
+Beside them, run the project's configured build-green guard, when the project declares one
+(**The guard's scope**, `skills/flow-contracts/build-green.md`), over the plan's `tasks.md` — the
+same gate the round close above runs, so a pass that raised nothing and closed without a fix
+round cannot close the stage over tags it never checked. Exit 0 proceeds to the stage close
+below. Exit 1 means the plan still carries a build-green violation: fix the tags as a
+planning-path edit, re-run the guard to exit 0, and only then close — a stage never closes on a
+plan the guard fails. Exit 2 stops the run.
 
 ```bash
 flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>

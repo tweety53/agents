@@ -72,7 +72,8 @@ both accepted — "unreferenced" is not a violation shape this guard checks for.
 
 `/flow`'s creating run runs this guard, when the project declares one, before publishing the proposal
 artifact — the same point at which the plan-provenance guard runs — and fixes any hit before
-publishing.
+publishing. `/flow`'s review panel runs it, when the project declares one, at every round close and
+again beside the stage-close guards, where its report is blocking rather than advisory (KAN-538).
 
 **What the guard does not do.** The guard verifies only that every task declares a build state and
 that no declared-`red` task is left unresolved. It does **not** attempt to verify that a `green`
