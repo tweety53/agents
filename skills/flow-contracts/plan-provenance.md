@@ -6,13 +6,17 @@ them restate the tag vocabulary. If a rule below and a skill ever disagree, this
 ## The four tags
 
 Every fenced code block in a plan carries a provenance tag on its info string, and every numeric
-claim carries one in an HTML comment within the two lines after it:
+claim carries one in an HTML comment within the two lines after it; an assumption the plan could
+not verify carries one in the task that depends on it:
 
 - `verified:<how>` — on a fenced block's info string. The snippet was checked against something
   real; `<how>` names the check, e.g. `verified:javap intellij.platform.diff.jar`.
 - `unverified:<what-to-check>` — on a fenced block's info string. The snippet is the implementer's
   best guess, not a checked fact; `<what-to-check>` names exactly what to confirm before trusting
-  it, e.g. `unverified:confirm the member is a property, not a function`.
+  it, e.g. `unverified:confirm the member is a property, not a function`. The tag also sits on a
+  prose assumption: a claim about code or environment a task depends on that the plan could not
+  verify at plan time carries `unverified:<what-to-check>` in that task, and the implementing task
+  confirms it before building on it.
 - `measured:<command> @ <ref>` — in an HTML comment within the two lines after a numeric claim
   (the claim's own line, the line after it, or the line after that — so a blank note line between
   claim and comment is tolerated). The number came from actually running `<command>` at `<ref>`
@@ -83,7 +87,8 @@ Because the guard cannot verify truth, the obligation falls on whoever writes th
 only after actually running `<command>` at `<ref>` and reading the result. Writing either tag
 without doing the check it names is worse than leaving the block `unverified` or the number
 `predicted` — it tells the next reader a check happened when it did not, which is exactly the
-failure this contract exists to prevent.
+failure this contract exists to prevent. A prose `unverified:` assumption in a task carries the
+same duty on the reading side: the implementing task confirms it before building on it.
 
 ## When a measurement contradicts the plan
 
