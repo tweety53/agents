@@ -63,7 +63,11 @@ type Runner interface {
 // writeTimeout, so a bundle degraded by a bound-exceeded call still gets
 // served. ExecRunner's Bound field overrides it per runner — the seam the
 // bound's own test drives a sleeping git through.
-const defaultGitBound = 10 * time.Second
+// DefaultGitBound is the bound an ExecRunner with a zero Bound applies.
+// Exported for the api package's budget test: the bound must sit
+// comfortably inside that server's writeTimeout, so a bundle degraded by a
+// bound-exceeded call is still delivered.
+const DefaultGitBound = 10 * time.Second
 
 // waitAfterKill bounds how long Wait may stay blocked on pipes a killed
 // git's descendants still hold: without it, a textconv filter or credential
@@ -83,7 +87,7 @@ type ExecRunner struct {
 func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 	bound := r.Bound
 	if bound == 0 {
-		bound = defaultGitBound
+		bound = DefaultGitBound
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), bound)
 	defer cancel()
