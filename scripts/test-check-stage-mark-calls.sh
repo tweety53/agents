@@ -638,10 +638,11 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 32: a `stage begin` whose -stage key is not a row of README.md's Level 1
-# table -> caught, naming the key. The key set is read from the repository's
-# own README.md, so a renamed or typo'd key at any call site fails here
-# rather than as a silent caller-mistake line at run time.
+# Case 32: a `stage begin` whose -stage key is not in the served stage-key
+# vocabulary -> caught, naming the key. The key set is served by the flow
+# CLI from the repository's own stats module, so a renamed or typo'd key at
+# any call site fails here rather than as a silent caller-mistake line at
+# run time.
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
@@ -654,7 +655,7 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 32: an unlisted -stage key is caught" \
   || fail "case 32: rc=$RC out=$OUT"
 case "$OUT" in
-  *"plan.bogus"*"not a key in README.md"*) pass "case 32: the finding names the unlisted key" ;;
+  *"plan.bogus"*"not a key of the served stage-key vocabulary"*) pass "case 32: the finding names the unlisted key" ;;
   *) fail "case 32: expected an unlisted-key finding, out=$OUT" ;;
 esac
 
@@ -704,15 +705,15 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 35: a near-miss substring of a listed -stage key is caught" \
   || fail "case 35: rc=$RC out=$OUT"
 case "$OUT" in
-  *"flow.kickof"*"not a key in README.md"*) pass "case 35: the finding names the near-miss key" ;;
+  *"flow.kickof"*"not a key of the served stage-key vocabulary"*) pass "case 35: the finding names the near-miss key" ;;
   *) fail "case 35: expected an unlisted-key finding, out=$OUT" ;;
 esac
 
 # ===========================================================================
 # Case 36 (KAN-531 F11): a metacharacter near-miss -stage key is caught. The
 # membership test is `grep -qxF` — fixed-string, whole-line. `flow.kickof.`
-# sits in no Level 1 row, but as an ERE whole-line pattern its trailing `.`
-# matches the final `f` of the listed `flow.kickoff`, so a guard that loses
+# is in no served key, but as an ERE whole-line pattern its trailing `.`
+# matches the final `f` of the served `flow.kickoff`, so a guard that loses
 # the `-F` reads the near-miss as listed and passes this fixture clean. Every
 # earlier fixture key is metacharacter-free and so behaves identically under
 # both readings — this case is the one that diverges, and fails on exactly
@@ -728,7 +729,7 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 36: a metacharacter near-miss -stage key is caught" \
   || fail "case 36: rc=$RC out=$OUT"
 case "$OUT" in
-  *"flow.kickof."*"not a key in README.md"*) pass "case 36: the finding names the near-miss key" ;;
+  *"flow.kickof."*"not a key of the served stage-key vocabulary"*) pass "case 36: the finding names the near-miss key" ;;
   *) fail "case 36: expected an unlisted-key finding, out=$OUT" ;;
 esac
 
@@ -750,9 +751,87 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 37: the unlisted-key finding still fires" \
   || fail "case 37: rc=$RC out=$OUT"
 case "$OUT" in
-  *"$FIXTURE_FILE:2: -stage flow.kickof. is not a key in README.md's Level 1 table -- a mark under an unknown key is refused by the daemon as a caller mistake and the stage goes unrecorded; use a listed key or add the row first"*) \
+  *"$FIXTURE_FILE:2: -stage flow.kickof. is not a key of the served stage-key vocabulary (flow stage keys) -- a mark under an unknown key is refused by the daemon as a caller mistake and the stage goes unrecorded; use a listed key or add the row first"*) \
     pass "case 37: the finding's message text is pinned whole" ;;
   *) fail "case 37: expected the finding's exact message text, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Cases 38-39 (KAN-533): the guard consumes the SERVED stage-key source, not
+# a transcription of its own. The guard resolves REPO_ROOT from its own
+# location, so a copy of it under a sandbox tree -- with a stub stats module
+# whose cmd/flow serves keys of its own and no README.md anywhere -- reads
+# its vocabulary from that stub. Case 38's served key flow.alpha is
+# deliberately absent from the real repository's vocabulary, so against a
+# guard still reading the real README this exact run fails with an
+# unlisted-key finding: the case kills that mutant and proves source and
+# README-independence in one run. Case 39 serves nothing and pins the
+# exit-2 cannot-answer contract the README read used to own. A sandbox
+# rather than a mutation of the real repository's README, because the guard
+# harnesses run concurrently and a real-file mutation would race them.
+# ===========================================================================
+
+new_sandbox_repo() {
+  SANDBOX_REPO="$(mktemp -d "${TMPDIR:-/tmp}/check-stage-mark-calls-repo.XXXXXX")"
+  mkdir -p "$SANDBOX_REPO/scripts/lib" "$SANDBOX_REPO/stats/cmd/flow" "$SANDBOX_REPO/skills"
+  cp "$GUARD" "$SANDBOX_REPO/scripts/check-stage-mark-calls.sh"
+  cp "$SCRIPT_DIR/lib/coverage.sh" "$SANDBOX_REPO/scripts/lib/coverage.sh"
+  cat >"$SANDBOX_REPO/stats/go.mod" <<'EOF'
+module sandboxflow
+
+go 1.21
+EOF
+}
+
+run_sandbox_guard() {
+  set +e
+  OUT="$("$SANDBOX_REPO/scripts/check-stage-mark-calls.sh" "$SANDBOX_REPO/skills" 2>&1)"
+  RC=$?
+  set -e
+}
+
+# Case 38: the served keys are the sandbox's own -> a compliant call naming
+# a key only the stub serves passes, with no README in the tree at all.
+new_sandbox_repo
+cat >"$SANDBOX_REPO/stats/cmd/flow/main.go" <<'EOF'
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("flow.alpha")
+	fmt.Println("plan.beta")
+}
+EOF
+cat >"$SANDBOX_REPO/skills/SKILL.md" <<'EOF'
+```bash
+flow stage begin -command '/flow' -stage flow.alpha -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_sandbox_guard
+[ "$RC" -eq 0 ] && pass "case 38: the guard consumes the sandbox's served keys, with no README anywhere" \
+  || fail "case 38: rc=$RC out=$OUT"
+
+# Case 39: the served source yields no keys -> exit 2, cannot answer, never
+# a silent pass and never a fallback to any other source.
+new_sandbox_repo
+cat >"$SANDBOX_REPO/stats/cmd/flow/main.go" <<'EOF'
+package main
+
+func main() {
+}
+EOF
+cat >"$SANDBOX_REPO/skills/SKILL.md" <<'EOF'
+```bash
+flow stage begin -command '/flow' -stage flow.alpha -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_sandbox_guard
+[ "$RC" -eq 2 ] && pass "case 39: an empty serve is cannot-answer (exit 2), never a pass" \
+  || fail "case 39: rc=$RC out=$OUT"
+case "$OUT" in
+  *"served stage-key source"*) pass "case 39: the cannot-answer line names the served source" ;;
+  *) fail "case 39: expected the served-source cannot-answer line, out=$OUT" ;;
 esac
 
 if [ "$FAILURES" -gt 0 ]; then
