@@ -744,14 +744,18 @@ engaged.
 **Pass 1 runs the roster **The docs-only reduction** chose — the resolved roster, or `primary`
 alone on a docs-only branch — plus every slot the operator named at this stage's start that it
 did not already carry.** Only re-runs after a fix are scoped. Record
-`FIX_BASE=<task-sha>` — the task's
-commit as it stood before this fix round — then, once the fix is folded into that commit via `git
-commit --fixup=<task-sha>` and `git rebase --autosquash`, write
-`<abs-worktree>/.superpowers/sdd/fix-round-N.diff` from `git diff "$FIX_BASE"..<task-sha>`.
+`FIX_BASE` — the branch tip the fix round starts from — commit the fix, then write
+`<abs-worktree>/.superpowers/sdd/fix-round-N.diff` from `git diff "$FIX_BASE"..HEAD`.
 
-When a review finding requires a code change to a task that is already committed, commit the fix as
-`git commit --fixup=<task-sha>`, where `<task-sha>` is the **original** task commit. Immediately
-`git rebase --autosquash` to fold it in.
+**A branch the remote already holds takes the fix as one new commit on top, never a rewrite.**
+This is the normal case: the branch is pushed with every commit (**Branch backup**,
+`skills/flow-contracts/git-boundaries.md`), so the fix is a plain `git commit` at the tip, pushed
+plain like any other commit, and every downstream commit keeps its sha — folding instead via `git
+commit --fixup=<task-sha>` + `git rebase --autosquash` rewrote tasks 7–10's shas in kan-469's
+`gymie-frontend` run and forced a `git push --force-with-lease` re-sync with the remote.
+**Rewrite-based folding is for unpushed history only**: the fixup targets the **original** task
+commit (`<task-sha>`), and the autosquash folds it in immediately, before anything pushes — that
+route's own diff is `git diff "$FIX_BASE"..<task-sha>`, read once the fold has landed.
 
 **A clean `git rebase --autosquash` is not evidence the fix survived it.** Where the fixup and the
 commit it folds into touch nearby lines, git's 3-way auto-merge can resolve in favour of the
