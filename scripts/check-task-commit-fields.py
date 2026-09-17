@@ -233,7 +233,11 @@ specific test identifiers rather than numbered cases), and declares no
 checkable tests at all when none of the three shapes is present —
 deliberately vacuous rather than literal-matching a whole free-prose
 sentence, which is what produced false failures against this plan's own
-`Tests:` fields before this parsing was added.
+`Tests:` fields before this parsing was added. Both match sites for a
+backticked name — the diff search and the tree search — fold runs of
+whitespace, line breaks included, on the declared name and the content
+before comparing (KAN-562), so a declared sentence the commit carries
+wrapped across a source-line break matches the words it names.
 
 Exit codes:
   0  clean — every checked field matches the real commit.
@@ -427,9 +431,18 @@ def _parse_test_specs(value: str) -> List[TestSpec]:
             for number in case_numbers
         ]
     return [
-        TestSpec(label=token, pattern=re.compile(re.escape(token)))
+        TestSpec(label=token, pattern=_folded_ws_pattern(token))
         for token in BACKTICK_RE.findall(value)
     ]
+
+
+def _folded_ws_pattern(token: str) -> Pattern[str]:
+    """The diff-search pattern for one declared `Tests:` name: its words
+    `re.escape`d and joined on `\\s+`, so the needle folds runs of whitespace
+    — line breaks included — exactly as the rendered haystack below does
+    (KAN-562). A single-word name compiles to the same contiguous pattern
+    `re.escape(token)` built."""
+    return re.compile(r"\s+".join(re.escape(word) for word in token.split()))
 
 
 def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
@@ -942,10 +955,20 @@ TESTS_PARSE_RULE = (
 )
 
 
+# DIFF_LEADING_MARKER_RE — one leading `+` or `-` per diff line, stripped so
+# the search below runs on rendered lines rather than diff syntax: the wrap
+# this check has to bridge (KAN-562) arrives in the raw diff as a newline
+# followed by the added line's `+`, which no whitespace fold can cross. One
+# strip per line, so content that itself leads with `+`/`-` (a Markdown
+# bullet, say) keeps it.
+DIFF_LEADING_MARKER_RE = re.compile(r"(?m)^[+-]")
+
+
 def check_tests(task: TaskFields, diff_text: str) -> List[str]:
+    rendered = DIFF_LEADING_MARKER_RE.sub("", diff_text)
     violations = []
     for spec in task.tests:
-        if not spec.pattern.search(diff_text):
+        if not spec.pattern.search(rendered):
             violations.append(
                 f"task {task.id}: declared test {spec.label} not found in "
                 f"the diff — {TESTS_PARSE_RULE}"
@@ -1131,19 +1154,89 @@ def check_baseline_measured(
     ]
 
 
+def _fold_ws_bytes(data: bytes) -> bytes:
+    """The one fold rule both `Tests:` match sites read — every whitespace
+    run, line breaks included, becomes a single space (KAN-562) — stated
+    once and shared by the folded tree text and the folded declared name."""
+    return re.sub(rb"\s+", b" ", data)
+
+
+def _folded_tree_text(
+    worktree: str,
+    commit_sha: str,
+    exclude_dir: str,
+    exclude_path: Optional[str],
+) -> bytes:
+    """The tree's file CONTENT at <commit_sha>, minus <exclude_dir> and
+    everything under it and minus <exclude_path> when given, as one
+    whitespace-folded byte string. `git ls-tree -r -z` lists the blobs and
+    one `git cat-file --batch` streams their contents — neither applies
+    export attributes, so the search sees every blob the `git grep -F` it
+    replaced saw (panel F1: `git archive` honors export-ignore and
+    export-subst, which silently narrowed the read). The path filter lives
+    here rather than in git pathspecs because `git ls-tree` supports no
+    exclude magic. Blobs join on NUL, which no fold touches, so a name
+    never matches across two files' boundary; every whitespace run, line
+    breaks included, folds to a single space. An empty listing folds to an
+    empty string, the same no-match answer `git grep` gave on such a
+    tree."""
+    listed = run_git(worktree, ["ls-tree", "-r", "-z", commit_sha])
+    shas: List[str] = []
+    for entry in listed.split("\0"):
+        if not entry:
+            continue
+        meta, path = entry.split("\t", 1)
+        parts = meta.split()
+        if len(parts) != 3 or parts[1] != "blob":
+            continue
+        if path == exclude_dir or path.startswith(exclude_dir + "/"):
+            continue
+        if exclude_path and path == exclude_path:
+            continue
+        shas.append(parts[2])
+    folded = bytearray()
+    if shas:
+        result = subprocess.run(
+            ["git", "-C", worktree, "cat-file", "--batch"],
+            input=("\n".join(shas) + "\n").encode(),
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"git cat-file --batch at {commit_sha} failed with exit "
+                f"{result.returncode}: "
+                f"{result.stderr.decode(errors='replace').strip()}"
+            )
+        buf = result.stdout
+        i = 0
+        while i < len(buf):
+            nl = buf.index(b"\n", i)
+            head = buf[i:nl].split()
+            if len(head) == 3:  # <sha> <type> <size>; "<sha> missing" has two
+                folded += b"\x00" + buf[nl + 1 : nl + 1 + int(head[2])]
+                i = nl + 1 + int(head[2]) + 1
+            else:
+                i = nl + 1
+    return _fold_ws_bytes(bytes(folded))
+
+
 def check_tests_in_tree(
     task: TaskFields, worktree: str, commit_sha: str, tasks_md_path: str
 ) -> List[str]:
     """Every backticked or bare-camelCase name in `Tests:` must appear in
     the tree's CONTENT at the commit. The diff check passes a test the
     commit removes — the removal hunk carries the name — so the tree is
-    what catches the stale declaration. The plan file itself is excluded
-    from the grep: its own `**Tests:**` line declares the name, and without
+    what catches the stale declaration. The search is whitespace-folded on
+    both sides (KAN-562): the declared name and the tree text each have
+    their whitespace runs folded to one space before the fixed-string
+    comparison, so a sentence the tree wraps across a source-line break
+    matches the words it names. The plan file itself is excluded from the
+    search: its own `**Tests:**` line declares the name, and without
     the exclusion every declared name would trivially match itself. A
-    satellite's plan lives OUTSIDE the worktree grepped (the change-plan
-    resolution reads it from the canonical repository), and git refuses a
-    pathspec pointing out of the tree — there the plan cannot self-match
-    anyway, so no exclusion is passed. Every other plan under
+    satellite's plan lives OUTSIDE the worktree searched (the change-plan
+    resolution reads it from the canonical repository), and a path outside
+    the worktree names nothing in its listing — there the plan cannot
+    self-match anyway, so no exclusion is passed. Every other plan under
     `spectre/changes/` — archived changes included — is excluded too
     (panel F2): a stale name surviving in another change's `**Tests:**`
     line must not vouch for itself, or the guard passes the exact stale
@@ -1151,34 +1244,30 @@ def check_tests_in_tree(
     plan_rel = os.path.relpath(
         os.path.abspath(tasks_md_path), os.path.abspath(worktree)
     )
-    pathspecs = [":(exclude)spectre/changes"]
-    if not plan_rel.startswith(".." + os.sep):
-        pathspecs.append(f":(exclude){plan_rel}")
+    tree_text = _folded_tree_text(
+        worktree,
+        commit_sha,
+        "spectre/changes",
+        None if plan_rel.startswith(".." + os.sep) else plan_rel,
+    )
     violations = []
     for name in _extract_tree_names(task.tests_value):
-        _, err, code = _git_grep(
-            worktree, ["-F", "-e", name, commit_sha, "--"] + pathspecs
+        if _fold_ws_bytes(name.encode("utf-8")) in tree_text:
+            continue
+        # Content search missed; the name may still be a real committed
+        # PATH (panel F1) — a `Tests:` token naming a file the commit
+        # carries, whose string appears nowhere as file content.
+        path_check = subprocess.run(
+            ["git", "-C", worktree, "cat-file", "-e", f"{commit_sha}:{name}"],
+            capture_output=True,
+            text=True,
         )
-        if code != 0:
-            if code != 1:
-                raise RuntimeError(
-                    f"git grep {name!r} at {commit_sha} failed with exit "
-                    f"{code}: {err.strip()}"
-                )
-            # Content grep missed; the name may still be a real committed
-            # PATH (panel F1) — a `Tests:` token naming a file the commit
-            # carries, whose string appears nowhere as file content.
-            path_check = subprocess.run(
-                ["git", "-C", worktree, "cat-file", "-e", f"{commit_sha}:{name}"],
-                capture_output=True,
-                text=True,
-            )
-            if path_check.returncode == 0:
-                continue
-            violations.append(
-                f"task {task.id}: declared test {name} not found in the tree "
-                f"at {commit_sha} — {TESTS_PARSE_RULE}"
-            )
+        if path_check.returncode == 0:
+            continue
+        violations.append(
+            f"task {task.id}: declared test {name} not found in the tree "
+            f"at {commit_sha} — {TESTS_PARSE_RULE}"
+        )
     return violations
 
 

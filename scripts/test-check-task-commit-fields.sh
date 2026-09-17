@@ -4210,6 +4210,87 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 133 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 133: a deleted declared file counts as touched" || fail "case 133: rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 134 (KAN-562): a declared Tests: sentence the commit carries wrapped
+# across a doc-comment line break -> exit 0. Today both match sites are
+# literal-contiguous — check_tests searches re.escape(token) in the raw diff,
+# where the wrap arrives as a newline plus the added line's + marker, and
+# check_tests_in_tree greps the tree with line-based git grep -F — so this
+# case is the red this change exists to turn green.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 134. Wrapped sentence
+
+**Files:** `alpha.txt`
+**Tests:** `the guard folds wrapped lines before matching`
+**Commit:** add wrapped sentence
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+cat > "$REPO/alpha.txt" <<'EOF'
+This doc comment states that the guard folds wrapped
+lines before matching them, in prose.
+EOF
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add wrapped sentence"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 134 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 134: wrapped declared sentence passes" || fail "case 134: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 135 (KAN-562): a declared sentence the commit nowhere carries still
+# exits 1 — the whitespace-normalized match must not loosen into matching
+# anything.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 135. Absent sentence
+
+**Files:** `alpha.txt`
+**Tests:** `a sentence nowhere in this commit`
+**Commit:** add alpha only
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'nothing to see here\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha only"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 135 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 135: absent declared sentence fails" || fail "case 135: rc=$RC out=$OUT"
+case "$OUT" in
+  *"a sentence nowhere in this commit"*"not found in the diff"*) pass "case 135: names the missing sentence" ;;
+  *) fail "case 135: expected message naming the missing sentence, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 136 (KAN-562 panel F1): a declared sentence living ONLY in an
+# export-ignored blob — .gitattributes export-ignore keeps it out of
+# `git archive` — must still be found in the tree. This pins the property
+# that the tree search sees every blob the `git grep -F` it replaced saw.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 136. Export-ignored sentence
+
+**Files:** `packed.txt`, `.gitattributes`
+**Tests:** `the tree search sees every searchable blob`
+**Commit:** add export-ignored sentence
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'packed.txt export-ignore\n' > "$REPO/.gitattributes"
+cat > "$REPO/packed.txt" <<'EOF'
+notes: the tree search sees every searchable
+blob it lists, packed or not.
+EOF
+git -C "$REPO" add .gitattributes packed.txt
+git -C "$REPO" commit -q -m "add export-ignored sentence"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 136 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 136: export-ignored blob still searched" || fail "case 136: rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
