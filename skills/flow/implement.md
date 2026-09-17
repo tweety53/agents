@@ -524,7 +524,10 @@ Every implementer dispatch **must** carry:
 > **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the guard runs on it — commit
 > your work with `git commit`, carrying a `Task-Id: <n>` trailer. The trailer identifies the task;
-> the subject is this task's declared `**Commit:**` field, reproduced exactly. **Never weaken or
+> the subject is this task's declared `**Commit:**` field, reproduced exactly. **The commit is
+> pathspec-scoped** — `-- <this task's files>` — so it carries only the paths this task names,
+> whatever else the index holds; a plain commit sweeps a pre-staged foreign tree in with the
+> task's work (kan-469's sweep took ~130 files). **Never weaken or
 > bypass a project's commit validation to fit** — no `--no-verify`. Stage for that commit only
 > through the guarded sequence below, in this order — the clearing pass runs first, before any
 > `git add`, because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
@@ -534,7 +537,7 @@ Every implementer dispatch **must** carry:
 > git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
 >   && git add -- <this task's files> ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' \
 >   ':(exclude)docs/superpowers/' \
->   && git commit -m "<the task's declared subject>" -m "Task-Id: <n>"
+>   && git commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
 > ```
 >
 > Paths are relative to the worktree root. Both spec-tree leaf spellings are named because the
@@ -769,7 +772,9 @@ closes the record, and every `fix` task takes the fix path below on its own sha,
 of its bundle-mates. **A fix resumes the task's own group's implementer** (`SendMessage`; one
 resume per group carrying every `fix` report path of that group's tasks, recorded as its own
 pair under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids); per task, it commits
-`git commit --fixup=<task-sha>`, runs
+`git commit --fixup=<task-sha> -- <the changed paths>` — the pathspec-scoped default (**A commit a
+run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`)
+— runs
 `git rebase --autosquash <task-sha>^` — the explicit base is load-bearing: a bare
 `git rebase --autosquash` rebases onto the branch's upstream, absorbing the operator base's
 movement into a task fix — and writes `implementer-report-<k>-fix-<n>.md`. A conflict there is
