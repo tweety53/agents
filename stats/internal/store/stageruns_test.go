@@ -2380,3 +2380,83 @@ func TestConcurrentBeginStagePlanSessionDoesNotCollide(t *testing.T) {
 		t.Errorf("got %d distinct attempt numbers, want %d", len(seen), writers)
 	}
 }
+
+// TestQueryStageRunsReturnsChangeNameAndProject pins the two join columns
+// the flow-active-change hook's query reads (KAN-537): a stage run row
+// reached by session must carry which change it belongs to, by name and
+// project, or the hook's store query answers nothing a transcript regex
+// used to answer. ProjectKey maps the same COALESCE(c.project_key,
+// sr.project_key) expression the allowlist's own "project_key" filter
+// entry does, so what a caller filters by and what a row reports cannot
+// disagree.
+func TestQueryStageRunsReturnsChangeNameAndProject(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-change-name-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-42")
+
+	in := baseBeginInput(projectKey, "kan-42", "/flow", "kickoff")
+	in.SessionID = ptr("sess-name-1")
+	if _, err := st.BeginStage(ctx, in); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	rows, _, err := st.QueryStageRuns(ctx, store.Query{
+		Filters: []store.Filter{{Field: "session_id", Op: store.OpEq, Value: "sess-name-1"}},
+	})
+	if err != nil {
+		t.Fatalf("QueryStageRuns: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1", len(rows))
+	}
+	if rows[0].ChangeName == nil || *rows[0].ChangeName != "kan-42" {
+		t.Errorf("ChangeName = %v, want %q", rows[0].ChangeName, "kan-42")
+	}
+	if rows[0].ProjectKey == nil || *rows[0].ProjectKey != projectKey {
+		t.Errorf("ProjectKey = %v, want %q", rows[0].ProjectKey, projectKey)
+	}
+}
+
+// TestQueryStageRunsPlanSessionHasNilChangeName pins the unattached side
+// of the same columns: a plan-session row has no owning change, so both
+// fields read back nil rather than an invented name. The hook treats a
+// nil ChangeName as "no change" exactly like an empty result.
+func TestQueryStageRunsPlanSessionHasNilChangeName(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-plan-name-%d", time.Now().UnixNano())
+
+	in := store.BeginStageInput{
+		ProjectKey:       projectKey,
+		MainCheckoutPath: "/tmp/" + projectKey,
+		JiraKey:          "KAN-901",
+		Harness:          "claude-code",
+		SessionToken:     ptr("fp-plan-name-token-1"),
+		Command:          "/flow-plan",
+		Stage:            "plan.session",
+		StartedAt:        time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC),
+	}
+	if _, err := st.BeginStage(ctx, in); err != nil {
+		t.Fatalf("BeginStage plan session: %v", err)
+	}
+	if _, err := st.BindSession(ctx, "fp-plan-name-token-1", "sess-plan-name-1"); err != nil {
+		t.Fatalf("BindSession: %v", err)
+	}
+
+	rows, _, err := st.QueryStageRuns(ctx, store.Query{
+		Filters: []store.Filter{{Field: "session_id", Op: store.OpEq, Value: "sess-plan-name-1"}},
+	})
+	if err != nil {
+		t.Fatalf("QueryStageRuns: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1", len(rows))
+	}
+	if rows[0].ChangeName != nil {
+		t.Errorf("ChangeName = %q, want nil for an unattached plan session", *rows[0].ChangeName)
+	}
+	if rows[0].ProjectKey == nil || *rows[0].ProjectKey != projectKey {
+		t.Errorf("ProjectKey = %v, want %q (the plan session's own)", rows[0].ProjectKey, projectKey)
+	}
+}

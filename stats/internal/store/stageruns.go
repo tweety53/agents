@@ -93,10 +93,19 @@ type StageRun struct {
 	ID int64
 	// ChangeID is 0 for a plan session not yet attached to a change
 	// (0023_plan_sessions.sql).
-	ChangeID  int64
-	RepoRoot  *string
-	Harness   string
-	SessionID *string
+	ChangeID int64
+	RepoRoot *string
+	Harness  string
+	// ChangeName and ProjectKey are the owning change's public identity,
+	// read back by QueryStageRuns through its changes join (KAN-537).
+	// ProjectKey is the same COALESCE(c.project_key, sr.project_key) the
+	// allowlist's "project_key" filter entry maps, so an unattached plan
+	// session reports the project it was opened against. Both are nil from
+	// any read that does not join changes -- GetStageRun today -- and from
+	// an unattached plan session's ChangeName.
+	ChangeName *string
+	ProjectKey *string
+	SessionID  *string
 	// SessionToken is the literal, unique correlator `stage begin` wrote
 	// (KAN-172, task 1) -- present whenever SessionID is not yet resolved,
 	// and left in place, unused, once binding has happened, since binding
@@ -654,7 +663,8 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 
 	sqlText := fmt.Sprintf(`
 		SELECT sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
-		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics
+		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics,
+		       c.name, COALESCE(c.project_key, sr.project_key)
 		FROM stage_runs sr
 		LEFT JOIN changes c ON c.id = sr.change_id
 		%s
@@ -675,15 +685,20 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 			metrics      []byte
 			sessionID    *string
 			sessionToken *string
+			changeName   *string
+			projectKey   *string
 		)
 		if err := rows.Scan(
 			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
 			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
+			&changeName, &projectKey,
 		); err != nil {
 			return nil, 0, fmt.Errorf("store: query stage runs: scan: %w", err)
 		}
 		run.SessionID = sessionID
 		run.SessionToken = sessionToken
+		run.ChangeName = changeName
+		run.ProjectKey = projectKey
 		run.Metrics = metrics
 		out = append(out, run)
 	}
