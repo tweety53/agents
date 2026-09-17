@@ -31,6 +31,11 @@
 # finding to report. Untracked files are hidden from the status read
 # entirely, exactly as the preflight's assertion hides them.
 #
+# An intent-to-add entry (`git add -N`) prints with a leading-space index
+# code and is therefore not listed — the preflight's identical status read
+# still refuses on it, so the surface's silence there is bounded by the gate
+# that follows.
+#
 # THE VERDICT NAMES THE PHYSICAL PATH, resolved with `cd … && pwd -P`, so a
 # caller that passed a symlinked path still sees the real checkout named —
 # the same resolution `git worktree list` applies when it prints paths.

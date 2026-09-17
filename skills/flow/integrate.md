@@ -17,7 +17,8 @@ already run at the top of this invocation.
 (`skills/flow-contracts/finish-contract-run1.md`) is canonical for it: resolve each affected
 repository's main checkout from the worktree set, run `check-foreign-staged.sh` once per distinct
 main checkout, and on any `STAGED-FOREIGN` stop and ask the two courses that section states before
-anything else in this file runs.
+anything else in this file runs — an exit 2 with no verdict stops and asks the same way, never
+reading as `STAGED-CLEAN`.
 
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
 worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw read of the state file's
