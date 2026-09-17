@@ -427,3 +427,27 @@ func TestPlanSessionIsADocumentedFlowPlanStage(t *testing.T) {
 		t.Error("plan.session must not be valid for /flow")
 	}
 }
+
+// TestKeysServesTableInOrder pins the serving function to the table it
+// serves: Keys() is what `flow stage keys` prints and what the
+// check-stage-mark-calls guard consumes, so it must carry Table's keys in
+// Table's order -- a serving path that reordered, dropped or invented a
+// key would silently move every consumer off the documented vocabulary.
+// The mutation half pins the fresh-allocation contract: a caller mutating
+// the returned slice must never reach package state.
+func TestKeysServesTableInOrder(t *testing.T) {
+	want := make([]string, len(stages.Table))
+	for i, s := range stages.Table {
+		want[i] = s.Key
+	}
+
+	got := stages.Keys()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Keys() = %v, want Table's keys in order %v", got, want)
+	}
+
+	got[0] = "mutated.by.a.caller"
+	if again := stages.Keys(); !reflect.DeepEqual(again, want) {
+		t.Errorf("Keys() after a caller mutated a previous result = %v, want the untouched table %v", again, want)
+	}
+}

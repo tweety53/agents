@@ -16,6 +16,11 @@
 // drift -- exactly the property task 5's TestProjectKeyMatchesStateFileContract
 // already holds for the project-key recipe.
 //
+// Table is also the vocabulary's one SERVED source: Keys() hands the keys
+// to `flow stage keys`, whose output the check-stage-mark-calls guard
+// consumes in place of a transcription of its own, so no consumer of the
+// vocabulary outside this package holds a copy that could drift from it.
+//
 // A stage has two identifiers that deliberately do different jobs
 // (design.md, "a declared key, and a name that may change"):
 //
@@ -121,6 +126,21 @@ func init() {
 			byCommand[c] = append(byCommand[c], s)
 		}
 	}
+}
+
+// Keys returns every documented stage key, in Table's row order, on a
+// slice freshly allocated for the caller -- mutating the result never
+// reaches package state. This is the serving half of the vocabulary: the
+// `flow stage keys` subcommand prints it and the stage-mark-calls guard
+// consumes that output, so every consumer outside this package reads the
+// same list this package validates marks against, and no second or third
+// transcription of the key set can exist to drift away from it.
+func Keys() []string {
+	out := make([]string, len(Table))
+	for i, s := range Table {
+		out[i] = s.Key
+	}
+	return out
 }
 
 // Valid reports whether key is a documented stage key of command.
