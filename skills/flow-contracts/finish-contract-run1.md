@@ -62,6 +62,39 @@ for the host, as in run 2
 (`skills/flow-contracts/finish-contract-run2.md`) — that option belongs to the human doing this by hand, never to the
 script — but signals 1 and 3 still run, and still run in this order.
 
+### Surface foreign staged work before the preflight
+
+Before `check-finish-preflight.sh` runs for any worktree, the run surfaces the foreign staged work
+the affected main checkouts carry (KAN-546). It is pre-run on purpose: which run this is is not yet
+known, and a main checkout's staged residue is exactly what a resumed run is tempted to clear by
+hand once a later REFUSE arrives — the high-judgment surgery kan-437's run 2 performed inline
+across three repos, hard reset where it judged a clean revert and stash where the work was distinct
+WIP. That judgment belongs to the operator; this surface is what hands it to them before the run
+reaches the refusal it would otherwise improvise around.
+
+The affected repositories are resolved from the worktree set: for each worktree, the main checkout
+`git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated — the same
+resolution the preflight's own main-checkout assertion performs. `check-foreign-staged.sh` runs
+once per distinct main checkout, and its header is canonical for the verdict grammar it prints. On
+`STAGED-CLEAN` from every repository the run continues into the preflight with nothing more said.
+On any `STAGED-FOREIGN`, every repository's listing is shown together and the run stops to ask,
+exactly once, shape per **Operator prompts** (`skills/flow-contracts/operator-prompts.md`):
+
+> **Main checkouts carry foreign staged work — how should the run proceed?**
+> - **Stop — I'll clear it and re-run** *(default, recommended)*
+> - **Continue — leave it in place**
+
+**Stop** leaves the change where its state has it with nothing staged, committed, pushed, reset or
+stashed by the run; the operator commits, stashes or resets the residue themselves and re-runs.
+**Continue** carries the listing into the handoff and proceeds — and relaxes nothing: every later
+gate keeps exactly the behavior it already had, the preflight's main-checkout assertion included.
+The relay includes the guard's own hand-verification procedure per **Hand-verifying a guard
+verdict** (`skills/flow-contracts/pipeline.md`). **When the script is absent** — a repository that
+does not carry it — read each main checkout by hand with
+`git status --porcelain --untracked-files=no`, keep the lines whose first column is not a space,
+ask the same question over what that finds, and say in the handoff that the surfacing was done
+manually; it is never skipped for want of the script.
+
 ### Run 1 — the branch is not merged
 
 **Run 1 itself only starts from a fresh bare `/flow` (or `/flow <name>`) invocation — never inline,
