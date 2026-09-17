@@ -73,7 +73,10 @@ def last_flow_change(session_id: str) -> Optional[str]:
     runs = body.get("stageRuns")
     if not isinstance(runs, list) or not runs:
         return None
-    return runs[0].get("changeName")
+    name = runs[0].get("changeName")
+    if not isinstance(name, str) or not name:
+        return None
+    return name
 
 
 def main() -> int:
