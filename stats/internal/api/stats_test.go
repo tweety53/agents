@@ -241,6 +241,19 @@ func (f *statsFake) QueryStageRuns(_ context.Context, q store.Query) ([]store.St
 	out := make([]store.StageRun, len(matches))
 	for i, m := range matches {
 		out[i] = m.run
+		// The real store reads these two through its changes join --
+		// COALESCE(c.project_key, sr.project_key) keeps an unattached plan
+		// session's own project visible while its change name stays nil --
+		// so the fake mirrors both from its wrapper, which exists to carry
+		// exactly that join result for filtering.
+		if m.changeName != "" {
+			changeName := m.changeName
+			out[i].ChangeName = &changeName
+		}
+		if m.projectKey != "" {
+			projectKey := m.projectKey
+			out[i].ProjectKey = &projectKey
+		}
 	}
 	return out, total, nil
 }
@@ -1195,6 +1208,61 @@ func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
 	}
 	if resp.StageRuns[0].StageRunID != 2 {
 		t.Errorf("stageRuns[0].stageRunId = %d, want 2 (started_at DESC picks the later /flow run first)", resp.StageRuns[0].StageRunID)
+	}
+}
+
+// TestListStageRunsCarriesChangeNameAndProject pins the response fields
+// the flow-active-change hook's query reads (KAN-537): a stage run row
+// names the change it belongs to, by name and project, so a caller that
+// can filter by session can also learn the change without a second
+// lookup. A row with no owning change carries neither field.
+func TestListStageRunsCarriesChangeNameAndProject(t *testing.T) {
+	base := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	sts := &statsFake{
+		stageRuns: []statsRun{
+			{run: store.StageRun{ID: 1, Command: "/flow", Stage: "a", StartedAt: base}, projectKey: "p", changeName: "kan-1"},
+			// An unattached plan session: no change name, its own project.
+			{run: store.StageRun{ID: 2, Command: "/flow", Stage: "plan.session", StartedAt: base}, projectKey: "p"},
+		},
+	}
+	ts := newStatsTestServer(t, sts)
+
+	status, body := doGetRaw(t, ts, "/api/v1/stage-runs?sort=-started_at")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+
+	var resp struct {
+		StageRuns []struct {
+			StageRunID int64   `json:"stageRunId"`
+			ChangeName *string `json:"changeName"`
+			ProjectKey *string `json:"projectKey"`
+		} `json:"stageRuns"`
+	}
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if len(resp.StageRuns) != 2 {
+		t.Fatalf("stageRuns = %d, want 2", len(resp.StageRuns))
+	}
+	byID := map[int64]struct {
+		ChangeName *string
+		ProjectKey *string
+	}{}
+	for _, r := range resp.StageRuns {
+		byID[r.StageRunID] = struct {
+			ChangeName *string
+			ProjectKey *string
+		}{r.ChangeName, r.ProjectKey}
+	}
+	if got := byID[1]; got.ChangeName == nil || *got.ChangeName != "kan-1" || got.ProjectKey == nil || *got.ProjectKey != "p" {
+		t.Errorf("run 1 changeName/projectKey = %v/%v, want kan-1/p", got.ChangeName, got.ProjectKey)
+	}
+	if got := byID[2]; got.ChangeName != nil {
+		t.Errorf("run 2 (unattached) changeName = %v, want absent", *got.ChangeName)
+	}
+	if got := byID[2]; got.ProjectKey == nil || *got.ProjectKey != "p" {
+		t.Errorf("run 2 (unattached) projectKey = %v, want p (the plan session's own)", got.ProjectKey)
 	}
 }
 

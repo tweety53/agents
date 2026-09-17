@@ -1031,6 +1031,14 @@ type stageRunDTO struct {
 	EndedAt    *string         `json:"endedAt,omitempty"`
 	Outcome    *string         `json:"outcome,omitempty"`
 	Metrics    json.RawMessage `json:"metrics,omitempty"`
+	// ChangeName and ProjectKey are the owning change's public identity,
+	// read through the query's changes join (KAN-537), so a caller that
+	// can filter stage runs by session learns the change without a second
+	// lookup. ChangeName is nil -- omitted -- for an unattached plan
+	// session; ProjectKey falls back to the plan session's own project,
+	// the same COALESCE the allowlist's project_key filter entry maps.
+	ChangeName *string `json:"changeName,omitempty"`
+	ProjectKey *string `json:"projectKey,omitempty"`
 }
 
 func toStageRunDTO(r store.StageRun) stageRunDTO {
@@ -1045,6 +1053,8 @@ func toStageRunDTO(r store.StageRun) stageRunDTO {
 		StartedAt:  r.StartedAt.UTC().Format(time.RFC3339Nano),
 		Outcome:    r.Outcome,
 		Metrics:    r.Metrics,
+		ChangeName: r.ChangeName,
+		ProjectKey: r.ProjectKey,
 	}
 	if r.EndedAt != nil {
 		endedAt := r.EndedAt.UTC().Format(time.RFC3339Nano)
