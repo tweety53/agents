@@ -4264,6 +4264,33 @@ case "$OUT" in
   *) fail "case 135: expected message naming the missing sentence, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 136 (KAN-562 panel F1): a declared sentence living ONLY in an
+# export-ignored blob — .gitattributes export-ignore keeps it out of
+# `git archive` — must still be found in the tree. This pins the property
+# that the tree search sees every blob the `git grep -F` it replaced saw.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 136. Export-ignored sentence
+
+**Files:** `packed.txt`, `.gitattributes`
+**Tests:** `the tree search sees every searchable blob`
+**Commit:** add export-ignored sentence
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'packed.txt export-ignore\n' > "$REPO/.gitattributes"
+cat > "$REPO/packed.txt" <<'EOF'
+notes: the tree search sees every searchable
+blob it lists, packed or not.
+EOF
+git -C "$REPO" add .gitattributes packed.txt
+git -C "$REPO" commit -q -m "add export-ignored sentence"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 136 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 136: export-ignored blob still searched" || fail "case 136: rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

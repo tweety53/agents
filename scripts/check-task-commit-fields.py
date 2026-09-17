@@ -262,13 +262,11 @@ why this repository restricts itself to that).
 from __future__ import annotations
 
 import fnmatch
-import io
 import os
 import re
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 from dataclasses import dataclass, field, replace
 from typing import Dict, List, NamedTuple, Optional, Pattern, Tuple
@@ -1156,39 +1154,70 @@ def check_baseline_measured(
     ]
 
 
+def _fold_ws_bytes(data: bytes) -> bytes:
+    """The one fold rule both `Tests:` match sites read — every whitespace
+    run, line breaks included, becomes a single space (KAN-562) — stated
+    once and shared by the folded tree text and the folded declared name."""
+    return re.sub(rb"\s+", b" ", data)
+
+
 def _folded_tree_text(
-    worktree: str, commit_sha: str, pathspecs: List[str]
+    worktree: str,
+    commit_sha: str,
+    exclude_dir: str,
+    exclude_path: Optional[str],
 ) -> bytes:
-    """The tree's file CONTENT at <commit_sha>, limited by <pathspecs>, as
-    one whitespace-folded byte string: `git archive` captures the blobs in
-    one subprocess and tarfile extracts file contents only — the tar framing
-    and path headers stay out, so a declared name can never match through a
-    header's ASCII — and every whitespace run, line breaks included, folds
-    to a single space (KAN-562). Blobs join on NUL, which no fold touches,
-    so a name never matches across two files' boundary. An empty capture —
-    every path excluded — folds to an empty string, the same no-match answer
-    `git grep` gave on such a tree."""
-    result = subprocess.run(
-        ["git", "-C", worktree, "archive", "--format=tar", commit_sha, "--"]
-        + pathspecs,
-        capture_output=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"git archive at {commit_sha} failed with exit "
-            f"{result.returncode}: "
-            f"{result.stderr.decode(errors='replace').strip()}"
-        )
+    """The tree's file CONTENT at <commit_sha>, minus <exclude_dir> and
+    everything under it and minus <exclude_path> when given, as one
+    whitespace-folded byte string. `git ls-tree -r -z` lists the blobs and
+    one `git cat-file --batch` streams their contents — neither applies
+    export attributes, so the search sees every blob the `git grep -F` it
+    replaced saw (panel F1: `git archive` honors export-ignore and
+    export-subst, which silently narrowed the read). The path filter lives
+    here rather than in git pathspecs because `git ls-tree` supports no
+    exclude magic. Blobs join on NUL, which no fold touches, so a name
+    never matches across two files' boundary; every whitespace run, line
+    breaks included, folds to a single space. An empty listing folds to an
+    empty string, the same no-match answer `git grep` gave on such a
+    tree."""
+    listed = run_git(worktree, ["ls-tree", "-r", "-z", commit_sha])
+    shas: List[str] = []
+    for entry in listed.split("\0"):
+        if not entry:
+            continue
+        meta, path = entry.split("\t", 1)
+        parts = meta.split()
+        if len(parts) != 3 or parts[1] != "blob":
+            continue
+        if path == exclude_dir or path.startswith(exclude_dir + "/"):
+            continue
+        if exclude_path and path == exclude_path:
+            continue
+        shas.append(parts[2])
     folded = bytearray()
-    if result.stdout:
-        with tarfile.open(fileobj=io.BytesIO(result.stdout)) as tar:
-            for member in tar:
-                if not member.isfile():
-                    continue
-                blob = tar.extractfile(member)
-                if blob is not None:
-                    folded += b"\x00" + blob.read()
-    return re.sub(rb"\s+", b" ", bytes(folded))
+    if shas:
+        result = subprocess.run(
+            ["git", "-C", worktree, "cat-file", "--batch"],
+            input=("\n".join(shas) + "\n").encode(),
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"git cat-file --batch at {commit_sha} failed with exit "
+                f"{result.returncode}: "
+                f"{result.stderr.decode(errors='replace').strip()}"
+            )
+        buf = result.stdout
+        i = 0
+        while i < len(buf):
+            nl = buf.index(b"\n", i)
+            head = buf[i:nl].split()
+            if len(head) == 3:  # <sha> <type> <size>; "<sha> missing" has two
+                folded += b"\x00" + buf[nl + 1 : nl + 1 + int(head[2])]
+                i = nl + 1 + int(head[2]) + 1
+            else:
+                i = nl + 1
+    return _fold_ws_bytes(bytes(folded))
 
 
 def check_tests_in_tree(
@@ -1205,9 +1234,9 @@ def check_tests_in_tree(
     search: its own `**Tests:**` line declares the name, and without
     the exclusion every declared name would trivially match itself. A
     satellite's plan lives OUTSIDE the worktree searched (the change-plan
-    resolution reads it from the canonical repository), and git refuses a
-    pathspec pointing out of the tree — there the plan cannot self-match
-    anyway, so no exclusion is passed. Every other plan under
+    resolution reads it from the canonical repository), and a path outside
+    the worktree names nothing in its listing — there the plan cannot
+    self-match anyway, so no exclusion is passed. Every other plan under
     `spectre/changes/` — archived changes included — is excluded too
     (panel F2): a stale name surviving in another change's `**Tests:**`
     line must not vouch for itself, or the guard passes the exact stale
@@ -1215,13 +1244,15 @@ def check_tests_in_tree(
     plan_rel = os.path.relpath(
         os.path.abspath(tasks_md_path), os.path.abspath(worktree)
     )
-    pathspecs = [":(exclude)spectre/changes"]
-    if not plan_rel.startswith(".." + os.sep):
-        pathspecs.append(f":(exclude){plan_rel}")
-    tree_text = _folded_tree_text(worktree, commit_sha, pathspecs)
+    tree_text = _folded_tree_text(
+        worktree,
+        commit_sha,
+        "spectre/changes",
+        None if plan_rel.startswith(".." + os.sep) else plan_rel,
+    )
     violations = []
     for name in _extract_tree_names(task.tests_value):
-        if re.sub(rb"\s+", b" ", name.encode("utf-8")) in tree_text:
+        if _fold_ws_bytes(name.encode("utf-8")) in tree_text:
             continue
         # Content search missed; the name may still be a real committed
         # PATH (panel F1) — a `Tests:` token naming a file the commit
