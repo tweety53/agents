@@ -396,6 +396,16 @@ Bugbot and Mutation write theirs into the canonical worktree, never their own
 records the path the slot supplied verbatim — there is no rename step. Carry this requirement on
 every slot's dispatch prompt.
 
+**A reproducer for a finding whose defect may be target-specific is authored and run on the target
+the defect manifests on — the target `flow.visual-verify`'s verifier drives, never the test
+target alone.** A reported behaviour that will not reproduce on the JVM/desktop test target after
+honest attempts is not thereby nonexistent: the same defect can live only in the browser/wasmJs
+build the verifier drives. Author the reproducer to drive that target the way the finding
+describes — real input events (`page.mouse.wheel()`), a fresh account, data seeded past the
+resting state — and a finding closes on that target's evidence, never on the test target's clean
+exit alone (kan-551, from kan-437: a calories-tab scroll failure unproducible on the desktop
+target closed only at true scroll end in the browser build).
+
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape
 `skills/flow/implement.md`'s implementer dispatch carries; for every worktree in this run's
 resolved set, naming that worktree's own five-argument bundle
