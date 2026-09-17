@@ -525,8 +525,25 @@ Every implementer dispatch **must** carry:
 > RED-GREEN-REFACTOR completes for this task — before the guard runs on it — commit
 > your work with `git commit`, carrying a `Task-Id: <n>` trailer. The trailer identifies the task;
 > the subject is this task's declared `**Commit:**` field, reproduced exactly. **Never weaken or
-> bypass a project's commit validation to fit** — no `--no-verify`. You **may** `git add`/`git
-> commit` your own work, but never `<project>/spectre/changes/`.
+> bypass a project's commit validation to fit** — no `--no-verify`. Stage for that commit only
+> through the guarded sequence below, in this order — the clearing pass runs first, before any
+> `git add`, because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
+> step already staged (kan-468 lost task commits twice to exactly this ordering):
+>
+> ```bash
+> git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
+>   && git add -- <this task's files> ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' \
+>   ':(exclude)docs/superpowers/' \
+>   && git commit -m "<the task's declared subject>" -m "Task-Id: <n>"
+> ```
+>
+> Paths are relative to the worktree root. Both spec-tree leaf spellings are named because the
+> leaf is the project's — `spectre` or `openspec` — and a path the project does not use is a
+> reset that clears nothing and an exclude that matches nothing. **Never a bare
+> `git add -A`, `git add .`, or `git commit -a`**:
+> any of them sweeps already-staged planning artifacts into the task commit, which
+> `check-task-commit-planning-paths.sh` fails at the boundary. Never
+> `<project>/spectre/changes/` either — the excludes do not licence a second, deliberate add of it.
 > **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
 > `**Files:**` names one, edit it and commit it here, in this task's own commit.
 
@@ -665,6 +682,12 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    gate defers the tick to the task's reviewer, below — and, either way, the same call then runs
    `git -C <worktree> push origin spectre/<name>` per **Branch backup**
    (`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer.
+   The same Bash call also runs `check-task-commit-planning-paths.sh <worktree> <merge-base>`
+   — the merge base recorded in this run's working notes — over every commit since it: exit 1
+   names each task commit whose diff touches `<project>/spectre/changes/` (leaf resolved per
+   project) or `<project>/docs/superpowers/` and is the same handback as a fields refusal, the
+   same implementer re-committing without the swept paths before either guard re-runs; exit 2
+   stops the run.
 
    **A guard call that times out is inspected before it is retried.** Run
    `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A
