@@ -16,9 +16,10 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	var gotPath string
+	var gotPath, gotQuery string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+		gotQuery = r.URL.RawQuery
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("# Self-review context bundle for demo\n\nfound: 1 of 6 sources\n"))
 	}))
@@ -33,6 +34,13 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 	}
 	if !strings.HasSuffix(gotPath, "/demo/bundle") || !strings.Contains(gotPath, "/api/v1/self-review/") {
 		t.Errorf("request path = %s", gotPath)
+	}
+	// The resolved main checkout must ride to the daemon as the repo
+	// parameter: the archive-derived sources are read from the repository
+	// the caller's own location resolves to, and a regression that drops
+	// it would leave every archive source silently absent.
+	if !strings.Contains(gotQuery, "repo=") {
+		t.Errorf("request query = %q, want the repo parameter carried", gotQuery)
 	}
 	if !strings.Contains(stdout.String(), "# Self-review context bundle for demo") {
 		t.Errorf("stdout = %q", stdout.String())
