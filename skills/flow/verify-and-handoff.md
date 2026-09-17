@@ -65,18 +65,23 @@ visual-verify dispatch below and the ledger render.
 ### Inline verify
 
 Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print
-(auto-detect on exit 1). **The parent itself runs them, per worktree — never a subagent.**
+(auto-detect on exit 1), and the known-failures baseline `project-get.sh <worktree> "known failures"`
+prints (**Project configuration**, `skills/flow-contracts/project-configuration.md`) — exit 1, the
+key absent, is the ordinary case and leaves no baseline for the classification below.
+**The parent itself runs them, per worktree — never a subagent.**
 Export the `KEY=value` lines `prepare-workspace.sh` printed for that worktree, then run the lint
 commands, then the test commands, in the order printed, then `check-spec-reach.sh <worktree>` —
 one more command in the same list, whose exit 0 line `Spec reach: not configured` is the ordinary
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
 every command in order and do not stop at the first failure. **Nothing runs them later** —
-`/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
+`/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff, the
+known-failures case of **Inline verify — a failing command** below being the one exception.
 
 ```text verified:design.md section 2 of this change
 ## Report
-- `<command>` — exit <n>
+- `<command>` — exit <n>[ — known failures only]  # the bracketed marker only when the command's failing tests are all known
   <the command's output, verbatim, or its last 40 lines when longer, stated as truncated>
+  known failures: <identifier> — <reason>[; …]  # only under an exit line carrying the marker
 ```
 
 The parent writes this `## Report` itself and shows it as this stage's output.
@@ -84,7 +89,19 @@ The parent writes this `## Report` itself and shows it as this stage's output.
 call; the lint and test run, this run's `flow record dispatch begin`, and the ledger render below
 are one more.
 
-**Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
+**Inline verify — a failing command.** When a command exits non-zero, its output is classified
+against the known-failures baseline before any attempt is spent on it: a failing test the output
+names that a baseline entry matches under the key's own matching rule (**Project configuration**,
+`skills/flow-contracts/project-configuration.md`) is a **known failure**. A lint failure is never a
+known failure — the baseline matches tests, so only failing-test output is classified. A command
+whose output names at least one failing test, and whose every failing test is known, carries the
+`known failures only` marker beside its exit line in the `## Report`, names each known failure
+under it with its entry's reason, earns **no** inline re-run, and does not block this handoff —
+the baseline is the project's own statement that the failure exists on an unmodified tree
+(KAN-547). Output that names no failing test at all — a compile error, a harness crash — and a
+failing test with no matching entry behave exactly as the rules that follow.
+
+A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A second non-zero exit from the same
 command ends the turn with `## Question` naming the command and its output, verbatim; the operator
 resolves it through a fix run. Never treat a passing re-run as license to skip the rest of the
