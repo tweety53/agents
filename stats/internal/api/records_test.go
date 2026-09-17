@@ -724,6 +724,24 @@ func TestRecordDispatchRouteAllocatesSeqAndAnswers201(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchRouteAnswers400ForAnInvalidAgentID pins the
+// mapStoreError case KAN-560 adds: the store having refused a placeholder
+// or malformed agent id is the caller's mistake, so the route answers 400
+// with the store's own reason -- never the generic 500 that
+// internal/client would read as the store being unavailable and journal
+// for a replay that can never succeed.
+func TestRecordDispatchRouteAnswers400ForAnInvalidAgentID(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.recordDispatchErr = fmt.Errorf("%w: %q is a placeholder word, never a harness id", store.ErrAgentIDInvalid, "pending")
+
+	body := dispatchBody("implementer", "opus")
+	body["agentId"] = "pending"
+	resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", body)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST dispatches with a placeholder agent id = %d (%s), want 400", resp.StatusCode, respBody)
+	}
+}
+
 // --- findings ---
 
 // TestRecordDispatchRouteStampsAZeroStartedAt pins the daemon-side
