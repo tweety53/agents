@@ -36,10 +36,13 @@ and "Code Review" all resolve. An issue already at or past the target is
 a success reported as "already <status> (no transition)"; nothing ever
 moves backward.
 
-A failure exits 1 with the reason on stderr: the pipeline prints it as
-its one "Jira: skipped -- <reason>" line and carries on, per the
-never-blocking Jira contract. Exit 2 is a caller mistake -- a missing
-argument or a target that matches no pipeline position.
+A failure exits 1 with the reason on stderr: the pipeline prints the
+reason as its one "Jira: skipped -- <reason>" line and carries on, per
+the never-blocking Jira contract -- an unknown issue, no offered
+transition, an unrecognized status, rejected credentials, an exhausted
+retry budget. Exit 2 is a caller mistake in the invocation itself -- a
+missing argument, or a request flowd rejected outright (a malformed
+body, an empty key, or a target that matches no pipeline position).
 `
 
 // runJira routes `flow jira`'s verbs. transition is the only one today;
@@ -71,7 +74,7 @@ type jiraConnFlags struct {
 
 func registerJiraConnFlags(fset *flag.FlagSet, f *jiraConnFlags) {
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
-	fset.DurationVar(&f.timeout, "timeout", jiraTransitionTimeout, "request budget; the daemon retries transient outages within it")
+	fset.DurationVar(&f.timeout, "timeout", jiraTransitionTimeout, "HTTP budget for the one call to flowd; the daemon's retry ladder runs on its own fixed budget")
 }
 
 // runJiraTransition implements `flow jira transition`. The retry budget
@@ -104,6 +107,13 @@ func runJiraTransition(ctx context.Context, args []string, stdout, stderr io.Wri
 	defer cancel()
 	cl := client.New(f.addr, &http.Client{Timeout: f.timeout})
 	result, err := cl.JiraTransition(reqCtx, key, target)
+	if errors.Is(err, client.ErrJiraCallerMistake) {
+		// The daemon rejected the request itself -- a bad target among
+		// them. Same caller-mistake exit class as a missing argument,
+		// exactly as jiraUsage documents.
+		fmt.Fprintf(stderr, "flow: jira transition %s: %v\n", key, err)
+		return 2
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: jira transition %s: %v\n", key, err)
 		return 1

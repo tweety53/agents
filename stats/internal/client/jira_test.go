@@ -32,6 +32,21 @@ func TestClientJiraTransition(t *testing.T) {
 		}
 	})
 
+	t.Run("a 400 is the caller-mistake class", func(t *testing.T) {
+		ts := jiraTransitionTestServer(t, func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set(daemonHeaderName, daemonHeaderValue)
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"jira: \"Blocked\" matches no pipeline position (accepted: To Do, In Progress, In Review, Done)"}`))
+		})
+		_, err := New(ts.URL, ts.Client()).JiraTransition(context.Background(), "KAN-571", "Blocked")
+		if !errors.Is(err, ErrJiraCallerMistake) {
+			t.Fatalf("err = %v, want ErrJiraCallerMistake", err)
+		}
+		if errors.Is(err, ErrJiraRefused) {
+			t.Errorf("a 400 must not read as ErrJiraRefused: the two exit classes differ")
+		}
+	})
+
 	t.Run("a mapped refusal carries the daemon's message", func(t *testing.T) {
 		ts := jiraTransitionTestServer(t, func(w http.ResponseWriter, req *http.Request) {
 			w.Header().Set(daemonHeaderName, daemonHeaderValue)

@@ -75,6 +75,12 @@ var positionNames = map[Position]string{
 	PositionDone:       "Done",
 }
 
+// positionOrder is positionByName's four positions in pipeline order, so
+// ParseTarget's error can list the accepted names from positionNames
+// itself -- one source of truth for the vocabulary -- instead of a second
+// literal whose drift no guard would catch.
+var positionOrder = []Position{PositionToDo, PositionInProgress, PositionInReview, PositionDone}
+
 // String returns the position's canonical pipeline name, or "unknown".
 func (p Position) String() string {
 	if n, ok := positionNames[p]; ok {
@@ -102,7 +108,11 @@ func PositionForName(name string) Position {
 func ParseTarget(s string) (Position, error) {
 	p := PositionForName(s)
 	if p == PositionUnknown {
-		return PositionUnknown, fmt.Errorf("jira: %q matches no pipeline position (accepted: To Do, In Progress, In Review, Done)", s)
+		accepted := make([]string, 0, len(positionOrder))
+		for _, pos := range positionOrder {
+			accepted = append(accepted, positionNames[pos])
+		}
+		return PositionUnknown, fmt.Errorf("jira: %q matches no pipeline position (accepted: %s)", s, strings.Join(accepted, ", "))
 	}
 	return p, nil
 }
@@ -145,15 +155,21 @@ type errRetryable struct {
 func (e errRetryable) Error() string { return e.cause.Error() }
 func (e errRetryable) Unwrap() error { return e.cause }
 
-// Retry budget. maxAttempts and the backoff ladder are sized so the whole
-// operation always finishes well inside flowd's 30s writeTimeout, which
-// caps the response the CLI is waiting on: four attempts at a 4s
-// per-request timeout plus worst-case backoff of 0.5s+1s+2s (jittered up
-// no more than 20%) stays under 22s.
+// Retry budget. transitionBudget bounds the whole operation, not one
+// attempt: transitionOnce makes up to three HTTP calls (status read,
+// transitions read, transition POST), each with its own attemptTimeout, so
+// sizing the ladder per attempt would let four attempts cost ~48s under a
+// stall-type outage -- past both flowd's 30s writeTimeout (whose mid-write
+// cut is exactly the failure a caller cannot act on) and the CLI's own
+// request budget. The operation-scoped deadline is the one mechanism that
+// cannot drift from transitionOnce's request count: whatever the ladder
+// does, it stops at the budget. maxAttempts remains as a backstop for
+// fast, repeated refusals.
 const (
-	maxAttempts    = 4
-	attemptTimeout = 4 * time.Second
-	baseDelay      = 500 * time.Millisecond
+	maxAttempts      = 4
+	attemptTimeout   = 4 * time.Second
+	transitionBudget = 20 * time.Second
+	baseDelay        = 500 * time.Millisecond
 	// maxRetryAfter caps an HTTP 429's Retry-After hint so a hostile or
 	//misconfigured value cannot blow the retry budget on its own.
 	maxRetryAfter = 4 * time.Second
@@ -177,6 +193,11 @@ type Client struct {
 	// the default timer wait; tests replace it to observe the requested
 	// delays without real sleeping.
 	pause func(ctx context.Context, d time.Duration) error
+
+	// budget overrides transitionBudget when non-zero -- a test seam of
+	// the same class as pause (zero means default), letting a test prove
+	// the ladder stops at its budget without waiting real seconds.
+	budget time.Duration
 }
 
 // New builds a Client against cfg. httpClient may be nil for
@@ -217,20 +238,29 @@ type transitionRequest struct {
 // Transition moves issueKey to target, forward-only, retrying transient
 // failures per the package doc comment. An issue already at or past
 // target is the Moved=false no-op; an issue whose status has no position
-// fails with ErrUnrecognizedStatus rather than moving on a guess.
+// fails with ErrUnrecognizedStatus rather than moving on a guess. The
+// whole operation -- every attempt, backoff included -- is bounded by
+// transitionBudget, so a stall-type outage is answered within the budget
+// flowd's writeTimeout and the CLI's own request budget both allow.
 func (c *Client) Transition(ctx context.Context, issueKey string, target Position) (Result, error) {
 	if target == PositionUnknown {
 		return Result{}, fmt.Errorf("jira: cannot transition to an unknown position")
 	}
+	// budget is the one deadline every attempt and every inter-attempt
+	// wait runs under; expiry converts to ErrTransientExhausted, the same
+	// answer a fully-spent ladder gives, so the caller sees one shape for
+	// "transient failure, gave up inside the budget".
+	budget, cancel := context.WithTimeout(ctx, c.budgetOr(transitionBudget))
+	defer cancel()
 	delay := baseDelay
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if attempt > 1 {
-			if err := c.wait(ctx, delay); err != nil {
-				return Result{}, err
+			if err := c.wait(budget, delay); err != nil {
+				return Result{}, exhausted(issueKey, target, err)
 			}
 		}
-		result, err := c.transitionOnce(ctx, issueKey, target)
+		result, err := c.transitionOnce(budget, issueKey, target)
 		if err == nil {
 			return result, nil
 		}
@@ -240,8 +270,26 @@ func (c *Client) Transition(ctx context.Context, issueKey string, target Positio
 		}
 		lastErr = err
 		delay = backoffDelay(attempt, retryable.retryAfter)
+		if budget.Err() != nil {
+			return Result{}, exhausted(issueKey, target, lastErr)
+		}
 	}
-	return Result{}, fmt.Errorf("%w: %s to %s: %w", ErrTransientExhausted, issueKey, target, lastErr)
+	return Result{}, exhausted(issueKey, target, lastErr)
+}
+
+// budgetOr returns the client's own budget when a test set one, the
+// package default otherwise. The zero value means default so New needs no
+// budget argument; it is a test seam of the same class as pause, never a
+// production configuration.
+func (c *Client) budgetOr(d time.Duration) time.Duration {
+	if c.budget != 0 {
+		return c.budget
+	}
+	return d
+}
+
+func exhausted(issueKey string, target Position, cause error) error {
+	return fmt.Errorf("%w: %s to %s: %w", ErrTransientExhausted, issueKey, target, cause)
 }
 
 // backoffDelay doubles baseDelay per attempt, jittered ±20%; a 429's

@@ -352,3 +352,28 @@ func TestBackoffDelay(t *testing.T) {
 		}
 	}
 }
+
+// The budget is the ladder's hard stop: against an always-transient
+// upstream, with real (uninjected) waits, the operation returns
+// ErrTransientExhausted inside its own budget even though attempts remain
+// -- the whole-operation bound the panel finding demanded, proven without
+// waiting out the full ladder.
+func TestTransitionStopsAtBudget(t *testing.T) {
+	h := func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(h))
+	defer srv.Close()
+	c := New(Config{Site: srv.URL, Email: "e@example.com", APIToken: "t"}, srv.Client())
+	c.budget = 300 * time.Millisecond
+
+	start := time.Now()
+	_, err := c.Transition(context.Background(), "KAN-1", PositionInProgress)
+	elapsed := time.Since(start)
+	if !errors.Is(err, ErrTransientExhausted) {
+		t.Fatalf("Transition error = %v, want ErrTransientExhausted", err)
+	}
+	if elapsed >= transitionBudget {
+		t.Errorf("ladder ran %s, at or past its own %v budget", elapsed, transitionBudget)
+	}
+}

@@ -91,6 +91,26 @@ func TestRunJiraTransitionRefused(t *testing.T) {
 	}
 }
 
+// A 400 from flowd -- the bad-target case among them -- is the caller-
+// mistake exit class: 2, exactly as jiraUsage documents.
+func TestRunJiraTransitionCallerMistake(t *testing.T) {
+	fake := &jiraFlowdFake{t: t, wantStatus: http.StatusBadRequest,
+		wantBody: `{"error":"jira: \"Blocked\" matches no pipeline position (accepted: To Do, In Progress, In Review, Done)"}`}
+	ts := httptest.NewServer(fake.handler())
+	defer ts.Close()
+
+	code, stdout, stderr := runJiraTransitionForTest(t, ts, "KAN-571", "Blocked")
+	if code != 2 {
+		t.Fatalf("exit = %d, stderr %s, want 2", code, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, "matches no pipeline position") {
+		t.Errorf("stderr %q does not carry the daemon's reason", stderr)
+	}
+}
+
 func TestRunJiraTransitionUsage(t *testing.T) {
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"jira"}, strings.NewReader(""), &stdout, &stderr); code != 2 {

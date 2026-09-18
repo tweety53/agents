@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -154,6 +155,14 @@ func resolveJira() (JiraConfig, error) {
 			ErrPartialJiraConfig, site != "", email != "", token != "")
 	}
 	if !strings.HasPrefix(site, "https://") {
+		return JiraConfig{}, fmt.Errorf("%w: %q", ErrInvalidJiraSite, site)
+	}
+	// The prefix check alone accepts the degenerate "https://": the daemon
+	// would start configured and every transition would burn the whole
+	// retry ladder before failing on a malformed URL. A site with no host
+	// is the same typo, caught here instead.
+	u, err := url.Parse(site)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
 		return JiraConfig{}, fmt.Errorf("%w: %q", ErrInvalidJiraSite, site)
 	}
 	return JiraConfig{Site: strings.TrimRight(site, "/"), Email: email, APIToken: token}, nil

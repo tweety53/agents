@@ -112,6 +112,39 @@ func TestJiraTransitionUpstreamNotFound(t *testing.T) {
 	}
 }
 
+func TestJiraTransitionUpstreamAuthRejected(t *testing.T) {
+	h := func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}
+	ts := jiraTestServer(t, h)
+
+	status, body := postTransition(t, ts, `{"key":"KAN-571","target":"In Progress"}`)
+	if status != http.StatusBadGateway {
+		t.Fatalf("status = %d, body %s, want 502", status, body)
+	}
+	if !strings.Contains(body, "authentication rejected") {
+		t.Fatalf("body %s does not name the credential failure", body)
+	}
+}
+
+// A permanently-transient upstream burns the daemon's whole retry ladder
+// (real backoff, ~4s) and answers 504 -- the one mapped failure the caller
+// may treat as "try again later".
+func TestJiraTransitionUpstreamTransientExhausted(t *testing.T) {
+	h := func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+	ts := jiraTestServer(t, h)
+
+	status, body := postTransition(t, ts, `{"key":"KAN-571","target":"In Progress"}`)
+	if status != http.StatusGatewayTimeout {
+		t.Fatalf("status = %d, body %s, want 504", status, body)
+	}
+	if !strings.Contains(body, "transient failure on every attempt") {
+		t.Fatalf("body %s does not name the exhausted ladder", body)
+	}
+}
+
 func TestJiraTransitionNotConfigured(t *testing.T) {
 	ts := jiraTestServer(t, nil)
 

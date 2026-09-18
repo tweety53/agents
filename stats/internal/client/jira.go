@@ -9,14 +9,20 @@ import (
 )
 
 // ErrJiraRefused means flowd was reached and refused the transition, or
-// reported Jira refusing it -- a bad target spelling (400), an unknown
-// issue (404), no offered transition (409), an unrecognized current
-// status (422), rejected credentials (502) or a retry budget that ran
-// out (504). The daemon's message is carried verbatim: the pipeline
-// prints it as its one Jira skip line. This is never a fallback trigger
-// -- the transition path has no journal, and repeating a refused call
-// would be refused identically.
+// reported Jira refusing it -- an unknown issue (404), no offered
+// transition (409), an unrecognized current status (422), rejected
+// credentials (502) or a retry budget that ran out (504). The daemon's
+// message is carried verbatim: the pipeline prints it as its one Jira
+// skip line. This is never a fallback trigger -- the transition path has
+// no journal, and repeating a refused call would be refused identically.
 var ErrJiraRefused = errors.New("client: jira transition refused")
+
+// ErrJiraCallerMistake means flowd rejected the request itself (HTTP 400):
+// a body that did not decode, an empty key, or a target that matches no
+// pipeline position. The CLI exits 2 on it -- the same caller-mistake
+// class as a missing argument -- without ever importing the position
+// vocabulary: the daemon stays the one judge of what a target means.
+var ErrJiraCallerMistake = errors.New("client: jira transition request was rejected as malformed")
 
 // JiraTransitionResult mirrors the daemon's answer: the status the issue
 // actually carries, and whether this call moved it. Moved false is the
@@ -39,10 +45,11 @@ type jiraTransitionRequest struct {
 }
 
 // JiraTransition moves the issue to the named pipeline position via POST
-// /api/v1/jira/transition. A 200 is success; every mapped 4xx/5xx refusal
-// is ErrJiraRefused carrying the daemon's message; anything else --
-// transport failure, a foreign server on the port, a malformed body --
-// is ErrUnavailable.
+// /api/v1/jira/transition. A 200 is success; a 400 is
+// ErrJiraCallerMistake (the request itself was wrong); every other mapped
+// 4xx/5xx refusal is ErrJiraRefused carrying the daemon's message;
+// anything else -- transport failure, a foreign server on the port, a
+// malformed body -- is ErrUnavailable.
 func (c *Client) JiraTransition(ctx context.Context, key, target string) (JiraTransitionResult, error) {
 	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.baseURL+"/api/v1/jira/transition",
 		jiraTransitionRequest{Key: key, Target: target})
@@ -57,8 +64,13 @@ func (c *Client) JiraTransition(ctx context.Context, key, target string) (JiraTr
 			return JiraTransitionResult{}, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
 		}
 		return out, nil
-	case status == http.StatusBadRequest,
-		status == http.StatusNotFound,
+	case status == http.StatusBadRequest:
+		var wire errorWireResponse
+		if err := json.Unmarshal(respBody, &wire); err != nil || wire.Error == "" {
+			return JiraTransitionResult{}, fmt.Errorf("%w: HTTP %d: %s", ErrJiraCallerMistake, status, string(respBody))
+		}
+		return JiraTransitionResult{}, fmt.Errorf("%w: %s", ErrJiraCallerMistake, wire.Error)
+	case status == http.StatusNotFound,
 		status == http.StatusConflict,
 		status == http.StatusUnprocessableEntity,
 		status == http.StatusBadGateway,

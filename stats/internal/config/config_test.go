@@ -110,6 +110,14 @@ func TestFromEnvJira(t *testing.T) {
 			t.Fatalf("got %v, want config.ErrInvalidJiraSite", err)
 		}
 	})
+
+	t.Run("degenerate bare scheme is a startup refusal", func(t *testing.T) {
+		setJira(t, "https://", "ops@example.com", "token")
+		_, err := config.FromEnv()
+		if !errors.Is(err, config.ErrInvalidJiraSite) {
+			t.Fatalf("got %v, want config.ErrInvalidJiraSite", err)
+		}
+	})
 }
 
 // TestJiraConfigConfigured pins the zero-value reading: a zero JiraConfig
