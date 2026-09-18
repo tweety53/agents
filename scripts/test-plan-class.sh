@@ -202,6 +202,144 @@ else
   fail "bundle-free-1 rolls bundle 46 (>=30 -> free) (rc=$RC out=$OUT)"
 fi
 
+# --- micro fixtures -------------------------------------------------------
+# one_docs_task <name> -> a fixture holding one task whose only file is a
+# documentation path, the plan shape a micro class is meant to recognise.
+one_docs_task() {
+  new_fixture "$1"
+  : >"$TASKS_FILE"
+  task_line 1 "docs/note.md"
+}
+
+# new_git_repo -> sets REPO to a throwaway git repo and MERGEBASE to its
+# initial (empty) commit, so the four-argument form has a real worktree and
+# merge base to collect the change's own touched paths from.
+new_git_repo() {
+  REPO="$(mktemp -d "${TMPDIR:-/tmp}/plan-class-test-repo.XXXXXX")"
+  DIRS+=("$REPO")
+  git -C "$REPO" init -q
+  git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  MERGEBASE="$(git -C "$REPO" rev-parse HEAD)"
+}
+
+# repo_commit -> stages and commits everything under $REPO, so the paths
+# become committed-since-merge-base surface.
+repo_commit() {
+  git -C "$REPO" add -A
+  git -C "$REPO" -c user.email=t@t -c user.name=t commit -q -m surface
+}
+
+# --- case: the two-argument form never classifies micro ---
+one_docs_task micro-two-args
+run_guard "$TASKS_FILE" 1
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: small$'; then
+  pass "two-argument form on a docs-tiny plan -> small, never micro"
+else
+  fail "two-argument form on a docs-tiny plan -> small, never micro (rc=$RC out=$OUT)"
+fi
+
+# --- case: a non-documentation plan path blocks micro ---
+make_tasks micro-go-plan 1
+new_git_repo
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: small$'; then
+  pass "one .go task with four args -> small"
+else
+  fail "one .go task with four args -> small (rc=$RC out=$OUT)"
+fi
+
+# --- case: three docs tasks exceed the micro task ceiling ---
+new_fixture micro-three-docs
+: >"$TASKS_FILE"
+task_line 1 a.md
+task_line 2 b.md
+task_line 3 c.md
+new_git_repo
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: small$'; then
+  pass "three docs tasks -> small"
+else
+  fail "three docs tasks -> small (rc=$RC out=$OUT)"
+fi
+
+# --- case: a Build: red tag blocks micro ---
+one_docs_task micro-red
+printf '**Build:** red\n' >>"$TASKS_FILE"
+new_git_repo
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: small$'; then
+  pass "Build: red tag -> small"
+else
+  fail "Build: red tag -> small (rc=$RC out=$OUT)"
+fi
+
+# --- case: one docs task, empty surface -> micro ---
+one_docs_task micro-empty-surface
+new_git_repo
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: micro$'; then
+  pass "one docs task, empty touched surface -> micro"
+else
+  fail "one docs task, empty touched surface -> micro (rc=$RC out=$OUT)"
+fi
+
+# --- case: docs surface at the line cap -> micro ---
+one_docs_task micro-docs-at-cap
+new_git_repo
+seq 1 20 >"$REPO/note.md"
+repo_commit
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: micro$'; then
+  pass "one docs task, 20 changed surface lines -> micro"
+else
+  fail "one docs task, 20 changed surface lines -> micro (rc=$RC out=$OUT)"
+fi
+
+# --- case: docs surface past the line cap -> small ---
+one_docs_task micro-docs-over-cap
+new_git_repo
+seq 1 25 >"$REPO/note.md"
+repo_commit
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: small$'; then
+  pass "one docs task, 25 changed surface lines -> small"
+else
+  fail "one docs task, 25 changed surface lines -> small (rc=$RC out=$OUT)"
+fi
+
+# --- case: a non-documentation touched path blocks micro ---
+one_docs_task micro-nondoc-surface
+new_git_repo
+echo code >"$REPO/src.go"
+repo_commit
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: small$'; then
+  pass "one docs task over a non-docs surface -> small"
+else
+  fail "one docs task over a non-docs surface -> small (rc=$RC out=$OUT)"
+fi
+
+# --- case: three arguments -> exit 2 ---
+one_docs_task micro-three-args
+new_git_repo
+run_guard "$TASKS_FILE" 1 "$REPO"
+if [ "$RC" -eq 2 ]; then
+  pass "three arguments -> exit 2"
+else
+  fail "three arguments -> exit 2 (rc=$RC out=$OUT)"
+fi
+
+# --- case: a worktree that is not a git repo -> exit 2 ---
+one_docs_task micro-notgit
+NOTGIT="$(mktemp -d "${TMPDIR:-/tmp}/plan-class-test-notgit.XXXXXX")"
+DIRS+=("$NOTGIT")
+run_guard "$TASKS_FILE" 1 "$NOTGIT" "$MERGEBASE"
+if [ "$RC" -eq 2 ]; then
+  pass "non-git worktree argument -> exit 2"
+else
+  fail "non-git worktree argument -> exit 2 (rc=$RC out=$OUT)"
+fi
+
 # --- case: missing file -> exit 2 ---
 run_guard "/nonexistent/tasks.md" 1
 if [ "$RC" -eq 2 ]; then

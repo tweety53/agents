@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # plan-class.sh — the planner's mechanical classifier and rolls.
 #
-# Usage: plan-class.sh <tasks.md> <repos>
+# Usage: plan-class.sh <tasks.md> <repos> [<worktree> <merge-base>]
 #
 # Prints exactly three lines to stdout:
 #   inputs: tasks=N files=N repos=N migration=yes|no spec=yes|no red=yes|no unverified=yes|no
-#   class: small|regular|big
+#   class: micro|small|regular|big
 #   rolls: compact N · experimental N · bundle N
 #
-# Exit 0 on a printed answer, exit 2 on a missing <tasks.md> or a
-# non-integer <repos>. Rules from design.md's "Inputs and the class" and
+# Exit 0 on a printed answer, exit 2 on a missing <tasks.md>, a
+# non-integer <repos>, an argument count that is neither 2 nor 4, or — with
+# the optional arguments — a <worktree>/<merge-base> that cannot be answered
+# (not a directory, not a git worktree, an unresolving merge base, or a
+# failed git invocation). Rules from design.md's "Inputs and the class" and
 # "The rolls" (kan-472-flow-dynamic-review-panel-roster-repo-scoped); the
 # small/big thresholds were raised by kan-490-flow-fast-a-reduced-ceremony-flow-variant-drop
 # so more changes classify small/regular and roll compact, then lowered by
@@ -31,6 +34,20 @@
 #            or (migration and tasks>=11)
 #   regular: everything else
 #
+#   micro:   the small thresholds met with tasks<=2, every **Files:** path
+#            documentation (.md/.mdc), no `**Build:** red` tag, and — when
+#            <worktree> <merge-base> are passed — this change's own touched
+#            paths (lib/panel-touched-paths.sh's union of
+#            committed-since-merge-base, staged and unstaged) entirely
+#            documentation and at most MICRO_LINE_CAP changed lines; an empty
+#            touched surface passes vacuously. Without the optional arguments
+#            micro never fires, so the two-argument form classifies exactly as
+#            before it existed. Added by
+#            kan-617-flow-cost-the-decide-record-ceremony-runs-full so a
+#            two-line prose change stops paying the full decide ceremony
+#            (brainstorm-planner.md's Decide collapses to a recorded default
+#            decision on this class).
+#
 # The planner may raise this class one step with a recorded override — that
 # judgment call lives in brainstorm-planner.md, never in this script, so
 # `override` never appears in this script's own output (test-plan-class.sh
@@ -47,9 +64,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/sha256-hex.sh
 source "$SCRIPT_DIR/lib/sha256-hex.sh"
+# shellcheck source=lib/panel-touched-paths.sh
+source "$SCRIPT_DIR/lib/panel-touched-paths.sh"
 
-if [ "$#" -ne 2 ]; then
-  echo "usage: plan-class.sh <tasks.md> <repos>" >&2
+# The micro class's changed-line cap on the change's own touched surface.
+MICRO_LINE_CAP=20
+
+if [ "$#" -ne 2 ] && [ "$#" -ne 4 ]; then
+  echo "usage: plan-class.sh <tasks.md> <repos> [<worktree> <merge-base>]" >&2
   exit 2
 fi
 
@@ -109,6 +131,33 @@ elif [ "$TASKS_COUNT" -ge 22 ] || [ "$FILES_COUNT" -ge 60 ] \
   || { [ "$REPOS" -gt 1 ] && [ "$TASKS_COUNT" -ge 11 ]; } \
   || { [ "$MIGRATION" = yes ] && [ "$TASKS_COUNT" -ge 11 ]; }; then
   CLASS=big
+fi
+
+# The micro class: the plan side is decidable from the tasks.md alone, but it
+# only fires when the optional arguments let the change's own diff side be
+# answered too — an empty touched surface (a creating run, nothing implemented
+# yet) passes vacuously, a non-empty one must itself be docs-only and within
+# the cap. A numstat entry git cannot count (binary) is fail-closed: never
+# micro.
+if [ "$#" -eq 4 ] && [ "$CLASS" = small ] && [ "$TASKS_COUNT" -le 2 ] \
+  && [ "$RED" = no ] && [ -n "$FILES_LIST" ] \
+  && ! printf '%s\n' "$FILES_LIST" | grep -qvE '\.mdc?$'; then
+  WORKTREE_ARG="$3"
+  MERGEBASE_ARG="$4"
+  GIT_BIN="$(panel_resolve_git "plan-class")" || exit 2
+  panel_validate_worktree "plan-class" "$WORKTREE_ARG" "$MERGEBASE_ARG" "$GIT_BIN" || exit 2
+  SURFACE_PATHS="$(panel_touched_paths "plan-class" "$WORKTREE_ARG" "$MERGEBASE_ARG" "$GIT_BIN")" || exit 2
+  SURFACE_NONDOC="$(printf '%s\n' "$SURFACE_PATHS" | awk '$0 !~ /\.mdc?$/ { print; exit }')"
+  if [ -z "$SURFACE_NONDOC" ]; then
+    COMMITTED_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --numstat --end-of-options "${MERGEBASE_ARG}..HEAD")" || exit 2
+    STAGED_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --cached --numstat)" || exit 2
+    UNSTAGED_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --numstat)" || exit 2
+    SURFACE_LINES="$(printf '%s\n%s\n%s\n' "$COMMITTED_N" "$STAGED_N" "$UNSTAGED_N" \
+      | awk '$1 == "-" || $2 == "-" { bad = 1 } { s += $1 + $2 } END { if (bad) print 999999; else print s + 0 }')"
+    if [ "$SURFACE_LINES" -le "$MICRO_LINE_CAP" ]; then
+      CLASS=micro
+    fi
+  fi
 fi
 
 CHANGE_NAME="$(basename "$(dirname "$TASKS_FILE")")"
