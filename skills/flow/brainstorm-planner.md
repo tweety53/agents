@@ -354,12 +354,21 @@ flow tasks count -C <worktree> <name>
 
 ### Decide
 
-Run `plan-class.sh <changeRoot>/tasks.md <repos>` — `<repos>` is the size of the resolved worktree
-set. Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls. **You may
-raise `class_mechanical` one step, never lower it** — `small`→`regular` or `regular`→`big` — with a
-one-line reason recorded as `override`; the raised value is `class`. Leave `override` `null` and
-`class = class_mechanical` otherwise. `red` and `unverified` are recorded from the same output and
-move no class.
+Run `plan-class.sh <changeRoot>/tasks.md <repos> <abs-worktree> <merge-base>` — `<repos>` is the
+size of the resolved worktree set, `<abs-worktree>` the worktree `flow.kickoff` created, and
+`<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the
+script classify `micro` (**Micro** below), and the two-argument form stays valid and never
+classifies `micro`. Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls.
+**You may raise `class_mechanical` one step, never lower it** — `micro`→`small`, `small`→`regular`
+or `regular`→`big` — with a one-line reason recorded as `override`; the raised value is `class`.
+Leave `override` `null` and `class = class_mechanical` otherwise. `red` and `unverified` are
+recorded from the same output and move no class.
+
+**Micro** — when the script prints `class: micro`, decide collapses to a recorded default decision:
+the rolls are printed but never consulted, and steps 1–4 below record their defaults without
+choosing — execution `inline`, implementer and fixer `skipped — inline`, panel the string `default`,
+groups `null` — with decision.json carrying `class: micro`. A micro change keeps its full record and
+still pays every later stage; only the choosing is skipped.
 
 Read `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` from this
 run's own earlier resolution (**Model resolution**, `skills/flow/SKILL.md`) — already in scope,
@@ -367,7 +376,7 @@ since nothing dispatched this section. Decide, in this order, each step only whe
 `dynamic` and (for steps 2-3) step 1 held; otherwise the step takes the stated default and is
 recorded as such:
 
-1. **execution mode** — `inline` (`class` small or regular) or `sdd` (`class` big); default `sdd`.
+1. **execution mode** — `inline` (`class` micro, small or regular) or `sdd` (`class` big); default `sdd`.
 2. **implementer and fixer model + effort** — only when step 1 came out `sdd`; two pairs, each
    chosen per **Model and effort** below. The implementer pair is every implementer group's
    default (step 4). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
@@ -420,9 +429,14 @@ recorded as such:
 
 | class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster) |
 |---|---|---|---|---|---|---|
+| micro | inline | — | none — defaults only | none — defaults only | — | — |
 | small | inline | — | primary; principles | primary; principles | delta | `primary+principles` |
 | regular | inline | — | primary; principles; mutation | primary; principles | delta | `primary+principles` · `mutation` |
 | big | sdd | chosen | primary; principles; mutation; bugbot; security | primary; principles | full | `primary+principles` · `mutation+bugbot+security` |
+
+**The micro row** records defaults, never choices: what it skips is every roster, model/effort and
+grouping choice, and every roll the script printed; what it never skips is the decision record
+itself, the verify stage, or the self-review.
 
 #### Model and effort
 
@@ -501,7 +515,9 @@ run's own output once the Decide step completes, filling every cell from what wa
 One fact per row, every reason in the middle column, nothing printed outside the two tables. The
 first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/
 `repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value
-cell the interpretation. The second is the decision side. `↳` rows are sub-rows of the setting
+cell the interpretation. On a micro run the three roll rows' value cells read `not consulted —
+micro`, and the decision table records the defaults **Micro** names, so no `↳` row appears anywhere
+in it. The second is the decision side. `↳` rows are sub-rows of the setting
 above them: a `↳ fixer` row under the implementer row, its cells the `fixer` value in the
 implementer row's own shape; one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that
 dispatch's model and effort with its `reason` and its value cell the roles `+`-joined in roster order; a `↳ rerun`
