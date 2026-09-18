@@ -106,6 +106,43 @@ make ui-test-down
 This stops the daemon and drops `flow_uitest`, both idempotently — a
 second `make ui-test-down` is not an error.
 
+## Jira transitions
+
+The daemon can perform the pipeline's Jira status transitions itself: the
+four-position forward-only table (To Do, In Progress, In Review, Done) with
+retries against a transient Atlassian outage, so a landing run is not
+stranded by one failing call (KAN-571). The mechanism lives in
+`internal/jira`; flowd serves it at `POST /api/v1/jira/transition`, and the
+`flow` CLI drives it:
+
+```bash
+flow jira transition KAN-571 "In Review"
+```
+
+`<target>` is a position name in any of its usual spellings — `In Review`
+and `Code Review` resolve alike. An issue already at or past the target is
+a success reported as `already <status> (no transition)`; nothing ever
+moves backward, and a status matching no position is refused with its name
+rather than guessed at.
+
+The block is off until the daemon is given credentials. All three
+environment variables are one unit — set them together or not at all;
+`flowd` refuses to start on any partial combination:
+
+| Variable | Meaning |
+|----------|---------|
+| `FLOWD_JIRA_SITE` | the site's base URL, e.g. `https://tweety53.atlassian.net` |
+| `FLOWD_JIRA_EMAIL` | the Atlassian account's email |
+| `FLOWD_JIRA_TOKEN` | that account's API token (id.atlassian.com → Security → API tokens) |
+
+An unconfigured daemon starts normally and answers every transition with a
+503 naming the variables — the pipeline treats any such failure as one
+`Jira: skipped — <reason>` line and carries on, per the never-blocking
+Jira contract. When run under the launchd agent, add the three variables
+as an `EnvironmentVariables` dictionary in the installed plist (an
+operator step, like loading the agent itself); when run from a shell,
+export them first.
+
 ## Pricing
 
 `flowd` seeds the published Anthropic per-model rates (`internal/store
