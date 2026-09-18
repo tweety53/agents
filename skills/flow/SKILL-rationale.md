@@ -112,3 +112,32 @@ Pushing the branch at creation and after every commit was asked for in the same 
 worktree lost with the machine, or removed by a stray cleanup, is rebuilt from `origin/<branch>`
 rather than lost. The cost accepted: one push per commit, and integrate's push after the
 `reset --soft` reshape becomes `--force-with-lease`, on a branch only the run writes.
+
+## review-panel.md — Rerun policy `full` repeats once unasked
+
+Before this cap the final pass repeated after every clean fix round it had opened, unbounded. In
+gymie's `kan-580-step-1-frontend-copy-session-to-another-day` run it ran at rounds 0, 2 and 4 and
+was dispatching round 6 — each a bundled whole-branch read of a ~4700-line diff on the pass-1
+pair, several minutes and non-trivial tokens apiece — with nothing to stop a round 8. The same
+run is the reason the policy stays: the round-2 pass caught F10, a double-copy race, and the
+round-4 pass caught F14, missing disabled-button chrome — both real, both introduced or exposed by
+the fix round before them, both invisible to a scoped re-run that reads only the fix diff and the
+sites of earlier findings. The cap keeps exactly those two passes automatic — the first final pass
+and its first repeat — and makes the third and every later one an operator choice whose silent
+default still runs it, so a run left unattended loses nothing and a watching operator can stop
+paying.
+
+**Rejected — a cheaper pair on later repeats.** The rerun pair is a different model at `low`; the
+pass would keep its scope and lose its eyes. F10 is a race; a low-effort whole-branch read is the
+kind of read that misses one, and a pass that reads everything badly is a worse bargain than a
+prompt.
+
+**Rejected — repeat only when the fix touched paths no full pass has read.** Every full pass reads
+the whole diff, so after the first one no path is unread and the trigger never fires; F14 sat in a
+file the round-2 pass had already read clean. This is a delete of the policy wearing a
+condition.
+
+**Rejected — a hard stop at the cap.** A silent close is the over-cap failure
+`check-panel-diff-size.sh` refuses for the same reason: a decision the operator did not see. The
+prompt is the bound; the operator-prompts contract's ⚠ marker in the handoff is what shows the
+silent default fired.
