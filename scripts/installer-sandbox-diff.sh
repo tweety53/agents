@@ -33,8 +33,11 @@
 #     installed into two separate, empty sandboxes.
 #
 # MANAGED_BLOCK_POSTPROCESS is unset for both runs: it is the installer's own
-# extension point, and a value exported by the caller would rewrite one side's
-# zcode block and read as a difference.
+# extension point, and a value exported by the caller would rewrite both
+# sides' plain managed blocks identically — which could mask a genuine
+# content difference between the trees. The verdict must be the installer's
+# own output, not the caller's transform of it. (The installer's own zcode
+# rewrite is prefix-scoped inside setup.sh and needs no help from here.)
 #
 # Exit codes:
 #   0  the installed results are byte-identical; the sandbox is removed
@@ -61,10 +64,14 @@ resolve_tree() { # resolve_tree <arg> — absolute path, must hold setup.sh
 OLD_TREE="$(resolve_tree "$1")"
 NEW_TREE="$(resolve_tree "$2")"
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/installer-sandbox-diff.XXXXXX")"
+# An environmental failure here is exit 2, never the 1 reserved for "differ".
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/installer-sandbox-diff.XXXXXX")" ||
+	die "cannot create the sandbox work directory under ${TMPDIR:-/tmp}"
 cleanup() {
 	local rc=$?
-	if (( rc == 0 )); then
+	if [[ -z "$WORK" ]]; then
+		return
+	elif (( rc == 0 )); then
 		rm -rf "$WORK"
 	else
 		echo "sandboxes, logs and manifests kept for inspection: $WORK" >&2
@@ -87,7 +94,9 @@ manifest() {
 		path="$home/${rel#./}"
 		if [[ -L "$path" ]]; then
 			target="$(readlink "$path")"
-			target="${target//$tree/<TREE>}"
+			# Quoted, or the tree path reads as a glob pattern and a bracketed
+			# directory name silently defeats the normalization.
+			target="${target//"$tree"/<TREE>}"
 			printf 'l %s -> %s\n' "${rel#./}" "$target"
 		elif [[ -d "$path" ]]; then
 			printf 'd %s %s\n' "$(entry_mode "$path")" "${rel#./}"
@@ -111,7 +120,8 @@ run_install() { # run_install <tree> <home> <log>
 	}
 }
 
-mkdir -p "$WORK/old-home" "$WORK/new-home"
+mkdir -p "$WORK/old-home" "$WORK/new-home" ||
+	die "cannot create the sandbox HOME directories"
 run_install "$OLD_TREE" "$WORK/old-home" "$WORK/old-install.log"
 run_install "$NEW_TREE" "$WORK/new-home" "$WORK/new-install.log"
 

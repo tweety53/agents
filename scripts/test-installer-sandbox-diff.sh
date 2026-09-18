@@ -79,9 +79,10 @@ EOF
 	esac
 }
 
-run_diff() { # run_diff <old-tree> <new-tree> — output captured outside the trees
+run_diff() { # run_diff <old-tree> [new-tree] — output captured outside the trees;
+	# a one-argument call is itself case 9's subject, so forward verbatim
 	set +e
-	"$DIFF" "$1" "$2" >"$OUT_FILE" 2>&1
+	"$DIFF" "$@" >"$OUT_FILE" 2>&1
 	DIFF_RC=$?
 	set -e
 }
@@ -120,6 +121,49 @@ assert_rc 2 "case 4: setup.sh missing from the new tree exits 2"
 assert_contains "has no setup.sh at its root" "case 4: error names the missing installer"
 run_diff "$TREE" "$GOOD"
 assert_rc 2 "case 5: setup.sh missing from the old tree exits 2"
+
+# Case 6 — the normalization reads the tree path as a literal, never a glob
+# pattern: identical trees under a path carrying a metacharacter diff clean.
+new_tree base
+OLD="$TREE"
+new_tree base
+GLOBROOT="$(mktemp -d "${TMPDIR:-/tmp}/installer-sandbox-diff-test.glob[1].XXXXXX")"
+TREES+=("$GLOBROOT")
+mv "$OLD" "$GLOBROOT/old"
+mv "$TREE" "$GLOBROOT/new"
+run_diff "$GLOBROOT/old" "$GLOBROOT/new"
+assert_rc 0 "case 6: identical trees under a glob-metacharacter path exit 0"
+
+# Case 7 — a TMPDIR that cannot hold the sandbox is the contract's exit 2
+# (environment error), never the 1 reserved for "differ".
+new_tree base
+OLD="$TREE"
+new_tree base
+set +e
+TMPDIR="$OLD/no-such-tmpdir" "$DIFF" "$OLD" "$TREE" >"$OUT_FILE" 2>&1
+DIFF_RC=$?
+set -e
+assert_rc 2 "case 7: unusable TMPDIR exits 2"
+
+# Case 8 — the retention half of the contract: a differing run keeps the
+# sandbox, prints its path, and the printed directory exists.
+new_tree base
+OLD="$TREE"
+new_tree content
+run_diff "$OLD" "$TREE"
+assert_rc 1 "case 8: differing run exits 1"
+assert_contains "kept for inspection" "case 8: differing run names the kept sandbox"
+KEPT="$(sed -n 's/.*kept for inspection: //p' "$OUT_FILE" | tail -n 1)"
+if [ -n "$KEPT" ] && [ -d "$KEPT" ]; then
+	pass "case 8: the kept sandbox path exists"
+else
+	fail "case 8: the kept sandbox path is missing or not a directory: $KEPT"
+fi
+
+# Case 9 — the bad-argument-count guard exits 2.
+new_tree base
+run_diff "$TREE"
+assert_rc 2 "case 9: one-argument invocation exits 2"
 
 if [ "$FAILURES" -eq 0 ]; then
 	printf 'installer-sandbox-diff: all cases pass\n'
