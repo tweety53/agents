@@ -3271,6 +3271,56 @@ func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
 	}
 }
 
+// TestRecordPassAndMutationMissingFlagsRefuseWithoutChange pins KAN-590:
+// `flow record pass` and `flow record mutation` refuse a dropped -change
+// before the store is ever contacted -- non-zero exit, nothing recorded, no
+// journal -- so a dropped flag is a loud error rather than a mis-associated
+// pass-log row discovered later. The contacted stub is the load-bearing
+// half: were the identity flags ever swapped for the conn-only set, the
+// refusal would vanish and the call would reach the store (or, on a quiet
+// machine, journal), and either way this test must name the mechanism.
+func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		verb string
+		args []string
+	}{
+		{"pass without change", "pass", []string{"-note", "guard rc=1 (scripts/test-setup.sh)"}},
+		{"mutation without change", "mutation", []string{"-path", "render.go", "-mutated", "none", "-test", "guard was equivalent"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				append([]string{"record", tc.verb, "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, tc.args...),
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for a record with no -change -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), "-change is required") {
+				t.Errorf("stderr does not name the missing flag:\n%s", stderr.String())
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Errorf("a record with no -change left a journal behind")
+			}
+		})
+	}
+}
+
 // TestRecordFindingLineageFlags pins that `flow record finding`'s lineage
 // flags reach the recorded finding's wire shape: -supersedes and
 // -regression-of name earlier findings' refs, and the daemon receives them
