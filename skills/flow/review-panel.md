@@ -841,21 +841,7 @@ round-6 real bugs.
 every fix round and adds one final pass after the last fix round closes clean: every slot in the
 roster re-reads the whole `final-review.diff` (Bugbot and Mutation in their pass-1 shape). A finding
 from that final pass opens an ordinary fix round under the rules above; the final pass then repeats
-once that round closes clean — **once unasked**. From the second repeat on, every repeat is the
-operator's choice, put when the fix round closes clean, shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`):
-
-> **The `full` final pass has run `<n>` times on this branch; the fix round for its last findings
-> closed clean. Run it again?**
-> - **Run the final pass again** *(default, recommended)* — the same roster re-reads the whole
->   `final-review.diff`
-> - **Close the panel** — proceeds to the close guards below on the clean fix round alone
-
-The cap bounds how many repeats run unasked, never what a repeat reads or which pair reads it: a
-repeat that read less, or read on the rerun pair, is a scoped re-run under another name, and the
-pass exists for the defect a scoped re-run structurally cannot see. Record each final pass, and
-the operator's answer where the prompt was put, with `flow record pass -round <round> -note 'full
-pass: <n> — <ran|closed by operator>'`. **Rerun policy `delta`** — `small` and `regular`, and every run on
+once that round closes clean. **Rerun policy `delta`** — `small` and `regular`, and every run on
 `REVIEW_PANEL_TOGGLE` `default` — is the section above as it stands: no added final pass, beyond
 the one the scoped-round rule above requires of a run that reached a third fix round.
 
