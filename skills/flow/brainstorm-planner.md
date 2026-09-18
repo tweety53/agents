@@ -365,10 +365,9 @@ Leave `override` `null` and `class = class_mechanical` otherwise. `red` and `unv
 recorded from the same output and move no class.
 
 **Micro** — when the script prints `class: micro`, decide collapses to a recorded default decision:
-the rolls are printed but never consulted, and steps 1–4 below record their defaults without
-choosing — execution `inline`, implementer and fixer `skipped — inline`, panel the string `default`,
-groups `null` — with decision.json carrying `class: micro`. A micro change keeps its full record and
-still pays every later stage; only the choosing is skipped.
+steps 1–4 below record the micro row's values without choosing — execution `inline`, implementer
+and fixer `skipped — inline`, panel the string `default`, groups `null` — with decision.json
+carrying `class: micro`.
 
 Read `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` from this
 run's own earlier resolution (**Model resolution**, `skills/flow/SKILL.md`) — already in scope,
@@ -516,7 +515,7 @@ One fact per row, every reason in the middle column, nothing printed outside the
 first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/
 `repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value
 cell the interpretation. On a micro run the three roll rows' value cells read `not consulted —
-micro`, and the decision table records the defaults **Micro** names, so no `↳` row appears anywhere
+micro`, and the decision table records the micro row's values, so no `↳` row appears anywhere
 in it. The second is the decision side. `↳` rows are sub-rows of the setting
 above them: a `↳ fixer` row under the implementer row, its cells the `fixer` value in the
 implementer row's own shape; one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that
