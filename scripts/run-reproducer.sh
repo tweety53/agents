@@ -49,11 +49,28 @@
 # own header says it deliberately cannot decide; this script is where that
 # shape is decided.
 #
+# THE MUTATION-REPRODUCER CONVENTION (KAN-568). A surviving-mutant
+# reproducer — one that lands a mutation and runs the test suite — carries
+# the opposite answer in its own exit code from every other reproducer:
+# BUILD SUCCESSFUL with the mutation landed IS the bug present, the tests
+# having failed to catch it. Such a reproducer declares itself with the
+# exact line `# mutation-reproducer` within its first 10 lines, and this
+# script then reads it under that convention — exit 0 is "defect
+# demonstrated", any non-zero exit "not demonstrated" — instead of the
+# generic mapping in the exit-code list below. Everything else about this
+# script is identical under both conventions: containment, the bound, the
+# kill sequence and the exit-code vocabulary itself never move; only the
+# reading of the reproducer's own exit status flips, and because the
+# ambiguity refusal (KAN-524) compares verdicts rather than raw exit codes,
+# it works unchanged under either.
+#
 # Exit codes:
 #   0  defect demonstrated — the command ran to completion inside the
-#      bound, as a direct exec, and exited non-zero
+#      bound, as a direct exec, and exited non-zero (exit 0 under the
+#      mutation-reproducer convention)
 #   1  defect not demonstrated — the command ran to completion inside the
-#      bound and exited 0; the instruction built on this reproducer cannot
+#      bound and exited 0 (any non-zero exit under the mutation-reproducer
+#      convention); the instruction built on this reproducer cannot
 #      be verified as a fix
 #   2  refused — one of two classes. The shape class failed a lexical or
 #      resolved containment/shape check before execution and was never run
@@ -217,6 +234,21 @@ case "$RESOLVED_PATH" in
 esac
 [ -f "$RESOLVED_PATH" ] || refuse "the path token '$PATH_TOKEN' does not resolve to a regular file"
 [ -x "$RESOLVED_PATH" ] || refuse "the path token '$PATH_TOKEN' resolves to a file with no execute permission"
+
+# The declaration of the mutation-reproducer convention (KAN-568), read from
+# the file the path token resolved to — the only place a reproducer can
+# state its own convention, since neither the panel record's
+# `finding-reproducer:` line nor the runner's argument vector carries a
+# field for it. Exact line, within the first 10 lines: a line that merely
+# CONTAINS the marker, or one buried below the shebang and its immediate
+# commentary, is prose, not a declaration — the generic convention applies.
+# Read before execution so the verdict mapping below is decided by the same
+# containment checks every reproducer passes, never a second path around
+# them.
+CONVENTION="generic"
+if head -n 10 -- "$RESOLVED_PATH" | grep -qx '# mutation-reproducer'; then
+  CONVENTION="mutation"
+fi
 
 # Every argument after the path token is resolved and checked the same way,
 # but only when it names something that exists: a plain flag such as
@@ -730,26 +762,49 @@ case "$RC" in
     ;;
 esac
 
+# THE VERDICT, mapped from the reproducer's own exit status under the
+# convention its declaration named (KAN-568): generic — any non-zero exit is
+# the defect present; mutation — exit 0 is the defect present, the build
+# having succeeded with the mutation landed. Computed once, ahead of both
+# readers below: the ambiguity refusal compares THIS, never the raw exit
+# code, and the final disposition reports it.
+if [ "$CONVENTION" = "mutation" ]; then
+  if [ "$RC" -eq 0 ]; then VERDICT=0; else VERDICT=1; fi
+else
+  if [ "$RC" -ne 0 ]; then VERDICT=0; else VERDICT=1; fi
+fi
+
 # The ambiguity refusal (KAN-524), checked at the verdict point — after the
 # timeout (exit 3) and cannot-answer (exit 4) dispositions above have had
 # their say, since those runs produced no verdict to compare against. The
 # reproducer HAS run here, which is what separates this exit-2 class from
 # the shape refusals' "never executed" claim above.
 if [ -n "$PRE_FIX_EXIT" ]; then
-  if [ "$RC" -ne 0 ]; then VERDICT=0; else VERDICT=1; fi
   if [ "$PRE_FIX_EXIT" = "$VERDICT" ]; then
     emit_captured_output 2
-    echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_EXIT) — a reproducer must exit non-zero while the defect is present and 0 once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
+    if [ "$CONVENTION" = "mutation" ]; then
+      echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_EXIT) — under the mutation-reproducer convention a reproducer must exit 0 while the defect is present (the build succeeds with the mutation landed) and non-zero once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
+    else
+      echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_EXIT) — a reproducer must exit non-zero while the defect is present and 0 once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
+    fi
     exit 2
   fi
 fi
 
-if [ "$RC" -ne 0 ]; then
+if [ "$VERDICT" -eq 0 ]; then
   emit_captured_output 1
-  echo "run-reproducer: defect demonstrated — '$CMD_TEXT' exited $RC"
+  if [ "$CONVENTION" = "mutation" ]; then
+    echo "run-reproducer: defect demonstrated — '$CMD_TEXT' exited 0 (mutation-reproducer convention: exit 0 = defect present)"
+  else
+    echo "run-reproducer: defect demonstrated — '$CMD_TEXT' exited $RC"
+  fi
   exit 0
 fi
 
 emit_captured_output 1
-echo "run-reproducer: defect not demonstrated — '$CMD_TEXT' exited 0"
+if [ "$CONVENTION" = "mutation" ]; then
+  echo "run-reproducer: defect not demonstrated — '$CMD_TEXT' exited $RC (mutation-reproducer convention: non-zero = the mutation did not survive)"
+else
+  echo "run-reproducer: defect not demonstrated — '$CMD_TEXT' exited 0"
+fi
 exit 1

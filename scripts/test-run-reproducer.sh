@@ -565,6 +565,86 @@ expect_exit_and_names 'case 23.stray: a stray third argument is a usage failure'
   "$GUARD" "$wt" "scripts/never-runs.sh" extra-arg
 assert_not_ran 'case 23.stray' "$wt"
 
+# ===========================================================================
+# 24. KAN-568: a reproducer declaring the mutation-reproducer convention —
+#     the exact line `# mutation-reproducer` within its first 10 lines — is
+#     read under that convention: the mutation lands and the build (test
+#     suite) still SUCCEEDS, which is the surviving mutant, the bug present.
+#     Exit 0 under the mutation convention is therefore "defect
+#     demonstrated" (runner exit 0) — the exact inversion that made kan-485's
+#     round-0 mutation reproducers hand-verified substitutions.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/mutation-survives.sh" '# mutation-reproducer
+exit 0'
+expect_exit 'case 24: a mutation reproducer exiting 0 demonstrates the defect' 0 \
+  "$GUARD" "$wt" "scripts/mutation-survives.sh"
+
+# ===========================================================================
+# 25. The mutation convention's not-demonstrated side: the mutation lands
+#     and the build FAILS — a test caught it — so the reproducer exits
+#     non-zero and the defect is NOT demonstrated (runner exit 1), the exact
+#     reading the generic convention would have called "demonstrated".
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/mutation-caught.sh" '# mutation-reproducer
+exit 3'
+expect_exit 'case 25: a mutation reproducer exiting non-zero is not demonstrated' 1 \
+  "$GUARD" "$wt" "scripts/mutation-caught.sh"
+
+# ===========================================================================
+# 26. The ambiguity refusal under the mutation convention: verdict 0 pre-fix
+#     (the bug was present, the build succeeded) and verdict 0 again
+#     post-fix from the SAME exit 0 — refused, exit 2, after a real run.
+#     Pins that the refusal compares the convention-mapped VERDICT, not the
+#     raw exit code: a raw-RC comparison against a mutation reproducer's
+#     exit 0 would answer "not demonstrated" (1) and never refuse here.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/mutation-still-survives.sh" '# mutation-reproducer
+exit 0'
+expect_exit_and_names 'case 26: a mutation reproducer with verdict 0 both sides is refused as ambiguous' 2 'convention' \
+  "$GUARD" "$wt" "scripts/mutation-still-survives.sh" --pre-fix-exit 0
+if [ -e "$wt/RAN" ]; then
+  printf 'ok: case 26 (the reproducer ran before the verdict was read)\n'
+else
+  printf 'FAIL case 26: the ambiguity refusal answered without running the reproducer\n'
+  FAILED=1
+fi
+
+# ===========================================================================
+# 27. The healthy flip under the mutation convention: verdict 0 pre-fix, the
+#     fix makes the build FAIL against the same mutation (exit 3), verdict 1
+#     — the fix verified, exit 1, no refusal.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/mutation-now-caught.sh" '# mutation-reproducer
+exit 3'
+expect_exit 'case 27: a mutation reproducer flipping 0 to 1 is the fix verified' 1 \
+  "$GUARD" "$wt" "scripts/mutation-now-caught.sh" --pre-fix-exit 0
+
+# ===========================================================================
+# 28. The declaration is the exact line, within the window: a marker line
+#     beyond the first 10 lines, or one carrying more text than the marker,
+#     is NOT a declaration — the generic convention applies (exit 0 here is
+#     "defect not demonstrated", runner exit 1). A grep over the whole file,
+#     or a prefix match, would read this reproducer inverted.
+# ===========================================================================
+wt="$(make_worktree)"
+filler=""
+i=0
+while [ "$i" -lt 12 ]; do filler="${filler}# filler line
+"; i=$((i + 1)); done
+fixture "$wt" "scripts/late-marker.sh" "${filler}# mutation-reproducer
+exit 0"
+expect_exit 'case 28.a: a marker beyond the first 10 lines declares nothing' 1 \
+  "$GUARD" "$wt" "scripts/late-marker.sh"
+wt="$(make_worktree)"
+fixture "$wt" "scripts/marker-with-suffix.sh" '# mutation-reproducer: because the build succeeded
+exit 0'
+expect_exit 'case 28.b: a marker line carrying extra text declares nothing' 1 \
+  "$GUARD" "$wt" "scripts/marker-with-suffix.sh"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'test-run-reproducer: one or more cases failed\n' >&2
   exit 1
