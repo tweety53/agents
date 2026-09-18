@@ -645,6 +645,49 @@ exit 0'
 expect_exit 'case 28.b: a marker line carrying extra text declares nothing' 1 \
   "$GUARD" "$wt" "scripts/marker-with-suffix.sh"
 
+# ===========================================================================
+# 29. The reproducer sha (KAN-568 review, F1): every verdict carries a
+#     `reproducer sha <hex>` line naming the file's SHA-256, and a
+#     --reproducer-sha pin matching that sha is accepted and decides
+#     normally.
+# ===========================================================================
+source "$SCRIPT_DIR/lib/sha256-hex.sh"
+wt="$(make_worktree)"
+fixture "$wt" "scripts/sha-ok.sh" "exit 5"
+want_sha="$(sha256_hex_file "$wt/scripts/sha-ok.sh")"
+set +e
+out29="$("$GUARD" "$wt" "scripts/sha-ok.sh" --reproducer-sha "$want_sha" 2>&1)"
+got29=$?
+set -e
+if [ "$got29" -eq 0 ] && [[ "$out29" == *"reproducer sha $want_sha"* ]]; then
+  printf 'ok: %s\n' 'case 29: a matching --reproducer-sha pin is accepted and the sha is printed with the verdict'
+else
+  printf 'FAIL %s: expected exit 0 printing reproducer sha %s, got exit %s\n%s\n' 'case 29: a matching --reproducer-sha pin is accepted and the sha is printed with the verdict' "$want_sha" "$got29" "$out29"
+  FAILED=1
+fi
+
+# ===========================================================================
+# 30. A pin naming a DIFFERENT file is refused before execution — the
+#     never-executed shape class, exit 2 — with both shas named. This is
+#     the fix-round guard against a comment-only re-authoring of a
+#     dispatched reproducer between its dispatch-time run and its re-run.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/sha-pinned.sh" "exit 5"
+expect_exit_and_names 'case 30: a mismatched --reproducer-sha pin is refused without running' 2 'pinned sha' \
+  "$GUARD" "$wt" "scripts/sha-pinned.sh" --reproducer-sha 0000000000000000000000000000000000000000000000000000000000000000
+assert_not_ran 'case 30' "$wt"
+
+# ===========================================================================
+# 31. A pin value that is not a hex string is a usage failure — exit 4, the
+#     reproducer never run.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/sha-never-runs.sh" "exit 0"
+expect_exit_and_names 'case 31: a non-hex --reproducer-sha value is a usage failure' 4 'usage' \
+  "$GUARD" "$wt" "scripts/sha-never-runs.sh" --reproducer-sha zz-nothex
+assert_not_ran 'case 31' "$wt"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'test-run-reproducer: one or more cases failed\n' >&2
   exit 1

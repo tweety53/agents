@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>]
+# run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>] [--reproducer-sha <sha>]
 #
 # Runs one finding's reproducer — the command text that follows
 # `finding-reproducer: F<n> ` in a panel record, already validated
@@ -64,6 +64,17 @@
 # ambiguity refusal (KAN-524) compares verdicts rather than raw exit codes,
 # it works unchanged under either.
 #
+# THE COMPARISON IS VALID ONLY BETWEEN TWO RUNS OF THE SAME FILE. The
+# verdict a `--pre-fix-exit` re-run compares against is meaningful only when
+# the file is byte-for-byte what the dispatch-time run read — a re-authored
+# reproducer, its mutation-convention declaration included, is a different
+# reproducer answering in a vocabulary the pre-fix verdict never carried.
+# The runner therefore prints `reproducer sha <hex>` with every verdict, and
+# `--reproducer-sha <sha>` pins the re-run to the dispatch-time file: a
+# mismatch is refused (exit 2, the never-executed shape class) and the
+# reproducer is re-authored instead — re-run it against the defect-present
+# code and carry its fresh verdict and sha (KAN-568 review, F1).
+#
 # Exit codes:
 #   0  defect demonstrated — the command ran to completion inside the
 #      bound, as a direct exec, and exited non-zero (exit 0 under the
@@ -73,8 +84,9 @@
 #      convention); the instruction built on this reproducer cannot
 #      be verified as a fix
 #   2  refused — one of two classes. The shape class failed a lexical or
-#      resolved containment/shape check before execution and was never run
-#      at all. The ambiguity class (KAN-524) ran to a verdict that is
+#      resolved containment/shape check — or a --reproducer-sha pin — before
+#      execution and was never run at all. The ambiguity class (KAN-524) ran
+#      to a verdict that is
 #      IDENTICAL to the pre-fix verdict the caller passed in
 #      --pre-fix-exit: a reproducer that answers the same way before and
 #      after the fix demonstrates nothing under either exit-code
@@ -108,9 +120,20 @@ if [ ! -r "$SCRIPT_DIR/reproducer-metachars.sh" ]; then
 fi
 # shellcheck source=reproducer-metachars.sh
 source "$SCRIPT_DIR/reproducer-metachars.sh"
+# The sha the runner prints with every verdict and pins on --reproducer-sha
+# comes from the repository's one sha256 helper — a second wrapper here would
+# be exactly the drift the reproducer-metachars.sh extraction exists to stop.
+# The same readability-first rule as the source above: a missing dependency
+# is "cannot answer at all", never a verdict.
+if [ ! -r "$SCRIPT_DIR/lib/sha256-hex.sh" ]; then
+  echo "run-reproducer: cannot read $SCRIPT_DIR/lib/sha256-hex.sh — cannot take a reproducer's sha" >&2
+  exit 4
+fi
+# shellcheck source=lib/sha256-hex.sh
+source "$SCRIPT_DIR/lib/sha256-hex.sh"
 
 usage_fail() {
-  echo "run-reproducer: usage: run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>]" >&2
+  echo "run-reproducer: usage: run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>] [--reproducer-sha <sha>]" >&2
   exit 4
 }
 
@@ -129,14 +152,37 @@ CMD_TEXT="${2:-}"
 # codes is a usage failure, reported and never ignored: a bare run (two
 # arguments, no flag) is the dispatch-time decision and decides exactly as
 # it always has.
+#
+# --reproducer-sha <sha> — the reproducer sha the dispatch-time run printed,
+# carried by the fix-round re-run so the verdict comparison is pinned to the
+# SAME file: a reproducer re-authored between rounds (its
+# mutation-convention declaration included) is refused before it executes.
+# A hex-string value only; anything else is a usage failure.
 PRE_FIX_EXIT=""
+EXPECT_SHA=""
 if [ "$#" -ge 3 ]; then
-  [ "$3" = "--pre-fix-exit" ] || usage_fail
-  [ "$#" -eq 4 ] || usage_fail
-  case "$4" in
-    0|1) PRE_FIX_EXIT="$4" ;;
-    *) usage_fail ;;
-  esac
+  shift 2
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --pre-fix-exit)
+        [ "$#" -ge 2 ] || usage_fail
+        case "$2" in
+          0|1) PRE_FIX_EXIT="$2" ;;
+          *) usage_fail ;;
+        esac
+        shift 2
+        ;;
+      --reproducer-sha)
+        [ "$#" -ge 2 ] || usage_fail
+        EXPECT_SHA="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"
+        case "$EXPECT_SHA" in
+          ''|*[!0-9a-f]*) usage_fail ;;
+        esac
+        shift 2
+        ;;
+      *) usage_fail ;;
+    esac
+  done
 fi
 
 [ -d "$WORKTREE" ] || { echo "run-reproducer: not a directory: $WORKTREE" >&2; exit 4; }
@@ -248,6 +294,19 @@ esac
 CONVENTION="generic"
 if head -n 10 -- "$RESOLVED_PATH" | grep -qx '# mutation-reproducer'; then
   CONVENTION="mutation"
+fi
+
+# The reproducer's identity, taken from the same resolved file every
+# containment check above passed, and taken before execution so a
+# --reproducer-sha pin refuses a re-authored file in the never-executed
+# shape class. Printed with every verdict below, so the caller holding a
+# dispatch-time verdict also holds the sha its re-run must pin.
+REPRO_SHA="$(sha256_hex_file "$RESOLVED_PATH")" || {
+  echo "run-reproducer: cannot take a sha of '$RESOLVED_PATH' — no SHA-256 tool on this machine" >&2
+  exit 4
+}
+if [ -n "$EXPECT_SHA" ] && [ "$EXPECT_SHA" != "$REPRO_SHA" ]; then
+  refuse "the reproducer file is not the one the dispatch-time run read (pinned sha $EXPECT_SHA, found $REPRO_SHA) — a reproducer re-authored between rounds, its mutation-convention declaration included, is a different reproducer answering in a vocabulary the pre-fix verdict never carried; re-run it against the defect-present code and carry its fresh verdict and sha"
 fi
 
 # Every argument after the path token is resolved and checked the same way,
@@ -767,7 +826,10 @@ esac
 # the defect present; mutation — exit 0 is the defect present, the build
 # having succeeded with the mutation landed. Computed once, ahead of both
 # readers below: the ambiguity refusal compares THIS, never the raw exit
-# code, and the final disposition reports it.
+# code, and the final disposition reports it. The sha line precedes both,
+# so every verdict the caller reads carries the file identity it must pin
+# the fix-round re-run with.
+echo "run-reproducer: reproducer sha $REPRO_SHA" >&2
 if [ "$CONVENTION" = "mutation" ]; then
   if [ "$RC" -eq 0 ]; then VERDICT=0; else VERDICT=1; fi
 else

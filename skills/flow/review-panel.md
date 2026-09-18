@@ -380,7 +380,10 @@ one-directional: a reproducer exits non-zero when the defect it demonstrates is 
 0 only when that defect is not** — `run-reproducer.sh` reads a non-zero exit as *defect
 demonstrated* and a 0 exit as *defect not demonstrated*, so a command that exits 0 because its own
 diagnostic succeeded — the inverted convention every kan-512 round-0 reproducer was authored with,
-and had to be hand-corrected out of — reads as the defect already gone. Author it to fail pre-fix
+and had to be hand-corrected out of — reads as the defect already gone. The one exception is the
+mutation-reproducer convention, which the mutation-testing brief below defines and a reproducer
+declares with the exact `# mutation-reproducer` line: such a reproducer is read inverted, its
+exit 0 being the defect present. Author it to fail pre-fix
 and pass post-fix. **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
@@ -932,8 +935,13 @@ as its own open finding.
 
 **Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
 constraints, carrying `--pre-fix-exit <that finding's dispatch-time verdict>` — the code that
-finding's dispatch-time run printed, always `0` or `1`: a run that answered `2`, `3` or `4`
-refused, went unverifiable, or stopped before any dispatch, so nothing re-runs for it — and
+finding's dispatch-time run printed, always `0` or `1` — **and `--reproducer-sha <the sha that
+run printed>`**: the verdict comparison is valid only between two runs of the same file, so the
+runner pins the re-run to the dispatch-time reproducer and refuses a mismatch (exit 2, never
+executed). A refused re-run means the reproducer was re-authored — its mutation-convention
+declaration included — and it is re-run against the defect-present code for a fresh verdict and
+sha before the round continues: a run that answered `2`, `3` or `4` refused, went unverifiable,
+or stopped before any dispatch, so nothing re-runs for it — and
 require the reproducer now to exit **0**, which the script answers **1**. The flag makes the
 script refuse (exit 2) a reproducer whose verdict here is identical to its pre-fix verdict —
 ambiguous under either exit-code convention, the expected one named in the script's message — so

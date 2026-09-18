@@ -45,3 +45,28 @@ sha256_hex() {
   done
   return 1
 }
+
+# sha256_hex_file <path> — the lowercase hex SHA-256 of a FILE's bytes, the
+# file-mode sibling of sha256_hex above and no second encoding of it: the
+# same three tools, the same shape-selected field. The bytes go to the tool
+# as a file argument, never through a shell variable — a round-trip would
+# drop NUL bytes and hit argv limits long before a real reproducer would.
+# The path must be absolute (every caller resolves it first); no `--` is
+# needed for that and older openssl builds do not honour one.
+sha256_hex_file() {
+  local path="$1" tool raw hex
+  for tool in shasum sha256sum openssl; do
+    command -v "$tool" >/dev/null 2>&1 || continue
+    case "$tool" in
+      shasum)    raw="$(shasum -a 256 "$path" 2>/dev/null || true)" ;;
+      sha256sum) raw="$(sha256sum "$path" 2>/dev/null || true)" ;;
+      openssl)   raw="$(openssl dgst -sha256 "$path" 2>/dev/null || true)" ;;
+    esac
+    hex="$(printf '%s\n' "$raw" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9a-f]{64}$/) { print $i; exit } }')"
+    if [ -n "$hex" ]; then
+      printf '%s' "$hex"
+      return 0
+    fi
+  done
+  return 1
+}

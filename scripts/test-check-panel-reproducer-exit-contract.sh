@@ -142,6 +142,8 @@ STUB
   chmod +x "$wt/demo-repro.sh"
   cp "$REAL_RUNNER" "$wt/runner/run-reproducer.sh"
   cp "$SCRIPT_DIR/reproducer-metachars.sh" "$wt/runner/reproducer-metachars.sh"
+  mkdir -p "$wt/runner/lib"
+  cp "$SCRIPT_DIR/lib/sha256-hex.sh" "$wt/runner/lib/sha256-hex.sh"
   cp "$GUARD" "$wt/runner/check-panel-reproducer-exit-contract.sh"
   printf '%s' "$wt"
 }
