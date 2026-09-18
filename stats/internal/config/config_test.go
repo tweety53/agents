@@ -56,3 +56,70 @@ func TestFromEnvDefaultsPortWhenUnset(t *testing.T) {
 		t.Fatalf("got port %d, want default %d", cfg.Port, config.DefaultPort)
 	}
 }
+
+// TestFromEnvJira pins the all-or-nothing rule of the FLOWD_JIRA_* block:
+// unset everywhere is a normal unconfigured daemon; all three set resolve;
+// any partial combination is the startup refusal ErrPartialJiraConfig; and
+// a site that is not https:// is refused with ErrInvalidJiraSite. Each
+// case pins FLOWD_* to empty first, because the caller's shell may already
+// export one.
+func TestFromEnvJira(t *testing.T) {
+	setJira := func(t *testing.T, site, email, token string) {
+		t.Helper()
+		t.Setenv("FLOWD_JIRA_SITE", site)
+		t.Setenv("FLOWD_JIRA_EMAIL", email)
+		t.Setenv("FLOWD_JIRA_TOKEN", token)
+	}
+
+	t.Run("unset means unconfigured", func(t *testing.T) {
+		t.Setenv("FLOWD_JIRA_SITE", "")
+		t.Setenv("FLOWD_JIRA_EMAIL", "")
+		t.Setenv("FLOWD_JIRA_TOKEN", "")
+		cfg, err := config.FromEnv()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Jira.Configured() {
+			t.Fatalf("got configured jira %+v, want unconfigured", cfg.Jira)
+		}
+	})
+
+	t.Run("all three set resolve", func(t *testing.T) {
+		setJira(t, "https://example.atlassian.net/", "ops@example.com", "token")
+		cfg, err := config.FromEnv()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Jira.Site != "https://example.atlassian.net" || cfg.Jira.Email != "ops@example.com" || cfg.Jira.APIToken != "token" {
+			t.Fatalf("got jira %+v, want the resolved site (trailing slash trimmed), email and token", cfg.Jira)
+		}
+	})
+
+	t.Run("partial is a startup refusal", func(t *testing.T) {
+		setJira(t, "https://example.atlassian.net", "ops@example.com", "")
+		_, err := config.FromEnv()
+		if !errors.Is(err, config.ErrPartialJiraConfig) {
+			t.Fatalf("got %v, want config.ErrPartialJiraConfig", err)
+		}
+	})
+
+	t.Run("http site is a startup refusal", func(t *testing.T) {
+		setJira(t, "http://example.atlassian.net", "ops@example.com", "token")
+		_, err := config.FromEnv()
+		if !errors.Is(err, config.ErrInvalidJiraSite) {
+			t.Fatalf("got %v, want config.ErrInvalidJiraSite", err)
+		}
+	})
+}
+
+// TestJiraConfigConfigured pins the zero-value reading: a zero JiraConfig
+// is unconfigured, and any non-empty field implies all three -- the
+// invariant resolveJira's all-or-nothing output lets callers rely on.
+func TestJiraConfigConfigured(t *testing.T) {
+	if (config.JiraConfig{}).Configured() {
+		t.Fatal("zero JiraConfig reported configured")
+	}
+	if !(config.JiraConfig{Site: "https://x", Email: "e", APIToken: "t"}).Configured() {
+		t.Fatal("complete JiraConfig reported unconfigured")
+	}
+}

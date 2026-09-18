@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Defaults, applied when the corresponding environment variable is unset.
@@ -33,6 +34,12 @@ type Config struct {
 	Host string
 	Port int
 	DSN  string
+
+	// Jira is the outbound access the pipeline-transition endpoint needs
+	// (internal/jira). Zero value means the daemon has none, which is a
+	// normal state the endpoint reports per request -- never a startup
+	// failure.
+	Jira JiraConfig
 }
 
 // ErrNonLoopbackHost is returned by Validate when Host does not resolve to
@@ -71,6 +78,11 @@ func FromEnv() (Config, error) {
 	if v := os.Getenv("FLOWD_DSN"); v != "" {
 		cfg.DSN = v
 	}
+	jira, err := resolveJira()
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Jira = jira
 	return cfg, nil
 }
 
@@ -94,4 +106,55 @@ func (c Config) Validate() error {
 // Addr returns the host:port string to bind, suitable for net.Listen.
 func (c Config) Addr() string {
 	return net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
+}
+
+// JiraConfig is the outbound Jira access the pipeline-transition endpoint
+// needs (internal/jira): the site's base URL and the basic-auth
+// credentials. The three variables are one unit -- a site without its
+// credentials, or credentials without a site, can never work -- so the
+// configuration is either complete or refused, never half-applied.
+type JiraConfig struct {
+	Site     string
+	Email    string
+	APIToken string
+}
+
+// Configured reports whether the Jira block is present. resolveJira only
+// ever produces an all-or-nothing block, so any non-empty field implies
+// all three.
+func (c JiraConfig) Configured() bool {
+	return c.Site != ""
+}
+
+// Errors for the Jira environment block. Like ErrInvalidPort, both are
+// startup refusals: a partially-set block or a non-https site would
+// otherwise degrade silently into a daemon that looks configured and
+// answers every transition with a credentials or URL failure. The site is
+// held to https because the Atlassian Cloud API is always https, so an
+// http:// site is a typo worth catching before any request is built.
+var (
+	ErrPartialJiraConfig = errors.New("config: FLOWD_JIRA_SITE, FLOWD_JIRA_EMAIL and FLOWD_JIRA_TOKEN must be set together")
+	ErrInvalidJiraSite   = errors.New("config: FLOWD_JIRA_SITE must be an https:// URL")
+)
+
+// resolveJira reads FLOWD_JIRA_SITE, FLOWD_JIRA_EMAIL and FLOWD_JIRA_TOKEN.
+// Unset everywhere means the daemon has no Jira access -- a normal state,
+// not an error. Any other incomplete combination is refused with
+// ErrPartialJiraConfig; a site that is not https://, with
+// ErrInvalidJiraSite.
+func resolveJira() (JiraConfig, error) {
+	site := os.Getenv("FLOWD_JIRA_SITE")
+	email := os.Getenv("FLOWD_JIRA_EMAIL")
+	token := os.Getenv("FLOWD_JIRA_TOKEN")
+	if site == "" && email == "" && token == "" {
+		return JiraConfig{}, nil
+	}
+	if site == "" || email == "" || token == "" {
+		return JiraConfig{}, fmt.Errorf("%w (site set: %t, email set: %t, token set: %t)",
+			ErrPartialJiraConfig, site != "", email != "", token != "")
+	}
+	if !strings.HasPrefix(site, "https://") {
+		return JiraConfig{}, fmt.Errorf("%w: %q", ErrInvalidJiraSite, site)
+	}
+	return JiraConfig{Site: strings.TrimRight(site, "/"), Email: email, APIToken: token}, nil
 }
