@@ -519,6 +519,14 @@ diff=n/a
 repo>/scripts/compose-mockup-frames.sh`'s own header is canonical for its exit codes, the way this
 section already cites `check-visual-verification.sh` for its shape.
 
+**The full app suite.** One spec, `full-app-suite.spec.ts`, capturing every screen the app has —
+the whole-app regression suite, beside the per-change specs and reached by `verify` like them.
+`flow.visual-verify` updates it on every run and creates it where the checkout has none, then
+writes every PNG the suite produced into one archive, `full-app-suite.zip`, directly under the
+`screenshots` root, rebuilt from scratch each time. Both names are fixed rather than declared: no
+row of the settings table names them, and the spec, its PNGs and the zip are committed wherever
+the per-change spec is.
+
 **No push to a `regression checkout` is ever automatic** — the change branch's own pushes are **Branch backup** (`skills/flow-contracts/git-boundaries.md`), inside the one repository the run owns. `flow.visual-verify` commits the per-change spec and its PNGs to the
 `regression checkout` when one is declared and stops there; the handoff prints the push command for
 the operator to run by hand. `regression repo` records which repository the checkout is expected to

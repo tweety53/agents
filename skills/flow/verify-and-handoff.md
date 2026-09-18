@@ -332,6 +332,34 @@ and 13 below as written, committing and pushing nothing.
    populated one (KAN-437: a goal line drawn from a value outside the axis range rendered over the
    list below the chart, and axis labels read `82.333333333333 kg`; the spec's fixture kept the
    goal in range and its ticks round, so 22 frames passed and an operator found both by hand).
+
+   **Every mockup frame this change adds or updates gets a capture and a sidecar line — never
+   optional, with `mockups` declared.** The frames are the change's declared list (step 10) plus
+   every `<frame id>.png` that
+   `git -C <worktree> diff --name-only <merge-base>..HEAD -- <mockups>` prints. For each one the
+   capture spec takes a screenshot of the view that frame draws — added where the spec has none,
+   updated where the frame changed what it draws — and the `<spec>.mockups` sidecar carries its
+   `<screenshot name> <frame id>` line, written by this stage where the change brought none. A
+   frame on that list with no capture or no sidecar line blocks.
+
+   **Then update the full app suite — and create it where the checkout has none.** The suite and
+   its file names are canonical in **The full app suite**
+   (`skills/flow-contracts/project-configuration.md`). Absent → author `full-app-suite.spec.ts`
+   beside the capture spec, one full-page capture per screen the app has — enumerated from the
+   app's own routes or navigation and from every spec already in the checkout, never from this
+   change's diff. Present → add a capture for every screen this change added and update the
+   capture of every screen it changed or removed. Run `capture` with `<spec>` substituted for the
+   suite's path; a non-zero exit blocks as any `capture` failure does. Then rebuild the zip from
+   exactly what the suite just produced:
+
+   ```bash
+   rm -f <screenshots root>/full-app-suite.zip
+   resolve-visual-screenshots.sh <worktree> full-app-suite.spec.ts | zip -X -j -@ <screenshots root>/full-app-suite.zip
+   ```
+
+   `<screenshots root>` is `screenshots` resolved the way `resolve-visual-screenshots.sh`
+   resolves it. A resolver exit 1 or 2, or a non-zero `zip`, blocks.
+
    Then run `check-spec-reach.sh <worktree>` — the spec
    `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
    exit 1 (an orphan, named) or 2 (cannot answer) blocks.
@@ -827,6 +855,9 @@ and 13 below as written, committing and pushing nothing.
     ```
 
     `<changeRoot>/visual-verification/` is committed with the change root.
+    **The full app suite rides the same commit**: `full-app-suite.spec.ts`, its PNGs and
+    `full-app-suite.zip` (step 8) join the pathspec above, in the same checkout the capture spec
+    lands in.
 13. **Stop the stack only if step 5 or step 6 started it.** A stack the operator already had running is left
     alone.
 
@@ -839,6 +870,8 @@ and 13 below as written, committing and pushing nothing.
   <output, verbatim or last 40 lines>
 - capture: exit <n>
   <output, verbatim or last 40 lines>
+- full app suite: <created | updated> — <absolute spec path>, <n> screens, capture exit <n>
+- full app suite zip: <absolute zip path>, <n> PNGs | not written — <reason>
 - spec reach: exit <n>
 - spec: <absolute spec path>
 - <view>: <absolute PNG path> — <what was seen, including any defect>
@@ -857,7 +890,9 @@ and 13 below as written, committing and pushing nothing.
 
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: **a workspace pre-flight that failed
 (step 3), which ends the stage before any dispatch**, a failed `setup`, a failed `verify`,
-a genuine `capture` failure, a stack that could not be started, **a `fingerprint` that still exits
+a genuine `capture` failure — the full app suite's included — **a frame this change added or
+updated with no capture or no sidecar line, a full app suite or a `full-app-suite.zip` step 8 did
+not write**, a stack that could not be started, **a `fingerprint` that still exits
 non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
 verifier reports in a composite**, **a frame on the change's declared list with no line in the
