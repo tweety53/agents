@@ -340,6 +340,33 @@ else
   fail "non-git worktree argument -> exit 2 (rc=$RC out=$OUT)"
 fi
 
+# --- case: an unresolving merge base on a non-docs plan -> exit 2 ---
+# F1/F5: the diff side is answered on every four-argument plan, so the same
+# bad merge base exits 2 here exactly as it does on a docs-tiny plan.
+make_tasks micro-badmb-go 1
+new_git_repo
+run_guard "$TASKS_FILE" 1 "$REPO" deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+if [ "$RC" -eq 2 ]; then
+  pass "unresolving merge base on a .go plan -> exit 2"
+else
+  fail "unresolving merge base on a .go plan -> exit 2 (rc=$RC out=$OUT)"
+fi
+
+# --- case: churn counts once, not once per surface ---
+# F2: a docs file committed and then rewritten unstaged is 20 changed lines
+# against the merge base, not 10 + 20 summed across three numstats.
+one_docs_task micro-churn-single-count
+new_git_repo
+seq 1 10 >"$REPO/note.md"
+repo_commit
+seq 11 20 >"$REPO/note.md"
+run_guard "$TASKS_FILE" 1 "$REPO" "$MERGEBASE"
+if [ "$RC" -eq 0 ] && printf '%s\n' "$OUT" | grep -q '^class: micro$'; then
+  pass "committed-then-rewritten docs file counts once -> micro"
+else
+  fail "committed-then-rewritten docs file counts once -> micro (rc=$RC out=$OUT)"
+fi
+
 # --- case: missing file -> exit 2 ---
 run_guard "/nonexistent/tasks.md" 1
 if [ "$RC" -eq 2 ]; then

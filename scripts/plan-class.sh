@@ -133,30 +133,35 @@ elif [ "$TASKS_COUNT" -ge 22 ] || [ "$FILES_COUNT" -ge 60 ] \
   CLASS=big
 fi
 
-# The micro class: the plan side is decidable from the tasks.md alone, but it
-# only fires when the optional arguments let the change's own diff side be
-# answered too — an empty touched surface (a creating run, nothing implemented
-# yet) passes vacuously, a non-empty one must itself be docs-only and within
-# the cap. A numstat entry git cannot count (binary) is fail-closed: never
-# micro.
-if [ "$#" -eq 4 ] && [ "$CLASS" = small ] && [ "$TASKS_COUNT" -le 2 ] \
-  && [ "$RED" = no ] && [ -n "$FILES_LIST" ] \
-  && ! printf '%s\n' "$FILES_LIST" | grep -qvE '\.mdc?$'; then
+# The change's own diff side: with the optional arguments it is answered on
+# every plan, micro-eligible or not — an unanswerable <worktree>/<merge-base>
+# is exit 2 unconditionally, exactly as the header states. One numstat of the
+# merge base against the working tree covers committed, staged and unstaged
+# together, so churn on one file counts once. A numstat entry git cannot count
+# (binary) is fail-closed: never micro.
+SURFACE_PATHS=""
+SURFACE_LINES=""
+if [ "$#" -eq 4 ]; then
   WORKTREE_ARG="$3"
   MERGEBASE_ARG="$4"
   GIT_BIN="$(panel_resolve_git "plan-class")" || exit 2
   panel_validate_worktree "plan-class" "$WORKTREE_ARG" "$MERGEBASE_ARG" "$GIT_BIN" || exit 2
   SURFACE_PATHS="$(panel_touched_paths "plan-class" "$WORKTREE_ARG" "$MERGEBASE_ARG" "$GIT_BIN")" || exit 2
+  SURFACE_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --numstat --end-of-options "${MERGEBASE_ARG}")" || exit 2
+  SURFACE_LINES="$(printf '%s\n' "$SURFACE_N" \
+    | awk '$1 == "-" || $2 == "-" { bad = 1 } { s += $1 + $2 } END { if (bad) print 999999; else print s + 0 }')"
+fi
+
+# The micro class: the plan side is decidable from the tasks.md alone; the
+# diff side above must have been answered too. An empty touched surface (a
+# creating run, nothing implemented yet) passes vacuously; a non-empty one
+# must itself be docs-only and within the cap.
+if [ -n "$SURFACE_LINES" ] && [ "$CLASS" = small ] && [ "$TASKS_COUNT" -le 2 ] \
+  && [ "$RED" = no ] && [ -n "$FILES_LIST" ] \
+  && ! printf '%s\n' "$FILES_LIST" | grep -qvE '\.mdc?$'; then
   SURFACE_NONDOC="$(printf '%s\n' "$SURFACE_PATHS" | awk '$0 !~ /\.mdc?$/ { print; exit }')"
-  if [ -z "$SURFACE_NONDOC" ]; then
-    COMMITTED_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --numstat --end-of-options "${MERGEBASE_ARG}..HEAD")" || exit 2
-    STAGED_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --cached --numstat)" || exit 2
-    UNSTAGED_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --numstat)" || exit 2
-    SURFACE_LINES="$(printf '%s\n%s\n%s\n' "$COMMITTED_N" "$STAGED_N" "$UNSTAGED_N" \
-      | awk '$1 == "-" || $2 == "-" { bad = 1 } { s += $1 + $2 } END { if (bad) print 999999; else print s + 0 }')"
-    if [ "$SURFACE_LINES" -le "$MICRO_LINE_CAP" ]; then
-      CLASS=micro
-    fi
+  if [ -z "$SURFACE_NONDOC" ] && [ "$SURFACE_LINES" -le "$MICRO_LINE_CAP" ]; then
+    CLASS=micro
   fi
 fi
 
