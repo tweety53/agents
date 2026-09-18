@@ -50,6 +50,7 @@ commands:
   suite record/list    time a command and record its runtime; read recorded suite runtimes (see: flow suite)
   spec record/list     mark a spec file as run; read the per-spec last-run inventory (see: flow spec)
   self-review bundle   print a finished change's self-review context bundle (see: flow self-review)
+  jira transition      move an issue to a pipeline position via flowd (see: flow jira)
   workspace-id <name>  print a change's workspace id, derived from its name
 `
 
@@ -98,6 +99,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runTasks(ctx, args[1:], stdout, stderr)
 	case "self-review":
 		return runSelfReview(ctx, args[1:], stdout, stderr)
+	case "jira":
+		return runJira(ctx, args[1:], stdout, stderr)
 	case "workspace-id":
 		return runWorkspaceID(ctx, args[1:], stdout, stderr)
 	default:
