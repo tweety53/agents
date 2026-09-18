@@ -85,7 +85,7 @@ func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 	case "wrap":
 		return runStageWrap(ctx, args[1:], stdin, stdout, stderr)
 	case "keys":
-		return runStageKeys(stdout)
+		return runStageKeys(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
 		fmt.Fprint(stderr, stageUsage)
@@ -562,7 +562,16 @@ func endStage(ctx context.Context, addr string, timeout time.Duration, req clien
 // its consumer, the check-stage-mark-calls guard, runs it from any
 // checkout at lint time and must get the checked-out tree's own
 // internal/stages table, never a daemon's and never an installed binary's.
-func runStageKeys(stdout io.Writer) int {
+// An unexpected positional argument is the one usage error it reports:
+// the same exit-2 contract `flow state list` holds, so a mistyped
+// invocation fails loudly instead of printing a vocabulary nobody asked
+// for.
+func runStageKeys(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 {
+		fmt.Fprintf(stderr, "flow: stage keys takes no positional arguments\n")
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
 	for _, key := range stages.Keys() {
 		fmt.Fprintln(stdout, key)
 	}
