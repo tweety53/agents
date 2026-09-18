@@ -106,6 +106,15 @@ actually answered, options **Continue on `<the model the second handshake named>
 that running agent, no third dispatch — or **Stop the run**. **A mark or a record never blocks** —
 proceed on the handshake's outcome regardless of whether any `flow` call reached the store.
 
+**On a single-model harness the recorded mapping satisfies the handshake.** Where the harness maps
+every dispatch to one recorded model and its dispatch carries no model parameter — harness
+`zcode`, the one mapping (**Harness mapping**, `skills/flow-contracts/model-policy.md`) — no
+re-dispatch can change the model that answers, so a first reply whose `Model:` line is missing or
+names anything else is not a mismatch: no `-outcome fallback`, no `<key>-retry`, no second-mismatch
+question. The mapping already fixes what the handshake exists to establish, and the dispatch's
+ledger line records it. The MODEL HANDSHAKE paragraph stays in every dispatch prompt, and the
+comparison governs in full wherever a dispatch can be given a model.
+
 **The return.** Once a dispatch's report file appears, read its verdict, print the change's own
 handoff or continue to the next stage, and close the record under whichever key is open:
 
