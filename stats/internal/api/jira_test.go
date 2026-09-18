@@ -112,6 +112,26 @@ func TestJiraTransitionUpstreamNotFound(t *testing.T) {
 	}
 }
 
+func TestJiraTransitionNoTransitionOffered(t *testing.T) {
+	h := func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(req.URL.Path, "/transitions") {
+			fmt.Fprintf(w, `{"transitions":[{"id":"11","to":{"name":"To Do"}}]}`)
+			return
+		}
+		fmt.Fprintf(w, `{"fields":{"status":{"name":"To Do"}}}`)
+	}
+	ts := jiraTestServer(t, h)
+
+	status, body := postTransition(t, ts, `{"key":"KAN-571","target":"Done"}`)
+	if status != http.StatusConflict {
+		t.Fatalf("status = %d, body %s, want 409", status, body)
+	}
+	if !strings.Contains(body, "no transition") {
+		t.Fatalf("body %s does not name the missing transition", body)
+	}
+}
+
 func TestJiraTransitionUpstreamAuthRejected(t *testing.T) {
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
