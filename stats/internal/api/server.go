@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/jira"
 	"github.com/tweety53/agents/stats/internal/selfreview"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -300,6 +301,20 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	suh := &suiteHandler{store: rs, logger: logger}
 	sph := &specHandler{store: rs, logger: logger}
 	seth := &settingsHandler{store: sets, logger: logger}
+	// The Jira transition endpoint exists whenever the daemon has the
+	// FLOWD_JIRA_* block; without it the handler is built with a nil
+	// transitioner and answers 503 per request, keeping "no Jira access"
+	// a normal daemon state rather than a startup failure (see
+	// jiraHandler's doc comment).
+	var jiraTransitions JiraTransitioner
+	if cfg.Jira.Configured() {
+		jiraTransitions = jira.New(jira.Config{
+			Site:     cfg.Jira.Site,
+			Email:    cfg.Jira.Email,
+			APIToken: cfg.Jira.APIToken,
+		}, nil)
+	}
+	jh := &jiraHandler{transitions: jiraTransitions, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/changes", h.list)
 	mux.HandleFunc("GET /api/v1/changes/find", h.find)
@@ -342,6 +357,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/mutations", rh.recordMutation)
 	mux.HandleFunc("GET /api/v1/settings", seth.get)
 	mux.HandleFunc("PUT /api/v1/settings", seth.put)
+	mux.HandleFunc("POST /api/v1/jira/transition", jh.transition)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("no such API route: %s %s", r.Method, r.URL.Path))
 	})
