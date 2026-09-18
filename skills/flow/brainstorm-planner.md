@@ -54,6 +54,15 @@ gather. A question the note leaves open is still asked, batched as above, and th
 convergence-and-approval confirm below runs as written — approval is never seeded. kan-468's run
 converged its plan this way; this paragraph preserves the path.
 
+**The note is the research, never the plan's form.** The seeded plan is still written through C
+and D like any other, and what the note abbreviates the plan spells out: every `**Files:**` field
+carries full repo-relative paths — the note's shorthand (`commonMain/…` and its like) is expanded,
+never copied, because `check-task-commit-fields.sh` matches a declared path against the commit's
+diff literally — and `tasks.md`'s H1 stays the exact `# <change-id>` literal `spectre validate`
+requires, never a title the note supplies. kan-485's run corrected every `Files:` field by hand
+before task 1's guard ran clean, and kan-468's fixed the seeded H1 at load-context; this
+requirement is both corrections, applied where the note is consumed.
+
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
 
