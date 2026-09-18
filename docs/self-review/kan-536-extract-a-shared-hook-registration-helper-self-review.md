@@ -7,12 +7,12 @@
 
 - **[flow-fix]** one `flow record pass` call dropped `-change` and briefly masked a guard run; the CLI should refuse a pass record with no change association instead of recording one — filed: KAN-590
 - **[flow-fix]** panel F1 (deferred as pre-existing, reproducer available): the protect-main-checkout pins assert a warning about a hook `make_fixture_repo` never installs, so the pin passes without its precondition ever being real; the fixture should install the hook or the pin should be conditional — filed: KAN-591
-- **[flow-fix]** the bundled panel reply again omitted the MODEL HANDSHAKE line and the run again recorded the breach rather than re-dispatching; filed from the kan-533 pass — declined (duplicate of KAN-582)
+- **[flow-fix]** the bundled panel reply again omitted the MODEL HANDSHAKE line and the run again recorded the breach rather than re-dispatching; duplicate of KAN-582 from the kan-533 pass — declined
 - **[flow-fix]** `check-plan-shape.sh` rejected the plan's indented field lines until they moved to column 0; the guard held and the author corrected, so no change filed — declined
 
 ## Token/time cost, and what would reduce it without quality loss — `flow-cost`
 
-- **[flow-cost]** the bundled primary+principles review dispatch ran about 24 minutes; the scoped-entry-context reducer is already filed from the kan-512 pass — declined (duplicate of KAN-521)
+- **[flow-cost]** the bundled primary+principles review dispatch ran about 24 minutes; duplicate of KAN-521 from the kan-512 pass — declined
 
 ## What went well, and how to reproduce it — `flow-improvement`
 
