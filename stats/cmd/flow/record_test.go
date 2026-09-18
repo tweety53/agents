@@ -3314,7 +3314,11 @@ func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
 			if !strings.Contains(stderr.String(), "-change is required") {
 				t.Errorf("stderr does not name the missing flag:\n%s", stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			// The refused call names no change, so a write that somehow
+			// fell through to the never-block path would journal under the
+			// empty change -- assert that file's absence, not a named
+			// change's, or the assertion guards nothing.
+			if _, exists := recordJournalEntries(t, repo, ""); exists {
 				t.Errorf("a record with no -change left a journal behind")
 			}
 		})
