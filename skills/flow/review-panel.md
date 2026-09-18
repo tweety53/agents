@@ -545,7 +545,7 @@ a test. A mutation no test catches is a
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless the
 operator withdraws it with a reason. A surviving mutant's reproducer carries the exact line
 `# mutation-reproducer` within its first 10 lines — the declaration
-`scripts/run-reproducer.sh` reads as the mutation convention (KAN-568), since the build succeeding
+`run-reproducer.sh` reads as the mutation convention (KAN-568), since the build succeeding
 with the mutation landed is the bug present, the reverse of the generic exit-code contract.
 
 ### The throwaway worktree
