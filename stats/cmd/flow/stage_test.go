@@ -1147,3 +1147,20 @@ func TestStageKeysSubcommandPrintsServedKeys(t *testing.T) {
 		t.Errorf("stdout = %q, want the served keys one per line %q", stdout.String(), want)
 	}
 }
+
+// TestStageKeysTakesNoPositionalArguments pins the exit-2 contract the
+// sibling `flow state list` holds: an unexpected positional argument is a
+// usage error reported on stderr, never silently ignored input.
+func TestStageKeysTakesNoPositionalArguments(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "keys", "unexpected-arg"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (usage error)", code)
+	}
+	if stderr.Len() == 0 {
+		t.Errorf("stderr empty, want the usage error named")
+	}
+}
