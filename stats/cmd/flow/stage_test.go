@@ -1160,7 +1160,10 @@ func TestStageKeysTakesNoPositionalArguments(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
 	}
-	if stderr.Len() == 0 {
-		t.Errorf("stderr empty, want the usage error named")
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty on a usage error", stdout.String())
+	}
+	if want := "flow: stage keys takes no positional arguments"; !strings.Contains(stderr.String(), want) {
+		t.Errorf("stderr = %q, want it to carry %q", stderr.String(), want)
 	}
 }
