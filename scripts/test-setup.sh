@@ -336,6 +336,11 @@ make_fixture_repo() {
   # real one is, because install_hooks/install_hooks_zcode report on its registration by
   # looking for that name in settings.json / config.json.
   printf '#!/usr/bin/env python3\n"""fixture hook"""\n' >"$d/hooks/flow-active-change.py"
+  # The main-checkout protection hook. Named as the real one is, because install_hooks
+  # reports on its registration by looking for that name in settings.json — the pins in
+  # the "Core excerpts" group assert that warning, so the fixture has to install the hook
+  # the warning names for their precondition to be real.
+  printf '#!/usr/bin/env python3\n"""fixture hook"""\n' >"$d/hooks/protect-main-checkout.py"
 
   if [[ -n "$bad" ]]; then
     # An always-on rule whose BODY carries a bare begin delimiter. Inlining it would put a
@@ -641,6 +646,8 @@ assert_contains "an unregistered hook is reported, not assumed" "$RUN_LOG" "NOT 
 assert_exists "the flow-active-change hook is installed" "$home/.claude/hooks/flow-active-change.py"
 assert_contains "an unregistered flow-active-change hook is reported" "$RUN_LOG" \
   "flow-active-change hook is installed but NOT registered"
+
+assert_exists "the protect-main-checkout hook is installed" "$home/.claude/hooks/protect-main-checkout.py"
 
 # Every hook's warning and every printed registration snippet the installers emit is
 # pinned output: the shared registration-warning helper must keep each line byte-identical.
