@@ -63,7 +63,7 @@ targets = sorted(
     p
     for pat in ("*.sh", "*.py", "lib/*.sh", "lib/*.py")
     for p in root.glob(pat)
-    if p.name != "test-git-config-pins.sh" and not p.name.startswith("test-")
+    if not p.name.startswith("test-")
 )
 
 OPTION_WITH_VALUE = {"-C", "--git-dir", "--work-tree", "-c"}
@@ -103,10 +103,10 @@ def classify(location, sub, joined, hits):
     elif sub == "apply":
         if "--numstat" in tokens:
             return
-        if not any(t.startswith("--whitespace=") for t in tokens):
+        if "--whitespace=nowarn" not in tokens:
             hits.append(
                 f"{location}: R2 — this apply's success or content depends on "
-                "whitespace config; pin --whitespace= explicitly"
+                "whitespace config; pin --whitespace=nowarn explicitly"
             )
     elif sub == "status" and any(t.startswith("--porcelain") for t in tokens):
         if not any(t.startswith("--untracked-files=") for t in tokens):
@@ -128,7 +128,9 @@ def scan_shell(path, hits):
             continue
         if re.match(r"\s*g\(\)\s*\{", line):
             uses_wrapper = True
-        for m in re.finditer(r"(?<![\w.$/-])git\b", line):
+        for m in re.finditer(
+            r'(?<![\w.$/-])(?:git\b|"\$GIT_BIN"|\$\{GIT_BIN\}|\$GIT_BIN)', line
+        ):
             tail = line[m.end():]
             sub = subcommand(tail.split())
             if sub:
