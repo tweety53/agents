@@ -259,6 +259,43 @@ else
   pass "no_declaration: a declaration-free installer is refused"
 fi
 
+# commented_declaration (F2/F5, round 0): a commented-out stale declaration
+# must not serve — the match is anchored at line start, so this refuses,
+# never parses the comment.
+new_setup
+printf '# local managed_files=("$home_dir/.claude/CLAUDE.md")\n' >"$SETUP"
+set +e
+OUT="$(CHECK_INSTALLED_RULES_HOME="$HOME_DIR" CHECK_INSTALLED_RULES_SETUP_SH="$SETUP" "$GUARD" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  fail "commented_declaration: a commented-out declaration served"
+elif ! printf '%s' "$OUT" | grep -qF "no 'local managed_files=(' declaration"; then
+  fail "commented_declaration: wrong refusal message; got: $OUT"
+else
+  pass "commented_declaration: a commented-out declaration is not parsed"
+fi
+
+# multiline_declaration (F1/F4, round 0): a declaration whose closing paren
+# sits on a later line would be silently truncated to its first line — the
+# guard refuses instead of serving a subset.
+new_setup
+cat >"$SETUP" <<'EOF'
+  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md"
+    "$home_dir/.zcode/AGENTS.md")
+EOF
+set +e
+OUT="$(CHECK_INSTALLED_RULES_HOME="$HOME_DIR" CHECK_INSTALLED_RULES_SETUP_SH="$SETUP" "$GUARD" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  fail "multiline_declaration: a multi-line declaration served a truncated set"
+elif ! printf '%s' "$OUT" | grep -qF "does not close on its own line"; then
+  fail "multiline_declaration: wrong refusal message; got: $OUT"
+else
+  pass "multiline_declaration: a multi-line declaration is refused, never truncated"
+fi
+
 # empty_declaration: `managed_files=()` refuses too — scanning nothing must
 # not read as clean.
 new_setup

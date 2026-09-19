@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # check-self-review-report.sh — every report under docs/self-review/ carries
-# all five self-review angles, each section carrying either a finding line
+# every self-review angle the canonical table serves, each section carrying
+# either a finding line
 # or the none-marker, each finding line parseable with its label matching
 # its section and a filed finding naming an issue key.
 #
@@ -11,7 +12,8 @@
 # an explicit directory instead (the companion test harness does, against
 # mktemp fixtures).
 #
-# WHAT THIS CATCHES. KAN-200's own report shape — five `##` sections, one
+# WHAT THIS CATCHES. KAN-200's own report shape — one `##` section per
+# angle, one
 # parseable line per finding, an explicit none-marker for an empty angle —
 # was, before this guard, checked by nothing but a reviewer's prose reading.
 # An angle silently omitted from a report read exactly like an angle that
@@ -34,7 +36,7 @@
 # digits — e.g. `KAN-201`; anything else (empty, `yes`, a bare number, a
 # trailing hyphen) is a violation naming the malformed key.
 #
-# The five `##` sections appear in the order the angle table below states,
+# The `##` sections appear in the order the canonical table states,
 # each exactly once — an out-of-order or duplicate section is a named
 # violation. A heading at ANY level (`#`, `###`, …) ends the current
 # section, not only `##`. A finding-shaped line appearing before any
@@ -91,7 +93,7 @@
 # bash and every line is classified at the point it is read — so the first
 # and third disciplines have no call site on the report path, exactly as
 # scripts/lib/coverage.sh's own header states for the same reason. The one
-# awk in this file is the canonical-table parse above, which reads a
+# awk in this file is the canonical-table parse below, which reads a
 # generated-shaped Markdown table, not untrusted report prose. The posture
 # behind them still
 # applies: `find`'s enumeration and each report file's own read are the two

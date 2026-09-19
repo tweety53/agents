@@ -202,11 +202,24 @@ if [ ! -r "$SETUP_SH" ]; then
   echo "check-installed-rules: $SETUP_SH is unreadable — cannot resolve the managed-block targets" >&2
   exit 1
 fi
-MANAGED_DECL="$(grep -m1 'local managed_files=(' "$SETUP_SH")"
+# Anchored at line start (optional leading whitespace only): a commented-out
+# stale declaration must never serve (F2/F5, round 0). The trailing-`)` check
+# refuses a declaration this one-line parse cannot fully see — a multi-line
+# declaration would otherwise be silently truncated to its first line, the
+# guard scanning a subset and reporting green over an unscanned file's broken
+# block (F1/F4, round 0).
+MANAGED_DECL="$(grep -m1 '^[[:space:]]*local managed_files=(' "$SETUP_SH")"
 if [ -z "$MANAGED_DECL" ]; then
   echo "check-installed-rules: no 'local managed_files=(' declaration in $SETUP_SH — cannot resolve the managed-block targets" >&2
   exit 1
 fi
+case "$MANAGED_DECL" in
+  *')') ;;
+  *)
+    echo "check-installed-rules: the managed_files declaration in $SETUP_SH does not close on its own line — this guard parses a single-line declaration only, and a truncated set must be refused, never silently served" >&2
+    exit 1
+    ;;
+esac
 HARNESS_FILES=()
 for managed_element in ${MANAGED_DECL#*managed_files=(}; do
   managed_element="${managed_element%)}"
