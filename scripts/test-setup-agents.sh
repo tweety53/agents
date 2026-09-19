@@ -11,7 +11,11 @@
 # `model`, so the model axis needs no definition of its own while the effort
 # axis does. flow-review carries neither axis: the default-toggle panel
 # decides no effort, and its `tools:` allowlist must omit `Agent` — a
-# reviewer structurally cannot fork (KAN-495).
+# reviewer structurally cannot fork (KAN-495). The installer's captured
+# output goes to its own mktemp file, removed with the sandbox by the same
+# EXIT trap — never a fixed path under /tmp, which two concurrent runs of
+# this harness would race to overwrite (KAN-584: a harness case never
+# mutates a real shared file).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,11 +26,12 @@ pass() { echo "  PASS: $1"; }
 fail() { echo "  FAIL: $1"; FAILURES=$((FAILURES + 1)); }
 
 SANDBOX_HOME="$(mktemp -d)"
-trap 'rm -rf "$SANDBOX_HOME"' EXIT
+OUT_FILE="$(mktemp "${TMPDIR:-/tmp}/test-setup-agents.XXXXXX")"
+trap 'rm -rf "$SANDBOX_HOME" "$OUT_FILE"' EXIT
 
-HOME="$SANDBOX_HOME" "$REPO_DIR/setup.sh" global >/tmp/test-setup-agents.out 2>&1
+HOME="$SANDBOX_HOME" "$REPO_DIR/setup.sh" global >"$OUT_FILE" 2>&1
 RC=$?
-[ "$RC" -eq 0 ] || fail "setup.sh global exited $RC — see /tmp/test-setup-agents.out"
+[ "$RC" -eq 0 ] || fail "setup.sh global exited $RC — see $OUT_FILE"
 
 AGENTS_DIR="$SANDBOX_HOME/.claude/agents"
 
