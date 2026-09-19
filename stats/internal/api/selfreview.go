@@ -70,7 +70,7 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		rec = records.Run{Change: change}
 	}
 
-	bundle, err := selfreview.Bundle(change, rec, []string{repo}, h.git)
+	bundle, err := selfreview.Bundle(change, rec, "", false, []string{repo}, h.git)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

@@ -338,7 +338,13 @@ func trimmedOutput(b []byte, err error) string {
 // Bundle assembles the whole self-review context bundle for change as one
 // Markdown document: the header, the found/skipped summary line, one
 // `skipped: <label> (absent)` line per absent source, and one `## <label>`
-// section per found source. run renders the ledger and panel sources —
+// section per found source. summary and summaryFound carry the change's
+// recorded summary — the run's own handoff report, stored verbatim in the
+// store — which is the bundle's FIRST source when found: the change's own
+// statement of what it did and why is the central content a deferred
+// reasoning pass reads, and it must not sit behind the row renders it
+// explains. Absent, it reports skipped like any other missing source.
+// run renders the ledger and panel sources —
 // each present only when the run holds rows of its kind, so a change the
 // store has never heard of reports both skipped rather than rendering
 // empty records nobody wrote; a skipped one falls back to the copies run 2
@@ -359,7 +365,7 @@ func trimmedOutput(b []byte, err error) string {
 // absence. An invalid change name is the one error: the same allowlist
 // records.Destination enforces, checked before the name builds a label or
 // a ref.
-func Bundle(change string, run records.Run, repos []string, g Runner) (string, error) {
+func Bundle(change string, run records.Run, summary string, summaryFound bool, repos []string, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
 	}
@@ -374,6 +380,14 @@ func Bundle(change string, run records.Run, repos []string, g Runner) (string, e
 	add := func(label, content string, found bool) {
 		sources = append(sources, source{label: label, content: content, found: found})
 	}
+
+	// The recorded summary comes first, ahead of every row render and
+	// archive probe: it is the change's own statement of what it did and
+	// why, and the source a deferred reasoning pass reads before any of
+	// the evidence below it. The content is served verbatim -- the run
+	// wrote Markdown and the store keeps it byte for byte -- never
+	// reflowed or re-derived from rows.
+	add("change summary", summary, summaryFound)
 
 	// The archive-derived sources all come from one repository: the first
 	// supplied one carrying the change's archived directory. Resolved here,

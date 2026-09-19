@@ -50,7 +50,7 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 		},
 	}
 
-	bundle, err := Bundle("demo", run, []string{"/repo"}, g)
+	bundle, err := Bundle("demo", run, "", false, []string{"/repo"}, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -88,14 +88,14 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, nil, g)
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, nil, g)
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
 
 	// A change the store has never heard of renders nothing: the ledger
 	// needs dispatch rows and the panel needs any row at all.
-	if !strings.Contains(bundle, "found: 0 of 6 sources; skipped: 6 of 6 sources") {
+	if !strings.Contains(bundle, "found: 0 of 7 sources; skipped: 7 of 7 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "## .superpowers/sdd/ledgers/demo.md") {
@@ -119,7 +119,7 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 func TestBundleAssemblyNotesUnreadableRepo(t *testing.T) {
 	bogus := filepath.Join(t.TempDir(), "not-a-repo")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{bogus}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{bogus}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestUnreadableRepoProbeIsGitDir(t *testing.T) {
 		},
 	}
 
-	if _, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, g); err != nil {
+	if _, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{repo}, g); err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
 
@@ -166,7 +166,7 @@ func TestBundleAssemblyReadsArchivedFilesThroughGit(t *testing.T) {
 		"narrative.md": "# demo narrative\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{repo}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 		"chore(spectre): plan and session records")
 	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{repo}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
 	runGit(t, repo, "checkout", "main")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{repo}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	}
 	// One found source — the git log; every other source a flow-fast run
 	// has no archive to read and no store rows to render.
-	if !strings.Contains(bundle, "found: 1 of 6 sources; skipped: 5 of 6 sources") {
+	if !strings.Contains(bundle, "found: 1 of 7 sources; skipped: 6 of 7 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 }
@@ -258,7 +258,7 @@ func TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing(t *testing.T) {
 	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
 	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{repo}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
 		"panel.md":  "# Review panel — demo\n",
 	})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{repo}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
 		"# Review panel — demo",
 		// tasks.md and the archive commit's git log resolve besides the two
 		// fallback sections; design.md and narrative.md stay skipped.
-		"found: 4 of 6 sources",
+		"found: 4 of 7 sources",
 		"skipped: spectre/changes/archive/demo/design.md (absent)",
 		"skipped: spectre/changes/archive/demo/narrative.md (absent)",
 	} {
@@ -331,7 +331,7 @@ func TestBundleAssemblyPrefersStoreRenderOverCommittedRecord(t *testing.T) {
 		}},
 	}
 
-	bundle, err := Bundle("demo", run, []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", run, "", false, []string{repo}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -357,7 +357,7 @@ func TestBundleAssemblySkipsCommittedRecordsWhenAbsent(t *testing.T) {
 	repo := gitRepo(t)
 	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, []string{repo}, ExecRunner{})
 	if err != nil {
 		t.Fatalf("Bundle: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 
 func TestBundleRefusesInvalidName(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
-	if _, err := Bundle("../escape", records.Run{}, nil, g); err == nil {
+	if _, err := Bundle("../escape", records.Run{}, "", false, nil, g); err == nil {
 		t.Fatal("an invalid change name must be refused, not assembled")
 	}
 }
@@ -565,5 +565,60 @@ func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 		// extends calls whose killed git left pipes held, and sleep does
 		// not.
 		t.Fatal("Output ignored the injected bound — still blocked 5s in")
+	}
+}
+
+// TestBundleServesRecordedSummaryFirst asserts the recorded change summary
+// is the bundle's first source: the change's own statement of what it did
+// and why is the central content a deferred reasoning pass reads, served
+// verbatim from the store, ahead of the ledger and every archive-derived
+// source, and counted in the found line.
+func TestBundleServesRecordedSummaryFirst(t *testing.T) {
+	run := records.Run{Change: "demo"}
+	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
+
+	bundle, err := Bundle("demo", run, "# Change summary\n\nwhat changed and why", true, nil, g)
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	summaryAt := strings.Index(bundle, "## change summary")
+	ledgerAt := strings.Index(bundle, "## .superpowers/sdd/ledgers/demo.md")
+	if summaryAt == -1 {
+		t.Fatalf("bundle carries no change summary section:\n%s", bundle)
+	}
+	if ledgerAt != -1 && ledgerAt < summaryAt {
+		t.Errorf("ledger section precedes the change summary:\n%s", bundle)
+	}
+	for _, want := range []string{
+		"## change summary",
+		"what changed and why",
+		"found: 1 of 7 sources",
+	} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
+	}
+}
+
+// TestBundleSkipsAbsentSummary asserts the missing-source shape: a change
+// with no recorded summary reports it skipped like any other absent
+// source, in the same words, and the found line counts the seven sources.
+func TestBundleSkipsAbsentSummary(t *testing.T) {
+	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, nil, g)
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	if !strings.Contains(bundle, "found: 0 of 7 sources; skipped: 7 of 7 sources") {
+		t.Errorf("summary line wrong:\n%s", bundle)
+	}
+	if !strings.Contains(bundle, "skipped: change summary (absent)") {
+		t.Errorf("absent summary not reported skipped:\n%s", bundle)
+	}
+	if strings.Contains(bundle, "## change summary") {
+		t.Errorf("no summary recorded, yet a section rendered:\n%s", bundle)
 	}
 }
