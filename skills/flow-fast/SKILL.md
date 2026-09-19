@@ -258,11 +258,12 @@ self-review.** With `## self review` `defer` (**Project configuration**,
 Every other body — `run`, `skip`, absent, invalid — marks through with nothing written, since
 `/flow-fast` asks no review question and runs no pass. Write
 `<project>/docs/self-review/<name>-context.md`, physically under `<worktree>`, as, in order: the stdout of `flow self-review
-bundle -change <name>` run from the worktree (the store's ledger and, when a panel ran, its
-record; every archive-derived source reports `skipped` — a `/flow-fast` change has no archive
-branch and no planning commit), then `## Branch log` — the output of `git -C <worktree> log
---stat origin/<default-branch>..<name>`, the implementation commits the bundle's own git-log
-source cannot resolve — then `## Session narrative`, one paragraph this session writes on what it
+bundle -change <name>` run from the worktree — of the six sources run 2 step 9 judges a change
+by, a `/flow-fast` run can never have tasks.md, design.md and narrative.md (no spectre
+artifacts and no archive branch), so those three report `skipped` by design, never silently;
+the git-log source resolves from the main checkout the command resolves, as the change branch's
+commits; the ledger and panel render from the store when the run wrote rows — then
+`## Session narrative`, one paragraph this session writes on what it
 did and where it struggled. A re-run replaces the file. Commit and push it through the landing
 chain, asserting the change branch:
 
