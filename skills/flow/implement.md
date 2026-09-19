@@ -576,6 +576,16 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > capture its failure, then restore and capture the pass. Report both runs. "The pattern is now
 > stricter" is intent, not evidence — the failing run against the broken state is the evidence.
 
+> **PIN BEFORE REFACTOR:** A task that refactors code whose observable behaviour includes
+> produced output — a guard's warnings, a CLI's printed lines, an emitted file — pins that
+> output before any code moves: its RED step first writes harness cases asserting the current
+> outputs exactly as produced today, including the ones nothing asserted yet, and only then
+> refactors. The refactor lands with two proofs, both recorded before the change closes: the
+> pinned suite passing, and one end-to-end old-vs-new comparison that runs the whole producer
+> against the same fixture on both sides of the refactor and diffs the outputs byte-for-byte.
+> The suite proves only what it asserts; the old-vs-new diff is the proof for every output it
+> never named.
+
 > **REQUIRED READING:** the engineering principles section of the context bundle below — your
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them.
