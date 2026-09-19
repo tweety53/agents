@@ -51,10 +51,13 @@
 # re-reads it. A NET change fails the runner with exit 1, naming the paths
 # present after the suite and absent before — a harness case that mutates a
 # real shared file is a suite-contract violation, the same code a failing
-# harness gets, so "the whole guard suite ran and nothing touched the live
-# tree" is a property every green run just proved. Edits made and restored
-# inside the run net to zero and are not caught; the gate's contract is the
-# tree the suite leaves behind, not a filesystem watch.
+# harness gets. The gate compares STATUS LINES, not content, so its green
+# is narrower than "nothing touched the tree": edits made and restored
+# inside the run net to zero, and mutating an already-modified or
+# already-untracked file in place nets the same porcelain line it had
+# before — neither is caught. The gate's contract is structural change to
+# the tree the suite leaves behind, not a filesystem watch or a content
+# hash.
 #
 # Bash 3.2 is the floor: indexed arrays only, no associative arrays, no
 # `wait -n`. scripts/lib/parallel.sh installs its own process-wide
@@ -83,9 +86,19 @@ else
   WATCHED="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || printf '')"
 fi
 
-if [ -n "$WATCHED" ] && ! git -C "$WATCHED" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  printf 'run-guard-tests: %s is not a git work tree — skipping the tree gate\n' "$WATCHED" >&2
-  WATCHED=""
+# The validation reads rev-parse's VERDICT, never its exit code alone:
+# inside a bare repository `--is-inside-work-tree` exits 0 and prints
+# `false`, and treating that as a pass let the before-snapshot's
+# `git status` die under `set -e` — an undocumented exit 128 and a leaked
+# TIME_DIR (kan-584's panel, F1/P1) where the documented skip was owed.
+if [ -n "$WATCHED" ]; then
+  case "$(git -C "$WATCHED" rev-parse --is-inside-work-tree 2>/dev/null || printf '')" in
+    true) ;;
+    *)
+      printf 'run-guard-tests: %s is not a git work tree — skipping the tree gate\n' "$WATCHED" >&2
+      WATCHED=""
+      ;;
+  esac
 fi
 
 if [ ! -d "$TEST_ROOT" ]; then
@@ -133,7 +146,12 @@ fi
 TIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-time.XXXXXX")"
 
 if [ -n "$WATCHED" ]; then
-  git -C "$WATCHED" status --porcelain > "$TIME_DIR/before.status"
+  if git -C "$WATCHED" status --porcelain > "$TIME_DIR/before.status" 2>/dev/null; then
+    :
+  else
+    printf 'run-guard-tests: cannot read the status of %s — skipping the tree gate\n' "$WATCHED" >&2
+    WATCHED=""
+  fi
 fi
 
 SECONDS=0
@@ -188,9 +206,12 @@ printf '\n%s harnesses, %s passed, %s failed, %ss wall\n' "$TOTAL" "$PASSED" "$F
 
 DIRTY=0
 if [ -n "$WATCHED" ]; then
-  git -C "$WATCHED" status --porcelain > "$TIME_DIR/after.status"
-  if ! cmp -s "$TIME_DIR/before.status" "$TIME_DIR/after.status"; then
-    DIRTY=1
+  if git -C "$WATCHED" status --porcelain > "$TIME_DIR/after.status" 2>/dev/null; then
+    if ! cmp -s "$TIME_DIR/before.status" "$TIME_DIR/after.status"; then
+      DIRTY=1
+    fi
+  else
+    printf 'run-guard-tests: cannot re-read the status of %s — the tree gate is skipped\n' "$WATCHED" >&2
   fi
 fi
 

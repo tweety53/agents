@@ -444,6 +444,29 @@ else
 fi
 rm -rf "$FIXTURE"
 
+# 7e. A BARE watched repository skips the gate with the same announced
+#     line — `rev-parse --is-inside-work-tree` exits 0 printing `false`
+#     there, so validation must read the verdict, never the exit code
+#     alone (kan-584's panel, F1/P1: treating exit 0 as a pass crashed the
+#     runner's snapshot under set -e).
+new_dirty_fixtures
+rm -rf "$WATCHED"
+git init -q --bare "$WATCHED"
+set +e
+OUT="$(RUN_GUARD_TESTS_ROOT="$FIXTURE" GUARD_TESTS_REPO_ROOT="$WATCHED" bash "$RUNNER" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  pass "case 7e: a bare watched repository skips the gate and exits 0"
+else
+  fail "case 7e: expected exit 0, got $RC — out=$OUT"
+fi
+case "$OUT" in
+  *skipping\ the\ tree\ gate*) pass "case 7e: the bare-repo skip is announced" ;;
+  *) fail "case 7e: no skip line for the bare watched repository — out=$OUT" ;;
+esac
+rm -rf "$FIXTURE" "$WATCHED"
+
 # MUTATION PROOF for case 7: both 7a's fail and 7b's pass were hand-checked
 # against a scratch copy of run-guard-tests.sh with the post-suite snapshot
 # deleted (the gate reading "clean" unconditionally) — 7a then passed where
