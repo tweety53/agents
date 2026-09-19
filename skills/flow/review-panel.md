@@ -1002,6 +1002,15 @@ fix-mutations-total: <n>
 **The rendered record carries these lines in its pass-log section, one round's count after that
 round's lines, and never inside the marker block.**
 
+**A fix to a guard script is proved by the guard's own observable, measured on both sides of the
+fix.** A guard script is a check that exists to fail on a defect class — this project's
+`scripts/check-*` family, or wherever its `## lint` section names its guards. The mutation probe
+is the guard run itself against the defect state: on the pre-fix code the guard reports the
+defect — the probe fails — and on the post-fix code it does not — the probe passes. The
+`fix-mutation:` line for that behaviour carries the measured pre/post observable as its third
+field, `<pre>→<post> <what the observable counts>` in the shape kan-534's census recorded
+(`2→0 orphaned temp lists`), never a bare test name (KAN-587).
+
 **No line anywhere in the panel record may carry the literal label `finding-status:`,
 `findings-total:`, or `finding-reproducer:` outside its own marker use.** Write around it: paraphrase
 the label, or break it with a non-word character.
@@ -1148,7 +1157,11 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > mutate is your judgment, not the script's. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
 > mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
-> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> your turn ends. Where your fix changed a guard script — a check that exists to fail on a defect
+> class — the mechanism to mutate is the fix itself: run the guard against the defect state with
+> the fix reverted, where it must report the defect, and with the fix applied, where it must not;
+> the line records the measured pre/post observable, not a bare test name. Record one
+> `fix-mutation:` line per behaviour in your report, plus a
 > `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where
 > you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
 > than deciding it yourself.
