@@ -276,6 +276,9 @@ Immediately before the block above is printed, the run prints a summary of what 
 did, then one line naming the state of any local dev stack it started or left running. The summary
 covers:
 
+- **what this changes for a user of the app, and why** — the feature or fix in product terms
+  (what was added, changed, fixed or removed, and the purpose stated in the plan's own `## Why`),
+  never only the mechanics of the run. A reader who never opens the diff still learns what shipped.
 - findings fixed, and findings deferred or withdrawn;
 - commits made — repo and a one-line description each;
 - any decision recorded along the way — an automatic rebase onto a moved base, a diff-size cap
