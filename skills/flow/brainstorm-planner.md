@@ -14,6 +14,19 @@ approval.
 
 ### The checklist
 
+**A run on a filed fix/cost finding verifies the defect still exists before planning.** When the
+linked issue's labels carry `flow-fix` or `flow-cost` — the earlier `myflow-` spellings matched
+too, per step 9 of **Run 2 — the branch is merged**
+(`skills/flow-contracts/finish-contract-run2.md`) — the checklist opens, before any design
+question, with a reachability check against the resolved base (the base the `flow.kickoff`
+worktree was created from): state the finding's defect as a claim the tree can answer, then run
+the cheapest thing that answers it — the guard the finding names, the contract section it says is
+missing, the behaviour it reports. A finding the base already delivers — the guard passes, the
+line is already there — ends the run: report the evidence, the command run or the line quoted,
+and stop before convergence; nothing is planned, and the issue is the operator's to close. A
+finding that still reproduces plans as normal, its evidence carried into proposal.md's `## Why`
+when **C** writes it.
+
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
