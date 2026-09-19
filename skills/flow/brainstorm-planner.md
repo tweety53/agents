@@ -414,7 +414,7 @@ recorded as such:
    fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
    findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is any `ValidModels`
    member **no `panel.dispatches` entry uses** — a re-review by the model that raised the finding
-   is not a second pair of eyes — and its `effort` is `low`, fixed, since a re-run reads a delta
+   is not a second pair of eyes — **and never `fable`** — and its `effort` is `low`, fixed, since a re-run reads a delta
    to confirm a fix and must be short and fast; its `reason` names the model choice only. Default: today's settings-store roster on
    `DEFAULT_MODEL` and `default` effort for every dispatch, delta rerun, grouped by the static
    table deterministically (no roll), recorded `default`.
