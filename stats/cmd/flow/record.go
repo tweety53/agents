@@ -42,9 +42,13 @@ import (
 // the never-block fallback path would journal a write that a replay could
 // only ever be refused for a second time.
 //
-// Unlike a stage key, a role has no documented table elsewhere to
-// transcribe -- design.md's schema comment is the whole of it -- so the
-// list lives here rather than behind a package of its own.
+// The set is served, the way a stage key is: `flow record roles` prints it
+// one role per line, and TestSkillDocRolesAreAllServed pins the `-role`
+// call sites the skills document to it, so the vocabulary a run authors
+// dispatch calls from cannot drift from the set enforced here (KAN-595).
+// It still lives here rather than behind a package of its own: this
+// comment, the usage text's -role line and the served printing are one
+// place, and the store's rows are the only other copy.
 var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier"}
 
 // recordEfforts is the closed set `-effort` accepts: the three efforts the

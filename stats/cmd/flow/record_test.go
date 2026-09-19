@@ -5,12 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -3122,6 +3126,54 @@ func TestRunRecordRolesRejectsPositionalArgument(t *testing.T) {
 		t.Errorf("stderr = %q, want it to carry %q", stderr.String(), want)
 	}
 }
+
+// TestSkillDocRolesAreAllServed pins the skills' documented `-role` call
+// sites to the served set, one direction deliberately: every role literal a
+// run can copy out of skills/ must be one `flow record dispatch` accepts,
+// so the documentation a run authors its dispatch calls from can never name
+// a role the CLI refuses (KAN-595's trial-and-error cycle). The reverse
+// holds nowhere in the tree: planner, conductor and red-partner are
+// accepted but have no `-role <literal>` call site in living docs -- the
+// recordRoles comment is their documentation. `*-rationale.md` files are
+// excluded because no run ever loads them (skills/flow-contracts/SKILL.md),
+// so a rationale's prose is not vocabulary a caller can act on.
+func TestSkillDocRolesAreAllServed(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "skills")
+	var hits []string
+	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".md") || strings.HasSuffix(path, "-rationale.md") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			for _, m := range roleLiteralRe.FindAllStringSubmatch(line, -1) {
+				if !slices.Contains(recordRoles, m[1]) {
+					hits = append(hits, fmt.Sprintf("%s:%d: -role %s is not a served dispatch role", path, i+1, m[1]))
+				}
+			}
+		}
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("scanning %s: %v", root, walkErr)
+	}
+	for _, hit := range hits {
+		t.Error(hit)
+	}
+}
+
+// roleLiteralRe matches a literal `-role <word>` token: "-role", one space,
+// then the lowercase words that would follow it in a dispatch call. The
+// prefix class is what keeps prose hyphenations from matching -- "one-role
+// alike" and "one-role dispatch" carry a letter glued to the hyphen, and a
+// flag token never does.
+var roleLiteralRe = regexp.MustCompile(`(?:^|[^A-Za-z])-role ([a-z][a-z-]*)`)
 
 // TestRunRecordDispatchBeginRejectsUnknownEffort pins that -effort is
 // checked against the four accepted words before the store is ever
