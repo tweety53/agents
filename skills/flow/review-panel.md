@@ -123,7 +123,7 @@ of this stage's own reporting.
 (`skills/flow-contracts/operator-prompts.md`):
 
 > **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
-> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> absent when the `test -f` on the rebuild's output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note 'context bundle: build
 > failed — <the script's stderr>'`, then ask the operator once:
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —

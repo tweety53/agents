@@ -731,7 +731,7 @@ FINDINGS_INPUT_BLOCK_NO_SILENT='> **FINDINGS ARE INPUT:** a finding names a defe
 # The CONTEXT BUNDLE FAILURE paragraph, reproduced verbatim from
 # skills/flow/review-panel.md's panel pre-flight (KAN-593).
 CONTEXT_BUNDLE_FAILURE_BLOCK='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
-> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
 > failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
@@ -745,7 +745,7 @@ CONTEXT_BUNDLE_FAILURE_BLOCK='> **CONTEXT BUNDLE FAILURE:** the gather above exi
 # Variants of CONTEXT_BUNDLE_FAILURE_BLOCK, each with exactly one required
 # phrase dropped while staying a plausible paragraph — cases 79-83.
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_NONZERO='> **CONTEXT BUNDLE FAILURE:** the gather above failed outright, or the bundle file is
-> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
 > failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
@@ -757,7 +757,7 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_NONZERO='> **CONTEXT BUNDLE FAILURE:** the gathe
 >   silent reduction of their context'
 
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_BUILD_FAILED='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
-> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: gather
 > error — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
@@ -769,7 +769,7 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_BUILD_FAILED='> **CONTEXT BUNDLE FAILURE:** the 
 >   silent reduction of their context'
 
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_DISPATCH='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
-> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
 > failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
@@ -781,7 +781,7 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_DISPATCH='> **CONTEXT BUNDLE FAILURE:** the gath
 >   silent reduction of their context'
 
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_OVERRIDE='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
-> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
 > failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
@@ -793,7 +793,7 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_OVERRIDE='> **CONTEXT BUNDLE FAILURE:** the gath
 >   silent reduction of their context'
 
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_STOPPED='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
-> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
 > failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
