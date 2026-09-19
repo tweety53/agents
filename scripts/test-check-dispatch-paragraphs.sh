@@ -161,6 +161,13 @@
 # review-panel.md; cases 74-77 are one case per required phrase, each
 # dropped in turn.
 #
+# Cases 78-83 cover KAN-593's CONTEXT BUNDLE FAILURE paragraph, required
+# once in review-panel.md (the panel pre-flight) and nowhere else: case 1's
+# own review-panel.md fixture and CLEAN_REVIEW_PANEL now carry one correct
+# CONTEXT_BUNDLE_FAILURE_BLOCK; case 78 is the label absent entirely from
+# review-panel.md; cases 79-83 are one case per required phrase, each
+# dropped in turn.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -721,6 +728,82 @@ FINDINGS_INPUT_BLOCK_NO_SILENT='> **FINDINGS ARE INPUT:** a finding names a defe
 > and how yours resolves the defect. An undeclared detour helps nobody, and so does a
 > literal compliance that leaves the defect standing.'
 
+# The CONTEXT BUNDLE FAILURE paragraph, reproduced verbatim from
+# skills/flow/review-panel.md's panel pre-flight (KAN-593).
+CONTEXT_BUNDLE_FAILURE_BLOCK='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
+> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
+> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
+>   closes `flow.review-panel` with `-outcome stopped`
+> - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
+>   -round <round> -note '"'"'context bundle: dispatched without it — operator override'"'"'`, every
+>   slot'"'"'s prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle'"'"'s absence in its
+>   place, so the reviewers'"'"' reading the plan and decision directly is on the record, never a
+>   silent reduction of their context'
+
+# Variants of CONTEXT_BUNDLE_FAILURE_BLOCK, each with exactly one required
+# phrase dropped while staying a plausible paragraph — cases 79-83.
+CONTEXT_BUNDLE_FAILURE_BLOCK_NO_NONZERO='> **CONTEXT BUNDLE FAILURE:** the gather above failed outright, or the bundle file is
+> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
+> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
+>   closes `flow.review-panel` with `-outcome stopped`
+> - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
+>   -round <round> -note '"'"'context bundle: dispatched without it — operator override'"'"'`, every
+>   slot'"'"'s prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle'"'"'s absence in its
+>   place, so the reviewers'"'"' reading the plan and decision directly is on the record, never a
+>   silent reduction of their context'
+
+CONTEXT_BUNDLE_FAILURE_BLOCK_NO_BUILD_FAILED='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
+> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: gather
+> error — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
+>   closes `flow.review-panel` with `-outcome stopped`
+> - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
+>   -round <round> -note '"'"'context bundle: dispatched without it — operator override'"'"'`, every
+>   slot'"'"'s prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle'"'"'s absence in its
+>   place, so the reviewers'"'"' reading the plan and decision directly is on the record, never a
+>   silent reduction of their context'
+
+CONTEXT_BUNDLE_FAILURE_BLOCK_NO_DISPATCH='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
+> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
+> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
+>   closes `flow.review-panel` with `-outcome stopped`
+> - **Continue — run the panel regardless** — recorded with `flow record pass
+>   -round <round> -note '"'"'context bundle: dispatched without it — operator override'"'"'`, every
+>   slot'"'"'s prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle'"'"'s absence in its
+>   place, so the reviewers'"'"' reading the plan and decision directly is on the record, never a
+>   silent reduction of their context'
+
+CONTEXT_BUNDLE_FAILURE_BLOCK_NO_OVERRIDE='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
+> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
+> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
+>   closes `flow.review-panel` with `-outcome stopped`
+> - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
+>   -round <round> -note '"'"'context bundle: skipped — operator said go'"'"'`, every
+>   slot'"'"'s prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle'"'"'s absence in its
+>   place, so the reviewers'"'"' reading the plan and decision directly is on the record, never a
+>   silent reduction of their context'
+
+CONTEXT_BUNDLE_FAILURE_BLOCK_NO_STOPPED='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
+> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
+> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
+>   closes `flow.review-panel` as stopped
+> - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
+>   -round <round> -note '"'"'context bundle: dispatched without it — operator override'"'"'`, every
+>   slot'"'"'s prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle'"'"'s absence in its
+>   place, so the reviewers'"'"' reading the plan and decision directly is on the record, never a
+>   silent reduction of their context'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -785,7 +868,9 @@ $DELEGATION_BLOCK
 
 $ENTRY_CONTEXT_BLOCK
 
-$FINDINGS_INPUT_BLOCK"
+$FINDINGS_INPUT_BLOCK
+
+$CONTEXT_BUNDLE_FAILURE_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -1689,7 +1774,9 @@ $DELEGATION_BLOCK
 
 $ENTRY_CONTEXT_BLOCK
 
-$FINDINGS_INPUT_BLOCK"
+$FINDINGS_INPUT_BLOCK
+
+$CONTEXT_BUNDLE_FAILURE_BLOCK"
 
 CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 
@@ -3126,6 +3213,131 @@ run_guard
 case "$OUT" in
   *"A silent deviation is an unfixed finding"*) pass "case 77: names the missing phrase" ;;
   *) fail "case 77: expected 'A silent deviation is an unfixed finding' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 78: the CONTEXT BUNDLE FAILURE label is absent entirely from
+# review-panel.md (KAN-593) — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$PIXEL_PROBE_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK
+
+$ENTRY_CONTEXT_BLOCK
+
+$FINDINGS_INPUT_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 78: exits 1" || fail "case 78: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"CONTEXT BUNDLE FAILURE"*) pass "case 78: names review-panel.md and the missing CONTEXT BUNDLE FAILURE block" ;;
+  *) fail "case 78: expected review-panel.md and CONTEXT BUNDLE FAILURE named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 79: a CONTEXT BUNDLE FAILURE block is present but missing "exited
+# non-zero, or the bundle file is still" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$CONTEXT_BUNDLE_FAILURE_BLOCK_NO_NONZERO"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 79: exits 1" || fail "case 79: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"exited non-zero, or the bundle file is still"*) pass "case 79: names the missing phrase" ;;
+  *) fail "case 79: expected 'exited non-zero, or the bundle file is still' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 80: a CONTEXT BUNDLE FAILURE block is present but missing "context
+# bundle: build failed" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$CONTEXT_BUNDLE_FAILURE_BLOCK_NO_BUILD_FAILED"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 80: exits 1" || fail "case 80: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"context bundle: build failed"*) pass "case 80: names the missing phrase" ;;
+  *) fail "case 80: expected 'context bundle: build failed' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 81: a CONTEXT BUNDLE FAILURE block is present but missing "dispatch
+# every slot without the bundle" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$CONTEXT_BUNDLE_FAILURE_BLOCK_NO_DISPATCH"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 81: exits 1" || fail "case 81: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"dispatch every slot without the bundle"*) pass "case 81: names the missing phrase" ;;
+  *) fail "case 81: expected 'dispatch every slot without the bundle' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 82: a CONTEXT BUNDLE FAILURE block is present but missing "context
+# bundle: dispatched without it — operator override" — exit 1, names the
+# phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$CONTEXT_BUNDLE_FAILURE_BLOCK_NO_OVERRIDE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 82: exits 1" || fail "case 82: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"context bundle: dispatched without it — operator override"*) pass "case 82: names the missing phrase" ;;
+  *) fail "case 82: expected 'context bundle: dispatched without it — operator override' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 83: a CONTEXT BUNDLE FAILURE block is present but missing "outcome
+# stopped" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL
+
+$CONTEXT_BUNDLE_FAILURE_BLOCK_NO_STOPPED"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 83: exits 1" || fail "case 83: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"outcome stopped"*) pass "case 83: names the missing phrase" ;;
+  *) fail "case 83: expected 'outcome stopped' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then
