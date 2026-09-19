@@ -854,6 +854,18 @@ once that round closes clean. **Rerun policy `delta`** — `small` and `regular`
 `REVIEW_PANEL_TOGGLE` `default` — is the section above as it stands: no added final pass, beyond
 the one the scoped-round rule above requires of a run that reached a third fix round.
 
+**From the third full-roster pass this policy adds onward, every dispatch in that pass runs on
+`sonnet` or `haiku` — never `opus`, never `fable`**, regardless of what `DEFAULT_MODEL`,
+`panel.dispatches`, or a session override would otherwise resolve for it. Pass 1 (dispatched before
+any fix round) and pass 2 (the first repeat `full` adds, after the first fix round closes clean)
+are unaffected and keep whatever the normal resolution above gives them — this restriction applies
+only from the *third* time the whole roster re-reads `final-review.diff` onward: the run has by
+then already paid for two full-strength passes and is looping to confirm convergence, which does
+not need `opus` or `fable`. Pick `sonnet` unless the run is already on `DEFAULT_MODEL` `haiku`, in
+which case stay on `haiku`. Record the substituted model with `flow record pass -round <round>`
+alongside this pass's other entry-check notes, naming what the normal resolution would have given
+so the swap is visible in the pass log.
+
 **The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
 worktree per **distinct** held sha among the diff-reading slots dispatched this round (two slots
 sharing a sha in a worktree need one call there, not two); a slot with no held sha in a worktree
