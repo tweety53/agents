@@ -335,6 +335,124 @@ case "$OUT" in
 esac
 
 # ---------------------------------------------------------------------------
+# 7. Tree-integrity gate (KAN-584): the runner snapshots the watched
+#    repository's `git status --porcelain` before launching the suite and
+#    re-reads it after; a net change fails the runner naming the changed
+#    paths — a harness case mutating a real shared file is a suite-contract
+#    violation, the same code a failing harness gets. GUARD_TESTS_REPO_ROOT
+#    overrides the watched root (the runner's own repository when unset),
+#    the same opt-in-override idiom as RUN_GUARD_TESTS_ROOT and for the
+#    same reason: this harness must never point the runner at this
+#    repository's own tree. A watched root that is not a git work tree
+#    skips the gate with one stderr line rather than failing it.
+# ---------------------------------------------------------------------------
+# 7a. A harness that writes into the watched repository fails the runner,
+#     which names the changed path; the writing harness itself still gets
+#     its own ok: line — the gate is a separate verdict from the results.
+new_dirty_fixtures() {
+  FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-writer.XXXXXX")"
+  WATCHED="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-watched.XXXXXX")"
+  git -C "$WATCHED" init -q
+  git -C "$WATCHED" config user.email test@example.com
+  git -C "$WATCHED" config user.name test
+  printf 'base\n' > "$WATCHED/base.txt"
+  git -C "$WATCHED" add base.txt
+  git -C "$WATCHED" commit -qm base
+  cat > "$FIXTURE/test-dirty.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'mutated by a harness case\n' > "$GUARD_TESTS_REPO_ROOT/dirt.txt"
+exit 0
+EOF
+  chmod +x "$FIXTURE/test-dirty.sh"
+}
+new_dirty_fixtures
+set +e
+OUT="$(RUN_GUARD_TESTS_ROOT="$FIXTURE" GUARD_TESTS_REPO_ROOT="$WATCHED" bash "$RUNNER" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 1 ]; then
+  pass "case 7a: a suite that dirties the watched repository exits 1"
+else
+  fail "case 7a: expected exit 1, got $RC — out=$OUT"
+fi
+case "$OUT" in
+  *dirt.txt*) pass "case 7a: the changed path is named" ;;
+  *) fail "case 7a: the changed path dirt.txt is not named — out=$OUT" ;;
+esac
+case "$OUT" in
+  *tree\ changed\ during\ the\ suite*) pass "case 7a: the gate names the violation" ;;
+  *) fail "case 7a: no tree-changed report — out=$OUT" ;;
+esac
+case "$OUT" in
+  *ok:*test-dirty.sh*) pass "case 7a: the writing harness still gets its own ok: line" ;;
+  *) fail "case 7a: the writing harness has no ok: line — out=$OUT" ;;
+esac
+rm -rf "$FIXTURE" "$WATCHED"
+
+# 7b. A suite that touches only its own sandbox leaves the watched
+#     repository clean and passes the gate.
+new_clean_fixture
+WATCHED="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-clean-watched.XXXXXX")"
+git -C "$WATCHED" init -q
+printf 'base\n' > "$WATCHED/base.txt"
+set +e
+OUT="$(RUN_GUARD_TESTS_ROOT="$FIXTURE" GUARD_TESTS_REPO_ROOT="$WATCHED" bash "$RUNNER" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  pass "case 7b: a sandbox-only suite passes the tree gate (exit 0)"
+else
+  fail "case 7b: expected exit 0, got $RC — out=$OUT"
+fi
+case "$OUT" in
+  *tree\ changed\ during\ the\ suite*) fail "case 7b: a clean suite reported a tree change — out=$OUT" ;;
+  *) pass "case 7b: a clean suite never reports a tree change" ;;
+esac
+rm -rf "$FIXTURE" "$WATCHED"
+
+# 7c. A watched root that is not a git work tree skips the gate with one
+#     stderr line — an unanswerable question, not a violation.
+new_dirty_fixtures
+rm -rf "$WATCHED"
+WATCHED="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-nongit.XXXXXX")"
+set +e
+OUT="$(RUN_GUARD_TESTS_ROOT="$FIXTURE" GUARD_TESTS_REPO_ROOT="$WATCHED" bash "$RUNNER" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  pass "case 7c: a non-git watched root skips the gate and exits 0"
+else
+  fail "case 7c: expected exit 0, got $RC — out=$OUT"
+fi
+case "$OUT" in
+  *skipping\ the\ tree\ gate*) pass "case 7c: the skip is announced, never silent" ;;
+  *) fail "case 7c: no skip line for the non-git watched root — out=$OUT" ;;
+esac
+rm -rf "$FIXTURE" "$WATCHED"
+
+# 7d. GUARD_TESTS_REPO_ROOT set but empty exits 2, mirroring
+#     RUN_GUARD_TESTS_ROOT's own set-but-empty refusal.
+new_clean_fixture
+set +e
+EMPTY_GATED_OUT="$(RUN_GUARD_TESTS_ROOT="$FIXTURE" GUARD_TESTS_REPO_ROOT="" bash "$RUNNER" 2>&1)"
+EMPTY_GATED_RC=$?
+set -e
+if [ "$EMPTY_GATED_RC" -eq 2 ]; then
+  pass "case 7d: GUARD_TESTS_REPO_ROOT set but empty exits 2"
+else
+  fail "case 7d: expected exit 2, got $EMPTY_GATED_RC — out=$EMPTY_GATED_OUT"
+fi
+rm -rf "$FIXTURE"
+
+# MUTATION PROOF for case 7: both 7a's fail and 7b's pass were hand-checked
+# against a scratch copy of run-guard-tests.sh with the post-suite snapshot
+# deleted (the gate reading "clean" unconditionally) — 7a then passed where
+# it must fail and 7b was indistinguishable from it. Restoring the snapshot
+# made 7a fail and 7b pass again. This is the same manual-mutation-and-revert
+# method test-mutate-and-verify.sh's header records; it is not reproduced
+# automatically on every run.
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0
