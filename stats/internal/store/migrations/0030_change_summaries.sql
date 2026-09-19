@@ -24,4 +24,3 @@ CREATE TABLE change_summaries (
   summary     TEXT NOT NULL,
   CONSTRAINT change_summaries_change_key UNIQUE (change_id)
 );
-CREATE INDEX change_summaries_change_id ON change_summaries (change_id);

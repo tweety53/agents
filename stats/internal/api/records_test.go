@@ -499,6 +499,9 @@ func (f *fakeStore) RecordChangeSummary(_ context.Context, projectKey, change, s
 
 func (f *fakeStore) ChangeSummary(_ context.Context, projectKey, change string) (records.ChangeSummary, error) {
 	f.recordCalls++
+	if f.changeSummaryErr != nil {
+		return records.ChangeSummary{}, f.changeSummaryErr
+	}
 	if _, ok := f.changes[changeKey(projectKey, change)]; !ok || !f.summaryFound {
 		return records.ChangeSummary{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
 	}

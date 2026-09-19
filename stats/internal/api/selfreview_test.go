@@ -234,3 +234,18 @@ func TestSelfReviewBundleServesSummary(t *testing.T) {
 		t.Errorf("unknown change's summary not reported skipped:\n%s", body2)
 	}
 }
+
+// TestSelfReviewBundleHandlerSummaryStoreFailure pins the summary read's
+// own failure branch: a store read of the change summary that fails for a
+// real reason — not ErrChangeNotFound — is a 5xx, never a bundle a caller
+// could mistake for the change's own, the same contract the run record
+// read's failure branch carries.
+func TestSelfReviewBundleHandlerSummaryStoreFailure(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.changeSummaryErr = errors.New("store exploded")
+
+	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", t.TempDir()))
+	if code != http.StatusInternalServerError {
+		t.Fatalf("GET bundle with a failing summary read = %d (%s), want 500", code, body)
+	}
+}

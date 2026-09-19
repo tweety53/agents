@@ -128,6 +128,12 @@ type fakeStore struct {
 
 	recordChangeSummaryErr error
 
+	// changeSummaryErr, when set, is what ChangeSummary answers with —
+	// the read's failure seam, so a test can drive the handler's 5xx
+	// branch for a real store failure rather than only the not-found
+	// case.
+	changeSummaryErr error
+
 	// recordedSummary and summaryFound are what ChangeSummary answers:
 	// a test seeds them directly, and ErrChangeNotFound is reported the
 	// way the real store reports it whenever summaryFound is false.
