@@ -197,6 +197,114 @@ else
   pass "partial: an install missing one rule is stale, not absent"
 fi
 
+# --- rule 4: the managed-file set is served by setup.sh (kan-585) -----------
+# The guard parses setup.sh's `local managed_files=(...)` declaration instead
+# of carrying its own pair, so a harness file the installer gains moves this
+# guard first. Reverting the guard to the hardcoded
+# (".claude/CLAUDE.md" ".codex/AGENTS.md") pair is detected by
+# served_managed_files below: the third file would go unscanned and the case
+# would pass a broken install. CHECK_INSTALLED_RULES_SETUP_SH is the
+# override-for-the-harness-alone convention CHECK_INSTALLED_RULES_HOME
+# established — the real setup.sh is never written.
+
+# new_setup -> sets SETUP to a fixture installer whose declaration names the
+# two files new_home renders, so the guard resolves the same set the
+# baseline cases already satisfy.
+new_setup() {
+  SETUP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-installed-rules-setup.XXXXXX")"
+  DIRS+=("$SETUP_DIR")
+  SETUP="$SETUP_DIR/setup.sh"
+}
+
+# served_managed_files: the declaration gains a third harness file whose
+# block is missing one marker -> the guard scans it and fails, naming it.
+new_setup
+cat >"$SETUP" <<'EOF'
+install_global() {
+  # The managed-block targets, declared once so the preflight below and the
+  # install below can never scan a different set than they write.
+  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md" "$home_dir/.warp/AGENTS.md")
+}
+EOF
+new_home
+mkdir -p "$HOME_DIR/.warp"
+render_block "$HOME_DIR/.warp/AGENTS.md" "${RULES[@]:1}"
+set +e
+OUT="$(CHECK_INSTALLED_RULES_HOME="$HOME_DIR" CHECK_INSTALLED_RULES_SETUP_SH="$SETUP" "$GUARD" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  fail "served_managed_files: a third managed file's missing marker passed"
+elif ! printf '%s' "$OUT" | grep -qF ".warp/AGENTS.md"; then
+  fail "served_managed_files: failed, but never named the added file; got: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF "no session reads that rule"; then
+  fail "served_managed_files: failed, but not with the marker finding; got: $OUT"
+else
+  pass "served_managed_files: a file the installer added is scanned"
+fi
+
+# no_declaration: an installer without the declaration is a refusal (exit 1),
+# never a silent fall-back to any hardcoded pair.
+new_setup
+printf '#!/usr/bin/env bash\n# no managed_files here\n' >"$SETUP"
+set +e
+OUT="$(CHECK_INSTALLED_RULES_HOME="$HOME_DIR" CHECK_INSTALLED_RULES_SETUP_SH="$SETUP" "$GUARD" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  fail "no_declaration: an installer without the declaration passed"
+elif ! printf '%s' "$OUT" | grep -qF "no 'local managed_files=(' declaration"; then
+  fail "no_declaration: wrong refusal message; got: $OUT"
+else
+  pass "no_declaration: a declaration-free installer is refused"
+fi
+
+# empty_declaration: `managed_files=()` refuses too — scanning nothing must
+# not read as clean.
+new_setup
+printf 'local managed_files=()\n' >"$SETUP"
+set +e
+OUT="$(CHECK_INSTALLED_RULES_HOME="$HOME_DIR" CHECK_INSTALLED_RULES_SETUP_SH="$SETUP" "$GUARD" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  fail "empty_declaration: an empty managed_files declaration passed"
+elif ! printf '%s' "$OUT" | grep -qF "declaration is empty"; then
+  fail "empty_declaration: wrong refusal message; got: $OUT"
+else
+  pass "empty_declaration: an empty declaration is refused"
+fi
+
+# unresolvable_element: an element that is not a "$home_dir/-relative path
+# refuses, rather than being silently skipped.
+new_setup
+printf 'local managed_files=("$home_dir/.claude/CLAUDE.md" "$project_dir/other.md")\n' >"$SETUP"
+set +e
+OUT="$(CHECK_INSTALLED_RULES_HOME="$HOME_DIR" CHECK_INSTALLED_RULES_SETUP_SH="$SETUP" "$GUARD" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  fail "unresolvable_element: an unresolvable declaration element passed"
+elif ! printf '%s' "$OUT" | grep -qF "cannot resolve managed_files element"; then
+  fail "unresolvable_element: wrong refusal message; got: $OUT"
+else
+  pass "unresolvable_element: an unresolvable element is refused"
+fi
+
+# unreadable_setup: an absent installer is a refusal, not a stale verdict.
+new_setup
+set +e
+OUT="$(CHECK_INSTALLED_RULES_HOME="$HOME_DIR" CHECK_INSTALLED_RULES_SETUP_SH="$SETUP_DIR/absent.sh" "$GUARD" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ]; then
+  fail "unreadable_setup: an absent installer passed"
+elif ! printf '%s' "$OUT" | grep -qF "unreadable — cannot resolve the managed-block targets"; then
+  fail "unreadable_setup: wrong refusal message; got: $OUT"
+else
+  pass "unreadable_setup: an absent installer is refused"
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf 'TEST-CHECK-INSTALLED-RULES-FAIL: %d case(s) failed\n' "$FAILURES"
   exit 1

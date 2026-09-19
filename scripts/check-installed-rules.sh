@@ -24,6 +24,10 @@
 # override honored only when set, so the companion harness
 # (test-check-installed-rules.sh) can point this guard at a sandboxed fixture
 # under TMPDIR — never set it for a normal invocation.
+# CHECK_INSTALLED_RULES_SETUP_SH is the same convention for the installer
+# itself, defaulting to this checkout's setup.sh, so the harness can prove
+# rule 4 follows the installer's declared targets without writing the real
+# one.
 #
 # NOT INSTALLED IS NOT STALE. A checkout with no global install — CI, a fresh
 # clone, a container — has nothing to be out of date with, and failing there
@@ -63,14 +67,25 @@
 #      dispatched agent is told to read; every row in its table is a promise
 #      that rule 1 then has to keep.
 #   4. Every always-on rule has a `<!-- rule: <name>.mdc -->` marker inside
-#      the managed block of each installed harness file — `.claude/CLAUDE.md`
-#      and `.codex/AGENTS.md` — and each block carries no marker for a rule
-#      that is no longer always-on. The marker is what `render_managed_block`
-#      in setup.sh writes per rule, so it is read here rather than any title
-#      or body text, which would re-derive the renderer's formatting and go
-#      stale against it. A harness file that does not exist is skipped with a
+#      the managed block of each installed harness file, and each block
+#      carries no marker for a rule that is no longer always-on. The marker
+#      is what `render_managed_block` in setup.sh writes per rule, so it is
+#      read here rather than any title or body text, which would re-derive
+#      the renderer's formatting and go stale against it. The SET of harness
+#      files is served too (kan-585): it is parsed from setup.sh's own
+#      `local managed_files=(...)` declaration — the one line install_global
+#      already comments as "declared once so the preflight and the install
+#      can never scan a different set than they write" — so a harness file
+#      the installer gains moves this guard first, and the guard can never
+#      lag the installer with a hardcoded pair. That pair had already lagged
+#      once: `~/.zcode/AGENTS.md` was added to the installer and not to this
+#      guard, leaving a whole harness's block unscanned. A harness file that
+#      does not exist is skipped with a
 #      note, for the same reason rule 1's whole directory is: absent is not
-#      stale.
+#      stale. An unreadable setup.sh, or one whose declaration is missing,
+#      empty, or carries an element the guard cannot resolve to a
+#      `$home_dir/`-relative path, is a refusal: exit 1 with the reason,
+#      never a guess.
 #
 # Prints one violation line per finding, then the verdict:
 #   INSTALLED-RULES-OK:      <home> — N always-on rule(s) installed and rendered
@@ -179,7 +194,40 @@ if [ ! -e "$baseline" ]; then
 fi
 
 # Rule 4 — the managed block in each installed harness file renders each rule.
-HARNESS_FILES=(".claude/CLAUDE.md" ".codex/AGENTS.md")
+# The file set is setup.sh's own `managed_files` declaration, parsed live
+# (kan-585) — see the rule 4 header above for why a hardcoded copy here was
+# already wrong once.
+SETUP_SH="${CHECK_INSTALLED_RULES_SETUP_SH:-$REPO_ROOT/setup.sh}"
+if [ ! -r "$SETUP_SH" ]; then
+  echo "check-installed-rules: $SETUP_SH is unreadable — cannot resolve the managed-block targets" >&2
+  exit 1
+fi
+MANAGED_DECL="$(grep -m1 'local managed_files=(' "$SETUP_SH")"
+if [ -z "$MANAGED_DECL" ]; then
+  echo "check-installed-rules: no 'local managed_files=(' declaration in $SETUP_SH — cannot resolve the managed-block targets" >&2
+  exit 1
+fi
+HARNESS_FILES=()
+for managed_element in ${MANAGED_DECL#*managed_files=(}; do
+  managed_element="${managed_element%)}"
+  # The bare `)` of an empty `managed_files=()` is not an element: skipping
+  # it lets the empty-declaration refusal below fire, where it names the
+  # real problem, instead of this loop misreporting it as unresolvable.
+  [ -n "$managed_element" ] || continue
+  managed_element="${managed_element%\"}"
+  managed_element="${managed_element#\"}"
+  case "$managed_element" in
+    '$home_dir'/*) HARNESS_FILES+=("${managed_element#'$home_dir'/}") ;;
+    *)
+      echo "check-installed-rules: cannot resolve managed_files element '$managed_element' in $SETUP_SH — expected a \"\$home_dir/-relative path" >&2
+      exit 1
+      ;;
+  esac
+done
+if [ "${#HARNESS_FILES[@]}" -eq 0 ]; then
+  echo "check-installed-rules: setup.sh's managed_files declaration is empty in $SETUP_SH — refusing to scan nothing and call it clean" >&2
+  exit 1
+fi
 for rel in "${HARNESS_FILES[@]}"; do
   harness="$HOME_DIR/$rel"
   if [ ! -f "$harness" ]; then
