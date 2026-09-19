@@ -40,11 +40,18 @@
 # section, not only `##`. A finding-shaped line appearing before any
 # recognized section heading is a named violation rather than a silent drop.
 #
-# THE FIVE ANGLE LABELS, in the order the report shape states them:
-#   flow-fix, flow-cost, flow-improvement, flow-automation, flow-stats-app
-# (the kan-200 self-review spec, "One combined reasoning pass" angle table);
-# the reports written before the rename carry the same five under their
-# `myflow-` spelling, see LEGACY_ANGLE_LABELS below.
+# THE ANGLE LABELS ARE SERVED, NOT COPIED (kan-585). The canonical angle
+# table — step 9's numbered table in
+# skills/flow-contracts/finish-contract-run2.md, the one source
+# jira-integration.md already cites instead of copying — is parsed at run
+# time into ANGLE_LABELS, in table order. A label renamed or added there
+# moves this guard first: every report still carrying the old spelling
+# reports a missing section for the new label, and the human decides
+# whether the rename or the reports give way. The guard can never lag the
+# table the way a hardcoded copy would. (The original five came from the
+# kan-200 self-review spec's "One combined reasoning pass" angle table.)
+# The reports written before the myflow→flow rename carry the same angles
+# under their `myflow-` spelling, see LEGACY_ANGLE_LABELS below.
 #
 # PER-REPORT COVERAGE, via scripts/lib/coverage.sh. Each report's recorded
 # count is the number of section-level checks this guard actually performed
@@ -80,10 +87,13 @@
 # ADOPTED, NOT INVENTED: every guard in this repository holds to three
 # disciplines — `-a` on every grep, the `rc > 1` split between "no match"
 # and a real error, and `--` before every path. This guard uses neither
-# `grep` nor `awk` at all — each report is read line by line in bash and
-# every line is classified at the point it is read — so the first and third
-# disciplines have no call site here, exactly as scripts/lib/coverage.sh's
-# own header states for the same reason. The posture behind them still
+# `grep` nor `awk` against a report — each report is read line by line in
+# bash and every line is classified at the point it is read — so the first
+# and third disciplines have no call site on the report path, exactly as
+# scripts/lib/coverage.sh's own header states for the same reason. The one
+# awk in this file is the canonical-table parse above, which reads a
+# generated-shaped Markdown table, not untrusted report prose. The posture
+# behind them still
 # applies: `find`'s enumeration and each report file's own read are the two
 # remaining I/O operations this guard has to face, and each is checked by its
 # own exit status rather than folded into a reassuring empty result. Neither
@@ -149,11 +159,38 @@ fi
 [[ -d "$TARGET" ]] || die "not a directory: $TARGET"
 [[ -r "$TARGET" ]] || die "cannot read directory: $TARGET"
 
-# The five angle labels, in the report shape's own order.
-ANGLE_LABELS=(flow-fix flow-cost flow-improvement flow-automation flow-stats-app)
+# The angle labels, in the report shape's own order, parsed from the
+# canonical table (kan-585 — see the header). The override env var exists
+# for the companion harness alone, the same convention as
+# CHECK_MODEL_RESOLUTION_SKILL_MD: a fixture contract lets the harness
+# prove the guard follows the source without writing the real tree, whose
+# mtime run-guard-tests.sh fingerprints. The table is the only one in the
+# contract whose rows are numbered in the first cell, so "second cell
+# numeric, last non-empty cell is the backticked label" selects exactly
+# the angle rows and cannot leak from any other table.
+ANGLE_CONTRACT="${CHECK_SELF_REVIEW_ANGLES_CONTRACT:-$REPO_ROOT/skills/flow-contracts/finish-contract-run2.md}"
+[[ -r "$ANGLE_CONTRACT" ]] || die "the canonical angle table is unreadable: $ANGLE_CONTRACT"
+ANGLE_LABELS=()
+while IFS= read -r parsed_label; do
+  [[ -n "$parsed_label" ]] && ANGLE_LABELS+=("$parsed_label")
+done < <(awk -F'|' '
+  $2 ~ /^[[:space:]]*[0-9]+[[:space:]]*$/ {
+    label = ""
+    for (i = NF; i >= 1; i--) {
+      cell = $i
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+      if (cell != "") { label = cell; break }
+    }
+    gsub(/`/, "", label)
+    if (label != "") print label
+  }
+' "$ANGLE_CONTRACT")
+[[ "${#ANGLE_LABELS[@]}" -ge 1 ]] ||
+  die "the canonical angle table yielded no labels: $ANGLE_CONTRACT"
 
 # LEGACY_ANGLE_LABELS -- the same five angles under the `myflow-` names the
-# older reports carry, POSITIONALLY ALIGNED with ANGLE_LABELS above.
+# older reports carry, POSITIONALLY ALIGNED with the first five members of
+# ANGLE_LABELS above.
 #
 # THIS IS NOT A COMPATIBILITY SHIM, AND IT IS NOT OPTIONAL, AND IT IS NOT A
 # LEGACY REMNANT TO CLEAN UP. The reports under docs/self-review/ are immutable
@@ -169,6 +206,12 @@ ANGLE_LABELS=(flow-fix flow-cost flow-improvement flow-automation flow-stats-app
 # spelling. So the guard reads both eras instead. An author writing a report
 # today uses ANGLE_LABELS; a report written before the rename keeps its own
 # names and stays readable.
+#
+# The alignment covers the five angles the legacy era knew. The canonical
+# table may hold more (kan-585 parses it live); an angle beyond index 4 has
+# no legacy twin -- no report can predate an angle added after the rename --
+# so the heading matcher reads this array with `:-` and an absent twin
+# simply never matches a heading.
 LEGACY_ANGLE_LABELS=(myflow-fix myflow-cost myflow-improvement myflow-automation myflow-stats-app)
 
 # Regex patterns are kept in variables and referenced unquoted in `[[ =~ ]]`
@@ -302,11 +345,19 @@ for f in "${FILES[@]:-}"; do
 
   # Reset per-report state: one slot per angle label, walked by index —
   # bash 3.2 is the floor (macOS's own /bin/bash), matching
-  # scripts/lib/coverage.sh's own constraint.
-  HEADING_FOUND=(0 0 0 0 0)
-  HEADING_LINE=(0 0 0 0 0)
-  HAS_NONE=(0 0 0 0 0)
-  FINDING_COUNT=(0 0 0 0 0)
+  # scripts/lib/coverage.sh's own constraint. The slot count is the parsed
+  # table's (kan-585), never a literal tuple: a literal `0 0 0 0 0` went
+  # stale the moment the canonical table grew, leaving index 5 unbound.
+  HEADING_FOUND=()
+  HEADING_LINE=()
+  HAS_NONE=()
+  FINDING_COUNT=()
+  for reset_i in "${!ANGLE_LABELS[@]}"; do
+    HEADING_FOUND[$reset_i]=0
+    HEADING_LINE[$reset_i]=0
+    HAS_NONE[$reset_i]=0
+    FINDING_COUNT[$reset_i]=0
+  done
   # LAST_IDX tracks the highest angle index whose heading has been seen so
   # far, so a heading appearing before it in ANGLE_LABELS order is named as
   # out of order (F4). -1 means no heading seen yet.
@@ -368,7 +419,9 @@ for f in "${FILES[@]:-}"; do
       cur=""
       for i in "${!ANGLE_LABELS[@]}"; do
         quoted_label='`'"${ANGLE_LABELS[$i]}"'`'
-        quoted_legacy='`'"${LEGACY_ANGLE_LABELS[$i]}"'`'
+        # `:-` because the canonical table can hold more angles than the
+        # legacy era knew (kan-585); a missing twin matches no heading.
+        quoted_legacy='`'"${LEGACY_ANGLE_LABELS[$i]:-}"'`'
         # Either spelling identifies the same angle at the same index, and
         # `cur` MUST be the spelling the report actually used -- not the
         # canonical one. `cur` is compared against each finding line's own

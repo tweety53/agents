@@ -41,6 +41,13 @@
 #   missing-section check                      2, 17
 #   neither-marker-nor-finding check           3, 20, 21
 #   both-marker-and-finding check              16
+#   canonical-table label parse (kan-585)      26, 27, 28, 29, 30
+#   canonical-table `-r` die (kan-585)         29 (message assertion only)
+#   canonical-table no-labels die (kan-585)    30
+#   per-report reset walked from the table     28
+#     (kan-585)
+#   legacy-twin `:-` on the heading match      28
+#     (kan-585)
 #
 # Case 7 appears in several rows because it alone runs the guard bare over
 # the repository's real docs/self-review/ corpus, so a broadly-scoped
@@ -882,6 +889,128 @@ run_guard "$FIXTURE"
 case "$OUT" in
   *"fixture-context.md"*) fail "case 25: the bundle's basename must not appear in the output, out=$OUT" ;;
   *) pass "case 25: the bundle's basename is absent from the output" ;;
+esac
+
+# ===========================================================================
+# Cases 26-30 (kan-585): ANGLE_LABELS is parsed from the canonical angle
+# table in skills/flow-contracts/finish-contract-run2.md, not hardcoded, so
+# a rename or an addition in that table moves the guard FIRST. The fixture
+# contract reaches the guard through CHECK_SELF_REVIEW_ANGLES_CONTRACT,
+# the same override-for-the-harness-alone convention
+# CHECK_MODEL_RESOLUTION_SKILL_MD established — the real tree is never
+# written, whose mtime run-guard-tests.sh fingerprints.
+# ===========================================================================
+
+# A fixture contract in the canonical table's exact shape, with angle 1
+# renamed `flow-fix` -> `flow-regress`.
+fixture_contract_renamed() {
+  cat <<'EOF'
+# Run 2 — the branch is merged (fixture)
+
+   | # | Angle | Label |
+   |---|-------|-------|
+   | 1 | Problems encountered, and what pipeline change would avoid them | `flow-regress` |
+   | 2 | Token/time cost, and what would reduce it without quality loss | `flow-cost` |
+   | 3 | What went well, and how to reproduce it | `flow-improvement` |
+   | 4 | What could be automated or moved to a script | `flow-automation` |
+   | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
+EOF
+}
+
+# new_contract <content-function>: the contract lives in its OWN fixture
+# directory, never beside the reports it drives — the guard's target is the
+# reports dir, and a contract inside it would be scanned as a report and
+# reported as an undeclared-zero coverage violation.
+new_contract() {
+  CONTRACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-self-review-report-contract.XXXXXX")"
+  "$1" >"$CONTRACT_DIR/contract.md"
+  CONTRACT="$CONTRACT_DIR/contract.md"
+}
+
+# Case 26: with the fixture contract in force, a report in the OLD spelling
+# is missing its first angle — the guard follows the renamed table, not the
+# spelling the harness fixtures happen to carry.
+new_contract fixture_contract_renamed
+new_fixture
+compliant_report >"$FIXTURE/fixture-self-review.md"
+export CHECK_SELF_REVIEW_ANGLES_CONTRACT="$CONTRACT"
+run_guard "$FIXTURE"
+unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
+[ "$RC" -eq 1 ] && pass "case 26: a renamed canonical label moves the guard off the old spelling" \
+  || fail "case 26: rc=$RC out=$OUT"
+case "$OUT" in
+  *"missing section for angle"*"flow-regress"*) \
+    pass "case 26: the missing-section finding names the NEW label" ;;
+  *) fail "case 26: expected a missing-section finding naming flow-regress, out=$OUT" ;;
+esac
+
+# Case 27: a report written in the fixture contract's own renamed spelling
+# is compliant — the guard accepted the served label, proving it read the
+# table rather than merely failing the old one.
+new_contract fixture_contract_renamed
+new_fixture
+compliant_report | sed 's/flow-fix/flow-regress/g' >"$FIXTURE/fixture-self-review.md"
+export CHECK_SELF_REVIEW_ANGLES_CONTRACT="$CONTRACT"
+run_guard "$FIXTURE"
+unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
+[ "$RC" -eq 0 ] && pass "case 27: a report in the renamed spelling exits 0" \
+  || fail "case 27: rc=$RC out=$OUT"
+
+# Case 28: a sixth angle added to the canonical table is demanded of every
+# report — the count is the table's, never a constant. The report also
+# carries one unrecognized `##` heading, so the heading matcher walks every
+# index including the one past LEGACY_ANGLE_LABELS' end — the read its `:-`
+# guards (a table longer than the legacy era dies there without it, not
+# matching a heading first).
+new_contract fixture_contract_renamed
+printf '   | 6 | Docs that taught the operator something new | `flow-docs` |\n' >>"$CONTRACT_DIR/contract.md"
+new_fixture
+compliant_report | sed 's/flow-fix/flow-regress/g' \
+  | sed 's|^## Cost — `flow-cost`$|## Interlude — `not-an-angle`\n\n## Cost — `flow-cost`|' \
+  >"$FIXTURE/fixture-self-review.md"
+export CHECK_SELF_REVIEW_ANGLES_CONTRACT="$CONTRACT"
+run_guard "$FIXTURE"
+unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
+[ "$RC" -eq 1 ] && pass "case 28: a sixth canonical angle is demanded" \
+  || fail "case 28: rc=$RC out=$OUT"
+case "$OUT" in
+  *"missing section for angle"*"flow-docs"*) \
+    pass "case 28: the missing-section finding names the added angle" ;;
+  *) fail "case 28: expected a missing-section finding naming flow-docs, out=$OUT" ;;
+esac
+
+# Case 29: an unreadable canonical source is 'cannot answer' (exit 2), not
+# a silent fall-back to any hardcoded list.
+new_fixture
+compliant_report >"$FIXTURE/fixture-self-review.md"
+export CHECK_SELF_REVIEW_ANGLES_CONTRACT="$FIXTURE/absent-contract.md"
+run_guard "$FIXTURE"
+unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
+[ "$RC" -eq 2 ] && pass "case 29: an unreadable canonical table is 'cannot answer'" \
+  || fail "case 29: rc=$RC out=$OUT"
+case "$OUT" in
+  *"canonical angle table is unreadable"*"absent-contract.md"*) \
+    pass "case 29: the die message names the unreadable contract" ;;
+  *) fail "case 29: expected an unreadable-canonical-table die, out=$OUT" ;;
+esac
+
+# Case 30: a readable canonical source with no numbered table rows yields
+# no labels — 'cannot answer' (exit 2), never an empty label set silently
+# checking nothing.
+new_contract fixture_contract_renamed
+grep -v '^[[:space:]]*| [0-9]' "$CONTRACT_DIR/contract.md" >"$CONTRACT_DIR/stripped.md" \
+  && mv "$CONTRACT_DIR/stripped.md" "$CONTRACT_DIR/contract.md"
+new_fixture
+compliant_report >"$FIXTURE/fixture-self-review.md"
+export CHECK_SELF_REVIEW_ANGLES_CONTRACT="$CONTRACT"
+run_guard "$FIXTURE"
+unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
+[ "$RC" -eq 2 ] && pass "case 30: a label-free canonical table is 'cannot answer'" \
+  || fail "case 30: rc=$RC out=$OUT"
+case "$OUT" in
+  *"yielded no labels"*"contract.md"*) \
+    pass "case 30: the die message names the label-free contract" ;;
+  *) fail "case 30: expected a yielded-no-labels die, out=$OUT" ;;
 esac
 
 if [ "$FAILURES" -gt 0 ]; then
