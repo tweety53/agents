@@ -128,6 +128,14 @@ func (nopRecordStore) RecordDecision(context.Context, string, string, records.De
 	return records.Decision{}, false, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) RecordChangeSummary(context.Context, string, string, string) (records.ChangeSummary, bool, error) {
+	return records.ChangeSummary{}, false, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ChangeSummary(context.Context, string, string) (records.ChangeSummary, error) {
+	return records.ChangeSummary{}, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, errRecordStoreNotExercised
 }
@@ -298,6 +306,10 @@ func (f *fakeRecordStore) RunRecord(context.Context, string, string) (records.Ru
 	return records.Run{}, errRecordStoreNotExercised
 }
 
+func (f *fakeRecordStore) ChangeSummary(context.Context, string, string) (records.ChangeSummary, error) {
+	return records.ChangeSummary{}, errRecordStoreNotExercised
+}
+
 func (f *fakeRecordStore) RecordVerdict(_ context.Context, projectKey, change string, in records.Verdict) (records.Verdict, error) {
 	f.record(fmt.Sprintf("verdict %s/%s guard=%s worktree=%s verdict=%q", projectKey, change, in.Guard, in.Worktree, in.Verdict))
 	return in, nil
@@ -364,6 +376,11 @@ func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change
 func (f *fakeRecordStore) RecordDecision(_ context.Context, projectKey, change string, in records.Decision) (records.Decision, bool, error) {
 	f.record(fmt.Sprintf("decision %s/%s sessionToken=%s decision=%s", projectKey, change, in.SessionToken, in.Decision))
 	return in, true, nil
+}
+
+func (f *fakeRecordStore) RecordChangeSummary(_ context.Context, projectKey, change, summary string) (records.ChangeSummary, bool, error) {
+	f.record(fmt.Sprintf("summary %s/%s summary=%q", projectKey, change, summary))
+	return records.ChangeSummary{ID: 1, Summary: summary}, true, nil
 }
 
 func (f *fakeRecordStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
@@ -1125,6 +1142,38 @@ func TestReplaySubstitutionKind(t *testing.T) {
 
 	assertAppliedCalls(t, rs.appliedCalls(), []string{
 		`substitution proj-record-substitution/chg-record-substitution guard=gather-dispatch-context shape=cross-repo substitution="composed the dispatch bundle by hand"`,
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (applied entry retired)", n)
+	}
+}
+
+// TestReplaySummaryKind pins the change-summary journal kind: `flow record
+// summary` falls back to the journal kind "summary", which must reach the
+// store through applyRecordEntry's own case arm and retire, exactly as the
+// decision kind beside it does.
+func TestReplaySummaryKind(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-summary", "chg-record-summary"
+
+	appendRecordWrite(t, root, project, change, "summary", records.ChangeSummary{
+		Summary: "what changed and why",
+	})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Journals != 1 || result.Applied != 1 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Journals:1 Applied:1 Refused:0}", result)
+	}
+
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		`summary proj-record-summary/chg-record-summary summary="what changed and why"`,
 	})
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {

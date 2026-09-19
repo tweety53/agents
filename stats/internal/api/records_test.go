@@ -466,6 +466,45 @@ type decisionRecord struct {
 	changeName string
 }
 
+// summaryRecord is fakeStore's in-memory stand-in for a change_summaries
+// row: one per (project, change), the last write replacing the earlier
+// one, exactly as the store's per-change unique constraint behaves.
+type summaryRecord struct {
+	summary    records.ChangeSummary
+	projectKey string
+	changeName string
+}
+
+func (f *fakeStore) RecordChangeSummary(_ context.Context, projectKey, change, summary string) (records.ChangeSummary, bool, error) {
+	f.recordCalls++
+	if f.recordChangeSummaryErr != nil {
+		return records.ChangeSummary{}, false, f.recordChangeSummaryErr
+	}
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok {
+		return records.ChangeSummary{}, false, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+
+	for i := range f.changeSummaries {
+		s := &f.changeSummaries[i]
+		if s.projectKey == projectKey && s.changeName == change {
+			s.summary.Summary = summary
+			return s.summary, false, nil
+		}
+	}
+	f.nextSummaryID++
+	out := records.ChangeSummary{ID: f.nextSummaryID, Summary: summary, RecordedAt: time.Now()}
+	f.changeSummaries = append(f.changeSummaries, summaryRecord{summary: out, projectKey: projectKey, changeName: change})
+	return out, true, nil
+}
+
+func (f *fakeStore) ChangeSummary(_ context.Context, projectKey, change string) (records.ChangeSummary, error) {
+	f.recordCalls++
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok || !f.summaryFound {
+		return records.ChangeSummary{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+	return records.ChangeSummary{ID: 1, Summary: f.recordedSummary, RecordedAt: time.Now()}, nil
+}
+
 // passRecord and mutationRecord are fakeStore's in-memory stand-ins for a
 // panel_passes and a panel_mutations row (KAN-331). See dispatchRecord's
 // doc comment for why the owning identity sits beside the row rather than
@@ -2220,5 +2259,46 @@ func TestFindingPatternRefusalAnswersBadRequest(t *testing.T) {
 	status, sbody := doGet(t, ts, "/api/v1/finding-patterns/proj/!!!")
 	if status != http.StatusBadRequest {
 		t.Fatalf("GET finding-patterns detail with a separators-only pattern = %d (%s), want 400", status, sbody)
+	}
+}
+
+// TestRecordSummaryRoute pins the change-summary write route's shape: 201
+// on insert, 200 on the second write for the same change (last write wins,
+// the response carrying the replaced row), 400 on an empty summary before
+// the store is touched, and 404 for a change the store has never heard of.
+func TestRecordSummaryRoute(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/summary"
+
+	first, firstBody := postJSON(t, url, map[string]any{"summary": "first run's summary"})
+	if first.StatusCode != http.StatusCreated {
+		t.Fatalf("first POST summary = %d (%s), want 201", first.StatusCode, firstBody)
+	}
+
+	second, secondBody := postJSON(t, url, map[string]any{"summary": "fix run's summary"})
+	if second.StatusCode != http.StatusOK {
+		t.Fatalf("second POST summary = %d (%s), want 200", second.StatusCode, secondBody)
+	}
+	var got records.ChangeSummary
+	if err := json.Unmarshal(secondBody, &got); err != nil {
+		t.Fatalf("decode response body %s: %v", secondBody, err)
+	}
+	if got.Summary != "fix run's summary" {
+		t.Errorf("response summary = %q, want the last write's own text", got.Summary)
+	}
+	if len(fs.changeSummaries) != 1 {
+		t.Errorf("store holds %d change summaries, want exactly 1 -- the second write appended instead of replacing", len(fs.changeSummaries))
+	}
+
+	before := fs.recordCalls
+	if resp, respBody := postJSON(t, url, map[string]any{"summary": "   "}); resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("POST summary with a whitespace body = %d (%s), want 400", resp.StatusCode, respBody)
+	}
+	if fs.recordCalls != before {
+		t.Errorf("the store was reached for a whitespace-only summary")
+	}
+
+	if resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-none")+"/summary", map[string]any{"summary": "s"}); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("POST summary for an unknown change = %d (%s), want 404", resp.StatusCode, respBody)
 	}
 }

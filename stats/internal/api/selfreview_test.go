@@ -192,3 +192,45 @@ func TestGitBoundInsideWriteBudget(t *testing.T) {
 		t.Errorf("git bound %s must sit well inside the write budget 30s (server.go writeTimeout)", selfreview.DefaultGitBound)
 	}
 }
+
+// TestSelfReviewBundleServesSummary pins the recorded change summary's
+// place in the served bundle: a change whose store holds a summary gets it
+// as the bundle's first section, verbatim, and an unknown change's bundle
+// reports it skipped like every other missing source -- the store read
+// failing with ErrChangeNotFound is absence, never a 5xx.
+func TestSelfReviewBundleServesSummary(t *testing.T) {
+	repo := t.TempDir()
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.recordedSummary = "what changed and why, grouped by area"
+	fs.summaryFound = true
+
+	resp, err := http.Get(ts.URL + selfReviewPath("proj", "kan-1", repo))
+	if err != nil {
+		t.Fatalf("GET bundle: %v", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	body := string(raw)
+
+	summaryAt := strings.Index(body, "## change summary")
+	ledgerAt := strings.Index(body, "## .superpowers/sdd/ledgers/kan-1.md")
+	if summaryAt == -1 {
+		t.Fatalf("served bundle carries no change summary section:\n%s", body)
+	}
+	if ledgerAt != -1 && ledgerAt < summaryAt {
+		t.Errorf("ledger section precedes the change summary:\n%s", body)
+	}
+	if !strings.Contains(body, "what changed and why, grouped by area") {
+		t.Errorf("summary content not served verbatim:\n%s", body)
+	}
+
+	// An unknown change's summary reads as absence, not as a store
+	// failure: the bundle still serves, with the source skipped.
+	code, body2 := doGet(t, ts, selfReviewPath("proj", "never-heard", repo))
+	if code != http.StatusOK {
+		t.Fatalf("GET bundle for an unknown change = %d (%s), want 200", code, body2)
+	}
+	if !strings.Contains(body2, "skipped: change summary (absent)") {
+		t.Errorf("unknown change's summary not reported skipped:\n%s", body2)
+	}
+}

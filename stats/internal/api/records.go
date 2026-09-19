@@ -49,6 +49,13 @@ type RecordWriter interface {
 	// does.
 	RecordPass(ctx context.Context, projectKey, change string, in records.Pass) (records.Pass, error)
 	RecordMutation(ctx context.Context, projectKey, change string, in records.Mutation) (records.Mutation, error)
+
+	// RecordChangeSummary carries the change's recorded summary -- the
+	// run's handoff report the self-review bundle serves as its first
+	// source. It sits here beside RecordDecision for the same reason that
+	// method does: a journalled "summary" entry replays through this
+	// interface exactly as a journalled decision or pass does.
+	RecordChangeSummary(ctx context.Context, projectKey, change, summary string) (records.ChangeSummary, bool, error)
 }
 
 // RecordStore is the store dependency the run-record endpoints need,
@@ -63,6 +70,12 @@ type RecordWriter interface {
 type RecordStore interface {
 	RecordWriter
 	RunRecord(ctx context.Context, projectKey, change string) (records.Run, error)
+
+	// ChangeSummary is the recorded-summary read the self-review bundle
+	// handler calls -- on RecordStore because the handler is wired with
+	// the same store value as the record routes, and splitting the read
+	// off would ask New to carry a second interface for one method.
+	ChangeSummary(ctx context.Context, projectKey, change string) (records.ChangeSummary, error)
 
 	// RecordVerdict, FlagVerdictFalsePositive, ListVerdicts, RecordIncident
 	// and ListIncidents are KAN-451's guard-log methods -- see
@@ -213,6 +226,19 @@ func ApplyDecisionRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 		return records.Decision{}, false, fmt.Errorf("%w: sessionToken and decision are both required", ErrInvalidRecord)
 	}
 	return rw.RecordDecision(ctx, projectKey, change, in)
+}
+
+// ApplyChangeSummaryRecord records a change's summary against rw,
+// refusing an empty or whitespace-only summary before the store is
+// touched -- a row that says nothing is not a summary, and a recorded
+// blank would read in the bundle as the change having said so. See
+// ApplyDispatchRecord for why the checks live here rather than in the
+// handler.
+func ApplyChangeSummaryRecord(ctx context.Context, rw RecordWriter, projectKey, change, summary string) (records.ChangeSummary, bool, error) {
+	if strings.TrimSpace(summary) == "" {
+		return records.ChangeSummary{}, false, fmt.Errorf("%w: summary is required", ErrInvalidRecord)
+	}
+	return rw.RecordChangeSummary(ctx, projectKey, change, summary)
 }
 
 // ApplyPassRecord records one panel pass-log entry against rw, refusing an
@@ -511,6 +537,39 @@ func (h *recordHandler) recordDecision(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("record decision for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	if created {
+		writeJSON(w, http.StatusCreated, out)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// recordSummary serves POST /api/v1/records/{project}/{change}/summary:
+// the change's recorded summary -- the run's handoff report the self-review
+// bundle serves as its first source. It answers 201 when the write inserted
+// and 200 when it replaced the summary already recorded for the change --
+// the same split recordDecision's route makes, since a fix run restating
+// the change's verdict is the designed last-write-wins, never a second
+// row.
+func (h *recordHandler) recordSummary(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.ChangeSummary
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, created, err := ApplyChangeSummaryRecord(r.Context(), h.store, project, change, in.Summary)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record summary for %s/%s", project, change), err)
 		writeError(w, status, msg)
 		return
 	}

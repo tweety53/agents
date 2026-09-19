@@ -121,6 +121,19 @@ type fakeStore struct {
 	decisions      []decisionRecord
 	nextDecisionID int64
 
+	// --- change-summary bookkeeping (internal/api/records_test.go's
+	// fakeStore methods operate on these) ---
+	changeSummaries []summaryRecord
+	nextSummaryID   int64
+
+	recordChangeSummaryErr error
+
+	// recordedSummary and summaryFound are what ChangeSummary answers:
+	// a test seeds them directly, and ErrChangeNotFound is reported the
+	// way the real store reports it whenever summaryFound is false.
+	recordedSummary string
+	summaryFound    bool
+
 	recordDecisionErr error
 	listDecisionsErr  error
 

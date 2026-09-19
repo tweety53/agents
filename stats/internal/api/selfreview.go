@@ -14,15 +14,20 @@ import (
 )
 
 // selfreviewStore is the store dependency the self-review bundle endpoint
-// needs, defined here at the consumer per go-interface-design — exactly
-// the one read the handler calls, so a test needs no database. The
-// repository the archive-derived sources come from is not a store answer:
+// needs, defined here at the consumer per go-interface-design — exactly the
+// two reads the handler calls, so a test needs no database. The repository
+// the archive-derived sources come from is not a store answer:
 // change_repos carries no roots for the pipeline's real changes, and the
 // caller — running from anywhere inside the repository, the way every flow
 // command does — resolves the main checkout itself and passes it as the
 // repo query parameter.
 type selfreviewStore interface {
 	RunRecord(ctx context.Context, projectKey, change string) (records.Run, error)
+
+	// ChangeSummary is the change's recorded summary read — the row the
+	// bundle serves as its first source. ErrChangeNotFound from it is the
+	// missing-source case the bundle reports skipped, never a failure.
+	ChangeSummary(ctx context.Context, projectKey, change string) (records.ChangeSummary, error)
 }
 
 // selfreviewHandler serves GET
@@ -70,7 +75,23 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		rec = records.Run{Change: change}
 	}
 
-	bundle, err := selfreview.Bundle(change, rec, "", false, []string{repo}, h.git)
+	// The recorded summary is the bundle's first source, and its read
+	// follows the same rule the run record's does: ErrChangeNotFound is
+	// the change having no summary — reported skipped inside the bundle —
+	// while any other read failure is a 5xx, never a bundle a caller
+	// could mistake for the change's own.
+	summary, summaryFound := "", false
+	cs, err := h.store.ChangeSummary(r.Context(), project, change)
+	switch {
+	case err == nil:
+		summary, summaryFound = cs.Summary, true
+	case !errors.Is(err, store.ErrChangeNotFound):
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("read the change summary for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+
+	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, []string{repo}, h.git)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

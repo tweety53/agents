@@ -351,6 +351,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/specs/{project}/lastruns", sph.listSpecRuns)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/decisions", rh.recordDecision)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/decisions", rh.listDecisions)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/summary", rh.recordSummary)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/task-counts", rh.recordTaskCount)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/task-counts", rh.listTaskCounts)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/passes", rh.recordPass)
