@@ -241,6 +241,15 @@ type queryable struct {
 	searchColumns []string
 }
 
+// projectKeyExpr is the store's one spelling of a stage run's effective
+// project key: the owning change's own key, falling back to the stage
+// run's for an unattached plan session (0023_plan_sessions.sql). Every
+// site that spells this expression -- the stage-run allowlist's filter
+// entry below and the SELECT and WHERE clauses that report or filter on
+// it -- references this constant, so the filter path and the reported
+// path cannot drift (KAN-594).
+const projectKeyExpr = "COALESCE(c.project_key, sr.project_key)"
+
 // changeFieldColumns is the allowlist for every field a caller may filter
 // or sort by on the changes table -- including, by inclusion in
 // stageRunFieldColumns below, on a stage run's owning change via join.
@@ -298,8 +307,8 @@ var stageRunOwnFieldColumns = map[string]string{
 	// stage run's own column, COALESCE'd with the owning change's --
 	// changeFieldColumns["project"] cannot be changed to do this itself,
 	// since QueryChanges builds against the "c" alias alone, where "sr"
-	// does not exist.
-	"project_key": "COALESCE(c.project_key, sr.project_key)",
+	// does not exist. The expression is projectKeyExpr, held once.
+	"project_key": projectKeyExpr,
 }
 
 // stageRunFieldColumns is stageRunOwnFieldColumns plus changeFieldColumns

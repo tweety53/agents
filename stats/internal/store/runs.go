@@ -140,13 +140,13 @@ func (s *Store) ListRuns(ctx context.Context, period Period, project, change *st
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	stageRows, err := tx.Query(ctx, `
-		SELECT sr.id, COALESCE(sr.change_id, 0), COALESCE(c.project_key, sr.project_key), c.name,
+		SELECT sr.id, COALESCE(sr.change_id, 0), `+projectKeyExpr+`, c.name,
 		       COALESCE(c.jira_issue, sr.jira_key), COALESCE(sr.session_token, ''), sr.command, sr.stage,
 		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics
 		FROM stage_runs sr
 		LEFT JOIN changes c ON c.id = sr.change_id
 		WHERE sr.started_at >= $1 AND sr.started_at < $2
-		  AND ($3::text IS NULL OR COALESCE(c.project_key, sr.project_key) = $3)
+		  AND ($3::text IS NULL OR `+projectKeyExpr+` = $3)
 		  AND ($4::text IS NULL OR c.name = $4)
 		ORDER BY sr.started_at, sr.id
 	`, period.From, period.To, project, change)

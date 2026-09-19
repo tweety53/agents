@@ -98,9 +98,9 @@ type StageRun struct {
 	Harness  string
 	// ChangeName and ProjectKey are the owning change's public identity,
 	// read back by QueryStageRuns through its changes join (KAN-537).
-	// ProjectKey is the same COALESCE(c.project_key, sr.project_key) the
-	// allowlist's "project_key" filter entry maps, so an unattached plan
-	// session reports the project it was opened against. Both are nil from
+	// ProjectKey is the shared projectKeyExpr the allowlist's "project_key"
+	// filter entry maps too, so an unattached plan session reports the
+	// project it was opened against. Both are nil from
 	// any read that does not join changes -- GetStageRun today -- and from
 	// an unattached plan session's ChangeName.
 	ChangeName *string
@@ -664,7 +664,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	sqlText := fmt.Sprintf(`
 		SELECT sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
 		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics,
-		       c.name, COALESCE(c.project_key, sr.project_key)
+		       c.name, `+projectKeyExpr+`
 		FROM stage_runs sr
 		LEFT JOIN changes c ON c.id = sr.change_id
 		%s

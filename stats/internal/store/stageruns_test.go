@@ -2385,10 +2385,9 @@ func TestConcurrentBeginStagePlanSessionDoesNotCollide(t *testing.T) {
 // the flow-active-change hook's query reads (KAN-537): a stage run row
 // reached by session must carry which change it belongs to, by name and
 // project, or the hook's store query answers nothing a transcript regex
-// used to answer. ProjectKey maps the same COALESCE(c.project_key,
-// sr.project_key) expression the allowlist's own "project_key" filter
-// entry does, so what a caller filters by and what a row reports cannot
-// disagree.
+// used to answer. ProjectKey is projectKeyExpr -- the one spelling the
+// allowlist's own "project_key" filter entry maps too (KAN-594) -- so
+// what a caller filters by and what a row reports cannot disagree.
 func TestQueryStageRunsReturnsChangeNameAndProject(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
