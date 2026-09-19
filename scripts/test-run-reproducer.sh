@@ -696,7 +696,8 @@ assert_not_ran 'case 31' "$wt"
 #     exit 1 — a crash this script's exit-code vocabulary mis-reads as
 #     "defect not demonstrated"), and `exec {fd}<>file` is bash-4.1+ syntax
 #     3.2 parses as an exec of a command literally named `{fd}` (a
-#     two-token reproducer died at the sentinel with a wrong verdict). Both
+#     two-token reproducer died at the sentinel — measured pre-fix exit 0,
+#     a silent false "defect demonstrated"). Both
 #     cases run the guard under /bin/bash itself, one per path.
 # ===========================================================================
 if [ -x /bin/bash ]; then
