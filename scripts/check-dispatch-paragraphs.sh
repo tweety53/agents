@@ -97,7 +97,13 @@
 # (shared helpers over the literal route that would have reordered a required
 # clause ordering) stays legal while a silent one does not — at the
 # panel-fix subagent dispatch in review-panel.md alone, the same single site
-# MUTATION PROOF and PIXEL PROBE occupy.
+# MUTATION PROOF and PIXEL PROBE occupy. KAN-593 added a fifteenth required
+# paragraph — CONTEXT BUNDLE FAILURE, which makes the review panel's
+# pre-flight bundle rebuild fail loud instead of silent: a non-zero gather
+# exit or an absent bundle file records the cause in the pass log and then
+# stops the stage or takes an explicit operator override before any slot is
+# dispatched, so the reviewers' context is never silently reduced — at the
+# panel pre-flight in review-panel.md alone.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -140,6 +146,7 @@
 #   **FINDINGS ARE INPUT:**            skills/flow/review-panel.md  1   (none)
 #   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
 #   **REPORT, DON'T DECIDE:**          skills/flow/implement.md     1   (none)
+#   **CONTEXT BUNDLE FAILURE:**        skills/flow/review-panel.md  1   (none)
 #
 #   REPRODUCE, DON'T READ shared phrases: "crosses a boundary", "the store,
 #   the filesystem, a guard, a real transcript", "exercise the real thing"
@@ -194,6 +201,15 @@
 #   dispatch in implement.md alone — the gated per-task reviewer dispatch
 #   is not a site: reviewers judge a diff, they do not settle operator
 #   questions.
+#
+#   CONTEXT BUNDLE FAILURE shared phrases (no variants — every block
+#   carrying the label must carry all five): "exited non-zero, or the
+#   bundle file is still", "context bundle: build failed", "dispatch every
+#   slot without the bundle", "context bundle: dispatched without it —
+#   operator override", "outcome stopped". Required once, at the panel
+#   pre-flight in review-panel.md alone — the fix subagent's rebuild takes
+#   the same path through its existing "same as above", so it needs no
+#   second block.
 #
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
@@ -308,6 +324,7 @@ declare -A ENTRY_LABEL=(
   [decide]="**REPORT, DON'T DECIDE:**"
   [entry]="**ENTRY CONTEXT:**"
   [findings]="**FINDINGS ARE INPUT:**"
+  [contextbundle]="**CONTEXT BUNDLE FAILURE:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
@@ -325,6 +342,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [decide]="only the operator can settle${US}reported, never decided in code${US}carry the question in your REPORT FILE${US}report BLOCKED"
   [entry]="your named entry context${US}not from a whole-tree exploration${US}the coverage trade"
   [findings]="input, not orders${US}resolve the defect the finding names${US}records the deviation and justifies it${US}A silent deviation is an unfixed finding"
+  [contextbundle]="exited non-zero, or the bundle file is still${US}context bundle: build failed${US}dispatch every slot without the bundle${US}context bundle: dispatched without it — operator override${US}outcome stopped"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -344,6 +362,7 @@ declare -A ENTRY_VARIANTS=(
   [decide]=""
   [entry]=""
   [findings]=""
+  [contextbundle]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -356,10 +375,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings contextbundle)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {
