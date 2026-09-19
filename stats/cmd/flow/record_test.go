@@ -3070,6 +3070,59 @@ func TestRecordUsageNamesEveryRole(t *testing.T) {
 	}
 }
 
+// --- record roles: serves the dispatch-role vocabulary ---
+
+// TestRunRecordRolesPrintsServedVocabulary pins `flow record roles` to the
+// served source: stdout is exactly recordRoles, one role per line, with a
+// clean exit and no store contact. It is the dispatch-role vocabulary's
+// `flow stage keys` (stage_test.go): the answer a caller about to type
+// -role reads instead of guessing the set and paying a refused call per
+// guess (KAN-595), and the output any consumer of the vocabulary reads
+// rather than keeping a transcription of its own.
+func TestRunRecordRolesPrintsServedVocabulary(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "roles"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
+	}
+	want := ""
+	for _, role := range recordRoles {
+		want += role + "\n"
+	}
+	if want == "" {
+		t.Fatal("recordRoles is empty -- the served vocabulary vanished")
+	}
+	if stdout.String() != want {
+		t.Errorf("stdout = %q, want the served roles one per line %q", stdout.String(), want)
+	}
+}
+
+// TestRunRecordRolesRejectsPositionalArgument pins the exit-2 contract the
+// sibling `flow stage keys` holds: an unexpected positional argument is a
+// usage error reported on stderr, never silently ignored input.
+func TestRunRecordRolesRejectsPositionalArgument(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "roles", "unexpected-arg"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (usage error)", code)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty on a usage error", stdout.String())
+	}
+	if want := "flow: record roles takes no positional arguments"; !strings.Contains(stderr.String(), want) {
+		t.Errorf("stderr = %q, want it to carry %q", stderr.String(), want)
+	}
+}
+
 // TestRunRecordDispatchBeginRejectsUnknownEffort pins that -effort is
 // checked against the four accepted words before the store is ever
 // contacted, exactly as -role is in

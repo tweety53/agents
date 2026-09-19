@@ -270,6 +270,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -session-token token -file path
        flow record decisions [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record roles
        flow record pass     [-addr url] [-timeout dur] [-C dir]
                              -change name [-round n] -note text
        flow record mutation [-addr url] [-timeout dur] [-C dir]
@@ -390,6 +391,14 @@ recorded twice under the same -session-token replaces the row rather than
 appending a second one. decisions prints a change's recorded decisions as a
 JSON array, newest first, findings' own read contract, verbatim.
 
+roles prints every dispatch role -role accepts, one per line, from
+recordRoles -- the vocabulary's one served source, exactly as "flow stage
+keys" serves the stage keys. It is pure local output -- no store contact,
+no project resolution, no flags -- so a caller about to type -role reads
+the accepted set instead of guessing it and paying a refused call per
+guess (KAN-595), and any consumer of the vocabulary pins against this
+output rather than keeping a transcription of its own.
+
 The only non-zero exits are caller mistakes -- a missing required flag, an
 unrecognised -role, a -session-token carrying a shell substitution, or a
 -minutes-lost that does not parse as a non-negative integer -- a write the
@@ -412,6 +421,7 @@ attempt inserted instead of inserting a second row for one dispatch. Write
 it as a literal, unique among the dispatches of one -session-token.
 
 -role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier.
+"flow record roles" prints that set, one per line.
 
 -agent-id is the harness's own identifier for the subagent that was
 dispatched. "begin" accepts it as recorded intent the daemon never
@@ -516,6 +526,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordDecision(ctx, args[1:], stdin, stdout, stderr)
 	case "decisions":
 		return runRecordDecisions(ctx, args[1:], stdout, stderr)
+	case "roles":
+		return runRecordRoles(args[1:], stdout, stderr)
 	case "pass":
 		return runRecordPass(ctx, args[1:], stdout, stderr)
 	case "mutation":
@@ -525,6 +537,28 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		fmt.Fprint(stderr, recordUsage)
 		return 2
 	}
+}
+
+// runRecordRoles implements `flow record roles`: the served dispatch-role
+// vocabulary, one role per line, exit 0. It is deliberately pure local
+// output -- no store contact, no project resolution, no flags -- the same
+// contract `flow stage keys` (stage.go) holds for the stage keys, and for
+// the same reason: a caller about to type -role reads the accepted set
+// here instead of guessing it and paying a refused call per guess
+// (KAN-595), and any consumer of the vocabulary pins against this output
+// rather than a transcription of its own. An unexpected positional
+// argument is the one usage error it reports: the same exit-2 contract
+// `flow stage keys` holds.
+func runRecordRoles(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 {
+		fmt.Fprintf(stderr, "flow: record roles takes no positional arguments\n")
+		fmt.Fprint(stderr, recordUsage)
+		return 2
+	}
+	for _, role := range recordRoles {
+		fmt.Fprintln(stdout, role)
+	}
+	return 0
 }
 
 // recordIdentityFlags is common to every record subcommand: the store
