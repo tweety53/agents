@@ -236,7 +236,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	}
 
 	if strings.Contains(bundle, "skipped: git log --stat") {
-		t.Errorf("git log source resolved from the change branch but reported skipped:\n%s", bundle)
+		t.Fatalf("git log source resolved from the change branch but reported skipped:\n%s", bundle)
 	}
 	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
 	if !strings.Contains(gitLog, "commit "+implSHA) {
@@ -252,8 +252,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 // TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing pins the fallback's
 // degradation: no change branch to walk — it landed and was deleted, or
 // never existed — leaves the source skipped, never a confident wrong
-// answer, and a repository whose origin/HEAD is unset degrades the same
-// way.
+// answer.
 func TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing(t *testing.T) {
 	repo := gitRepo(t)
 	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
