@@ -274,6 +274,23 @@ type Decision struct {
 	Decision     json.RawMessage `json:"decision"`
 }
 
+// ChangeSummary is one change's recorded summary: the run's own handoff
+// report stating what changed and why, what was verified and how, and what
+// was deliberately left out, stored verbatim as the Markdown the run wrote.
+// It is the self-review context bundle's first source, so a deferred
+// reasoning pass reads the change's own statement from the store.
+//
+// One row per change, last write wins: a fix run's summary replaces the
+// earlier one, and a replayed write updates the row the run already
+// recorded. Unlike Decision there is no session token -- the per-change
+// unique constraint alone provides the idempotency, and the store keeps no
+// per-run history of the summary.
+type ChangeSummary struct {
+	ID         int64     `json:"id"`
+	Summary    string    `json:"summary"`
+	RecordedAt time.Time `json:"recordedAt"`
+}
+
 // Verdict is one recorded outcome a guard reached against one worktree, at
 // one point in time -- the record `check-unfinished-work.sh` and any guard
 // like it leaves behind so that "this guard tripped here before" stops
