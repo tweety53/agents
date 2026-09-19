@@ -621,3 +621,59 @@ func TestListFindingPatternOccurrencesEscapesReservedCharacters(t *testing.T) {
 		t.Errorf("daemon saw %q, want the path ending in the percent-encoded pattern /row%%3Fdetail", escaped)
 	}
 }
+
+// TestClientPostChangeSummary pins the summary write's client shape: POST
+// to the change's summary URL carrying the summary verbatim, decoding the
+// recorded row, and reporting created from the 201/200 split the route
+// makes between an insert and a last-write-wins replacement.
+func TestClientPostChangeSummary(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/records/proj/kan-1/summary":
+			var in records.ChangeSummary
+			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+				t.Fatalf("decode POST summary body: %v", err)
+			}
+			bodies = append(bodies, in.Summary)
+			in.ID = int64(len(bodies))
+			in.RecordedAt = time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+			status := http.StatusCreated
+			if len(bodies) > 1 {
+				status = http.StatusOK
+			}
+			w.WriteHeader(status)
+			body, _ := json.Marshal(in)
+			_, _ = w.Write(body)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	first, created, err := c.PostChangeSummary(context.Background(), "proj", "kan-1", "first run's summary")
+	if err != nil {
+		t.Fatalf("PostChangeSummary: %v", err)
+	}
+	if !created {
+		t.Errorf("first PostChangeSummary created = false, want true")
+	}
+	if first.ID != 1 {
+		t.Errorf("first PostChangeSummary ID = %d, want 1", first.ID)
+	}
+
+	second, created, err := c.PostChangeSummary(context.Background(), "proj", "kan-1", "fix run's summary")
+	if err != nil {
+		t.Fatalf("second PostChangeSummary: %v", err)
+	}
+	if created {
+		t.Errorf("second PostChangeSummary created = true, want false (replaced)")
+	}
+	if second.Summary != "fix run's summary" {
+		t.Errorf("second PostChangeSummary summary = %q, want the replaced row's text", second.Summary)
+	}
+	if len(bodies) != 2 || bodies[1] != "fix run's summary" {
+		t.Errorf("wire bodies = %q, want both writes carried their own summary verbatim", bodies)
+	}
+}

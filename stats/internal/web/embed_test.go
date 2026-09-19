@@ -520,6 +520,14 @@ func (fakeStore) RecordDecision(context.Context, string, string, records.Decisio
 	return records.Decision{}, false, nil
 }
 
+func (fakeStore) RecordChangeSummary(context.Context, string, string, string) (records.ChangeSummary, bool, error) {
+	return records.ChangeSummary{}, false, nil
+}
+
+func (fakeStore) ChangeSummary(context.Context, string, string) (records.ChangeSummary, error) {
+	return records.ChangeSummary{}, nil
+}
+
 func (fakeStore) RecordPass(context.Context, string, string, records.Pass) (records.Pass, error) {
 	return records.Pass{}, nil
 }

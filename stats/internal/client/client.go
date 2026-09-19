@@ -891,6 +891,22 @@ func (c *Client) RecordDecision(ctx context.Context, project, change string, in 
 	return out, status == http.StatusCreated, nil
 }
 
+// PostChangeSummary records project/change's change summary -- the run's
+// handoff report the self-review bundle serves as its first source -- or
+// replaces the one already recorded for the change, returning the row the
+// daemon stored together with which of the two it did. The route's 201/200
+// split means an insert and a last-write-wins replacement, never two rows:
+// the summary is one per change by construction.
+func (c *Client) PostChangeSummary(ctx context.Context, project, change, summary string) (out records.ChangeSummary, created bool, err error) {
+	status, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/summary",
+		records.ChangeSummary{Summary: summary},
+		map[int]bool{http.StatusCreated: true, http.StatusOK: true}, &out)
+	if err != nil {
+		return records.ChangeSummary{}, false, err
+	}
+	return out, status == http.StatusCreated, nil
+}
+
 // ListDecisions fetches project/change's recorded decisions, newest first
 // -- what a resumed run reads to recover a stopped run's own choice. See
 // GetRunRecord's own doc comment for how every outcome other than 200 is

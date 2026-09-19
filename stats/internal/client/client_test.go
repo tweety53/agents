@@ -972,6 +972,14 @@ func (stubStageStore) RecordDecision(context.Context, string, string, records.De
 	return records.Decision{}, false, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RecordChangeSummary(context.Context, string, string, string) (records.ChangeSummary, bool, error) {
+	return records.ChangeSummary{}, false, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ChangeSummary(context.Context, string, string) (records.ChangeSummary, error) {
+	return records.ChangeSummary{}, errStageStoreNotImplemented
+}
+
 func (stubStageStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, errStageStoreNotImplemented
 }

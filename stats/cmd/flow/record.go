@@ -274,6 +274,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -session-token token -file path
        flow record decisions [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record summary   [-addr url] [-timeout dur] [-C dir]
+                             -change name -file path
        flow record roles
        flow record pass     [-addr url] [-timeout dur] [-C dir]
                              -change name [-round n] -note text
@@ -394,6 +396,19 @@ prints "recorded: decision <id>" on success -- one word, since a decision
 recorded twice under the same -session-token replaces the row rather than
 appending a second one. decisions prints a change's recorded decisions as a
 JSON array, newest first, findings' own read contract, verbatim.
+
+summary records a change's summary (KAN-598) -- the run's handoff report
+stating what changed and why, what was verified and how, and what was
+deliberately left out -- stored verbatim as the Markdown the run wrote, and
+served by "flow self-review bundle" as the bundle's first source, so a
+deferred self-review pass reads the change's own statement from the store.
+One row per change, last write wins: a fix run's summary replaces the
+earlier one, and the printed "recorded: summary <id>" names the row that
+now holds it. The body is plain Markdown text, read from -file (a path, or
+"-" to read it from stdin), validated non-empty before the store is ever
+contacted, and journals on store failure like every other write. Unlike
+decision there is no -session-token: the per-change uniqueness alone makes
+the write idempotent under replay.
 
 roles prints every dispatch role -role accepts, one per line, from
 recordRoles -- the vocabulary's one served source, exactly as "flow stage
@@ -530,6 +545,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordDecision(ctx, args[1:], stdin, stdout, stderr)
 	case "decisions":
 		return runRecordDecisions(ctx, args[1:], stdout, stderr)
+	case "summary":
+		return runRecordSummary(ctx, args[1:], stdin, stdout, stderr)
 	case "roles":
 		return runRecordRoles(args[1:], stdout, stderr)
 	case "pass":
@@ -2192,6 +2209,69 @@ func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdo
 		fmt.Fprintf(stdout, "recorded: decision %d\n", out.ID)
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "decision", in, stderr)
+}
+
+// runRecordSummary implements `flow record summary`: a change's summary --
+// the run's handoff report stating what changed and why, what was verified
+// and how, and what was deliberately left out -- stored verbatim as the
+// Markdown the run wrote and served by `flow self-review bundle` as the
+// bundle's first source (KAN-598). -file names the whole body -- a path,
+// or "-" to read it from stdin -- the decision verb's own read, minus the
+// JSON: the body is plain Markdown, so no well-formedness check applies.
+//
+// The body is validated non-empty before the store is ever contacted, the
+// identical caller-mistake contract every other required flag on this
+// command carries. There is no -session-token: the record is one row per
+// change, last write wins, so the per-change uniqueness alone makes a
+// replayed write land on the row the first attempt inserted or replaced.
+func runRecordSummary(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record summary", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	file := fset.String("file", "", "path to the summary Markdown body, or \"-\" to read it from stdin (required)")
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-change", f.change},
+		[2]string{"-file", *file},
+	) {
+		return 2
+	}
+
+	var body []byte
+	var err error
+	if *file == "-" {
+		body, err = io.ReadAll(stdin)
+	} else {
+		body, err = os.ReadFile(*file)
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: read -file %q: %v\n", *file, err)
+		return 2
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		fmt.Fprintln(stderr, "flow: -file body is empty -- a summary that says nothing records nothing")
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in := records.ChangeSummary{Summary: string(body)}
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.ChangeSummary, error) {
+		s, _, err := cl.PostChangeSummary(ctx, projectKey, f.change, in.Summary)
+		return s, err
+	})
+	if callErr == nil {
+		fmt.Fprintf(stdout, "recorded: summary %d\n", out.ID)
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "summary", in, stderr)
 }
 
 // runRecordDecisions implements `flow record decisions`: a change's

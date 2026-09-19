@@ -4218,3 +4218,132 @@ func TestRecordFlagsDefaultToTheRecordsAddress(t *testing.T) {
 		t.Fatalf("record -addr default = %q, want the records address %q", f.addr, "http://127.0.0.1:9999")
 	}
 }
+
+// TestRunRecordSummary pins `flow record summary`'s write shape: the
+// change's summary text goes to the store verbatim from -file (or stdin),
+// the daemon's row id comes back as "recorded: summary <id>", a missing
+// -change and an empty body are caller mistakes refused with exit 2
+// before the store is contacted, and the request path ends in
+// /<change>/summary.
+func TestRunRecordSummary(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotPath string
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":7,"summary":"what changed and why","recordedAt":"2026-09-19T12:00:00Z"}`))
+	}))
+	defer srv.Close()
+
+	file := filepath.Join(t.TempDir(), "summary.md")
+	if err := os.WriteFile(file, []byte("what changed and why"), 0o644); err != nil {
+		t.Fatalf("write summary file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "summary", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-598", "-file", file},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "recorded: summary 7") {
+		t.Errorf("stdout = %q, want it to name the recorded row id 7", stdout.String())
+	}
+	if !strings.HasSuffix(gotPath, "/kan-598/summary") {
+		t.Errorf("request path = %s, want it to end in /kan-598/summary", gotPath)
+	}
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode request body %s: %v", gotBody, err)
+	}
+	if sent["summary"] != "what changed and why" {
+		t.Errorf("request summary = %v, want the file's text verbatim", sent["summary"])
+	}
+
+	// Caller mistakes, both refused before the store is ever contacted:
+	// a missing -change, and an empty body.
+	emptyFile := filepath.Join(t.TempDir(), "empty.md")
+	if err := os.WriteFile(emptyFile, []byte("   \n"), 0o644); err != nil {
+		t.Fatalf("write empty summary file: %v", err)
+	}
+	contacted := false
+	srv2 := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv2.Close()
+
+	for name, args := range map[string][]string{
+		"missing change": {"record", "summary", "-addr", srv2.URL, "-timeout", "500ms", "-C", repo, "-file", file},
+		"empty body":     {"record", "summary", "-addr", srv2.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-598", "-file", emptyFile},
+	} {
+		var stdout2, stderr2 bytes.Buffer
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout2, &stderr2); code != 2 {
+			t.Errorf("%s: exit code = %d, want 2; stderr:\n%s", name, code, stderr2.String())
+		}
+	}
+	if contacted {
+		t.Error("the store was contacted for a caller mistake -- it must be refused first")
+	}
+}
+
+// TestRunRecordSummaryJournalsWhenStoreDown pins the never-block fallback
+// every other write verb carries: an unreachable store journals the
+// summary under kind "summary" and still exits 0.
+func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	file := filepath.Join(t.TempDir(), "summary.md")
+	if err := os.WriteFile(file, []byte("what changed and why"), 0o644); err != nil {
+		t.Fatalf("write summary file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "summary", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-change", "kan-598", "-file", file},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "store unreachable") {
+		t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
+	}
+
+	entries, exists := recordJournalEntries(t, repo, "kan-598")
+	if !exists || len(entries) != 1 {
+		t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
+	}
+	var got struct {
+		Kind    string `json:"kind"`
+		Request struct {
+			Summary string `json:"summary"`
+		} `json:"request"`
+	}
+	if err := json.Unmarshal(entries[0].Body, &got); err != nil {
+		t.Fatalf("decode journalled body: %v", err)
+	}
+	if got.Kind != "summary" {
+		t.Errorf("journalled kind = %q, want summary", got.Kind)
+	}
+	if got.Request.Summary != "what changed and why" {
+		t.Errorf("journalled summary = %q, want the file's text verbatim", got.Request.Summary)
+	}
+}
