@@ -86,15 +86,15 @@ panel_validate_worktree() {
 panel_touched_paths() {
   local prog="$1" WORKTREE="$2" MERGEBASE="$3" GIT_BIN="$4"
   local COMMITTED STAGED UNSTAGED
-  COMMITTED="$("$GIT_BIN" -C "$WORKTREE" diff --name-only --end-of-options "${MERGEBASE}..HEAD" 2>/dev/null)" || {
+  COMMITTED="$("$GIT_BIN" -C "$WORKTREE" diff --no-renames --name-only --end-of-options "${MERGEBASE}..HEAD" 2>/dev/null)" || {
     echo "$prog: cannot list this change's committed paths in $WORKTREE" >&2
     return 2
   }
-  STAGED="$("$GIT_BIN" -C "$WORKTREE" diff --name-only --cached 2>/dev/null)" || {
+  STAGED="$("$GIT_BIN" -C "$WORKTREE" diff --no-renames --name-only --cached 2>/dev/null)" || {
     echo "$prog: cannot list this change's staged paths in $WORKTREE" >&2
     return 2
   }
-  UNSTAGED="$("$GIT_BIN" -C "$WORKTREE" diff --name-only 2>/dev/null)" || {
+  UNSTAGED="$("$GIT_BIN" -C "$WORKTREE" diff --no-renames --name-only 2>/dev/null)" || {
     echo "$prog: cannot list this change's unstaged paths in $WORKTREE" >&2
     return 2
   }

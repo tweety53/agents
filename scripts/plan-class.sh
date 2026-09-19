@@ -147,7 +147,7 @@ if [ "$#" -eq 4 ]; then
   GIT_BIN="$(panel_resolve_git "plan-class")" || exit 2
   panel_validate_worktree "plan-class" "$WORKTREE_ARG" "$MERGEBASE_ARG" "$GIT_BIN" || exit 2
   SURFACE_PATHS="$(panel_touched_paths "plan-class" "$WORKTREE_ARG" "$MERGEBASE_ARG" "$GIT_BIN")" || exit 2
-  SURFACE_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --numstat --end-of-options "${MERGEBASE_ARG}")" || exit 2
+  SURFACE_N="$("$GIT_BIN" -C "$WORKTREE_ARG" diff --no-renames --numstat --end-of-options "${MERGEBASE_ARG}")" || exit 2
   SURFACE_LINES="$(printf '%s\n' "$SURFACE_N" \
     | awk '$1 == "-" || $2 == "-" { bad = 1 } { s += $1 + $2 } END { if (bad) print 999999; else print s + 0 }')"
 fi
