@@ -289,9 +289,11 @@ assert_shim_fired "$SHIM_DIR" "unreadable commit count"
 #     call just before it, so shim_failing_git's single-argument match cannot
 #     tell them apart — matching the range alone would fail COUNT's call
 #     instead. This case shims directly, matching subcommand ($3) AND range
-#     ($6) together: `-C <worktree> diff --name-only --end-of-options
-#     <range>` is 6 arguments with "diff" third, while the `rev-list` call
-#     has the same range but "rev-list" third. (KAN-88 fix round 2, F8.)
+#     ($7) together: `-C <worktree> diff --no-renames --name-only
+#     --end-of-options <range>` is 7 arguments with "diff" third (the KAN-596
+#     pin sits between the subcommand and --name-only), while the `rev-list`
+#     call has the same range but "rev-list" third. (KAN-88 fix round 2, F8;
+#     re-aimed at the pinned shape by KAN-596's panel round 1, F1.)
 new_repo
 advance_base "$REPO" unrelated1.txt
 RANGE="${RECORDED_BASE}..${BASE_REF}"
@@ -299,7 +301,7 @@ SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/base-moved-shim.XXXXXX")"
 REPOS+=("$SHIM_DIR")
 {
   printf '#!/usr/bin/env bash\n'
-  printf 'if [ "$3" = "diff" ] && [ "$6" = "%s" ]; then\n' "$RANGE"
+  printf 'if [ "$3" = "diff" ] && [ "$7" = "%s" ]; then\n' "$RANGE"
   printf '  : > "%s/.fired"\n' "$SHIM_DIR"
   printf '  echo "fatal: simulated MOVED_RAW read failure" >&2\n'
   printf '  exit 128\n'
@@ -384,8 +386,10 @@ assert_shim_fired "$SHIM_DIR" "unreadable staged-paths list"
 #     `--end-of-options <range>` — so shim_failing_git's single-argument
 #     match cannot pick it out (`--name-only` alone would also catch the
 #     other three). This case shims directly, matching by argument COUNT
-#     instead: `-C <worktree> diff --name-only` is exactly 4 arguments, and
-#     no other call in this guard has that shape. (KAN-88 fix round 2, F8.)
+#     instead: `-C <worktree> diff --no-renames --name-only` is exactly 5
+#     arguments, and no other call in this guard has that shape. (KAN-88 fix
+#     round 2, F8; re-aimed at the pinned shape by KAN-596's panel round 1,
+#     F1.)
 new_repo
 advance_base "$REPO" unrelated1.txt
 echo unstaged >> "$REPO/shared.txt"
@@ -393,7 +397,7 @@ SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/base-moved-shim.XXXXXX")"
 REPOS+=("$SHIM_DIR")
 {
   printf '#!/usr/bin/env bash\n'
-  printf 'if [ "$#" -eq 4 ] && [ "$3" = "diff" ] && [ "$4" = "--name-only" ]; then\n'
+  printf 'if [ "$#" -eq 5 ] && [ "$3" = "diff" ] && [ "$4" = "--no-renames" ] && [ "$5" = "--name-only" ]; then\n'
   printf '  : > "%s/.fired"\n' "$SHIM_DIR"
   printf '  echo "fatal: simulated UNSTAGED_RAW read failure" >&2\n'
   printf '  exit 128\n'

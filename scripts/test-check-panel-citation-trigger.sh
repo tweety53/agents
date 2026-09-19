@@ -339,7 +339,7 @@ printf '%s\n' "$XTRACE" \
 # COMMITTED="$(...)" was, on top of the COMMITTED="$(...)" subshell inside
 # panel_touched_paths itself — two nested command substitutions, not one.
 printf '%s\n' "$XTRACE" \
-  | grep -E "^\\+\\+\\+${COMMITTED_LINE}: .*/git .*diff --name-only --end-of-options .*${MERGEBASE}\\.\\.HEAD" >/dev/null \
+  | grep -E "^\\+\\+\\+${COMMITTED_LINE}: .*/git .*diff --no-renames --name-only --end-of-options .*${MERGEBASE}\\.\\.HEAD" >/dev/null \
   && pass "F2/F9/F10: the guard's own COMMITTED assignment line ($COMMITTED_LINE) traces carrying the flag for this run's merge base" \
   || fail "F2/F9/F10: line $COMMITTED_LINE (the guard's COMMITTED assignment) did not trace carrying the flag"
 
@@ -349,9 +349,9 @@ printf '%s\n' "$XTRACE" \
 #     above; a mutant that deletes the COMMITTED/STAGED/UNSTAGED error
 #     handling entirely (`|| { echo ...; exit 2; }` -> `|| true`) passed
 #     every prior case. Shim `git` to fail exactly one of the three
-#     `diff --name-only` calls, matching an argv token unique to it:
+#     `diff --no-renames --name-only` calls, matching an argv token unique to it:
 #     COMMITTED's range string, STAGED's `--cached`. UNSTAGED's own
-#     invocation (`git -C <path> diff --name-only`, no other args) has
+#     invocation (`git -C <path> diff --no-renames --name-only`, no other args) has
 #     no token that is not also present in the other two, so no
 #     single-arg shim can fail it alone without also failing whichever
 #     of COMMITTED/STAGED runs first — its handling is the identical
