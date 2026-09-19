@@ -688,6 +688,30 @@ expect_exit_and_names 'case 31: a non-hex --reproducer-sha value is a usage fail
   "$GUARD" "$wt" "scripts/sha-never-runs.sh" --reproducer-sha zz-nothex
 assert_not_ran 'case 31' "$wt"
 
+# ===========================================================================
+# 32-33. THE BASH 3.2 FLOOR (macOS's own /bin/bash — the floor
+#     scripts/lib/coverage.sh's header states). The guard crashed there
+#     twice: "${ARGS[@]}" on an EMPTY array is unbound-variable under its
+#     own `set -u` (a single-token reproducer died at the argument loop,
+#     exit 1 — a crash this script's exit-code vocabulary mis-reads as
+#     "defect not demonstrated"), and `exec {fd}<>file` is bash-4.1+ syntax
+#     3.2 parses as an exec of a command literally named `{fd}` (a
+#     two-token reproducer died at the sentinel with a wrong verdict). Both
+#     cases run the guard under /bin/bash itself, one per path.
+# ===========================================================================
+if [ -x /bin/bash ]; then
+  wt="$(make_worktree)"
+  fixture "$wt" "scripts/floor-single-token.sh" "exit 3"
+  expect_exit_and_names 'case 32: a single-token reproducer decides under /bin/bash (empty ARGS)' 0 \
+    'defect demonstrated' /bin/bash "$GUARD" "$wt" "scripts/floor-single-token.sh"
+  wt="$(make_worktree)"
+  fixture "$wt" "scripts/floor-two-token.sh" "exit 3"
+  expect_exit_and_names 'case 33: a two-token reproducer decides under /bin/bash (sentinel fd)' 0 \
+    'defect demonstrated' /bin/bash "$GUARD" "$wt" "scripts/floor-two-token.sh arg1"
+else
+  printf 'skip: cases 32-33 — no /bin/bash on this machine\n'
+fi
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'test-run-reproducer: one or more cases failed\n' >&2
   exit 1
