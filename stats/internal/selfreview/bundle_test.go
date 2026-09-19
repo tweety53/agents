@@ -216,6 +216,59 @@ func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	}
 }
 
+// TestBundleAssemblyGitLogFallsBackToChangeBranch pins the KAN-583
+// fallback: a change no repository archives — a /flow-fast change — still
+// gets its git-log source, derived from the main checkout the caller
+// passes as the change branch's own commits against the remote default
+// branch. The branch's commits exist and the planning-and-archive query
+// has nothing to find; absent must not be the answer.
+func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
+	repo := gitRepo(t)
+	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	runGit(t, repo, "checkout", "-b", "demo")
+	implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+	runGit(t, repo, "checkout", "main")
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	if strings.Contains(bundle, "skipped: git log --stat") {
+		t.Errorf("git log source resolved from the change branch but reported skipped:\n%s", bundle)
+	}
+	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
+	if !strings.Contains(gitLog, "commit "+implSHA) {
+		t.Errorf("git log section missing the change branch's commit %s:\n%s", implSHA, gitLog)
+	}
+	// One found source — the git log; every other source a flow-fast run
+	// has no archive to read and no store rows to render.
+	if !strings.Contains(bundle, "found: 1 of 6 sources; skipped: 5 of 6 sources") {
+		t.Errorf("summary line wrong:\n%s", bundle)
+	}
+}
+
+// TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing pins the fallback's
+// degradation: no change branch to walk — it landed and was deleted, or
+// never existed — leaves the source skipped, never a confident wrong
+// answer, and a repository whose origin/HEAD is unset degrades the same
+// way.
+func TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing(t *testing.T) {
+	repo := gitRepo(t)
+	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	if !strings.Contains(bundle, "skipped: git log --stat (absent)") {
+		t.Errorf("no change branch to walk, yet git log resolved:\n%s", bundle)
+	}
+}
+
 // TestBundleAssemblyFallsBackToCommittedRecords pins the KAN-552 fallback:
 // a change whose rows never reached the store — the kan-468 failure —
 // still gets its ledger and panel sections, read out of the copies run 2

@@ -281,6 +281,36 @@ func unreadableRepos(g Runner, repos []string) []string {
 	return broken
 }
 
+// firstReadableRepo returns the first supplied repository git can read at
+// all — for a change no repository archives, this is the main checkout the
+// caller resolved, and the only repository the change-branch fallback
+// reads.
+func firstReadableRepo(g Runner, repos []string) string {
+	for _, repo := range repos {
+		if _, err := g.Output(repo, "rev-parse", "--git-dir"); err == nil {
+			return repo
+		}
+	}
+	return ""
+}
+
+// changeBranchLog renders the change branch's own commits against the
+// remote default branch — the git-log source for a change with no archive:
+// a /flow-fast change's implementation commits live on the branch named
+// after the change, where deriveFinishCommits's planning-and-archive query
+// has nothing to find. The base is what origin/HEAD points at, the same
+// notion the flow-fast run's own Branch log printed; a repository whose
+// origin/HEAD is unset, and a branch that resolves nothing — landed and
+// deleted, or never created — degrade to an empty string, the same "a
+// missing source is never fatal" rule deriveFinishCommits follows.
+func changeBranchLog(g Runner, repo, change string) string {
+	base := trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+	if base == "" {
+		return ""
+	}
+	return trimmedOutput(g.Output(repo, "log", "--stat", base+".."+change))
+}
+
 // gitLogSection renders the git-log source's content: `git log --stat -1`
 // per resolved sha, implementation, planning, archive in that order — the
 // same three commits in the same order the gather printed.
@@ -319,7 +349,12 @@ func trimmedOutput(b []byte, err error) string {
 // path and never served beside a store render that was found; repos are
 // the candidate repository roots the caller supplied, probed for the
 // change's archived directory in order; g reads everything git has to
-// answer for. A repository git cannot read at all is reported in a `note:`
+// answer for. A change no supplied repository archives — a /flow-fast
+// change, never archived by design — still gets its git-log source, read
+// off the change branch in the first readable supplied repository, the
+// main checkout the caller resolved (KAN-583); the three spectre sources
+// stay skipped for it. A repository git cannot read at all is reported in
+// a `note:`
 // line — environmental failure keeps a different wording from legitimate
 // absence. An invalid change name is the one error: the same allowlist
 // records.Destination enforces, checked before the name builds a label or
@@ -392,6 +427,8 @@ func Bundle(change string, run records.Run, repos []string, g Runner) (string, e
 	gitLog := ""
 	if repo != "" {
 		gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, change))
+	} else if mainRepo := firstReadableRepo(g, repos); mainRepo != "" {
+		gitLog = changeBranchLog(g, mainRepo, change)
 	}
 	add("git log --stat", gitLog, gitLog != "")
 
