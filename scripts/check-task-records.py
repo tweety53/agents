@@ -179,7 +179,8 @@ def subject_map(root: Path, rev: str) -> Dict[str, List[str]]:
 
 def commit_files(root: Path, sha: str) -> List[str]:
     out = git(
-        root, ["diff-tree", "--root", "-r", "--name-only", "--no-commit-id", sha]
+        root, ["diff-tree", "--no-renames", "--root", "-r", "--name-only",
+         "--no-commit-id", sha]
     )
     return [line for line in out.splitlines() if line]
 

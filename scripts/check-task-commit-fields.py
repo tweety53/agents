@@ -1325,7 +1325,13 @@ def check_task_commit(
         ).splitlines()
         if p
     ]
-    diff_text = run_git(worktree, ["diff", f"{resolved_parent}..{commit_sha}"])
+    # The full diff text gets the same pin: with rename detection a renamed
+    # file contributes only its modified hunks, without it the whole delete
+    # and add blocks — a Tests: name on a renamed file's unchanged lines is
+    # found on one machine and missed on another.
+    diff_text = run_git(
+        worktree, ["diff", "--no-renames", f"{resolved_parent}..{commit_sha}"]
+    )
     actual_subject = run_git(
         worktree, ["log", "-1", "--format=%s", commit_sha]
     ).strip()
