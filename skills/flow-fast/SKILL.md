@@ -217,7 +217,9 @@ flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -s
 
 Implement in the worktree, in this session — or, on a decided `sdd`, per **Dynamic decisions**'
 `sdd-tdd` step. Test first where a test can express the behaviour
-(**superpowers:test-driven-development**); a defect gets a failing test before its fix. Commit
+(**superpowers:test-driven-development**); a defect gets a failing test before its fix. A
+refactor of output-producing code follows **PIN BEFORE REFACTOR**
+(`skills/flow/implement.md`). Commit
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope
 naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no
 attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch
