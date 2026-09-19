@@ -248,7 +248,7 @@ resolve_change_branch() {
     CHANGE_BRANCH=""
     return 0
   }
-  CHANGED_FILES="$(git -C "$apply" -c core.quotePath=false diff --name-only "$mb" "$CHANGE_BRANCH" 2>/dev/null)" || {
+  CHANGED_FILES="$(git -C "$apply" -c core.quotePath=false diff --no-renames --name-only "$mb" "$CHANGE_BRANCH" 2>/dev/null)" || {
     CHANGE_BRANCH=""
     CHANGED_FILES=""
     return 0

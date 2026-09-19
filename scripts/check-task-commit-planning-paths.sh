@@ -99,7 +99,7 @@ while IFS= read -r line; do
   [ -n "$tid" ] || continue
   checked=$((checked + 1))
   commit_swept=0
-  paths="$(git -C "$WT" diff-tree -r --no-commit-id --name-only "$sha")" || {
+  paths="$(git -C "$WT" diff-tree --no-renames -r --no-commit-id --name-only "$sha")" || {
     echo "check-task-commit-planning-paths.sh: git diff-tree refused the walk on $sha" >&2
     exit 2
   }

@@ -51,7 +51,7 @@ ROOT="$(cd "$WORKTREE_ARG" 2>/dev/null && pwd -P)" || die "$WORKTREE_ARG is not 
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
   || die "$ROOT is not a git worktree"
 
-STAGED="$(git -C "$ROOT" diff --cached --name-only 2>/dev/null)" \
+STAGED="$(git -C "$ROOT" diff --no-renames --cached --name-only 2>/dev/null)" \
   || die "cannot read the staged diff of $ROOT"
 
 OFFENDERS=()

@@ -79,7 +79,10 @@ esac
 # current working tree, which already folds in staged and unstaged changes
 # alongside every commit made since — one shortstat covers committed work
 # and the working tree together.
-SHORTSTAT="$(git -C "$WORKTREE" diff --shortstat --end-of-options "$MERGE_POINT")"
+# --no-renames pins the measured size against the machine's git config:
+# with rename detection a pure rename counts as zero changed lines, without
+# it as a full delete+add — the same tree would measure differently.
+SHORTSTAT="$(git -C "$WORKTREE" diff --no-renames --shortstat --end-of-options "$MERGE_POINT")"
 
 INSERTIONS=0
 DELETIONS=0

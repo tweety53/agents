@@ -130,7 +130,7 @@ if [ "$UNCARRIED" = "0" ]; then
   exit 0
 fi
 
-MOVED_RAW="$(git -C "$WORKTREE" diff --name-only --end-of-options "${RECORDED_SHA}..${EFFECTIVE_REF}" 2>/dev/null)" || {
+MOVED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only --end-of-options "${RECORDED_SHA}..${EFFECTIVE_REF}" 2>/dev/null)" || {
   echo "check-base-moved: cannot list paths changed on $EFFECTIVE_REF in $WORKTREE" >&2
   exit 2
 }
@@ -140,17 +140,17 @@ MOVED_RAW="$(git -C "$WORKTREE" diff --name-only --end-of-options "${RECORDED_SH
 # staged, and what is unstaged. Three separate captures, each checked before
 # any is used, rather than one shell pipeline whose partial failure could
 # read as an empty — and therefore clean — set.
-COMMITTED_RAW="$(git -C "$WORKTREE" diff --name-only --end-of-options "${RECORDED_SHA}..HEAD" 2>/dev/null)" || {
+COMMITTED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only --end-of-options "${RECORDED_SHA}..HEAD" 2>/dev/null)" || {
   echo "check-base-moved: cannot list this change's committed paths in $WORKTREE" >&2
   exit 2
 }
 
-STAGED_RAW="$(git -C "$WORKTREE" diff --name-only --cached 2>/dev/null)" || {
+STAGED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only --cached 2>/dev/null)" || {
   echo "check-base-moved: cannot list this change's staged paths in $WORKTREE" >&2
   exit 2
 }
 
-UNSTAGED_RAW="$(git -C "$WORKTREE" diff --name-only 2>/dev/null)" || {
+UNSTAGED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only 2>/dev/null)" || {
   echo "check-base-moved: cannot list this change's unstaged paths in $WORKTREE" >&2
   exit 2
 }

@@ -107,7 +107,7 @@ command -v jq >/dev/null 2>&1 || { echo "check-visual-verify-dispatched: jq is r
 # captured and checked on its own line, never piped straight into the
 # trigger guard — the same discipline check-base-moved.sh's own comment
 # documents for the identical hazard.
-if ! CHANGED_PATHS="$(git -C "$WORKTREE" diff --name-only "$BASE_SHA"..HEAD 2>&1)"; then
+if ! CHANGED_PATHS="$(git -C "$WORKTREE" diff --no-renames --name-only "$BASE_SHA"..HEAD 2>&1)"; then
   echo "check-visual-verify-dispatched: git diff failed against merge-base '$BASE_SHA' in $WORKTREE — cannot answer: $CHANGED_PATHS" >&2
   exit 2
 fi
