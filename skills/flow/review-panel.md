@@ -119,6 +119,21 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
 Report the script's stderr line (`bundle unchanged — reusing …` or `bundle rebuilt — …`) as part
 of this stage's own reporting.
 
+**A failed build never dispatches silently**, shape per Operator prompts
+(`skills/flow-contracts/operator-prompts.md`):
+
+> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
+> absent when checked (`test -f <worktree>/.superpowers/sdd/dispatch-context.md`) — a failed
+> build. Record the cause with `flow record pass -round <round> -note 'context bundle: build
+> failed — <the script's stderr>'`, then ask the operator once:
+> - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
+>   closes `flow.review-panel` with `-outcome stopped`
+> - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
+>   -round <round> -note 'context bundle: dispatched without it — operator override'`, every
+>   slot's prompt dropping the CONTEXT BUNDLE paragraph and naming the bundle's absence in its
+>   place, so the reviewers' reading the plan and decision directly is on the record, never a
+>   silent reduction of their context
+
 ## The roster
 
 Every resolved id maps to one slot, dispatched this run because the resolved roster (`REVIEWERS`,
