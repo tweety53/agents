@@ -37,6 +37,25 @@
 # glob, so without a fixture override its own harness would re-enter the
 # real suite.
 #
+# GUARD_TESTS_REPO_ROOT (kan-584's watched-repo override): the git work tree
+# whose cleanliness gates the suite — the repository that owns this runner
+# when unset. Same opt-in-override idiom as RUN_GUARD_TESTS_ROOT, and
+# load-bearing for the same reason: scripts/test-run-guard-tests.sh points
+# the gate at a fixture repository, never at this repository's own tree.
+# Set but empty is refused, exit 2, exactly like its sibling. A watched
+# root that is not a git work tree cannot answer the question, so the gate
+# is skipped with one stderr line — never a silent pass.
+#
+# THE TREE GATE (kan-584): before the harnesses launch, the runner snapshots
+# `git status --porcelain` over the watched root; after the summary it
+# re-reads it. A NET change fails the runner with exit 1, naming the paths
+# present after the suite and absent before — a harness case that mutates a
+# real shared file is a suite-contract violation, the same code a failing
+# harness gets, so "the whole guard suite ran and nothing touched the live
+# tree" is a property every green run just proved. Edits made and restored
+# inside the run net to zero and are not caught; the gate's contract is the
+# tree the suite leaves behind, not a filesystem watch.
+#
 # Bash 3.2 is the floor: indexed arrays only, no associative arrays, no
 # `wait -n`. scripts/lib/parallel.sh installs its own process-wide
 # EXIT/INT/TERM traps at source time (see its header) — this script installs
@@ -53,6 +72,20 @@ elif [ "${RUN_GUARD_TESTS_ROOT+set}" = "set" ]; then
   exit 2
 else
   TEST_ROOT="$SCRIPT_DIR"
+fi
+
+if [ -n "${GUARD_TESTS_REPO_ROOT:-}" ]; then
+  WATCHED="$GUARD_TESTS_REPO_ROOT"
+elif [ "${GUARD_TESTS_REPO_ROOT+set}" = "set" ]; then
+  printf 'GUARD_TESTS_REPO_ROOT is set but empty\n' >&2
+  exit 2
+else
+  WATCHED="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || printf '')"
+fi
+
+if [ -n "$WATCHED" ] && ! git -C "$WATCHED" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  printf 'run-guard-tests: %s is not a git work tree — skipping the tree gate\n' "$WATCHED" >&2
+  WATCHED=""
 fi
 
 if [ ! -d "$TEST_ROOT" ]; then
@@ -99,6 +132,10 @@ fi
 # (much larger) capture directory, which its process-wide trap already owns.
 TIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-time.XXXXXX")"
 
+if [ -n "$WATCHED" ]; then
+  git -C "$WATCHED" status --porcelain > "$TIME_DIR/before.status"
+fi
+
 SECONDS=0
 
 CMDS=()
@@ -142,23 +179,48 @@ for h in "${HARNESSES[@]}"; do
   i=$((i + 1))
 done
 
-rm -rf "$TIME_DIR"
-
+# TIME_DIR itself survives until an exit path below: the tree gate's
+# after.status snapshot is still to be written into it.
 TOTAL=${#HARNESSES[@]}
 WALL=$SECONDS
 
 printf '\n%s harnesses, %s passed, %s failed, %ss wall\n' "$TOTAL" "$PASSED" "$FAILED" "$WALL"
 
-if [ "$FAILED" -eq 0 ]; then
+DIRTY=0
+if [ -n "$WATCHED" ]; then
+  git -C "$WATCHED" status --porcelain > "$TIME_DIR/after.status"
+  if ! cmp -s "$TIME_DIR/before.status" "$TIME_DIR/after.status"; then
+    DIRTY=1
+  fi
+fi
+
+if [ "$FAILED" -eq 0 ] && [ "$DIRTY" -eq 0 ]; then
+  rm -rf "$TIME_DIR"
   exit 0
 fi
 
-printf '\nFAILED:\n'
-for name in "${FAILED_NAMES[@]}"; do
-  printf '  %s\n' "$name"
-done
+if [ "$FAILED" -gt 0 ]; then
+  printf '\nFAILED:\n'
+  for name in "${FAILED_NAMES[@]}"; do
+    printf '  %s\n' "$name"
+  done
 
-printf '\n'
-parallel_replay_failures "${NAMES[@]}"
+  printf '\n'
+  parallel_replay_failures "${NAMES[@]}"
+fi
 
+if [ "$DIRTY" -eq 1 ]; then
+  printf '\nrun-guard-tests: the watched repository tree changed during the suite (%s):\n' "$WATCHED"
+  # Name only the delta: entries present after the suite and absent before.
+  # A pure-deletion delta leaves the grep empty, and an empty grep fails the
+  # pipeline under pipefail — hence the || true and the explicit fallback.
+  DELTA="$(diff "$TIME_DIR/before.status" "$TIME_DIR/after.status" | grep '^> ' | sed 's/^> //' || true)"
+  if [ -n "$DELTA" ]; then
+    printf '%s\n' "$DELTA"
+  else
+    printf '  (entries removed relative to the pre-suite snapshot)\n'
+  fi
+fi
+
+rm -rf "$TIME_DIR"
 exit 1
