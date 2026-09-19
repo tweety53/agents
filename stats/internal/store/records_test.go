@@ -3813,3 +3813,91 @@ func TestStampDispatchAgentStillAcceptsHarnessShapes(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordChangeSummaryUpsertsLastWriteWins asserts the per-change
+// identity the change_summaries table states: recording twice for one
+// change leaves exactly one row, the second call's summary is the one that
+// survives, and the created flag reports the update -- the fix run's
+// summary replacing the first run's is the designed outcome, never an
+// accumulation of two.
+func TestRecordChangeSummaryUpsertsLastWriteWins(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-summary-upsert-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first, created, err := st.RecordChangeSummary(ctx, projectKey, "kan-1", "first run's summary")
+	if err != nil {
+		t.Fatalf("first RecordChangeSummary: %v", err)
+	}
+	if !created {
+		t.Errorf("first RecordChangeSummary created = false, want true")
+	}
+	if first.Summary != "first run's summary" {
+		t.Errorf("first RecordChangeSummary summary = %q, want the recorded text", first.Summary)
+	}
+
+	second, created, err := st.RecordChangeSummary(ctx, projectKey, "kan-1", "fix run's summary")
+	if err != nil {
+		t.Fatalf("second RecordChangeSummary: %v", err)
+	}
+	if created {
+		t.Errorf("second RecordChangeSummary created = true, want false (same change row updated)")
+	}
+	if second.ID != first.ID {
+		t.Errorf("second RecordChangeSummary ID = %d, want %d (same row, updated)", second.ID, first.ID)
+	}
+
+	got, err := st.ChangeSummary(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("ChangeSummary: %v", err)
+	}
+	if got.Summary != "fix run's summary" {
+		t.Errorf("ChangeSummary summary = %q, want the last write's text", got.Summary)
+	}
+	if got.ID != first.ID {
+		t.Errorf("ChangeSummary ID = %d, want %d", got.ID, first.ID)
+	}
+	if got.RecordedAt.IsZero() {
+		t.Errorf("ChangeSummary RecordedAt = zero, want the row's stamp")
+	}
+}
+
+// TestRecordChangeSummaryRequiresNonEmpty asserts the store refuses an
+// empty or whitespace-only summary with ErrInvalidChangeSummary: a row
+// that says nothing is not a summary, and a recorded blank would read in
+// the bundle as the change having said so.
+func TestRecordChangeSummaryRequiresNonEmpty(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-summary-empty-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	for _, body := range []string{"", "   \n\t  "} {
+		if _, _, err := st.RecordChangeSummary(ctx, projectKey, "kan-1", body); !errors.Is(err, store.ErrInvalidChangeSummary) {
+			t.Errorf("RecordChangeSummary(%q) = %v, want ErrInvalidChangeSummary", body, err)
+		}
+	}
+	if _, _, err := st.RecordChangeSummary(ctx, "proj-summary-none", "kan-1", "a summary"); !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("RecordChangeSummary for an unknown change = %v, want ErrChangeNotFound", err)
+	}
+}
+
+// TestChangeSummaryNotFoundWithoutRow asserts the read's missing-source
+// shape: a change the store knows but no run ever summarised, and an
+// unknown change, both answer ErrChangeNotFound rather than an empty row
+// -- the bundle's "a missing source is never fatal" case reads this
+// sentinel, never a guessed blank.
+func TestChangeSummaryNotFoundWithoutRow(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-summary-missing-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	if _, err := st.ChangeSummary(ctx, projectKey, "kan-1"); !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("ChangeSummary with no row = %v, want ErrChangeNotFound", err)
+	}
+	if _, err := st.ChangeSummary(ctx, projectKey, "kan-does-not-exist"); !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("ChangeSummary for an unknown change = %v, want ErrChangeNotFound", err)
+	}
+}

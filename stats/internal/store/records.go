@@ -927,6 +927,91 @@ func (s *Store) ListDecisions(ctx context.Context, projectKey, change string) ([
 	return out, nil
 }
 
+// changeSummariesChangeConstraint is the name given, explicitly, to the
+// UNIQUE (change_id) constraint in 0030_change_summaries.sql.
+// RecordChangeSummary names it in its ON CONFLICT clause for the same
+// reason decisionsSessionConstraint is named rather than left as a column
+// list: a replayed write reaches the row the run already recorded instead
+// of being refused, and the per-change uniqueness alone is what makes the
+// write idempotent -- no session token is part of this record's identity,
+// because a change's summary is the change's current verdict, not a
+// per-run row.
+const changeSummariesChangeConstraint = "change_summaries_change_key"
+
+// ErrInvalidChangeSummary is returned by RecordChangeSummary when the
+// summary body is empty or whitespace-only -- the store-level counterpart
+// to api.ErrInvalidRecord, declared here rather than reused from
+// internal/api because internal/store imports nothing above it in the
+// dependency graph. A row that says nothing is not a summary: a recorded
+// blank would read in the bundle as the change having said so.
+var ErrInvalidChangeSummary = errors.New("store: invalid change summary")
+
+// RecordChangeSummary records a change's summary -- the run's handoff
+// report, stored verbatim as the Markdown the run wrote -- as one row per
+// change, last write wins. A fix run's summary replaces the earlier one:
+// the change's current verdict is the one the self-review bundle serves.
+//
+// The write is idempotent under the per-change unique constraint, which is
+// the whole of the replay story: a journalled write replayed after a lost
+// response reaches ON CONFLICT and updates the row the first attempt
+// inserted, and no session token is needed to provide that property
+// because nothing here is per-run. The boolean reports whether the call
+// created the row (the same `xmax = 0` shape RecordDecision returns), and
+// ErrInvalidChangeSummary refuses an empty or whitespace-only body --
+// validation the store does itself, never trusting the route above it.
+func (s *Store) RecordChangeSummary(ctx context.Context, projectKey, change, summary string) (records.ChangeSummary, bool, error) {
+	if strings.TrimSpace(summary) == "" {
+		return records.ChangeSummary{}, false, fmt.Errorf("%w: summary is required", ErrInvalidChangeSummary)
+	}
+
+	var (
+		out     records.ChangeSummary
+		created bool
+	)
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO change_summaries (change_id, summary)
+		SELECT c.id, $3
+		FROM changes c
+		WHERE c.project_key = $1 AND c.name = $2
+		ON CONFLICT ON CONSTRAINT `+changeSummariesChangeConstraint+` DO UPDATE SET
+			summary     = EXCLUDED.summary,
+			recorded_at = now()
+		RETURNING id, summary, recorded_at, xmax = 0
+	`, projectKey, change, summary).
+		Scan(&out.ID, &out.Summary, &out.RecordedAt, &created)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.ChangeSummary{}, false, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		return records.ChangeSummary{}, false, fmt.Errorf("store: record change summary for %s/%s: %w", projectKey, change, err)
+	}
+	return out, created, nil
+}
+
+// ChangeSummary reads a change's recorded summary -- the row the
+// self-review bundle serves as its first source. A change with no recorded
+// summary, like an unknown change, is ErrChangeNotFound rather than an
+// empty row: the bundle's "a missing source is never fatal" rule reads the
+// sentinel and reports the source skipped, never a blank that reads as the
+// change having said nothing on purpose.
+func (s *Store) ChangeSummary(ctx context.Context, projectKey, change string) (records.ChangeSummary, error) {
+	var out records.ChangeSummary
+	err := s.pool.QueryRow(ctx, `
+		SELECT cs.id, cs.summary, cs.recorded_at
+		FROM change_summaries cs
+		JOIN changes c ON c.id = cs.change_id
+		WHERE c.project_key = $1 AND c.name = $2
+	`, projectKey, change).
+		Scan(&out.ID, &out.Summary, &out.RecordedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.ChangeSummary{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		return records.ChangeSummary{}, fmt.Errorf("store: change summary for %s/%s: %w", projectKey, change, err)
+	}
+	return out, nil
+}
+
 // MergeDispatchMetrics merges patch into a dispatch's metrics bag and never
 // replaces it, recursively and as one atomic UPDATE rather than a
 // caller-side read-modify-write -- see MergeMetrics' doc comment for why a
