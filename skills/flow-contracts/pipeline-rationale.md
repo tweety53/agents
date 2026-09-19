@@ -234,10 +234,10 @@ The rules state their own reasons and no longer carry the figures; the figures a
 the provenance survives the contract text.
 
 - *A deferral's reason is one clause naming the mechanism — never a rationale essay.* KAN-501
-  observed kan-459's fix rounds 6–7 at 29.6k–34.7k tokens each, carrying deferral-rationale prose
+  observed gymie kan-459's fix rounds 6–7 at 29.6k–34.7k tokens each, carrying deferral-rationale prose
   and `design.md` rewrites rather than fixes.
-- *When the round raised anything above Minor, re-run on deltas.* On KAN-459, five of seven review
+- *When the round raised anything above Minor, re-run on deltas.* On gymie KAN-459, five of seven review
   rounds raised mostly regressions of earlier fixes, at roughly forty-five minutes a round
   (KAN-500).
-- *Give the surviving findings to fix subagents in chunks of at most 10 findings.* KAN-459's round 1
+- *Give the surviving findings to fix subagents in chunks of at most 10 findings.* gymie KAN-459's round 1
   read ~110M cache tokens fixing 24 findings in one dispatch (KAN-499).

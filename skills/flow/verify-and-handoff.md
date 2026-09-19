@@ -253,7 +253,7 @@ and 13 below as written, committing and pushing nothing.
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
-   cannot repair an environment that cannot pass — KAN-459's visual-verify stage retried three
+   cannot repair an environment that cannot pass — gymie KAN-459's visual-verify stage retried three
    times over roughly five hours on pre-existing workspace-isolation gaps before the operator
    stopped it. With the parent's own Bash calls, before the dispatch below, check the environment
    this worktree will verify in:
@@ -301,7 +301,7 @@ and 13 below as written, committing and pushing nothing.
    declared, else `## run`, and record that this stage started it — needed at step 13.
 6. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
    of what the app was serving when it was taken, and a stack step 5 found already running may be
-   serving a build older than the worktree — KAN-29's last fix round captured, and nearly accepted,
+   serving a build older than the worktree — gymie KAN-29's last fix round captured, and nearly accepted,
    the bug the fix had removed. Run `fingerprint`. Exit 0 → the served bundle is the worktree's
    build; continue. Non-zero → stop the stack, start it from `start` when declared, else `## run`,
    record that this stage started it (step 13 stops it), and run `fingerprint` once more. A second
@@ -321,7 +321,7 @@ and 13 below as written, committing and pushing nothing.
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
    reason blocks (see **Blocking** below). A `toHaveScreenshot` passing over a baseline this
    change wrote is the app agreeing with itself, never with the mockup — step 10 is the only
-   comparison, and `capture: exit 0` is never evidence of a frame's fidelity (KAN-437 final
+   comparison, and `capture: exit 0` is never evidence of a frame's fidelity (gymie KAN-437 final
    verification: Q1's baseline was the implementer's own first capture, green on every later run
    while drawing three controls of the wrong kind). **Seed the spec with data the frame does not
    draw.** A mockup is drawn on a happy case, and a spec whose fixture reproduces it verifies only that case:
@@ -329,7 +329,7 @@ and 13 below as written, committing and pushing nothing.
    own numbers would never produce — a threshold, goal or marker value outside the plotted range;
    a dataset whose derived numbers (axis ticks, averages, deltas, unit conversions) do not come out
    round; a list longer than the viewport; and the empty or first-time entry path beside the
-   populated one (KAN-437: a goal line drawn from a value outside the axis range rendered over the
+   populated one (gymie KAN-437: a goal line drawn from a value outside the axis range rendered over the
    list below the chart, and axis labels read `82.333333333333 kg`; the spec's fixture kept the
    goal in range and its ticks round, so 22 frames passed and an operator found both by hand).
 
@@ -409,7 +409,7 @@ and 13 below as written, committing and pushing nothing.
    **The difference panel cannot show a structural departure, so the first read of every pair
    is the script's band pairing, never the panel.** The panel is white wherever any channel
    differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
-   frame's own annotations alone (KAN-437 final verification: every composed frame read
+   frame's own annotations alone (gymie KAN-437 final verification: every composed frame read
    `diff=0.20`–`0.52`). A 1px rule the capture omits, a row padding it lacks, a surface fill
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
    under a hundredth and vanishes in that white. Beside every composite the compose step writes
@@ -429,7 +429,7 @@ and 13 below as written, committing and pushing nothing.
    accept. Data never creates or removes a band, moves a divider or recolours a border, so "the
    seed data differs" explains none of them. The pairing resyncs after an unpaired band; a pair
    count far below the frame's band count is itself the finding that the layout differs
-   wholesale, and the composite is then read to say how (KAN-437 fix round 5, Q2 pre-fix: the
+   wholesale, and the composite is then read to say how (gymie KAN-437 fix round 5, Q2 pre-fix: the
    frame's four "HOW IT GOT THERE" hairlines listed `missing`, the "Adjust first" band paired
    with `edge #0088b0` against `#d7d3d3` — the outlined-accent variant shipped as the grey one —
    and the answer rows' `since_pair` short by the padding the row lacked; Q1 pre-fix: the
@@ -440,7 +440,7 @@ and 13 below as written, committing and pushing nothing.
    seam pairing is the second read: `delta.seams`, the vertical structure inside every boxed
    band.** A segmented control with its two cell dividers gone and its wrapped labels
    left-anchored where the frame centres them is one band in both images, the same height and
-   the same border colour, and pairs clean (KAN-437 fix round 5, Q1's GOAL control: both shipped
+   the same border colour, and pairs clean (gymie KAN-437 fix round 5, Q1's GOAL control: both shipped
    past the band pairing and every sweep, and an operator found them by eye). For every boxed
    band — a bordered or filled control, a card, a hairline; never a bare text row — the script
    lists its seams (an outer border's side, a cell divider, a filled cell) paired in order, and
@@ -462,7 +462,7 @@ and 13 below as written, committing and pushing nothing.
    a resting frame does not show.** Full-page comparison catches wrong regions and wrong overall
    layout, and wrong text only where the capture's data is the frame's own; it does not catch a
    border style, an icon's glyph, or a colour step, all of
-   which are invisible at full-page scale (KAN-30 fix round 6: a field's
+   which are invisible at full-page scale (gymie KAN-30 fix round 6: a field's
    underline-only focus border, drawn against a mockup showing a full outline, read as a match at
    composite scale and was found only once the two were cropped and zoomed side by side). Before
    accepting any field, button, icon, or toggle as matching its mockup:
@@ -472,7 +472,7 @@ and 13 below as written, committing and pushing nothing.
       measurement** — a plain text field or a headline display figure; a list row carrying a
       leading radio, or a quiet row whose only indicator is a trailing filled circle on the
       selected one; a segmented control of N cells each fitting its own label — a differing
-      kind is a departure before any number is taken (KAN-437 final verification, Q1: the WEIGHT
+      kind is a departure before any number is taken (gymie KAN-437 final verification, Q1: the WEIGHT
       field rendered in the weight tab's headline-figure style at about three times the frame's
       field height; every ACTIVITY row carried a leading outlined radio where the frame draws no
       indicator on unselected rows and a trailing filled circle on the selected one; the GOAL
@@ -487,7 +487,7 @@ and 13 below as written, committing and pushing nothing.
    **Enumerate every mockup frame the change touches into an explicit checklist before starting
    the sweep, and account for each one by name at handoff — done, or why not.** "Did a
    screen-by-screen sweep" is unfalsifiable without a fixed list: a partial pass reads exactly like
-   a complete one if nothing forces naming what was skipped (KAN-30 fix round 7: two prior rounds
+   a complete one if nothing forces naming what was skipped (gymie KAN-30 fix round 7: two prior rounds
    each reported partial coverage as if it were the whole set, and the gap was caught only when the
    operator asked "so is X fully compared and fixed?" of a specific frame). Build the list from
    every frame id `design.md`/`tasks.md` cites for this change, or from the mockups directory
@@ -500,14 +500,14 @@ and 13 below as written, committing and pushing nothing.
    `frames:` line counts against that list and names every declared frame absent from the
    per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame
    list before applying **Blocking**, and a declared frame with no line blocks as a departure
-   would (KAN-437 final verification: `design.md` declared 22 frames, two `flow.visual-verify`
+   would (gymie KAN-437 final verification: `design.md` declared 22 frames, two `flow.visual-verify`
    rounds each ran three of five fidelity specs and reported 15/17 composed — Q1–Q3 and M1–M2
    never composed, never named as skipped, unnoticed by the parent, and every Q1 defect above
    surfaced only when the operator opened the screen).
 
    **Exercise the states below and capture each one; a state nobody drove into is a state nobody
    verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
-   reached deliberately rather than by whatever the walkthrough happens to pass through (KAN-30
+   reached deliberately rather than by whatever the walkthrough happens to pass through (gymie KAN-30
    fix rounds 7 and 8: a blind click landed on a day's "Repeat that workout" suggestion instead of
    "Create a group session" because an extra card existed on that day only, and the sweep almost
    recorded the wrong screen as verified; one dialog's "selected" fill differed between two
@@ -550,30 +550,30 @@ and 13 below as written, committing and pushing nothing.
       until its text has been read. Transcribe every number, unit and label the capture shows and
       state, per run, that it is a display value at the precision the frame shows — a raw float,
       a `NaN`, `null`, `undefined`, an empty string where the frame draws a value, a placeholder
-      is a defect whatever the frame's own numbers are (KAN-437: `82.333333333333 kg` on an axis
+      is a defect whatever the frame's own numbers are (gymie KAN-437: `82.333333333333 kg` on an axis
       the frame drew as `82.3 kg`, read as a data difference).
    6. **The elements of capture and frame, listed top to bottom, and every element inside its
       own container.** Write both lists — heading, chart, chips, list, link — and compare their
       order: a control present in both but in a different position relative to its siblings is a
       departure the per-control crop never sees, since each crop matches its own control wherever
-      it sits (KAN-437: preset chips rendered above the chart the frame drew them below). Then
+      it sits (gymie KAN-437: preset chips rendered above the chart the frame drew them below). Then
       confirm no element's ink crosses its container's bounds into a sibling — a plotted line, a
       marker, a label — driving the out-of-range value step 8 seeded and stating whether the app
-      clamps it or hides it (KAN-437: a goal line drawn at a Y past the chart's clip, over the
+      clamps it or hides it (gymie KAN-437: a goal line drawn at a Y past the chart's clip, over the
       rows beneath).
    7. **Every scrollable region scrolled to its end, and the frame's last element reached by
       name.** A frame taller than the capture viewport is itself the assertion that the screen
       scrolls: scroll to the frame's bottom element, capture it, and name it in the report. A
       screen whose content extends past the viewport with nothing to scroll it is a defect, and
       the fixed-viewport capture cannot show it — it proves the visible viewport and nothing
-      beyond (KAN-437: a tab with no scroll container at all, its "All N weigh-ins" link
+      beyond (gymie KAN-437: a tab with no scroll container at all, its "All N weigh-ins" link
       structurally unreachable, every capture of its top green).
    8. **Every derived value re-derived after its input changes.** For each value the view
       computes from an input the operator can edit — a delta, a total, a conversion, a preview —
       type a new input, capture before and after, recompute the expected value by hand, and
       state both. A value that does not follow its input, or that is absent on one entry path the
       populated path shows (first-time versus returning), is a defect no single capture can
-      show (KAN-437: a dialog's derived field stayed stale as the operator typed, and was missing
+      show (gymie KAN-437: a dialog's derived field stayed stale as the operator typed, and was missing
       entirely on the first-entry path the spec never took).
    9. **Every row the frame bounds with a divider, hairline or container edge — a header bar, a
       sticky bar, a toolbar, a list section, a dialog's action row — gap-measured on the side
@@ -593,7 +593,7 @@ and 13 below as written, committing and pushing nothing.
       the order-and-containment sweep finds every element present and inside its container. A row
       whose every control measures the right size is the case to suspect, not to pass: a uniform
       container padding around correctly-sized controls is invisible to every reading but this one
-      (KAN-437 final verification: a Weight/Calories segmented control and its "+" button, both
+      (gymie KAN-437 final verification: a Weight/Calories segmented control and its "+" button, both
       exactly the mockup's 44dp, sat in a `padding(space4)` on all four sides — 20dp against a
       frame drawing 2–5px to the dividers above and below — and passed two `flow.visual-verify`
       fix rounds, one operator sweep and one manual re-check, each of which had measured the
@@ -618,7 +618,7 @@ and 13 below as written, committing and pushing nothing.
       capture's is a departure, whatever the row's text reads. This sweep runs on a frame whose
       content already matches and on a frame
       already fixed for something else — a fix run re-verifies the whole frame, never the
-      element it fixed (KAN-437 final verification, Q2 and Q3: Q2's "HOW IT GOT THERE" rows had
+      element it fixed (gymie KAN-437 final verification, Q2 and Q3: Q2's "HOW IT GOT THERE" rows had
       their label text fixed and were re-checked for that text only, and Q3 was passed as
       matching on its labels and values; the hairline rules both frames draw above, between and
       below their rows were never in the app, and an operator found both by hand).
@@ -633,7 +633,7 @@ and 13 below as written, committing and pushing nothing.
    row and never how far the row stretches, and the per-control crop is asked for the one number
    the last incident made memorable. The report's `sweeps:` line then names the sweeps, not the
    numbers, so a round that re-checked one defect reads exactly like a round that measured the
-   frame (KAN-437 final verification, Q1 and Q2, one operator pass after `12a64fa`: Q1's ACTIVITY
+   frame (gymie KAN-437 final verification, Q1 and Q2, one operator pass after `12a64fa`: Q1's ACTIVITY
    rows lacked their grey borders, its GOAL segments' labels sat off-centre in their cells, and its
    fat/carbs slider drew another track and thumb; Q2's headline figure was the wrong size, its
    PROTEIN/CARBS/FAT row the wrong colour and inset where the frame runs edge to edge, its "HOW IT
@@ -677,7 +677,7 @@ and 13 below as written, committing and pushing nothing.
    font size by eye from a resized or cropped image; measure it with
    `measure-visual-properties.sh`, then eyeball what it measured.** A crop is for reading text
    and layout, never edges or centres — interpolation and a small viewport shift an edge by
-   pixels and hide a gap outright (KAN-30 fix round 9: a card corner read "square, no gap" from a
+   pixels and hide a gap outright (gymie KAN-30 fix round 9: a card corner read "square, no gap" from a
    tight crop that ended before the corner; a row-by-row background-colour scan of the same
    boundary found a rounded corner and a 9px gap — done by hand-written one-off scripts, three
    attempts, the first two wrong). For every per-control comparison this step makes, run
@@ -694,12 +694,12 @@ and 13 below as written, committing and pushing nothing.
    `#f3f2f2`, 15.6 apart) has no hard edge at the default and exits 1 on every box property
    until it is — and
    read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
-   (KAN-30 fix round 10; the script's own header is canonical for its options, properties, output
+   (gymie KAN-30 fix round 10; the script's own header is canonical for its options, properties, output
    and exit codes). Two readings the eye reliably gets wrong: an icon's tint is `content.colour`,
    never `fill` — the fill is the box behind the glyph, and a grey glyph on the right fill matches
-   on every other property (KAN-437: two icons grey where the frame drew accent blue); and a pill
+   on every other property (gymie KAN-437: two icons grey where the frame drew accent blue); and a pill
    is a `radius` equal to half the box height, while a rounded rectangle is any smaller number —
-   read the number, since both look "rounded" at 1x (KAN-437: preset chips shipped as rounded
+   read the number, since both look "rounded" at 1x (gymie KAN-437: preset chips shipped as rounded
    rectangles against a pill frame). **Both halves are mandatory and neither substitutes for the other.** The
    script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
    off a crop; and its output is then eyeballed against the two crops before any number is
@@ -718,18 +718,18 @@ and 13 below as written, committing and pushing nothing.
       images is already established by other evidence — a prior finding, a code-level guarantee,
       a passing test — as that element's box in each image via `--ref-a`/`--ref-b`, never from
       the nearest similar-looking thing: an unchecked ruler is itself a claim, and a wrong one
-      makes the comparison wrong twice (KAN-30 fix round 9: a day-number circle as ruler put a
+      makes the comparison wrong twice (gymie KAN-30 fix round 9: a day-number circle as ruler put a
       button at 2–3x oversized; an adjacent "+" button confirmed correct earlier put it at
       15–20%, traced to a deliberate 44dp touch-target minimum).
    2. **Confirm both images are the same state of the view** — the same expand/collapse state,
       scroll position and populated/empty condition, not merely the same screen. The box between
       two landmarks encloses different content in different states, and its size then compares
-      nothing (KAN-30 fix round 9: a date-header row measured 3x taller against a mockup drawn
+      nothing (gymie KAN-30 fix round 9: a date-header row measured 3x taller against a mockup drawn
       with the calendar collapsed and a capture with it expanded).
    3. **Treat an implausible result — a multiple rather than a percentage, an order of
       magnitude — as a methodology error, never as a bigger finding.** Re-derive the calibration
       and the state check before reporting it; a smaller wrong number from the same mistake reads
-      as a finding and ships (KAN-30 fix round 9: the 3x row was caught only because it was
+      as a finding and ships (gymie KAN-30 fix round 9: the 3x row was caught only because it was
       absurd).
    4. **Measure the rendered box, never the declared one — a declared minimum is a floor, not a
       size, and the hit box and the visible ink are two measurements, not one.** `sizeIn(min =
@@ -737,7 +737,7 @@ and 13 below as written, committing and pushing nothing.
       size inflates the box past the mockup's drawn size and past the floor itself, and reading
       the constant in code sees none of it. An accessibility minimum applies to the tap target
       only, while the mockup draws the visible shape, so a control that looks oversized is
-      measured twice — hit box and ink — before either number is called wrong (KAN-30 manual
+      measured twice — hit box and ink — before either number is called wrong (gymie KAN-30 manual
       re-sweep, after round 10: the "+" button precondition 1 had accepted as a deliberate 44dp
       minimum had grown past 44dp on a child's layout demand, found only by measuring its
       rendered pixels; and a tap-target circle whose visible fill shared its hit size rendered
@@ -746,7 +746,7 @@ and 13 below as written, committing and pushing nothing.
    **A first impression that a control "looks broken" is a hypothesis, not a finding — zoom and
    contrast-check the capture before it becomes a code change.** A small, low-contrast but
    pixel-correct element reads as wrong at a glance, and "hard to see" is a different question
-   from "drawn wrong" — one for the operator, not for a fix (KAN-30 manual re-sweep: a substring
+   from "drawn wrong" — one for the operator, not for a fix (gymie KAN-30 manual re-sweep: a substring
    highlight read as a smudge, cost three wrong hypotheses about its geometry, and was proved
    pixel-correct only once re-rendered in a saturated red for a contrast test; the right first
    move was a zoomed crop and "low-contrast, reads as a smudge at 1x — accepted?" handed back).
@@ -763,7 +763,7 @@ and 13 below as written, committing and pushing nothing.
    symmetric, tight or matching. Gaps compound where sizes do not: an outer container's content
    padding stacks on a header's own inset on one side only, and no per-element size measurement
    sees it. An operator's re-raised or repeated spacing complaint is a measurement order, not a
-   second look — the second look is what already failed (KAN-30 manual re-sweep: a date-row
+   second look — the second look is what already failed (gymie KAN-30 manual re-sweep: a date-row
    header's "+" button was screenshotted and eyeballed as "compact, matching the mockup's
    proportions" several times, disputed twice by the operator, and pixel-sampled only on the
    third complaint — 26px above the control to the divider, 6px below, a `LazyColumn` content
@@ -785,14 +785,14 @@ and 13 below as written, committing and pushing nothing.
    drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
    before the `background()` or `clip()` it was meant to inset the content of, or on the parent
    before its children's own backgrounds, shrinks the painted area, not the content — a
-   checkable line of code before any screenshot (KAN-30 manual re-sweep: a workout picker's
+   checkable line of code before any screenshot (gymie KAN-30 manual re-sweep: a workout picker's
    selected-row fill stopped a `space2` gutter short of its box's border on every side, the
    parent `Column`'s padding sitting above the rows' backgrounds; the complaint "rows are still
    not filled with color fully till the borders" was answered twice with the wrong measurement —
    a centring check on an unrelated icon, then a colour-existence check with the gap tooling —
    and once with the right one, a scanline through the fill and both border strokes).
 
-   **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
+   **No sidecar is never a silent skip.** A mockups directory sitting unused is what let gymie kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
    the app — `mockups: no map` was reported and accepted every round, because nothing required
    the sidecar that triggers the compose step to exist. Before reporting `mockups: no map`, list
@@ -823,7 +823,7 @@ and 13 below as written, committing and pushing nothing.
     change has already placed in the repository — a committed baseline, or the composite the
     compose step just wrote into `<changeRoot>/visual-verification/` — is cited at that
     in-repository path. No entry cites the
-    worktree-absolute path of a file the worktree holds alone — KAN-29's record cited two
+    worktree-absolute path of a file the worktree holds alone — gymie KAN-29's record cited two
     screenshots that way, they died with `worktree remove --force` at archive, and the record
     kept two dead citations. The report block below keeps its absolute paths: it is the live
     run's handoff, not the committed record.
@@ -833,7 +833,7 @@ and 13 below as written, committing and pushing nothing.
     first, then `git commit -m "<subject>" --` those same paths — the add first because the
     stage's outputs are new untracked files, which a pathspec commit cannot pick up — carrying
     only what this stage wrote, never a bare `git commit`: the index of a main checkout
-    may carry a pre-staged foreign tree, and kan-469's plain commit swept ~130 such files into a
+    may carry a pre-staged foreign tree, and gymie kan-469's plain commit swept ~130 such files into a
     baselines commit (**A commit a run instructs defaults to the pathspec-scoped form**,
     `skills/flow-contracts/git-boundaries.md`). **Resolve the
     `regression checkout` root the same way every other declared app root in this file is

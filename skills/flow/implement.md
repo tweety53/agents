@@ -265,7 +265,7 @@ line from the header of this change's `tasks.md` — the count of tasks appended
 since the plan was first written; a plan that has never carried the line reads as 0. When the
 count has reached **6**, the re-plan budget, this fix round is offered the planning pass before
 anything is appended: an append past this budget is how a change outgrows its own proposal
-without anyone deciding it should (KAN-29 appended 24 of its 46 tasks this way). Ask the
+without anyone deciding it should (gymie KAN-29 appended 24 of its 46 tasks this way). Ask the
 operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) fixes:
 
 > **This change's plan has had <n> tasks appended at the human gate — at the re-plan budget of
@@ -311,7 +311,7 @@ back as "won't fix, per <cite>" through `## Question` rather than silently chang
 required. None found: the test guarded an unexamined implementation choice, the report wins, and
 the plan changes the test alongside the behaviour, its commit saying so ("no design decision
 covers this; the prior test locked in the behaviour the report flags"). A test whose own name
-reads as a description of the reported bug is a signal to pause on, not reassurance (KAN-30
+reads as a description of the reported bug is a signal to pause on, not reassurance (gymie KAN-30
 manual re-sweep: `backClosesTheFloorAndKeepsTheSessionRunning` asserted exactly the navigation
 the operator reported as wrong; the decision it was assumed to encode,
 `floor-bar-exits-only-on-contents`, decided only which bar draws the chevron, not where it leads).
@@ -322,13 +322,13 @@ look.** Before the planning pass answers "it matches" or plans a fix, run
 `measure-visual-properties.sh` on the disputed region of the current capture and the mockup
 (**10** in `skills/flow/verify-and-handoff.md`) and put the numbers in the plan or the
 `## Question`; a spacing dispute is measured on every side the complaint names. The glance that
-passed the control is what the operator is contesting, and repeating it answers nothing (KAN-30
+passed the control is what the operator is contesting, and repeating it answers nothing (gymie KAN-30
 manual re-sweep: a "+" button's row was re-eyeballed as matching through two disputes and
 measured only on the third — 26px above, 6px below). The complaint's own wording names which
 property that is — "too big", "oversized" is a size (`box` and `ink`); "cramped", "uneven",
 "too close" is a spacing (`gap`); "not filled to the border", "flush", "reaches" is an edge
 alignment (`runs` through the container) — so the measurement answers the property
-named, never the screen area the complaint happens to sit in (KAN-30 manual re-sweep: "rows
+named, never the screen area the complaint happens to sit in (gymie KAN-30 manual re-sweep: "rows
 are still not filled with color fully till the borders" was read as "look at that picker
 again" and cost a centring check and a colour check before the fill's edge was measured).
 
@@ -364,7 +364,7 @@ Dispatches into different worktrees remain free to run concurrently. This explic
 `superpowers:dispatching-parallel-agents` for same-worktree tasks. The invariant is the working
 tree, not the build tool, and it holds however file-disjoint two tasks look on paper: UI fixes
 routinely touch shared files — icon sets, shared components, menu wiring — neither task named
-(KAN-30 manual re-sweep: two "small fix" agents dispatched together at one worktree, with no
+(gymie KAN-30 manual re-sweep: two "small fix" agents dispatched together at one worktree, with no
 Gradle overlap, collided in the tree — the second found the first's uncommitted, compile-broken
 WIP in an unrelated file and silently patched over it to unblock its own build, and neither
 agent nor the parent noticed until both reports named the same file). **A mutating dispatch's
@@ -535,11 +535,11 @@ Every implementer dispatch **must** carry:
 > the subject is this task's declared `**Commit:**` field, reproduced exactly. **The commit is
 > pathspec-scoped** — `-- <this task's files>` — so it carries only the paths this task names,
 > whatever else the index holds; a plain commit sweeps a pre-staged foreign tree in with the
-> task's work (kan-469's sweep took ~130 files). **Never weaken or
+> task's work (gymie kan-469's sweep took ~130 files). **Never weaken or
 > bypass a project's commit validation to fit** — no `--no-verify`. Stage for that commit only
 > through the guarded sequence below, in this order — the clearing pass runs first, before any
 > `git add`, because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
-> step already staged (kan-468 lost task commits twice to exactly this ordering):
+> step already staged (gymie kan-468 lost task commits twice to exactly this ordering):
 >
 > ```bash
 > git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
@@ -653,7 +653,7 @@ applies **The handshake** stated above, unchanged.
 > and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
 > file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
 
-**The KAN-29 self review credited its implementers for exactly this behaviour — a backdating
+**The gymie KAN-29 self review credited its implementers for exactly this behaviour — a backdating
 seam, a declined re-litigation of a recorded rule and an own-card asymmetry each reached the
 operator as a recorded decision because the implementer stopped to report instead of building —
 so every implementer dispatch also carries:**
@@ -716,7 +716,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    reverting, rebasing or merging state on the `# branch` lines, a change the run did not
    make, or a stash entry the parent did not push means the tree is not the one the run
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
-   guard on top of it. (KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
+   guard on top of it. (gymie KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
    recovery.)
 3. **One message launches group N+2's implementer and, when any gate fired in group N+1, that
    group's one reviewer bundle (below). The next Bash call records every launch's `begin`**.
@@ -731,7 +731,7 @@ gate from two facts, both read in the same Bash call as the guard's verdict:
 `git diff --name-only <task-sha>^..<task-sha>` set against the task's own declared surface — the
 paths in its `**Files:**` field plus everything its optional `**Allowed-collateral:**` glob
 covers. **The gate fires when the commit changes more than 40 lines, or touches any path outside
-that declared set.** WHY 40: KAN-29's self-review (the source of this gate, KAN-400) measured its
+that declared set.** WHY 40: gymie KAN-29's self-review (the source of this gate, KAN-400) measured its
 per-task reviewer rows on trivial tasks returning clean with sub-1k-token output — a review of a
 commit small enough to hold in one glance added nothing the guard and the whole-branch panel did
 not already cover, and roughly a third of that run's ninety dispatches were of that shape. Forty
@@ -763,7 +763,7 @@ judges the deviation legitimate or not on exactly that refusal, and only a legit
 transcribed and the guard re-run green. The review gate's undeclared-path arm reads the paths the
 refusal named — the pre-correction declaration lives in the refusal, not in any field the
 transcription can overwrite — so the disclosure cannot disarm the gate. This is expected practice
-on every task, not one implementer's habit (KAN-29's self-review: corrections recorded in the task
+on every task, not one implementer's habit (gymie KAN-29's self-review: corrections recorded in the task
 itself made that panel's bookkeeping findings cheap to adjudicate; KAN-407 makes it the rule).
 
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
@@ -775,7 +775,7 @@ goes out in one reviewer Agent call beside group N+2's implementer, on that grou
 decision's `class`**: on `big`, one bundle per group; on `small` or `regular`, every gate-fired
 task of the run waits and goes out in one bundle at the last boundary, on `DEFAULT_MODEL`/`default`
 when the run has no groups. **Never one reviewer dispatch per gate-fired task, and never one per
-group on `small`/`regular`** (KAN-527: nine one-task dispatches on the first twelve tasks of a
+group on `small`/`regular`** (gymie KAN-527: nine one-task dispatches on the first twelve tasks of a
 21-task change, before the operator stopped the run — the review-dispatch count tracks the
 change's size, never its task count). Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of

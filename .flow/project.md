@@ -364,7 +364,7 @@ the statement of that.** The record family (`flow record`, `flow self-review bun
 its store address from it, so an apply worktree's dispatch and finding rows land in the
 persistent store the main checkout serves, and a deferred self-review bundle still finds them
 after `scripts/workspace.sh remove` has dropped the `database` row's resource — the exact loss
-kan-468's incomplete bundle reported. The cell could not use the `database` word: that row is
+gymie kan-468's incomplete bundle reported. The cell could not use the `database` word: that row is
 taken, and cleanup removes what it names — the persistent store must never be a removal target.
 
 | Command | Runs |

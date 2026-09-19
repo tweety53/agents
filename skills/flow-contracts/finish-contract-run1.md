@@ -67,7 +67,7 @@ script — but signals 1 and 3 still run, and still run in this order.
 Before `check-finish-preflight.sh` runs for any worktree, the run surfaces the foreign staged work
 the affected main checkouts carry (KAN-546). It is pre-run on purpose: which run this is is not yet
 known, and a main checkout's staged residue is exactly what a resumed run is tempted to clear by
-hand once a later REFUSE arrives — the high-judgment surgery kan-437's run 2 performed inline
+hand once a later REFUSE arrives — the high-judgment surgery gymie kan-437's run 2 performed inline
 across three repos, hard reset where it judged a clean revert and stash where the work was distinct
 WIP. That judgment belongs to the operator; this surface is what hands it to them before the run
 reaches the refusal it would otherwise improvise around.

@@ -44,7 +44,7 @@ the design.
   are committed into the repository or their location is recorded in
   `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
   mockups directory lives — **Project configuration**,
-  `skills/flow-contracts/project-configuration.md`). kan-29's routes A–F were built with the
+  `skills/flow-contracts/project-configuration.md`). gymie kan-29's routes A–F were built with the
   handoffs outside the tree, which is what left every "different from the mockup" report
   unanswerable and let an unchecked caption survive review.
 - For multi-subsystem work, decompose before proposing.
@@ -64,7 +64,7 @@ converged — a seeded research note whose own text carries the design, its deci
 a `/flow-plan` capture or a handoff package brought) — the checklist questions the note already
 answers are answered by the note and never re-asked: the note is the research the checklist would
 gather. A question the note leaves open is still asked, batched as above, and the merged
-convergence-and-approval confirm below runs as written — approval is never seeded. kan-468's run
+convergence-and-approval confirm below runs as written — approval is never seeded. gymie kan-468's run
 converged its plan this way; this paragraph preserves the path.
 
 **The note is the research, never the plan's form.** The seeded plan is still written through C
@@ -72,8 +72,8 @@ and D like any other, and what the note abbreviates the plan spells out: every `
 carries full repo-relative paths — the note's shorthand (commonMain/… and its like) is expanded,
 never copied, because `check-task-commit-fields.sh` matches a declared path against the commit's
 diff literally — and `tasks.md`'s H1 stays the exact `# <change-id>` literal `spectre validate`
-requires, never a title the note supplies. kan-485's run corrected every `Files:` field by hand
-before task 1's guard ran clean, and kan-468's fixed the seeded H1 at load-context; this
+requires, never a title the note supplies. gymie kan-485's run corrected every `Files:` field by hand
+before task 1's guard ran clean, and gymie kan-468's fixed the seeded H1 at load-context; this
 requirement is both corrections, applied where the note is consumed.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
@@ -192,7 +192,7 @@ ID or it is re-argued from scratch, and which decisions a review round will want
 knowable at creation, so every decision the design records is written with one. **ID** is assigned
 once, at creation, and is **immutable** — the match key a later round uses to **supersede** a
 decision: set the old entry's `**Status:**` to `superseded by <new-id>` and append a new entry with a
-fresh ID. The same key is what let kan-459's review panel name the specific decision a finding found
+fresh ID. The same key is what let gymie kan-459's review panel name the specific decision a finding found
 stale instead of re-arguing the design. **Never delete or rewrite a superseded entry.**
 
 ### Open questions
@@ -273,7 +273,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > group, an end-to-end sweep — its `**Allowed-collateral:**` names what the verification commit
 > itself writes, the report or record files the pass produces, never the surface it inspects, and
 > every real defect it finds becomes a new task appended to `tasks.md`, carrying the field family
-> with the fix's own `**Files:**` and `**Allowed-collateral:**` (the KAN-29/KAN-30 precedent). The
+> with the fix's own `**Files:**` and `**Allowed-collateral:**` (the gymie KAN-29/gymie KAN-30 precedent). The
 > appended task is what makes the fix declared — `check-task-commit-fields.sh` refuses a commit
 > touching paths no task declared — so the change stays self-contained and every fix stays
 > traceable to a declared task.
@@ -332,7 +332,7 @@ across a `**Squash-with:**` pair (union semantics merge the pair into one bundle
 an entry of design.md's `## Decisions`, it names that entry by its `**ID:**` in a
 `**Decision:** <id>` field and copies nothing of the entry's text — the decision lives once,
 under `## Decisions`, and the citation is the link. Restated decision prose drifts from its
-entry the first time either is edited, which is why kan-468's seeded plan cited instead. A task
+entry the first time either is edited, which is why gymie kan-468's seeded plan cited instead. A task
 implementing no recorded decision writes no such field.
 
 Add this header to `tasks.md`:

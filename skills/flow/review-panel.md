@@ -299,7 +299,7 @@ git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-rev
 
 A single-worktree change writes the same shape with one header. The first line is the file's
 own answer to the reviewer who reads it as anything narrower: it is a plain working-tree diff
-against the merge base, so work still unstaged or uncommitted is already in it — KAN-459's F37
+against the merge base, so work still unstaged or uncommitted is already in it — gymie KAN-459's F37
 was a false positive from reading it otherwise. Then dispatch the round's
 `panel.dispatches` in the canonical worktree, each reading the whole combined file; a role is
 never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view
@@ -423,7 +423,7 @@ honest attempts is not thereby nonexistent: the same defect can live only in the
 build the verifier drives. Author the reproducer to drive that target the way the finding
 describes — real input events (`page.mouse.wheel()`), a fresh account, data seeded past the
 resting state — and a finding closes on that target's evidence, never on the test target's clean
-exit alone (kan-551, from kan-437: a calories-tab scroll failure unproducible on the desktop
+exit alone (kan-551, from gymie kan-437: a calories-tab scroll failure unproducible on the desktop
 target closed only at true scroll end in the browser build).
 
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape
@@ -779,7 +779,7 @@ This is the normal case: the branch is pushed with every commit (**Branch backup
 run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`),
 so it carries only the paths the finding named, whatever else the index holds — pushed
 plain like any other commit, and every downstream commit keeps its sha — folding instead via `git
-commit --fixup=<task-sha>` + `git rebase --autosquash` rewrote tasks 7–10's shas in kan-469's
+commit --fixup=<task-sha>` + `git rebase --autosquash` rewrote tasks 7–10's shas in gymie kan-469's
 `gymie-frontend` run and forced a `git push --force-with-lease` re-sync with the remote.
 **Rewrite-based folding is for unpushed history only**: the fixup — stage first
 (`git add -- <the changed paths>`), then `git commit --fixup=<task-sha> -- <the changed paths>`,
@@ -931,7 +931,7 @@ a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **un
 the operator, never silently rewritten. Exit 2 stops the run.
 
 **The exit-code contract is checked mechanically before any dispatch decision reads a reproducer by
-hand** (KAN-554 — kan-468's panel supplied an Important finding's reproducer whose exit-code
+hand** (KAN-554 — gymie kan-468's panel supplied an Important finding's reproducer whose exit-code
 condition was inverted, and the inversion reached the deferred self-review pass before anything ran
 it):
 
@@ -1114,7 +1114,7 @@ against its defect identity. **Inline no source excerpt.**
 > what a task's `**Baseline:**` counts or `**Files:**` paths declare — a test case added, a file
 > created — update those fields too. All of it lands in the worktree's
 > `<project>/spectre/changes/<name>/tasks.md` in this same pass — never left for a reviewer to
-> catch next round (kan-454, KAN-459). Edit them; do not stage or commit them — the plan record is
+> catch next round (gymie kan-454, gymie KAN-459). Edit them; do not stage or commit them — the plan record is
 > a planning path and is committed later by the pipeline, never in a fixup.
 
 **Every fix subagent's dispatch prompt also carries the ROUND SCOPE paragraph**:
