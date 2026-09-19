@@ -270,6 +270,27 @@ Next:
   git -C <abs-worktree> diff --cached
   ```
 
+### Summary and live-stack line, before every handoff
+
+Immediately before the block above is printed, the run prints a summary of what this run actually
+did, then one line naming the state of any local dev stack it started or left running. The summary
+covers:
+
+- findings fixed, and findings deferred or withdrawn;
+- commits made — repo and a one-line description each;
+- any decision recorded along the way — an automatic rebase onto a moved base, a diff-size cap
+  exceeded and proceeded past, and the like.
+
+The live-stack line names which services are up, on what ports, in which worktree — or reads
+`no dev stack running` when none is.
+
+This is distinct from the `<1–3 lines: what actually happened>` that follows it: the summary may
+be a short bulleted list and is not held to the three-line cap, but it keeps the be-brief
+conventions — bullets over prose, no preamble, no recap of the plan. **Every run that reaches a
+stopping point prints it** — a fix round closing, a stage closing, a full handoff — not only the
+terminal handoff, so the operator always holds a current account of what changed and what is
+still running without having to ask.
+
 ### The block each state renders
 
 The block a state hands off is defined in **The block each state renders**

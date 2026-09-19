@@ -35,9 +35,14 @@ recorded in this run's working notes — never the state file's `worktrees` map,
 has not written yet. `check-base-moved.sh` performs no fetch of its own; `resolve-base-branch.sh` is
 what fetches, so this order — resolve, then check — is load-bearing.
 
-Report every worktree's verdict: `MOVED` with no overlap continues with no prompt; `REFUSE`, an exit 2, or an empty resolved
-set stops and asks; an overlap from any worktree asks once for the whole change, shape per Operator
-prompts (`skills/flow-contracts/operator-prompts.md`):
+Report every worktree's verdict: `MOVED` with no overlap is confirmed conflict-free and rebases
+that worktree automatically — `git -C <worktree> rebase origin/$BASE` runs at once, with no
+prompt, and the run reports that it happened rather than asking whether it should; its outcome
+takes the **Clean** and **Conflict** sub-bullets below exactly as an operator-chosen **Rebase**
+would. `REFUSE`, an exit 2, or an empty resolved set stops and asks; an overlap from any worktree
+means the rebase is not confirmed conflict-free, so the operator stays in the loop for that risk —
+ask once for the whole change, shape per Operator prompts
+(`skills/flow-contracts/operator-prompts.md`):
 
 > **The base branch has moved and touches paths this change also touched — how should the
 > panel proceed?**
@@ -51,7 +56,8 @@ handoff and proceeds to the citation pre-check below.
 
 **Rebase** runs `git -C <worktree> rebase origin/$BASE` only in a worktree whose own verdict was
 `MOVED` — never one whose verdict was `CLEAR`, even though the prompt above is asked once for the
-whole change.
+whole change. The automatic no-overlap rebase above is the same mechanism with nobody asked, and
+the two sub-bullets that follow govern both:
 
 - **Clean** (exit 0): that worktree's working-notes merge base becomes `origin/$BASE`'s resolved
   tip at rebase time; every later `<merge-base>` this file and the `worktrees` map
@@ -66,7 +72,9 @@ whole change.
   > proof taken against the pre-rebase base is void.
 
 - **Conflict** (non-zero exit): never auto-abort, and never resolve the conflict — by editing the
-  conflicting files or otherwise. Leave the worktree mid-rebase exactly as `git rebase` left it,
+  conflicting files or otherwise. An automatic rebase lands here too — no reported overlap does
+  not rule out two commits touching one file incompatibly outside this change's own touched paths
+  — and is handled identically. Leave the worktree mid-rebase exactly as `git rebase` left it,
   report the conflicting file(s) from `git status`, and hand off `git -C <worktree> rebase
   --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the
   next manual step. State stays as it was; this stage stops here and closes the mark `stopped`.
@@ -211,20 +219,14 @@ check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
 once per worktree in the resolved set, unchanged. **The gating count is the sum across
-worktrees** — one slot now reads every section — and the over-cap prompt names the sum and each
+worktrees** — one slot now reads every section — and the over-cap report names the sum and each
 worktree's own count (design.md's `cap-sum-across-worktrees`).
 
-Exit 0 proceeds. Exit 1 puts the choice to the operator, shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`):
-
-> **The panel diff measured `<count>`, over the `<cap>` cap. How should this proceed?**
-> - **Proceed with the panel anyway** *(default, recommended)*
-> - **Stop and split the change** — ends the run at `IN_PROGRESS` with the implementation committed
->   on the branch
-
-Exit 2 stops the run. Record the measured count, the cap in force, and the operator's answer where
-one was given with `flow record pass -round <round>` on **every** run, including
-exit-0 runs.
+Exit 0 proceeds. Exit 1 proceeds too, unasked: the panel dispatches reading the whole diff
+regardless of its size, and the over-cap fact is reported, never put to the operator as a
+question. Exit 2 — the guard could not measure, not an over-cap verdict — stops the run. Record
+the measured count, the cap in force, and the automatic proceed decision where the cap was
+exceeded with `flow record pass -round <round>` on **every** run, including exit-0 runs.
 
 Then run
 
@@ -739,7 +741,8 @@ by the parent at the fix round's verification step below, never by the fix subag
 **Every round this stage dispatches after pass 1 — each fix-round re-run and the `full` rerun
 policy's final pass — opens by running **Check base movement first** again: the same
 per-worktree `resolve-base-branch.sh` then `check-base-moved.sh` pair, with that section's
-verdicts, operator prompt, rebase and conflict handling unchanged.** **Continue** at a round
+verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED`
+with no overlap rebases unasked at a round boundary just as at entry.** **Continue** at a round
 boundary proceeds into the round's own remaining steps — the citation pre-check that follows the
 entry check is an entry step, and the round does not re-run it. The entry check ran once,
 before pass 1; a base that moves while earlier rounds ran would otherwise reach the final round
@@ -856,9 +859,9 @@ worktree per **distinct** held sha among the diff-reading slots dispatched this 
 sharing a sha in a worktree need one call there, not two); a slot with no held sha in a worktree
 counts from that worktree's merge base. **The gating count is the largest per-slot sum across
 worktrees** — the largest single combined read any one slot this round faces — and an exit-1
-result from a call contributing to it puts the over-cap choice to the operator (**The roster**,
-above), naming the gating sum, its per-worktree counts and, when it differs, the full-branch sum.
-Record both with `flow record pass -round <round>` for this round,
+result from a call contributing to it proceeds unasked exactly as the pass-1 check does (**The
+roster**, above), reporting the gating sum, its per-worktree counts and, when it differs, the
+full-branch sum. Record both with `flow record pass -round <round>` for this round,
 alongside the agents-ran/why/diff-path lines the fix pass records.
 
 **The docs-only guard runs again beside that cap check**, `check-panel-docs-only.sh <worktree>
