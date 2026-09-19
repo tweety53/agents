@@ -752,7 +752,7 @@ fi
 # responsibility and is out of this single invocation's scope.
 git_status_note() {
   local status
-  status="$(git -C "$WORKTREE" status --porcelain 2>/dev/null)" || return 0
+  status="$(git -C "$WORKTREE" status --porcelain --untracked-files=normal 2>/dev/null)" || return 0
   if [ -n "$status" ]; then
     printf 'run-reproducer: worktree status after the kill:\n%s\n' "$status" >&2
   else

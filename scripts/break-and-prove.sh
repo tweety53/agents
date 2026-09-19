@@ -164,7 +164,7 @@ fi
 if [ -n "$PATCH_FILE" ]; then
   APPLY_CHECK_ERR=""
   set +e
-  APPLY_CHECK_ERR="$(git apply --check "$PATCH_FILE" 2>&1)"
+  APPLY_CHECK_ERR="$(git apply --check --whitespace=nowarn "$PATCH_FILE" 2>&1)"
   APPLY_CHECK_RC=$?
   set -e
   if [ "$APPLY_CHECK_RC" -ne 0 ]; then
@@ -263,7 +263,7 @@ case "$MUTATION_KIND" in
     ;;
   patch)
     echo "break-and-prove: mutating via patch: $MUTATION_VALUE"
-    git apply "$PATCH_FILE"
+    git apply --whitespace=nowarn "$PATCH_FILE"
     ;;
   *)
     usage_fail

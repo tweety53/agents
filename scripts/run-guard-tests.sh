@@ -146,7 +146,7 @@ fi
 TIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-time.XXXXXX")"
 
 if [ -n "$WATCHED" ]; then
-  if git -C "$WATCHED" status --porcelain > "$TIME_DIR/before.status" 2>/dev/null; then
+  if git -C "$WATCHED" status --porcelain --untracked-files=normal > "$TIME_DIR/before.status" 2>/dev/null; then
     :
   else
     printf 'run-guard-tests: cannot read the status of %s — skipping the tree gate\n' "$WATCHED" >&2
@@ -206,7 +206,7 @@ printf '\n%s harnesses, %s passed, %s failed, %ss wall\n' "$TOTAL" "$PASSED" "$F
 
 DIRTY=0
 if [ -n "$WATCHED" ]; then
-  if git -C "$WATCHED" status --porcelain > "$TIME_DIR/after.status" 2>/dev/null; then
+  if git -C "$WATCHED" status --porcelain --untracked-files=normal > "$TIME_DIR/after.status" 2>/dev/null; then
     if ! cmp -s "$TIME_DIR/before.status" "$TIME_DIR/after.status"; then
       DIRTY=1
     fi

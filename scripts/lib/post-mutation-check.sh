@@ -1,8 +1,9 @@
 # scripts/lib/post-mutation-check.sh — snapshot_tree_state and
 # check_tree_restored, the post-guard sanity check KAN-448 part 1
 # mechanizes: a guard that mutates the working tree snapshots
-# `git status --porcelain=v2` and `git stash list` before its first
-# mutation and checks afterwards that the tree still matches the
+# `git status --porcelain=v2 --untracked-files=normal` and `git stash
+# list` before its first mutation and checks afterwards that the tree
+# still matches the
 # snapshot — any NEW stash entry or status line is residue the guard
 # names and fails on, instead of leaving a conductor to retry blind
 # (KAN-423's incident).
@@ -24,7 +25,7 @@ POST_MUTATION_CHECK_SENTINEL='--- post-mutation-check: stash section ---'
 # `git status --porcelain=v2` line, the sentinel, then every
 # `git stash list` line. The caller captures it in a variable.
 snapshot_tree_state() {
-  git -C "$1" status --porcelain=v2
+  git -C "$1" status --porcelain=v2 --untracked-files=normal
   printf '%s\n' "$POST_MUTATION_CHECK_SENTINEL"
   git -C "$1" stash list
 }
@@ -49,7 +50,7 @@ check_tree_restored() {
     fi
   done < <(printf '%s\n' "$snapshot")
 
-  now_status="$(git -C "$worktree" status --porcelain=v2)" || return 2
+  now_status="$(git -C "$worktree" status --porcelain=v2 --untracked-files=normal)" || return 2
   now_stash="$(git -C "$worktree" stash list)" || return 2
 
   while IFS= read -r line; do

@@ -92,7 +92,7 @@ cd -- "$REPO_ROOT"
 # Step 3: git apply --check — refuse (exit 2) without touching anything.
 APPLY_CHECK_ERR=""
 set +e
-APPLY_CHECK_ERR="$(git apply --check "$PATCH_FILE" 2>&1)"
+APPLY_CHECK_ERR="$(git apply --check --whitespace=nowarn "$PATCH_FILE" 2>&1)"
 APPLY_CHECK_RC=$?
 set -e
 if [ "$APPLY_CHECK_RC" -ne 0 ]; then
@@ -119,7 +119,7 @@ done
 # Step 6: none of the touched files may already carry uncommitted changes —
 # never conflate a pre-existing dirty file with the mutation's own diff at
 # restore time.
-DIRTY_STATUS="$(git status --porcelain -- "${TOUCHED[@]}")"
+DIRTY_STATUS="$(git status --porcelain --untracked-files=normal -- "${TOUCHED[@]}")"
 [ -z "$DIRTY_STATUS" ] || {
   echo "mutate-and-verify: touched files already have uncommitted changes:" >&2
   printf '%s\n' "$DIRTY_STATUS" >&2
@@ -145,7 +145,7 @@ on_exit() {
   if [ "$APPLIED" -eq 1 ]; then
     git checkout -- "${TOUCHED[@]}" 2>/dev/null || true
     local residual drift
-    residual="$(git status --porcelain -- "${TOUCHED[@]}" 2>/dev/null || true)"
+    residual="$(git status --porcelain --untracked-files=normal -- "${TOUCHED[@]}" 2>/dev/null || true)"
     if [ -n "$residual" ]; then
       echo "mutate-and-verify: could not fully restore — residual status:" >&2
       printf '%s\n' "$residual" >&2
@@ -250,7 +250,7 @@ for h in "${HARNESSES[@]}"; do
 done
 
 # Step 10: apply the mutation.
-git apply "$PATCH_FILE"
+git apply --whitespace=nowarn "$PATCH_FILE"
 APPLIED=1
 
 # Step 11: mutated pass — every harness, after applying the patch.
