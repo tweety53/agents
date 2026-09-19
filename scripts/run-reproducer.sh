@@ -314,7 +314,13 @@ fi
 # `--strict` is not a path at all, and resolving a token that names nothing
 # on disk answers a question this script was never asked.
 ARGS=("${CMD_TOKENS[@]:1}")
-for arg in "${ARGS[@]}"; do
+# BASH 3.2 IS THE FLOOR (macOS's own /bin/bash — the rule
+# scripts/lib/coverage.sh's header states for the same reason): "${ARGS[@]}"
+# on an EMPTY array is unbound-variable under this script's `set -u` on
+# 3.2, so every value expansion of a possibly-empty array is guarded — the
+# empty case expands to nothing, the non-empty case to the correctly quoted
+# elements.
+for arg in ${ARGS[@]+"${ARGS[@]}"}; do
   candidate_arg="$WORKTREE/$arg"
   [ -e "$candidate_arg" ] || continue
   resolved_arg="$(realpath -- "$candidate_arg" 2>/dev/null)" || refuse "the argument '$arg' could not be resolved"
@@ -410,7 +416,16 @@ mkfifo -m 600 -- "$SENTINEL_FIFO" 2>/dev/null || {
   echo "run-reproducer: could not create a sentinel pipe — cannot run '$PATH_TOKEN' at all" >&2
   exit 4
 }
-exec {SENTINEL_FD}<>"$SENTINEL_FIFO"
+# A FIXED fd, not `{VAR}`-style dynamic allocation: bash 3.2 — the floor
+# scripts/lib/coverage.sh's header states — has no `{var}<>' redirection
+# (bash 4.1+) and parses that line as an exec of a command literally named
+# `{SENTINEL_FD}`. fd 9 is this script's own; nothing it runs or sources
+# opens one.
+SENTINEL_FD=9
+exec 9<>"$SENTINEL_FIFO" || {
+  echo "run-reproducer: could not open the sentinel fd — cannot run '$PATH_TOKEN' at all" >&2
+  exit 4
+}
 rm -f -- "$SENTINEL_FIFO"
 
 # A sub-second poll where the platform's sleep accepts one, matching
@@ -478,7 +493,7 @@ collect_descendants() {
 # is /dev/null: this script is non-interactive, and a reproducer that
 # prompts for input must fail rather than wait on a terminal nobody is
 # watching.
-( cd -- "$WORKTREE" && printf x >&$SENTINEL_FD && exec "$PYTHON3_BIN" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$RESOLVED_PATH" "${ARGS[@]}" ) </dev/null >"$OUT_TMP" 2>"$ERR_TMP" &
+( cd -- "$WORKTREE" && printf x >&$SENTINEL_FD && exec "$PYTHON3_BIN" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$RESOLVED_PATH" ${ARGS[@]+"${ARGS[@]}"} ) </dev/null >"$OUT_TMP" 2>"$ERR_TMP" &
 CMD_PID=$!
 # The process group pgrep/kill below target: os.setsid() sets the calling
 # process's own pgid to its own pid, and that calling process IS $CMD_PID
