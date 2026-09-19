@@ -415,7 +415,8 @@ recorded as such:
    findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is any `ValidModels`
    member **no `panel.dispatches` entry uses** — a re-review by the model that raised the finding
    is not a second pair of eyes — **and never `fable`** — and its `effort` is `low`, fixed, since a re-run reads a delta
-   to confirm a fix and must be short and fast; its `reason` names the model choice only. Default: today's settings-store roster on
+   to confirm a fix and must be short and fast; its `reason` names the model choice only. When those two exclusions leave no member, the pair is
+   `sonnet` / `low`, its `reason` the literal `fallback — no eligible model`. Default: today's settings-store roster on
    `DEFAULT_MODEL` and `default` effort for every dispatch, delta rerun, grouped by the static
    table deterministically (no roll), recorded `default`.
 4. **implementer groups** — on every run whose step 1 came out `sdd` (`## execution mode` toggle or
