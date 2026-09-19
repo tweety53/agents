@@ -23,13 +23,16 @@
 #       flip) must carry --no-renames — rename detection on by default elides
 #       a rename's source path from the name list (KAN-540's panel F1);
 #   R2  every `git apply` except `--numstat` (a patch read, not an
-#       application) must carry --whitespace= — apply.whitespace/core.whitespace
-#       otherwise decide whether a patch fails or is silently rewritten;
+#       application) must carry --whitespace=nowarn — apply.whitespace/
+#       core.whitespace otherwise decide whether a patch fails or is
+#       silently rewritten;
 #   R3  every `git status --porcelain` must carry an explicit
 #       --untracked-files= — status.showUntrackedFiles otherwise decides
 #       whether newly-created untracked residue is visible at all.
 # The `g()` wrapper used by refresh-main-checkout.sh and
-# land-self-review-report.sh is scanned too: a call through it is a git call.
+# land-self-review-report.sh, and the `"$GIT_BIN"` / `$GIT_BIN` command form
+# the panel lib resolves git to, are scanned too: a call through either is a
+# git call.
 #
 # Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records.
 set -euo pipefail
