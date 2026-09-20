@@ -269,6 +269,30 @@ else
   fail "walk: expected exit 1 naming the older commit, got RC=$RC OUT=<$OUT>"
 fi
 
+# ---- walk at depth: a four-commit branch, sweep mid-branch ----------------
+# KAN-611, from KAN-553's own history: the walk bug survived the harness when
+# every case built a single task commit — a per-entry framing bug only bites
+# entries after the first, and git's entry separator rode at the head of every
+# sha after the first, so later swept commits went unflagged. Four task commits
+# with the sweep in the third put entries on both sides of the violation: the
+# verdict only comes out right when every entry the walk returns is framed
+# correctly, not just the first.
+FOUR="$(new_repo four-commit)"
+BASE_FOUR="$(git -C "$FOUR" rev-parse HEAD)"
+task_commit "$FOUR" "feat(app): first" 13 src/one.go
+task_commit "$FOUR" "feat(app): second" 14 src/two.go
+task_commit "$FOUR" "wip" 15 "spectre/changes/kan-1/tasks.md"
+task_commit "$FOUR" "feat(app): fourth" 16 src/four.go
+MID_FOUR_SHA="$(git -C "$FOUR" rev-parse HEAD~1 | cut -c1-12)"
+run_guard "$FOUR" "$BASE_FOUR"
+if [ "$RC" -eq 1 ] &&
+   printf '%s' "$OUT" | grep -q "TASK-COMMIT-SWEEP: $MID_FOUR_SHA 15 spectre/changes/kan-1/tasks.md" &&
+   printf '%s' "$OUT" | grep -q "PLANNING-PATHS-SWEPT: $FOUR — 1 task commit(s)"; then
+  pass "four-commit branch: mid-branch sweep flagged, every walk entry framed"
+else
+  fail "four-commit branch: expected exit 1 naming the third commit, got RC=$RC OUT=<$OUT>"
+fi
+
 # ---- the bite: a Task-Id evil merge smuggling a planning path -------------
 # diff-tree without a merge flag prints nothing for merges, so this merge
 # was counted as a task commit and never diffed — the merge answered CLEAN
