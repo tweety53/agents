@@ -371,7 +371,9 @@ declares them, and fix any hit. **A hit is exit 1, and only exit 1.** The refusa
 never repaired by editing the plan (KAN-601): check-plan-provenance's exit 2 (environment) and
 exit 3 (containment — a security finding first, per the guard's own contract) and the
 not-a-verdict exit 2 the shape and build-green guards share (a missing or unreadable plan file)
-are reported and stop the plan.
+are reported and stop the plan. Provenance's exit 4 (content-classification) is the one refusal
+whose remedy is editing the plan — fix the line it names and run the guard again, its own
+prescribed course, never accepting the plan while it stands.
 
 With the plan validated, record its size as the change's first task-count observation — the
 planned figure every later fix round's growth is measured against (KAN-415):

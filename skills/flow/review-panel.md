@@ -1058,8 +1058,10 @@ Beside the reproducer re-runs above, the round close re-runs the task-field guar
 `check-task-commit-fields.sh <worktree> <task-id> <task-sha> "" <canonical-worktree>
 <name>` for every task a fixup folded into — `<task-id>` from that commit's `Task-Id:` trailer,
 `<task-sha>` the folded commit as it now stands, the remaining arguments resolved the way
-`skills/flow/implement.md`'s task-close step resolves them. A non-zero exit does not close the
-round; it goes to the handback. This catches an undeclared file the fixup added and a declared
+`skills/flow/implement.md`'s task-close step resolves them. Exit 1 does not close the round; it
+goes to the handback. Exit 2 — the guard's not-a-verdict close (KAN-601, the same course
+`skills/flow/implement.md`'s task-close step gives it) — stops the run: a handback cannot repair
+an inability. This catches an undeclared file the fixup added and a declared
 test it removed or renamed, read post-autosquash. The stale-field classes the walk used to judge
 alone are the same guard's verdicts now (KAN-511): a task declaring `**Baseline:** before=N
 after=M` fails when the changed files' `@Test` delta at the commit does not measure it — skipped
@@ -1070,7 +1072,8 @@ contains fails with it. A test added to the commit with no `**Baseline:**` decla
 
 **The round close runs the project's configured build-green guard too, when the project declares
 one (**The guard's scope**, `skills/flow-contracts/build-green.md`), over the plan's `tasks.md` —
-a non-zero exit does not close the round; it goes to the handback.** This is the gate that holds a
+exit 1 does not close the round; it goes to the handback, and exit 2 — the same not-a-verdict
+close — stops the run (KAN-601).** This is the gate that holds a
 plan appended to mid-run to the tags it published under: tasks a fix round appends carrying
 `**Build:** pending` keep the round open until every tag reads `green` or `red` (KAN-538).
 
