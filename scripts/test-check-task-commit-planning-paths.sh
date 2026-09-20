@@ -253,6 +253,51 @@ else
   fail "walk: expected exit 1 naming the older commit, got RC=$RC OUT=<$OUT>"
 fi
 
+# ---- the bite: a Task-Id evil merge smuggling a planning path -------------
+# diff-tree without a merge flag prints nothing for merges, so this merge
+# was counted as a task commit and never diffed — the merge answered CLEAN
+# over the sweep (KAN-553 F3, deferred; KAN-607). The merge carries the
+# planning path in its result, absent from both parents.
+EVIL="$(new_repo evil-merge)"
+BASE_EVIL="$(git -C "$EVIL" rev-parse HEAD)"
+git -C "$EVIL" checkout -q -b side
+task_commit "$EVIL" "feat(app): side work" 10 src/side.go
+git -C "$EVIL" checkout -q main
+git -C "$EVIL" merge --no-ff --no-commit side >/dev/null 2>&1
+task_commit "$EVIL" "merge side" 11 "spectre/changes/kan-1/tasks.md"
+[ "$(git -C "$EVIL" cat-file -p HEAD | grep -c '^parent ')" -eq 2 ] ||
+  fail "evil merge: fixture HEAD is not a merge commit"
+MERGE_EVIL_SHA="$(git -C "$EVIL" rev-parse HEAD | cut -c1-12)"
+run_guard "$EVIL" "$BASE_EVIL"
+if [ "$RC" -eq 1 ] &&
+   printf '%s' "$OUT" | grep -q "TASK-COMMIT-SWEEP: $MERGE_EVIL_SHA 11 spectre/changes/kan-1/tasks.md" &&
+   printf '%s' "$OUT" | grep -q "PLANNING-PATHS-SWEPT: $EVIL — 1 task commit(s)"; then
+  pass "evil merge: exit 1, the merge's smuggled planning path flagged"
+else
+  fail "evil merge: expected exit 1 naming the merge's smuggled path, got RC=$RC OUT=<$OUT>"
+fi
+
+# ---- combined-diff semantics: carried-over planning content is the --------
+# parent's, not the merge's. The planning path exists unchanged on the side
+# branch (a trailerless commit, outside the contract); the Task-Id merge
+# brings it over verbatim, so its combined diff names nothing — a sweep by
+# the merge is what the merge itself introduces, absent from every parent.
+CARRY="$(new_repo carry-merge)"
+BASE_CARRY="$(git -C "$CARRY" rev-parse HEAD)"
+git -C "$CARRY" checkout -q -b side
+plain_commit "$CARRY" "chore(spectre): plan" "spectre/changes/kan-1/tasks.md"
+git -C "$CARRY" checkout -q main
+git -C "$CARRY" merge --no-ff --no-commit side >/dev/null 2>&1
+task_commit "$CARRY" "feat(app): do the thing" 12 src/app.go
+[ "$(git -C "$CARRY" cat-file -p HEAD | grep -c '^parent ')" -eq 2 ] ||
+  fail "carry merge: fixture HEAD is not a merge commit"
+run_guard "$CARRY" "$BASE_CARRY"
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "1 task commit(s) checked"; then
+  pass "carry merge: exit 0, planning content carried over from a parent is the parent's"
+else
+  fail "carry merge: expected exit 0 with 1 checked, got RC=$RC OUT=<$OUT>"
+fi
+
 # ---- range: a swept commit before <base> stays outside the answer ---------
 RANGE="$(new_repo range)"
 plain_commit "$RANGE" "chore(spectre): plan" "spectre/changes/kan-1/tasks.md"
