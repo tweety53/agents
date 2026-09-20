@@ -269,28 +269,47 @@ else
   fail "walk: expected exit 1 naming the older commit, got RC=$RC OUT=<$OUT>"
 fi
 
-# ---- walk at depth: a four-commit branch, sweep mid-branch ----------------
-# KAN-611, from KAN-553's own history: the walk bug survived the harness when
-# every case built a single task commit — a per-entry framing bug only bites
-# entries after the first, and git's entry separator rode at the head of every
-# sha after the first, so later swept commits went unflagged. Four task commits
-# with the sweep in the third put entries on both sides of the violation: the
-# verdict only comes out right when every entry the walk returns is framed
-# correctly, not just the first.
+# ---- walk at depth: a four-commit branch, violation in a later entry ------
+# The depth KAN-611 asks for, beyond the two-commit walk case above (whose
+# comment carries the KAN-553 mechanism this depth guards): four task
+# commits with the sweep in the branch's first commit — the LAST entry the
+# walk visits, "a violation in a later commit" in that walk's own order.
+# Every earlier entry must frame for the walk to reach it without fatal, and
+# a walk that stops observing entries before it never sees the sweep at all,
+# so its verdict flips clean and the exact-equality assert below fails.
 FOUR="$(new_repo four-commit)"
 BASE_FOUR="$(git -C "$FOUR" rev-parse HEAD)"
-task_commit "$FOUR" "feat(app): first" 13 src/one.go
+task_commit "$FOUR" "wip" 13 "spectre/changes/kan-1/tasks.md"
 task_commit "$FOUR" "feat(app): second" 14 src/two.go
-task_commit "$FOUR" "wip" 15 "spectre/changes/kan-1/tasks.md"
+task_commit "$FOUR" "feat(app): third" 15 src/three.go
 task_commit "$FOUR" "feat(app): fourth" 16 src/four.go
-MID_FOUR_SHA="$(git -C "$FOUR" rev-parse HEAD~1 | cut -c1-12)"
+SWEEP_FOUR_SHA="$(git -C "$FOUR" rev-parse HEAD~3 | cut -c1-12)"
 run_guard "$FOUR" "$BASE_FOUR"
 if [ "$RC" -eq 1 ] &&
-   printf '%s' "$OUT" | grep -q "TASK-COMMIT-SWEEP: $MID_FOUR_SHA 15 spectre/changes/kan-1/tasks.md" &&
-   printf '%s' "$OUT" | grep -q "PLANNING-PATHS-SWEPT: $FOUR — 1 task commit(s)"; then
-  pass "four-commit branch: mid-branch sweep flagged, every walk entry framed"
+   [ "$OUT" = "TASK-COMMIT-SWEEP: $SWEEP_FOUR_SHA 13 spectre/changes/kan-1/tasks.md
+PLANNING-PATHS-SWEPT: $FOUR — 1 task commit(s)" ]; then
+  pass "four-commit branch: deepest sweep flagged, every walk entry observed"
 else
-  fail "four-commit branch: expected exit 1 naming the third commit, got RC=$RC OUT=<$OUT>"
+  fail "four-commit branch: expected exit 1 naming the oldest commit, got RC=$RC OUT=<$OUT>"
+fi
+
+# ---- walk at depth, clean: four commits, none sweeping --------------------
+# The count half of the depth case: the clean verdict names the full checked
+# count, pinned exactly, so the depth range's every entry is counted and not
+# merely walked — the number the plan claimed for this change, on the one
+# verdict that carries it.
+FOURC="$(new_repo four-clean)"
+BASE_FOURC="$(git -C "$FOURC" rev-parse HEAD)"
+task_commit "$FOURC" "feat(app): first" 13 src/one.go
+task_commit "$FOURC" "feat(app): second" 14 src/two.go
+task_commit "$FOURC" "feat(app): third" 15 src/three.go
+task_commit "$FOURC" "feat(app): fourth" 16 src/four.go
+run_guard "$FOURC" "$BASE_FOURC"
+if [ "$RC" -eq 0 ] &&
+   [ "$OUT" = "PLANNING-PATHS-CLEAN: $FOURC — 4 task commit(s) checked" ]; then
+  pass "four-commit clean range: 4 checked pinned exactly"
+else
+  fail "four-commit clean range: expected exit 0 with exactly 4 checked, got RC=$RC OUT=<$OUT>"
 fi
 
 # ---- the bite: a Task-Id evil merge smuggling a planning path -------------
