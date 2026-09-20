@@ -155,7 +155,7 @@ if [ "$RC" -eq 2 ] && [ -z "$OUT" ] &&
    printf '%s' "$ERR" | grep -q "HEAD does not resolve"; then
   pass "unborn repository: exit 2, nothing on stdout, HEAD named on stderr"
 else
-  fail "unborn repository: expected exit 2 with empty stdout and HEAD named on stderr, got RC=$RC OUT=<$OUT>"
+  fail "unborn repository: expected exit 2 with empty stdout and HEAD named on stderr, got RC=$RC OUT=<$OUT> ERR=<$ERR>"
 fi
 
 # ---- clean: task commit touching implementation only ---------------------
