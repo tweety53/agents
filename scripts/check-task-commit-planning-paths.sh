@@ -19,7 +19,11 @@
 # `docs/superpowers/` is named in full rather than as `docs/` for the same
 # reason. The trailerless planning commit bare /flow makes at integrate
 # sweeps exactly these paths and stays outside this contract by having no
-# trailer; so does everything at or before <base>.
+# trailer; so does everything at or before <base>. A merge task commit is
+# judged by its combined diff (`-c`): a planning path its result carries
+# that no parent had is what the merge itself introduces and sweeps; content
+# carried over unchanged from a parent stays that parent commit's, judged
+# by its own walk entry.
 #
 # Verdict lines, on stdout:
 #
@@ -99,7 +103,11 @@ while IFS= read -r line; do
   [ -n "$tid" ] || continue
   checked=$((checked + 1))
   commit_swept=0
-  paths="$(git -C "$WT" diff-tree --no-renames -r --no-commit-id --name-only "$sha")" || {
+  # -c: without a merge flag diff-tree prints nothing for merges, so a
+  # Task-Id evil merge was counted and never diffed, answering CLEAN over
+  # its smuggled paths (KAN-553 F3, deferred; KAN-607). Combined names only
+  # what the merge itself introduces — the header states the semantics.
+  paths="$(git -C "$WT" diff-tree --no-renames -r --no-commit-id --name-only -c "$sha")" || {
     echo "check-task-commit-planning-paths.sh: git diff-tree refused the walk on $sha" >&2
     exit 2
   }
