@@ -784,6 +784,24 @@ func TestRecordDispatchRouteAnswers400ForAnInvalidAgentID(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchRouteAnswers400ForAnUnmappablePair pins the
+// mapStoreError case KAN-610 adds: the store having refused a model/effort
+// pair the harness mapping cannot produce is the caller's mistake, so the
+// route answers 400 with the store's own reason -- never the generic 500
+// that internal/client would read as the store being unavailable and
+// journal for a replay that can never succeed.
+func TestRecordDispatchRouteAnswers400ForAnUnmappablePair(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.recordDispatchErr = fmt.Errorf("%w: recorded (%q, %q); harness %q runs only (%q, %q)",
+		store.ErrDispatchPairInvalid, "sonnet", "high", "zcode", "glm-5.3-flash", "high")
+
+	body := dispatchBody("implementer", "sonnet")
+	resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", body)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST dispatches with an unmappable pair = %d (%s), want 400", resp.StatusCode, respBody)
+	}
+}
+
 // --- findings ---
 
 // TestRecordDispatchRouteStampsAZeroStartedAt pins the daemon-side
