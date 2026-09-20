@@ -142,6 +142,22 @@ else
   fail "unresolvable base: expected exit 2 with empty stdout, got RC=$RC OUT=<$OUT>"
 fi
 
+# ---- refusal: HEAD does not resolve (unborn repository, KAN-608) ---------
+# A repository with no commits has no HEAD: the guard's fourth exit-2 branch.
+# The repo is built inline, not through new_repo, because new_repo always
+# makes the commit whose absence this branch needs. Base `main` is equally
+# unresolvable there, so the stderr grep is what pins THIS branch rather than
+# the base one.
+UNBORN="$WORK/unborn"
+git init -q -b main "$UNBORN"
+run_guard "$UNBORN" main
+if [ "$RC" -eq 2 ] && [ -z "$OUT" ] &&
+   printf '%s' "$ERR" | grep -q "HEAD does not resolve"; then
+  pass "unborn repository: exit 2, nothing on stdout, HEAD named on stderr"
+else
+  fail "unborn repository: expected exit 2 with empty stdout and HEAD named on stderr, got RC=$RC OUT=<$OUT>"
+fi
+
 # ---- clean: task commit touching implementation only ---------------------
 CLEAN="$(new_repo clean)"
 BASE_CLEAN="$(git -C "$CLEAN" rev-parse HEAD)"
