@@ -92,7 +92,10 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
 
    **`check-archive-scope.sh`** refuses a `git add -A` that staged more than the archive move — see
    step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) for
-   why. A `SCOPE-VIOLATION` stops the commit exactly as a branch mismatch does. **When absent**, run
+   why. A `SCOPE-VIOLATION` stops the commit exactly as a branch mismatch does. **An exit 2 with
+   nothing on stdout** — a landing worktree that cannot be read — stops the commit the same way
+   (KAN-601): the guard's header makes an inability to answer a non-verdict, so it is never read
+   as `SCOPE-OK`. **When absent**, run
    `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside
    `<agents repo>/spectre/changes/`.
 
