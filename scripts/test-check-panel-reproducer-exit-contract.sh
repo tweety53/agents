@@ -11,10 +11,13 @@
 # own SCRIPT_DIR resolution -- the guard execs "$SCRIPT_DIR/run-reproducer.sh",
 # never a PATH lookup -- so the stub must sit there, not in bin/.
 #
-# Two cases (the last two) wire the REAL scripts/run-reproducer.sh in
+# Two cases (16 and 17) wire the REAL scripts/run-reproducer.sh in
 # against a real reproducer script instead, positive and inverted, so the
 # guard's wiring to the runner's actual exit-code vocabulary is proven and
-# not only assumed.
+# not only assumed. The cases after them exercise the guard's instrument
+# audit (KAN-606): the `# demonstrates:` citation every runnable open
+# finding's reproducer must carry, and the failure classes of checking it
+# against the tree before the runner is ever invoked.
 #
 # set -euo pipefail, with set +e brackets around every command that is
 # SUPPOSED to fail -- the same shape as test-check-panel-reproducers.sh,
@@ -51,6 +54,15 @@ findings_json() {
 # whose stub runner exits <runner-exit-code> with the matching canned
 # verdict line, and which records the argument count it was last invoked
 # with into runner/argc.txt. Prints the sandbox path.
+#
+# Every sandbox also carries an AUDITABLE reproducer script and the file its
+# declaration cites (KAN-606): the guard audits the `# demonstrates:`
+# citation BEFORE it ever invokes the runner, so the default recorded
+# reproducer `repro.sh` must carry a resolvable declaration and
+# target.txt:2 must carry the cited content -- otherwise every verdict case
+# below would die in the audit and never reach the runner it exists to
+# stub. Cases that exercise the audit itself rewrite repro.sh after this
+# helper runs.
 make_stub_sandbox() {
   local wt json="$1" code="$2" line
   case "$code" in
@@ -81,8 +93,31 @@ echo "$line" >&2
 exit "$code"
 STUB
   chmod +x "$wt/runner/run-reproducer.sh"
+  printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt/target.txt"
+  printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit 9' > "$wt/repro.sh"
   cp "$GUARD" "$wt/runner/check-panel-reproducer-exit-contract.sh"
   printf '%s' "$wt"
+}
+
+# rewrite_repro <sandbox> -- replaces the sandbox's auditable repro.sh with
+# the given body, so an audit case decides exactly what the guard reads.
+rewrite_repro() {
+  local wt="$1"
+  cat > "$wt/repro.sh"
+}
+
+# runner_never_invoked <label> <sandbox> -- the stub writes runner/argc.txt
+# the moment the guard invokes it, so a missing file is the proof that an
+# audit failure skipped the run: the guard never spends the runner's verdict
+# on an instrument it could not resolve.
+runner_never_invoked() {
+  local label="$1" wt="$2"
+  if [ -f "$wt/runner/argc.txt" ]; then
+    printf 'FAIL %s: the runner was invoked despite the audit failure\n' "$label"
+    FAILED=1
+  else
+    printf 'ok: %s\n' "$label"
+  fi
 }
 
 # make_store_unreachable_sandbox -- a sandbox whose stub `flow` exits
@@ -138,7 +173,8 @@ cat "$(dirname -- "$0")/findings.json"
 exit 0
 STUB
   chmod +x "$wt/bin/flow"
-  printf '#!/usr/bin/env bash\nexit %s\n' "$code" > "$wt/demo-repro.sh"
+  printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt/target.txt"
+  printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit '"$code" > "$wt/demo-repro.sh"
   chmod +x "$wt/demo-repro.sh"
   cp "$REAL_RUNNER" "$wt/runner/run-reproducer.sh"
   cp "$SCRIPT_DIR/reproducer-metachars.sh" "$wt/runner/reproducer-metachars.sh"
@@ -319,6 +355,10 @@ findings_json \
   F1 open repro-good.sh \
   F2 open repro-inverted.sh \
   F3 fixed repro-old.sh > "$wt14/bin/findings.json"
+printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt14/target.txt"
+for script in repro-good.sh repro-inverted.sh repro-old.sh; do
+  printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit 9' > "$wt14/$script"
+done
 cat > "$wt14/bin/flow" <<'STUB'
 #!/usr/bin/env bash
 cat "$(dirname -- "$0")/findings.json"
@@ -345,6 +385,10 @@ wt17="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXX
 WORKTREES+=("$wt17")
 mkdir -p "$wt17/bin" "$wt17/runner"
 findings_json F1 open repro-a.sh F2 open repro-b.sh > "$wt17/bin/findings.json"
+printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt17/target.txt"
+for script in repro-a.sh repro-b.sh; do
+  printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit 9' > "$wt17/$script"
+done
 cat > "$wt17/bin/flow" <<'STUB'
 #!/usr/bin/env bash
 cat "$(dirname -- "$0")/findings.json"
@@ -376,6 +420,118 @@ expect_exit 'case 16: real runner, non-zero reproducer, exit 0' 0 run_guard "$wt
 # ===========================================================================
 wt="$(make_real_sandbox 0)"
 expect_exit_and_names 'case 17: real runner, zero-exit reproducer, exit 1' 1 'F1' run_guard "$wt"
+
+# ===========================================================================
+# THE INSTRUMENT AUDIT (KAN-606). Before the guard invokes the runner it
+# audits the reproducer's `# demonstrates: <path>:<line>:<content>`
+# declaration against the tree: the class KAN-554's guard cannot see, a
+# reproducer whose greps captured mismatched text and cited the wrong
+# location, still flips green when its exit code happens to be non-zero.
+# Every audit failure is a violation (exit 1), and the runner is never
+# invoked for an instrument that failed the audit: its verdict would answer
+# a question the audit already settled.
+# ===========================================================================
+
+# 18. No `# demonstrates:` declaration at all -- unaudited instrument,
+#     exit 1, runner never invoked even though the stub would answer 0.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+exit 9
+REPRO
+expect_exit_and_names 'case 18: no demonstrates declaration is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 18b: no declaration means the runner never runs' "$wt"
+
+# 19. A declaration outside the first 10 lines is no declaration -- the
+#     window is the mutation-reproducer convention's own.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+{
+  printf '%s\n' '#!/usr/bin/env bash'
+  for _ in $(seq 10); do printf '%s\n' '# padding'; done
+  printf '%s\n' '# demonstrates: target.txt:2:defect present here' 'exit 9'
+} > "$wt/repro.sh"
+expect_exit_and_names 'case 19: a declaration past line 10 is a violation' 1 'F1' run_guard "$wt"
+
+# 20. An absolute declared path cannot resolve inside the worktree.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# demonstrates: /etc/passwd:1:root
+exit 9
+REPRO
+expect_exit_and_names 'case 20: an absolute declared path is a violation' 1 'F1' run_guard "$wt"
+
+# 21. A `..` segment in the declared path walks out of the worktree.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# demonstrates: ../outside.txt:1:content
+exit 9
+REPRO
+expect_exit_and_names 'case 21: a .. declared path is a violation' 1 'F1' run_guard "$wt"
+
+# 22. The declared file does not exist on the tree under review -- the
+#     mismatched-grep class itself.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# demonstrates: missing.txt:2:defect present here
+exit 9
+REPRO
+expect_exit_and_names 'case 22: a declared file the tree does not carry is a violation' 1 'F1' run_guard "$wt"
+
+# 23. The declared line number is past the end of the declared file.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# demonstrates: target.txt:99:defect present here
+exit 9
+REPRO
+expect_exit_and_names 'case 23: a declared line past the end of file is a violation' 1 'F1' run_guard "$wt"
+
+# 24. The declared content is absent from the declared line -- the wrong
+#     test's assertion, cited.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# demonstrates: target.txt:2:some other assertion entirely
+exit 9
+REPRO
+expect_exit_and_names 'case 24: content absent from the declared line is a violation' 1 'F1' run_guard "$wt"
+
+# 25. A malformed declaration -- no line number to read.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# demonstrates: target.txt:defect present here
+exit 9
+REPRO
+expect_exit_and_names 'case 25: a malformed declaration is a violation' 1 'F1' run_guard "$wt"
+
+# 26. A mutation-declared reproducer is EXEMPT: its instrument is audited by
+#     the KAN-568 sha-pin machinery, and the content it demonstrates is the
+#     mutated tree it builds at run time, not a location on this tree. No
+#     declaration needed; the runner is invoked and its verdict decides.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# mutation-reproducer
+exit 0
+REPRO
+expect_exit 'case 26: a mutation-declared reproducer skips the audit' 0 run_guard "$wt"
+argc="$(cat "$wt/runner/argc.txt")"
+if [ "$argc" = "2" ]; then
+  printf 'ok: %s\n' 'case 26b: the exempt reproducer still ran'
+else
+  printf 'FAIL case 26b: the exempt reproducer was invoked with %s arguments, not 2\n' "$argc"
+  FAILED=1
+fi
+
+# 27. The recorded reproducer names a script the worktree does not carry at
+#     all -- nothing to audit, so nothing to run.
+wt="$(make_stub_sandbox "$(findings_json F1 open absent.sh)" 0)"
+expect_exit_and_names 'case 27: an unreadable reproducer script is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 27b: an unreadable script means the runner never runs' "$wt"
 
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducer-exit-contract-test: one or more cases failed\n' >&2

@@ -45,14 +45,43 @@
 # would turn every first verdict into the ambiguity refusal and make the
 # gate unanswerable.
 #
+# THE INSTRUMENT AUDIT (KAN-606). The exit-code contract above reads only
+# the verdict, and a verdict is only as good as the instrument behind it:
+# kan-552's deferred self-review caught a reproducer whose greps had
+# captured mismatched text and cited the wrong test's assertion — the
+# script flipped green exactly as recorded, but what it demonstrated was
+# not the defect — and only the round-1 re-run reviewers had audited the
+# instrument at all. So before this guard invokes the runner, every
+# runnable reproducer's own text must declare what it demonstrates and
+# where: one `# demonstrates: <path>:<line>:<content>` line per cited
+# location, in the grep-output shape the author pastes straight off the
+# defect-present tree, inside the same first-10-lines window the
+# mutation-reproducer convention (KAN-568) reads its own declaration from.
+# Each citation is resolved against the tree under review: the declared
+# path must be relative and stay inside the worktree (the sibling lexical
+# guard's own shape classes), the file must exist, the line must exist, and
+# the declared content must appear on that line. Any citation that does not
+# resolve is a violation and the reproducer is NOT run — the runner's
+# verdict would answer a question this audit has already settled, and a
+# "demonstrated" spent on an unresolvable instrument is exactly the green
+# flip this guard exists to deny. A mutation-declared reproducer is exempt
+# from the audit: the content it demonstrates is the mutated tree it builds
+# at run time, not a location on this tree, and its instrument is audited
+# by the KAN-568 sha-pin machinery — demanding resolution here would invert
+# the audit into nonsense for exactly the convention KAN-568 added.
+#
 # Exit codes:
 #   0  every open finding with a runnable reproducer demonstrated the
 #      defect; findings claiming nothing about the current tree are skipped
 #   1  violations found: at least one open finding's reproducer read "defect
-#      not demonstrated" on this tree — the inverted class — or was refused
+#      not demonstrated" on this tree — the inverted class —, was refused
 #      by the runner as unusable (a shape the lexical guard's earlier pass
 #      did not see: the record changed after it ran, or the command resolves
-#      outside the worktree through a symlink); each named on stderr
+#      outside the worktree through a symlink), or failed the instrument
+#      audit — no `# demonstrates:` declaration within the first 10 lines,
+#      a malformed one, a citation outside the worktree, a file, line or
+#      content the tree does not carry, or a script that cannot be read to
+#      audit at all; each named on stderr
 #   2  cannot answer at all — usage, a worktree or change name that fails
 #      containment, the store unreachable, jq failing, an open finding
 #      carrying no reproducer field at all, or any reproducer the runner
@@ -170,6 +199,58 @@ for ref in "${REFS[@]}"; do
   case "$reproducer" in
     none | none[[:space:]]*) continue ;;
   esac
+
+  # THE INSTRUMENT AUDIT (KAN-606), before the runner is ever invoked: a
+  # verdict spent on an instrument whose citation does not resolve is the
+  # green flip this guard exists to deny, so an audit failure is recorded
+  # and the run is skipped for that finding. The first-10-lines window and
+  # the exact-line mutation declaration are the KAN-568 convention's own.
+  repro_path="$WORKTREE/${reproducer%% *}"
+  if [ ! -f "$repro_path" ] || [ ! -r "$repro_path" ]; then
+    add "$ref's reproducer script '${reproducer%% *}' could not be read — its demonstrates declaration cannot be audited, so its claim cannot be checked"
+    continue
+  fi
+  if ! head -n 10 -- "$repro_path" | grep -qx '# mutation-reproducer'; then
+    DECLS="$(head -n 10 -- "$repro_path" | grep '^# demonstrates: ' || true)"
+    if [ -z "$DECLS" ]; then
+      add "$ref's reproducer carries no '# demonstrates: <path>:<line>:<content>' declaration within its first 10 lines — what the instrument reads and expects is unaudited"
+      continue
+    fi
+    while IFS= read -r decl; do
+      [ -n "$decl" ] || continue
+      rest="${decl#\# demonstrates: }"
+      dpath="${rest%%:*}"
+      rest2="${rest#*:}"
+      dline="${rest2%%:*}"
+      dcontent="${rest2#*:}"
+      if [ -z "$dpath" ] || [ "$rest2" = "$rest" ] || case "$rest2" in *:*) false ;; *) true ;; esac || \
+         case "$dline" in ''|*[!0-9]*) true ;; *) false ;; esac || [ -z "$dcontent" ]; then
+        add "$ref's reproducer carries a malformed demonstrates declaration ('$decl') — the form is '# demonstrates: <path>:<line>:<content>'"
+        continue
+      fi
+      case "$dpath" in
+        /*|..|../*|*/..|*/../*)
+          add "$ref's reproducer demonstrates declaration cites '$dpath' — a citation names a path relative to and inside the worktree under review"
+          continue
+          ;;
+      esac
+      target="$WORKTREE/$dpath"
+      if [ ! -f "$target" ]; then
+        add "$ref's reproducer demonstrates declaration cites '$dpath' — the tree under review carries no such file"
+        continue
+      fi
+      has_line="$(awk -v n="$dline" 'NR==n{f=1} END{print f+0}' "$target")"
+      if [ "$has_line" != "1" ]; then
+        add "$ref's reproducer demonstrates declaration cites '$dpath':$dline — past the end of the file"
+        continue
+      fi
+      line_text="$(sed -n "${dline}p" "$target")"
+      if [[ "$line_text" != *"$dcontent"* ]]; then
+        add "$ref's reproducer demonstrates declaration cites content absent from '$dpath':$dline — the instrument's citation does not resolve on this tree"
+        continue
+      fi
+    done <<< "$DECLS"
+  fi
 
   printf 'check-panel-reproducer-exit-contract: %s — running %s\n' "$ref" "$reproducer" >&2
   set +e
