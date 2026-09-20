@@ -367,7 +367,11 @@ of every task's own `**Files:**` field across the plan.
 
 Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
 project's configured plan-provenance guard and its configured build-green guard, if the project
-declares them, and fix any hit.
+declares them, and fix any hit. **A hit is exit 1, and only exit 1.** The refusal exits are
+never repaired by editing the plan (KAN-601): check-plan-provenance's exit 2 (environment) and
+exit 3 (containment — a security finding first, per the guard's own contract) and the
+not-a-verdict exit 2 the shape and build-green guards share (a missing or unreadable plan file)
+are reported and stop the plan.
 
 With the plan validated, record its size as the change's first task-count observation — the
 planned figure every later fix round's growth is measured against (KAN-415):
