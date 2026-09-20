@@ -65,6 +65,27 @@ STUB_BODY="$STUB_BODY" STUB_STATUS="$STUB_STATUS" STUB_LOG="$STUB_LOG" \
   python3 "$SANDBOX/stub.py" "$STUB_PORT" &
 STUB_PID=$!
 
+# Wait for the stub to accept connections before the first case: the stub
+# interpreter's own startup leaves a window where the port still refuses
+# (measured 145 ms idle; longer under run-guard-tests.sh's parallel load), and
+# case 1's urlopen fires inside it — the hook fails open on the refusal, so the
+# case reads as an empty store answer rather than as the startup race it is.
+python3 - "$STUB_PORT" <<'PYEOF'
+import socket
+import sys
+import time
+
+deadline = time.time() + 10
+while True:
+    try:
+        socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.25).close()
+        sys.exit(0)
+    except OSError:
+        if time.time() > deadline:
+            sys.exit(1)
+        time.sleep(0.05)
+PYEOF
+
 ADDR="http://127.0.0.1:$STUB_PORT"
 DEAD_ADDR="http://127.0.0.1:1"
 
