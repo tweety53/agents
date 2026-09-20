@@ -451,6 +451,7 @@ wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
   printf '%s\n' '# demonstrates: target.txt:2:defect present here' 'exit 9'
 } > "$wt/repro.sh"
 expect_exit_and_names 'case 19: a declaration past line 10 is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 19b: the audit failure means the runner never runs' "$wt"
 
 # 20. An absolute declared path cannot resolve inside the worktree.
 wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
@@ -460,6 +461,7 @@ rewrite_repro "$wt" <<'REPRO'
 exit 9
 REPRO
 expect_exit_and_names 'case 20: an absolute declared path is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 20b: the audit failure means the runner never runs' "$wt"
 
 # 21. A `..` segment in the declared path walks out of the worktree.
 wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
@@ -469,6 +471,7 @@ rewrite_repro "$wt" <<'REPRO'
 exit 9
 REPRO
 expect_exit_and_names 'case 21: a .. declared path is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 21b: the audit failure means the runner never runs' "$wt"
 
 # 22. The declared file does not exist on the tree under review -- the
 #     mismatched-grep class itself.
@@ -479,6 +482,7 @@ rewrite_repro "$wt" <<'REPRO'
 exit 9
 REPRO
 expect_exit_and_names 'case 22: a declared file the tree does not carry is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 22b: the audit failure means the runner never runs' "$wt"
 
 # 23. The declared line number is past the end of the declared file.
 wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
@@ -488,6 +492,7 @@ rewrite_repro "$wt" <<'REPRO'
 exit 9
 REPRO
 expect_exit_and_names 'case 23: a declared line past the end of file is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 23b: the audit failure means the runner never runs' "$wt"
 
 # 24. The declared content is absent from the declared line -- the wrong
 #     test's assertion, cited.
@@ -498,6 +503,7 @@ rewrite_repro "$wt" <<'REPRO'
 exit 9
 REPRO
 expect_exit_and_names 'case 24: content absent from the declared line is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 24b: the audit failure means the runner never runs' "$wt"
 
 # 25. A malformed declaration -- no line number to read.
 wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
@@ -507,6 +513,7 @@ rewrite_repro "$wt" <<'REPRO'
 exit 9
 REPRO
 expect_exit_and_names 'case 25: a malformed declaration is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 25b: the audit failure means the runner never runs' "$wt"
 
 # 26. A mutation-declared reproducer is EXEMPT: its instrument is audited by
 #     the KAN-568 sha-pin machinery, and the content it demonstrates is the
@@ -532,6 +539,37 @@ fi
 wt="$(make_stub_sandbox "$(findings_json F1 open absent.sh)" 0)"
 expect_exit_and_names 'case 27: an unreadable reproducer script is a violation' 1 'F1' run_guard "$wt"
 runner_never_invoked 'case 27b: an unreadable script means the runner never runs' "$wt"
+
+# 28. A TAB-separated recorded reproducer is legal everywhere else in the
+#     pipeline — the lexical guard and the runner both tokenize on space
+#     AND tab — so the audit must derive its path token the same way and
+#     reach the runner, not bounce the finding as unreadable (round-0 F1).
+wt="$(make_stub_sandbox "$(findings_json F1 open "$(printf 'repro.sh\t--strict')")" 0)"
+expect_exit 'case 28: a tab-separated reproducer reaches the runner' 0 run_guard "$wt"
+argc="$(cat "$wt/runner/argc.txt")"
+if [ "$argc" = "2" ]; then
+  printf 'ok: %s\n' 'case 28: the tab-separated reproducer was invoked bare'
+else
+  printf 'FAIL case 28: the tab-separated reproducer was invoked with %s arguments, not 2\n' "$argc"
+  FAILED=1
+fi
+
+# 29. A declared citation path that is a symlink INSIDE the worktree but
+#     points OUTSIDE it passes every lexical check — the audit resolves the
+#     declared path physically and refuses the escape, runner never invoked
+#     (round-0 F4).
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+outside="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$outside")
+printf '%s\n' 'outside content' > "$outside/external.txt"
+ln -s "$outside/external.txt" "$wt/escape.txt"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# demonstrates: escape.txt:1:outside content
+exit 9
+REPRO
+expect_exit_and_names 'case 29: a symlink-escape citation is a violation' 1 'F1' run_guard "$wt"
+runner_never_invoked 'case 29b: a symlink escape means the runner never runs' "$wt"
 
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducer-exit-contract-test: one or more cases failed\n' >&2

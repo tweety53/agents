@@ -961,7 +961,8 @@ forms the lexical guard above owns, and a mutation-declared reproducer skips the
 demonstrates is the mutated tree it builds at run time, and the `--reproducer-sha` pin below is
 its instrument audit. Exit 0 proceeds to the per-finding runs below. Exit 1 names every finding
 whose reproducer contradicted its claim, one disposition per class: a reproducer that read *not
-demonstrated* — the inverted class —, or one whose demonstrates citation did not resolve, is
+demonstrated* — the inverted class —, one whose demonstrates citation did not resolve, and one
+whose script cannot be read to audit at all, are
 bounced exactly as the per-finding run's own answer 1 below,
 once, back to the raising slot; a reproducer the runner refused as unusable is recorded
 **unverifiable** and put to the operator, exactly as the per-finding run's own answer 2 below, since

@@ -58,8 +58,11 @@
 # defect-present tree, inside the same first-10-lines window the
 # mutation-reproducer convention (KAN-568) reads its own declaration from.
 # Each citation is resolved against the tree under review: the declared
-# path must be relative and stay inside the worktree (the sibling lexical
-# guard's own shape classes), the file must exist, the line must exist, and
+# path must be relative and stay inside the worktree — lexically (the
+# sibling lexical guard's own shape classes) and then physically, realpath-
+# resolved and required to remain under the worktree exactly as
+# run-reproducer.sh resolves the reproducer's own path token —, the file
+# must exist, the line must exist, and
 # the declared content must appear on that line. Any citation that does not
 # resolve is a violation and the reproducer is NOT run — the runner's
 # verdict would answer a question this audit has already settled, and a
@@ -205,9 +208,17 @@ for ref in "${REFS[@]}"; do
   # green flip this guard exists to deny, so an audit failure is recorded
   # and the run is skipped for that finding. The first-10-lines window and
   # the exact-line mutation declaration are the KAN-568 convention's own.
-  repro_path="$WORKTREE/${reproducer%% *}"
+  # The path token is derived the way run-reproducer.sh's own tokenizer
+  # derives it — `IFS=$' \t' read -ra`, first element — never
+  # `${reproducer%% *}`: that idiom splits on a literal space only, so a
+  # tab-separated command line legal everywhere else in the pipeline would
+  # reach this audit as one token and be bounced as unreadable (panel
+  # finding F1, kan-606 round 0).
+  IFS=$' \t' read -ra AUDIT_TOKENS <<< "$reproducer" || true
+  repro_path_token="${AUDIT_TOKENS[0]:-}"
+  repro_path="$WORKTREE/$repro_path_token"
   if [ ! -f "$repro_path" ] || [ ! -r "$repro_path" ]; then
-    add "$ref's reproducer script '${reproducer%% *}' could not be read — its demonstrates declaration cannot be audited, so its claim cannot be checked"
+    add "$ref's reproducer script '$repro_path_token' could not be read — its demonstrates declaration cannot be audited, so its claim cannot be checked"
     continue
   fi
   if ! head -n 10 -- "$repro_path" | grep -qx '# mutation-reproducer'; then
@@ -216,6 +227,7 @@ for ref in "${REFS[@]}"; do
       add "$ref's reproducer carries no '# demonstrates: <path>:<line>:<content>' declaration within its first 10 lines — what the instrument reads and expects is unaudited"
       continue
     fi
+    audit_violations="${#VIOLATIONS[@]}"
     while IFS= read -r decl; do
       [ -n "$decl" ] || continue
       rest="${decl#\# demonstrates: }"
@@ -239,17 +251,38 @@ for ref in "${REFS[@]}"; do
         add "$ref's reproducer demonstrates declaration cites '$dpath' — the tree under review carries no such file"
         continue
       fi
-      has_line="$(awk -v n="$dline" 'NR==n{f=1} END{print f+0}' "$target")"
+      # Resolved containment, the runner's own pattern: `realpath` follows
+      # `..`, `.` and symlinks in one step, so a citation whose declared
+      # path carries no lexical `..` segment but escapes through a symlink
+      # inside the worktree is caught here rather than read outside the
+      # tree (panel finding F4, kan-606 round 0). $WORKTREE is
+      # `pwd -P`-canonical above, the same physical shape realpath answers.
+      resolved="$(realpath -- "$target" 2>/dev/null)" || resolved=""
+      case "$resolved" in
+        "$WORKTREE"/*) : ;;
+        *)
+          add "$ref's reproducer demonstrates declaration cites '$dpath' — it resolves to '${resolved:-an unresolvable path}', outside the worktree under review — a symlink escape"
+          continue
+          ;;
+      esac
+      has_line="$(awk -v n="$dline" 'NR==n{f=1} END{print f+0}' "$resolved")"
       if [ "$has_line" != "1" ]; then
         add "$ref's reproducer demonstrates declaration cites '$dpath':$dline — past the end of the file"
         continue
       fi
-      line_text="$(sed -n "${dline}p" "$target")"
+      line_text="$(sed -n "${dline}p" "$resolved")"
       if [[ "$line_text" != *"$dcontent"* ]]; then
         add "$ref's reproducer demonstrates declaration cites content absent from '$dpath':$dline — the instrument's citation does not resolve on this tree"
         continue
       fi
     done <<< "$DECLS"
+    # A `continue` inside the declaration loop above continues that loop,
+    # never the finding loop — so the skip the audit promises is enforced
+    # here: any violation this finding's declarations added means the
+    # runner is never invoked for it.
+    if [ "${#VIOLATIONS[@]}" -gt "$audit_violations" ]; then
+      continue
+    fi
   fi
 
   printf 'check-panel-reproducer-exit-contract: %s — running %s\n' "$ref" "$reproducer" >&2
