@@ -383,11 +383,11 @@ else
   echo "not merged, and no upstream — cannot prove these commits exist anywhere else"; false
 fi
 
-# 4. what `--force` WILL destroy: ignored files. This does not gate removal — it is shown to
-#    the operator, who decides. `--exclude-standard` in check 2 hides everything matched by
-#    .gitignore, <project>/.git/info/exclude or the global excludes file, and "ignored" is NOT "disposable":
-#    a deliberately-ignored .env, a local override config, or this pipeline's own
-#    <abs-worktree>/.superpowers/sdd/ records are all ignored and all irreplaceable.
+# 4. what `--force` WILL destroy: ignored files, split into what a next build/test/dev-stack run
+#    regenerates byte-for-byte and everything else. `--exclude-standard` in check 2 hides
+#    everything matched by .gitignore, <project>/.git/info/exclude or the global excludes file,
+#    and "ignored" is NOT "disposable" in general — a deliberately-ignored .env or a local
+#    override config is ignored and irreplaceable. The split below is what tells the two apart.
 git -C "$WT" ls-files --others --ignored --exclude-standard
 
 # 5. the project's local stack is stopped — run its `## stop` command if declared. Give it a
@@ -425,18 +425,36 @@ and the resulting orphan holds ports shared across every workspace. The remedy i
 process and re-run, while
 the worktree still exists and the project's own stop command can still read what it started.
 
-**Check 4 is a disclosure, not a gate.** When it lists anything, **stop and show the list**, and
-ask for explicit confirmation before removing that worktree. Do not try to classify the entries as
-build output: no allowlist of names can be trusted, because the operator decides what they ignore.
-Empty list → proceed without asking.
+**Check 4 is a disclosure, not a gate — but it asks only about what it cannot prove regenerates.**
+Split what it found into two buckets by path, never by guessing intent:
 
-**`/flow-fast` overrides the ask, and only the ask.** Its own **Guardrails**
+- **Regeneratable** — a path under a build/cache/log/test-output location a fresh build, test run
+  or `devStart` recreates with identical content the next time it runs: any path component named
+  `build`, `.gradle`, `.kotlin`, `node_modules`, `dist`, `.next`, `target`, `out`, `coverage` or
+  `test-results`; any `*.log`; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
+  `<abs-worktree>/.dev-stack/` trees, which a session's own next run writes fresh. A `.png`/`.jpg`
+  capture is regeneratable only when it sits under a `test-results/` (or equivalent declared
+  screenshot-output) directory a test run owns end to end — never a capture sitting loose at a
+  project root, which could be a hand-saved reference nothing re-creates.
+- **Everything else** — unclassified, and it stays unclassified: no allowlist of *names* is
+  trusted here, because the operator decides what they ignore, and a path this list does not
+  recognize (a `.env`, a local override config, a stray file at the worktree root) is exactly what
+  the doubt is for.
+
+An empty unclassified bucket → **show the regeneratable bucket's count and proceed without
+asking** — every entry in it is reproduced identically by the next run of whatever wrote it, so
+confirming its loss adds nothing the operator can act on, and asking every single time a routine
+archive leaves nothing but build output behind is a prompt with no real decision behind it. A
+non-empty unclassified bucket → **stop, show that bucket in full** (the regeneratable one named
+only by count), and ask for explicit confirmation before removing that worktree, exactly as
+before — the ask exists for the entries that are actually in doubt.
+
+**`/flow-fast` overrides the ask a level further, and only the ask.** Its own **Guardrails**
 (`skills/flow-fast/SKILL.md`) state that override and why it is safe there: that command reports
-what `--force` will destroy and proceeds, having already preserved and committed the records worth
-keeping before it reaches cleanup. The override is named here too, so two files cannot silently
-disagree about a step that destroys files. It reaches nothing else — checks 1, 2, 3, 5 and 6 stay
-gates under every command, and an irreplaceable **unpreserved** entry still stops the run and asks,
-under `/flow-fast` as much as here.
+what `--force` will destroy and proceeds regardless of which bucket an entry falls in, having
+already preserved and committed the records worth keeping before it reaches cleanup. It reaches
+nothing else — checks 1, 2, 3, 5 and 6 stay gates under every command, and an irreplaceable
+**unpreserved** entry still stops the run and asks, under `/flow-fast` as much as here.
 
 Then, and only then:
 
