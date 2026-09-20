@@ -255,6 +255,9 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 	if err := validateAgentID(in.AgentID); err != nil {
 		return records.Dispatch{}, fmt.Errorf("store: record dispatch for %s/%s: %w", projectKey, change, err)
 	}
+	if err := s.validateDispatchPair(ctx, in); err != nil {
+		return records.Dispatch{}, fmt.Errorf("store: record dispatch for %s/%s: %w", projectKey, change, err)
+	}
 	for range maxDispatchSeqRetries {
 		out, err := s.insertDispatch(ctx, projectKey, change, in)
 		if err == nil {
