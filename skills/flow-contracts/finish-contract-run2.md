@@ -91,7 +91,11 @@ bare `/flow` is the only command that loads this file.
    by hand and gotten wrong — stages and commits whatever else that stale tree carried right
    alongside it. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
    rather than let a stray path land on `chore/archive-<name>` unremarked. This has happened: an archive commit made this
-   way reverted skill-file content another change had shipped minutes earlier.
+   way reverted skill-file content another change had shipped minutes earlier. **An exit 2 with
+   nothing on stdout** — a landing worktree that is not a readable git worktree, or no
+   allowed-prefix given — refuses the commit the same way (KAN-601): the guard's header is
+   explicit that an inability to answer is never reported as a verdict, so an unreadable tree is
+   never read as `SCOPE-OK`.
 
    **Before the `git add -A`, the rendered ledger and panel record are preserved into this
    commit.** The canonical apply worktree's `<abs-worktree>/.superpowers/sdd/ledgers/<name>.md`
