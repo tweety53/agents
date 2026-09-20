@@ -223,7 +223,12 @@ refactor of output-producing code follows **PIN BEFORE REFACTOR**
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope
 naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no
 attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch
-backup**, `skills/flow-contracts/git-boundaries.md`). Fix every lint hit the project's `## lint`
+backup**, `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
+record, and no task-fields guard reads it: `check-task-commit-fields.sh`, the guard `/flow`'s
+implement phase closes every task commit with, resolves only a spectre plan
+(`<worktree>/<spec-root>/changes/*/tasks.md`) — a layout a `/flow-fast` change never has — so it
+is out of scope here by construction, and section 5's lint and tests are the only close a commit
+gets. Fix every lint hit the project's `## lint`
 raises on the files you touched rather than suppressing it.
 
 ```bash
