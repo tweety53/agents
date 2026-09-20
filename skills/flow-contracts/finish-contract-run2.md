@@ -386,8 +386,8 @@ else
   echo "not merged, and no upstream — cannot prove these commits exist anywhere else"; false
 fi
 
-# 4. what `--force` WILL destroy: ignored files, split into what a next build/test/dev-stack run
-#    regenerates byte-for-byte and everything else. `--exclude-standard` in check 2 hides
+# 4. what `--force` WILL destroy: ignored files, split into what a next build, test or
+#    dev-stack run regenerates byte-for-byte and everything else. `--exclude-standard` in check 2 hides
 #    everything matched by .gitignore, <project>/.git/info/exclude or the global excludes file,
 #    and "ignored" is NOT "disposable" in general — a deliberately-ignored .env or a local
 #    override config is ignored and irreplaceable. The split below is what tells the two apart.
@@ -436,8 +436,8 @@ Split what it found into two buckets by path, never by guessing intent:
   `build`, `.gradle`, `.kotlin`, `node_modules`, `dist`, `.next`, `target`, `out`, `coverage` or
   `test-results`; any `*.log`; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
   `<abs-worktree>/.dev-stack/` trees, which a session's own next run writes fresh. A `.png`/`.jpg`
-  capture is regeneratable only when it sits under a `test-results/` (or equivalent declared
-  screenshot-output) directory a test run owns end to end — never a capture sitting loose at a
+  capture is regeneratable only when it sits under a `test-results` directory (or an equivalent
+  declared screenshot-output directory) a test run owns end to end — never a capture sitting loose at a
   project root, which could be a hand-saved reference nothing re-creates.
 - **Everything else** — unclassified, and it stays unclassified: no allowlist of *names* is
   trusted here, because the operator decides what they ignore, and a path this list does not
