@@ -290,19 +290,22 @@ bare `/flow` is the only command that loads this file.
     | Reached via | Then |
     |---|---|
     | the merge-and-push continuation, same invocation as run 1 | in `<landing-worktree>`: push `chore/archive-<name>`; merge it into `<base>`; push `<base>` — the same three sub-steps Run 1's own merge-and-push route (`skills/flow-contracts/finish-contract-run1.md`) performs, applied to the archive branch instead |
-    | a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, else print the forge's create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route uses |
+    | a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, then **merge it immediately with that same CLI** (`gh pr merge --merge --delete-branch` or the host's equivalent) — no wait for checks or review, and no operator prompt, because everything this PR carries is this pipeline's own mechanical output (the archive move, the self-review report or context bundle), never code a human review gate exists for. When no PR CLI is usable for the host, print the forge's create-PR URL and ask whether it was opened **and merged** — the same shape Run 1's pull-request route uses, extended to cover the merge this row no longer defers |
 
     This push carries both the archive commit and step 9's output — the self-review report, or the
     context bundle on `defer` — either way, so there is no window in which the archive lands while
     that output is still unwritten. Run 2
     never pushes anything but `chore/archive-<name>` and, on the merge-and-push row, `<base>`
-    itself.
+    itself; the standalone row's PR-CLI merge does not push `<base>` directly — the forge's own
+    merge does that on the PR CLI's behalf.
 
     A failed push, a failed merge, or a failed pull-request creation is reported with the
     command's own output. It never moves the change off `FINISHED` — the change is already
-    terminal by step 8. On the standalone row, the handoff names the unpushed branch
-    `chore/archive-<name>` and prints the exact push and pull-request commands needed to land it
-    by hand. The archive is never reported as landed until this step actually lands it, on either
+    terminal by step 8. On the standalone row, a PR opened but not yet merged — the CLI's merge
+    call itself failed, or no CLI was usable and the operator has not yet confirmed it — has the
+    handoff name the open PR and print the exact merge command needed to land it by hand; a PR
+    that was never even opened falls back to naming the unpushed branch and the create-PR command
+    instead. The archive is never reported as landed until this step actually merges it, on either
     row.
 
     **This split reads no persisted field.** The merge-and-push row is recognized because this run

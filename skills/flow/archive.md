@@ -309,7 +309,7 @@ flow stage end -command '/flow' -stage flow.push-archive -outcome completed <nam
 
 **Change:** <name>
 **Archived:** spectre/changes/archive/<name>/ (committed on chore/archive-<name>)
-**Archive PR:** <prUrl> | none — merged directly into <base> | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open a PR against <base>
+**Archive PR:** <prUrl> (merged) | none — merged directly into <base> | <prUrl> — open, not yet merged: <reason>; land it with: gh pr merge <prUrl> --merge | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open and merge a PR against <base>
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
