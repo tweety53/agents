@@ -398,7 +398,18 @@ and had to be hand-corrected out of — reads as the defect already gone. The on
 mutation-reproducer convention, which the mutation-testing brief below defines and a reproducer
 declares with the exact `# mutation-reproducer` line: such a reproducer is read inverted, its
 exit 0 being the defect present. Author it to fail pre-fix
-and pass post-fix. **The exemption form is available to Minor
+and pass post-fix. **A runnable reproducer also declares what it demonstrates and where**: one
+`# demonstrates: <path>:<line>:<content>` line per cited location, within the script's first 10
+lines — the same window the `# mutation-reproducer` declaration reads — in the grep-output shape
+the author pastes straight off the defect-present tree (KAN-606). The declaration names the file
+and line the instrument reads and the content expected there, and
+`check-panel-reproducer-exit-contract.sh` resolves every citation against the tree under review
+before the reproducer runs: the path must stay inside the worktree, the file and line must exist,
+and the content must appear on that line. A citation that does not resolve joins the inverted
+class in that guard's exit 1 and is bounced like it — once, back to the raising slot. The
+mutation-reproducer convention is exempt from the declaration: what such a reproducer demonstrates
+is the mutated tree it builds at run time, and the `--reproducer-sha` pin below is its instrument
+audit. **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
 at Important (KAN-503). A demonstrating command needing a pipe, a
@@ -938,11 +949,20 @@ check-panel-reproducer-exit-contract.sh <worktree> <change>
 
 The guard runs every **open** finding's runnable reproducer through `run-reproducer.sh` against the
 worktree, bare, and requires the verdict *defect demonstrated* — the exit-code behaviour an open
-finding's reproducer claims on the tree under review. Findings at any other status claim nothing
-about the current tree and are skipped, as are the exemption and bare-`none` forms the lexical guard
-above owns. Exit 0 proceeds to the per-finding runs below. Exit 1 names every finding whose
-reproducer contradicted its claim, one disposition per class: a reproducer that read *not
-demonstrated* — the inverted class — is bounced exactly as the per-finding run's own answer 1 below,
+finding's reproducer claims on the tree under review. Before anything runs, the guard audits the
+instrument itself (KAN-606): each runnable reproducer carries the `# demonstrates:
+<path>:<line>:<content>` declaration its authoring rule above requires, within the script's first
+10 lines, and the guard resolves every citation against the worktree — the path stays inside the
+tree, the file exists, the line exists, the content appears on that line. A reproducer whose
+citation does not resolve, or whose script cannot be read to audit, is never run — a verdict spent
+on an unresolvable instrument is the green flip the audit exists to deny. Findings at any other
+status claim nothing about the current tree and are skipped, as are the exemption and bare-`none`
+forms the lexical guard above owns, and a mutation-declared reproducer skips the audit: what it
+demonstrates is the mutated tree it builds at run time, and the `--reproducer-sha` pin below is
+its instrument audit. Exit 0 proceeds to the per-finding runs below. Exit 1 names every finding
+whose reproducer contradicted its claim, one disposition per class: a reproducer that read *not
+demonstrated* — the inverted class —, or one whose demonstrates citation did not resolve, is
+bounced exactly as the per-finding run's own answer 1 below,
 once, back to the raising slot; a reproducer the runner refused as unusable is recorded
 **unverifiable** and put to the operator, exactly as the per-finding run's own answer 2 below, since
 a refused reproducer never ran and so carries no passing output a bounce could carry. Exit 2 — any
