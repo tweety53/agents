@@ -845,6 +845,16 @@ func isDefinitiveRecordOutcome(err error) bool {
 		// every valid entry behind it forever without ever making
 		// progress.
 		return true
+	case errors.Is(err, store.ErrDispatchPairInvalid):
+		// A model/effort pair the dispatch's harness mapping cannot
+		// produce (KAN-610) is the same class once more: the refusal keys
+		// on the request body plus the token's already-recorded harness,
+		// neither of which a later pass changes, so the live route answers
+		// 400 for the identical body and every future replay would be
+		// refused identically. Retiring it is the same call the cases
+		// above get -- leaving it queued would block every valid entry
+		// behind it forever without ever making progress.
+		return true
 	default:
 		return false
 	}

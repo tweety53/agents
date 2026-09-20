@@ -837,6 +837,50 @@ func TestDispatchRefusedForAnInvalidAgentIDIsRetiredAndAppliesEntryBehindIt(t *t
 	}
 }
 
+// unmappablePairRecordStore answers every dispatch write with
+// store.ErrDispatchPairInvalid -- the harness-mapping counterpart of the
+// agent-id refusal above, mapped 400 by the same API mapper.
+type unmappablePairRecordStore struct{ fakeRecordStore }
+
+func (*unmappablePairRecordStore) RecordDispatch(context.Context, string, string, records.Dispatch) (records.Dispatch, error) {
+	return records.Dispatch{}, fmt.Errorf("%w: recorded (%q, %q); harness %q runs only (%q, %q)",
+		store.ErrDispatchPairInvalid, "sonnet", "high", "zcode", "glm-5.3-flash", "high")
+}
+
+// TestDispatchRefusedForAnUnmappablePairIsRetiredAndAppliesEntryBehindIt
+// is the harness-mapping counterpart of the agent-id retirement above
+// (KAN-610): a dispatch write the store refused because its recorded
+// model/effort pair is not one the dispatch's harness mapping can produce
+// is refused identically on every replay -- the refusal keys on the
+// request body plus the token's already-recorded harness, neither of which
+// a later pass changes -- so retiring it is what stops one bad entry
+// blocking every valid entry behind it forever.
+func TestDispatchRefusedForAnUnmappablePairIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-harnesspair", "chg-record-harnesspair"
+
+	appendRecordWrite(t, root, project, change, "dispatch", testDispatch())
+	appendRecordWrite(t, root, project, change, "finding", testFinding("F2", "open"))
+
+	rs := &unmappablePairRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 1 {
+		t.Fatalf("Run result = %+v, want {Applied:1 Refused:1} -- an unmappable-pair refusal must retire, not block the valid entry behind it", result)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		"finding proj-record-harnesspair/chg-record-harnesspair ref=F2 status=open",
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (both entries retired)", n)
+	}
+}
+
 // --- a journalled entry missing a required field is refused, not written ---
 
 // TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow pins the
