@@ -1066,11 +1066,15 @@ rides the next planning commit through `commit-split.sh`'s existing `<project>/s
 nothing else stages it.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
-Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
-`artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort` (always `null`),
-`models.default` (always `null` — `/flow` resolves models from the settings store per run, never
-records a value into the per-change state) and `prUrl` forward verbatim. The state file lives
-outside the repo — never `git add` it.
+`worktrees` should already carry one absolute-path key per affected worktree and its merge base —
+**2. Isolate the workspace** (`skills/flow/implement.md`) writes each entry the moment that
+worktree exists, rather than deferring to here — so this step re-reads the current record and
+confirms every resolved worktree is present rather than reconstructing the map from scratch;
+add any entry still missing (a worktree added after the last incremental write) before
+proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort`
+(always `null`), `models.default` (always `null` — `/flow` resolves models from the settings
+store per run, never records a value into the per-change state) and `prUrl` forward verbatim.
+The state file lives outside the repo — never `git add` it.
 
 ```bash
 flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>

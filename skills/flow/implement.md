@@ -215,9 +215,20 @@ flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harnes
 Resume `<project>/.worktrees/<name>`, created at `flow.kickoff`. Never implement on the
 default branch without explicit consent.
 
-Record each worktree's merge base and absolute path in this run's own working notes as soon as the
-worktree exists — the state file's `worktrees` map is written only at the end of
-`skills/flow/verify-and-handoff.md`.
+**Persist each worktree's merge base and absolute path to the state file as soon as the worktree
+exists — never defer this to the end of the run.** A run that stops, is interrupted, or is
+resumed after a context compaction anywhere between here and `flow.write-in-progress`
+(`skills/flow/verify-and-handoff.md`) must not leave the state record looking like a creating run
+with no worktrees, when real worktrees, branches and commits already exist — that mismatch is
+exactly what **Reading the state** (`skills/flow/SKILL.md`) uses to decide whether this is a
+creating run at all, so a stale record makes a resumed session re-derive everything from scratch
+or misclassify the run. Read the current record with `flow state get`, merge in this worktree's
+`<abs-path>: <merge-base-sha>` entry (never drop an existing peer's entry already present from an
+earlier worktree in this same run), and write the merged record back with `flow state set` —
+`state` stays exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still
+the only step entitled to flip it to `IN_PROGRESS`). Do this once per worktree, immediately after
+`spectre link` succeeds for it (or immediately after resuming it, on a fix or resumed run), not
+batched at the end.
 
 **Load `skills/flow-contracts/worktree-resolution.md`** — it derives this run's resolved worktree
 set.
