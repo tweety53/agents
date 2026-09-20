@@ -277,9 +277,6 @@ size, touched area, or any other automatic trigger: beyond the reduced or resolv
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
 
-An inline run checks the context ceiling (**Inline — the parent implements**,
-`skills/flow/implement.md`) before this pass 1 dispatch begins.
-
 Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every**
 worktree in the change's resolved set (**Resolving a change's worktrees**,
 `skills/flow-contracts/worktree-resolution.md`), in resolved order — one first line naming the
