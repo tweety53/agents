@@ -535,10 +535,15 @@ Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 5 
 fix-round re-run dispatch on `REVIEW_PANEL_TOGGLE` `dynamic`, which reads a delta at `low` effort
 and has no business running longer. The dispatcher
 tracks each in-flight slot's elapsed time itself rather than blocking indefinitely on a completion
-notification.
+notification. **The ceiling is a record-and-review bound, not a stop** (KAN-612): it cannot halt
+an in-flight dispatch — a slot the harness runs as one blocking call pays the overrun in full
+before the breach can even be recorded — so a run is never promised a stop the harness cannot
+deliver.
 
-On a breach, in order: stop the slot; close its dispatch row (`-outcome timed-out`); record the
-breach in the panel record, naming the slot and its elapsed time; re-dispatch that one slot once.
+On a breach, in order: stop the slot where the harness offers a handle on the in-flight dispatch,
+and where it does not, let the dispatch return and record the breach then; close its dispatch row
+(`-outcome timed-out`); record the breach in the panel record, naming the slot and its elapsed
+time; re-dispatch that one slot once.
 
 A second breach of the same slot is put to the operator, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`):
