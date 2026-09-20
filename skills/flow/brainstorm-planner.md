@@ -284,6 +284,17 @@ provenance** (`skills/flow-contracts/plan-provenance.md`): code that cannot be v
 `unverified:` and **kept**, and an unverifiable assumption carries `unverified:<what-to-check>` in
 the task that depends on it.
 
+**A task premise about a guard's behaviour is run at plan time, never assumed.** When a task
+written here rests on what a guard or check currently does — that a ratchet trips or does not,
+an exit code, the figures a guard prints — planning runs that guard before the task is written
+and cites its output in the task as a `measured:` comment per **Plan provenance**
+(`skills/flow-contracts/plan-provenance.md`), naming the command and the ref and quoting the
+exit code or figures the run produced. A premise the run disproves strikes the task during
+planning, before the panel reads the plan — the same verify-the-premise move the filed-finding
+reachability check makes at checklist open, applied to each task's own premise. kan-542's task 2
+shows the cost of leaving the premise to review: planned on a stale premise, it survived until a
+reviewer struck it with the guard's own exit — a defect this duty kills at planning.
+
 **Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
 with `**Build:**` per **The build-green tag**
 (`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
