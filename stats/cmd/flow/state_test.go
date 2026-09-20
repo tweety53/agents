@@ -964,6 +964,176 @@ func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
 	}
 }
 
+// --- state get: prefix resolution on an exact-name miss ---
+//
+// Change names are always "<key>-<slug>", never a bare Jira key, so a
+// caller holding only "kan-574" misses the exact lookup by construction.
+// resolvePrefixCandidate is state get's one retry: it lists the board (the
+// same call `state resolve` makes) and looks for exactly one row whose name
+// is the requested name or starts with "<name>-".
+
+// stateGetPrefixServer answers the state-board GET with rowsJSON, a GET
+// for one of resolvedNames with a 200 and a trivial record body (the
+// dispatcher's own retry, once resolvePrefixCandidate has picked a
+// name), and every other GET -- the bare name's own exact-match miss --
+// with 404.
+func stateGetPrefixServer(rowsJSON string, resolvedNames ...string) http.HandlerFunc {
+	resolved := map[string]bool{}
+	for _, n := range resolvedNames {
+		resolved[n] = true
+	}
+	return genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/api/v1/stats/state-board") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(rowsJSON))
+			return
+		}
+		for name := range resolved {
+			if strings.HasSuffix(r.URL.Path, "/"+name) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"state":"STARTED"}`))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+}
+
+func TestStateGetResolvesUniquePrefixMatch(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(stateGetPrefixServer(`{"view":"state-board","rows":[
+		{"projectKey":"proj","name":"kan-574-step-1-frontend-calendar-marks","state":"STARTED","updatedAt":"2026-09-19T20:22:00Z","updatedBy":"/flow"}
+	]}`, "kan-574-step-1-frontend-calendar-marks"))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (exactly one prefix match resolves); stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty on a clean prefix resolution", stderr.String())
+	}
+}
+
+func TestStateGetReportsAmbiguousPrefixMatch(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(stateGetPrefixServer(`{"view":"state-board","rows":[
+		{"projectKey":"proj","name":"kan-574-step-1-frontend-calendar-marks","state":"STARTED","updatedAt":"2026-09-19T20:22:00Z","updatedBy":"/flow"},
+		{"projectKey":"proj","name":"kan-574-fix-the-other-thing","state":"IN_PROGRESS","updatedAt":"2026-09-19T21:00:00Z","updatedBy":"/flow"}
+	]}`))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (ambiguous prefix must never guess); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want nothing printed on an ambiguous match", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "kan-574-step-1-frontend-calendar-marks") || !strings.Contains(stderr.String(), "kan-574-fix-the-other-thing") {
+		t.Errorf("stderr does not list both candidates: %q", stderr.String())
+	}
+}
+
+func TestStateGetPrefixMatchIncludesFinishedRows(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	// resolveCandidates (state resolve's own helper) drops FINISHED rows,
+	// but a get-time retry must not: a caller landing here by way of a
+	// bare-key miss needs to learn a FINISHED change already exists under
+	// that key, not have it silently filtered out of consideration.
+	srv := httptest.NewServer(stateGetPrefixServer(`{"view":"state-board","rows":[
+		{"projectKey":"proj","name":"kan-574-already-shipped","state":"FINISHED","updatedAt":"2026-09-19T20:22:00Z","updatedBy":"/flow"}
+	]}`, "kan-574-already-shipped"))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (a FINISHED row is still a unique match); stderr:\n%s", code, stderr.String())
+	}
+}
+
+func TestStateGetNoPrefixMatchIsOrdinaryMiss(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(stateGetPrefixServer(`{"view":"state-board","rows":[
+		{"projectKey":"proj","name":"kan-999-unrelated-change","state":"STARTED","updatedAt":"2026-09-19T20:22:00Z","updatedBy":"/flow"}
+	]}`))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (zero prefix matches is the ordinary miss); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "no state recorded") {
+		t.Errorf("stderr = %q, want the ordinary miss message", stderr.String())
+	}
+}
+
+func TestStateGetPrefixRetryNeverReadsFallback(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	// A fallback file for the full slugged name exists on disk, but the
+	// exact-name GET is a genuine 404 (ErrNotFound, not ErrUnavailable)
+	// and the board listing this retry needs fails -- the retry must not
+	// substitute the fallback directory for a live board, per its own
+	// doc comment: a degraded, partial candidate set is worse than the
+	// plain miss it would otherwise replace. The result is the ordinary
+	// miss, never the fallback file's contents.
+	diskBody := []byte(`{"state":"STARTED","updatedAt":"2026-09-19T20:22:00Z"}`)
+	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-574-step-1-frontend-calendar-marks"), diskBody); err != nil {
+		t.Fatalf("seed state file: %v", err)
+	}
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/api/v1/stats/state-board") {
+			w.WriteHeader(http.StatusInternalServerError) // board listing fails
+			return
+		}
+		w.WriteHeader(http.StatusNotFound) // exact-name GET: a genuine miss
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (a failed board retry falls through to the ordinary miss, never the fallback file); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty -- the prefix retry must not substitute the on-disk fallback record for a live board it could not read", stdout.String())
+	}
+}
+
 // --- state list ---
 //
 // `state list` is F1's fix: skills/flow-status/SKILL.md and

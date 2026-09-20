@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
@@ -125,6 +126,18 @@ const stateUsage = `usage: flow state get     [-addr url] [-timeout dur] [-C dir
        flow state find    [-addr url] [-timeout dur] [-C dir] <name>
        flow state resolve [-addr url] [-timeout dur] [-C dir]
 
+state get resolves <name> as an exact change name first; when the store holds no
+change under that exact name, it retries against the resolved project's
+candidate set (the same set 'state resolve' prints) for exactly one change
+whose name is <name> or starts with "<name>-" -- so a bare Jira key such as
+"kan-574" finds "kan-574-step-1-frontend-..." without the caller spelling out
+the slug. Exactly one match prints that change's record, same as an exact hit.
+Zero matches is the ordinary "no state recorded" miss (exit 1). More than one
+match is reported as ambiguous, one candidate per line with its state, and
+exits 2 -- the caller must name the change exactly rather than have one
+silently guessed. This retry never runs against the fallback path: a
+degraded, partial candidate set is worse than the plain "no state" miss it
+would otherwise replace.
 state set reads the change's whole state as JSON from stdin.
 state find prints every project's record for one change name -- records
 are keyed by project and name together, so the answer is an array of
@@ -255,6 +268,10 @@ func markSyntheticIfNeeded(body []byte) []byte {
 // exactly one line, and still exits 0: a `state get` must never block the
 // pipeline any more than a `state set` may (design.md, "The pipeline never
 // blocks on this subsystem", is not scoped to writes).
+//
+// An exact-name miss (client.ErrNotFound) is not immediately reported: see
+// resolvePrefixCandidate for the one retry this command makes before
+// falling back to the plain "no state recorded" miss.
 func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state get", flag.ContinueOnError)
 	f, err := parseStateFlags(fset, args, stderr)
@@ -279,6 +296,23 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		_, _ = stdout.Write(markSyntheticIfNeeded(body))
 		return 0
 	case errors.Is(getErr, client.ErrNotFound):
+		resolved, ambiguous, candidates := resolvePrefixCandidate(ctx, f.addr, f.timeout, projectKey, f.name)
+		if len(resolved) > 0 {
+			if retryBody, retryErr := getChange(ctx, f.addr, f.timeout, projectKey, resolved); retryErr == nil {
+				_, _ = stdout.Write(markSyntheticIfNeeded(retryBody))
+				return 0
+			}
+			// The candidate the board just named is gone by the time this
+			// retry ran (a race with a delete/rename) -- fall through to
+			// the ordinary miss below rather than report a stale name.
+		}
+		if ambiguous {
+			fmt.Fprintf(stderr, "flow: %q matches more than one change for %s -- name it exactly:\n", f.name, projectKey)
+			for _, c := range candidates {
+				fmt.Fprintf(stderr, "  %s (%s)\n", c.Name, c.State)
+			}
+			return 2
+		}
 		fmt.Fprintf(stderr, "flow: no state recorded for %s/%s\n", projectKey, f.name)
 		return 1
 	default:
@@ -914,6 +948,61 @@ func isJSONObject(body []byte) bool {
 	}
 	_, ok := v.(map[string]any)
 	return ok
+}
+
+// resolvePrefixCandidate is `state get`'s one retry on an exact-name miss.
+// name is a change name in full already the common case, but a caller
+// holding only a bare Jira key (change names are always "<key>-<slug>",
+// never the bare key) misses every exact lookup by construction -- this is
+// the gap kan-574's manual re-sweep hit: a bare "kan-574" read as "no
+// state, create a new change" when "kan-574-step-1-..." already existed at
+// STARTED. Matching here, once, is cheaper than every caller re-deriving
+// the same candidate set by hand.
+//
+// It lists the resolved project's board (the same call `state resolve`
+// makes) and keeps every row whose Name equals name or has the "name-"
+// prefix -- FINISHED rows included, deliberately not resolveCandidates'
+// filtered set: a caller landing here by way of an exact-name miss needs to
+// know a FINISHED change already exists under that key just as much as an
+// open one, so it can report "already done" instead of quietly proposing a
+// duplicate.
+//
+// Exactly one match returns its name, ambiguous false, nil candidates --
+// the one shape the caller retries getChange against. Zero matches returns
+// "", false, nil: the ordinary miss the caller already knows how to report.
+// More than one match returns "", true, and the full match list, so the
+// caller can print every candidate rather than guess.
+//
+// A board it cannot list -- store unreachable, timeout, any other failure
+// -- returns "", false, nil: this retry only runs against a live board,
+// never the on-disk fallback directory. A degraded, necessarily partial
+// candidate set could silently resolve a bare key to the wrong change, or
+// falsely claim zero matches when the true board holds more than one --
+// either is worse than the plain "no state" miss this retry would
+// otherwise replace, so a listStateBoard failure here is silent and the
+// caller falls back to that miss.
+func resolvePrefixCandidate(ctx context.Context, addr string, timeout time.Duration, projectKey, name string) (resolved string, ambiguous bool, candidates []client.StateBoardRow) {
+	rows, err := listStateBoard(ctx, addr, timeout, projectKey)
+	if err != nil {
+		return "", false, nil
+	}
+
+	prefix := name + "-"
+	var matches []client.StateBoardRow
+	for _, r := range rows {
+		if r.Name == name || strings.HasPrefix(r.Name, prefix) {
+			matches = append(matches, r)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return "", false, nil
+	case 1:
+		return matches[0].Name, false, nil
+	default:
+		return "", true, matches
+	}
 }
 
 // getChange calls the store's GET endpoint under addr/timeout, recovering
