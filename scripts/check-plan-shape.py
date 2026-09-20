@@ -392,12 +392,15 @@ def _check_task(
     # F8 — the body's first `**After:**` candidate not gating. Read from
     # select_after itself (never a second loop deciding WHICH line the
     # field is): a gating value returns ids and reports nothing here; a
-    # non-gating first candidate is the malformed value.
+    # non-gating first candidate is the malformed value. The refusal
+    # names the accepted values so the first rewrite is informed
+    # (KAN-605).
     after_field = select_after(body)
     if after_field is not None and after_field.ids is None:  # F8
         violations.append(
             f"{path}:{body_start + after_field.offset + 1}: task {task_id} "
-            f"has a malformed **After:** value: {after_field.value}"
+            f"has a malformed **After:** value: {after_field.value} — an "
+            "**After:** value is `Task <ids>` or `none`"
         )
 
     if not fields.files:  # F2

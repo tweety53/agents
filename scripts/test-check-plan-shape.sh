@@ -562,6 +562,10 @@ case "$OUT" in
   *"task 1 has a malformed **After:** value: Task sometime"*) pass "case 21 (F8): names the offending value" ;;
   *) fail "case 21 (F8): expected the F8 malformed-value message, out=$OUT" ;;
 esac
+case "$OUT" in
+  *'`Task <ids>` or `none`'*) pass "case 21 (F8): names the accepted values" ;;
+  *) fail "case 21 (F8): expected the refusal to name the accepted values, out=$OUT" ;;
+esac
 
 # ===========================================================================
 # Case 22 (F9): `**After:** Task 9` in a two-task plan names an absent task.
