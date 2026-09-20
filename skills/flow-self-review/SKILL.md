@@ -80,7 +80,8 @@ title:
 Delete `<bundle>`. Run `<project>/scripts/check-self-review-report.sh` when the project declares
 it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before committing.
 **Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an
-unreadable report inside it) — is not a violation** (KAN-601): report it and stop before the
+unreadable report inside it, an internal coverage.sh call failing) — is not a violation**
+(KAN-601): report it and stop before the
 commit, never commit a report the guard could not read.
 Commit both paths in one commit through the landing chain's one script — the same invocation
 `skills/flow/archive.md` step 9 lands its own report with, differing only in the asserted branch,
