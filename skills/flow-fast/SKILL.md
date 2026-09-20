@@ -83,7 +83,9 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 - **writing-plans**: write `<changeRoot>/tasks.md` in `/flow`'s plan shape — the task line and
   fields `check-plan-shape.sh` reads: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
   `**Commit:**`, `**After:**` — one task per entry of the harness task list, then run
-  `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit. A re-run replaces the file with
+  `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's
+  not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
+  fixed by editing the plan (KAN-601). A re-run replaces the file with
   the fix's own tasks.
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide**
   steps 1–4 and **The
