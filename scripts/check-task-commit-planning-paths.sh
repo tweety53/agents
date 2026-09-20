@@ -105,8 +105,7 @@ while IFS= read -r line; do
   commit_swept=0
   # -c: without a merge flag diff-tree prints nothing for merges, so a
   # Task-Id evil merge was counted and never diffed, answering CLEAN over
-  # its smuggled paths (KAN-553 F3, deferred; KAN-607). Combined names only
-  # what the merge itself introduces — the header states the semantics.
+  # its smuggled paths (KAN-553 F3, deferred; KAN-607).
   paths="$(git -C "$WT" diff-tree --no-renames -r --no-commit-id --name-only -c "$sha")" || {
     echo "check-task-commit-planning-paths.sh: git diff-tree refused the walk on $sha" >&2
     exit 2
