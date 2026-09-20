@@ -709,8 +709,11 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets (KAN-442). Every verdict is printed and read before anything
-   launches: a nonzero exit sends that task back to the **same implementer**, which re-commits and
-   re-runs the guard before anything below; exit 0 computes that commit's **review gate** (two
+   launches: **exit 1** sends that task back to the **same implementer**, which re-commits and
+   re-runs the guard before anything below; **exit 2 — the guard's not-a-verdict close (an
+   unreadable plan, a task it cannot resolve, a usage error) — stops the run** (KAN-601):
+   re-committing cannot repair an inability, so it is never folded into the re-commit loop;
+   exit 0 computes that commit's **review gate** (two
    sentences down) and ticks the task in the same call only when the gate does not fire — a fired
    gate defers the tick to the task's reviewer, below — and, either way, the same call then runs
    `git -C <worktree> push origin spectre/<name>` per **Branch backup**
