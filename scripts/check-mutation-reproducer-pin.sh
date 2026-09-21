@@ -196,23 +196,36 @@ check_contains "$RUNNER" "first $WINDOW lines" "$RUNNER_WINDOW_MSG" 'first [0-9]
 scan_near_miss() {
   local file="$1"
   awk -v win="$WINDOW" -v marker="$MARKER" '
-    function scan(s, ln,    n, rest, span) {
+    function scan(s, ln, b,    cross, n, rest, span) {
       rest = s
       while (match(rest, /first [0-9]+ lines/)) {
-        n = substr(rest, RSTART + 6, RLENGTH - 12) + 0
-        if (n != win + 0)
-          printf "%s:%d: states the window as \"first %d lines\" — a near-miss of the canonical window %s; every window statement must read \"first %s lines\"\n", FILENAME, ln, n, win, win
+        # b is the join boundary: 0 on a single-line scan, else the index
+        # of the inserted space in "prev line current line". A joined scan
+        # reports only a match that SPANS the boundary — one found wholly
+        # inside either half belongs to that half s own single-line scan,
+        # and reporting it here would duplicate it at the previous line s
+        # number, a phantom row naming a line that carries no statement
+        # (KAN-624 F5).
+        cross = (b == 0) || (RSTART < b && RSTART + RLENGTH - 1 > b)
+        if (cross) {
+          n = substr(rest, RSTART + 6, RLENGTH - 12) + 0
+          if (n != win + 0)
+            printf "%s:%d: states the window as \"first %d lines\" — a near-miss of the canonical window %s; every window statement must read \"first %s lines\"\n", FILENAME, ln, n, win, win
+        }
         rest = substr(rest, RSTART + RLENGTH)
       }
       rest = s
       while (match(rest, /`# mutation-[a-z0-9][a-z0-9-]*`/)) {
-        span = substr(rest, RSTART, RLENGTH)
-        if (span != "`" marker "`")
-          printf "%s:%d: carries the backticked mutation-marker span %s, which is not the canonical marker `%s`\n", FILENAME, ln, span, marker
+        cross = (b == 0) || (RSTART < b && RSTART + RLENGTH - 1 > b)
+        if (cross) {
+          span = substr(rest, RSTART, RLENGTH)
+          if (span != "`" marker "`")
+            printf "%s:%d: carries the backticked mutation-marker span %s, which is not the canonical marker `%s`\n", FILENAME, ln, span, marker
+        }
         rest = substr(rest, RSTART + RLENGTH)
       }
     }
-    { scan($0, NR); if (NR > 1) scan(prev " " $0, NR - 1); prev = $0 }
+    { scan($0, NR, 0); if (NR > 1) scan(prev " " $0, NR - 1, length(prev) + 1); prev = $0 }
   ' "$file"
 }
 
