@@ -525,6 +525,17 @@ that list are the change's **named contracts**. A diff-reading re-run computes t
 delta's own range instead — `git diff --name-status <held-sha> HEAD` per worktree — so the named context
 narrows with the read.
 
+**The mutation slot's dispatch prompt also carries the MUTATION ENTRY CONTEXT paragraph**, every
+test the plan's `**Tests:**` fields name and every test file in the touched-files list inlined
+directly beneath it (kan-574's round-0 mutation dispatch read ~16.9M cached tokens — four times
+the primary slot — because the brief's search for covering tests was named nowhere):
+
+> **MUTATION ENTRY CONTEXT:** `final-review.diff`, at the merge-base sha each `# worktree:`
+> header carries, is your diff base; the tests beneath this paragraph are the tests your
+> mutations target. Begin the brief's search for a behaviour's covering test from those two —
+> never a whole-tree sweep. Read a test outside the list only when the behaviour you are mutating
+> cannot otherwise be judged caught or survived, and name that read in your report.
+
 ### No forking, and a wall-clock ceiling on every slot
 
 No panel slot is dispatched onto a skill or agent that forks its own background agent — a forked
