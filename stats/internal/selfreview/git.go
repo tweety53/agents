@@ -354,7 +354,13 @@ func trimmedOutput(b []byte, err error) string {
 // store leave those copies the only source), labelled by the committed
 // path and never served beside a store render that was found; repos are
 // the candidate repository roots the caller supplied, probed for the
-// change's archived directory in order; g reads everything git has to
+// change's archived directory in order; panelRan reports whether a
+// flow.review-panel stage run for the change completed in this store —
+// the one fact separating a records-source loss from a panel that never
+// ran (KAN-621): when it holds while the run carries no dispatch rows,
+// the bundle's notes name the loss loudly, because the plain
+// "skipped (absent)" wording would read as the panel never having
+// existed; g reads everything git has to
 // answer for. A change no supplied repository archives — a /flow-fast
 // change, never archived by design — still gets its git-log source, read
 // off the change branch in the first readable supplied repository, the
@@ -365,7 +371,7 @@ func trimmedOutput(b []byte, err error) string {
 // absence. An invalid change name is the one error: the same allowlist
 // records.Destination enforces, checked before the name builds a label or
 // a ref.
-func Bundle(change string, run records.Run, summary string, summaryFound bool, repos []string, g Runner) (string, error) {
+func Bundle(change string, run records.Run, summary string, summaryFound bool, panelRan bool, repos []string, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
 	}
@@ -401,6 +407,13 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, r
 		for _, broken := range unreadableRepos(g, repos) {
 			notes = append(notes, "note: repository "+broken+" could not be read — its archive sources are reported skipped for that reason, not because the change was never archived")
 		}
+	}
+	// The records-source loss note leads the notes: a panel whose stage
+	// demonstrably completed while the store holds no dispatch rows means
+	// the rows were lost, not skipped, and every "skipped (absent)" line
+	// below would otherwise read as the panel never having run (KAN-621).
+	if panelRan && len(run.Dispatches) == 0 {
+		notes = append(notes, "note: RECORDS LOSS — a flow.review-panel stage run completed for "+change+", but the store holds no dispatch rows for it: the run's dispatch and finding records never reached this store, most plausibly written to a per-workspace database later removed at cleanup. The ledger and panel sources below are absent or degraded for that reason, not because no panel ran.")
 	}
 	branch := archiveBranchPrefix + change
 
