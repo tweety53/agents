@@ -641,7 +641,11 @@ expect_exit 'case 27: a mutation reproducer flipping demonstrated to not-demonst
 #     beyond the first 10 lines, or one carrying more text than the marker,
 #     is NOT a declaration — the generic convention applies (exit 0 here is
 #     "defect not demonstrated", runner exit 1). A grep over the whole file,
-#     or a prefix match, would read this reproducer inverted.
+#     or a prefix match, would read this reproducer inverted. The window's
+#     edge is pinned by 28.c (marker at exactly line 10, the last declaring
+#     line) and 28.d (line 11, the first non-declaring one): fixture()
+#     prepends the shebang and RAN-marker lines, so N filler lines put the
+#     marker at line N+2 (KAN-623).
 # ===========================================================================
 wt="$(make_worktree)"
 filler=""
@@ -657,6 +661,24 @@ fixture "$wt" "scripts/marker-with-suffix.sh" '# mutation-reproducer: because th
 exit 0'
 expect_exit 'case 28.b: a marker line carrying extra text declares nothing' 1 \
   "$GUARD" "$wt" "scripts/marker-with-suffix.sh"
+wt="$(make_worktree)"
+filler=""
+i=0
+while [ "$i" -lt 7 ]; do filler="${filler}# filler line
+"; i=$((i + 1)); done
+fixture "$wt" "scripts/edge-marker-10.sh" "${filler}# mutation-reproducer
+exit 0"
+expect_exit 'case 28.c: a marker at exactly line 10 declares' 0 \
+  "$GUARD" "$wt" "scripts/edge-marker-10.sh"
+wt="$(make_worktree)"
+filler=""
+i=0
+while [ "$i" -lt 8 ]; do filler="${filler}# filler line
+"; i=$((i + 1)); done
+fixture "$wt" "scripts/edge-marker-11.sh" "${filler}# mutation-reproducer
+exit 0"
+expect_exit 'case 28.d: a marker at line 11 declares nothing' 1 \
+  "$GUARD" "$wt" "scripts/edge-marker-11.sh"
 
 # ===========================================================================
 # 29. The reproducer sha (KAN-568 review, F1): every verdict carries a
