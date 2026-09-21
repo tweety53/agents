@@ -645,7 +645,7 @@ expect_exit 'case 27: a mutation reproducer flipping demonstrated to not-demonst
 #     edge is pinned by 28.c (marker at exactly line 10, the last declaring
 #     line) and 28.d (line 11, the first non-declaring one): fixture()
 #     prepends the shebang and RAN-marker lines, so N filler lines put the
-#     marker at line N+2 (KAN-623).
+#     marker at line N+3 (KAN-623).
 # ===========================================================================
 wt="$(make_worktree)"
 filler=""
