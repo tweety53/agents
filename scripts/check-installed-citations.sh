@@ -205,6 +205,7 @@ fi
 if [ -s "$VIOLATIONS_FILE" ]; then
   N_FOUND="$(wc -l < "$VIOLATIONS_FILE" | tr -d ' ')"
   cat "$VIOLATIONS_FILE"
+  printf 'Fix the citation, or mark the line citations-guard:allow if the backticked content is a non-path marker or illustration.\n'
   printf 'INSTALLED-CITATIONS-INVALID: %s — %s violation(s)\n' "$ROOT" "$N_FOUND"
   COVERAGE_FRAGMENT="$(coverage_report)"
   [ -n "$COVERAGE_FRAGMENT" ] && printf '  %s\n' "$COVERAGE_FRAGMENT"

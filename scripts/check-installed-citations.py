@@ -105,6 +105,24 @@ GUARD_NAME = "check-installed-citations"
 CIC_ROOT_PREFIX = "CIC-ROOT\t"
 CIC_COVERAGE_PREFIX = "CIC-COVERAGE\t"
 
+# CITATION_ALLOW_MARKER — the declared, per-line exemption for non-path
+# tokens (KAN-619), the sibling of check-references.sh's
+# `refs-guard:allow`. A line carrying this substring anywhere in its raw
+# text is skipped wholesale: no spans extracted, no words merged, no
+# candidates, no coverage. It exists because two classes of corpus line
+# are illustrations, not citations, and both used to cost a rewording
+# commit every time the lint list caught them: a backticked `n/a`-style
+# status marker (kan-548 — every word of a backtick span is a candidate,
+# and a slashed abbreviation's first segment names no root), and a
+# command shape quoting a placeholder list (kan-561 — the merged
+# `<…>`-phrase token names no root). The classifier's own exclusions
+# stay closed, anchored shapes that fail closed; the marker is the
+# writeable escape hatch — write the shape as-is and declare the line.
+# Line-scoped by construction: a marked line exempts only itself, and a
+# member exempted down to zero checked citations still answers to the
+# declared-zero discipline (see the wrapper's coverage wiring).
+CITATION_ALLOW_MARKER = "citations-guard:allow"
+
 
 class SandboxRefusal(Exception):
     """Raised when an installer invocation would touch something outside
@@ -544,6 +562,14 @@ def scan_file_for_citations(text):
                 fence_len = len(m.group(1))
                 fence_lang = m.group(2).strip()
                 continue
+            if CITATION_ALLOW_MARKER in raw:
+                # The declared non-path marker (KAN-619): the line is an
+                # illustration, exempted wholesale. Matched on the raw
+                # line so the marker works bare or inside an HTML
+                # comment, and checked only where candidates are taken —
+                # never around a fence delimiter, whose state toggle
+                # must survive any marker text on the line.
+                continue
             for tok in extract_backtick_tokens(raw):
                 candidates.append((lineno, tok))
             continue
@@ -561,6 +587,8 @@ def scan_file_for_citations(text):
 
         if SHELL_FENCE_LANG_RE.match(fence_lang):
             if stripped.startswith("#"):
+                if CITATION_ALLOW_MARKER in raw:
+                    continue  # the declared non-path marker, same as prose
                 for tok in merge_bracket_placeholder_words(raw.split()):
                     candidates.append((lineno, tok))
             # A non-comment line inside a bash/sh/zsh fence is a shell
