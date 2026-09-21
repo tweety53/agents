@@ -520,6 +520,12 @@ wt="$(make_worktree)"
 fixture "$wt" "scripts/passes-again.sh" "exit 0"
 expect_exit_and_names 'case 20: a post-fix verdict identical to the pre-fix verdict (not-demonstrated/not-demonstrated) is refused' 2 'convention' \
   "$GUARD" "$wt" "scripts/passes-again.sh" --pre-fix-verdict not-demonstrated
+if [ -e "$wt/RAN" ]; then
+  printf 'ok: case 20 (the reproducer ran before the verdict was read)\n'
+else
+  printf 'FAIL case 20: the ambiguity refusal answered without running the reproducer\n'
+  FAILED=1
+fi
 
 # ===========================================================================
 # 21. The healthy flip: demonstrated pre-fix, not demonstrated post-fix —
