@@ -213,10 +213,11 @@ expect 'a file over budget fails' 1 "$FIX/over"
 # the assertion is derived from the row, not copied from it (see F15).
 mkroot "$FIX/headroom"
 build_green_budget="$(budget_row_bytes 'skills/flow-contracts/build-green.md')"
-head -c "$((build_green_budget + 7))" /dev/zero | tr '\0' 'x' \
+over=7
+head -c "$((build_green_budget + over))" /dev/zero | tr '\0' 'x' \
   > "$FIX/headroom/skills/flow-contracts/build-green.md"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/headroom" "$GUARD" 2>&1 || true)"
-if printf '%s' "$out" | grep -q "^skills/flow-contracts/build-green\.md: $((build_green_budget + 7)) bytes exceeds budget $build_green_budget (headroom: -7 bytes)"; then
+if printf '%s' "$out" | grep -q "^skills/flow-contracts/build-green\.md: $((build_green_budget + over)) bytes exceeds budget $build_green_budget (headroom: -$over bytes)"; then
   printf 'ok   the over-budget line prints size, budget and headroom\n'
 else
   printf 'FAIL the over-budget line did not carry size, budget and headroom: %s\n' "$out"
