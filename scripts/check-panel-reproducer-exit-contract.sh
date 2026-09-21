@@ -296,7 +296,7 @@ for ref in "${REFS[@]}"; do
       printf 'check-panel-reproducer-exit-contract: %s — defect demonstrated, claim holds\n' "$ref" >&2
       ;;
     1)
-      add "$ref's reproducer read 'defect not demonstrated' on the tree under review — an open finding's reproducer must exit non-zero here, and this inverted reading is the exit-code class this guard exists for (KAN-554)"
+      add "$ref's reproducer read 'defect not demonstrated' on the tree under review — an open finding's reproducer must read demonstrated here under whichever exit-code convention it declares: a generic one demonstrates with a non-zero exit, a declared mutation-reproducer with exit 0 (the build succeeds with the mutation landed) — this inverted reading is the exit-code class this guard exists for (KAN-554)"
       printf 'check-panel-reproducer-exit-contract: %s — runner said: %s\n' "$ref" "$runner_out" >&2
       ;;
     2)

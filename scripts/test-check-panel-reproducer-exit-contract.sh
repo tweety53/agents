@@ -571,6 +571,20 @@ REPRO
 expect_exit_and_names 'case 29: a symlink-escape citation is a violation' 1 'F1' run_guard "$wt"
 runner_never_invoked 'case 29b: a symlink escape means the runner never runs' "$wt"
 
+# 30. KAN-622: the not-demonstrated message names BOTH exit-code
+#     conventions. A declared mutation-reproducer demonstrates with exit 0
+#     (the build succeeds with the mutation landed), so a message telling
+#     the author the reproducer "must exit non-zero here" inverts the
+#     instruction for exactly the convention KAN-568 added. Exit 1 naming
+#     the ref, and the message carries the mutation mapping.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 1)"
+rewrite_repro "$wt" <<'REPRO'
+#!/usr/bin/env bash
+# mutation-reproducer
+exit 7
+REPRO
+expect_exit_and_names 'case 30: the not-demonstrated message names the mutation convention' 1 'mutation-reproducer' run_guard "$wt"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducer-exit-contract-test: one or more cases failed\n' >&2
   exit 1
