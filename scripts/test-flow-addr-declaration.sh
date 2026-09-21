@@ -24,7 +24,12 @@
 #      no call site outside the declared family, no declared file without
 #      one.
 #   4. No registerConnFlags call site — the seam whose address follows
-#      FLOW_ADDR alone — sits in a declared record-family file.
+#      FLOW_ADDR alone — sits in a declared record-family file, and no
+#      inline `-addr` registration through resolveDefaultAddr() sits in one
+#      either, outside the registerConnFlags definition itself: a family
+#      verb registering through its own helper (the registerJiraConnFlags
+#      shape) resolves FLOW_ADDR exactly where the declaration says the
+#      whole family resolves FLOW_RECORDS_ADDR.
 #   5. Every `-addr` registration under stats/cmd/flow takes its default
 #      from resolveDefaultAddr() or resolveRecordsAddr(), never a literal
 #      and never a third resolver — so every store-touching command honors
@@ -88,11 +93,11 @@ assert_root() {
 
   # 2. exactly one FLOW_RECORDS_ADDR registration, inside registerRecordConnFlags
   local total inbody
-  total="$(grep -h 'StringVar(&f.addr, "addr", resolveRecordsAddr()' $srcs | wc -l | tr -d ' ')"
+  total="$(grep -h '"addr", resolveRecordsAddr()' $srcs | wc -l | tr -d ' ')"
   [ "$total" -eq 1 ] ||
     { REASON="expected exactly one FLOW_RECORDS_ADDR -addr registration under stats/cmd/flow, found $total"; return 1; }
   inbody="$(sed -n '/^func registerRecordConnFlags(/,/^func /p' "$cmd/record.go" |
-    grep -c 'StringVar(&f.addr, "addr", resolveRecordsAddr()')"
+    grep -c '"addr", resolveRecordsAddr()')"
   [ "$inbody" -eq 1 ] ||
     { REASON="the FLOW_RECORDS_ADDR -addr registration is not the one inside registerRecordConnFlags"; return 1; }
 
@@ -104,16 +109,40 @@ assert_root() {
     return 1
   }
 
-  # 4. the FLOW_ADDR-only seam is never called from inside the record family
-  local leaked
-  leaked="$(grep -l "^$(printf '\t')registerConnFlags(" "$cmd/record.go" "$cmd/selfreview.go" 2>/dev/null)"
+  # 4. the FLOW_ADDR-only seam is never called from inside the record family,
+  #    and the family's files never carry an inline FLOW_ADDR-only -addr
+  #    registration either — a new record-family verb registering through its
+  #    own helper (the registerJiraConnFlags shape) with resolveDefaultAddr()
+  #    resolves FLOW_ADDR where the declaration says the family resolves
+  #    FLOW_RECORDS_ADDR, and only the derived file list sees it
+  local fam_files=()
+  while IFS= read -r f; do fam_files+=("$cmd/$f"); done < <(printf '%s\n' "$declared_files")
+  local leaked inline_total in_seam
+  leaked="$(grep -l "^$(printf '\t')registerConnFlags(" "${fam_files[@]}" 2>/dev/null)"
   [ -z "$leaked" ] ||
     { REASON="record-family files call the FLOW_ADDR-only seam: $(printf '%s' "$leaked" | tr '\n' ' ')"; return 1; }
+  # an inline resolveDefaultAddr() registration inside a family file counts
+  # as drift only outside the FLOW_ADDR-only seam's own definition — that
+  # helper lives in record.go (registerConnFlags) and legitimately registers
+  # through the resolver for the verbs that call it. The pattern is
+  # variable-agnostic on purpose: a helper need not register into an `f
+  # .addr` field (StringVar(new(string), ...) is the same registration), so
+  # only the flag name plus resolver default identifies one.
+  inline_total="$(grep -h '"addr", resolveDefaultAddr()' "${fam_files[@]}" | wc -l | tr -d ' ')"
+  in_seam="$(sed -n '/^func registerConnFlags(/,/^func /p' "$cmd/record.go" |
+    grep -c '"addr", resolveDefaultAddr()')"
+  [ "$inline_total" -eq "$in_seam" ] ||
+    { REASON="declared record-family files carry $((inline_total - in_seam)) inline -addr registration(s) through resolveDefaultAddr() outside the registerConnFlags definition itself"; return 1; }
 
-  # 5. every -addr registration takes a resolver default, never a literal
-  local regs dres
-  regs="$(grep -h 'StringVar(&f.addr, "addr",' $srcs | wc -l | tr -d ' ')"
-  dres="$(grep -h 'StringVar(&f.addr, "addr", resolveDefaultAddr()' $srcs | wc -l | tr -d ' ')"
+  # 5. every -addr registration takes a resolver default, never a literal —
+  # the same variable-agnostic shape, so a registration into any target
+  # field is counted and attributed
+  local regs dres rres
+  regs="$(grep -h 'StringVar(.*"addr", ' $srcs | wc -l | tr -d ' ')"
+  dres="$(grep -h '"addr", resolveDefaultAddr()' $srcs | wc -l | tr -d ' ')"
+  rres="$(grep -h '"addr", resolveRecordsAddr()' $srcs | wc -l | tr -d ' ')"
+  [ "$regs" -eq "$((dres + rres))" ] ||
+    { REASON="$regs -addr registrations but only $((dres + rres)) take a resolver default — a literal or third resolver is wired somewhere"; return 1; }
   [ "$regs" -eq "$((dres + 1))" ] ||
     { REASON="$regs -addr registrations but only $((dres + 1)) take a resolver default — a literal or third resolver is wired somewhere"; return 1; }
 
@@ -159,34 +188,41 @@ fi
 # mutate-record-seam-outside-family: a verb outside the record family joins
 # the record seam
 make_root "$SANDBOX/m-outside" || exit 2
-sed -i '' 's/registerConnFlags(/registerRecordConnFlags(/' \
-  "$SANDBOX/m-outside/stats/cmd/flow/suite.go"
+sed -i.bak 's/registerConnFlags(/registerRecordConnFlags(/' \
+  "$SANDBOX/m-outside/stats/cmd/flow/suite.go" &&
+  rm -f "$SANDBOX/m-outside/stats/cmd/flow/suite.go.bak"
 run_case mutate-record-seam-outside-family fail "$SANDBOX/m-outside"
 
 # mutate-record-seam-default: registerRecordConnFlags stops resolving
 # FLOW_RECORDS_ADDR
 make_root "$SANDBOX/m-default" || exit 2
-sed -i '' 's/"addr", resolveRecordsAddr()/"addr", resolveDefaultAddr()/' \
-  "$SANDBOX/m-default/stats/cmd/flow/record.go"
+sed -i.bak 's/"addr", resolveRecordsAddr()/"addr", resolveDefaultAddr()/' \
+  "$SANDBOX/m-default/stats/cmd/flow/record.go" &&
+  rm -f "$SANDBOX/m-default/stats/cmd/flow/record.go.bak"
 run_case mutate-record-seam-default fail "$SANDBOX/m-default"
 
 # mutate-family-verb-switches-seam: a record-family verb falls back to the
 # FLOW_ADDR-only seam
 make_root "$SANDBOX/m-switch" || exit 2
-sed -i '' 's/registerRecordConnFlags(fset, &f)/registerConnFlags(fset, \&f)/' \
-  "$SANDBOX/m-switch/stats/cmd/flow/selfreview.go"
+sed -i.bak 's/registerRecordConnFlags(fset, &f)/registerConnFlags(fset, \&f)/' \
+  "$SANDBOX/m-switch/stats/cmd/flow/selfreview.go" &&
+  rm -f "$SANDBOX/m-switch/stats/cmd/flow/selfreview.go.bak"
 run_case mutate-family-verb-switches-seam fail "$SANDBOX/m-switch"
 
 # mutate-declaration-drops-verb: the declared set loses a command the code
-# still wires
+# still wires. The sed keeps the closing paren, so the mutated sentence
+# still parses and the case fails through assertion 4's set comparison —
+# the drift the case name claims — not through the sentence-parse guard.
 make_root "$SANDBOX/m-decl" || exit 2
-sed -i '' 's/, `flow self-review bundle`)//' "$SANDBOX/m-decl/.flow/project.md"
+sed -i.bak 's/, `flow self-review bundle`)/)/' "$SANDBOX/m-decl/.flow/project.md" &&
+  rm -f "$SANDBOX/m-decl/.flow/project.md.bak"
 run_case mutate-declaration-drops-verb fail "$SANDBOX/m-decl"
 
 # mutate-literal-addr-registration: a registration takes a hardcoded default
 make_root "$SANDBOX/m-literal" || exit 2
-sed -i '' 's/"addr", resolveDefaultAddr()/"addr", "http:\/\/127.0.0.1:9999"/' \
-  "$SANDBOX/m-literal/stats/cmd/flow/jira.go"
+sed -i.bak 's/"addr", resolveDefaultAddr()/"addr", "http:\/\/127.0.0.1:9999"/' \
+  "$SANDBOX/m-literal/stats/cmd/flow/jira.go" &&
+  rm -f "$SANDBOX/m-literal/stats/cmd/flow/jira.go.bak"
 run_case mutate-literal-addr-registration fail "$SANDBOX/m-literal"
 
 if [ "$FAILURES" -gt 0 ]; then
