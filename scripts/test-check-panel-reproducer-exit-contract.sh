@@ -585,6 +585,13 @@ exit 7
 REPRO
 expect_exit_and_names 'case 30: the not-demonstrated message names the mutation convention' 1 'mutation-reproducer' run_guard "$wt"
 
+# 31. KAN-622 round 1 (panel F2): the generic half of the reworded message
+#     is pinned the same way the mutation half is — deleting "a generic one
+#     demonstrates with a non-zero exit" from the message must fail this
+#     suite, not slip through green.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 1)"
+expect_exit_and_names 'case 31: the not-demonstrated message names the generic convention' 1 'a generic one demonstrates with a non-zero exit' run_guard "$wt"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducer-exit-contract-test: one or more cases failed\n' >&2
   exit 1
