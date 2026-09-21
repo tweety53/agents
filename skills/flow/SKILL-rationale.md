@@ -409,6 +409,42 @@ The antecedent of "that change", recovered from the introducing commit (`9c60d2f
 > **The parent runs these re-runs itself, in its own
 > Bash calls — never a "verify fixes" reader or any other subagent**
 
+> **The rerun cap.** The whole-roster re-reads this mechanism adds are capped at two unasked — the
+> first final pass and its one repeat.
+
+Before this cap the `full` policy's final whole-branch pass repeated after every clean fix round it
+had opened, unbounded. Gymie's `kan-580-step-1-frontend-copy-session-to-another-day` run paid for
+five passes — rounds 0, 2, 4, 6 and 8 — at 5.2M–7.9M cache reads apiece (KAN-662's ledger
+figures), four Important findings spread across the four repeats. The cap keeps the reads that
+earned their keep automatic: the round-2 pass caught F10, a double-copy race, and the round-4 pass
+caught F14, missing disabled-button chrome — both real, both introduced or exposed by the fix
+round before them, both invisible to a scoped re-run that reads only the fix diff and the sites of
+earlier findings. Rounds 6 and 8 each caught one more Important finding; that catch rate against
+that price is the trade the cap makes explicit, and the operator's single extension prompt is the
+escape hatch over it.
+
+The shape was settled with the operator rather than prototyped around them: an earlier attempt
+(commit cc9167b, reverted in full by c66f806) also allowed one unasked repeat but put a prompt at
+every later clean round whose silent default ran the pass — a toll booth rather than a bound,
+since an unattended run still paid forever. The settled cap inverts the default: the unasked
+budget is the first final pass and its one repeat — three whole-roster reads counting pass 1 —
+silence closes the panel, and running beyond the cap is an explicit choice, put once per run.
+
+**Rejected — a hard stop at the cap, no prompt.** A silent close is the over-cap failure
+`check-panel-diff-size.sh` refuses for the same reason: a decision the operator did not see. The
+prompt is the bound; the operator-prompts contract's ⚠ marker in the handoff is what shows the
+silent default fired.
+
+**Rejected — a cheaper pair on the unasked repeats.** The rerun pair is a different model at
+`low`; the pass would keep its scope and lose its eyes. F10 is a race; a low-effort whole-branch
+read is the kind of read that misses one, and a pass that reads everything badly is a worse bargain
+than the prompt. Only the operator-chosen third pass, beyond the cap, runs on the budget rules'
+demoted pair.
+
+**Rejected — repeat only when the fix touched paths no full pass has read.** Every full pass reads
+the whole diff, so after the first one no path is unread and the trigger never fires; F14 sat in a
+file the round-2 pass had already read clean. This is a delete of the policy wearing a condition.
+
 ### review-panel.md — The fix round mutation-proves what it changed
 
 > The
