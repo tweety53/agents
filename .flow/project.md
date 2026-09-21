@@ -137,6 +137,7 @@ scripts/check-markdown-integrity.py
 scripts/check-stage-mark-calls.sh
 scripts/check-guard-symlinks.sh
 scripts/check-dispatch-paragraphs.sh
+scripts/check-mutation-reproducer-pin.sh
 scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
