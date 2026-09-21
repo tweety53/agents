@@ -508,6 +508,14 @@ func (f *fakeStore) ChangeSummary(_ context.Context, projectKey, change string) 
 	return records.ChangeSummary{ID: 1, Summary: f.recordedSummary, RecordedAt: time.Now()}, nil
 }
 
+func (f *fakeStore) StageCompleted(_ context.Context, _, _, _ string) (bool, error) {
+	f.recordCalls++
+	if f.stageCompletedErr != nil {
+		return false, f.stageCompletedErr
+	}
+	return f.stageCompleted, nil
+}
+
 // passRecord and mutationRecord are fakeStore's in-memory stand-ins for a
 // panel_passes and a panel_mutations row (KAN-331). See dispatchRecord's
 // doc comment for why the owning identity sits beside the row rather than

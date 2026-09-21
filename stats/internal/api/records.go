@@ -77,6 +77,13 @@ type RecordStore interface {
 	// off would ask New to carry a second interface for one method.
 	ChangeSummary(ctx context.Context, projectKey, change string) (records.ChangeSummary, error)
 
+	// StageCompleted is the stage-completed read the self-review bundle
+	// handler calls, on RecordStore for the reason ChangeSummary states:
+	// it tells the assembler whether a flow.review-panel stage run
+	// completed for the change, the fact behind the bundle's
+	// records-loss note (KAN-621).
+	StageCompleted(ctx context.Context, projectKey, change, stage string) (bool, error)
+
 	// RecordVerdict, FlagVerdictFalsePositive, ListVerdicts, RecordIncident
 	// and ListIncidents are KAN-451's guard-log methods -- see
 	// design.md's schema section for what each table records. They sit on

@@ -144,6 +144,15 @@ type fakeStore struct {
 	recordedSummary string
 	summaryFound    bool
 
+	// --- stage-completed bookkeeping (KAN-621, internal/api/
+	// selfreview_test.go's fakeStore method operates on these) ---
+	// stageCompleted and stageCompletedErr are what StageCompleted
+	// answers: the bundle handler's read of whether a flow.review-panel
+	// stage run completed for the change, the fact behind the
+	// records-loss note.
+	stageCompleted    bool
+	stageCompletedErr error
+
 	recordDecisionErr error
 	listDecisionsErr  error
 

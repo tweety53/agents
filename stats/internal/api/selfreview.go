@@ -28,6 +28,12 @@ type selfreviewStore interface {
 	// bundle serves as its first source. ErrChangeNotFound from it is the
 	// missing-source case the bundle reports skipped, never a failure.
 	ChangeSummary(ctx context.Context, projectKey, change string) (records.ChangeSummary, error)
+
+	// StageCompleted reports whether a flow.review-panel stage run for
+	// the change completed in this store — the fact that separates a
+	// records-source loss from a panel that never ran, which the bundle
+	// names loudly when the run holds no dispatch rows (KAN-621).
+	StageCompleted(ctx context.Context, projectKey, change, stage string) (bool, error)
 }
 
 // selfreviewHandler serves GET
@@ -91,7 +97,18 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, false, []string{repo}, h.git)
+	// The stage-completed read follows the same failure rule the two
+	// reads above carry: any non-nil error is a 5xx, never a degraded
+	// bundle. The stage name is the key stages.Table documents for the
+	// review panel — the row whose completed end mark proves a panel ran.
+	panelRan, err := h.store.StageCompleted(r.Context(), project, change, "flow.review-panel")
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("read the review-panel stage runs for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+
+	bundle, err := selfreview.Bundle(change, rec, summary, summaryFound, panelRan, []string{repo}, h.git)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

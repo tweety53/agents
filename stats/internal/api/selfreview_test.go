@@ -249,3 +249,35 @@ func TestSelfReviewBundleHandlerSummaryStoreFailure(t *testing.T) {
 		t.Fatalf("GET bundle with a failing summary read = %d (%s), want 500", code, body)
 	}
 }
+
+// TestSelfReviewBundleHandlerPassesPanelRan pins the read the records-loss
+// note stands on: a change whose store holds a completed flow.review-panel
+// stage run but no dispatch rows gets the loss named loudly in the served
+// bundle, not a plain "skipped (absent)" that reads as no panel ever ran.
+func TestSelfReviewBundleHandlerPassesPanelRan(t *testing.T) {
+	repo := t.TempDir()
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.stageCompleted = true
+
+	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", repo))
+	if code != http.StatusOK {
+		t.Fatalf("GET bundle = %d (%s), want 200", code, body)
+	}
+	if !strings.Contains(body, "note: RECORDS LOSS") {
+		t.Errorf("served bundle carries no records-loss note:\n%s", body)
+	}
+}
+
+// TestSelfReviewBundleHandlerStageReadFailureIs5xx pins the stage-completed
+// read's own failure branch: a store read that fails for a real reason is a
+// 5xx, never a bundle a caller could mistake for the change's own — the
+// same contract the run record and summary reads carry.
+func TestSelfReviewBundleHandlerStageReadFailureIs5xx(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	fs.stageCompletedErr = errors.New("store exploded")
+
+	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", t.TempDir()))
+	if code != http.StatusInternalServerError {
+		t.Fatalf("GET bundle with a failing stage read = %d (%s), want 500", code, body)
+	}
+}
