@@ -17,9 +17,12 @@
 #
 # THE CLAIM, AND THE CONTRACT. An OPEN finding claims its defect is present
 # in the tree under review, and its reproducer's claim is the same claim:
-# run against this worktree, the command must exit non-zero — what
-# run-reproducer.sh answers as "defect demonstrated". A reproducer that
-# exits 0 here contradicts the claim it is recorded under, whichever way
+# run against this worktree, the command must produce the runner's "defect
+# demonstrated" verdict under whichever exit-code convention it declares —
+# a generic one demonstrates with a non-zero exit, a declared
+# mutation-reproducer with exit 0 (the build succeeds with the mutation
+# landed, KAN-568). A reproducer whose verdict here is "defect not
+# demonstrated" contradicts the claim it is recorded under, whichever way
 # its author meant the condition: that inverted reading is the defect class
 # this guard exists to name, mechanically, before anything downstream is
 # built on the reproducer. Findings whose status is not exactly `open` —
