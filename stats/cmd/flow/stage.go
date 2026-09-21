@@ -409,7 +409,7 @@ func warnSupersededRuns(stderr io.Writer, result client.BeginStageResult) {
 	if len(result.Superseded) == 1 {
 		units = ""
 	}
-	fmt.Fprintf(stderr, "flow: warning: this stage begin superseded %d still-open run%s of the same session (its end mark never landed):\n", len(result.Superseded), units)
+	fmt.Fprintf(stderr, "flow: warning: this stage begin superseded %d still-open run%s of the same session (the end mark never landed):\n", len(result.Superseded), units)
 	for _, r := range result.Superseded {
 		fmt.Fprintf(stderr, "  %s %s attempt %d (stage run %d)\n", r.Command, r.Stage, r.Attempt, r.ID)
 	}

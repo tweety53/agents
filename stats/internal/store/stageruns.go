@@ -180,6 +180,10 @@ type BeginStageInput struct {
 // "superseded" -- the only caller-visible surface of design.md's
 // begin-supersedes-open-runs decision; insertStageRunAndSupersede's own
 // doc comment carries the reasoning for why and how, not repeated here.
+// That supersede runs on the change-attached path only: a plan session
+// (ChangeName empty, JiraKey set) routes to insertPlanStageRun, which
+// supersedes nothing and reports no SupersededRuns, because a plan
+// session's token is shared with nothing else (its own doc comment).
 //
 // The change lookup and the attempt allocation both happen inside one
 // INSERT ... SELECT statement -- there is no separate read of the current
