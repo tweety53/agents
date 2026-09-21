@@ -232,14 +232,14 @@ expect_exit_and_names() {
 # ===========================================================================
 # 1. An open finding whose reproducer is demonstrated -- exit 0, and the
 #    runner was invoked with EXACTLY two arguments: the dispatch-time bare
-#    run, never a --pre-fix-exit form, whose ambiguity refusal would turn
+#    run, never a --pre-fix-verdict form, whose ambiguity refusal would turn
 #    every first verdict into a cannot-answer.
 # ===========================================================================
 wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
 expect_exit 'case 1: a demonstrated open finding exits 0' 0 run_guard "$wt"
 argc="$(cat "$wt/runner/argc.txt")"
 if [ "$argc" = "2" ]; then
-  printf 'ok: %s\n' 'case 1b: the runner ran bare (two arguments, no --pre-fix-exit)'
+  printf 'ok: %s\n' 'case 1b: the runner ran bare (two arguments, no --pre-fix-verdict)'
 else
   printf 'FAIL case 1b: the runner was invoked with %s arguments, not 2\n' "$argc"
   FAILED=1

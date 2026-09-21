@@ -40,7 +40,7 @@
 # process-group kill all live there, tested by their own harness. This
 # guard adds exactly one thing: the comparison of the runner's verdict to
 # the claim, as a gate with its own exit code. The runner is invoked BARE —
-# worktree and command line, no --pre-fix-exit — because at dispatch time
+# worktree and command line, no --pre-fix-verdict — because at dispatch time
 # the expected pre-fix verdict is always "demonstrated": passing the flag
 # would turn every first verdict into the ambiguity refusal and make the
 # gate unanswerable.

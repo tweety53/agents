@@ -994,9 +994,10 @@ A slot that supplies nothing for a finding has not supplied a legal exemption: r
 as its own open finding.
 
 **Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
-constraints, carrying `--pre-fix-exit <that finding's dispatch-time verdict>` — the code that
-finding's dispatch-time run printed, always `0` or `1` — **and `--reproducer-sha <the sha that
-run printed>`**: the verdict comparison is valid only between two runs of the same file, so the
+constraints, carrying `--pre-fix-verdict <that finding's dispatch-time verdict>` — `demonstrated`
+or `not-demonstrated`, the verdict that finding's dispatch-time run printed (its recorded exit
+code names it: 0 means `demonstrated`, 1 `not-demonstrated`) — **and `--reproducer-sha <the sha
+that run printed>`**: the verdict comparison is valid only between two runs of the same file, so the
 runner pins the re-run to the dispatch-time reproducer and refuses a mismatch (exit 2, never
 executed). A refused re-run means the reproducer was re-authored — its mutation-convention
 declaration included — and it is re-run against the defect-present code for a fresh verdict and
