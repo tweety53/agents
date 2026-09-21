@@ -23,7 +23,9 @@ presents it — see that file and this module's main() for why the split):
      every scanned member's coverage is either non-zero or declared.
   1  violations found — one or more citations name no root, or a member
      reported zero coverage without a declared reason. Fix the named
-     file:line by prefixing the citation; never suppress.
+     file:line by prefixing the citation — or, for a line whose backticked
+     content is a non-path marker or illustration, declare it with the
+     CITATION_ALLOW_MARKER line exemption below; never silence a real hit.
   2  environment — the guard cannot determine anything: the root override
      is set but empty or not a directory, the sandboxed installer run
      failed, or a file it needed to read could not be read or decoded. A
