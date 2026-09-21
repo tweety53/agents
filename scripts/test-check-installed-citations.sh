@@ -734,6 +734,59 @@ Run `some-cmd < skills/other/SKILL.md > output.log` to reproduce.
 ' "not-reported"
 
 # ---------------------------------------------------------------------------
+# SECTION: the declared non-path marker (KAN-619). A line carrying
+# citations-guard:allow is exempted wholesale — the declared convention
+# for non-path tokens: an `n/a`-style status marker or a command-shape
+# placeholder list is written as-is, backticks included, and the line
+# declares itself instead of being reworded into something false. Each
+# exempt case is paired, directly or by the shared mutation case below,
+# with the same line UNMARKED and reported — the marker, not any
+# classifier change, is what turns the report off.
+# ---------------------------------------------------------------------------
+
+# The recorded kan-548 shape: a backticked `n/a` status marker. Unmarked,
+# the span's `n/a` word classifies as a citation (it carries a slash) and
+# its first segment names no root.
+register_case "na-marker-line-without-marker-is-reported" "skills/flow/SKILL.md" \
+  '# flow fixture
+The sweep reads `n/a — no frame` beside the other frame-bound readings.
+' "reported"
+
+# The same line carrying the marker is exempt.
+register_case "na-marker-line-is-exempt" "skills/flow/SKILL.md" \
+  '# flow fixture
+The sweep reads `n/a — no frame` beside the other frame-bound readings. <!-- citations-guard:allow -->
+' "not-reported"
+
+# The recorded kan-561 shape: a command shape whose placeholder list
+# merges into one token with no recognised root.
+register_case "allow-marker-exempts-a-command-shape" "skills/flow/SKILL.md" \
+  '# flow fixture
+`git add -- <the spec, its PNGs, <changeRoot>/visual-verification/>` first <!-- citations-guard:allow -->
+' "not-reported"
+
+# The marker is line-scoped: a marked line does not exempt the unmarked
+# citation above it — the case still expects the violation naming the
+# member, and the marked line contributes nothing to it. (`../`-rooted
+# tokens would not do for the unmarked line — classify_token excludes
+# that shape outright, so it must be an unrooted but slash-bearing path.)
+register_case "allow-marker-is-line-scoped" "skills/flow/SKILL.md" \
+  '# flow fixture
+`somewhere/else.md` is unrooted and reported
+The sweep reads `n/a — no frame` <!-- citations-guard:allow -->
+' "reported"
+
+# A shell-fence comment line carrying the marker is exempt too — comment
+# words are candidates like any other.
+register_case "allow-marker-in-shell-comment-is-exempt" "skills/flow/SKILL.md" \
+  '# flow fixture
+
+```bash
+# the sweep reads n/a — no frame <!-- citations-guard:allow -->
+```
+' "not-reported"
+
+# ---------------------------------------------------------------------------
 # SECTION: Refusal cases (task 1 step 3's table). Every refusal case
 # asserts stdout is empty as well as the exit code.
 # ---------------------------------------------------------------------------
