@@ -2543,3 +2543,89 @@ func TestBeginStageWithoutOpenRunSupersedesNothing(t *testing.T) {
 		t.Errorf("run C SupersededRuns = %+v, want none (no token)", runC.SupersededRuns)
 	}
 }
+
+func TestStageCompletedTrueForCompletedStage(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-stage-completed-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-621")
+
+	in := baseBeginInput(projectKey, "kan-621", "/flow", "review-panel")
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, in.StartedAt.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	got, err := st.StageCompleted(ctx, projectKey, "kan-621", "review-panel")
+	if err != nil {
+		t.Fatalf("StageCompleted: %v", err)
+	}
+	if !got {
+		t.Errorf("StageCompleted = false, want true for a completed review-panel run")
+	}
+}
+
+func TestStageCompletedFalseForOtherOutcome(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-stage-outcome-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-621")
+
+	in := baseBeginInput(projectKey, "kan-621", "/flow", "review-panel")
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, in.StartedAt.Add(time.Minute), "aborted"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	got, err := st.StageCompleted(ctx, projectKey, "kan-621", "review-panel")
+	if err != nil {
+		t.Fatalf("StageCompleted: %v", err)
+	}
+	if got {
+		t.Errorf("StageCompleted = true, want false for a non-completed run")
+	}
+}
+
+func TestStageCompletedFalseForUnknownChange(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-stage-unknown-%d", time.Now().UnixNano())
+
+	got, err := st.StageCompleted(ctx, projectKey, "kan-404", "review-panel")
+	if err != nil {
+		t.Fatalf("StageCompleted on an unknown change: %v", err)
+	}
+	if got {
+		t.Errorf("StageCompleted = true, want false for a change the store has never heard of")
+	}
+}
+
+func TestStageCompletedFalseForOtherStage(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-stage-other-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-621")
+
+	in := baseBeginInput(projectKey, "kan-621", "/flow", "sdd-tdd")
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, in.StartedAt.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+
+	got, err := st.StageCompleted(ctx, projectKey, "kan-621", "review-panel")
+	if err != nil {
+		t.Fatalf("StageCompleted: %v", err)
+	}
+	if got {
+		t.Errorf("StageCompleted = true, want false when only a different stage completed")
+	}
+}

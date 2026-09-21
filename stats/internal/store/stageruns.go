@@ -755,6 +755,34 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	return out, total, nil
 }
 
+// StageCompleted reports whether any stage run of the named stage for the
+// (projectKey, change) pair has ended with outcome 'completed'. The
+// self-review bundle reads it to tell a records-source loss from a panel
+// that never ran: a change whose review-panel stage demonstrably completed
+// while the store holds no dispatch rows for it has lost those rows, not
+// skipped its panel (KAN-621).
+//
+// An unknown (projectKey, change) pair is (false, nil), not
+// ErrChangeNotFound: no stage run of any stage can have completed for a
+// change the store has never heard of, so false is the honest answer and
+// the bundle's caller treats every change alike. A real read failure is
+// wrapped and returned.
+func (s *Store) StageCompleted(ctx context.Context, projectKey, change, stage string) (bool, error) {
+	var completed bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM stage_runs sr
+			JOIN changes c ON c.id = sr.change_id
+			WHERE c.project_key = $1 AND c.name = $2 AND sr.stage = $3 AND sr.outcome = 'completed'
+		)
+	`, projectKey, change, stage).Scan(&completed)
+	if err != nil {
+		return false, fmt.Errorf("store: stage completed for %s/%s stage %q: %w", projectKey, change, stage, err)
+	}
+	return completed, nil
+}
+
 // UnresolvedSessionTokens returns every stage run id and its session_token
 // for which session_id has not yet been bound (KAN-172, task 2; reworked
 // per-run rather than per-mark in task 4b). It is the harvester's sole
