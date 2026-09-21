@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>] [--reproducer-sha <sha>]
+# run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-verdict <demonstrated|not-demonstrated>] [--reproducer-sha <sha>]
 #
 # Runs one finding's reproducer — the command text that follows
 # `finding-reproducer: F<n> ` in a panel record, already validated
@@ -65,7 +65,7 @@
 # it works unchanged under either.
 #
 # THE COMPARISON IS VALID ONLY BETWEEN TWO RUNS OF THE SAME FILE. The
-# verdict a `--pre-fix-exit` re-run compares against is meaningful only when
+# verdict a `--pre-fix-verdict` re-run compares against is meaningful only when
 # the file is byte-for-byte what the dispatch-time run read — a re-authored
 # reproducer, its mutation-convention declaration included, is a different
 # reproducer answering in a vocabulary the pre-fix verdict never carried.
@@ -88,7 +88,7 @@
 #      execution and was never run at all. The ambiguity class (KAN-524) ran
 #      to a verdict that is
 #      IDENTICAL to the pre-fix verdict the caller passed in
-#      --pre-fix-exit: a reproducer that answers the same way before and
+#      --pre-fix-verdict: a reproducer that answers the same way before and
 #      after the fix demonstrates nothing under either exit-code
 #      convention, and the expected convention is named on stderr. Only
 #      the shape class never executes; the ambiguity class is refused at
@@ -133,7 +133,7 @@ fi
 source "$SCRIPT_DIR/lib/sha256-hex.sh"
 
 usage_fail() {
-  echo "run-reproducer: usage: run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-exit <0|1>] [--reproducer-sha <sha>]" >&2
+  echo "run-reproducer: usage: run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-verdict <demonstrated|not-demonstrated>] [--reproducer-sha <sha>]" >&2
   exit 4
 }
 
@@ -141,33 +141,39 @@ WORKTREE="${1:-}"
 CMD_TEXT="${2:-}"
 [ -n "$WORKTREE" ] && [ -n "$CMD_TEXT" ] || usage_fail
 
-# --pre-fix-exit <0|1> — the verdict this reproducer produced when the
-# caller ran it against the defect-present code (this script's own exit
-# vocabulary: 0 = defect demonstrated, 1 = not demonstrated — exactly what
-# the panel parent holds from its `; echo "F<n>: exit $?"` record of the
-# dispatch-time run). On the fix-round re-run, a verdict here that MATCHES
-# the pre-fix one is refused: a reproducer whose exit status is identical
-# pre-fix and post-fix is ambiguous under either convention, and nothing
-# built on it can be verified. Anything but the script's own two verdict
-# codes is a usage failure, reported and never ignored: a bare run (two
-# arguments, no flag) is the dispatch-time decision and decides exactly as
-# it always has.
+# --pre-fix-verdict <demonstrated|not-demonstrated> — the verdict this
+# reproducer produced when the caller ran it against the defect-present
+# code, named in this script's own printed vocabulary: `demonstrated` is
+# the verdict a dispatch-time exit 0 carries, `not-demonstrated` the one an
+# exit 1 carries — exactly what the panel parent holds from its
+# `; echo "F<n>: exit $?"` record of the dispatch-time run. On the
+# fix-round re-run, a verdict here that MATCHES the pre-fix one is refused:
+# a reproducer whose verdict is identical pre-fix and post-fix is ambiguous
+# under either convention, and nothing built on it can be verified. Every
+# OTHER value — every number included — is a usage failure, reported and
+# never ignored: a raw exit is not a verdict, and a raw `1` passed where
+# the dispatch-time run printed `demonstrated` is the exact misfeed
+# KAN-614 records three times across runs (kan-542, kan-546, kan-556), so
+# the misfeed is caught here at the flag, before anything executes,
+# instead of surfacing as a spurious ambiguity after a real run. A bare
+# run (two arguments, no flag) is the dispatch-time decision and decides
+# exactly as it always has.
 #
 # --reproducer-sha <sha> — the reproducer sha the dispatch-time run printed,
 # carried by the fix-round re-run so the verdict comparison is pinned to the
 # SAME file: a reproducer re-authored between rounds (its
 # mutation-convention declaration included) is refused before it executes.
 # A hex-string value only; anything else is a usage failure.
-PRE_FIX_EXIT=""
+PRE_FIX_VERDICT=""
 EXPECT_SHA=""
 if [ "$#" -ge 3 ]; then
   shift 2
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --pre-fix-exit)
+      --pre-fix-verdict)
         [ "$#" -ge 2 ] || usage_fail
         case "$2" in
-          0|1) PRE_FIX_EXIT="$2" ;;
+          demonstrated|not-demonstrated) PRE_FIX_VERDICT="$2" ;;
           *) usage_fail ;;
         esac
         shift 2
@@ -850,19 +856,23 @@ if [ "$CONVENTION" = "mutation" ]; then
 else
   if [ "$RC" -ne 0 ]; then VERDICT=0; else VERDICT=1; fi
 fi
+# The verdict's own name, in the vocabulary --pre-fix-verdict speaks: the
+# ambiguity refusal compares THIS against the caller's word, never a raw
+# exit code, so the comparison reads identically under either convention.
+if [ "$VERDICT" -eq 0 ]; then VERDICT_NAME="demonstrated"; else VERDICT_NAME="not-demonstrated"; fi
 
 # The ambiguity refusal (KAN-524), checked at the verdict point — after the
 # timeout (exit 3) and cannot-answer (exit 4) dispositions above have had
 # their say, since those runs produced no verdict to compare against. The
 # reproducer HAS run here, which is what separates this exit-2 class from
 # the shape refusals' "never executed" claim above.
-if [ -n "$PRE_FIX_EXIT" ]; then
-  if [ "$PRE_FIX_EXIT" = "$VERDICT" ]; then
+if [ -n "$PRE_FIX_VERDICT" ]; then
+  if [ "$PRE_FIX_VERDICT" = "$VERDICT_NAME" ]; then
     emit_captured_output 2
     if [ "$CONVENTION" = "mutation" ]; then
-      echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_EXIT) — under the mutation-reproducer convention a reproducer must exit 0 while the defect is present (the build succeeds with the mutation landed) and non-zero once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
+      echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_VERDICT) — under the mutation-reproducer convention a reproducer must exit 0 while the defect is present (the build succeeds with the mutation landed) and non-zero once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
     else
-      echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_EXIT) — a reproducer must exit non-zero while the defect is present and 0 once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
+      echo "run-reproducer: refused — ambiguous reproducer: '$CMD_TEXT' exited $RC here, the same verdict it produced against the defect-present code (pre-fix verdict $PRE_FIX_VERDICT) — a reproducer must exit non-zero while the defect is present and 0 once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention" >&2
     fi
     exit 2
   fi
