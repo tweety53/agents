@@ -896,9 +896,31 @@ round-6 real bugs.
 every fix round and adds one final pass after the last fix round closes clean: every slot in the
 roster re-reads the whole `final-review.diff` (Bugbot and Mutation in their pass-1 shape). A finding
 from that final pass opens an ordinary fix round under the rules above; the final pass then repeats
-once that round closes clean. **Rerun policy `delta`** — `small` and `regular`, and every run on
+once that round closes clean — one repeat, unasked; what runs past that is **The rerun cap** below.
+**Rerun policy `delta`** — `small` and `regular`, and every run on
 `REVIEW_PANEL_TOGGLE` `default` — is the section above as it stands: no added final pass, beyond
 the one the scoped-round rule above requires of a run that reached a third fix round.
+
+**The rerun cap.** The whole-roster re-reads this mechanism adds are capped at two unasked — the
+first final pass and its one repeat. When the second's fix round closes clean, no third is
+dispatched on the mechanism's own motion; the run asks once, shape per Operator prompts
+(`skills/flow-contracts/operator-prompts.md`):
+
+> **The whole-branch pass has run twice; the fix round for its findings closed clean. A third
+> whole-branch read runs only by your choice — the cap holds by default.**
+> - **Close the panel** *(default, recommended)* — proceeds to the close guards below on the clean
+>   delta re-runs
+> - **Run one more whole-branch pass** — the same roster re-reads the whole `final-review.diff`,
+>   on whatever pair the budget rules then give it; its findings close through the ordinary
+>   fix-round loop, and the panel closes when that round's delta re-run comes back clean. No
+>   fourth whole-branch read is dispatched whatever it finds.
+
+Silence closes the panel, and the handoff's `Panel:` line carries the `rerun cap:` field's ⚠ marker
+naming that the silent default fired; a third pass is recorded with `flow record pass -round
+<round>`, naming the operator's words. The cap bounds how many whole-branch re-reads a run
+dispatches unasked — never what any dispatched pass reads, and never the targeted delta re-runs a
+fix round closes on, which stay uncapped. The scoped-round rule above adds its one whole-branch
+pass under the same cap.
 
 **From the third full-roster pass this policy adds onward, every dispatch in that pass runs on
 `sonnet` or `haiku` — never `opus`, never `fable`**, regardless of what `DEFAULT_MODEL`,
@@ -911,6 +933,12 @@ not need `opus` or `fable`. Pick `sonnet` unless the run is already on `DEFAULT_
 which case stay on `haiku`. Record the substituted model with `flow record pass -round <round>`
 alongside this pass's other entry-check notes, naming what the normal resolution would have given
 so the swap is visible in the pass log.
+
+**A demotion is part of the evidence a clean result carries, never a pass-log side note.** The
+record above is mandatory on every pass the restriction touches, and when the pass whose clean
+result closes the panel ran on the substituted pair, the handoff's `Panel:` line says so in its
+`demoted:` field — the pass number, the pair it ran, and the pair the normal resolution would have
+given: "clean on pass 8" and "clean on opus" are not the same evidence.
 
 **The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
 worktree per **distinct** held sha among the diff-reading slots dispatched this round (two slots

@@ -1109,7 +1109,7 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 ## Implementation staged — review and test | Implementation committed — review and test
 
 **Change:** <name>
-**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
+**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">; demoted: <"pass <n> ran <model>/<effort> in place of <the pair the normal resolution would have given>" when a budget rule substituted the closing pass's pair, or "no">; rerun cap: <"⚠ the cap closed the panel on the silent default" when it fired, or "extended once — the operator ordered the third whole-branch pass" when that choice ran, or "no">
 **Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
@@ -1150,6 +1150,15 @@ policy (`delta` or `full`), the dispatch groups as `+`-joined roles and, on `dyn
 rerun pair — the same fields and
 shape `skills/flow-contracts/handoff-blocks.md`'s `Panel:` line carries for `/flow-status`'s
 regenerated view of the same state.
+
+**The `demoted:` and `rerun cap:` fields qualify the `clean` claim they sit beside.** When a
+budget rule — the whole-roster restriction **Rerun policy `full`** adds from its third pass onward
+(`skills/flow/review-panel.md`) — substituted a weaker pair on the pass whose clean result closed
+the panel, `demoted:` names that pass, the pair it ran, and the pair the normal resolution would
+have given; when the rerun cap closed the panel on its silent default, or the one extension an
+explicit operator choice ran, `rerun cap:` carries it, ⚠ marker included when the default fired.
+"Clean on pass 8" and "clean on opus" are not the same evidence, and neither fact lives only in
+the pass log.
 
 **The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
 absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
