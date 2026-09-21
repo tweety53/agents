@@ -71,6 +71,18 @@ const stageRunsPlanAttemptConstraint = "stage_runs_plan_attempt_key"
 // lockstep.
 const maxAttemptRetries = 100
 
+// SupersededRun identifies one still-open stage run a begin mark closed
+// as "superseded" (insertStageRunAndSupersede). BeginStage reports these
+// so the marking slip a supersession records -- this session opened a
+// stage while an earlier one of its own was still open -- is visible at
+// write time (KAN-618), not only to a later reader of the ledger.
+type SupersededRun struct {
+	ID      int64
+	Command string
+	Stage   string
+	Attempt int
+}
+
 // stageRunSupersedeLockNamespace is the first key of the two-argument
 // pg_advisory_xact_lock(key1, key2) insertStageRunAndSupersede takes to
 // serialise concurrent begins for one session token. Its only requirement,
@@ -121,6 +133,10 @@ type StageRun struct {
 	EndedAt      *time.Time
 	Outcome      *string
 	Metrics      json.RawMessage
+	// SupersededRuns is set only by BeginStage, naming the still-open runs
+	// its own begin closed as superseded; every read path leaves it nil.
+	// See SupersededRun.
+	SupersededRuns []SupersededRun
 }
 
 // BeginStageInput identifies the change a stage run belongs to by its
@@ -373,16 +389,38 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 		return StageRun{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
+	// The UPDATE's RETURNING clause reports exactly which open rows it
+	// closed (KAN-618): a supersession is a marking slip -- this session
+	// opened a stage while an earlier one of its own was still open -- and
+	// handing the closed runs back is what lets the daemon warn at write
+	// time instead of leaving superseded rows for a deferred pass to
+	// explain. Rows are collected and closed before Commit, as pgx
+	// requires of a transaction that still holds an open rows handle.
+	rows, err := tx.Query(ctx, `
 		UPDATE stage_runs
 		SET ended_at = $2, outcome = 'superseded'
 		WHERE session_token = $1
 		  AND ended_at IS NULL
 		  AND id <> $3
 		  AND started_at <= $2
-	`, in.SessionToken, run.StartedAt, run.ID); err != nil {
+		RETURNING id, command, stage, attempt
+	`, in.SessionToken, run.StartedAt, run.ID)
+	if err != nil {
 		return StageRun{}, err
 	}
+	for rows.Next() {
+		var closed SupersededRun
+		if err := rows.Scan(&closed.ID, &closed.Command, &closed.Stage, &closed.Attempt); err != nil {
+			rows.Close()
+			return StageRun{}, err
+		}
+		run.SupersededRuns = append(run.SupersededRuns, closed)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return StageRun{}, err
+	}
+	rows.Close()
 
 	if err := tx.Commit(ctx); err != nil {
 		return StageRun{}, err

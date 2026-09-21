@@ -2459,3 +2459,87 @@ func TestQueryStageRunsPlanSessionHasNilChangeName(t *testing.T) {
 		t.Errorf("ProjectKey = %v, want %q (the plan session's own)", rows[0].ProjectKey, projectKey)
 	}
 }
+
+// TestBeginStageSupersedeReturnsSupersededRuns pins KAN-618's warning
+// surface at the store: a begin that closes still-open runs of its own
+// session token reports exactly what it closed -- id, command, stage and
+// attempt -- so the marking slip a supersession records (a stage opening
+// while this session's earlier stage was still open; KAN-560's incident)
+// is visible to the writer at write time instead of only to a later
+// reader of the ledger.
+func TestBeginStageSupersedeReturnsSupersededRuns(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-supersede-report-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-618")
+
+	const token = "ff-supersede-report-token"
+
+	a := baseBeginInput(projectKey, "kan-618", "/flow", "review panel")
+	a.SessionToken = ptr(token)
+	a.StartedAt = time.Date(2026, 9, 18, 10, 0, 0, 0, time.UTC)
+	runA, err := st.BeginStage(ctx, a)
+	if err != nil {
+		t.Fatalf("BeginStage (A): %v", err)
+	}
+
+	b := baseBeginInput(projectKey, "kan-618", "/flow", "verify")
+	b.SessionToken = ptr(token)
+	b.StartedAt = a.StartedAt.Add(time.Hour)
+	runB, err := st.BeginStage(ctx, b)
+	if err != nil {
+		t.Fatalf("BeginStage (B): %v", err)
+	}
+
+	if len(runB.SupersededRuns) != 1 {
+		t.Fatalf("run B SupersededRuns = %+v, want exactly run A", runB.SupersededRuns)
+	}
+	want := store.SupersededRun{ID: runA.ID, Command: a.Command, Stage: a.Stage, Attempt: runA.Attempt}
+	if got := runB.SupersededRuns[0]; got != want {
+		t.Errorf("superseded run = %+v, want %+v", got, want)
+	}
+}
+
+// TestBeginStageWithoutOpenRunSupersedesNothing pins the quiet side of
+// the same surface: a begin whose session has nothing still open reports
+// no superseded runs, and so does a begin carrying no token at all -- the
+// ordinary sequential mark sequence must stay warning-free.
+func TestBeginStageWithoutOpenRunSupersedesNothing(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-supersede-quiet-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-618")
+
+	const token = "ff-supersede-quiet-token"
+
+	a := baseBeginInput(projectKey, "kan-618", "/flow", "load context")
+	a.SessionToken = ptr(token)
+	runA, err := st.BeginStage(ctx, a)
+	if err != nil {
+		t.Fatalf("BeginStage (A): %v", err)
+	}
+	if err := st.EndStage(ctx, runA.ID, a.StartedAt.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage (A): %v", err)
+	}
+
+	b := baseBeginInput(projectKey, "kan-618", "/flow", "brainstorm")
+	b.SessionToken = ptr(token)
+	b.StartedAt = a.StartedAt.Add(2 * time.Minute)
+	runB, err := st.BeginStage(ctx, b)
+	if err != nil {
+		t.Fatalf("BeginStage (B): %v", err)
+	}
+	if len(runB.SupersededRuns) != 0 {
+		t.Errorf("run B SupersededRuns = %+v, want none (A was ended first)", runB.SupersededRuns)
+	}
+
+	c := baseBeginInput(projectKey, "kan-618", "/flow", "decide")
+	c.StartedAt = b.StartedAt.Add(time.Minute) // no session token at all
+	runC, err := st.BeginStage(ctx, c)
+	if err != nil {
+		t.Fatalf("BeginStage (C): %v", err)
+	}
+	if len(runC.SupersededRuns) != 0 {
+		t.Errorf("run C SupersededRuns = %+v, want none (no token)", runC.SupersededRuns)
+	}
+}
