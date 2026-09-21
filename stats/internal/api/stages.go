@@ -93,6 +93,33 @@ type stageEndRequest struct {
 type stageRunResponse struct {
 	StageRunID int64 `json:"stageRunId"`
 	Attempt    int   `json:"attempt"`
+	// Superseded, on a begin success only, names the still-open runs the
+	// begin closed as superseded (KAN-618), so the CLI can warn at write
+	// time; an end never sets it.
+	Superseded []supersededRunJSON `json:"superseded,omitempty"`
+}
+
+// supersededRunJSON is the wire shape of one superseded run KAN-618's
+// begin response carries -- the store's SupersededRun restated for the
+// wire, the way stageBeginRequest restates BeginStageInput.
+type supersededRunJSON struct {
+	ID      int64  `json:"id"`
+	Command string `json:"command"`
+	Stage   string `json:"stage"`
+	Attempt int    `json:"attempt"`
+}
+
+// supersededRunJSONList converts the store's closed-run list into its wire
+// shape; nil stays nil so an ordinary begin carries no "superseded" key.
+func supersededRunJSONList(runs []store.SupersededRun) []supersededRunJSON {
+	if len(runs) == 0 {
+		return nil
+	}
+	out := make([]supersededRunJSON, 0, len(runs))
+	for _, r := range runs {
+		out = append(out, supersededRunJSON{ID: r.ID, Command: r.Command, Stage: r.Stage, Attempt: r.Attempt})
+	}
+	return out
 }
 
 // StageMarkResult is the identity ApplyBeginStageMark/ApplyEndStageMark
@@ -101,6 +128,9 @@ type stageRunResponse struct {
 type StageMarkResult struct {
 	StageRunID int64
 	Attempt    int
+	// Superseded, on a begin, names the still-open runs the begin closed
+	// as superseded (store.BeginStage); always empty on an end.
+	Superseded []store.SupersededRun
 }
 
 // BeginStageMark is the typed, transport-agnostic shape of a begin mark:
@@ -378,7 +408,7 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, msg)
 		return
 	}
-	writeJSON(w, http.StatusOK, stageRunResponse{StageRunID: result.StageRunID, Attempt: result.Attempt})
+	writeJSON(w, http.StatusOK, stageRunResponse{StageRunID: result.StageRunID, Attempt: result.Attempt, Superseded: supersededRunJSONList(result.Superseded)})
 }
 
 // ApplyBeginStageMark records the start of one stage run against ss:
@@ -463,7 +493,30 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if err != nil {
 		return StageMarkResult{}, err
 	}
-	return StageMarkResult{StageRunID: run.ID, Attempt: run.Attempt}, nil
+	if len(run.SupersededRuns) > 0 && logger != nil {
+		// KAN-618: a supersession is a marking slip -- this session opened
+		// a stage while an earlier one of its own was still open. Warn at
+		// write time so the slip is caught here instead of left for a
+		// deferred pass to explain from superseded rows. The same warning
+		// therefore covers a journalled begin replayed by
+		// internal/reconcile, which reaches this function with its own
+		// logger and no HTTP caller.
+		logger.Warn("api: stage begin superseded still-open run(s) of the same session",
+			"project", mark.ProjectKey, "change", mark.ChangeName,
+			"command", mark.Command, "stage", mark.Stage,
+			"superseded", supersededSummaries(run.SupersededRuns))
+	}
+	return StageMarkResult{StageRunID: run.ID, Attempt: run.Attempt, Superseded: run.SupersededRuns}, nil
+}
+
+// supersededSummaries renders closed runs as "command/stage attempt N
+// (id M)" strings for the daemon log line.
+func supersededSummaries(runs []store.SupersededRun) []string {
+	out := make([]string, 0, len(runs))
+	for _, r := range runs {
+		out = append(out, fmt.Sprintf("%s/%s attempt %d (id %d)", r.Command, r.Stage, r.Attempt, r.ID))
+	}
+	return out
 }
 
 // end serves POST /api/v1/stages/end: decode, validate shape, delegate to

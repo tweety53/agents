@@ -50,10 +50,14 @@ type fakeStore struct {
 	stageRuns      []stageRunRecord
 	nextStageRunID int64
 
-	beginStageErr     error
-	endStageErr       error
-	mergeMetricsErr   error
-	queryStageRunsErr error
+	beginStageErr error
+	// beginStageSuperseded, when set, is canned into every run BeginStage
+	// returns as its SupersededRuns -- KAN-618's write-time warning needs a
+	// fake that can report a supersession the real store produces.
+	beginStageSuperseded []store.SupersededRun
+	endStageErr          error
+	mergeMetricsErr      error
+	queryStageRunsErr    error
 
 	// --- run-record bookkeeping (internal/api/records_test.go's fakeStore
 	// methods operate on these) ---

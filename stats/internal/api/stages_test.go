@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,16 +56,17 @@ func (f *fakeStore) BeginStage(_ context.Context, in store.BeginStageInput) (sto
 
 	f.nextStageRunID++
 	run := store.StageRun{
-		ID:           f.nextStageRunID,
-		RepoRoot:     in.RepoRoot,
-		Harness:      in.Harness,
-		SessionID:    in.SessionID,
-		SessionToken: in.SessionToken,
-		Command:      in.Command,
-		Stage:        in.Stage,
-		Attempt:      attempt,
-		StartedAt:    in.StartedAt,
-		Metrics:      json.RawMessage(`{}`),
+		ID:             f.nextStageRunID,
+		RepoRoot:       in.RepoRoot,
+		Harness:        in.Harness,
+		SessionID:      in.SessionID,
+		SessionToken:   in.SessionToken,
+		Command:        in.Command,
+		Stage:          in.Stage,
+		Attempt:        attempt,
+		StartedAt:      in.StartedAt,
+		Metrics:        json.RawMessage(`{}`),
+		SupersededRuns: f.beginStageSuperseded,
 	}
 	f.stageRuns = append(f.stageRuns, stageRunRecord{run: run, projectKey: in.ProjectKey, changeName: in.ChangeName, jiraKey: in.JiraKey})
 	return run, nil
@@ -1033,5 +1035,93 @@ func TestStageEndRejectsJiraKeyOutsidePlanSession(t *testing.T) {
 	resp, _ := postJSON(t, srv.URL+"/api/v1/stages/end", req)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	}
+}
+
+// TestApplyBeginStageMarkCarriesSupersededRuns pins KAN-618's daemon-side
+// warning: when the store reports that a begin closed still-open runs of
+// the same session, the apply result carries them and the daemon logs a
+// warning naming what was closed -- the marking slip surfaced at write
+// time, not left for a deferred pass to explain. A nil logger (the
+// reconcile replay path's legitimate shape) must not panic.
+func TestApplyBeginStageMarkCarriesSupersededRuns(t *testing.T) {
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+	fs.beginStageSuperseded = []store.SupersededRun{
+		{ID: 41, Command: "/flow", Stage: "flow.review-panel", Attempt: 1},
+	}
+
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+
+	result, err := api.ApplyBeginStageMark(context.Background(), fs, logger, api.BeginStageMark{
+		ProjectKey:   "proj",
+		ChangeName:   "chg",
+		Harness:      "claude-code",
+		SessionToken: "ff-session-token-superseded",
+		Command:      "/flow",
+		Stage:        "flow.verify",
+		StartedAt:    time.Date(2026, 9, 18, 11, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("ApplyBeginStageMark: %v", err)
+	}
+	want := store.SupersededRun{ID: 41, Command: "/flow", Stage: "flow.review-panel", Attempt: 1}
+	if len(result.Superseded) != 1 || result.Superseded[0] != want {
+		t.Errorf("result.Superseded = %+v, want [%+v]", result.Superseded, want)
+	}
+	if logLine := logBuf.String(); !strings.Contains(logLine, "flow.review-panel") || !strings.Contains(logLine, "level=WARN") {
+		t.Errorf("daemon log = %q, want a WARN line naming flow.review-panel", logLine)
+	}
+
+	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
+		ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
+		SessionToken: "ff-session-token-superseded-2", Command: "/flow", Stage: "flow.preflight",
+		StartedAt: time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("ApplyBeginStageMark (nil logger): %v", err)
+	}
+}
+
+// TestStageBeginResponseCarriesSupersededRuns pins the wire side: a begin
+// whose store answer names superseded runs returns them under
+// "superseded" in the response body, so the CLI can print the warning.
+func TestStageBeginResponseCarriesSupersededRuns(t *testing.T) {
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+	fs.beginStageSuperseded = []store.SupersededRun{
+		{ID: 41, Command: "/flow", Stage: "flow.review-panel", Attempt: 1},
+	}
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+
+	req := map[string]any{
+		"projectKey": "proj", "changeName": "chg", "harness": "claude-code",
+		"sessionToken": "ff-session-token-wire", "command": "/flow",
+		"stage": "flow.verify", "startedAt": "2026-08-13T10:00:00Z",
+	}
+	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", resp.StatusCode, body)
+	}
+	var wire struct {
+		StageRunID int64 `json:"stageRunId"`
+		Attempt    int   `json:"attempt"`
+		Superseded []struct {
+			ID      int64  `json:"id"`
+			Command string `json:"command"`
+			Stage   string `json:"stage"`
+			Attempt int    `json:"attempt"`
+		} `json:"superseded"`
+	}
+	if err := json.Unmarshal(body, &wire); err != nil {
+		t.Fatalf("unmarshal response %s: %v", body, err)
+	}
+	if len(wire.Superseded) != 1 {
+		t.Fatalf("superseded = %+v (%s), want one entry", wire.Superseded, body)
+	}
+	got := wire.Superseded[0]
+	if got.ID != 41 || got.Command != "/flow" || got.Stage != "flow.review-panel" || got.Attempt != 1 {
+		t.Errorf("superseded entry = %+v, want id 41 /flow flow.review-panel attempt 1", got)
 	}
 }
