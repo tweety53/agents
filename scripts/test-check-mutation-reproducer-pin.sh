@@ -18,8 +18,20 @@
 #   comment_drift_fails           — runner comment window changed, code unchanged: exit 1
 #   missing_declaration_is_exit_2 — the canonical declaration line absent: exit 2
 #
-# plus two cannot-answer cases: the root env var set but empty, and a
-# pinned site file missing entirely.
+# plus, from the round-0 panel findings:
+#
+#   multi_site_drift_fails          — F1: one of two runner window statements
+#                                     drifted while the other reads 10: exit 1
+#   wrapped_window_drift_fails      — F1: a near-miss window wrapped across two
+#                                     lines, the brief's own shape: exit 1
+#   near_miss_marker_in_prose_fails — F1: a backticked `# mutation-...` span
+#                                     that is not the canonical literal: exit 1
+#   double_quoted_marker_is_exit_2  — F2: the canonical line's marker re-quoted
+#                                     to double quotes — not extractable: exit 2
+#
+# and two cannot-answer cases: the root env var set but empty, and a
+# pinned site file missing entirely. Every fixture tree is removed on
+# replacement and at exit (F3).
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,11 +68,16 @@ EOF
 }
 
 new_root() {
+  [ -n "$TMP_ROOT" ] && rm -rf "$TMP_ROOT"
   TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mutation-reproducer-pin.XXXXXX")"
   mkdir -p "$TMP_ROOT/scripts" "$TMP_ROOT/skills/flow"
   write_runner
   write_panel
 }
+
+# every fixture tree this harness creates is removed — on replacement by
+# the next new_root, and the last one at exit (KAN-624 F3).
+trap '[ -n "$TMP_ROOT" ] && rm -rf "$TMP_ROOT"' EXIT
 
 run_guard() {
   OUT="$(CHECK_MUTATION_REPRODUCER_PIN_ROOT="$TMP_ROOT" bash "$GUARD" 2>&1)"
@@ -148,6 +165,7 @@ EOF
 }
 
 empty_root_env_is_exit_2() {
+  [ -n "$TMP_ROOT" ] && rm -rf "$TMP_ROOT"
   TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mutation-reproducer-pin.XXXXXX")"
   OUT="$(CHECK_MUTATION_REPRODUCER_PIN_ROOT= bash "$GUARD" 2>&1)"
   RC=$?
@@ -161,6 +179,92 @@ missing_site_file_is_exit_2() {
   [ "$RC" -eq 2 ] && pass "missing_site_file_is_exit_2: exits 2" || fail "missing_site_file_is_exit_2: expected exit 2, got rc=$RC out=$OUT"
 }
 
+# KAN-624 F1: the real runner states its window twice (header comment and
+# the declaration comment), so a drift of one alone must fail even though
+# the other still reads correctly — presence-per-file cannot see it, the
+# near-miss scan must.
+multi_site_drift_fails() {
+  new_root
+  cat > "$TMP_ROOT/scripts/run-reproducer.sh" <<'EOF'
+#!/usr/bin/env bash
+# THE MUTATION-REPRODUCER CONVENTION (KAN-568). Such a reproducer declares
+# itself with the exact line `# mutation-reproducer` within its first 12 lines,
+# and this script then reads it under that convention.
+# Exact line, within the first 10 lines: a line that merely contains the
+# marker is prose, not a declaration.
+CONVENTION="generic"
+if head -n 10 -- "$RESOLVED_PATH" | grep -qx '# mutation-reproducer'; then
+  CONVENTION="mutation"
+fi
+EOF
+  run_guard
+  [ "$RC" -eq 1 ] && pass "multi_site_drift_fails: exits 1" || fail "multi_site_drift_fails: expected exit 1, got rc=$RC out=$OUT"
+  case "$OUT" in
+    *'states the window as "first 12 lines"'*) pass "multi_site_drift_fails: names the drifted statement at its line" ;;
+    *) fail "multi_site_drift_fails: expected the near-miss named, got: $OUT" ;;
+  esac
+}
+
+# The real mutation-testing brief wraps its window statement across two
+# lines; a near-miss value wrapped the same way must still be caught.
+wrapped_window_drift_fails() {
+  new_root
+  cat > "$TMP_ROOT/skills/flow/review-panel.md" <<'EOF'
+A surviving mutant's reproducer carries the exact line
+`# mutation-reproducer` within its first 10 lines — the declaration
+`run-reproducer.sh` reads as the mutation convention.
+
+One `# demonstrates:` line per cited location, within the script's first 12
+lines — the same window the `# mutation-reproducer` declaration reads.
+EOF
+  run_guard
+  [ "$RC" -eq 1 ] && pass "wrapped_window_drift_fails: exits 1" || fail "wrapped_window_drift_fails: expected exit 1, got rc=$RC out=$OUT"
+  case "$OUT" in
+    *'states the window as "first 12 lines"'*) pass "wrapped_window_drift_fails: names the wrapped near-miss" ;;
+    *) fail "wrapped_window_drift_fails: expected the wrapped near-miss named, got: $OUT" ;;
+  esac
+}
+
+# A backticked mutation-marker span that is not the canonical literal is a
+# renamed site drifting alone — caught even while correct spans remain.
+near_miss_marker_in_prose_fails() {
+  new_root
+  cat > "$TMP_ROOT/skills/flow/review-panel.md" <<'EOF'
+A surviving mutant's reproducer carries the exact line
+`# mutation-reproducer` within its first 10 lines — the declaration
+`run-reproducer.sh` reads as the mutation convention.
+
+A reproducer declares it with the exact `# mutation-check` line.
+EOF
+  run_guard
+  [ "$RC" -eq 1 ] && pass "near_miss_marker_in_prose_fails: exits 1" || fail "near_miss_marker_in_prose_fails: expected exit 1, got rc=$RC out=$OUT"
+  case "$OUT" in
+    *"`# mutation-check`"*) pass "near_miss_marker_in_prose_fails: names the near-miss span" ;;
+    *) fail "near_miss_marker_in_prose_fails: expected the near-miss span named, got: $OUT" ;;
+  esac
+}
+
+# KAN-624 F2: a canonical line whose marker is not single-quoted (a
+# re-quote refactor) is not extractable — exit 2, never a bogus exit-1
+# drift row pasting the whole line as the marker.
+double_quoted_marker_is_exit_2() {
+  new_root
+  cat > "$TMP_ROOT/scripts/run-reproducer.sh" <<'EOF'
+#!/usr/bin/env bash
+# header comment stating `# mutation-reproducer` within its first 10 lines
+CONVENTION="generic"
+if head -n 10 -- "$RESOLVED_PATH" | grep -qx "# mutation-reproducer"; then
+  CONVENTION="mutation"
+fi
+EOF
+  run_guard
+  [ "$RC" -eq 2 ] && pass "double_quoted_marker_is_exit_2: exits 2" || fail "double_quoted_marker_is_exit_2: expected exit 2, got rc=$RC out=$OUT"
+  case "$OUT" in
+    *"could not be extracted"*) pass "double_quoted_marker_is_exit_2: names the extraction failure" ;;
+    *) fail "double_quoted_marker_is_exit_2: expected the extraction failure named, got: $OUT" ;;
+  esac
+}
+
 pin_ok
 marker_drift_in_prose_fails
 window_drift_in_prose_fails
@@ -168,6 +272,10 @@ comment_drift_fails
 missing_declaration_is_exit_2
 empty_root_env_is_exit_2
 missing_site_file_is_exit_2
+multi_site_drift_fails
+wrapped_window_drift_fails
+near_miss_marker_in_prose_fails
+double_quoted_marker_is_exit_2
 
 if [ "$FAIL" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAIL" >&2

@@ -16,17 +16,27 @@
 # `head -n <N> -- "$RESOLVED_PATH" | grep -qx '<MARKER>'` conditional that
 # decides the convention at run time. The guard extracts the marker and
 # the window from that one line and then requires the stated sites to
-# agree:
+# agree, two ways:
 #
-#   - skills/flow/review-panel.md carries the marker backticked and the
-#     window stated as "first <N> lines";
-#   - scripts/run-reproducer.sh carries the marker backticked (its header
-#     comment) and the same "first <N> lines" window statement.
+#   - PRESENCE — skills/flow/review-panel.md carries the marker backticked
+#     and the window stated as "first <N> lines"; scripts/run-reproducer.sh
+#     carries the marker backticked (its header comment) and the same
+#     window statement.
+#   - NEAR-MISS ABSENCE — presence alone cannot see a single site drift
+#     while another copy of the same fact still reads correctly, which is
+#     the one-edit-at-a-time drift this guard exists to catch (KAN-624
+#     F1). So every "first <M> lines" statement and every backticked
+#     `# mutation-...` span in either file must carry exactly the
+#     canonical value, on a single line or wrapped across two adjacent
+#     lines (the mutation-testing brief's own window statement is
+#     wrapped), and each offending occurrence is reported at its own
+#     line.
 #
 # A change to any one site without the others is a drift: exit 1, named
-# per file, until all sites move together. Reshaping the canonical line
-# itself — so that no line of that shape can be found, or more than one
-# can — is not a drift this guard interprets: it cannot tell what the new
+# per file and line, until all sites move together. Reshaping the
+# canonical line itself — so that no line of that shape can be found, or
+# more than one can, or its marker or window is not extractable from it —
+# is not a drift this guard interprets: it cannot tell what the new
 # reading would be, so it exits 2 and the pin waits to be re-pointed
 # deliberately, the same not-a-verdict course check-plan-shape.sh's exit 2
 # takes.
@@ -112,20 +122,43 @@ if [ "$decl_count" -gt 1 ]; then
 fi
 
 decl_line="$(printf '%s\n' "$DECL_LINES" | head -n 1 | cut -d: -f2-)"
-WINDOW="$(printf '%s' "$decl_line" | sed -E 's/^.*head -n ([0-9]+) -- .*/\1/')"
-MARKER="$(printf '%s' "$decl_line" | sed -E "s/^.*grep -qx '([^']*)'.*/\1/")"
-if [ -z "$WINDOW" ] || [ -z "$MARKER" ]; then
-  die2 "$RUNNER" "the canonical declaration line matched but its marker or window could not be extracted: $decl_line"
+# Extraction is grep -oE, never a bare sed substitution: sed's no-match
+# answer is the input line itself, so an unextractable marker or window
+# (the canonical line re-quoted, or `head` replaced) would sail past an
+# empty-check and be misreported as drift with the whole line pasted in
+# as the value (KAN-624 F2). No match here is the pin's re-point signal:
+# exit 2, never a guess.
+set +e
+WINDOW_TOK="$(printf '%s' "$decl_line" | grep -oE 'head -n [0-9]+ --')"
+MARKER_TOK="$(printf '%s' "$decl_line" | grep -oE "grep -qx '[^']*'")"
+set -e
+if [ -z "$WINDOW_TOK" ] || [ -z "$MARKER_TOK" ]; then
+  die2 "$RUNNER" "the canonical declaration line matched but its marker or window could not be extracted from it — the line's shape moved; re-point the pin: $decl_line"
 fi
+WINDOW="$(printf '%s' "$WINDOW_TOK" | sed -E 's/^head -n //; s/ --$//')"
+MARKER="$(printf '%s' "$MARKER_TOK" | sed -E "s/^grep -qx '//; s/'\$//")"
 
 VIOLATIONS=()
 
-# check_contains <file> <needle> <message> — a pinned statement must be
-# present verbatim in <file>; its absence is the drift this guard exists
-# to catch. A grep failure other than "no match" is a failure to look,
-# not an absence.
+# anchor_line <file> <ERE> — the first line carrying any statement of the
+# needle's own fact, so a drift row names an editable line even when the
+# needle itself has already drifted away (KAN-624 F4); 0 when the file
+# carries no such statement at all — the total-absence case, where no
+# line exists to name.
+anchor_line() {
+  local file="$1" ere="$2" hit
+  set +e
+  hit="$(grep -nE -- "$ere" "$file" 2>/dev/null | head -n 1 | cut -d: -f1)"
+  set -e
+  printf '%s' "${hit:-0}"
+}
+
+# check_contains <file> <needle> <message> <anchor-ere> — a pinned
+# statement must be present verbatim in <file>; its absence is the drift
+# this guard exists to catch, reported at the anchor line. A grep failure
+# other than "no match" is a failure to look, not an absence.
 check_contains() {
-  local file="$1" needle="$2" message="$3" rc
+  local file="$1" needle="$2" message="$3" ere="$4" rc line
   set +e
   grep -qF -- "$needle" "$file" >/dev/null 2>&1
   rc=$?
@@ -134,7 +167,8 @@ check_contains() {
     die2 "$file" "grep exited $rc while scanning for the pinned statement \"$needle\" — a failure to look, not an absence"
   fi
   if [ "$rc" -eq 1 ]; then
-    VIOLATIONS+=("$(report_line "$file" 0 "$message")")
+    line="$(anchor_line "$file" "$ere")"
+    VIOLATIONS+=("$(report_line "$file" "$line" "$message")")
   fi
 }
 
@@ -143,10 +177,51 @@ PANEL_WINDOW_MSG="no longer states the window as \"first $WINDOW lines\" — it 
 RUNNER_MARKER_MSG="its own comment no longer states the marker literal backticked — it drifted from the runner's canonical declaration line (marker: '$MARKER'); move both sites together"
 RUNNER_WINDOW_MSG="its own comment no longer states the window as \"first $WINDOW lines\" — it drifted from the runner's canonical declaration line (window: $WINDOW); move both sites together"
 
-check_contains "$PANEL" "\`$MARKER\`" "$PANEL_MARKER_MSG"
-check_contains "$PANEL" "first $WINDOW lines" "$PANEL_WINDOW_MSG"
-check_contains "$RUNNER" "\`$MARKER\`" "$RUNNER_MARKER_MSG"
-check_contains "$RUNNER" "first $WINDOW lines" "$RUNNER_WINDOW_MSG"
+check_contains "$PANEL" "\`$MARKER\`" "$PANEL_MARKER_MSG"   '# mutation-[a-z0-9][a-z0-9-]*'
+check_contains "$PANEL" "first $WINDOW lines" "$PANEL_WINDOW_MSG"  'first [0-9]+ lines'
+check_contains "$RUNNER" "\`$MARKER\`" "$RUNNER_MARKER_MSG" '# mutation-[a-z0-9][a-z0-9-]*'
+check_contains "$RUNNER" "first $WINDOW lines" "$RUNNER_WINDOW_MSG" 'first [0-9]+ lines'
+
+# Near-miss absence — the presence checks above cannot see a single site
+# drifting while another copy of the same fact still reads correctly, which
+# is the one-edit-at-a-time drift this guard exists to catch (KAN-624 F1:
+# the real runner states its window twice, the panel carries the marker
+# three times, and the brief's window statement is wrapped across two
+# lines where a single-line needle never looks). So every numeric window
+# statement and every backticked mutation-marker span in either pinned
+# file must carry exactly the canonical value — on a single line or
+# wrapped across two adjacent lines — and each offending occurrence is
+# reported at its own line (KAN-624 F4: a drift row names an editable
+# line, never :0).
+scan_near_miss() {
+  local file="$1"
+  awk -v win="$WINDOW" -v marker="$MARKER" '
+    function scan(s, ln,    n, rest, span) {
+      rest = s
+      while (match(rest, /first [0-9]+ lines/)) {
+        n = substr(rest, RSTART + 6, RLENGTH - 12) + 0
+        if (n != win + 0)
+          printf "%s:%d: states the window as \"first %d lines\" — a near-miss of the canonical window %s; every window statement must read \"first %s lines\"\n", FILENAME, ln, n, win, win
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+      rest = s
+      while (match(rest, /`# mutation-[a-z0-9][a-z0-9-]*`/)) {
+        span = substr(rest, RSTART, RLENGTH)
+        if (span != "`" marker "`")
+          printf "%s:%d: carries the backticked mutation-marker span %s, which is not the canonical marker `%s`\n", FILENAME, ln, span, marker
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+    }
+    { scan($0, NR); if (NR > 1) scan(prev " " $0, NR - 1); prev = $0 }
+  ' "$file"
+}
+
+for pinned in "$RUNNER" "$PANEL"; do
+  while IFS= read -r violation; do
+    [ -n "$violation" ] || continue
+    VIOLATIONS+=("$violation")
+  done < <(scan_near_miss "$pinned" | sort -u)
+done
 
 if [ "${#VIOLATIONS[@]}" -gt 0 ]; then
   printf '%s\n' "${VIOLATIONS[@]}"
