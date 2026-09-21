@@ -805,19 +805,27 @@ of its bundle-mates. **A fix resumes the task's own group's implementer** (`Send
 resume per group carrying every `fix` report path of that group's tasks, recorded as its own
 pair under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids); per task, it stages the
 changed paths (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only, so
-a fix that adds a file stages first) and commits
-`git commit --fixup=<task-sha> -- <the changed paths>` — the pathspec-scoped default (**A commit a
+a fix that adds a file stages first) and commits on the route the branch's push state dictates
+(**Panel re-runs**, `skills/flow/review-panel.md`), then writes
+`implementer-report-<k>-fix-<n>.md`. **A branch the remote already holds takes the fix as one
+new commit on top, never a rewrite** — the normal case, **Branch backup**
+(`skills/flow-contracts/git-boundaries.md`) having pushed every commit as it was made: a plain
+`git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**A commit a
 run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`)
-— runs
+— pushed plain like any other commit, and no sha moves. **Rewrite-based folding is for unpushed
+history only**: the fix commits
+`git commit --fixup=<task-sha> -- <the changed paths>` and runs
 `git rebase --autosquash <task-sha>^` — the explicit base is load-bearing: a bare
 `git rebase --autosquash` rebases onto the branch's upstream, absorbing the operator base's
-movement into a task fix — and writes `implementer-report-<k>-fix-<n>.md`. A conflict there is
+movement into a task fix. A conflict there is
 between two of the branch's own commits, and the implementer resolves it by hand, keeping both
 sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
 `skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
-parent re-runs the guard on every sha the rebase rewrote, then re-dispatches the reviewer — one
+parent re-runs the guard on every sha that rebase rewrote — the on-top route rewrites none, so
+its re-run covers nothing — then re-dispatches the reviewer — one
 bundle carrying every fixed task of the group, under `task-<n+n>-reviewer-fix-<k>`, the same
-convention as the implementer's fix key — each pass on its rewritten range
+convention as the implementer's fix key — each pass on its own range: the on-top route reads its
+fix commit's own diff `git diff <fix-commit>^..<fix-commit>`, the fold its rewritten
 `git diff <task-sha>^..<new-task-sha>`. On an inline run the parent applies the fixes itself
 with the same commit mechanics, and the re-review is still a dispatch.
 
@@ -864,7 +872,7 @@ and, inside each **PASS task-`<n>`** section:
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix
-folded, and the last implementer's report carries no `## Full
+landed, and the last implementer's report carries no `## Full
 suite` failure; the review panel's pre-work may share the last implementer's wait, in its one
 call. A report that records a full-suite failure ends your turn with `## Question` — the failing
 command and its output, verbatim — before `final-review.diff` is written: the panel never runs on
