@@ -1167,3 +1167,37 @@ func TestStageKeysTakesNoPositionalArguments(t *testing.T) {
 		t.Errorf("stderr = %q, want it to carry %q", stderr.String(), want)
 	}
 }
+
+// TestRunStageBeginWarnsOnSupersededRuns pins KAN-618's CLI surface: a
+// begin whose daemon answer names superseded runs still exits 0, but
+// warns on stderr naming what was closed -- the marking slip is caught
+// at write time, in the session that made it.
+func TestRunStageBeginWarnsOnSupersededRuns(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":2,"superseded":[{"id":41,"command":"/flow","stage":"flow.review-panel","attempt":1}]}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{
+			"stage", "begin",
+			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.verify",
+			"-harness", "claude-code", "-session-token", "ff-session-token-warn-abc",
+			"kan-618",
+		},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	w := stderr.String()
+	if !strings.Contains(w, "superseded") || !strings.Contains(w, "flow.review-panel") {
+		t.Errorf("stderr = %q, want a supersede warning naming flow.review-panel", w)
+	}
+}

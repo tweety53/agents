@@ -419,6 +419,22 @@ type BeginStageRequest struct {
 type BeginStageResult struct {
 	StageRunID int64
 	Attempt    int
+	// Superseded, on a begin, names the still-open runs the daemon closed
+	// as superseded when this begin landed (KAN-618) -- empty when the
+	// session had nothing still open.
+	Superseded []SupersededRun
+}
+
+// SupersededRun describes one still-open stage run a begin mark closed as
+// "superseded" (KAN-618): the marking slip of a session opening a stage
+// while an earlier one of its own was still open. The daemon reports these
+// on the begin response so the CLI can warn at write time instead of
+// leaving superseded rows for a deferred pass to explain.
+type SupersededRun struct {
+	ID      int64  `json:"id"`
+	Command string `json:"command"`
+	Stage   string `json:"stage"`
+	Attempt int    `json:"attempt"`
 }
 
 // EndStageRequest is the wire shape `flow stage end` sends. It carries
@@ -460,6 +476,9 @@ type beginStageWireRequest struct {
 type stageRunWireResponse struct {
 	StageRunID int64 `json:"stageRunId"`
 	Attempt    int   `json:"attempt"`
+	// Superseded is sent by a begin whose supersede closed still-open runs
+	// of the same session; an end response never carries it.
+	Superseded []SupersededRun `json:"superseded,omitempty"`
 }
 
 type endStageWireRequest struct {
@@ -572,7 +591,7 @@ func (c *Client) BeginStage(ctx context.Context, in BeginStageRequest) (BeginSta
 		if err := json.Unmarshal(respBody, &resp); err != nil {
 			return BeginStageResult{}, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
 		}
-		return BeginStageResult{StageRunID: resp.StageRunID, Attempt: resp.Attempt}, nil
+		return BeginStageResult{StageRunID: resp.StageRunID, Attempt: resp.Attempt, Superseded: resp.Superseded}, nil
 	case http.StatusBadRequest:
 		return BeginStageResult{}, classifyBadRequestBody(respBody)
 	case http.StatusConflict:

@@ -440,6 +440,27 @@ func TestBeginStageSucceedsOn200(t *testing.T) {
 	}
 }
 
+// TestBeginStageParsesSupersededRuns pins the wire side of KAN-618's
+// warning: a begin response that names superseded runs carries them into
+// the result, so the CLI can warn at write time.
+func TestBeginStageParsesSupersededRuns(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":2,"superseded":[{"id":41,"command":"/flow","stage":"flow.review-panel","attempt":1}]}`))
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	result, err := c.BeginStage(context.Background(), minimalBeginReq())
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	want := client.SupersededRun{ID: 41, Command: "/flow", Stage: "flow.review-panel", Attempt: 1}
+	if len(result.Superseded) != 1 || result.Superseded[0] != want {
+		t.Errorf("result.Superseded = %+v, want [%+v]", result.Superseded, want)
+	}
+}
+
 func TestBeginStageFallsBackOnDeadPort(t *testing.T) {
 	c := client.New(deadPortURL(t), &http.Client{Timeout: time.Second})
 	_, err := c.BeginStage(context.Background(), minimalBeginReq())

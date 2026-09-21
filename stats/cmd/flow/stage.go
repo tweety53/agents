@@ -363,9 +363,10 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		JiraKey:          f.jiraKey,
 	}
 
-	_, beginErr := beginStage(ctx, f.addr, f.timeout, req)
+	result, beginErr := beginStage(ctx, f.addr, f.timeout, req)
 	switch {
 	case beginErr == nil:
+		warnSupersededRuns(stderr, result)
 		return 0
 	case errors.Is(beginErr, client.ErrUndocumentedStage), errors.Is(beginErr, client.ErrStageMarkRejected):
 		// The store was reached and answered "no" -- either the same
@@ -392,6 +393,26 @@ func journalName(f stageIdentityFlags) string {
 		return f.name
 	}
 	return "plan-" + strings.ToLower(f.jiraKey)
+}
+
+// warnSupersededRuns prints the daemon's supersession report (KAN-618):
+// a begin that landed while this session's earlier stage run was still
+// open is a marking slip -- that run's end mark never landed -- and the
+// superseded rows it leaves read as gaps in the work unless the write
+// itself names them. A warning, never a refusal: the run is recorded
+// exactly as asked.
+func warnSupersededRuns(stderr io.Writer, result client.BeginStageResult) {
+	if len(result.Superseded) == 0 {
+		return
+	}
+	units := "s"
+	if len(result.Superseded) == 1 {
+		units = ""
+	}
+	fmt.Fprintf(stderr, "flow: warning: this stage begin superseded %d still-open run%s of the same session (its end mark never landed):\n", len(result.Superseded), units)
+	for _, r := range result.Superseded {
+		fmt.Fprintf(stderr, "  %s %s attempt %d (stage run %d)\n", r.Command, r.Stage, r.Attempt, r.ID)
+	}
 }
 
 // beginStage calls the store's stage-begin endpoint under addr/timeout,
