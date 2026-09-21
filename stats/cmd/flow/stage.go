@@ -783,7 +783,7 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		Command:    f.command,
 		Stage:      f.stage,
 		EndedAt:    time.Now(),
-		Outcome:    "completed",
+		Outcome:    stages.OutcomeCompleted,
 		JiraKey:    f.jiraKey,
 	}
 	if exitCode != 0 {

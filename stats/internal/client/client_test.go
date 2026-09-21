@@ -1001,6 +1001,10 @@ func (stubStageStore) ChangeSummary(context.Context, string, string) (records.Ch
 	return records.ChangeSummary{}, errStageStoreNotImplemented
 }
 
+func (stubStageStore) StageCompleted(context.Context, string, string, string) (bool, error) {
+	return false, errStageStoreNotImplemented
+}
+
 func (stubStageStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, errStageStoreNotImplemented
 }

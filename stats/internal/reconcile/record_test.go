@@ -136,6 +136,10 @@ func (nopRecordStore) ChangeSummary(context.Context, string, string) (records.Ch
 	return records.ChangeSummary{}, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) StageCompleted(context.Context, string, string, string) (bool, error) {
+	return false, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, errRecordStoreNotExercised
 }
@@ -308,6 +312,10 @@ func (f *fakeRecordStore) RunRecord(context.Context, string, string) (records.Ru
 
 func (f *fakeRecordStore) ChangeSummary(context.Context, string, string) (records.ChangeSummary, error) {
 	return records.ChangeSummary{}, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) StageCompleted(context.Context, string, string, string) (bool, error) {
+	return false, errRecordStoreNotExercised
 }
 
 func (f *fakeRecordStore) RecordVerdict(_ context.Context, projectKey, change string, in records.Verdict) (records.Verdict, error) {

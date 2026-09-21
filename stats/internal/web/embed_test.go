@@ -528,6 +528,10 @@ func (fakeStore) ChangeSummary(context.Context, string, string) (records.ChangeS
 	return records.ChangeSummary{}, nil
 }
 
+func (fakeStore) StageCompleted(context.Context, string, string, string) (bool, error) {
+	return false, nil
+}
+
 func (fakeStore) RecordPass(context.Context, string, string, records.Pass) (records.Pass, error) {
 	return records.Pass{}, nil
 }

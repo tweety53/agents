@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/tweety53/agents/stats/internal/stages"
 )
 
 // ErrStageRunNotFound is returned by EndStage, MergeMetrics and Price when
@@ -756,11 +758,13 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 }
 
 // StageCompleted reports whether any stage run of the named stage for the
-// (projectKey, change) pair has ended with outcome 'completed'. The
+// (projectKey, change) pair has ended with the completed outcome. The
 // self-review bundle reads it to tell a records-source loss from a panel
 // that never ran: a change whose review-panel stage demonstrably completed
 // while the store holds no dispatch rows for it has lost those rows, not
-// skipped its panel (KAN-621).
+// skipped its panel (KAN-621). The outcome value is stages.OutcomeCompleted,
+// the same constant `flow stage end` writes -- one spelling, or a writer
+// and a reader could drift apart and silence this predicate (F5).
 //
 // An unknown (projectKey, change) pair is (false, nil), not
 // ErrChangeNotFound: no stage run of any stage can have completed for a
@@ -774,9 +778,9 @@ func (s *Store) StageCompleted(ctx context.Context, projectKey, change, stage st
 			SELECT 1
 			FROM stage_runs sr
 			JOIN changes c ON c.id = sr.change_id
-			WHERE c.project_key = $1 AND c.name = $2 AND sr.stage = $3 AND sr.outcome = 'completed'
+			WHERE c.project_key = $1 AND c.name = $2 AND sr.stage = $3 AND sr.outcome = $4
 		)
-	`, projectKey, change, stage).Scan(&completed)
+	`, projectKey, change, stage, stages.OutcomeCompleted).Scan(&completed)
 	if err != nil {
 		return false, fmt.Errorf("store: stage completed for %s/%s stage %q: %w", projectKey, change, stage, err)
 	}
