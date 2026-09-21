@@ -203,6 +203,26 @@ head -c "$((build_green_budget + 500))" /dev/zero | tr '\0' 'x' \
   > "$FIX/over/skills/flow-contracts/build-green.md"
 expect 'a file over budget fails' 1 "$FIX/over"
 
+# The over-budget failure line carries THREE numbers: the file's actual size, the
+# budget row, and the remaining headroom — budget minus size, negative on this
+# branch by construction. The first two were printed from the start; the headroom
+# is what makes the line's own trim-vs-raise advice decidable (KAN-615): without
+# it a fix round cannot see how many bytes a trim must cut or a raise must add,
+# and "trim it back" can be infeasible advice, exactly as KAN-556's review round
+# proved when the headroom was nearly zero. Seven bytes over, so every number in
+# the assertion is derived from the row, not copied from it (see F15).
+mkroot "$FIX/headroom"
+build_green_budget="$(budget_row_bytes 'skills/flow-contracts/build-green.md')"
+head -c "$((build_green_budget + 7))" /dev/zero | tr '\0' 'x' \
+  > "$FIX/headroom/skills/flow-contracts/build-green.md"
+out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/headroom" "$GUARD" 2>&1 || true)"
+if printf '%s' "$out" | grep -q "^skills/flow-contracts/build-green\.md: $((build_green_budget + 7)) bytes exceeds budget $build_green_budget (headroom: -7 bytes)"; then
+  printf 'ok   the over-budget line prints size, budget and headroom\n'
+else
+  printf 'FAIL the over-budget line did not carry size, budget and headroom: %s\n' "$out"
+  failures=$((failures + 1))
+fi
+
 # A contract added later with no row in budgets(). This is the case that stops a
 # new file escaping the ratchet silently.
 mkroot "$FIX/undeclared"

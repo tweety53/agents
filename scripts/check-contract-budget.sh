@@ -244,8 +244,13 @@ check_one() {
       "$rel" "$(basename "${BASH_SOURCE[0]}")"
     violations=$((violations + 1))
   elif [ "$actual" -gt "$max" ]; then
-    printf '%s: %s bytes exceeds budget %s — trim it back under budget, or raise its row in budgets() in %s if the growth is deliberate\n' \
-      "$rel" "$actual" "$max" "$(basename "${BASH_SOURCE[0]}")"
+    # The headroom — budget minus size, negative on this branch by construction —
+    # is what makes this line's own two responses decidable from the guard's
+    # output: how many bytes a trim must cut, how far a raise must move the row.
+    # KAN-556's fix round advised a trim that could never have flipped the guard,
+    # because the headroom was nearly zero and nothing printed said so.
+    printf '%s: %s bytes exceeds budget %s (headroom: %s bytes) — trim it back under budget, or raise its row in budgets() in %s if the growth is deliberate\n' \
+      "$rel" "$actual" "$max" "$((max - actual))" "$(basename "${BASH_SOURCE[0]}")"
     violations=$((violations + 1))
   fi
 }
