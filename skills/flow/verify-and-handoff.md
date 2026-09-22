@@ -302,12 +302,14 @@ and 13 below as written, committing and pushing nothing.
 6. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
    of what the app was serving when it was taken, and a stack step 5 found already running may be
    serving a build older than the worktree — gymie KAN-29's last fix round captured, and nearly accepted,
-   the bug the fix had removed. Run `fingerprint`. Exit 0 → the served bundle is the worktree's
-   build; continue. Non-zero → stop the stack, start it from `start` when declared, else `## run`,
-   record that this stage started it (step 13 stops it), and run `fingerprint` once more. A second
-   non-zero exit blocks, carrying the command's output. No row declared → report
-   `fingerprint: not declared` and continue; the report makes the gap visible in every handoff, but
-   this stage cannot prove what it was never told how to check.
+   the bug the fix had removed. Run `check-dev-stack-fresh.sh <worktree>` — it reads the row and
+   runs it, so the stage never parses the table by hand; its header is canonical for its three
+   exits. Exit 0 → the served bundle is the worktree's build; continue. Exit 1 → stop the stack,
+   start it from `start` when declared, else `## run`, record that this stage started it (step 13
+   stops it), and run the guard once more. A second exit 1 blocks, carrying the guard's output.
+   Exit 2 → report `fingerprint: not declared — <the guard's stderr reason>` and continue; the
+   report makes the gap visible in every handoff, but this stage cannot prove what it was never
+   told how to check.
 7. **Run `verify`.** A non-zero exit blocks.
 8. **Capture** — author a spec covering the views this change touched, then run `capture` with
    `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
