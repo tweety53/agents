@@ -210,6 +210,13 @@ already sits on the tip:
 git -C <worktree> rebase origin/$BASE
 ```
 
+Uncommitted planning artifacts are set aside before this rebase and restored after it — the
+calling stage runs `aside-planning-artifacts.sh` (`aside`, then `restore` once the rebase has
+finished or aborted) against this worktree — so a run's own `tasks.md`/`design.md` edits never
+block the sync nor turn a stopped rebase into an improvised stash dance (KAN-628); the helper
+sets the planning paths aside and nothing else, and on a stop-and-ask exit its aside stays set
+aside, named in the handoff.
+
 `origin/$BASE` is current: `resolve-base-branch.sh` fetched when the caller resolved the base ref,
 and `check-base-moved.sh` performs no fetch of its own.
 

@@ -106,7 +106,15 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <n
 Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the
 branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`), which is canonical for
 the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the
-after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. A
+after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. The
+rebase never meets the run's own uncommitted planning artifacts:
+`aside-planning-artifacts.sh <aside|restore> <worktree>` around each `MOVED` worktree's rebase —
+set aside before it, restored once that worktree's rebase has finished or aborted; never
+mid-way, restore refuses while the rebase is still unresolved, and on a stop-and-ask exit the
+aside stays set aside, named in the handoff with `git stash list` as the recovery path. The
+helper sets the planning paths aside — the spec tree's `changes/` leaf and `docs/superpowers/`
+— and nothing else: implementation WIP stays exactly where the unfinished-work gate owns it
+(KAN-628). A
 clean rebase runs **Scoped re-verification** below, then proceeds to the landing question. No
 `MOVED` verdict anywhere → report the counts and go straight to the landing question.
 
