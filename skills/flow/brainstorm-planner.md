@@ -290,11 +290,11 @@ with `**Build:**` per **The build-green tag**
 
 - `**Files:**` — the paths this task's commit will touch, with an optional
   `**Allowed-collateral:**` glob. Every path is written literal and
-  repo-relative: a shorthand the plan's preamble defines (`gs`, `commonMain/…`)
-  is expanded by the writer, never left in the field for the guard to expand
-  (KAN-636) — kan-579's plan declared `gs/core/...` behind its own legend and
-  hand-repaired every field back to literal paths at its first task boundary,
-  which is the repair this rule removes.
+  repo-relative: a shorthand the plan's preamble defines — gs, commonMain
+  and their like — is expanded by the writer, never left in the field for
+  the guard to expand (KAN-636); kan-579's plan declared gs/core/... behind
+  its own legend and hand-repaired every field back to literal paths at its
+  first task boundary, which is the repair this rule removes.
 - `**Tests:**` — the names of the tests this task adds. **The field is parsed, not read:** a
   `Case <N>` label is checked by that label alone and backticks beside it parse as nothing;
   otherwise every backticked token becomes a declared test name the commit's diff and the tree
