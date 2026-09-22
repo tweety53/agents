@@ -4210,6 +4210,95 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 133 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 133: a deleted declared file counts as touched" || fail "case 133: rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 134 (KAN-636): a `**Decision:**` line directly following `**Commit:**`
+# with no blank line between is a field of its own, never a continuation of
+# the commit subject — kan-579's run hand-repaired exactly this shape at its
+# first task boundary because the joined value could not match the real
+# subject.
+# ===========================================================================
+new_repo
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "seed alpha"
+write_tasks_md "$REPO" '- [ ] 134. Decision glued to the commit subject
+
+**Files:** `alpha.txt`
+**Tests:** none — a plain file
+**Commit:** fix: widen alpha
+**Decision:** widen-not-rename
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a wider\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "fix: widen alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 134 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 134: Decision after Commit does not join the subject" || fail "case 134: rc=$RC out=$OUT"
+case "$OUT" in
+  *"does not match declared Commit"*) fail "case 134: the Decision line still rides in the subject, out=$OUT" ;;
+  *) pass "case 134: no subject mismatch is reported" ;;
+esac
+
+# ===========================================================================
+# Case 135 (KAN-636): the plan preamble's own path shorthand — the kan-579
+# legend shape, wrapped across lines with backticked abbreviation and path
+# tokens — expands against `**Files:**` tokens, so a declared `gs/...` path
+# matches the real repo-relative path the commit carries.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" 'Paths are relative to it; `gs` abbreviates
+`src/main/kotlin/com/gymie/gs`, `gsTest`
+`src/test/kotlin/com/gymie/gs`.
+
+- [ ] 135. Shorthand task
+
+**Files:** `gs/core/Thing.kt`, `gsTest/core/ThingTest.kt`
+**Tests:** none — a plain file
+**Commit:** feat: add thing
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+mkdir -p "$REPO/src/main/kotlin/com/gymie/gs/core" "$REPO/src/test/kotlin/com/gymie/gs/core"
+printf 'class Thing\n' > "$REPO/src/main/kotlin/com/gymie/gs/core/Thing.kt"
+printf 'class ThingTest\n' > "$REPO/src/test/kotlin/com/gymie/gs/core/ThingTest.kt"
+git -C "$REPO" add src
+git -C "$REPO" commit -q -m "feat: add thing"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 135 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 135: a preamble shorthand legend expands against Files" || fail "case 135: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 136 (KAN-636): a shorthand-looking token with no legend behind it is
+# still a literal path — expansion never invents a mapping, so the
+# undeclared-and-untouched pair fails exactly as before the dialect
+# teaching.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 136. No legend behind the abbreviation
+
+**Files:** `gs/core/Thing.kt`
+**Tests:** none — a plain file
+**Commit:** feat: add thing
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+mkdir -p "$REPO/src/main/kotlin/com/gymie/gs/core"
+printf 'class Thing\n' > "$REPO/src/main/kotlin/com/gymie/gs/core/Thing.kt"
+git -C "$REPO" add src
+git -C "$REPO" commit -q -m "feat: add thing"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 136 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 136: an abbreviation with no legend stays literal and fails" || fail "case 136: rc=$RC out=$OUT"
+case "$OUT" in
+  *"gs/core/Thing.kt"*"does not touch"*) pass "case 136: names the untouched shorthand declaration" ;;
+  *) fail "case 136: expected the untouched-declaration violation, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
