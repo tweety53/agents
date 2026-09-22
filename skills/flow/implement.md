@@ -780,6 +780,17 @@ transcription can overwrite — so the disclosure cannot disarm the gate. This i
 on every task, not one implementer's habit (gymie KAN-29's self-review: corrections recorded in the task
 itself made that panel's bookkeeping findings cheap to adjudicate; KAN-407 makes it the rule).
 
+**A deviation from the plan records as a dated `Correction:` paragraph.** When a task's commit
+departs from what the plan declares — a file swap, a renamed helper, an added step, any course
+the plan did not name — the parent appends a paragraph opening `Correction (YYYY-MM-DD):` to
+that task's entry in `tasks.md`, at the task-close boundary where the task's other corrections
+are transcribed (before the guard runs on the commit), stating what the plan declared, what
+shipped instead, and why. The disclosure route is the same as any correction's: the implementer
+reports the deviation, the parent transcribes it; inline, the session is both halves. The
+archived plan then reads as what actually shipped, and the panel verifies the deviation instead
+of discovering it (gymie kan-361's task 2: three tests moved to a sibling file after detekt's
+`LargeClass` refused the planned one, recorded on the task this way).
+
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
 the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
