@@ -225,11 +225,13 @@ kan-579's plan wrote "`gs` abbreviates `src/app/groupsession/...`,
 commit's diff literally — failed every such task with "declared in Files:
 but the commit does not touch it" until the plan was hand-repaired to
 literal paths. `path_shorthand` reads the legend from the preamble (every
-line above the first task line, fences excluded), pairing the token stream
-after an `abbreviates`/`abbreviating` keyword with the next path-shaped
-token, so one path can close several pending abbreviations the way
-kan-455's "`commonTest` and `desktopTest` the `shared/src/commonTest/...`"
-does. `_expand_shorthand` rewrites a declared token opening with
+line above the first task line, fences excluded), pairing the backticked
+tokens a legend sentence accumulates with the next path-shaped token after
+its `abbreviates`/`abbreviating` keyword, so one path can close several
+pending abbreviations — a generality of the token walk, not a corpus-cited
+shape: kan-455's real legend ends in prose ("`commonTest` and `desktopTest`
+the matching test roots"), which the walk reads as pending abbreviations no
+path ever closes and discards harmlessly. `_expand_shorthand` rewrites a declared token opening with
 `<abbreviation>/` to the target path plus the remainder, longest
 abbreviation first, so `gsTest/...` resolves through `gsTest` and never
 through `gs`. A plan with no legend — and every plan written after
@@ -487,9 +489,10 @@ def path_shorthand(lines: List[str]) -> Dict[str, str]:
     "`abbrev` abbreviates `path`": the abbreviation is a backticked token
     BEFORE the keyword, its path a token containing `/` AFTER it — so the
     walk keeps the backticked tokens seen since the last path, and a path
-    following the keyword closes all of them at once, which is what lets
-    kan-455's "`commonTest` and `desktopTest` the `shared/src/commonTest/...`"
-    name two abbreviations for one path. Bare words are prose — connectors
+    following the keyword closes all of them at once. That closing is a
+    generality of the walk, not a corpus-cited shape: kan-455's real legend
+    ends in prose no path ever closes, so its trailing tokens stay pending
+    and are discarded harmlessly. Bare words are prose — connectors
     and filler alike ride along as nothing. The first pair an abbreviation
     wins is kept, and a blank line ends a legend sentence, so the pending
     set never leaks across paragraphs.
