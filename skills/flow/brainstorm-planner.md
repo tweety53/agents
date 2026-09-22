@@ -289,7 +289,12 @@ with `**Build:**` per **The build-green tag**
 `flow-task-commit-fields` requires:
 
 - `**Files:**` — the paths this task's commit will touch, with an optional
-  `**Allowed-collateral:**` glob.
+  `**Allowed-collateral:**` glob. Every path is written literal and
+  repo-relative: a shorthand the plan's preamble defines (`gs`, `commonMain/…`)
+  is expanded by the writer, never left in the field for the guard to expand
+  (KAN-636) — kan-579's plan declared `gs/core/...` behind its own legend and
+  hand-repaired every field back to literal paths at its first task boundary,
+  which is the repair this rule removes.
 - `**Tests:**` — the names of the tests this task adds. **The field is parsed, not read:** a
   `Case <N>` label is checked by that label alone and backticks beside it parse as nothing;
   otherwise every backticked token becomes a declared test name the commit's diff and the tree
@@ -331,8 +336,12 @@ across a `**Squash-with:**` pair (union semantics merge the pair into one bundle
 an entry of design.md's `## Decisions`, it names that entry by its `**ID:**` in a
 `**Decision:** <id>` field and copies nothing of the entry's text — the decision lives once,
 under `## Decisions`, and the citation is the link. Restated decision prose drifts from its
-entry the first time either is edited. A task
-implementing no recorded decision writes no such field.
+entry the first time either is edited, which is why gymie kan-468's seeded plan cited instead. A task
+implementing no recorded decision writes no such field. A block of `**Decision:**` lines sits
+between blank lines — one before the first line of the block and one after the last, never
+glued to the `**Commit:**` subject above it (KAN-636): a citation with no blank line rode in
+the subject's continuation in every reader that had not learned the field's name, and
+kan-579's run repaired each such field by hand at its task boundary.
 
 Add this header to `tasks.md`:
 
