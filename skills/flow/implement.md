@@ -186,6 +186,24 @@ stops the run.
 - `<changeRoot>/design.md` — how, when the change carries one
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
 
+**The plan is refreshed against the base before task 1 runs.** The plan and design were written
+against a snapshot of the base branch and the capability specs, and a concurrent merge can
+outdate both while this change waits (gymie kan-579: KAN-527 merged a range-read endpoint at the
+exact route the plan meant to add, and the collision surfaced only when task 1's spec-delta step
+ran against the current spec — an operator ask and a mid-run redesign of two tasks). Before the
+first task dispatches — inline or as an implementer — `git -C <worktree> fetch origin` and
+compare this run's working-notes merge base against `origin/<default-branch>`. On a moved base,
+re-read at the moved base every capability spec the proposal names —
+`git show origin/<default-branch>:<spec-path>`, `<spec-path>` the spec's
+`<project>/spectre/specs/<capability>.md` — run
+`git diff --name-only <merge-base> origin/<default-branch> -- <the paths the tasks' **Files:**
+fields name>`, and **name every route or requirement the plan adds that the moved base now
+already carries**. A collision is reconciled before task 1 runs, under **A pivot reconciles the
+three artifacts together** (section 4 below) — never discovered mid-task; an unmoved base
+records one line saying so. The step names, it never rebases: the change branch is synced onto
+the base at integrate (**Sync the branch onto the base**,
+`skills/flow-contracts/finish-contract-run1.md`).
+
 **Whether there is anything left to implement is read off the task checkboxes**, from
 `spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change:
 
@@ -790,6 +808,18 @@ reports the deviation, the parent transcribes it; inline, the session is both ha
 archived plan then reads as what actually shipped, and the panel verifies the deviation instead
 of discovering it (gymie kan-361's task 2: three tests moved to a sibling file after detekt's
 `LargeClass` refused the planned one, recorded on the task this way).
+
+**A pivot reconciles the three artifacts together.** When implementation pivots — a reality
+discovered mid-run (a route already taken on the base, a capability spec another change already
+moved, a premise a measurement disproved) has remaining tasks redesigned rather than implemented
+as written — the parent edits `proposal.md`, `design.md` and `tasks.md` in the same pass, never
+`tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, and a
+decision the pivot displaces is superseded by ID per **Decisions**
+(`skills/flow/brainstorm-planner.md`) — the old entry's `**Status:**` set to `superseded by
+<new-id>`, a fresh entry appended, nothing deleted or rewritten — so the record carries the
+superseded decision beside its replacement. gymie kan-579 pivoted two tasks through `tasks.md`
+alone; its `proposal.md` never caught up, and the panel found the drift. The amended plan is
+re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches.
 
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
