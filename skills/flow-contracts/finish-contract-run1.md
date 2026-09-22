@@ -65,12 +65,10 @@ script — but signals 1 and 3 still run, and still run in this order.
 ### Surface foreign staged work before the preflight
 
 Before `check-finish-preflight.sh` runs for any worktree, the run surfaces the foreign staged work
-the affected main checkouts carry (KAN-546). It is pre-run on purpose: which run this is is not yet
+the affected main checkouts carry. It is pre-run on purpose: which run this is is not yet
 known, and a main checkout's staged residue is exactly what a resumed run is tempted to clear by
-hand once a later REFUSE arrives — the high-judgment surgery gymie kan-437's run 2 performed inline
-across three repos, hard reset where it judged a clean revert and stash where the work was distinct
-WIP. That judgment belongs to the operator; this surface is what hands it to them before the run
-reaches the refusal it would otherwise improvise around.
+hand once a later REFUSE arrives. That judgment belongs to the operator; this surface is what hands
+it to them before the run reaches the refusal it would otherwise improvise around.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
 `git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated — the same
@@ -114,7 +112,7 @@ never a raw read of the state file's `worktrees` map, for the same reason the pr
 above does not read it raw. Pass `[canonical-worktree]` on every call in the run: the one member of
 the resolved set whose own `<project>/<spec-root>/changes/<change-name>/tasks.md` exists. Without it, a
 satellite worktree's call falls back to resolving the link's peer name through `peers`, which cannot
-resolve from inside a worktree — see `design.md`'s `guards-take-the-canonical-worktree-path`. A
+resolve from inside a worktree. A
 resolved set that comes back empty stops the run rather than passing as `CLEAR` from every worktree.
 
 | Verdict | Meaning |
@@ -213,7 +211,7 @@ git -C <worktree> rebase origin/$BASE
 Uncommitted planning artifacts are set aside before this rebase and restored after it — the
 calling stage runs `aside-planning-artifacts.sh` (`aside`, then `restore` once the rebase has
 finished or aborted) against this worktree — so a run's own `tasks.md`/`design.md` edits never
-block the sync nor turn a stopped rebase into an improvised stash dance (KAN-628); the helper
+block the sync nor turn a stopped rebase into an improvised stash dance; the helper
 sets the planning paths aside and nothing else, and on a stop-and-ask exit its aside stays set
 aside, named in the handoff.
 
@@ -290,8 +288,8 @@ pathspec — the same clearing pass **Git boundaries** (`git-boundaries.md`) giv
 for the same reason: an exclusion cannot retract what an earlier step staged, and at this gate that
 step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
 picks the two paths up; `<abs-worktree>/.superpowers/sdd/` is gitignored, so it never does. The sequence itself — the guarded commits, the skipped-empty rule, the
-failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives, and is
-not written out a second time here; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this
+failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives;
+`<agents repo>/scripts/commit-split.sh` is what runs it, at both this
 call site and the implement phase's PR-exception path.
 
 | Route | Then |
@@ -344,11 +342,7 @@ detached `HEAD`, refuse when no name resolved, refuse when the resolved name equ
 branch, and refuse the resolved name unless it matches this exact shape: the first character is one
 of `[A-Za-z0-9._]` — so a leading `-` a downstream git call would read as an option is refused, and
 so is a leading `/` — and every character in the name, start to end, is one of `[A-Za-z0-9._/-]`,
-which is what rules out control characters and anything else outside that set. That header is the
-authority for the exact commands and their order; this paragraph does not repeat what it already
-states. The character rule itself is stated here in full, not cited, because this paragraph's own
-precondition is the script's absence — a fallback the operator applies by hand when the script is
-absent cannot defer them to a file that, by the same precondition, is not there to read.
+which is what rules out control characters and anything else outside that set.
 
 **A repository with no remote at all cannot be integrated by this command.** Every route needs a
 push, and base resolution needs `origin` — `resolve-base-branch.sh` is where that check lives,
@@ -371,8 +365,7 @@ The scan that finds the worktrees carrying a change's branch. This is bare `/flo
 application of the rule stated once under **Resolving a change's worktrees**
 (`skills/flow-contracts/worktree-resolution.md`) — that a step needing "the worktrees" resolves the set
 rather than reading the state file's `worktrees` map directly, and that a resolved set which comes
-back empty is never a vacuous pass. That rule and the commands it binds are not restated here; what
-follows is specific to bare `/flow`: the preflight verdict, the unfinished-work gate, and run
+back empty is never a vacuous pass. The preflight verdict, the unfinished-work gate, and run
 2's removal all resolve the set through this same procedure.
 
 The set of worktrees is the **keys of the state file's `worktrees` map**. When that is absent or

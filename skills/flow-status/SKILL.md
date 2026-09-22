@@ -22,9 +22,7 @@ Follow both contracts:
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm the one guard this command invokes — `resolve-base-branch.sh` — is present in
 `skills/flow-status/scripts/`. A complete set prints nothing; an absence prints that section's
-block once, and the run continues under the guard's own hand-run fallback. Step 2 below still
-reimplements `check-finish-preflight.sh`'s other merge-status steps in prose rather than invoking
-that script (see the note there); only base-branch resolution is delegated to a real guard.
+block once, and the run continues under the guard's own hand-run fallback.
 
 Enumerate the candidate set exactly as **Change name resolution**
 (`skills/flow-contracts/pipeline.md`) defines it — through `flow state resolve [-C dir]`, never a
@@ -112,9 +110,7 @@ row. Each worktree in the resolved set is answered in **three steps, in this ord
 decisive.** Why an unresolved or unequal-to-`HEAD` merge base has to be settled *before*
 `git merge-base --is-ancestor` runs, and what answering them the other way round reports, is stated
 once under **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`), beside the
-selection table this answer feeds. Read it there — it is not re-derived here, and it is not
-re-derived from `<agents repo>/scripts/check-finish-preflight.sh` either: that script's resolve-first guard and
-its comment (b) are what `pipeline.md` cites in turn.
+selection table this answer feeds.
 
 **A multi-repo change has one merge status per worktree, and the change's is the weakest of them.**
 The resolved set may carry more than one worktree, so the merge-status check is answered once per
@@ -158,7 +154,7 @@ change name.
 Surface `artifactUrl` when present — the link to the published proposal artifact.
 
 Surface `planningEffort` only when the record carries one, verbatim — it is a legacy field no run
-writes, per **Planning effort** in State file (`skills/flow-contracts/state-file.md`); omit the
+writes, per **The record** in State file (`skills/flow-contracts/state-file.md`); omit the
 line otherwise.
 
 Surface `models` the same way: the recorded `models.default` verbatim, or `not recorded` when it
@@ -176,8 +172,7 @@ Next-command mapping:
 
 The `IN_PROGRESS` row splits on merge status because bare `/flow` behaves differently either
 side of it: it integrates before the merge and archives after. Say which run the operator is
-about to get. **Merge status here is step 2's answer — all three of its steps, and combined
-across every worktree** — never a bare ancestor test. A branch with no commits of its own is *not
+about to get. A branch with no commits of its own is *not
 merged*, and an inconclusive answer takes the not-merged row and says the check could not be
 completed.
 
@@ -206,7 +201,7 @@ one.
   reads *missing* is distinguishable from one whose URL was never printed. A run-only value is the
   exception and is omitted instead:
   **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`) marks which fields those
-  are, and this file does not list them again.
+  are.
 - `IN_PROGRESS` renders two different blocks, and **the merge status this command already computed
   in step 2 chooses between them whenever it is conclusive** — a branch proven to have reached the
   base branch is integrated, so the branch-waiting-on-a-merge block is the right one for it, and its
@@ -218,19 +213,9 @@ one.
   merge status — all three of its steps, combined across every worktree — for the next-command
   column, and re-deriving it here with a bare ancestor test would reintroduce the
   no-commits-of-its-own false positive that check names.
-  Reading `prUrl` in front of that answer is what let one invocation
-  report *branch merged → it will archive* in the table and *waiting on the merge* in the block, for
-  the same change, in the same run — a change stopped at a run-2 cleanup leftover is exactly that
-  case, and it is not rare.
-- **The two splits do not compete.** The next-command column splits `IN_PROGRESS` on merge
-  status to say which bare `/flow` run the operator gets; the block splits on it to say which
-  wait the operator is in. Both read the same signal first, so they cannot disagree about the
-  branch — and because both blocks end in `/flow <name>`, neither can contradict the other
-  about what to run next.
 - The `prUrl` test that remains is one-way — a `null` `prUrl` does not prove run 1 has not
   happened — and what that costs, plus why it is accepted rather than replaced, is stated under
-  **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`). Do not restate that
-  reasoning here, and do not present the test as conclusive.
+  **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`).
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
 - **The `Running:` section is resolved, never copied from a stored run.** Follow **Resolve the
   run instructions** (`skills/flow/verify-and-handoff.md`) — canonical for how those lines are produced —
@@ -238,23 +223,14 @@ one.
   and `<project>/.flow/project.md` — never the project's declared base — not from any text
   `/flow`'s implement phase printed earlier. This command prints the resolved commands without re-probing
   whether the stack is still running — it states that the stack's liveness is not re-checked, it
-  does not attempt to confirm it. Do not restate the resolution *procedure* here — the steps that
-  compute each app root, start command and URL; a second copy of those steps is the failure this
-  repository's contracts are built to avoid, and naming the invariant above is not one.
+  does not attempt to confirm it.
 
 With no change name there is no block at all: the no-argument report stays the table above,
 unchanged.
 
 ## Guardrails
 
-- **Never** commit, stage, push, merge, or archive.
-- **Never** advance a state, rewind a state, or write the record — this command is entirely
-  read-only.
-- **Never** fabricate a `prUrl`.
 - **Never** create a worktree or branch.
-- **Never** call `gh`, or any other network command, to determine PR state — the PR column reports
-  only the number parsed from the recorded `prUrl`.
-- Never guess a state when artifacts are ambiguous — show `?` and say which check was inconclusive.
 - **Never** act on a regenerated handoff block — it is output, not a plan. No command it names is
   executed, nothing is staged, and no state is written on account of it, however imperative its last
   line reads.

@@ -111,8 +111,7 @@ affected slot in roster order:
 ⚠ roster: no `flow-review` agent type at conductor depth — primary, principles, bugbot will be substituted (general-purpose) at panel time
 ```
 
-The write proceeds either way: this line is the report KAN-398 asked for — the operator learns at
-save time, not mid-panel, that a configured slot has no agent type here — never a gate. Never
+The write proceeds either way: never a gate. Never
 block the save on it and never drop a slot to silence it.
 
 A non-zero exit means the store rejected the write (an invalid model or reviewer name) or could not
@@ -124,13 +123,7 @@ old value → new value. A field left unchanged is not mentioned as a change.
 
 ## Guardrails
 
-- **Never** touch a per-change state file, `<project>/spectre/changes/`, or any `flow
-  state`/`flow stage` call — this command's write is scoped to the harness-wide settings record
-  alone.
 - **Never** commit, stage, push, merge, or create a worktree or branch.
-- **No flags** — the only input is the operator's interactive answers.
-- **Never** call `settings set` with a value the operator did not just confirm, and never call it at
-  all when nothing changed.
 
 ## Commands (user-facing)
 

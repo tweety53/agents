@@ -569,7 +569,12 @@ EXPECTED_ZERO_RATIONALE_DOCS=(
   "skills/flow-contracts/session-records-rationale.md"
   "skills/flow-contracts/worktree-resolution-rationale.md"
   "skills/flow-contracts/project-configuration-authoring.md"
-  "skills/flow/SKILL-rationale.md"
+  "skills/flow-contracts/SKILL-rationale.md"
+  "skills/flow-fast/SKILL-rationale.md"
+  "skills/flow-plan/SKILL-rationale.md"
+  "skills/flow-self-review/SKILL-rationale.md"
+  "skills/flow-settings/SKILL-rationale.md"
+  "skills/flow-status/SKILL-rationale.md"
 )
 EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"
 

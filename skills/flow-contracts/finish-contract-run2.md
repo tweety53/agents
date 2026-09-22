@@ -29,7 +29,7 @@ bare `/flow` is the only command that loads this file.
 
    **The pre-flight classifies; the guard still refuses.** `classify-untracked.sh` sorts the
    landing worktree's untracked entries into three classes instead of leaving the guard's flat
-   dirty-tree refusal to be cleared by hand (KAN-411): capture images — `*.png`, `*.jpg`,
+   dirty-tree refusal to be cleared by hand: capture images — `*.png`, `*.jpg`,
    `*.jpeg` — move to `<project>/.worktrees/_scratchpad/`, outside the worktree step 11
    force-removes; a `.claude` entry at the worktree root is appended to the checkout's local
    exclude (`<project>/.git/info/exclude` — a linked worktree's own exclude file is not read
@@ -49,8 +49,7 @@ bare `/flow` is the only command that loads this file.
    `check-finish-preflight.sh`'s own main-checkout assertion (**Finish contract**,
    `skills/flow-contracts/finish-contract-run1.md`), and git otherwise refuses a second worktree on
    a branch already checked out), and say in the handoff that it was done manually. The guard is never
-   skipped for want of the script. The steps are stated in full rather than cited, for the
-   reason the resolver's own fallback above gives: the guard being absent takes its header with it.
+   skipped for want of the script.
    Run the wrapped, credential-free fetch first, so an
    unreachable remote refuses quickly rather than hanging. Then read `HEAD`: **refuse a detached
    `HEAD`.** Then read the working tree with `git -C <landing-worktree> status --porcelain` — the
@@ -71,7 +70,7 @@ bare `/flow` is the only command that loads this file.
    refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
    each sub-change is archived by its own call in this same step. Never left behind, never archived
    alone. **There is nothing to sync into
-   `<project>/spectre/specs/` first, and no sync step is ever to be added back**: a change edits that
+   `<project>/spectre/specs/` first**: a change edits that
    tree directly on its own branch, so its spec edits reached the base branch with the merge step 1
    proved.
 4. **Commit the archive on `chore/archive-<name>` — no push.** There is no merge to do: the change
@@ -90,10 +89,9 @@ bare `/flow` is the only command that loads this file.
    a landing worktree step 2 failed to actually fast-forward — silently, or by a skipped guard run
    by hand and gotten wrong — stages and commits whatever else that stale tree carried right
    alongside it. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
-   rather than let a stray path land on `chore/archive-<name>` unremarked. This has happened: an archive commit made this
-   way reverted skill-file content another change had shipped minutes earlier. **An exit 2 with
+   rather than let a stray path land on `chore/archive-<name>` unremarked. **An exit 2 with
    nothing on stdout** — a landing worktree that is not a readable git worktree, or no
-   allowed-prefix given — refuses the commit the same way (KAN-601): the guard's header is
+   allowed-prefix given — refuses the commit the same way: the guard's header is
    explicit that an inability to answer is never reported as a verdict, so an unreadable tree is
    never read as `SCOPE-OK`.
 
@@ -233,8 +231,7 @@ bare `/flow` is the only command that loads this file.
    report's `**Deferred:**` line states that.
 
    **On `run`, this same step-9 session runs the reasoning pass itself, inline, on whatever
-   model it is already on — no subagent, no dispatch, no `Model:` handshake, no `opus`
-   re-dispatch.** `SELF_REVIEW_MODEL` (step 9, `skills/flow/archive.md`) still
+   model it is already on — no subagent, no dispatch.** `SELF_REVIEW_MODEL` (step 9, `skills/flow/archive.md`) still
    resolves — the store field, a project override, the `fable` fallback — but governs nothing:
    there is no dispatch left to send it to. It fetches its
    input with `flow self-review bundle -change <name>` rather than re-reading files a second time,
@@ -285,9 +282,7 @@ bare `/flow` is the only command that loads this file.
    all five present; each finding is one line naming its angle's label, the finding, and its
    disposition — the issue key when filed, an explicit declined marker when not — and an angle with
    no findings carries an explicit none-marker instead of finding lines. **This procedure is
-   canonical here.** Step 9 of `skills/flow/archive.md`'s own run 2 carries only what is
-   specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
-   and the report-commit shell. It is not a second statement of this rule.
+   canonical here.**
 10. **Push the archive branch and land it — the route depends on how this run of archive.md was
     reached.**
 

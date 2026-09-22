@@ -136,11 +136,9 @@ directly — the resolved `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` an
 count (per **Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`) are
 already in scope from this run's own earlier resolution.
 
-**Questions are the session's own direct `AskUserQuestion` calls**, batched exactly as
-`brainstorm-planner.md`'s checklist section already states: every pending question whose wording
-does not depend on another pending answer in one call, up to four per call, a dependent question
-waiting for the next turn. Section B's merged convergence-and-approval confirm and its third-round
-offer are asked the same way — directly, with named options, exactly as B states them.
+**Questions are the session's own direct `AskUserQuestion` calls**, batched per **The checklist**
+(`skills/flow/brainstorm-planner.md`). Section B's merged convergence-and-approval confirm and its
+third-round offer are asked the same way — directly, with named options, exactly as B states them.
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"

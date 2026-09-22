@@ -76,3 +76,9 @@ artifact from being confirmed clean by a guard that never looked for it.
 The terminal
 state file keeps `artifactUrl` indefinitely, so deleting the only source that could republish that
 URL would leave it advertised and unrepublishable.
+
+## Moved from artifacts-registry.md
+
+### Rendered ledger and panel record
+
+`the renders target the canonical worktree only` — (kan-399); `copied into the archive commit at run 2 step 4` … `chore/archive-<name>` — (kan-552).

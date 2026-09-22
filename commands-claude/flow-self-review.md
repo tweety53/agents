@@ -1,5 +1,4 @@
 ---
-model: opus
 description: Run a self-review pass a /flow or /flow-fast run deferred, inline on this session's model, from the saved context bundle
 ---
 

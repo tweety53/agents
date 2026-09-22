@@ -45,13 +45,6 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
     Do not mutate the working tree, index, HEAD, or branch. Inspect with Read, Grep, and
     git show/diff only.
 
-    ## You Do Not Dispatch Subagents
-
-    Do all of this review yourself. Never spawn a subagent to review part of the diff, and
-    never spawn another reviewer for a second opinion — the panel already provides every
-    review seat the work gets. If the diff feels too large for one pass, review it in
-    passes yourself and say so in your report.
-
     ## What to Check
 
     **Plan alignment:**
@@ -62,16 +55,13 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
       implementer can confirm it was intentional. If the plan itself is wrong, say so.
 
     **Code quality:**
-    - Clean separation of concerns?
     - Proper error handling?
     - Type safety where applicable?
-    - DRY without premature abstraction?
     - Edge cases handled?
 
     **Architecture:**
     - Sound design decisions?
     - Reasonable scalability and performance?
-    - Security concerns?
     - Integrates cleanly with surrounding code?
 
     **Testing:**
@@ -83,7 +73,6 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
     - Migration strategy if schema changed?
     - Backward compatibility considered?
     - Documentation complete?
-    - No obvious bugs?
 
     ## Do Not
 
@@ -102,8 +91,6 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
     ## Calibration
 
     Categorize by actual severity — not everything is Critical, and a nitpick is never one.
-    Acknowledge what was done well before listing issues; accurate praise helps the
-    implementer trust the rest of the feedback.
 
     - **Critical** — bugs, security issues, data-loss risks, broken functionality; a
       planned piece missing outright.
@@ -114,9 +101,6 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
       check worth adding even though nothing in this diff currently exercises the gap.
 
     ## Output Format
-
-    ### Strengths
-    [What's well done? Be specific — file:line.]
 
     ### Issues
 

@@ -101,6 +101,7 @@ source "$SCRIPT_DIR/lib/owned-corpus.sh"
 budgets() {
   cat <<'EOF'
 .flow/project.md 26450
+.flow/project-rationale.md 8168
 AGENTS.md 18648
 CLAUDE.md 15195
 README.md 59181
@@ -131,12 +132,17 @@ rules/flow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
 skills/README.md 4994
 skills/flow-fast/SKILL.md 25925
+skills/flow-fast/SKILL-rationale.md 1058
 skills/flow-plan/SKILL.md 23290
+skills/flow-plan/SKILL-rationale.md 797
 skills/flow-self-review/SKILL.md 7102
+skills/flow-self-review/SKILL-rationale.md 589
 skills/flow-settings/SKILL.md 8010
+skills/flow-settings/SKILL-rationale.md 669
 skills/flow-status/SKILL.md 23118
+skills/flow-status/SKILL-rationale.md 2767
 skills/flow/SKILL.md 24125
-skills/flow/SKILL-rationale.md 9490
+skills/flow/SKILL-rationale.md 55444
 skills/flow/archive.md 23452
 skills/flow/brainstorm.md 12712
 skills/flow/brainstorm-planner.md 46942
@@ -151,24 +157,26 @@ skills/flow/review-panel.md 110363
 skills/flow/security-reviewer-prompt.md 5730
 skills/flow/verify-and-handoff.md 99157
 skills/flow-contracts/SKILL.md 9665
+skills/flow-contracts/SKILL-rationale.md 5195
 skills/flow-contracts/artifacts-registry-rationale.md 6981
 skills/flow-contracts/artifacts-registry.md 8509
 skills/flow-contracts/build-green.md 6678
+skills/flow-contracts/build-green-rationale.md 1008
 skills/flow-contracts/finish-contract-run1.md 30090
 skills/flow-contracts/finish-contract-run2.md 46275
-skills/flow-contracts/git-boundaries-rationale.md 2317
+skills/flow-contracts/git-boundaries-rationale.md 2968
 skills/flow-contracts/git-boundaries.md 9210
 skills/flow-contracts/handoff-blocks-rationale.md 13086
 skills/flow-contracts/handoff-blocks.md 20240
 skills/flow-contracts/jira-followups.md 45385
-skills/flow-contracts/jira-integration-rationale.md 3661
+skills/flow-contracts/jira-integration-rationale.md 5043
 skills/flow-contracts/jira-integration.md 19932
 skills/flow-contracts/model-policy-rationale.md 7963
 skills/flow-contracts/model-policy.md 8010
 skills/flow-contracts/operator-prompts.md 2432
 skills/flow-contracts/pipeline-rationale.md 20935
 skills/flow-contracts/pipeline.md 36155
-skills/flow-contracts/plan-provenance-guard-rationale.md 11527
+skills/flow-contracts/plan-provenance-guard-rationale.md 14793
 skills/flow-contracts/plan-provenance-guard.md 24295
 skills/flow-contracts/plan-provenance.md 7533
 skills/flow-contracts/project-configuration-authoring.md 3028
@@ -177,10 +185,12 @@ skills/flow-contracts/project-configuration.md 61302
 skills/flow-contracts/session-records-rationale.md 2365
 skills/flow-contracts/session-records.md 2388
 skills/flow-contracts/state-file.md 33172
+skills/flow-contracts/state-file-rationale.md 2402
 skills/flow-contracts/workspace-isolation-rationale.md 14317
 skills/flow-contracts/workspace-isolation.md 31471
 skills/flow-contracts/worktree-resolution-rationale.md 595
 skills/flow-contracts/worktree-resolution.md 2343
+skills/flow-contracts/finish-contract-rationale.md 3814
 EOF
 }
 

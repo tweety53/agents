@@ -11,7 +11,7 @@ defer`, per `skills/flow-contracts/project-configuration.md`), from the context 
 step 9 saved — `skills/flow-contracts/finish-contract-run2.md` step 9 is canonical for that
 bundle's shape and the five-angle table below — or **5. Verify** (`skills/flow-fast/SKILL.md`)
 saved on the change branch before landing. **The pass runs inline, in this session, on whatever model it is
-already on** — no subagent, no dispatch, no `Model:` handshake. Picking a stronger model than the
+already on** — no subagent, no dispatch. Picking a stronger model than the
 same-run pass would have used is done by picking the model this session runs on (`/model`) before
 invoking this command, not by anything this skill itself resolves.
 
@@ -80,8 +80,7 @@ title:
 Delete `<bundle>`. Run `<project>/scripts/check-self-review-report.sh` when the project declares
 it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before committing.
 **Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an
-unreadable report inside it, an internal coverage.sh call failing) — is not a violation**
-(KAN-601): report it and stop before the
+unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: report it and stop before the
 commit, never commit a report the guard could not read.
 Commit both paths in one commit through the landing chain's one script — the same invocation
 `skills/flow/archive.md` step 9 lands its own report with, differing only in the asserted branch,
@@ -106,11 +105,8 @@ End naming the report path, the rating, and the Jira keys filed (or `none`).
 
 ## Guardrails
 
-- **Never** dispatch a subagent for the reasoning pass — it runs inline, in this session, always.
-- **Never** touch a per-change state file or any `flow state`/`flow stage` call.
 - **Never** push directly to a protected branch under any name but the project's own default
   branch, and never force-push.
-- **No flags** — the only input is the change name.
 
 ## Commands (user-facing)
 

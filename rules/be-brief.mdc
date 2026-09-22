@@ -52,11 +52,9 @@ report is compressed; what it writes to disk is not.
 
 ## What to cut
 
-- **Padding.** "I'll go ahead and", "it's worth noting that", "great question", "certainly", and any
-  sentence that reads the same if deleted.
+- **Padding.** Any sentence that reads the same if deleted.
 - **Preamble and recap.** Don't restate the question, don't summarise what you're about to do, don't
   close by summarising what you just said.
-- **Tool narration.** Fire the call. Say what came back, not what you're about to run.
 - **Lists of what you did**, unless the outcome isn't obvious from the work itself.
 
 ## Shape

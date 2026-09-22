@@ -188,3 +188,33 @@ strand an already-merged change over text that session cannot correct — the tr
 **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`) rejects when it weighs a
 change stranded short of its terminal state against stale storage. So a malformed declaration is
 caught before it can be used, and never at the point where reporting it would strand a change.
+
+## Moved from project-configuration.md
+
+### Keys resolved and validated rather than read
+
+`The row is authoritative` — this paragraph names no list, because a list here goes stale the first time a key is added and nothing checks it.
+
+### The literal-body keys
+
+`<agents repo>/scripts/check-model-keys.sh` is not extended.
+
+### How a `## workspace isolation` section is written
+
+**The workspace id** and **What the id derives** (`skills/flow-contracts/workspace-isolation.md`): those are two different sections and the split is not incidental: one makes the id, the other makes the values taken from it.
+
+**What the id derives** (`skills/flow-contracts/workspace-isolation.md`) — the section for what is taken *from* the id, which is why the id's own rule is not in it. Both sections state the rule and show the worked value for one change name.
+
+### visual verification
+
+Why the permission this section once granted was dropped, on evidence a panel slot demonstrated, is design.md's `no-automatic-push` decision (`<agents repo>/spectre/changes/archive/kan-171-generic-visual-verification-step/design.md`).
+
+### project-configuration-authoring.md — which rules a script checks
+
+**Which of these rules a script checks, and which are left to the agent.** The distinction matters
+because the two failure modes are not alike: a rule a script checks fails the same way on every run,
+and a rule an agent applies is re-performed from this text each time and can be skipped without
+anything erroring. So the split is written down rather than left to be inferred from a passing lint
+run — a reader who assumed the whole of this section were checked would trust a green run further
+than it goes.
+

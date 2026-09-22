@@ -30,5 +30,5 @@ the self-review filing ask, chooses the empty set: silence selects **None — fi
 
 ## The doctrine
 
-Every call site below cites this contract for the mechanics and states only its own question text
+Every call site cites this contract for the mechanics and states only its own question text
 and options — never the shape itself.

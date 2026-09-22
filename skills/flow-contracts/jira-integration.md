@@ -96,13 +96,12 @@ projects or workflows. Always read the issue's available transitions first
 for the usual spellings (`In Progress` / `In-Progress`, `In Review` / `Code Review`) — including
 ordinary whitespace variance (a doubled space, a trimmed one) folded the same loose way, never a
 name that differs by more than spacing, the hyphen already shown above standing in for a space
-(`In-Progress`), or an accepted synonym. Never hardcode a numeric transition ID.
+(`In-Progress`), or an accepted synonym.
 
 **Transitions are forward-only.** The order is four **positions** — To Do → In Progress → In
 Review → Done — and each position is identified by the names mapped onto it, matched exactly as
 above: by name, case-insensitively, allowing the usual spellings. **The To Do position carries two
-names — `To Do` and `TO DO URGENT`.** That is this file's one statement of that set; every other
-site cites it rather than enumerating it again.
+names — `To Do` and `TO DO URGENT`.**
 
 Read the issue's current status first
 (`getJiraIssue`); if the position its name maps to is already **at or past** the target, make no
@@ -133,8 +132,7 @@ transition:
 > - **No — leave the status alone** *(default, recommended)*
 > - **Yes — transition it**
 
-**This ask is one of exactly two carve-outs from Never blocking, and it is bounded here rather than
-left to be discovered.** The creating run's guardrail says a Jira call may never block, delay, or
+**This ask is one of exactly two carve-outs from Never blocking.** The creating run's guardrail says a Jira call may never block, delay, or
 alter the proposal, and an interactive question does delay by definition — so the exception is
 stated with its limits: it is asked **once** per run, never repeated and never retried; it is
 reached only when an unrecognised status was actually observed, which is rare; and **only an
@@ -147,9 +145,7 @@ the proposal depends on the answer, which is what keeps the guardrail's actual p
 **Follow-up issues** (`jira-followups.md`), and bounded identically: asked once,
 only when a candidate was actually found, with anything but an explicit yes taking the safe course
 and the run continuing regardless. Both exist for the same reason — a write aimed at an issue this
-pipeline did not choose — and neither ever gates a state write. **Two are the whole set**; a third
-interactive Jira question is not added without amending this sentence, which is what keeps the count
-honest.
+pipeline did not choose — and neither ever gates a state write.
 
 ### Never blocking
 

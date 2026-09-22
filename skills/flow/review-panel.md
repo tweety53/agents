@@ -6,9 +6,7 @@ roster: `REVIEWERS` — `skills/flow/SKILL.md`'s **Model resolution** resolves f
 store, which that file is canonical for — when `REVIEW_PANEL_TOGGLE` is `default`, or this run's
 decision's `panel.roster` (`<abs-worktree>/.superpowers/sdd/decision.json`, per design.md's **The
 `## Decision` block**) when it is `dynamic`. This file owns dispatch: mapping each resolved id to
-its slot and spawning it. Per design.md's `roster-from-settings`, which supersedes
-`review-panel-fixed-3` (design.md's `supersedes-review-panel-fixed-3`): there is no fixed roster
-table and no diff-size/touched-area trigger table.
+its slot and spawning it.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -157,9 +155,9 @@ overrides:
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
 dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
-`ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
-six entries, never a seventh. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
-for this run. There is no parent-model inheritance and no economy tier. Every slot in this table,
+`ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts.
+`DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
+for this run. Every slot in this table,
 Bugbot and Security included, is dispatched on `flow-review` (`agents/flow-review.md`, on
 `REVIEW_PANEL_TOGGLE: default`) and carries the same model rule. `flow-review` is a definition
 this repository owns, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a
@@ -179,8 +177,7 @@ each entry of the decision's `panel.dispatches` carries its `slots` and its own 
 `effort`, and every slot in it runs on that pair in pass 1 — and in every fix-round re-run on the
 decision's `panel.rerun_dispatch` pair instead (**Panel re-runs**) — the dispatch's `subagent_type` is
 `flow-<effort>` — the effort comes from the definition, the model from the Agent tool's own
-`model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded,
-per design.md's `agent-definitions-universal-handshake`. The roster carries no per-slot model. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A compact roster
+`model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded. The roster carries no per-slot model. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A compact roster
 (the decision's `panel.compact`) is recorded with `flow record pass -round 0 -note 'roster: compact — <rolled value>'`; a full
 roster records `roster: full`.
 
@@ -203,7 +200,7 @@ full `exp-<name>` id verbatim — never shortened to `experimental` or to `<name
 file is `<abs-worktree>/.superpowers/sdd/panel-report-<round>-exp-<name>.md`, the same
 `panel-report-<round>-<id>` shape every slot's REPORT FILE paragraph already names with `<id>`
 substituted. The rendered panel record's Slot column therefore shows the `exp-` id unchanged, so the
-prefix survives into the archive per design.md's `exp-slot-prefix`.
+prefix survives into the archive.
 
 It is a diff-reading slot like Primary, Principles, Code review (low) and Mutation: **Panel
 re-runs** below governs it unchanged. **The docs-only reduction** below still narrows a
@@ -217,8 +214,7 @@ the compact roll are independent per design.md's **The rolls** — and never at 
 
 Per **Bundled dispatch** below, it joins whichever group has room, last among the reading passes;
 when neither group has room for a third role it is skipped and recorded with
-`flow record pass -round <round> -note 'experimental: skipped — bundle cap'` (design.md's
-`exp-skipped-over-cap`) rather than displacing a persistent role.
+`flow record pass -round <round> -note 'experimental: skipped — bundle cap'` rather than displacing a persistent role.
 
 **Before writing `final-review.diff`**, run
 
@@ -235,7 +231,7 @@ check-panel-diff-size.sh <worktree> <merge-base>
 
 once per worktree in the resolved set, unchanged. **The gating count is the sum across
 worktrees** — one slot now reads every section — and the over-cap report names the sum and each
-worktree's own count (design.md's `cap-sum-across-worktrees`).
+worktree's own count.
 
 Exit 0 proceeds. Exit 1 proceeds too, unasked: the panel dispatches reading the whole diff
 regardless of its size, and the over-cap fact is reported, never put to the operator as a
@@ -251,7 +247,7 @@ check-panel-docs-only.sh <worktree> <merge-base>
 
 ### The docs-only reduction
 
-Per design.md's `docs-only-reduces-to-primary` (narrowing `roster-from-settings`): **exit 0 from
+**Exit 0 from
 every worktree in the resolved set — every path this branch touched, committed since the merge
 base, staged or unstaged, ends `.md` or `.mdc` — reduces pass 1 to `primary` alone**, plus every
 slot the operator's per-run instruction
@@ -296,18 +292,15 @@ git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-rev
 
 A single-worktree change writes the same shape with one header. The first line is the file's
 own answer to the reviewer who reads it as anything narrower: it is a plain working-tree diff
-against the merge base, so work still unstaged or uncommitted is already in it — gymie KAN-459's F37
-was a false positive from reading it otherwise. Then dispatch the round's
+against the merge base, so work still unstaged or uncommitted is already in it. Then dispatch the round's
 `panel.dispatches` in the canonical worktree, each reading the whole combined file; a role is
-never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view
-(design.md's `combined-diff-per-round`). **Bundled dispatch** below states how the roster is
+never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view. **Bundled dispatch** below states how the roster is
 grouped into those dispatches.
 
 ### Bundled dispatch
 
 **At most two review dispatches per round, each carrying one to three roles**, on both
-`REVIEW_PANEL_TOGGLE` values and in both execution modes (design.md's
-`two-dispatch-cap-everywhere`). A dispatch carrying one role covers that role alone; a roster the
+`REVIEW_PANEL_TOGGLE` values and in both execution modes. A dispatch carrying one role covers that role alone; a roster the
 two dispatches cannot hold shrinks to what they hold.
 
 **Grouping.** On `dynamic`, the decision's `panel.grouping` is `static` — the class's row in
@@ -322,7 +315,7 @@ recorded with `flow record pass -round <round>`.
 **One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with
 `-slot` the bundle's roles `+`-joined in roster order (`primary+principles+security`) and
 `-model`/`-effort` the bundle's own, from the decision's `panel.dispatches` entry. Every finding still records its own single role in `-slot`, with the
-bundle's `-dispatch-seq`. A one-role dispatch is unchanged from today.
+bundle's `-dispatch-seq`.
 
 **The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
 BUILDS, REPRODUCE DON'T READ, CITATION CHECK, ENTRY CONTEXT, MODEL HANDSHAKE, the reproducer rule —
@@ -372,16 +365,15 @@ ceiling takes the breach path under **No forking, and a wall-clock ceiling on ev
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
-panel record names every worktree's sha beside the delta path (design.md's
-`diff-base-canonical-sha`). `-model` is `DEFAULT_MODEL` (or this run's override) on
+panel record names every worktree's sha beside the delta path. `-model` is `DEFAULT_MODEL` (or this run's override) on
 `REVIEW_PANEL_TOGGLE` `default` and the dispatch's own model from the decision's
 `panel.dispatches` on `dynamic` — bundled or one-role alike, no exception — or, on a fix-round
 re-run on `dynamic`, `panel.rerun_dispatch`'s model. `-effort` likewise:
 `default` on `REVIEW_PANEL_TOGGLE` `default`, and the dispatch's own effort on `dynamic`,
 `panel.rerun_dispatch`'s `low` on a re-run.
 
-**`-agent-id` is never typed, never invented** — the daemon captures the launch identifier
-(KAN-322), pairing each launch with the begin whose command sits nearest it in the transcript;
+**`-agent-id` is never typed, never invented** — the daemon captures the launch identifier,
+pairing each launch with the begin whose command sits nearest it in the transcript;
 record `begin` immediately before its launch, and never reuse a `-key`.
 
 **Record a slot's dispatch before recording that slot's findings**, and carry the seq the command
@@ -393,15 +385,14 @@ defect, or the literal exemption form `none — <reason>`. **The exit-code conve
 one-directional: a reproducer exits non-zero when the defect it demonstrates is present, and exits
 0 only when that defect is not** — `run-reproducer.sh` reads a non-zero exit as *defect
 demonstrated* and a 0 exit as *defect not demonstrated*, so a command that exits 0 because its own
-diagnostic succeeded — the inverted convention every kan-512 round-0 reproducer was authored with,
-and had to be hand-corrected out of — reads as the defect already gone. The one exception is the
+diagnostic succeeded reads as the defect already gone. The one exception is the
 mutation-reproducer convention, which the mutation-testing brief below defines and a reproducer
 declares with the exact `# mutation-reproducer` line: such a reproducer is read inverted, its
 exit 0 being the defect present. Author it to fail pre-fix
 and pass post-fix. **A runnable reproducer also declares what it demonstrates and where**: one
 `# demonstrates: <path>:<line>:<content>` line per cited location, within the script's first 10
 lines — the same window the `# mutation-reproducer` declaration reads — in the grep-output shape
-the author pastes straight off the defect-present tree (KAN-606). The declaration names the file
+the author pastes straight off the defect-present tree. The declaration names the file
 and line the instrument reads and the content expected there, and
 `check-panel-reproducer-exit-contract.sh` resolves every citation against the tree under review
 before the reproducer runs: the path must stay inside the worktree, the file and line must exist,
@@ -412,7 +403,7 @@ is the mutated tree it builds at run time, and the `--reproducer-sha` pin below 
 audit. **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
-at Important (KAN-503). A demonstrating command needing a pipe, a
+at Important. A demonstrating command needing a pipe, a
 quote, a glob or any other shell metacharacter is written as a script rather than abandoned — the
 guards refuse a metacharacter in the recorded line, never one inside a script. The slot writes it
 to `<abs-worktree>/.superpowers/sdd/reproducers/<round>-<id>-<n>.sh` — `<round>` this round's
@@ -431,8 +422,7 @@ honest attempts is not thereby nonexistent: the same defect can live only in the
 build the verifier drives. Author the reproducer to drive that target the way the finding
 describes — real input events (`page.mouse.wheel()`), a fresh account, data seeded past the
 resting state — and a finding closes on that target's evidence, never on the test target's clean
-exit alone (kan-551, from gymie kan-437: a calories-tab scroll failure unproducible on the desktop
-target closed only at true scroll end in the browser build).
+exit alone.
 
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape
 `skills/flow/implement.md`'s implementer dispatch carries; for every worktree in this run's
@@ -527,8 +517,7 @@ narrows with the read.
 
 **The mutation slot's dispatch prompt also carries the MUTATION ENTRY CONTEXT paragraph**, every
 test the plan's `**Tests:**` fields name and every test file in the touched-files list inlined
-directly beneath it (kan-574's round-0 mutation dispatch read ~16.9M cached tokens — four times
-the primary slot — because the brief's search for covering tests was named nowhere):
+directly beneath it:
 
 > **MUTATION ENTRY CONTEXT:** `final-review.diff`, at the merge-base sha each `# worktree:`
 > header carries, is your diff base; the tests beneath this paragraph are the tests your
@@ -546,7 +535,7 @@ Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 5 
 fix-round re-run dispatch on `REVIEW_PANEL_TOGGLE` `dynamic`, which reads a delta at `low` effort
 and has no business running longer. The dispatcher
 tracks each in-flight slot's elapsed time itself rather than blocking indefinitely on a completion
-notification. **The ceiling is a record-and-review bound, not a stop** (KAN-612): it cannot halt
+notification. **The ceiling is a record-and-review bound, not a stop**: it cannot halt
 an in-flight dispatch — a slot the harness runs as one blocking call pays the overrun in full
 before the breach can even be recorded — so a run is never promised a stop the harness cannot
 deliver.
@@ -586,17 +575,17 @@ a test. A mutation no test catches is a
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless the
 operator withdraws it with a reason. A surviving mutant's reproducer carries the exact line
 `# mutation-reproducer` within its first 10 lines — the declaration
-`run-reproducer.sh` reads as the mutation convention (gymie KAN-568), since the build succeeding
+`run-reproducer.sh` reads as the mutation convention, since the build succeeding
 with the mutation landed is the bug present, the reverse of the generic exit-code contract.
 
 ### The throwaway worktree
 
 Bugbot and Mutation both mutate code in place to run their brief; every other slot only reads the
 diff. Dispatching a mutating slot into the same worktree
-a reading slot concurrently reads is the KAN-366
+a reading slot concurrently reads is the
 collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched
 reading slot reads from `<worktree>` at that moment. **Independent multi-slot detection is the
-panel's core signal, preserved deliberately rather than treated as incidental (KAN-503)**: each of
+panel's core signal**: each of
 the two defect-hunting slots — Bugbot's and Mutation's dispatch, pass 1 and
 every fix-round re-run, both carrying the mutation-testing brief (Bugbot's own copy is
 `bugbot-reviewer-prompt.md`'s) — therefore runs
@@ -637,14 +626,11 @@ plain-text `awk` form cannot survive git's quote-escaping of a filename with a s
 special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal
 byte string through untouched, regardless of what the filename contains. The scaffold lines after
 the loop exist because the slot dispatched into the copy resolves the bundle paths its prompt names
-— `dispatch-context.md`, and the report file it writes — against its dispatched root: a copy
-without `<abs-worktree>/.superpowers/sdd` sent the panel back to re-brief the slot mid-dispatch and let
-the slot's report resolve onto the copy, where its removal destroyed it (KAN-529). The `-d` test
+— `dispatch-context.md`, and the report file it writes — against its dispatched root. The `-d` test
 keeps a canonical worktree with no bundle yet a no-op rather than a failure.
 
 Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
-that slot as the repository paths to mutate and test in, in place of `<worktree>` (design.md's
-`bugbot-security-one-dispatch`).
+that slot as the repository paths to mutate and test in, in place of `<worktree>`.
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
 (including after the wall-clock re-dispatch), or the run stopped:
 
@@ -664,8 +650,7 @@ git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
 
 The fold-back runs inside the removal step itself — on every path that removes a copy,
 completed, timed out or run stopped — because a report the slot resolved onto its dispatched root
-dies with the copy, and KAN-529's round-2 mutation report survived only because the parent session
-had read it earlier. It rescues the slot's reproducers beside its reports — both are recorded as
+dies with the copy. It rescues the slot's reproducers beside its reports — both are recorded as
 worktree-relative paths the parent later runs, and one left only in the copy dangles. A copy-side
 file newer than the canonical one replaces it — the wall-clock re-dispatch's fresh report
 outranking a timed-out attempt's — and the `[ -s ]` tests keep an empty copy-side file from being
@@ -673,7 +658,7 @@ copied.
 
 Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
 reproducer still runs against the real `<worktree>` at verification time, never against any slot's
-throwaway copy, exactly as today. Security is **not** isolated this way — nothing in this file requires it to
+throwaway copy. Security is **not** isolated this way — nothing in this file requires it to
 mutate anything, so it keeps sharing `<worktree>` with the reading slots. It too is dispatched
 once, its prompt naming every worktree in the resolved set.
 
@@ -705,12 +690,12 @@ slot's report from this context** — record its `F<n>` rows and cite the file, 
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 
 When two independently dispatched slots raise the same defect — the code-quality ground Primary
-and Code review (low) now overlap, per `primary-reviewer-prompt.md`'s **Do
+and Code review (low) overlap, per `primary-reviewer-prompt.md`'s **Do
 Not** — the dispatcher records it once, under a `+`-joined `-slot` value naming both, rather than
 as two `F<n>` rows.
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
-records every finding itself, never a subagent. Every
+records every finding itself. Every
 finding a round raised is recorded in one Bash call, one `flow record finding` per finding:
 
 ```bash
@@ -802,9 +787,7 @@ This is the normal case: the branch is pushed with every commit (**Branch backup
 `git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**A commit a
 run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`),
 so it carries only the paths the finding named, whatever else the index holds — pushed
-plain like any other commit, and every downstream commit keeps its sha — folding instead via `git
-commit --fixup=<task-sha>` + `git rebase --autosquash` rewrote tasks 7–10's shas in gymie kan-469's
-`gymie-frontend` run and forced a `git push --force-with-lease` re-sync with the remote.
+plain like any other commit, and every downstream commit keeps its sha.
 **Rewrite-based folding is for unpushed history only**: the fixup — stage first
 (`git add -- <the changed paths>`), then `git commit --fixup=<task-sha> -- <the changed paths>`,
 scoped by the same default — targets the **original** task
@@ -812,8 +795,7 @@ commit (`<task-sha>`), and the autosquash folds it in immediately, before anythi
 rebase's upstream is the parent of the task commit it targets (`<task-sha>^`), never the base
 branch re-resolved — replaying only the branch's own commits after `<task-sha>^` is what keeps
 commits that landed on the base mid-panel out of the fold, where an `origin/$BASE` upstream would
-carry them straight into the round's delta, as kan-535's first fix round found when its delta
-swallowed two upstream commits and had to be regenerated by hand. The route's own diff is
+carry them straight into the round's delta. The route's own diff is
 `git diff "$FIX_BASE"..HEAD`, read once the fold has landed — the same held pre-fix sha to HEAD
 as the plain route; the fold rewrites `<task-sha>` in place, so no diff endpoint is ever
 re-resolved, and a movable base can never leak into the delta.
@@ -834,8 +816,7 @@ closed by the verification that follows it — the reproducer re-run exits 0 *an
 touches a path the finding named. For each Minor, the dispatcher decides before the fix goes out:
 `flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>` is the default — the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query rather than a hand-read; **fix**
 it inline only when it is trivially easy — confined to the lines the finding names, needs no new
-test, and needs no judgment call. The rough 90%+ target for deferred Minors is guidance, never
-computed — no counter, no draw, fixing every Minor is not the goal. A Minor fixed inline under this
+test, and needs no judgment call. A Minor fixed inline under this
 bar needs no dedicated re-review or re-verification pass of its own — the triviality that qualified
 it for the inline fix is also why it needs none; the existing guard/test run covering the touched
 lines is sufficient. When every finding the round raised was Minor, no slot re-runs: proceed to
@@ -889,8 +870,7 @@ delta; the re-run rule above is unchanged, and so is everything the round's own 
 covers. The scoping exists because a round that re-reads a growing fix diff regress-checks by
 volume, not by site. A scoped round no longer reads
 the branch, so a run that reached one closes with the final whole-branch pass **Rerun policy
-`full`** adds — reserved for catching independent issues, which is what caught that change's
-round-6 real bugs.
+`full`** adds — reserved for catching independent issues.
 
 **Rerun policy `full`** — the decision's `panel.rerun` on a `big` class — keeps every rule above for
 every fix round and adds one final pass after the last fix round closes clean: every slot in the
@@ -951,7 +931,7 @@ full-branch sum. Record both with `flow record pass -round <round>` for this rou
 alongside the agents-ran/why/diff-path lines the fix pass records.
 
 **The docs-only guard runs again beside that cap check**, `check-panel-docs-only.sh <worktree>
-<merge-base>`, per design.md's `fix-rounds-reclassify`. A branch that stays docs-only keeps the
+<merge-base>`. A branch that stays docs-only keeps the
 reduced roster, and `primary` re-runs on its delta as above. A branch the fix round made no
 longer docs-only — exit 1 or 2 where pass 1 saw exit 0 — dispatches, in this round, every
 resolved slot not yet dispatched this run, each reading the whole `final-review.diff` under the
@@ -971,7 +951,7 @@ finding's own recorded location, taken verbatim from the findings table. *Theme*
 one-sentence Note column, reduced to its own defect noun phrase — the shortest phrase naming what is
 wrong, severity words and slot names stripped out.
 
-**Before dispatching the fix subagent**, the parent runs this itself, never a subagent:
+**Before dispatching the fix subagent**, the parent runs:
 
 ```bash
 check-panel-reproducers.sh <worktree> <change>
@@ -983,9 +963,7 @@ a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **un
 the operator, never silently rewritten. Exit 2 stops the run.
 
 **The exit-code contract is checked mechanically before any dispatch decision reads a reproducer by
-hand** (KAN-554 — gymie kan-468's panel supplied an Important finding's reproducer whose exit-code
-condition was inverted, and the inversion reached the deferred self-review pass before anything ran
-it):
+hand**:
 
 ```bash
 check-panel-reproducer-exit-contract.sh <worktree> <change>
@@ -994,7 +972,7 @@ check-panel-reproducer-exit-contract.sh <worktree> <change>
 The guard runs every **open** finding's runnable reproducer through `run-reproducer.sh` against the
 worktree, bare, and requires the verdict *defect demonstrated* — the exit-code behaviour an open
 finding's reproducer claims on the tree under review. Before anything runs, the guard audits the
-instrument itself (KAN-606): each runnable reproducer carries the `# demonstrates:
+instrument itself: each runnable reproducer carries the `# demonstrates:
 <path>:<line>:<content>` declaration its authoring rule above requires, within the script's first
 10 lines, and the guard resolves every citation against the worktree — the path stays inside the
 tree, the file exists, the line exists, the content appears on that line. A reproducer whose
@@ -1015,7 +993,7 @@ reproducer the runner could not verdict: a timeout, a surviving process, a plumb
 the run, the same as the lexical guard's exit 2.
 
 **For each open finding whose record carries a runnable `finding-reproducer:` command**, the
-parent runs it itself, never a subagent — every finding's run and every throwaway worktree
+parent runs it — every finding's run and every throwaway worktree
 removal in one Bash call, each run followed by `; echo "F<n>: exit $?"` so every exit code stays
 readable:
 
@@ -1047,7 +1025,7 @@ script refuse (exit 2) a reproducer whose verdict here is identical to its pre-f
 ambiguous under either exit-code convention, the expected one named in the script's message — so
 an ambiguous reproducer is recorded unverifiable and put to the operator rather than read as an
 unfinished fix. **The parent runs these re-runs itself, in its own
-Bash calls — never a "verify fixes" reader or any other subagent** (**Dispatch sites — the
+Bash calls** (**Dispatch sites — the
 parent's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
 change.** A fix that does not is not a fix: the finding stays open and goes to the operator through
@@ -1093,16 +1071,11 @@ fix.** A guard script is a check that exists to fail on a defect class — this 
 is the guard run itself against the defect state: on the pre-fix code the guard reports the
 defect — the probe fails — and on the post-fix code it does not — the probe passes. The
 `fix-mutation:` line for that behaviour carries the measured pre/post observable as its third
-field, `<pre>→<post> <what the observable counts>` in the shape kan-534's census recorded
-(`2→0 orphaned temp lists`), never a bare test name (KAN-587).
-
-**No line anywhere in the panel record may carry the literal label `finding-status:`,
-`findings-total:`, or `finding-reproducer:` outside its own marker use.** Write around it: paraphrase
-the label, or break it with a non-word character.
+field, `<pre>→<post> <what the observable counts>`
+(`2→0 orphaned temp lists`), never a bare test name.
 
 **The parent checks the reported list against the fix diff before the round can close, reading the
-`fix-mutation:` lines and walking the diff itself — never a "mutation re-verify" subagent or any
-other delegate.** Walk every
+`fix-mutation:` lines and walking the diff itself.** Walk every
 hunk of the fix diff with a non-comment, non-whitespace change: each one is either covered by a
 reported line, or is not an executable behaviour at all. A hunk that removes or weakens a test or an
 assertion states in the record what it used to cover and names what still covers that same behaviour
@@ -1111,7 +1084,7 @@ fails. A hunk whose path is draw/geometry code is held to the **PIXEL PROBE** pa
 beside the mutation lines: the fix's report names the probe assertion it landed against the
 actual rendered pixels or geometry, and a fix commit for this class of bug that landed no such
 probe is rejected at the fix step — the round does not close and the finding stays open, for the
-handback below — rather than the regression being discovered next round (KAN-496). **The same
+handback below — rather than the regression being discovered next round. **The same
 walk holds the fix subagent to its PLAN FIELDS obligation:** a hunk that adds a
 test case, adds a file, or changes what a task's `**Baseline:**` counts, whose task's `**Tests:**`,
 `**Baseline:**` or `**Files:**` field in `<changeRoot>/tasks.md` does not reflect it, does not close
@@ -1122,11 +1095,10 @@ Beside the reproducer re-runs above, the round close re-runs the task-field guar
 <name>` for every task a fixup folded into — `<task-id>` from that commit's `Task-Id:` trailer,
 `<task-sha>` the folded commit as it now stands, the remaining arguments resolved the way
 `skills/flow/implement.md`'s task-close step resolves them. Exit 1 does not close the round; it
-goes to the handback. Exit 2 — the guard's not-a-verdict close (KAN-601, the same course
+goes to the handback. Exit 2 — the guard's not-a-verdict close (the same course
 `skills/flow/implement.md`'s task-close step gives it) — stops the run: a handback cannot repair
 an inability. This catches an undeclared file the fixup added and a declared
-test it removed or renamed, read post-autosquash. The stale-field classes the walk used to judge
-alone are the same guard's verdicts now (KAN-511): a task declaring `**Baseline:** before=N
+test it removed or renamed, read post-autosquash. The stale-field classes are the guard's verdicts: a task declaring `**Baseline:** before=N
 after=M` fails when the changed files' `@Test` delta at the commit does not measure it — skipped
 where the counted set carries no `@Test` at either revision, per the skip-not-fail rule — and a
 `**Tests:**` name, backticked or bare camelCase, that the tree's content at the commit no longer
@@ -1136,9 +1108,9 @@ contains fails with it. A test added to the commit with no `**Baseline:**` decla
 **The round close runs the project's configured build-green guard too, when the project declares
 one (**The guard's scope**, `skills/flow-contracts/build-green.md`), over the plan's `tasks.md` —
 exit 1 does not close the round; it goes to the handback, and exit 2 — the same not-a-verdict
-close — stops the run (KAN-601).** This is the gate that holds a
+close — stops the run.** This is the gate that holds a
 plan appended to mid-run to the tags it published under: tasks a fix round appends carrying
-`**Build:** pending` keep the round open until every tag reads `green` or `red` (KAN-538).
+`**Build:** pending` keep the round open until every tag reads `green` or `red`.
 
 This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
 neither Bugbot nor Mutation is in the resolved roster or added this run is exactly where the round's own proof
@@ -1180,7 +1152,7 @@ against its defect identity. **Inline no source excerpt.**
 > what a task's `**Baseline:**` counts or `**Files:**` paths declare — a test case added, a file
 > created — update those fields too. All of it lands in the worktree's
 > `<project>/spectre/changes/<name>/tasks.md` in this same pass — never left for a reviewer to
-> catch next round (gymie kan-454, gymie KAN-459). Edit them; do not stage or commit them — the plan record is
+> catch next round. Edit them; do not stage or commit them — the plan record is
 > a planning path and is committed later by the pipeline, never in a fixup.
 
 **Every fix subagent's dispatch prompt also carries the ROUND SCOPE paragraph**:
@@ -1288,8 +1260,7 @@ chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
 (`panel-fix-<round>-2`, `-3`, …), contiguous from 2; the handshake retry suffixes `-retry` onto
 its own chunk's key (`panel-fix-<round>[|-<n>]-retry`), and any other key shape is a violation
 whatever the dispatch count. A round may not chunk freely: its chunk count is bounded by
-`ceil(findings raised in earlier rounds / 10)` — a bound, not a target, so a well-formed
-per-finding sequence stays caught. Before recording each `dispatch begin`, confirm that key has
+`ceil(findings raised in earlier rounds / 10)`. Before recording each `dispatch begin`, confirm that key has
 no panel-fix begin already recorded — a second begin under a fresh key is over-dispatching even
 when every key is well-formed. `check-panel-fix-single-dispatch.sh` holds every run's panel close
 to exactly this shape (**Before closing the stage**, below). Inline
@@ -1297,7 +1268,7 @@ to exactly this shape (**Before closing the stage**, below). Inline
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
 panel-fix -agent-id inline`. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. **Dispatch it on `DEFAULT_MODEL`** (design.md's `model-default-sonnet`). **On
+writing its fix. **Dispatch it on `DEFAULT_MODEL`**. **On
 `IMPLEMENTER_MODEL_TOGGLE` `dynamic` with an `sdd` decision, dispatch it instead on the decision's
 `fixer` object** — its own model and effort, chosen apart from the implementer's, `subagent_type:
 flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
@@ -1339,11 +1310,10 @@ under the handback above is recorded `withdrawn` with the operator's original re
 is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose
 only raise was a defect recorded `withdrawn` under the carve-out above, or a round every one of
 whose findings was Minor, which re-runs no slot and closes beside them. A
-re-run that finds a fix incomplete — kan-512's round 1 catching task 10's own correction as F4,
-fixed as task 11 — opens the next fix round under the rules above, and the cycle repeats until a
+re-run that finds a fix incomplete opens the next fix round under the rules above, and the cycle repeats until a
 re-run comes back clean.
 
-**Before closing the stage**, the parent runs both close guards itself, never a subagent:
+**Before closing the stage**, the parent runs both close guards:
 
 ```bash
 check-panel-findings-closed.sh <worktree> <change>

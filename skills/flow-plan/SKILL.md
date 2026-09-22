@@ -22,6 +22,7 @@ get there is scripted. You're a thinking partner helping the user explore.
 - **Commit only the planning artifacts, once, at capture** — `<project>/spectre/changes/<name>/`
   on `spectre/<name>` per **Capturing a new change** below; nothing else in this mode produces a
   commit
+- **Don't run `spectre archive`** — that's bare `/flow`'s call, not this mode's
 
 ---
 
@@ -91,9 +92,6 @@ A topic is closed by an explicit convergence check, once per topic/thread: ask "
 dig into on this?" before treating it as settled. A "no" (or equivalent) closes it; a "yes" starts
 another round of investigation and questions. Ground each round in the code and the tree rather
 than in inference, and confirm a pattern's use elsewhere before generalising from one site.
-
-This applies per topic/thread, not once for the whole session — a multi-topic conversation runs the
-check again each time the discussion moves to a new thread.
 
 ---
 
@@ -204,10 +202,7 @@ Every guard those sections invoke resolves per **Guard resolution**
 each one those sections run: `check-worktree-location.sh <project>` and
 `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate),
 `plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and
-`plan-dispatch-groups.sh <tasks.md>` (Decide). Each basename above is written with its usage
-arguments so `check-guard-symlinks.sh` reads it as a citation; its rule 6 then fails any symlink
-here that no citation names, so dropping a basename from this list is a lint failure, not a moved
-coverage count (KAN-532).
+`plan-dispatch-groups.sh <tasks.md>` (Decide).
 
 **On Yes, commit and push the planning artifacts** from the change worktree:
 
@@ -249,8 +244,7 @@ minimum:
 1. **One section per topic/thread discussed**, each a `##`-level heading with a short descriptive
    title, holding whatever prose, lists, or code excerpts the discussion produced for that thread.
    Order sections in the order the threads came up.
-2. **A step-by-step breakdown section**, always present (see below) — this is the default output of
-   every research session, never opt-in.
+2. **A step-by-step breakdown section**, always present (see below).
 
 **A captured design carries no open items.** Everything the session surfaced is decided before
 the artifacts are written — decided by the user through the convergence round's questions, or by
@@ -303,28 +297,3 @@ Rules for filling it in:
   services) — `none` is a valid, honest answer, not a placeholder to avoid filling in.
 - If the topic is small enough that a full breakdown would only have one item, still include the
   section with that one item — the section's presence is what's fixed, not a minimum item count.
-
----
-
-## Guardrails
-
-- **Don't write application code** — reading, searching, and discussing are fine; implementing is not
-- **Don't advance past `STARTED`** — no implement phase, no `IN_PROGRESS` write; `/flow <name>`
-  does that
-- **Don't create the change before the capture offer is accepted** — no `STARTED` write, no
-  worktree, no `spectre new` for a session whose operator has not answered **Yes — create it**;
-  a session that captures nothing creates nothing
-- **Don't commit anything but `<project>/spectre/changes/<name>/`**, and only at **Capturing a
-  new change**
-- **Don't run `spectre archive`** — that's bare `/flow`'s call, not this mode's
-- **Don't fake understanding** — if something is unclear, dig deeper instead of assuming; see
-  **Closing a topic** above for the concrete stopping rule
-- **Don't force structure on the conversation** — let the shape of the discussion emerge; the fixed
-  structure applies to what gets *captured*, never to how the discussion itself unfolds
-- **Don't skip the step-by-step breakdown** — it's the default capture shape, not an opt-in
-- **Don't capture with an open item** — ask another round instead; the design records decisions,
-  never deferrals (see **The Fixed Section Structure**)
-- **Don't leave a change without its plan and decision** — D and Decide run on every capture;
-  they are what make the change ready for `/flow <name>`, not an extra
-- **Don't commit without the gate** — the prose summary and **Push artifacts?** question run every
-  time; a **No** is another planning round, never a commit and never a removal

@@ -4,9 +4,7 @@ The three-state pipeline itself: state definitions, the command→state transiti
 handoff shape. See **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`,
 `skills/flow-contracts/finish-contract-run2.md`).
 
-**Load this file when running `/flow`.** It is split out of
-`rules/flow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
-whole state machine — the same reason the other contract files beside it were split out.
+**Load this file when running `/flow`.**
 
 This file is **canonical** for everything in it. Where a skill or command disagrees with it, this
 file wins.
@@ -64,8 +62,6 @@ could ever arrive through it. An operator who is present but silent is not that 
 gets another round. The same explicit answer may both close the checklist and grant the design
 approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
 
-See **Convergence** (`skills/flow/brainstorm-planner.md`).
-
 ## Command surface
 
 One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
@@ -90,10 +86,7 @@ ignored word is indistinguishable from a flag that stopped working.
 
 Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/SKILL.md`).
 
-**This table is authoritative.** Every command file — in **both** command trees (`commands/` and
-`commands-claude/`) — must state exactly the states its row lists, and must agree with the skill it
-delegates to. When a command and its skill disagree, whichever the agent reads first wins, which is
-non-determinism in the one layer that must be deterministic.
+**This table is authoritative.**
 
 ### Every invocation is re-entrant
 
@@ -115,8 +108,7 @@ command from the operator — never inferred from anything said inside a still-r
 running `/flow` turn is mid fix run, mid a question the run itself asked, or simply still executing
 — and an instruction the operator gives during that turn, however explicit ("merge and push", "go
 ahead", an answer to an unrelated question with a trailing aside about landing the branch), is
-conversation, not a re-invocation. It never substitutes for the operator closing that turn and
-separately typing `/flow` again. This is what the human gate at `IN_PROGRESS`
+conversation, not a re-invocation. This is what the human gate at `IN_PROGRESS`
 (**States**, above) actually rests on: the state transition table's "bare" column means a bare
 *command*, not a quiet moment in an ongoing one. **Concretely: never chain straight from a fix, a
 mid-turn question, or a dispatched-agent report into integrate's unfinished-work gate, its landing
@@ -189,14 +181,12 @@ harness has to gain a task tool to satisfy the rule. See **Progress visibility**
 `/flow` marks each of its own stages: `flow stage begin` when the stage starts,
 `flow stage end` when it closes, both naming the command, the stage and the change. The stage
 identifier is the **key**, never the prose name, from **Level 1 — the stages of each command**
-(`<agents repo>/README.md`) — that table is restated nowhere here, on purpose: a second copy is exactly what its
-own README-parsing test (`<agents repo>/stats/internal/stages/names_test.go`) exists to make impossible.
+(`<agents repo>/README.md`).
 
 **A `stage begin` mark MUST carry `-session-token` and `-harness`.** Generate the token once, near the start of
 the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
 same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
-— `claude-code`, `cursor`, `codex` or `zcode` (`zcode` is the harness whose rollout transcripts
-the harvester reads as a second source, kan-479). On Claude Code the mark also binds the stage run's session
+— `claude-code`, `cursor`, `codex` or `zcode`. On Claude Code the mark also binds the stage run's session
 directly from the `CLAUDE_CODE_SESSION_ID` the harness exports to every Bash call, so the token's
 transcript search is the fallback for a mark made without it — the literal-token rule stands because
 the token is still the join key between a change's dispatches and its stage runs.
@@ -323,9 +313,7 @@ of those is a defect, not a brief artifact.
 This narrows the "code, commits, docs and specs stay full" carve-out the be-brief rule
 (`rules/be-brief.mdc`) states — for the artifacts named above, and for no other file.
 
-**No length guard and no byte budget measures a change artifact**, and none is to be added: a budget
-on a per-change artifact rewards dropping the facts the paragraph above requires kept. Brevity
-here is a judgment the review panel and the operator make, never a number a script checks.
+**No length guard and no byte budget measures a change artifact.**
 
 See **Artifact brevity** (`skills/flow-contracts/pipeline-rationale.md`) for why this is stated
 here rather than in each artifact-writing skill.
@@ -399,8 +387,9 @@ guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` — ra
 hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
 here would drift from that guard's own dependencies the moment they change.
 
-Each command names, in its own text, the guards *it* can invoke — exactly the guards
-`<skill-dir>/scripts/` carries — and cites this section for the block shape.
+The guards a command can invoke are derived, never listed: every `<name>.sh` the command's own
+skill files and the contracts they load name — the set `<agents repo>/scripts/check-guard-symlinks.sh`'s
+rule 2 derives at lint time. Each command cites this section for the block shape.
 
 ## Hand-verifying a guard verdict
 
@@ -478,10 +467,6 @@ Once the candidate set is built:
 - Multiple matches → **AskUserQuestion** listing each (name, state, last modified) — never guess.
 - Zero matches → fall back to that command's normal "no change" handling (e.g. a creating `/flow`
   run asks what to build; `/flow-status` reports no open changes).
-
-This resolution is defined **once, here**, and `/flow`'s own enumeration step
-cites this section rather than repeating or re-deriving the union — so its list of open
-changes can never drift from what this section defines.
 
 A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 **Change naming** in `skills/flow-contracts/jira-integration.md`.

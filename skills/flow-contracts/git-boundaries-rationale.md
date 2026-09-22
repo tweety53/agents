@@ -26,3 +26,10 @@ agent's shell whose state it does not control. Run it as one command. Without th
 a hook rejects falls through to the unconstrained second `add`, and the sole resulting commit —
 titled `chore(...)` — carries the implementation, silently breaking the very split this section
 exists to enforce.
+
+**Why a commit a run instructs defaults to the pathspec-scoped form — the two incidents.** Moved
+verbatim from the contract, where it sat between "A plain commit takes the whole staged tree with
+it" and "so wherever a run's instructions know the paths a commit should carry, the commit names
+them": "— gymie kan-469's visual-verify step swept a ~130-file pre-staged foreign tree into a
+baselines commit in a main checkout, and gymie kan-468 lost task commits to staged planning
+artifacts the same way —".

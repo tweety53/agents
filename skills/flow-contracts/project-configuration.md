@@ -16,8 +16,7 @@ It is a normal Markdown document, committed with the project, read by whichever 
 Sections are `## <key>` headings; their bodies are prose, tables, or fenced command blocks —
 whatever reads best for a human, since agents and humans read the same file.
 Some keys are not: a key whose row says its body is resolved and validated rather than read holds
-exactly what that row specifies and nothing else. The row is authoritative; this paragraph names no
-list, because a list here goes stale the first time a key is added and nothing checks it.
+exactly what that row specifies and nothing else. The row is authoritative.
 
 | Key | Supplies |
 |-----|----------|
@@ -100,7 +99,7 @@ report-by-name-and-drop on a body that does not match exactly one.
 above, and the same report-by-name-and-drop; `## handoff` likewise, `required` and `none` in place
 of three. `## execution mode`, `## implementer model` and `## review panel` are each
 matched the same way — `default` and `dynamic` in place of three, and the same
-report-by-name-and-drop. `<agents repo>/scripts/check-model-keys.sh` is not extended.
+report-by-name-and-drop.
 
 ## Where the agents repository is
 
@@ -172,9 +171,7 @@ never has to guess whether a cell is a value or an instruction:
   two are substituted, and no others: `<id>` is the workspace id, derived once under
   **The workspace id** (`skills/flow-contracts/workspace-isolation.md`), and `<id_underscored>`
   is its underscored spelling, derived once under
-  **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). Those are two
-  different sections and the split is not incidental: one makes the id, the other makes the values
-  taken from it. Writing the whole value rather than a suffix is what lets a project
+  **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). Writing the whole value rather than a suffix is what lets a project
   whose variable carries a connection string put the id where the name actually sits inside it.
 - A `port` row writes the literal `+<offset>`, read as this row's `Default` plus the workspace's
   port offset. That arithmetic is what constrains the column beside it: **a `port` row's `Default`
@@ -246,9 +243,7 @@ The id `<id>` carries is defined once under
 **The workspace id** (`skills/flow-contracts/workspace-isolation.md`), which states its prefix
 and digest rules. The underscored spelling `<id_underscored>` and the port offset written here as
 `<offset>` are each defined once under
-**What the id derives** (`skills/flow-contracts/workspace-isolation.md`) — the section for what
-is taken *from* the id, which is why the id's own rule is not in it. Both sections state the rule
-and show the worked value for one change name.
+**What the id derives** (`skills/flow-contracts/workspace-isolation.md`).
 This file names the tokens and derives nothing: a second spelling of a derivation is a second set of
 ids, each of which looks correct on its own.
 
@@ -532,9 +527,7 @@ the per-change spec is.
 the operator to run by hand. `regression repo` records which repository the checkout is expected to
 be, and a mismatch against its real `origin` is reported — but that is an identity assertion, not an
 authorisation, because `<project>/.flow/project.md` is tracked and editable in any pull request, and
-a file inside a repository cannot authorise a push to another repository. Why the permission this
-section once granted was dropped, on evidence a panel slot demonstrated, is design.md's
-`no-automatic-push` decision.
+a file inside a repository cannot authorise a push to another repository.
 
 **Mechanically enforced** by `<agents repo>/scripts/check-visual-verification.sh`, canonical for the
 section's exact shape and every violation it reports.

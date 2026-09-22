@@ -57,8 +57,7 @@ delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-contex
 `prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
 "re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any
-other name — the KAN-449 run's six unrecorded subagents (four rogue panel-fix dispatches, a
-"verify fixes" reader and a "mutation re-verify" agent) are exactly the shape this forbids.
+other name.
 
 **The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.
@@ -188,9 +187,7 @@ stops the run.
 
 **The plan is refreshed against the base before task 1 runs.** The plan and design were written
 against a snapshot of the base branch and the capability specs, and a concurrent merge can
-outdate both while this change waits (gymie kan-579: KAN-527 merged a range-read endpoint at the
-exact route the plan meant to add, and the collision surfaced only when task 1's spec-delta step
-ran against the current spec — an operator ask and a mid-run redesign of two tasks). Before the
+outdate both while this change waits. Before the
 first task dispatches — inline or as an implementer — `git -C <worktree> fetch origin` and
 compare this run's working-notes merge base against `origin/<default-branch>`. On a moved base,
 re-read at the moved base every capability spec the proposal names —
@@ -294,7 +291,7 @@ line from the header of this change's `tasks.md` — the count of tasks appended
 since the plan was first written; a plan that has never carried the line reads as 0. When the
 count has reached **6**, the re-plan budget, this fix round is offered the planning pass before
 anything is appended: an append past this budget is how a change outgrows its own proposal
-without anyone deciding it should (gymie KAN-29 appended 24 of its 46 tasks this way). Ask the
+without anyone deciding it should. Ask the
 operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) fixes:
 
 > **This change's plan has had <n> tasks appended at the human gate — at the re-plan budget of
@@ -340,10 +337,7 @@ back as "won't fix, per <cite>" through `## Question` rather than silently chang
 required. None found: the test guarded an unexamined implementation choice, the report wins, and
 the plan changes the test alongside the behaviour, its commit saying so ("no design decision
 covers this; the prior test locked in the behaviour the report flags"). A test whose own name
-reads as a description of the reported bug is a signal to pause on, not reassurance (gymie KAN-30
-manual re-sweep: `backClosesTheFloorAndKeepsTheSessionRunning` asserted exactly the navigation
-the operator reported as wrong; the decision it was assumed to encode,
-`floor-bar-exits-only-on-contents`, decided only which bar draws the chevron, not where it leads).
+reads as a description of the reported bug is a signal to pause on, not reassurance.
 
 **Fix instructions that dispute a visual judgement this session already made — a spacing, size
 or alignment an earlier round eyeballed as fine — open with the measurement, never with another
@@ -351,15 +345,11 @@ look.** Before the planning pass answers "it matches" or plans a fix, run
 `measure-visual-properties.sh` on the disputed region of the current capture and the mockup
 (**10** in `skills/flow/verify-and-handoff.md`) and put the numbers in the plan or the
 `## Question`; a spacing dispute is measured on every side the complaint names. The glance that
-passed the control is what the operator is contesting, and repeating it answers nothing (gymie KAN-30
-manual re-sweep: a "+" button's row was re-eyeballed as matching through two disputes and
-measured only on the third — 26px above, 6px below). The complaint's own wording names which
+passed the control is what the operator is contesting, and repeating it answers nothing. The complaint's own wording names which
 property that is — "too big", "oversized" is a size (`box` and `ink`); "cramped", "uneven",
 "too close" is a spacing (`gap`); "not filled to the border", "flush", "reaches" is an edge
 alignment (`runs` through the container) — so the measurement answers the property
-named, never the screen area the complaint happens to sit in (gymie KAN-30 manual re-sweep: "rows
-are still not filled with color fully till the borders" was read as "look at that picker
-again" and cost a centring check and a colour check before the fill's edge was measured).
+named, never the screen area the complaint happens to sit in.
 
 **The Jira description sync stays in the parent.** **Load
 `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
@@ -369,7 +359,7 @@ describe, sync the issue **description** per **Description sync** in Jira integr
 **The appended plan's growth is recorded.** After the planning pass writes its appends and bumps
 `**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's
 plan-growth series — gate-time re-planning visible as a trend in the app rather than a
-per-change surprise (KAN-415):
+per-change surprise:
 
 ```bash
 flow tasks count -C <worktree> <name>
@@ -392,11 +382,7 @@ Dispatches into different worktrees remain free to run concurrently. This explic
 `superpowers:subagent-driven-development`'s parallel dispatch guidance and
 `superpowers:dispatching-parallel-agents` for same-worktree tasks. The invariant is the working
 tree, not the build tool, and it holds however file-disjoint two tasks look on paper: UI fixes
-routinely touch shared files — icon sets, shared components, menu wiring — neither task named
-(gymie KAN-30 manual re-sweep: two "small fix" agents dispatched together at one worktree, with no
-Gradle overlap, collided in the tree — the second found the first's uncommitted, compile-broken
-WIP in an unrelated file and silently patched over it to unblock its own build, and neither
-agent nor the parent noticed until both reports named the same file). **A mutating dispatch's
+routinely touch shared files — icon sets, shared components, menu wiring — neither task named. **A mutating dispatch's
 report is complete only when its build's own success line is quoted and `git -C <worktree>
 status --porcelain` is empty or every entry it prints is explained in the report** — "waiting for
 the build" is never a finished report, and uncommitted WIP is a finding, never a state the next
@@ -419,20 +405,18 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
   -session-token mf-<literal-token> -commit <sha> -outcome completed
 ```
 
-**Both calls are required. `begin` is recorded immediately before the dispatch, carrying no
-`-agent-id`: the daemon now captures the agent's identifier automatically (KAN-322) — Claude Code
+Both calls are required. `begin` is recorded immediately before the dispatch, carrying no
+`-agent-id`: the daemon captures the agent's identifier — Claude Code
 writes it into the parent transcript's own launch tool result, the harvester pairs that result
 with the begin that named the row, and the row's empty `agent_id` is filled from it, which is why
-`begin` must precede the launch rather than wait for its id. `-agent-id` remains accepted on both
-calls as recorded intent the daemon never overwrites, for a caller that knows the id.** `-key` is this dispatch's own literal label,
+`begin` must precede the launch rather than wait for its id. `-agent-id` is accepted on both
+calls as recorded intent the daemon never overwrites, for a caller that knows the id. `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
 `-role` is one of `implementer`, `reviewer`, `panel-fix` or `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`); `-task` is the task's
 flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,
-never a shell substitution. The start and end instants are the daemon's own (KAN-324) — never
-caller inputs. Two dispatches starting at one instant are told apart only by id: the daemon pairs
-a begin with its launch by the begin command's own transcript instant, so record `begin`
-immediately before its launch and never reuse one `-key` for a second dispatch.
+never a shell substitution. The start and end instants are the daemon's own — never
+caller inputs.
 
 **`-model` is the model this dispatch was actually given — `DEFAULT_MODEL`** (`skills/flow/SKILL.md`'s
 **Model resolution**), or the run's session-instruction override when one was given for the
@@ -537,11 +521,11 @@ implementer's input, not the dispatcher's. Report the script's stderr line for t
 unchanged — reusing …` or `bundle rebuilt — …`) as part of this stage's own reporting.
 
 The sixth argument scopes the group's `## tasks.md` section to the plan header and the named
-tasks' blocks (per design.md's `scope-tasks-not-files`); a named id the plan does not carry is
+tasks' blocks; a named id the plan does not carry is
 exit 2, a plan defect reported like a missing `**Files:**` field. The panel's and the fix
 subagent's bundles (`skills/flow/review-panel.md`) keep the five-argument call and the whole plan.
 
-**A guard you could not run is hand-substituted only on the record (KAN-417).** When a guard this
+**A guard you could not run is hand-substituted only on the record.** When a guard this
 file calls — the gather above, `check-task-commit-fields.sh` at task close — exits non-zero,
 cannot resolve this change's topology, or is absent, and you go on by composing its facts,
 checking its contract, or running its step by hand, record the substitution at the moment you
@@ -564,11 +548,11 @@ Every implementer dispatch **must** carry:
 > the subject is this task's declared `**Commit:**` field, reproduced exactly. **The commit is
 > pathspec-scoped** — `-- <this task's files>` — so it carries only the paths this task names,
 > whatever else the index holds; a plain commit sweeps a pre-staged foreign tree in with the
-> task's work (gymie kan-469's sweep took ~130 files). **Never weaken or
+> task's work. **Never weaken or
 > bypass a project's commit validation to fit** — no `--no-verify`. Stage for that commit only
 > through the guarded sequence below, in this order — the clearing pass runs first, before any
 > `git add`, because a `:(exclude)` governs what an `add` adds and cannot retract what an earlier
-> step already staged (gymie kan-468 lost task commits twice to exactly this ordering):
+> step already staged:
 >
 > ```bash
 > git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ \
@@ -682,10 +666,7 @@ applies **The handshake** stated above, unchanged.
 > and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
 > file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
 
-**The gymie KAN-29 self review credited its implementers for exactly this behaviour — a backdating
-seam, a declined re-litigation of a recorded rule and an own-card asymmetry each reached the
-operator as a recorded decision because the implementer stopped to report instead of building —
-so every implementer dispatch also carries:**
+Every implementer dispatch also carries:
 
 > **REPORT, DON'T DECIDE:** A question only the operator can settle — a spec point no recorded
 > decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
@@ -714,23 +695,22 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 2. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
    is new, the gate on every commit the guard passed, `flow tasks tick` for every task the guard
    passed and the gate left unfired, and group N+2's gather.** The guard,
-   the gate, the tick and the gather are the parent's own Bash calls, never a subagent's. The
+   the gate, the tick and the gather are the parent's own Bash calls. The
    guard takes the canonical worktree's absolute path (the worktree created or resumed in
    **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
    its sixth; the fourth is the empty placeholder that skips the parent-sha — the guard derives
-   the commit's parent itself (KAN-330), so the argument a mistyped merge base once corrupted is
-   never typed at all:
+   the commit's parent itself:
 
    ```bash
    check-task-commit-fields.sh <worktree> <task-id> <task-sha> "" <canonical-worktree> <name>
    ```
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
-   never stashes, reverts or resets (KAN-442). Every verdict is printed and read before anything
+   never stashes, reverts or resets. Every verdict is printed and read before anything
    launches: **exit 1** sends that task back to the **same implementer**, which re-commits and
    re-runs the guard before anything below; **exit 2 — the guard's not-a-verdict close (an
    unreadable plan, a task it cannot resolve, a commit range git cannot resolve, a usage error) —
-   stops the run** (KAN-601): re-committing cannot repair an inability, so it is never folded into
+   stops the run**: re-committing cannot repair an inability, so it is never folded into
    the re-commit loop; exit 0 computes that commit's **review gate** (two
    sentences down) and ticks the task in the same call only when the gate does not fire — a fired
    gate defers the tick to the task's reviewer, below — and, either way, the same call then runs
@@ -748,8 +728,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    reverting, rebasing or merging state on the `# branch` lines, a change the run did not
    make, or a stash entry the parent did not push means the tree is not the one the run
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
-   guard on top of it. (gymie KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
-   recovery.)
+   guard on top of it.
 3. **One message launches group N+2's implementer and, when any gate fired in group N+1, that
    group's one reviewer bundle (below). The next Bash call records every launch's `begin`**.
 
@@ -763,13 +742,8 @@ gate from two facts, both read in the same Bash call as the guard's verdict:
 `git diff --name-only <task-sha>^..<task-sha>` set against the task's own declared surface — the
 paths in its `**Files:**` field plus everything its optional `**Allowed-collateral:**` glob
 covers. **The gate fires when the commit changes more than 40 lines, or touches any path outside
-that declared set.** WHY 40: gymie KAN-29's self-review (the source of this gate, KAN-400) measured its
-per-task reviewer rows on trivial tasks returning clean with sub-1k-token output — a review of a
-commit small enough to hold in one glance added nothing the guard and the whole-branch panel did
-not already cover, and roughly a third of that run's ninety dispatches were of that shape. Forty
-changed lines is the boundary below which a diff still is one glance. It is a recorded constant
-like `check-panel-diff-size.sh`'s cap — re-tune it by editing this sentence with the reason,
-never by arguing it away per run. The undeclared-path arm is the gate's risk half: a commit
+that declared set.** Forty changed lines is the boundary below which a diff still is one glance;
+apply it as stated, never argue it away per run. The undeclared-path arm is the gate's risk half: a commit
 reaching past its own plan declaration is exactly the surprise a second reading exists for,
 however few lines it runs.
 
@@ -795,8 +769,7 @@ judges the deviation legitimate or not on exactly that refusal, and only a legit
 transcribed and the guard re-run green. The review gate's undeclared-path arm reads the paths the
 refusal named — the pre-correction declaration lives in the refusal, not in any field the
 transcription can overwrite — so the disclosure cannot disarm the gate. This is expected practice
-on every task, not one implementer's habit (gymie KAN-29's self-review: corrections recorded in the task
-itself made that panel's bookkeeping findings cheap to adjudicate; KAN-407 makes it the rule).
+on every task, not one implementer's habit.
 
 **A deviation from the plan records as a dated `Correction:` paragraph.** When a task's commit
 departs from what the plan declares — a file swap, a renamed helper, an added step, any course
@@ -817,8 +790,7 @@ as written — the parent edits `proposal.md`, `design.md` and `tasks.md` in the
 decision the pivot displaces is superseded by ID per **Decisions**
 (`skills/flow/brainstorm-planner.md`) — the old entry's `**Status:**` set to `superseded by
 <new-id>`, a fresh entry appended, nothing deleted or rewritten — so the record carries the
-superseded decision beside its replacement. gymie kan-579 pivoted two tasks through `tasks.md`
-alone; its `proposal.md` never caught up, and the panel found the drift. The amended plan is
+superseded decision beside its replacement. The amended plan is
 re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches.
 
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
@@ -830,8 +802,7 @@ goes out in one reviewer Agent call beside group N+2's implementer, on that grou
 decision's `class`**: on `big`, one bundle per group; on `small` or `regular`, every gate-fired
 task of the run waits and goes out in one bundle at the last boundary, on `DEFAULT_MODEL`/`default`
 when the run has no groups. **Never one reviewer dispatch per gate-fired task, and never one per
-group on `small`/`regular`** (gymie KAN-527: nine one-task dispatches on the first twelve tasks of a
-21-task change, before the operator stopped the run — the review-dispatch count tracks the
+group on `small`/`regular`** (the review-dispatch count tracks the
 change's size, never its task count). Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report
@@ -867,8 +838,7 @@ fold never crosses the run's own uncommitted planning artifacts —
 restored once it has finished or aborted, never mid-way; restore refuses while the rebase is
 still unresolved, and the paths it sets aside are the spec tree's changes directory — the leaf
 `<agents repo>/scripts/lib/spec-root.sh` resolves — and `<project>/docs/superpowers/` only, never
-implementation WIP (KAN-628, the improvised WIP-commit dance
-two runs performed to get past exactly this). The
+implementation WIP. The
 parent re-runs the guard on every sha that rebase rewrote — the on-top route rewrites none, so
 its re-run covers nothing — then re-dispatches the reviewer — one
 bundle carrying every fixed task of the group, under `task-<n+n>-reviewer-fix-<k>`, the same
@@ -971,6 +941,8 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;
   `tasks.md` re-read only through `spectre list --json` and `flow tasks tick` output afterward.
 
+The parent's own `## lint`/`## test` runs, reproducer runs and boundary checks are bound by the same two paragraphs:
+
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
@@ -983,7 +955,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 
 On BLOCKED: pause and report. Never guess.
 
-**Before closing the stage**, the parent runs this guard itself, never a subagent:
+**Before closing the stage**, the parent runs this guard:
 
 ```bash
 check-task-reviewer-single-dispatch.sh <worktree> <change> <session-token>

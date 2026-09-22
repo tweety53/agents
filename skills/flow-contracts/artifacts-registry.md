@@ -12,8 +12,6 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 
 ## Temporary artifacts registry
 
-Every artifact the pipeline creates, with what creates it, where it lives, and what removes it.
-
 | Artifact | Created by | Location | Removed by |
 |----------|-----------|----------|-----------|
 | Per-task and review diffs | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
@@ -21,10 +19,10 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Panel record | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Self-review context bundle | run 2 step 9, on `defer` | `<project>/docs/self-review/<name>-context.md`, committed on `chore/archive-<name>` | `/flow-self-review <name>`, in the same commit as the report |
 | SDD ledger | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
-| Rendered ledger and panel record | `flow record render` | the canonical worktree's `<abs-worktree>/.superpowers/sdd/`, under the change-keyed filename — the renders target the canonical worktree only (kan-399); copied into the archive commit at run 2 step 4, as `<project>/spectre/changes/archive/<name>/ledger.md` and `panel.md` on `chore/archive-<name>` (kan-552) | the worktree copies, with the worktree, at run 2; the landing worktree's, at run 2 step 11 — the step-4 copies survive on the archive branch, where the self-review bundle reads them when the store renders report skipped |
+| Rendered ledger and panel record | `flow record render` | the canonical worktree's `<abs-worktree>/.superpowers/sdd/`, under the change-keyed filename — the renders target the canonical worktree only; copied into the archive commit at run 2 step 4, as `<project>/spectre/changes/archive/<name>/ledger.md` and `panel.md` on `chore/archive-<name>` | the worktree copies, with the worktree, at run 2; the landing worktree's, at run 2 step 11 — the step-4 copies survive on the archive branch, where the self-review bundle reads them when the store renders report skipped |
 | Brainstorm design document | `/flow`'s creating run | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Dispatch context bundle | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Proposal artifact source | `/flow`'s creating run | the state directory | run 2, unconditionally |
+| Proposal artifact source | nothing — `/flow` publishes no proposal artifact (`publish-proposal-removed`), so the file is absent on every change it creates | the state directory | run 2, unconditionally |
 | Worktree | `/flow`'s `flow.kickoff` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
@@ -51,9 +49,9 @@ never left unaccounted for on the grounds that something probably removes it. Se
 artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for the incident that
 established this.
 
-**The proposal artifact source is not a record.** `/flow`'s creating run writes
-`<state-dir>/<name>-proposal-artifact.html` so a revision round can republish to the same URL; the
-published page outlives the file, and nothing in the repository preserves a copy. Run 2 deletes it
+**The proposal artifact source is not a record.** `/flow` writes no
+`<state-dir>/<name>-proposal-artifact.html`; a change created before `publish-proposal-removed` may
+still hold one, and nothing in the repository preserves a copy. Run 2 deletes it
 whether or not it exists — a `/flow-fast` change, which publishes none, has nothing to delete and
 says so. The deletion is disclosed the same way the worktree removal is.
 

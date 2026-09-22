@@ -22,16 +22,6 @@ shape has to be able to name that shape, so an untagged fence in a spec is usual
 doing its job, not an unattributed claim. Widening into `<project>/spectre/specs/` would therefore buy hits that are
 correct by construction — the definition of over-firing.
 
-That is where the over-firing history bears. `<agents repo>/scripts/check-references.sh`'s own header records
-that an earlier guard in this repository, once widened past the shape it was designed for, produced
-28 false failures on this repo's own tree — none of them a genuine defect. The only way to silence
-a false failure under time pressure is a suppression marker, and a suppression marker placed to
-silence a false hit also switches off whatever real check shares that line. A guard that over-fires
-does not just annoy; it manufactures the conditions for its own defeat.
-
-Two things follow from that history, and they are the reason this scope is what it is rather than
-merely narrow for its own sake:
-
 1. **`<project>/spectre/specs/` stays out**, because a rule that fires on text doing its job cannot be fixed by the
    author — there is nothing to correct.
 2. **Two exemptions keep the wider scan from over-firing on prose.** An issue key followed by a
@@ -46,8 +36,7 @@ explain. A number that a line **reproduces** rather than **asserts** needs no ta
 - **A number inside a matched pair of double quotes is a quotation.** Straight (`"`) and curly
   (`“ ”`) both count, and they are the **whole** delimiter set.
 - **A code span is not a delimiter.** A backtick is an ordinary character here, so a number written
-  `` `85 lines` `` is an ordinary unattributed claim and is reported. Inline code spans *were* a
-  delimiter class and were removed — see **Why the delimiters are double quotes only**
+  `` `85 lines` `` is an ordinary unattributed claim and is reported. See **Why the delimiters are double quotes only**
   (`plan-provenance-guard-rationale.md`).
 - **Single quotes and apostrophes are not delimiters.** Prose apostrophes are unpaired by nature,
   so admitting them would make pairing meaningless on most lines this repository writes.
@@ -56,8 +45,7 @@ explain. A number that a line **reproduces** rather than **asserts** needs no ta
   carrying one loses the exemption **entirely** — see below.
 - **A line containing a `<` is exempted from nothing.** CommonMark §6.6 passes an HTML comment, tag,
   declaration, CDATA section or processing instruction through untouched, so a `"` inside one is
-  literal content — and working out which characters those are is a grammar that has leaked six
-  times. A `<` anywhere on the line therefore withdraws the exemption **entirely**, whatever the `<`
+  literal content. A `<` anywhere on the line therefore withdraws the exemption **entirely**, whatever the `<`
   turns out to be — see below.
 - **The exemption is line-scoped.** A pair that opens on one line and closes on the next is not
   recognised. This keeps the exemption a pure line-local test rather than a second piece of parser

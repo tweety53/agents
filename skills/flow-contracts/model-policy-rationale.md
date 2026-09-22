@@ -72,3 +72,13 @@ exception from either mechanism.
 Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
 persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly
 as written and no step fills it in on the way into the repository.
+
+## Moved from model-policy.md
+
+### Planning
+
+`runs in the current session, on its own model` — with no dispatched planner subagent and no `PLANNING_MODEL` to resolve (kan-488).
+
+### Claude Code
+
+`Planning has no dispatch to name a model for — it runs on the session's own model` — (kan-488).
