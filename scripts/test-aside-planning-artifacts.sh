@@ -217,6 +217,19 @@ if [ "$RC" -eq 2 ] && [ -z "$OUT" ]; then
 else
   fail "case 7b: rc=$RC out=$OUT"
 fi
+# 7d — a genuine one-argument call, refused by the count guard itself and not
+# by the -d directory check 7a's empty string hits: with the count check
+# removed, "$2" is unset under the helper's set -u and the helper dies rc=1,
+# which this case reads as the guard gone.
+set +e
+OUT="$(bash "$HELPER" aside 2>"$SANDBOX/stderr")"
+RC=$?
+set -e
+if [ "$RC" -eq 2 ] && [ -z "$OUT" ]; then
+  pass "case 7d: a one-argument call exits 2 silently via the count guard"
+else
+  fail "case 7d: rc=$RC out=$OUT (expected 2 and empty)"
+fi
 NOT_A_REPO="$(mktemp -d "${TMPDIR:-/tmp}/aside-artifacts-notrepo.XXXXXX")"
 REPOS+=("$NOT_A_REPO")
 run_helper aside "$NOT_A_REPO"

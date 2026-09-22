@@ -103,7 +103,7 @@ fi
 
 case "$ACTION" in
   aside)
-    dirt="$(git -C "$WT" status --porcelain -- "$@")" ||
+    dirt="$(git -C "$WT" status --porcelain --untracked-files=normal -- "$@")" ||
       refuse "git status refused the planning-path check in: $WT"
     if [ -z "$dirt" ]; then
       printf 'PLANNING-ARTIFACTS-CLEAN: %s — nothing to set aside\n' "$WT"
