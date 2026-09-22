@@ -24,10 +24,11 @@ detects, where a deletion is visible in the diff. Never cut a normative sentence
 contract, an ordering constraint, a scenario, a worked example, or a recorded reason a rejected
 alternative was rejected.
 
-**Say what came back, not what you are about to run, and never let a report become a stop.** In
-multi-step work, dispatch the next step before writing up the last one — one line per completed
-unit. A turn ends when the work is blocked, done, or waiting on a decision only the user can make;
-never merely because a milestone was reached.
+**Keep the user posted, and never let a report become a stop.** In multi-step work, dispatch the
+next step before writing up the last one — one line per completed unit, and one line naming what
+you are on whenever the user would otherwise see nothing for a while. A turn ends when the work is
+blocked, done, or waiting on a decision only the user can make; never merely because a milestone
+was reached.
 
 **Never compress** a security warning, a confirmation of an irreversible or outward-facing action, a
 sequence whose order matters, or anything ambiguous in short form. Brevity means no wasted words,

@@ -54,25 +54,9 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
     - Are deviations justified improvements, or problematic departures? Flag each so the
       implementer can confirm it was intentional. If the plan itself is wrong, say so.
 
-    **Code quality:**
-    - Proper error handling?
-    - Type safety where applicable?
-    - Edge cases handled?
-
-    **Architecture:**
-    - Sound design decisions?
-    - Reasonable scalability and performance?
-    - Integrates cleanly with surrounding code?
-
-    **Testing:**
-    - Tests verify real behavior, not mocks?
-    - Edge cases covered?
-    - Integration tests where they matter?
-
-    **Production readiness:**
-    - Migration strategy if schema changed?
-    - Backward compatibility considered?
-    - Documentation complete?
+    **Soundness:** review it as a senior engineer would. The bar this project holds that a
+    generic review may not: tests exercise real behavior rather than mocks, and a changed
+    schema or public interface carries its migration and backward-compatibility story.
 
     ## Do Not
 

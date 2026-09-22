@@ -660,8 +660,8 @@ and 13 below as written, committing and pushing nothing.
    reported: state, per control, that the `box` the script found is that control (its edges land
    where the control's edges are seen), that `content` is the icon or label and not a corner
    artefact, and that a `null` or an exit 1 was resolved by a wider or better-centred region, not
-   by dropping the property. A number no eye confirmed is a methodology error waiting to ship;
-   an eye with no number is round 9 again. Exit 2 with no calibration is the script refusing
+   by dropping the property. A number no eye confirmed is a methodology error waiting to ship.
+   Exit 2 with no calibration is the script refusing
    precondition 1 below; supply it, never work around it. Four preconditions on any number
    compared across two images:
    1. **Calibrate before comparing images of different provenance** — a mockup export against a

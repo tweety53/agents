@@ -162,6 +162,8 @@ text after it is the passage, verbatim.
 - ***A task premise about a guard's behaviour is run at plan time, never assumed.*** — kan-542's task 2 shows the cost of leaving the premise to review: planned on a stale premise, it survived until a reviewer struck it with the guard's own exit — a defect this duty kills at planning.
 - ***A task cites the decision it implements, never restates it.** Restated decision prose drifts from its entry the first time either is edited* — which is why gymie kan-468's seeded plan cited instead
 - *`**Baseline:**` … record a command whose stdout is one integer* — (the `| grep -c` pipelines in kan-271 and kan-298's plans are the shape)
+- *`**Files:**` … is expanded by the writer, never left in the field for the guard to expand* — (KAN-636); kan-579's plan declared gs/core/... behind its own legend and hand-repaired every field back to literal paths at its first task boundary, which is the repair this rule removes.
+- *A block of `**Decision:**` lines sits between blank lines … never glued to the `**Commit:**` subject above it* — (KAN-636): a citation with no blank line rode in the subject's continuation in every reader that had not learned the field's name, and kan-579's run repaired each such field by hand at its task boundary.
 
 ### brainstorm-planner.md — D. Writing plans (plan guards)
 
@@ -255,6 +257,7 @@ text after it is the passage, verbatim.
 - *An operator's re-raised or repeated spacing complaint is a measurement order, not a second look — the second look is what already failed* — (gymie KAN-30 manual re-sweep: a date-row header's "+" button was screenshotted and eyeballed as "compact, matching the mockup's proportions" several times, disputed twice by the operator, and pixel-sampled only on the third complaint — 26px above the control to the divider, 6px below, a `LazyColumn` content padding stacked on the sticky header's top inset with nothing equivalent at its bottom)
 - *…alone — a `padding()` placed before the `background()` or `clip()` it was meant to inset the content of, or on the parent before its children's own backgrounds, shrinks the painted area, not the content — a checkable line of code before any screenshot* — (gymie KAN-30 manual re-sweep: a workout picker's selected-row fill stopped a `space2` gutter short of its box's border on every side, the parent `Column`'s padding sitting above the rows' backgrounds; the complaint "rows are still not filled with color fully till the borders" was answered twice with the wrong measurement — a centring check on an unrelated icon, then a colour-existence check with the gap tooling — and once with the right one, a scanline through the fill and both border strokes)
 - *…read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour* — (gymie KAN-30 fix round 10)
+- *A number no eye confirmed is a methodology error waiting to ship* — ; an eye with no number is round 9 again (gymie KAN-30 fix round 9, above)
 
 
 ## Moved by the 2026-09-22 prompt audit (pass A) — review-panel.md and implement.md
@@ -548,6 +551,12 @@ The antecedent of "that change", recovered from the introducing commit (`9c60d2f
 > This is expected practice
 > on every task, not one implementer's habit (gymie KAN-29's self-review: corrections recorded in the task
 > itself made that panel's bookkeeping findings cheap to adjudicate; KAN-407 makes it the rule).
+
+### implement.md — A deviation from the plan records as a dated `Correction:` paragraph
+
+> the panel verifies the deviation instead
+> of discovering it (gymie kan-361's task 2: three tests moved to a sibling file after detekt's
+> `LargeClass` refused the planned one, recorded on the task this way).
 
 ### implement.md — A pivot reconciles the three artifacts together
 

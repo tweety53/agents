@@ -779,8 +779,7 @@ are transcribed (before the guard runs on the commit), stating what the plan dec
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
 reports the deviation, the parent transcribes it; inline, the session is both halves. The
 archived plan then reads as what actually shipped, and the panel verifies the deviation instead
-of discovering it (gymie kan-361's task 2: three tests moved to a sibling file after detekt's
-`LargeClass` refused the planned one, recorded on the task this way).
+of discovering it.
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already
