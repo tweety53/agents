@@ -209,6 +209,32 @@ assert_invalid "a non-symlink entry under skills/*/scripts/ is a rule 1 violatio
 assert_reports "check-bogus.sh" "rule 1: names the offending entry"
 assert_reports "rule 1" "rule 1: names the rule"
 
+# 2a′. A `__pycache__` directory — bytecode Python writes beside a .py it
+#      imports — is skipped under skills/*/scripts/ (not a rule 1 violation)
+#      and under scripts/ (not counted as a guard): the verdict line, count
+#      included, is the one the same tree gives without it.
+new_repo
+add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
+link_guard "flow" "check-foo.sh"
+write_skill_md "flow" '# flow fixture
+
+Run the guard:
+
+```bash
+check-foo.sh <worktree>
+```
+'
+run_guard "$REPO"
+CLEAN_VERDICT="$OUT"
+mkdir -p "$REPO/skills/flow/scripts/__pycache__" "$REPO/scripts/__pycache__"
+printf 'bytecode\n' > "$REPO/skills/flow/scripts/__pycache__/check-foo.cpython-314.pyc"
+printf 'bytecode\n' > "$REPO/scripts/__pycache__/check-foo.cpython-314.pyc"
+run_guard "$REPO"
+assert_silent "a __pycache__ directory under skills/*/scripts/ is not a rule 1 violation"
+[ "$OUT" = "$CLEAN_VERDICT" ] \
+  && pass "rule 1: __pycache__ under scripts/ and skills/*/scripts/ leaves the verdict and its count unchanged" \
+  || fail "rule 1: __pycache__ changed the verdict: '$OUT' vs clean '$CLEAN_VERDICT'"
+
 # 2b. A dangling symlink.
 new_repo
 mkdir -p "$REPO/skills/flow/scripts"

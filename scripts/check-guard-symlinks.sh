@@ -14,7 +14,9 @@
 #
 #   1. Every entry under skills/*/scripts/ is a symlink, it resolves, and its
 #      target is relative — an absolute target would bake this machine's
-#      checkout path into the repository.
+#      checkout path into the repository. `__pycache__` is skipped: Python
+#      writes it beside a .py it imports through the symlinked path, it is
+#      gitignored, and check-vocabulary.sh prunes it for the same reason.
 #   2. Every guard INVOKED in a skill's own text — any token of a
 #      ```bash/sh/zsh fenced command line (a leading word, a pipeline
 #      segment, an `&&` continuation or a command substitution), or a
@@ -251,7 +253,7 @@ fi
 # only the ones already found symlinked in somewhere.
 # ---------------------------------------------------------------------------
 GUARD_SET_FILE="$WORK/guard_set"
-if ! find "$SCRIPTS_DIR" -mindepth 1 -maxdepth 1 -print 2>"$WORK/find_err" | while IFS= read -r e; do basename -- "$e"; done | sort -u > "$GUARD_SET_FILE"; then
+if ! find "$SCRIPTS_DIR" -mindepth 1 -maxdepth 1 ! -name '__pycache__' -print 2>"$WORK/find_err" | while IFS= read -r e; do basename -- "$e"; done | sort -u > "$GUARD_SET_FILE"; then
   echo "check-guard-symlinks: could not enumerate $SCRIPTS_DIR" >&2
   exit 2
 fi
@@ -293,6 +295,7 @@ while IFS= read -r skill_dir; do
   while IFS= read -r entry; do
     [ -n "$entry" ] || continue
     base="$(basename -- "$entry")"
+    [ "$base" != "__pycache__" ] || continue
     printf '%s\n' "$base" >> "$GUARD_SET_FILE"
 
     if [ ! -L "$entry" ]; then
