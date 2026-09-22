@@ -335,6 +335,22 @@ and 13 below as written, committing and pushing nothing.
    list below the chart, and axis labels read `82.333333333333 kg`; the spec's fixture kept the
    goal in range and its ticks round, so 22 frames passed and an operator found both by hand).
 
+   **Pin the clock and the viewport before the first navigation.** The spec installs a fixed
+   clock — `page.clock.install({ time })` at one chosen instant — before its first `page.goto`,
+   never after: `install` is an init script, and an init script reaches only navigations that
+   start after it. Every date the fixture writes — a workout's day, a weigh-in, a target's
+   `from` — derives from that same instant in the app's own timezone, never from `new Date()`
+   and never from its UTC day where the app renders local (gymie KAN-339: the baselines embedded
+   `THU 27 AUGUST` and expired at the next midnight, and the fixture's UTC date disagreed with the
+   day the app drew, each costing a re-capture round). Where the checkout already carries a pinned
+   instant and a helper (gymie-playwright's `PINNED_TODAY` and `pinClock`), the spec uses them
+   rather than choosing a second instant. The spec states its own viewport — the Playwright
+   project it belongs to, or `test.use({ viewport })` in the file — so a coordinate and a capture
+   are the same size on every machine. **The one exception is a view whose content the server
+   derives from its own clock** — a window, an age, a "today" computed server-side — which no
+   browser clock can pin: such a spec leaves the clock real, its dates relative to the real day,
+   and its header says so and why (gymie-playwright's body-calories spec).
+
    **Every mockup frame this change adds or updates gets a capture and a sidecar line — never
    optional, with `mockups` declared.** The frames are the change's declared list (step 10) plus
    every `<frame id>.png` that
