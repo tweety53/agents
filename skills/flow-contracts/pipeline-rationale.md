@@ -5,6 +5,11 @@ This file is the reasoning behind `skills/flow-contracts/pipeline.md`.
 
 ## States
 
+Moved verbatim from the contract's preamble, where it followed **Load this file when running
+`/flow`.**: It is split out of `rules/flow-manual-review.mdc` so the always-on rule layer carries
+only the trigger, not the whole state machine — the same reason the other contract files beside it
+were split out.
+
 ## Stage exit — never the command's own judgment
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
@@ -24,6 +29,12 @@ bare `/flow`), derived from the current state, or fixed at the single sensible d
 ### Every command is re-entrant
 
 ### A fix never moves the state
+
+Moved verbatim from the contract, where it followed **This table is authoritative.**: Every command
+file — in **both** command trees (`commands/` and `commands-claude/`) — must state exactly the
+states its row lists, and must agree with the skill it delegates to. When a command and its skill
+disagree, whichever the agent reads first wins, which is non-determinism in the one layer that must
+be deterministic.
 
 ## Wrong state for this command
 
@@ -99,6 +110,13 @@ file** (`skills/flow-contracts/state-file.md`) already states for `state set`. D
 still exits 0, so there is nothing to react to, and treating its output as a stage failure would make
 the mark exactly the block it is required not to be.
 
+Moved verbatim from the contract's stage-key sentence, after the README citation: — that table is
+restated nowhere here, on purpose: a second copy is exactly what its own README-parsing test
+(`<agents repo>/stats/internal/stages/names_test.go`) exists to make impossible.
+
+Moved verbatim from the contract's `-harness` sentence, after `zcode`: (`zcode` is the harness whose
+rollout transcripts the harvester reads as a second source, kan-479).
+
 ## Handoff output
 
 ### The block each state renders
@@ -122,6 +140,11 @@ the mark exactly the block it is required not to be.
 Stated here rather than in each artifact-writing skill because this file is the one every
 `/flow*` command loads before any other step. Four skill-local copies would drift, and whichever
 skill lacked one would silently exempt its own artifacts.
+
+Moved verbatim from the contract, where it followed **No length guard and no byte budget measures a
+change artifact**: , and none is to be added: a budget on a per-change artifact rewards dropping the
+facts the paragraph above requires kept. Brevity here is a judgment the review panel and the
+operator make, never a number a script checks.
 
 ## IntelliJ commands
 
@@ -226,6 +249,10 @@ This is why the second source matters: `spectre list --json` only
 sees change directories present in the *current* git checkout, so a change staged in a worktree —
 `<project>/spectre/changes/<name>/` created there but never committed to the main checkout — is invisible to
 it alone, even while it sits at a human gate with a fully staged diff.
+
+Moved verbatim from the contract, after the three-outcome list: This resolution is defined **once,
+here**, and `/flow`'s own enumeration step cites this section rather than repeating or re-deriving
+the union — so its list of open changes can never drift from what this section defines.
 
 ## Review panel — the measurements behind three fix-round rules
 

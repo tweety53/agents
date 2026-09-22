@@ -93,8 +93,8 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
    **`check-archive-scope.sh`** refuses a `git add -A` that staged more than the archive move — see
    step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) for
    why. A `SCOPE-VIOLATION` stops the commit exactly as a branch mismatch does. **An exit 2 with
-   nothing on stdout** — a landing worktree that cannot be read — stops the commit the same way
-   (KAN-601): the guard's header makes an inability to answer a non-verdict, so it is never read
+   nothing on stdout** — a landing worktree that cannot be read — stops the commit the same way:
+   the guard's header makes an inability to answer a non-verdict, so it is never read
    as `SCOPE-OK`. **When absent**, run
    `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside
    `<agents repo>/spectre/changes/`.
@@ -201,7 +201,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    whitespace; a body matching none is reported by name and dropped, resolving as absent. `skip`
    ends step 9 here, the handoff's `Self-review` line reading `skipped — project default`. `run`
    proceeds to the reasoning pass below with no prompt. `defer` proceeds straight to the bundle
-   write below, with no prompt and no reasoning pass. Absent: the skip prompt fires as today.
+   write below, with no prompt and no reasoning pass.
 
    When the key is absent, the skip prompt fires first:
 
@@ -233,7 +233,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    docs/self-review/<name>-context.md`.
 
    **On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass
-   itself, inline — no subagent, no dispatch, no `Model:` handshake, no `opus` re-dispatch.**
+   itself, inline — no subagent, no dispatch.**
    `SELF_REVIEW_MODEL` still resolves, purely as a recorded value, but governs
    nothing here: there is no dispatch left to send it to. Feed the bundle's content and the
    five angles cited below directly into this session's own reasoning, then continue straight into
@@ -342,8 +342,7 @@ Next:
 ## Worktree cleanup
 
 For each worktree, run **every** check below before removing anything — the six-check sequence is
-**Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), canonical for it, and is not
-restated in full here beyond one override:
+**Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), canonical for it:
 
 **Never ask check 4's ignored-files confirmation before removing a worktree.** Report what
 `--force` will destroy — how many ignored files, which are build output, and which are irreplaceable
@@ -360,8 +359,6 @@ irreplaceable and *unpreserved* is not this override's case: stop and ask.
 ## Guardrails
 
 - **Never** merge the change branch in run 2; step 1 already proved it.
-- **Never** state a cleanup rule here — **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`)
-  and **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`) are canonical.
 - **Never** report a cleanup as done without the verdict that says so, and **never write
   `FINISHED` over a leftover or an unverified cleanup**.
 - **Never** `git add` the state file, and never move it into the archive.

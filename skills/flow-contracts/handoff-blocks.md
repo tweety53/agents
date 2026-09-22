@@ -20,17 +20,9 @@ the artifacts as they now stand, never from a stored copy. See **Why regeneratio
 **The template is the definition, and it carries what the commands print.** A field a command emits
 and the template omits is drift the moment `/flow-status` renders the same state: the two blocks
 would differ in the one place this section exists to keep identical. So each template below carries
-every field its command emits, under that command's own label and in its `**Label:**` style, and a
-field added to a command is added here in the same change. Labels are the part that must match; the
+every field its command emits, under that command's own label and in its `**Label:**` style.
+Labels are the part that must match; the
 `<…>` placeholders describe each value rather than reproducing the alternatives a command writes.
-
-**"Here and nowhere else" is a duty on the producing skills, not a claim about them.** Each of the
-three phase files — `skills/flow/verify-and-handoff.md`, `skills/flow/integrate.md` and
-`skills/flow/archive.md` — carries the block it prints, and each **cites this section as the
-definition** at that block. A block sitting in a skill with no citation is a second, independently
-authored definition however faithfully it happens to match today, and it is exactly how the two
-copies drift: nothing tells the next editor of the skill that this file exists. The citation is what
-turns three copies into one definition and three renderings of it.
 
 **What a skill's block may differ in, and what it may not.** The **same folded lines, the same
 fields within each folded line and the same order** are identical between a skill's copy and this
@@ -253,19 +245,10 @@ mistake this guards against.
 from the report, so there is nothing left waiting on the operator to hand off. bare `/flow`
 run 2 does print a terminal block — what it synced, archived, removed and verified — and every field
 of it is run-only, because it reports what that run did rather than what the change now is. One
-renderer means nothing to keep in step, which is why that block takes no template here. That block
-also carries `**Self-review:** <path> (rating: <n>/5) | deferred —
-docs/self-review/<name>-context.md | skipped | skipped — project default`, immediately after
-`**Cleanup:** verified`, naming step 9's outcome, and `**Guards:** all present | N missing — those
-checks were performed by hand`, immediately after `Self-review`, naming what that run's own
-start-of-run guard presence check found — both values only run 2 ever has, exactly like the fields
-beside them. A run 2 that **stops** on a cleanup leftover is not this case: it leaves the change
+renderer means nothing to keep in step, which is why that block takes no template here. A run 2
+that **stops** on a cleanup leftover is not this case: it leaves the change
 at `IN_PROGRESS` and prints its own interrupted-run report, every field of which is likewise
 run-only — what that run synced, archived and left behind, which the state file does not record.
-That interrupted-run report carries neither the `Self-review` nor the `Guards` field: it is printed
-only when run 2 stops **before** step 8, so step 9 never runs there and there is nothing for
-`Self-review` to name, and its own text prints no `Guards` line either — adding either field
-regardless would misstate a run that never reached self-review and a report that does not carry it.
 `/flow-status` regenerates one of the two `IN_PROGRESS` renderings above for such a change, by
 the test just given.
 

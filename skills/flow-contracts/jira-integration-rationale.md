@@ -51,3 +51,28 @@ pipeline has, and the pre-edit text reaches the handoff on the runs where it is 
 ### Labels on issues the pipeline creates
 
 ### Follow-up issues
+
+## Moved from jira-integration.md
+
+### Transitions
+
+`The To Do position carries two names` — that is this file's one statement of that set; every other site cites it rather than enumerating it again.
+
+### Unrecognised statuses
+
+**Two are the whole set**; a third interactive Jira question is not added without amending this sentence, which is what keeps the count honest.
+
+## Moved from jira-followups.md
+
+### Follow-up naming
+
+`This naming governs every site that files a follow-up` — today the only such site is `/flow`'s integrate run unfinished-work gate. The rule is stated here rather than there so that a site added later inherits the naming instead of choosing its own.
+
+### The project clause
+
+**The shape is required of the value, not of this clause's copy of it.** The section's other two
+readers — the prefix scoping in
+**Resolution (how `jiraIssue` is decided)** (`jira-integration.md`), and the project a
+follow-up is filed into — read the same validated keys, so a value this clause refuses is never one
+another site quietly accepts. Validating per call site is how the three would drift.
+

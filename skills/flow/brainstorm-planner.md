@@ -44,10 +44,7 @@ the design.
   are committed into the repository or their location is recorded in
   `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
   mockups directory lives — **Project configuration**,
-  `skills/flow-contracts/project-configuration.md`). gymie kan-29's routes A–F were built with the
-  handoffs outside the tree, which is what left every "different from the mockup" report
-  unanswerable and let an unchecked caption survive review.
-- For multi-subsystem work, decompose before proposing.
+  `skills/flow-contracts/project-configuration.md`).
 - The design presentation does **not** end a section, or the whole design, with a "does this look
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
@@ -64,17 +61,14 @@ converged — a seeded research note whose own text carries the design, its deci
 a `/flow-plan` capture or a handoff package brought) — the checklist questions the note already
 answers are answered by the note and never re-asked: the note is the research the checklist would
 gather. A question the note leaves open is still asked, batched as above, and the merged
-convergence-and-approval confirm below runs as written — approval is never seeded. gymie kan-468's run
-converged its plan this way; this paragraph preserves the path.
+convergence-and-approval confirm below runs as written — approval is never seeded.
 
 **The note is the research, never the plan's form.** The seeded plan is still written through C
 and D like any other, and what the note abbreviates the plan spells out: every `**Files:**` field
 carries full repo-relative paths — the note's shorthand (commonMain/… and its like) is expanded,
 never copied, because `check-task-commit-fields.sh` matches a declared path against the commit's
 diff literally — and `tasks.md`'s H1 stays the exact `# <change-id>` literal `spectre validate`
-requires, never a title the note supplies. gymie kan-485's run corrected every `Files:` field by hand
-before task 1's guard ran clean, and gymie kan-468's fixed the seeded H1 at load-context; this
-requirement is both corrections, applied where the note is consumed.
+requires, never a title the note supplies.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
@@ -100,8 +94,7 @@ Open questions`**, including one deferred as far back as round one. Then ask, wi
 > - **Revise — I have a change to the design**
 
 End the stage only on an explicit choice of **approve the design and move on**. An answer that
-names something opens another round. **This is the one prompt in this file where the safe default
-and the recommended option differ, and deliberately so** — shape per Operator prompts
+names something opens another round. **Here the safe default and the recommended option differ** — shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`): silence or a stalled prompt from an operator who is
 present is not "approve the design and move on," and defaults to another round rather than to the
 recommended choice. Print `⚠ another round — no explicit answer` when this default fires.
@@ -192,8 +185,7 @@ ID or it is re-argued from scratch, and which decisions a review round will want
 knowable at creation, so every decision the design records is written with one. **ID** is assigned
 once, at creation, and is **immutable** — the match key a later round uses to **supersede** a
 decision: set the old entry's `**Status:**` to `superseded by <new-id>` and append a new entry with a
-fresh ID. The same key is what let gymie kan-459's review panel name the specific decision a finding found
-stale instead of re-arguing the design. **Never delete or rewrite a superseded entry.**
+fresh ID. **Never delete or rewrite a superseded entry.**
 
 ### Open questions
 
@@ -264,16 +256,14 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > look like, so a null result is recognisable as failure rather than read as success: a task that
 > only asserts the command exited 0 cannot tell a repaired system from an untouched one. When the
 > planner judges the change has no runtime to verify against, it writes one line in the plan
-> saying so — the justification is required, the task is not. This is deliberately not an
-> integration-test stage on every change: a step that usually resolves to "nothing to do" trains
-> everyone to skip it.
+> saying so — the justification is required, the task is not.
 
 > **Write a verification change so its found defects become their own tasks.** When a plan's task
 > exists to exercise a surface and report what it finds — a final-verification pass over a feature
 > group, an end-to-end sweep — its `**Allowed-collateral:**` names what the verification commit
 > itself writes, the report or record files the pass produces, never the surface it inspects, and
 > every real defect it finds becomes a new task appended to `tasks.md`, carrying the field family
-> with the fix's own `**Files:**` and `**Allowed-collateral:**` (the gymie KAN-29/gymie KAN-30 precedent). The
+> with the fix's own `**Files:**` and `**Allowed-collateral:**`. The
 > appended task is what makes the fix declared — `check-task-commit-fields.sh` refuses a commit
 > touching paths no task declared — so the change stays self-contained and every fix stays
 > traceable to a declared task.
@@ -291,9 +281,7 @@ and cites its output in the task as a `measured:` comment per **Plan provenance*
 (`skills/flow-contracts/plan-provenance.md`), naming the command and the ref and quoting the
 exit code or figures the run produced. A premise the run disproves strikes the task during
 planning, before the panel reads the plan — the same verify-the-premise move the filed-finding
-reachability check makes at checklist open, applied to each task's own premise. kan-542's task 2
-shows the cost of leaving the premise to review: planned on a stale premise, it survived until a
-reviewer struck it with the guard's own exit — a defect this duty kills at planning.
+reachability check makes at checklist open, applied to each task's own premise.
 
 **Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
 with `**Build:**` per **The build-green tag**
@@ -321,7 +309,7 @@ with `**Build:**` per **The build-green tag**
   <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
   `check-task-commit-fields.sh` re-runs that command at the commit's parent and at the commit, and
   a count differing from the declared one fails the task — record a command whose stdout is one
-  integer (the `| grep -c` pipelines in kan-271 and kan-298's plans are the shape), and read
+  integer (a `| grep -c` pipeline is the shape), and read
   "never from a test run" as constraining how the declared numbers are derived at plan time, not
   the guard's re-measurement.
 - `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
@@ -343,7 +331,7 @@ across a `**Squash-with:**` pair (union semantics merge the pair into one bundle
 an entry of design.md's `## Decisions`, it names that entry by its `**ID:**` in a
 `**Decision:** <id>` field and copies nothing of the entry's text — the decision lives once,
 under `## Decisions`, and the citation is the link. Restated decision prose drifts from its
-entry the first time either is edited, which is why gymie kan-468's seeded plan cited instead. A task
+entry the first time either is edited. A task
 implementing no recorded decision writes no such field.
 
 Add this header to `tasks.md`:
@@ -368,7 +356,7 @@ of every task's own `**Files:**` field across the plan.
 Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
 project's configured plan-provenance guard and its configured build-green guard, if the project
 declares them, and fix any hit. **A hit is exit 1, and only exit 1.** The refusal exits are
-never repaired by editing the plan (KAN-601): check-plan-provenance's exit 2 (environment) and
+never repaired by editing the plan: check-plan-provenance's exit 2 (environment) and
 exit 3 (containment — a security finding first, per the guard's own contract) and the
 not-a-verdict exit 2 the shape and build-green guards share (a missing or unreadable plan file)
 are reported and stop the plan. Provenance's exit 4 (content-classification) is the one refusal
@@ -376,7 +364,7 @@ whose remedy is editing the plan — fix the line it names and run the guard aga
 prescribed course, never accepting the plan while it stands.
 
 With the plan validated, record its size as the change's first task-count observation — the
-planned figure every later fix round's growth is measured against (KAN-415):
+planned figure every later fix round's growth is measured against:
 
 ```bash
 flow tasks count -C <worktree> <name>
@@ -598,5 +586,4 @@ decision row — then print the summary and ask again. Loop until **Yes**. **Yes
 
 What happens once this section's plan enrichment completes is stated in **Run brainstorming and
 planning directly** (`skills/flow/brainstorm.md`) — continuing directly into
-`skills/flow/implement.md`. There is no human gate between brainstorming converging and
-implementation starting.
+`skills/flow/implement.md`.

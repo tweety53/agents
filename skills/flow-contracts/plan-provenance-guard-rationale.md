@@ -108,6 +108,8 @@ though nothing on it is ambiguous to a human reader. That is a finding reported 
 would have exempted it: loud, visible, and the only direction this exemption is allowed to be wrong
 in. Reword the line or drop the `<`; do not reach for a suppression marker.
 
+`so a `"` inside one is literal content` — and working out which characters those are is a grammar that has leaked six times.
+
 ### What the vetoes cost, measured
 
 This document does not get to assert a number it cannot show you how to re-derive. The measurement
@@ -150,3 +152,38 @@ any actual delimiter loses its exemption regardless — but it is rare, and rewo
 fix whenever you hit one. Do not reach for a suppression marker, and do not weaken the guard.
 
 ## What the guard does not do
+
+## plan-provenance.md — The asymmetry rule
+
+**Why the asymmetry, and not just "label everything":** in a prior run (KAN-6, an IntelliJ
+plugin), a plan claimed "194 tests" as a baseline. That number was invented, not mislabelled —
+nobody ran the suite and wrote down a stale count; the figure never came from a run at all.
+Labelling alone would not have caught it, because a fabricated number can be labelled exactly as
+confidently as a real one. What catches it is refusing the number a home unless the label names a
+command and a ref that can be re-run — `measured:<command> @ <ref>` forces the claim to point at
+something checkable, and `predicted:<what-confirms-it>` forces it to name the check that has not
+happened yet. A plan that cannot produce either for a number should not state the number.
+
+The same run also carried the motivating failure for the block rule: a plan snippet said a marker
+key could be read from `DiffRequest`. It cannot — the platform never propagates chain user data to
+requests. Had the implementer transcribed that snippet verbatim, the feature's guard would have
+been permanently false and the whole feature a no-op **that every unit test still passed** — a
+false guard produces no failing assertion, only a feature that silently never fires. It was caught
+only because that one task happened to carry a hand-written instruction telling the implementer to
+check. The tag vocabulary exists so that instruction is never a special case again: every snippet
+either says how it was checked, or says plainly that it was not.
+
+## plan-provenance-guard.md — The guard's scope, and why it is narrow
+
+That is where the over-firing history bears. `<agents repo>/scripts/check-references.sh`'s own header records
+that an earlier guard in this repository, once widened past the shape it was designed for, produced
+28 false failures on this repo's own tree — none of them a genuine defect. The only way to silence
+a false failure under time pressure is a suppression marker, and a suppression marker placed to
+silence a false hit also switches off whatever real check shares that line. A guard that over-fires
+does not just annoy; it manufactures the conditions for its own defeat.
+
+Two things follow from that history, and they are the reason this scope is what it is rather than
+merely narrow for its own sake:
+
+The two rules that follow are stated in **The guard's scope, and why it is narrow**
+(`skills/flow-contracts/plan-provenance-guard.md`).

@@ -50,6 +50,11 @@ one member of the resolved set whose own `<project>/<spec-root>/changes/<name>/t
 worktree for every call in this run, so a satellite worktree's call still resolves its plan through
 the link instead of reporting an absence.
 
+Then run `check-visual-verify-dispatched.sh <worktree> <name> <recorded-merge-base>` once per
+worktree in the same set, per **Run 1 — the branch is not merged**
+(`skills/flow-contracts/finish-contract-run1.md`): `VISUAL-VERIFY-OK:` joins `CLEAR:`;
+`VISUAL-VERIFY-MISSING:` and an exit 2 take the `OUTSTANDING:` and stop-and-ask rows below.
+
 - **`CLEAR:` from every worktree** → continue to **2** with no extra prompt.
 - **A resolved set that comes back empty** → stop and ask the operator.
 - **`OUTSTANDING:`** → show the breakdown — and the guard's
@@ -114,8 +119,7 @@ mid-way, restore refuses while the rebase is still unresolved, and on a stop-and
 aside stays set aside, named in the handoff with `git stash list` as the recovery path. The
 helper sets the planning paths aside — the spec tree's changes directory (the leaf
 `<agents repo>/scripts/lib/spec-root.sh` resolves) and `<project>/docs/superpowers/` — and
-nothing else: implementation WIP stays exactly where the unfinished-work gate owns it
-(KAN-628). A
+nothing else: implementation WIP stays exactly where the unfinished-work gate owns it. A
 clean rebase runs **Scoped re-verification** below, then proceeds to the landing question. No
 `MOVED` verdict anywhere → report the counts and go straight to the landing question.
 

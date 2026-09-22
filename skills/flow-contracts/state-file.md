@@ -15,11 +15,9 @@ directory) — the same purpose `git`'s own `-C` serves, and useful from a workt
 The record is keyed by **project and change name together**, so two projects may each hold a
 change of the same name without collision.
 
-**"State file" is this contract's name, not a live artifact any command still opens.** The name
-survives because an on-disk JSON file — at the path below — still exists, but only as the CLI's
-fallback record and the write-ahead journal's payload shape, per **The pipeline never blocks**
-below. It is written only when the store could not be reached, and no command reads it while the
-store answers normally.
+**The on-disk JSON file at the path below is the CLI's fallback record and the write-ahead journal's
+payload shape**, per **The pipeline never blocks** below. It is written only when the store could
+not be reached, and no command reads it while the store answers normally.
 
 ```text
 /Users/tweety53/Agents/flow/state/<project-key>/<name>.json
@@ -44,8 +42,7 @@ load-bearing rather than incidental.** Git records a worktree's pointer back to 
 as an **already-resolved** real path, while a naive resolution of the main checkout side preserves
 whatever symlinked route the operator arrived by. Without resolving both sides the same way, the
 identical repository yields **two different project keys** depending on which side asks — the
-exact split this section exists to prevent, reappearing one level down. It was found by running the
-derivation from a real worktree whose temporary directory crossed a symlink.
+exact split this section exists to prevent, reappearing one level down.
 
 Anything else deriving this key — a command, a script, or a program — resolves symlinks the same
 way. A project reached through a symlinked path (a symlinked home directory, a synced folder, a
@@ -159,14 +156,11 @@ field is how it gets erased.
   falls back to the staged diff. A `null` value is therefore never a licence to infer a merge base —
   it is the refusal to.
 - `artifactUrl` — `null` for the life of the change: `/flow` publishes no proposal artifact
-  (design.md's `publish-proposal-removed`), so nothing ever writes this field a non-null value. It
-  is kept in the record rather than dropped so a change created before that decision, whose
-  `artifactUrl` is still populated, is not read as malformed.
+  (design.md's `publish-proposal-removed`), so nothing ever writes this field a non-null value.
 - `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only on the run that **creates** the change; every other invocation **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
 - `planningEffort` — a legacy field: the level recorded for an older change's planning, or `null`.
   No run writes it; every invocation **carries it forward verbatim**. It governs nothing — no
-  command derives behaviour from it, and the review panel's breadth is never scaled from it. See
-  **Planning effort** (`state-file.md`) below.
+  command derives behaviour from it, and the review panel's breadth is never scaled from it.
 - `models` — an object carrying one field, `default`, naming the model chosen for the change, or
   `null` where none was chosen. Written only on the run that **creates** the
   change; every other invocation **carries it forward verbatim**. Its live consumer is `/flow`,
@@ -198,10 +192,6 @@ field is how it gets erased.
   monotonic in both dimensions** below).
 - `updatedBy` — the command that last wrote the record, always `/flow`.
 
-**This record carries no human confirmation and no fix origin.** No command observes whether the
-human ran the apps, so nothing could honestly confirm that a human reviewed the work. And a fix
-never moves the state, so there is no origin state for a fix to return to.
-
 ## Writes are monotonic in both dimensions
 
 A write is refused (HTTP 409, `flow state set` reports and exits 1) when it would move the record
@@ -225,7 +215,7 @@ Because a write renders the whole record and omission clears a field (**The reco
 command must first `flow state get` the existing record and carry forward every field it does not
 itself own — `artifactUrl`, `jiraIssue`, `prUrl` and `worktrees` among them — before calling `flow
 state set`. Re-emit each as read (`null` only if it was already `null`). Dropping one erases it
-permanently: the published proposal link, the link to the Jira issue, the PR (which also silently
+permanently: the link to the Jira issue, the PR (which also silently
 downgrades the next fix from commit-and-push to staged-only), or the authoritative list of worktrees
 for a multi-repo change.
 
@@ -288,12 +278,6 @@ reads to sequence run 1's routes.
 }
 ```
 
-## The on-disk file is written, never seeded
-
-The on-disk fallback file is written only by the CLI's own fallback path. No command reads a JSON
-file it did not write there, and nothing is imported into the store from history. A change with no
-record in the store has none until a command writes one.
-
 ## Read it, write it
 
 ```bash
@@ -305,11 +289,3 @@ printf '%s' "$RECORD_JSON" | flow state set "$NAME" -C "$DIR"
 **The record** and **Carry the record forward on every write** above. Never write the on-disk
 fallback file or journal directly; they belong to the CLI, are machine-local, and are **never
 committed, never staged, and never archived** — nothing here is part of the change.
-
-## Planning effort
-
-`planningEffort` is a legacy field. No run writes it, and a level recorded on a change created
-before the question was retired governs nothing.
-
-**No gate is ever switched off.** Brainstorming runs, the design approval gate holds,
-writing-plans runs, and `tasks.md` is never left a thin scaffold.

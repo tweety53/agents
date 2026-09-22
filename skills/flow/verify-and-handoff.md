@@ -68,7 +68,6 @@ Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <workt
 (auto-detect on exit 1), and the known-failures baseline `project-get.sh <worktree> "known failures"`
 prints (**Project configuration**, `skills/flow-contracts/project-configuration.md`) — exit 1, the
 key absent, is the ordinary case and leaves no baseline for the classification below.
-**The parent itself runs them, per worktree — never a subagent.**
 Export the `KEY=value` lines `prepare-workspace.sh` printed for that worktree, then run the lint
 commands, then the test commands, in the order printed, then `check-spec-reach.sh <worktree>` —
 one more command in the same list, whose exit 0 line `Spec reach: not configured` is the ordinary
@@ -97,8 +96,7 @@ known failure — the baseline matches tests, so only failing-test output is cla
 whose output names at least one failing test, and whose every failing test is known, carries the
 `known failures only` marker beside its exit line in the `## Report`, names each known failure
 under it with its entry's reason, earns **no** inline re-run, and does not block this handoff —
-the baseline is the project's own statement that the failure exists on an unmodified tree
-(KAN-547). Output that names no failing test at all — a compile error, a harness crash — and a
+the baseline is the project's own statement that the failure exists on an unmodified tree. Output that names no failing test at all — a compile error, a harness crash — and a
 failing test with no matching entry behave exactly as the rules that follow.
 
 A non-zero exit from any command in the list earns **one**
@@ -114,7 +112,7 @@ implements** (`skills/flow/implement.md`) uses for implementer and panel-fix row
 recorded before the first command in the list; `end` after the `## Report` is written, carrying
 `-outcome completed`, or `-outcome blocked -cause <cause>` on the `## Question` handback above —
 `test-failure` for a command of the branch that failed twice, `environment` where the
-environment itself failed twice (a missing build prerequisite; KAN-510).
+environment itself failed twice (a missing build prerequisite).
 
 ### The verifier dispatch
 
@@ -122,9 +120,9 @@ environment itself failed twice (a missing build prerequisite; KAN-510).
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file. `subagent_type: general-purpose`, the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
-literal `sonnet`, never `DEFAULT_MODEL` and never a session override — `glm-5.3-flash` on harness
-`zcode` (**Harness mapping**, `skills/flow-contracts/model-policy.md`), which the handshake below
-then compares against. Its prompt carries, verbatim:
+literal `sonnet`, never `DEFAULT_MODEL` and never a session override — mapped on harness `zcode` per
+**Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
+compares against. Its prompt carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
@@ -176,8 +174,7 @@ verifier. The ledger render and this stage's `end` mark follow whichever report 
 facts: `environment` — a stack or tool the environment would not run (a stack that could not be
 started, a build prerequisite the worktree lacked); `test-failure` — a lint/test command that
 failed; `missing-fixture` — a fixture or baseline the verify needed and the worktree did not
-carry. The cause is what makes three environment-caused blocks in one run a query the store
-answers instead of a footnote in one run's ledger (KAN-510). A report with every exit zero still
+carry. A report with every exit zero still
 closes `-outcome completed`.
 
 **Handshake.** Compare the `Model:` line against `sonnet` (never `DEFAULT_MODEL` or a session
@@ -253,9 +250,7 @@ and 13 below as written, committing and pushing nothing.
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
-   cannot repair an environment that cannot pass — gymie KAN-459's visual-verify stage retried three
-   times over roughly five hours on pre-existing workspace-isolation gaps before the operator
-   stopped it. With the parent's own Bash calls, before the dispatch below, check the environment
+   cannot repair an environment that cannot pass. With the parent's own Bash calls, before the dispatch below, check the environment
    this worktree will verify in:
 
    - **Ports held only by their own app.** For every port this worktree's resolved environment
@@ -301,8 +296,7 @@ and 13 below as written, committing and pushing nothing.
    declared, else `## run`, and record that this stage started it — needed at step 13.
 6. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
    of what the app was serving when it was taken, and a stack step 5 found already running may be
-   serving a build older than the worktree — gymie KAN-29's last fix round captured, and nearly accepted,
-   the bug the fix had removed. Run `check-dev-stack-fresh.sh <worktree>` — it reads the row and
+   serving a build older than the worktree. Run `check-dev-stack-fresh.sh <worktree>` — it reads the row and
    runs it, so the stage never parses the table by hand; its header is canonical for its three
    exits. Exit 0 → the served bundle is the worktree's build; continue. Exit 1 → stop the stack,
    start it from `start` when declared, else `## run`, record that this stage started it (step 13
@@ -323,26 +317,20 @@ and 13 below as written, committing and pushing nothing.
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
    reason blocks (see **Blocking** below). A `toHaveScreenshot` passing over a baseline this
    change wrote is the app agreeing with itself, never with the mockup — step 10 is the only
-   comparison, and `capture: exit 0` is never evidence of a frame's fidelity (gymie KAN-437 final
-   verification: Q1's baseline was the implementer's own first capture, green on every later run
-   while drawing three controls of the wrong kind). **Seed the spec with data the frame does not
+   comparison, and `capture: exit 0` is never evidence of a frame's fidelity. **Seed the spec with data the frame does not
    draw.** A mockup is drawn on a happy case, and a spec whose fixture reproduces it verifies only that case:
    the fixture holds, for every element the view derives from data, at least one input the frame's
    own numbers would never produce — a threshold, goal or marker value outside the plotted range;
    a dataset whose derived numbers (axis ticks, averages, deltas, unit conversions) do not come out
    round; a list longer than the viewport; and the empty or first-time entry path beside the
-   populated one (gymie KAN-437: a goal line drawn from a value outside the axis range rendered over the
-   list below the chart, and axis labels read `82.333333333333 kg`; the spec's fixture kept the
-   goal in range and its ticks round, so 22 frames passed and an operator found both by hand).
+   populated one.
 
    **Pin the clock and the viewport before the first navigation.** The spec installs a fixed
    clock — `page.clock.install({ time })` at one chosen instant — before its first `page.goto`,
    never after: `install` is an init script, and an init script reaches only navigations that
    start after it. Every date the fixture writes — a workout's day, a weigh-in, a target's
    `from` — derives from that same instant in the app's own timezone, never from `new Date()`
-   and never from its UTC day where the app renders local (gymie KAN-339: the baselines embedded
-   `THU 27 AUGUST` and expired at the next midnight, and the fixture's UTC date disagreed with the
-   day the app drew, each costing a re-capture round). Where the checkout already carries a pinned
+   and never from its UTC day where the app renders local. Where the checkout already carries a pinned
    instant and a helper (gymie-playwright's `PINNED_TODAY` and `pinClock`), the spec uses them
    rather than choosing a second instant. The spec states its own viewport — the Playwright
    project it belongs to, or `test.use({ viewport })` in the file — so a coordinate and a capture
@@ -427,8 +415,7 @@ and 13 below as written, committing and pushing nothing.
    **The difference panel cannot show a structural departure, so the first read of every pair
    is the script's band pairing, never the panel.** The panel is white wherever any channel
    differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
-   frame's own annotations alone (gymie KAN-437 final verification: every composed frame read
-   `diff=0.20`–`0.52`). A 1px rule the capture omits, a row padding it lacks, a surface fill
+   frame's own annotations alone. A 1px rule the capture omits, a row padding it lacks, a surface fill
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
    under a hundredth and vanishes in that white. Beside every composite the compose step writes
    the cropped frame as `<composite stem>.frame.png`, the capture's own size; for every pair, run
@@ -447,19 +434,13 @@ and 13 below as written, committing and pushing nothing.
    accept. Data never creates or removes a band, moves a divider or recolours a border, so "the
    seed data differs" explains none of them. The pairing resyncs after an unpaired band; a pair
    count far below the frame's band count is itself the finding that the layout differs
-   wholesale, and the composite is then read to say how (gymie KAN-437 fix round 5, Q2 pre-fix: the
-   frame's four "HOW IT GOT THERE" hairlines listed `missing`, the "Adjust first" band paired
-   with `edge #0088b0` against `#d7d3d3` — the outlined-accent variant shipped as the grey one —
-   and the answer rows' `since_pair` short by the padding the row lacked; Q1 pre-fix: the
-   ACTIVITY card and the GOAL segmented control each `missing` as the frame's bordered band and
-   `extra` as the capture's unbordered one).
+   wholesale, and the composite is then read to say how.
 
    **A band is one row of the page's structure and sees nothing across it, so the same call's
    seam pairing is the second read: `delta.seams`, the vertical structure inside every boxed
    band.** A segmented control with its two cell dividers gone and its wrapped labels
    left-anchored where the frame centres them is one band in both images, the same height and
-   the same border colour, and pairs clean (gymie KAN-437 fix round 5, Q1's GOAL control: both shipped
-   past the band pairing and every sweep, and an operator found them by eye). For every boxed
+   the same border colour, and pairs clean. For every boxed
    band — a bordered or filled control, a card, a hairline; never a bare text row — the script
    lists its seams (an outer border's side, a cell divider, a filled cell) paired in order, and
    for every cell between two paired seams its text lines with their `offset` from the cell's
@@ -480,9 +461,7 @@ and 13 below as written, committing and pushing nothing.
    a resting frame does not show.** Full-page comparison catches wrong regions and wrong overall
    layout, and wrong text only where the capture's data is the frame's own; it does not catch a
    border style, an icon's glyph, or a colour step, all of
-   which are invisible at full-page scale (gymie KAN-30 fix round 6: a field's
-   underline-only focus border, drawn against a mockup showing a full outline, read as a match at
-   composite scale and was found only once the two were cropped and zoomed side by side). Before
+   which are invisible at full-page scale. Before
    accepting any field, button, icon, or toggle as matching its mockup:
    1. **Crop and zoom (2–3x) both the mockup region and the corresponding capture, side by side.**
       Do this for every interactive control the view carries, not only ones that already look
@@ -490,12 +469,7 @@ and 13 below as written, committing and pushing nothing.
       measurement** — a plain text field or a headline display figure; a list row carrying a
       leading radio, or a quiet row whose only indicator is a trailing filled circle on the
       selected one; a segmented control of N cells each fitting its own label — a differing
-      kind is a departure before any number is taken (gymie KAN-437 final verification, Q1: the WEIGHT
-      field rendered in the weight tab's headline-figure style at about three times the frame's
-      field height; every ACTIVITY row carried a leading outlined radio where the frame draws no
-      indicator on unselected rows and a trailing filled circle on the selected one; the GOAL
-      segments' two-line labels ran into the neighbouring cell — none subtle at 1x, none seen,
-      the frame never on the list below).
+      kind is a departure before any number is taken.
    2. **Exercise every interactive state the mockup draws for that control, not only its resting
       one** — a focused field, a field with a value typed (so a clear icon or a validation state
       actually renders), a pressed button, an enabled toggle. A control checked only at rest has
@@ -505,9 +479,7 @@ and 13 below as written, committing and pushing nothing.
    **Enumerate every mockup frame the change touches into an explicit checklist before starting
    the sweep, and account for each one by name at handoff — done, or why not.** "Did a
    screen-by-screen sweep" is unfalsifiable without a fixed list: a partial pass reads exactly like
-   a complete one if nothing forces naming what was skipped (gymie KAN-30 fix round 7: two prior rounds
-   each reported partial coverage as if it were the whole set, and the gap was caught only when the
-   operator asked "so is X fully compared and fixed?" of a specific frame). Build the list from
+   a complete one if nothing forces naming what was skipped. Build the list from
    every frame id `design.md`/`tasks.md` cites for this change, or from the mockups directory
    itself when no such citation exists; a frame reached only by inference from another (already
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
@@ -518,23 +490,11 @@ and 13 below as written, committing and pushing nothing.
    `frames:` line counts against that list and names every declared frame absent from the
    per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame
    list before applying **Blocking**, and a declared frame with no line blocks as a departure
-   would (gymie KAN-437 final verification: `design.md` declared 22 frames, two `flow.visual-verify`
-   rounds each ran three of five fidelity specs and reported 15/17 composed — Q1–Q3 and M1–M2
-   never composed, never named as skipped, unnoticed by the parent, and every Q1 defect above
-   surfaced only when the operator opened the screen).
+   would.
 
    **Exercise the states below and capture each one; a state nobody drove into is a state nobody
    verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
-   reached deliberately rather than by whatever the walkthrough happens to pass through (gymie KAN-30
-   fix rounds 7 and 8: a blind click landed on a day's "Repeat that workout" suggestion instead of
-   "Create a group session" because an extra card existed on that day only, and the sweep almost
-   recorded the wrong screen as verified; one dialog's "selected" fill differed between two
-   sub-states, two sibling cards diverged in shadow, and "Add user" carried a border on one code
-   path and none on another because the empty and populated roster states routed to two different
-   shared button components; a time wheel scrolled correctly one way only, a state-derivation bug
-   no resting capture shows; an empty picker shipped in its pre-restyle appearance beneath a
-   restyled populated sibling; a picker offered an option submit always rejected, surfaced only as
-   a post-hoc toast).
+   reached deliberately rather than by whatever the walkthrough happens to pass through.
    1. **Every appearance of a named state, and of a shared component, diffed against its other
       appearances.** Crop and diff each appearance of a named state (selected, active, pressed)
       and of a shared component (a button variant, a sibling card) across every place it shows in
@@ -568,31 +528,27 @@ and 13 below as written, committing and pushing nothing.
       until its text has been read. Transcribe every number, unit and label the capture shows and
       state, per run, that it is a display value at the precision the frame shows — a raw float,
       a `NaN`, `null`, `undefined`, an empty string where the frame draws a value, a placeholder
-      is a defect whatever the frame's own numbers are (gymie KAN-437: `82.333333333333 kg` on an axis
-      the frame drew as `82.3 kg`, read as a data difference).
+      is a defect whatever the frame's own numbers are.
    6. **The elements of capture and frame, listed top to bottom, and every element inside its
       own container.** Write both lists — heading, chart, chips, list, link — and compare their
       order: a control present in both but in a different position relative to its siblings is a
       departure the per-control crop never sees, since each crop matches its own control wherever
-      it sits (gymie KAN-437: preset chips rendered above the chart the frame drew them below). Then
+      it sits. Then
       confirm no element's ink crosses its container's bounds into a sibling — a plotted line, a
       marker, a label — driving the out-of-range value step 8 seeded and stating whether the app
-      clamps it or hides it (gymie KAN-437: a goal line drawn at a Y past the chart's clip, over the
-      rows beneath).
+      clamps it or hides it.
    7. **Every scrollable region scrolled to its end, and the frame's last element reached by
       name.** A frame taller than the capture viewport is itself the assertion that the screen
       scrolls: scroll to the frame's bottom element, capture it, and name it in the report. A
       screen whose content extends past the viewport with nothing to scroll it is a defect, and
       the fixed-viewport capture cannot show it — it proves the visible viewport and nothing
-      beyond (gymie KAN-437: a tab with no scroll container at all, its "All N weigh-ins" link
-      structurally unreachable, every capture of its top green).
+      beyond.
    8. **Every derived value re-derived after its input changes.** For each value the view
       computes from an input the operator can edit — a delta, a total, a conversion, a preview —
       type a new input, capture before and after, recompute the expected value by hand, and
       state both. A value that does not follow its input, or that is absent on one entry path the
       populated path shows (first-time versus returning), is a defect no single capture can
-      show (gymie KAN-437: a dialog's derived field stayed stale as the operator typed, and was missing
-      entirely on the first-entry path the spec never took).
+      show.
    9. **Every row the frame bounds with a divider, hairline or container edge — a header bar, a
       sticky bar, a toolbar, a list section, a dialog's action row — gap-measured on the side
       facing each bound, in both images, before the row is called matching.** Which rows are
@@ -610,12 +566,7 @@ and 13 below as written, committing and pushing nothing.
       whitespace around it is wrong, the per-control crop matches its control wherever it sits, and
       the order-and-containment sweep finds every element present and inside its container. A row
       whose every control measures the right size is the case to suspect, not to pass: a uniform
-      container padding around correctly-sized controls is invisible to every reading but this one
-      (gymie KAN-437 final verification: a Weight/Calories segmented control and its "+" button, both
-      exactly the mockup's 44dp, sat in a `padding(space4)` on all four sides — 20dp against a
-      frame drawing 2–5px to the dividers above and below — and passed two `flow.visual-verify`
-      fix rounds, one operator sweep and one manual re-check, each of which had measured the
-      controls and none the gaps).
+      container padding around correctly-sized controls is invisible to every reading but this one.
    10. **Every non-text ink the frame draws — hairline, divider, rule, border, background fill,
       shadow band — inventoried from the frame alone, then found in the capture one by one.**
       Every sweep above starts from something the capture shows or the text says: a control, a
@@ -636,10 +587,7 @@ and 13 below as written, committing and pushing nothing.
       capture's is a departure, whatever the row's text reads. This sweep runs on a frame whose
       content already matches and on a frame
       already fixed for something else — a fix run re-verifies the whole frame, never the
-      element it fixed (gymie KAN-437 final verification, Q2 and Q3: Q2's "HOW IT GOT THERE" rows had
-      their label text fixed and were re-checked for that text only, and Q3 was passed as
-      matching on its labels and values; the hairline rules both frames draw above, between and
-      below their rows were never in the app, and an operator found both by hand).
+      element it fixed.
 
    **Every element the frame draws, on every property the script measures — a matrix per
    frame, never a list of sweeps done.** Every sweep above is anchored on one kind of element
@@ -651,14 +599,7 @@ and 13 below as written, committing and pushing nothing.
    row and never how far the row stretches, and the per-control crop is asked for the one number
    the last incident made memorable. The report's `sweeps:` line then names the sweeps, not the
    numbers, so a round that re-checked one defect reads exactly like a round that measured the
-   frame (gymie KAN-437 final verification, Q1 and Q2, one operator pass after `12a64fa`: Q1's ACTIVITY
-   rows lacked their grey borders, its GOAL segments' labels sat off-centre in their cells, and its
-   fat/carbs slider drew another track and thumb; Q2's headline figure was the wrong size, its
-   PROTEIN/CARBS/FAT row the wrong colour and inset where the frame runs edge to edge, its "HOW IT
-   GOT THERE" caption the wrong colour and its rows spaced differently from the dividers — seven
-   departures across colour, size, width, alignment, border and control kind, on two frames
-   already fixed and re-verified more than once, every one of them a property the script
-   measures and none of them a cell any sweep asked for). Before a frame is called matching:
+   frame. Before a frame is called matching:
 
    1. **Enumerate the elements from the frame, not the capture and not the last report** —
       every visually distinct thing it draws, top to bottom: each text run (a heading, a figure,
@@ -695,10 +636,7 @@ and 13 below as written, committing and pushing nothing.
    font size by eye from a resized or cropped image; measure it with
    `measure-visual-properties.sh`, then eyeball what it measured.** A crop is for reading text
    and layout, never edges or centres — interpolation and a small viewport shift an edge by
-   pixels and hide a gap outright (gymie KAN-30 fix round 9: a card corner read "square, no gap" from a
-   tight crop that ended before the corner; a row-by-row background-colour scan of the same
-   boundary found a rounded corner and a 9px gap — done by hand-written one-off scripts, three
-   attempts, the first two wrong). For every per-control comparison this step makes, run
+   pixels and hide a gap outright. For every per-control comparison this step makes, run
 
    ```bash
    measure-visual-properties.sh <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
@@ -708,17 +646,15 @@ and 13 below as written, committing and pushing nothing.
    `--props runs` on that crop first where its edges are in doubt, since every run boundary it
    lists is an edge the region can sit on, and a miscrop is the glance again; and `--edge`
    lowered below the distance `runs` reports between a control's fill and its background where
-   that distance is under the default 24, since a surface-on-page card (gymie: `#eae9e9` on
-   `#f3f2f2`, 15.6 apart) has no hard edge at the default and exits 1 on every box property
+   that distance is under the default 24, since a surface-on-page card has no hard edge at the default and exits 1 on every box property
    until it is — and
    read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
-   (gymie KAN-30 fix round 10; the script's own header is canonical for its options, properties, output
+   (the script's own header is canonical for its options, properties, output
    and exit codes). Two readings the eye reliably gets wrong: an icon's tint is `content.colour`,
    never `fill` — the fill is the box behind the glyph, and a grey glyph on the right fill matches
-   on every other property (gymie KAN-437: two icons grey where the frame drew accent blue); and a pill
+   on every other property; and a pill
    is a `radius` equal to half the box height, while a rounded rectangle is any smaller number —
-   read the number, since both look "rounded" at 1x (gymie KAN-437: preset chips shipped as rounded
-   rectangles against a pill frame). **Both halves are mandatory and neither substitutes for the other.** The
+   read the number, since both look "rounded" at 1x. **Both halves are mandatory and neither substitutes for the other.** The
    script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
    off a crop; and its output is then eyeballed against the two crops before any number is
    reported: state, per control, that the `box` the script found is that control (its edges land
@@ -736,38 +672,27 @@ and 13 below as written, committing and pushing nothing.
       images is already established by other evidence — a prior finding, a code-level guarantee,
       a passing test — as that element's box in each image via `--ref-a`/`--ref-b`, never from
       the nearest similar-looking thing: an unchecked ruler is itself a claim, and a wrong one
-      makes the comparison wrong twice (gymie KAN-30 fix round 9: a day-number circle as ruler put a
-      button at 2–3x oversized; an adjacent "+" button confirmed correct earlier put it at
-      15–20%, traced to a deliberate 44dp touch-target minimum).
+      makes the comparison wrong twice.
    2. **Confirm both images are the same state of the view** — the same expand/collapse state,
       scroll position and populated/empty condition, not merely the same screen. The box between
       two landmarks encloses different content in different states, and its size then compares
-      nothing (gymie KAN-30 fix round 9: a date-header row measured 3x taller against a mockup drawn
-      with the calendar collapsed and a capture with it expanded).
+      nothing.
    3. **Treat an implausible result — a multiple rather than a percentage, an order of
       magnitude — as a methodology error, never as a bigger finding.** Re-derive the calibration
       and the state check before reporting it; a smaller wrong number from the same mistake reads
-      as a finding and ships (gymie KAN-30 fix round 9: the 3x row was caught only because it was
-      absurd).
+      as a finding and ships.
    4. **Measure the rendered box, never the declared one — a declared minimum is a floor, not a
       size, and the hit box and the visible ink are two measurements, not one.** `sizeIn(min =
       44.dp)` bounds a box from below and nothing bounds it from above: a child's own intrinsic
       size inflates the box past the mockup's drawn size and past the floor itself, and reading
       the constant in code sees none of it. An accessibility minimum applies to the tap target
       only, while the mockup draws the visible shape, so a control that looks oversized is
-      measured twice — hit box and ink — before either number is called wrong (gymie KAN-30 manual
-      re-sweep, after round 10: the "+" button precondition 1 had accepted as a deliberate 44dp
-      minimum had grown past 44dp on a child's layout demand, found only by measuring its
-      rendered pixels; and a tap-target circle whose visible fill shared its hit size rendered
-      about 2.5x the mockup's circle, the two numbers never having been separated).
+      measured twice — hit box and ink — before either number is called wrong.
 
    **A first impression that a control "looks broken" is a hypothesis, not a finding — zoom and
    contrast-check the capture before it becomes a code change.** A small, low-contrast but
    pixel-correct element reads as wrong at a glance, and "hard to see" is a different question
-   from "drawn wrong" — one for the operator, not for a fix (gymie KAN-30 manual re-sweep: a substring
-   highlight read as a smudge, cost three wrong hypotheses about its geometry, and was proved
-   pixel-correct only once re-rendered in a saturated red for a contrast test; the right first
-   move was a zoomed crop and "low-contrast, reads as a smudge at 1x — accepted?" handed back).
+   from "drawn wrong" — one for the operator, not for a fix.
    Symmetric with the measurement rule above: the eye that passes a control owes a number, and so
    does the eye that fails one.
 
@@ -781,11 +706,7 @@ and 13 below as written, committing and pushing nothing.
    symmetric, tight or matching. Gaps compound where sizes do not: an outer container's content
    padding stacks on a header's own inset on one side only, and no per-element size measurement
    sees it. An operator's re-raised or repeated spacing complaint is a measurement order, not a
-   second look — the second look is what already failed (gymie KAN-30 manual re-sweep: a date-row
-   header's "+" button was screenshotted and eyeballed as "compact, matching the mockup's
-   proportions" several times, disputed twice by the operator, and pixel-sampled only on the
-   third complaint — 26px above the control to the divider, 6px below, a `LazyColumn` content
-   padding stacked on the sticky header's top inset with nothing equivalent at its bottom).
+   second look — the second look is what already failed.
 
    **"Filled to the border", "flush with the edge", "reaches the corner" is a third measurement,
    and neither of the two above sees it — a claim that one shape's paint ends where another
@@ -803,17 +724,9 @@ and 13 below as written, committing and pushing nothing.
    drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
    before the `background()` or `clip()` it was meant to inset the content of, or on the parent
    before its children's own backgrounds, shrinks the painted area, not the content — a
-   checkable line of code before any screenshot (gymie KAN-30 manual re-sweep: a workout picker's
-   selected-row fill stopped a `space2` gutter short of its box's border on every side, the
-   parent `Column`'s padding sitting above the rows' backgrounds; the complaint "rows are still
-   not filled with color fully till the borders" was answered twice with the wrong measurement —
-   a centring check on an unrelated icon, then a colour-existence check with the gap tooling —
-   and once with the right one, a scanline through the fill and both border strokes).
+   checkable line of code before any screenshot.
 
-   **No sidecar is never a silent skip.** A mockups directory sitting unused is what let gymie kan-30's
-   own screens ship four fix rounds deep with their real, drawn frames never once diffed against
-   the app — `mockups: no map` was reported and accepted every round, because nothing required
-   the sidecar that triggers the compose step to exist. Before reporting `mockups: no map`, list
+   **No sidecar is never a silent skip.** Before reporting `mockups: no map`, list
    `<abs-worktree>/<mockups>` and check it for a frame plausibly matching any view this change
    touched — by filename, by a frame id `design.md` or `tasks.md` cites for this change, or by the
    screen family the touched `ui paths` name. A plausible match exists → **author the
@@ -841,9 +754,7 @@ and 13 below as written, committing and pushing nothing.
     change has already placed in the repository — a committed baseline, or the composite the
     compose step just wrote into `<changeRoot>/visual-verification/` — is cited at that
     in-repository path. No entry cites the
-    worktree-absolute path of a file the worktree holds alone — gymie KAN-29's record cited two
-    screenshots that way, they died with `worktree remove --force` at archive, and the record
-    kept two dead citations. The report block below keeps its absolute paths: it is the live
+    worktree-absolute path of a file the worktree holds alone. The report block below keeps its absolute paths: it is the live
     run's handoff, not the committed record.
 12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **The commit is
@@ -851,18 +762,17 @@ and 13 below as written, committing and pushing nothing.
     first, then `git commit -m "<subject>" --` those same paths — the add first because the
     stage's outputs are new untracked files, which a pathspec commit cannot pick up — carrying
     only what this stage wrote, never a bare `git commit`: the index of a main checkout
-    may carry a pre-staged foreign tree, and gymie kan-469's plain commit swept ~130 such files into a
-    baselines commit (**A commit a run instructs defaults to the pathspec-scoped form**,
+    may carry a pre-staged foreign tree (**A commit a run instructs defaults to the pathspec-scoped form**,
     `skills/flow-contracts/git-boundaries.md`). **Resolve the
     `regression checkout` root the same way every other declared app root in this file is
     resolved** — from `git worktree list` in that repository, or the state file's `worktrees`
     map, per **Roots in `## apps` are main checkouts** (`skills/flow-contracts/project-configuration.md`) <!-- refs-guard:allow -->
     — never the main checkout while a worktree for it holds the change's work. A `regression
     checkout` not also declared in `## apps` has no worktree to resolve and this step commits to
-    the main checkout directly, exactly as before. **Never push** — see `no-automatic-push`
+    the main checkout directly. **Never push** — see `no-automatic-push`
     (design.md): a file inside a repository cannot authorise a push to another repository, so no
-    guard here grants one, worktree or not. `regression repo` still records which repository the
-    checkout is expected to be, and `check-visual-verification.sh` still reports a mismatch against
+    guard here grants one, worktree or not. `regression repo` records which repository the
+    checkout is expected to be, and `check-visual-verification.sh` reports a mismatch against
     its real `origin`, but that is an identity assertion, not an authorisation. When a commit landed
     in a `regression checkout`, print the push command for the operator to run by hand, naming
     whichever branch actually received the commit — the change's own `spectre/<name>` when a
@@ -919,9 +829,7 @@ band whose line names no cause, a composed frame with no `seams:` line or with a
 `extra` or over-tolerance seam or an off-centre line whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the
 frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason
 — the parent's own reconciliation, step 10**, and **a defect the
-verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
-point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
-both test suites, and obvious the moment the page was opened.
+verifier reports in a captured screenshot — even when every assertion passed.**
 
 ```bash
 flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
@@ -1001,9 +909,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
 - **Before this stage ends, start the stack.** This runs on every run — first and fix alike, not
   only a fix run. A fix run's motivation is the sharpest example: it hands the operator a diff and
   the run instructions this stage resolves, and if the applications those instructions name are
-  still serving pre-fix code, the operator reviews one thing and runs another — measured, not
-  hypothetical, in this repository's own `<project>/stats/internal/web/embed.go`, whose `//go:embed
-  all:dist` makes a running daemon blind to an SPA source change until it is rebuilt. But the same
+  still serving pre-fix code, the operator reviews one thing and runs another. But the same
   applies on a first run: a handoff is meant to hand off a running stack, not a command that starts
   one, so before this stage ends, rebuild and restart every application the run instructions above
   name — the ones just resolved, and no others — from the project's `## run` commands.
@@ -1039,8 +945,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
 - **The stack behind the URLs is checked, not trusted.** When the `Running:` block below would
   carry URL lines, run `check-dev-stack-fresh.sh <worktree>` first: the project's declared
   `fingerprint` row (the `## visual verification` section) proves what the stack serves is the
-  worktree's own build — the check KAN-334's handoff lacked when it printed a URL backed by a
-  bundle eleven commits stale. The guard's own header is canonical for what its three exits
+  worktree's own build. The guard's own header is canonical for what its three exits
   cover. Exit 0 adds nothing. Exit 1 adds one line beside the URLs, naming the application, its
   resolved URL and the guard's own stderr reason, restart-shaped and never a restatement of the
   verdict: `Stale: <app> (<url>) — <the guard's reason>; restart the stack before testing.`

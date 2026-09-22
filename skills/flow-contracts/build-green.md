@@ -1,8 +1,7 @@
 # Build green
 
 **This file is canonical for the build-green tag.** Skills and guards reference it by name; the
-guard script's own module docstring points here rather than restating the rule — a second copy is
-the same Single Source of Truth violation `check-plan-provenance.py`'s docstring warns against. If
+guard script's own module docstring points here rather than restating the rule. If
 a rule below and a skill or script comment ever disagree, this file wins.
 
 ## The build-green tag
@@ -49,9 +48,7 @@ body with no such line has no tag at all. A first line whose value opens with ne
 (`**Build:** yellow`, `**Build:** greenish`, a bare backticked path) is a **malformed tag** — its
 own violation, reported by that line and its value, never as a missing tag (which would name the
 consequence and hide the cause, exactly as the unclosed-fence finding refuses to), and never
-overridden by a well-formed `**Build:**` line further down. This is the same placement rule the
-guard script's own docstring states as a regex — this file states it in prose, and the two are
-required to describe the same rule, the column-0 anchor included.
+overridden by a well-formed `**Build:**` line further down.
 
 ## The guard's scope
 
@@ -70,10 +67,10 @@ A guard script (`<agents repo>/scripts/check-task-build-green.py`, wrapped by
 A `red` task with no partner pointing back at it, and a `red` task whose partner is `green`, are
 both accepted — "unreferenced" is not a violation shape this guard checks for.
 
-`/flow`'s creating run runs this guard, when the project declares one, before publishing the proposal
-artifact — the same point at which the plan-provenance guard runs — and fixes any hit before
-publishing. `/flow`'s review panel runs it, when the project declares one, at every round close and
-again beside the stage-close guards, where its report is blocking rather than advisory (KAN-538).
+`/flow`'s creating run runs this guard, when the project declares one, at the same point at which
+the plan-provenance guard runs (`skills/flow/brainstorm-planner.md`, the configured-guards step), and
+fixes any hit before the run continues. `/flow`'s review panel runs it, when the project declares one, at every round close and
+again beside the stage-close guards, where its report is blocking rather than advisory.
 
 **What the guard does not do.** The guard verifies only that every task declares a build state and
 that no declared-`red` task is left unresolved. It does **not** attempt to verify that a `green`

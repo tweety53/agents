@@ -52,10 +52,7 @@ them:
 | **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.push-archive` |
 
 `flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
-the deferred bundle of section 5 alone — never a reasoning pass. This table is what `TestStageKeysMatchFlowFastSkillTable`
-(`<agents repo>/stats/internal/stages/names_test.go`) pins the `/flow-fast` vocabulary to, so a key
-added to a step above without a matching `stages.Table` row — or the reverse — is a test failure
-rather than a mark rejected mid-run.
+the deferred bundle of section 5 alone — never a reasoning pass.
 
 ## Dynamic decisions
 
@@ -87,7 +84,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   `skills/flow-contracts/build-green.md`) — one task per entry of the harness task list, then run
   `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's
   not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
-  fixed by editing the plan (KAN-601). A re-run replaces the file with
+  fixed by editing the plan. A re-run replaces the file with
   the fix's own tasks.
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide**
   steps 1–4 and **The
@@ -149,8 +146,7 @@ written.
 flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Read the ask and the code it touches until the change is clear — every file the change has to
-touch, the actual flow end to end. Make every judgment call yourself and name it in the summary;
+Make every judgment call yourself and name it in the summary;
 a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast
 <key>`, and asks nothing after it. Only with `## handoff` `required`, and only where two
 readings would lead to materially different work, ask once, batched, through

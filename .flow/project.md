@@ -5,7 +5,7 @@ Read by globally installed flow skills.
 ## apps
 
 This repository is mostly the source of the flow skills, commands, and rules, installed
-elsewhere by `setup.sh` — that half has no port and no URL. It also now holds `stats/`, a
+elsewhere by `setup.sh` — that half has no port and no URL. It also holds `stats/`, a
 PostgreSQL-backed Go service (`flowd`) with an embedded React SPA, plus a thin `flow` CLI. Both
 halves live in the one repo and are covered below.
 
@@ -17,12 +17,7 @@ halves live in the one repo and are covered below.
 **This repository is Bash + Python, not Bash-only.** `scripts/check-plan-provenance.sh` is a thin
 wrapper that execs `scripts/check-plan-provenance.py` (Python 3, standard library only —
 `/usr/bin/python3`, no third-party imports, no pip, no network) so its fence/container classifier
-can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist. This followed the
-review panel passes and fix waves that found defect class after defect class in the Bash
-version — canonical enumeration and full history in `check-plan-provenance.py`'s own module
-docstring (this file does not restate the count, since a copied number is exactly what let an
-earlier, wrong count survive six review passes). Every other guard in this repository remains Bash-only; adding Python here was a
-deliberate, recorded widening of the toolchain, not a drift.
+can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist.
 
 ### artifact tree
 
@@ -49,9 +44,7 @@ cd stats && ./bin/flowd
 interface or on an unparsable `FLOWD_PORT` rather than defaulting silently. Running it this way is
 for manual, foreground verification only — for a daemon that survives logout and restarts on
 failure, see `stats/README.md`'s "Running the daemon at login" section and its launchd agent.
-**No skill loads that agent**; loading it is an operator step, deliberately, because an agent left
-running unattended during this change's development harvested 2,961 transcript offsets into the
-database before anyone noticed. **No automated stage runs these three commands either** — see the
+**No skill loads that agent**; loading it is an operator step, deliberately. **No automated stage runs these three commands either** — see the
 UI-test stack below for what an automated stage uses instead.
 
 **The UI-test stack**, for ad-hoc testing from the main checkout rather than from an apply worktree:
@@ -90,16 +83,14 @@ canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
 (`go test ./... -race -count=1`) and `stats-spa` (`stats/web` `npm test`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
-invocation is answered by those recorded figures, not by a number pasted here — which is the point:
-a written duration went stale twice before this paragraph stopped carrying one. Record a run with
+invocation is answered by those recorded figures, not by a number pasted here. Record a run with
 `flow suite record -suite <name> -- <command>`; a store that cannot be reached costs one warning
 line and never changes the suite's own exit code.
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
 list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for
 `all` — to derive the installed set it classifies citations against, rather than only reading
-files already on disk. A single invocation measures about 0.84s, negligible against either total
-above, but worth naming here since it is the one guard in this repository paying for a subprocess
+files already on disk. A single invocation measures about 0.84s — worth naming here since it is the one guard in this repository paying for a subprocess
 rather than a plain file scan.
 <!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch kan-102-citations-resolve-to-installed-paths -->
 
@@ -111,9 +102,7 @@ cd stats && make web-build
 
 `stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
 refuses to compile without it, so a fresh worktree's first `go test ./...` or `go build ./...`
-fails until the SPA is built once. kan-389's verifier hit exactly that, and its conductor then ran
-the whole `## test` list itself to get past it — a fresh-worktree fact, not a branch defect, and
-the reason this key exists. `make web-build` is `npm ci && npm run build` in `stats/web`
+fails until the SPA is built once. `make web-build` is `npm ci && npm run build` in `stats/web`
 (`stats/Makefile`), the same prerequisite `make test` and `make build` already carry.
 
 ## lint
@@ -150,25 +139,13 @@ cd stats && go vet ./...
 cd stats/web && npx tsc -b
 ```
 
-**`check-plan-shape.sh` sits beside `check-plan-provenance.sh` and `check-task-build-green.sh` in
-this list but is not one of them.** Those two are project-configured — resolved through a project's
-own `.flow/project.md` and run only where a project declares them — while `check-plan-shape.sh` is
-**shipped**, symlinked into `skills/flow/scripts/` and cited by basename per **Guard resolution**
-(`skills/flow-contracts/pipeline.md`), because the guard it protects
-(`check-task-commit-fields.sh`) is itself shipped and runs in every project `/flow` touches. It
-answers a bare-tree question exactly like `check-plan-provenance.sh` and `check-task-build-green.sh`
-do — no arguments scans every non-archived `<spec-root>/changes/*/tasks.md` — which is why it
-belongs in this list at all, for the same reason those two do.
-
 **There is no auto-fix command for the guard scripts** (`scripts/check-*`) — every one of them
 reports `file:line` and is fixed by editing the offending line, never by weakening the guard or
 adding a suppression marker to silence a real hit. **`stats/` does have one**: `cd stats && gofmt
 -w .` reformats Go source before the `gofmt -l .` check above is run, per the Lint Fix Priority
 rule's "run the auto-fix command first" step. There is no equivalent for the SPA — `web/package.json`
 carries no lint or format script, only `tsc -b`'s type check, so a TypeScript violation is fixed by
-hand like a guard-script one. The list is cited by count nowhere in this file, deliberately: a
-written count went stale the first time a guard was added to it, and the same sentence would go
-stale again on the next.
+hand like a guard-script one.
 
 **`check-contract-budget.sh` is a ratchet, not a target.** It fails when an owned `.md` or `.mdc`
 file — every one under `skills/`, `rules/`, `spectre/specs/`, `commands/`, `commands-claude/`,
@@ -199,53 +176,10 @@ about the text of `.flow/project.md` — so it runs against a bare tree like eve
 `check-cleanup-complete.sh` reads the same section and is excluded below for the opposite reason: it
 needs a change in flight.
 
-**Its place in this list is a self-check on this repository, not how it covers the projects flow
-is installed into** — and conflating the two made a permanently vacuous lint step read as
-enforcement. The run here checks this repository's own `## workspace isolation` section below; a
-green lint run therefore says nothing whatever about any other project's declaration. What covers
-those is `/flow`, which runs this guard against
-each apply worktree before it resolves the section, per **Verify** in `skills/flow/verify-and-handoff.md` —
-so a declaration is validated where it is read, in whichever repository holds it. The lint entry
-stays because this repository's own configuration is one more configuration worth checking, and
-because it keeps the guard runnable from a bare tree.
-
-**`check-foreign-staged.sh`, `check-finish-preflight.sh`, `check-unfinished-work.sh`,
-`check-cleanup-complete.sh` and `check-worktree-processes.sh` are deliberately not lint steps.**
-All five are `/flow` integrate/archive helpers that need a change in flight and a real worktree, a
-main checkout, a repository or a state directory passed in as arguments; they answer a question
-about one change, not about the state of the repository's text. A lint step that cannot run against
-a bare tree would fail on every unrelated invocation, so
-the omission is a decision, not an oversight. They are covered instead by their harnesses under
-`## test`.
-`check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh`,
-`check-panel-reproducer-exit-contract.sh` and
-`run-reproducer.sh` are excluded for the same reason: they are `/flow` implementation helpers that
-likewise need a change in flight and a worktree passed in, so they are covered by their own
-harnesses under `## test` instead.
-
-**`check-installed-citations.sh` belongs in the list for the opposite reason those are excluded.**
-It takes no change-in-flight state — it derives the installed set by running a sandboxed `setup.sh`
-itself, twice per invocation, rather than being handed one — so it scans the same bare tree every
-other guard above does and exits identically regardless of what change, if any, is in flight. It is
-the only guard in this list that shells out to the installer rather than only reading files already
-on disk, which costs it real time; see the runtime note under `## test`, next to the entry its
-harness added there.
-
-**`check-dispatch-paragraphs.sh` keeps a required dispatch paragraph from silently
-disappearing.** It is argument-free and self-scoped exactly like `check-guard-symlinks.sh`: the
-scan root is this repository's own root, resolved from the script's own location. It checks a table
-of required paragraphs — REPRODUCE, DON'T READ at `skills/flow/review-panel.md` and
-`skills/flow/implement.md`, and VERBATIM REPORT — THE FACT at `skills/flow/review-panel.md` — for
-each paragraph's label and a handful of load-bearing phrases per variant, held as short literals
-rather than a copy of the whole blockquote, so a body reworded around those phrases passes clean. A
-green run proves only that each paragraph is present at its required sites and carries its phrases —
-never that any reviewer, implementer, dispatcher or fix agent actually obeyed it.
-
 **`check-installed-rules.sh` is the one guard in this list that reads outside the repository.**
 It compares the always-on rules this checkout declares against what `setup.sh global` last installed
 under `$HOME` — the symlinks in `~/.claude/rules/` and the per-rule markers in the two managed
-blocks — because a rule can merge and stay unreadable by every session, which is how KAN-202's
-commit-scope rule spent a day with a dangling pointer. It still runs against a bare tree and takes no
+blocks — because a rule can merge and stay unreadable by every session. It still runs against a bare tree and takes no
 change-in-flight state, so it belongs here for `check-installed-citations.sh`'s reason. A machine
 with no global install is not a failure: it reports `INSTALLED-RULES-NONE` and exits 0, which is what
 keeps it runnable in CI and a fresh clone. A partial install is a failure.
@@ -325,10 +259,6 @@ scripts/check-references.sh
 
 `defer`
 
-The report series ended at kan-380: the six changes after it all answered "No" to a prompt that
-fires after `FINISHED`, when the operator has walked away, and the 30 reports before it yielded 9
-Jira tickets. This key ratifies that and ends the series; set `run` to bring it back.
-
 ## self review model
 
 `fable`
@@ -364,8 +294,7 @@ rolls) rather than running as this run would without the toggle.
 the statement of that.** The record family (`flow record`, `flow self-review bundle`) resolves
 its store address from it, so an apply worktree's dispatch and finding rows land in the
 persistent store the main checkout serves, and a deferred self-review bundle still finds them
-after `scripts/workspace.sh remove` has dropped the `database` row's resource — the exact loss
-gymie kan-468's incomplete bundle reported. The cell could not use the `database` word: that row is
+after `scripts/workspace.sh remove` has dropped the `database` row's resource. The cell could not use the `database` word: that row is
 taken, and cleanup removes what it names — the persistent store must never be a removal target.
 
 | Command | Runs |

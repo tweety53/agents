@@ -84,13 +84,7 @@ run, a fix run, or a bare `IN_PROGRESS` run, since each already has a prior run'
 is knowable that early, which is a timing fact, not a bug to chase further. When set, a toggle
 that reads `default` from `MAIN_CHECKOUT` is re-checked against every other root in the set, and
 **any** of them declaring `dynamic` wins — a satellite repo's own opt-in is honored even though
-the shell started in a different repo of the same change. This is deliberately narrower than
-"every repository this project could ever touch": it widens resolution only to repositories
-**this specific change already knows it spans** (the state record's own `worktrees`), never to
-every peer `<project>/spectre/peers` declares — that file lists every repository a project
-*could* cross into (`agents` among them, for a project like `gymie` that opts into shared
-standards), most of which a given change never touches, so unioning over it would flip
-`dynamic` on for changes that have nothing to do with those repositories.
+the shell started in a different repo of the same change.
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
@@ -134,12 +128,11 @@ prompt-driven role, per **The roster**, `skills/flow/review-panel.md`),
 and the panel-fix subagent (`skills/flow/review-panel.md`).
 
 **A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — "use opus for
-the panel", "implement on haiku" — the same override mechanism
-`skills/flow-contracts/model-policy.md` already describes for the retired per-change fields,
-reading from the settings store instead of a question round. Record the instruction with the
-dispatch it changes; an override nobody wrote down is indistinguishable from a mistake. The override
-is **never** written back to the settings store — `/flow-settings` is the only command that changes
-a global default, per that command's own guardrails.
+the panel", "implement on haiku" — per **Model policy** (`skills/flow-contracts/model-policy.md`).
+Record the instruction with the dispatch it changes; an override nobody wrote down is
+indistinguishable from a mistake. The override is **never** written back to the settings store —
+`/flow-settings` is the only command that changes a global default, per that command's own
+guardrails.
 
 ## Reading the state
 
@@ -188,16 +181,11 @@ as the fix instructions — nothing else about the fix run changes.
 and a Jira key named in prose without the slash.
 
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
-confirm every guard `/flow` can invoke — the full list is the union carried by
-`skills/flow/scripts/`: `check-archive-scope.sh`, `check-base-moved.sh`, `check-cleanup-complete.sh`, `check-finish-preflight.sh`, `check-foreign-staged.sh`,
-`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`, `check-panel-findings-closed.sh`, `check-panel-fix-single-dispatch.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `plan-class.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`,
-`check-unfinished-work.sh`, `check-visual-trigger.sh`,
-`check-visual-verification.sh`, `check-workspace-isolation.sh`,
-`check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`,
-`mutate-and-verify.sh`, `plan-dispatch-bundles.sh`, `prepare-archive-branch.sh`, `prepare-workspace.sh`,
-`resolve-base-branch.sh`, `resolve-visual-screenshots.sh` and `run-reproducer.sh` — is present there. A complete set prints nothing;
-any absence prints that section's block once, and the run continues under each guard's own hand-run
-fallback.
+confirm every guard `/flow` can invoke — every `<name>.sh` a fenced command line or the prose of
+`skills/flow/*.md` and the contract files it loads names, the set
+`<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 derives — is present in
+`<skill-dir>/scripts/`. A complete set prints nothing; any absence prints that section's block once,
+and the run continues under each guard's own hand-run fallback.
 
 `check-unfinished-work.sh` and `check-task-commit-fields.sh` also require
 `<agents repo>/scripts/lib/change-plan.sh` as a `<agents repo>/scripts/lib/` sibling — the same
@@ -207,7 +195,7 @@ every other guard above.
 **The `<change>` argument to every mark below is always a resolved change name.** On a creating run
 the name does not exist until **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) produces it — defer `flow.state-gate`-equivalent bookkeeping into that
-section exactly as `/flow-fast` deferred `do.state-gate`, per **The `<change>` argument is always a
+section, per **The `<change>` argument is always a
 resolved change name** (`skills/flow-contracts/pipeline.md`). This router reads state above using
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 
@@ -218,38 +206,36 @@ one per mark or per phase file.
 
 ## Guardrails
 
-- **Never** ask a planning-effort, model, or review-panel-roster question on a creating run —
-  `ask-options-removed`. The roster is resolved from the settings store, never asked, or from the
-  recorded decision when `## review panel` is `dynamic`; see **Model resolution** above and
+- Never ask a planning-effort, model, or review-panel-roster question on a creating run. The
+  roster is resolved from the settings store, never asked, or from the recorded decision when
+  `## review panel` is `dynamic`; see **Model resolution** above and
   **Review panel** (`skills/flow/review-panel.md`).
-- **Never** publish a proposal artifact — `publish-proposal-removed`. `artifactUrl` is written
+- Never publish a proposal artifact. `artifactUrl` is written
   `null` and stays `null` for the life of the change.
-- **Never** skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
-- **Never** add a slot beyond the resolved roster automatically, by diff size, touched area, or any
+- Never skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
+- Never add a slot beyond the resolved roster automatically, by diff size, touched area, or any
   other trigger — only an explicit operator instruction adds one, for that run only, checked at the
   start of the panel stage and at every fix round. The one automatic change to the roster is a
   reduction — `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone — and it
   only ever removes; a dynamic roster is the decision's roster, and the docs-only reduction still
   only removes; see **The docs-only reduction** (`skills/flow/review-panel.md`).
-- **Never** run more than two implementer dispatches in flight at once, in any wave — a third or
+- Never run more than two implementer dispatches in flight at once, in any wave — a third or
   later ready group queues in plan order and launches only as an in-flight one is picked; see the
   Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).
-- **Never** dispatch review-panel roles as separate parallel `Agent` calls. A round is at most two
+- Never dispatch review-panel roles as separate parallel `Agent` calls. A round is at most two
   dispatches, each one `Agent` call carrying one to three roles as its own `PASS <id>` sections —
   see **Bundled dispatch** (`skills/flow/review-panel.md`). Before dispatching any panel round,
   re-check that section's grouping (or the decision's `panel.dispatches`/`panel.grouping` on
-  `dynamic`) rather than defaulting to a general "launch N agents in parallel" habit.
-- **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
+  `dynamic`).
+- Never hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
   defines it. A deferred Minor is not open.
-- **Never** commit `<project>/spectre/changes/` in a task or fixup commit. **Never** push, merge,
+- Never commit `<project>/spectre/changes/` in a task or fixup commit. Never push, merge,
   or open a PR outside the integrate/archive branches' own routes.
-- **Never** advance the state past what the phase in force is entitled to write — a fix never moves
+- Never advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch
   writes `FINISHED`.
-- **No flags.** The only argument is the optional change name/description, or fix instructions at
-  `IN_PROGRESS`; report anything else rather than ignoring it.
-- **Never** dispatch a conductor subagent for implementation. `implement.md` sections 1, 2 and 4, <!-- refs-guard:allow -->
+- `implement.md` sections 1, 2 and 4, <!-- refs-guard:allow -->
   `review-panel.md` and `verify-and-handoff.md` run in the parent session directly — the parent
   orchestrates every guard, gather, dispatch, mark and report itself and prints its own handoff,
   per **The parent orchestrates directly** and **Inline — the parent implements**

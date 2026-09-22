@@ -9,8 +9,9 @@ resolves; nothing here is consulted by any run.
 See **The `.mdc` routing rule** (`skills/flow-contracts/project-configuration-rationale.md`)
 for why.
 
-Written out, with placeholder names standing in for a real project's own — this file carries no
-project's databases, ports or task names, per its opening paragraph:
+Written out, with placeholder names standing in for a real project's own — flow's own files carry
+no project's databases, ports or task names, per **Project configuration**
+(`skills/flow-contracts/project-configuration.md`):
 
 ```markdown
 ## workspace isolation
@@ -36,10 +37,3 @@ project's databases, ports or task names, per its opening paragraph:
 See **The three-`url`-rows worked example**
 (`skills/flow-contracts/project-configuration-rationale.md`) for a walkthrough of the three
 `url` rows in the worked example above.
-
-**Which of these rules a script checks, and which are left to the agent.** The distinction matters
-because the two failure modes are not alike: a rule a script checks fails the same way on every run,
-and a rule an agent applies is re-performed from this text each time and can be skipped without
-anything erroring. So the split is written down rather than left to be inferred from a passing lint
-run — a reader who assumed the whole of this section were checked would trust a green run further
-than it goes.

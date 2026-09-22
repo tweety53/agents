@@ -16,16 +16,14 @@ The reasoning behind this file lives in `skills/flow-contracts/model-policy-rati
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`).
 
 Planning — brainstorming, design and writing-plans — runs in the current session, on its own
-model, with no dispatched planner subagent and no `PLANNING_MODEL` to resolve (kan-488); see
-**Model resolution** (`skills/flow/SKILL.md`), canonical for what the session's model prices. The
-parent session itself runs on **Sonnet** (or the harness's standard default) for the whole of
-`/flow`, and **every review-panel reviewer runs on the panel's model — Sonnet by default** —
-regardless of the parent model. Sonnet is the default rather than an absolute because a change may
-record its own panel model, per the three roles below; what never varies is that the panel's model
-is *chosen*, not inherited from the parent session.
+model; see **Model resolution** (`skills/flow/SKILL.md`), canonical for what the session's model
+prices. The parent session runs on the harness's own model for the whole of `/flow`, and **every
+review-panel reviewer runs on the panel's model — `DEFAULT_MODEL` from the settings store** — regardless of the
+parent model; what never varies is that the panel's model is *chosen*, not inherited from the parent
+session.
 
-**Implementer subagents dispatched by `/flow`'s implement phase run on Opus** (or the harness's strongest
-available model), which **explicitly overrides** superpowers:subagent-driven-development's model
+**Implementer subagents dispatched by `/flow`'s implement phase run on `DEFAULT_MODEL`**, which
+**explicitly overrides** superpowers:subagent-driven-development's model
 guidance. See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why that
 guidance's cost savings do not apply here.
 
@@ -60,12 +58,11 @@ it too.** See **Model policy** (`skills/flow-contracts/model-policy-rationale.md
 **A session instruction governs the run in which it is given** and is recorded with its dispatch
 exactly as above.
 
-**These fields record intent; the ledger records what happened.** A recorded value does **not**
-replace the per-dispatch ledger line, which remains the only evidence of the model a dispatch
-actually ran on. Every panel slot, Bugbot and Security included, is a prompt-driven role
-(**The roster**, `skills/flow/review-panel.md`) and takes the recorded panel model
-the same way every other slot does — there is no exception left that leaves a slot's ledger entry
-unrecorded.
+**The ledger records what happened.** A recorded model choice does **not** replace the per-dispatch
+ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
+slot, Bugbot and Security included, is a prompt-driven role
+(**The roster**, `skills/flow/review-panel.md`) and takes the panel's model the same way every other
+slot does.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history
@@ -89,7 +86,7 @@ neither the write into the store nor the render out of it invents a model slug. 
   set at dispatch time instead, which every harness supports equally: the implementer and panel
   dispatches each name their model explicitly, and the ledger line for that dispatch is what
   records that they did. Planning has no dispatch to name a model for — it runs on the session's
-  own model (kan-488).
+  own model.
 - **Cursor**: no per-command model frontmatter, so no model is enforceable from a command file —
   each `.cursor/commands/flow*.md` carries an explicit note; switch models manually in the
   composer/chat picker.

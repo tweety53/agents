@@ -159,3 +159,33 @@ and a field could disagree with it. That is the same reason merge status governs
 the rule was already stated here, and the defect was reading `prUrl` in front of it rather than
 behind it. The preflight verdict cannot stand in either — a pushed but unmerged branch returns
 `RUN1` both before run 1 and after it, so it does not answer this question.
+
+### Editor-facing passages moved from the contract
+
+Moved verbatim from **The template is the definition, and it carries what the commands print.**,
+where it closed the sentence on each template carrying every field its command emits: , and a
+field added to a command is added here in the same change.
+
+Moved verbatim, the paragraph that followed it:
+
+**"Here and nowhere else" is a duty on the producing skills, not a claim about them.** Each of the
+three phase files — `skills/flow/verify-and-handoff.md`, `skills/flow/integrate.md` and
+`skills/flow/archive.md` — carries the block it prints, and each **cites this section as the
+definition** at that block. A block sitting in a skill with no citation is a second, independently
+authored definition however faithfully it happens to match today, and it is exactly how the two
+copies drift: nothing tells the next editor of the skill that this file exists. The citation is what
+turns three copies into one definition and three renderings of it.
+
+Moved verbatim from the `FINISHED` paragraph, describing the terminal block `skills/flow/archive.md`
+prints: That block also carries `**Self-review:** <path> (rating: <n>/5) | deferred —
+docs/self-review/<name>-context.md | skipped | skipped — project default`, immediately after
+`**Cleanup:** verified`, naming step 9's outcome, and `**Guards:** all present | N missing — those
+checks were performed by hand`, immediately after `Self-review`, naming what that run's own
+start-of-run guard presence check found — both values only run 2 ever has, exactly like the fields
+beside them.
+
+Moved verbatim from the same paragraph, after the interrupted-run report's description: That
+interrupted-run report carries neither the `Self-review` nor the `Guards` field: it is printed
+only when run 2 stops **before** step 8, so step 9 never runs there and there is nothing for
+`Self-review` to name, and its own text prints no `Guards` line either — adding either field
+regardless would misstate a run that never reached self-review and a report that does not carry it.

@@ -12,9 +12,7 @@ A **follow-up** is an issue the pipeline files for work a run left outstanding. 
 `flow follow-up`. Labelling is governed by **Labels on issues the pipeline creates**
 (`jira-integration.md`) — a follow-up is not special.
 
-**This naming governs every site that files a follow-up.** Today the only such site is
-`/flow`'s integrate run unfinished-work gate. The rule is stated here rather than there so that a
-site added later inherits the naming instead of choosing its own.
+**This naming governs every site that files a follow-up.**
 
 **Every filing ask explains before it asks.** Before the filing prompt fires, the message body
 explains each item the run would file — what was observed, what breaks because of it, and what the
@@ -56,9 +54,7 @@ value and not a malformed key: it names no project, resolves `jiraIssue` to `nul
 **Resolution (how `jiraIssue` is decided)** (`jira-integration.md`), and leaves no key from
 either source — the no-key case the paragraph below already settles.
 
-**How the body becomes candidate keys, and what "matches" means.** Both are stated because an
-extraction step left to the implementer has specified nothing, and a shape test is only as strong as
-the thing it is applied to. Take the `## jira` body — everything between that heading and the next
+**How the body becomes candidate keys, and what "matches" means.** Take the `## jira` body — everything between that heading and the next
 `##` heading — split it on whitespace and on commas, strip surrounding backticks and any leading list
 marker (`-`, `*`, `+`) from each piece, and discard what is then empty; every remaining piece is one
 candidate. The test is applied to **the whole of a candidate and never to a substring of it**: a
@@ -76,14 +72,7 @@ or `none` rather than prose is the `## jira` row in
 **Project configuration** (`project-configuration.md`), so a body written as anything else reports
 its pieces and names no key instead of yielding one.
 
-**The shape is required of the value, not of this clause's copy of it.** The section's other two
-readers — the prefix scoping in
-**Resolution (how `jiraIssue` is decided)** (`jira-integration.md`), and the project a
-follow-up is filed into — read the same validated keys, so a value this clause refuses is never one
-another site quietly accepts. Validating per call site is how the three would drift.
-
-**How the clause is assembled, stated because `searchJiraIssuesUsingJql` takes a query string and a
-contract that leaves the assembly to the implementer has specified nothing.** One key renders as
+**How the clause is assembled.** One key renders as
 `project = "KAN"`; several render as `project in ("KAN", "OPS")` — each key double-quoted, the keys
 comma-separated, and nothing else interpolated. The clause is joined to the rest of the query with a
 top-level `AND`, and any alternation among the remaining terms is parenthesised: JQL binds `AND`
@@ -213,7 +202,7 @@ Only an explicit **Yes** joins. **No**, silence, an answer that is not a choice,
 cannot ask files a new follow-up instead — which is the outcome that loses nothing: a duplicate
 follow-up is visible and mergeable, while a write to the wrong issue is neither.
 
-**Why the confirmation exists, stated rather than left to be re-derived.** The search selects a
+**Why the confirmation exists.** The search selects a
 **write target** by label, title and status — and every one of those three is settable by any member
 of the project the search is scoped to. Anyone who can file a ticket there can add `AI-generated`,
 title it `flow follow-up`, and leave it at `To Do`, and this pipeline will then append to it,
@@ -239,8 +228,7 @@ is bounded because the outstanding list still reaches the planning commit's mess
 which is where this pipeline requires the durable record to be; the run is re-entrant, so a later
 run files or joins once the tracker answers again.
 
-**Within the project it is scoped to, the search is deliberately not narrowed by which change filed
-the candidate.** A follow-up filed for a different issue is a match, and that is the point:
+A follow-up filed for a different issue is a match, and that is the point:
 outstanding work accumulates in one place instead of in one issue per change. The project clause is
 the only narrowing there is, and it is not this one relaxed — it is what makes "any project member"
 the honest description of who can plant a candidate.
@@ -348,8 +336,7 @@ and retries later, so the rollover is not a rare case. The check therefore reads
 `<KEY>` and on the item list.
 
 **The item comparison is per item, by membership, over the union of those sections — never list
-equality and never section existence.** Both halves of that need saying, because the two obvious
-readings fail in opposite directions:
+equality and never section existence.** The two obvious readings fail in opposite directions:
 
 - **Comparing the whole list for equality double-appends.** The outstanding list is recomputed on
   every run and legitimately shifts between attempts — the operator fixed two of five items before
@@ -390,7 +377,7 @@ neither:
    exactly this, so a suppressed append reaches the handoff as well as the gate — which is what
    keeps it correctable after the fact rather than merely refused in advance.
 
-**What remains, stated rather than left to be discovered.** An operator who confirms a candidate
+**What remains.** An operator who confirms a candidate
 whose forged section already carries every item still gets a join that writes nothing to the
 description, and this contract cannot detect that — closing it needs provenance the tracker does not
 offer, and inventing a marker this pipeline signs would be a trust model neither the tools nor this
