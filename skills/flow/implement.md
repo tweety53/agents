@@ -865,8 +865,9 @@ sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
 fold never crosses the run's own uncommitted planning artifacts —
 `aside-planning-artifacts.sh <aside|restore> <worktree>` around the rebase: set aside before it,
 restored once it has finished or aborted, never mid-way; restore refuses while the rebase is
-still unresolved, and the paths it sets aside are the spec tree's `changes/` leaf and
-`docs/superpowers/` only, never implementation WIP (KAN-628, the improvised WIP-commit dance
+still unresolved, and the paths it sets aside are the spec tree's changes directory — the leaf
+`<agents repo>/scripts/lib/spec-root.sh` resolves — and `<project>/docs/superpowers/` only, never
+implementation WIP (KAN-628, the improvised WIP-commit dance
 two runs performed to get past exactly this). The
 parent re-runs the guard on every sha that rebase rewrote — the on-top route rewrites none, so
 its re-run covers nothing — then re-dispatches the reviewer — one
