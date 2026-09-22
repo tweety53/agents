@@ -179,13 +179,26 @@ the fold had deleted (fix round 9, F20).
 
 Within that body, a field starts at a line matching
 
-    ^\\*\\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build):\\*\\*\\s*(.*)$
+    ^\\*\\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After|Decision):\\*\\*\\s*(.*)$
 
 and its value continues onto every following non-blank line that does not
 itself start a new field, until a blank line, a new field, or the body
 boundary — this lets a long field (e.g. `Tests:` naming several cases) wrap
 across source lines the way prose in this repository's plans normally does,
 without the wrapped continuation being mistaken for a new field's absence.
+
+`**Decision:**` is a field name the grammar must know even though nothing
+in this file reads its value (KAN-636): a task cites a design decision by
+its `**ID:**` (skills/flow/brainstorm-planner.md's citation rule), and
+kan-579's plan wrote the citation directly under `**Commit:**` with no
+blank line between — under a grammar that did not know the name, the
+citation joined the commit subject's continuation and every task boundary
+produced a subject mismatch that had to be hand-repaired in-run. Knowing
+the name is what closes the preceding field's continuation; the
+guard-clean-seeding rule — blank lines around every `**Decision:**` block,
+so readers that have not learned the name parse the same plan the same way
+— is brainstorm-planner.md's to state, and this guard's expansion of the
+dialect is the tolerance side of that pair.
 
 `**Squash-with:**` is the ONE exception, and is LINE-SCOPED: its value is
 what stands on its own line, and a following continuation line is not part
@@ -200,6 +213,29 @@ as the field (fix round 8, F19). A `Squash-with:`-shaped line still
 terminates a preceding field's continuation wherever it stands, which is
 all this guard's own field loop reads it for. See lib/plan_grammar.py's
 docstring for the rule and its reasoning.
+
+Path shorthand
+--------------
+
+`**Files:**` and `**Allowed-collateral:**` tokens are read through the
+plan's own preamble shorthand legend when it declares one (KAN-636):
+kan-579's plan wrote "`gs` abbreviates `src/app/groupsession/...`,
+`gsTest` `...`" above its first task and declared `gs/core/...` in its
+`Files:` fields, and the guard — matching declared paths against the
+commit's diff literally — failed every such task with "declared in Files:
+but the commit does not touch it" until the plan was hand-repaired to
+literal paths. `path_shorthand` reads the legend from the preamble (every
+line above the first task line, fences excluded), pairing the token stream
+after an `abbreviates`/`abbreviating` keyword with the next path-shaped
+token, so one path can close several pending abbreviations the way
+kan-455's "`commonTest` and `desktopTest` the `shared/src/commonTest/...`"
+does. `_expand_shorthand` rewrites a declared token opening with
+`<abbreviation>/` to the target path plus the remainder, longest
+abbreviation first, so `gsTest/...` resolves through `gsTest` and never
+through `gs`. A plan with no legend — and every plan written after
+brainstorm-planner.md's guard-clean-seeding rule, which emits literal
+repo-relative paths and needs no expansion — reads exactly as literally as
+it always did.
 
 `Files:` and `Allowed-collateral:` each name one or more backtick-quoted
 tokens (`` `path/to/file` ``, comma-separated) — the convention every real
@@ -287,17 +323,19 @@ from plan_grammar import (
     unclosed_fence,
 )
 
-# FIELD_RE recognises the fields this guard reads out of a task body. Three
-# names in it carry no value here: `Squash-with:`, `Build:` and `After:` are
-# matched only so that such a line CLOSES a preceding field's continuation
-# (see parse_task_fields). What any of them SAYS is lib/plan_grammar.py's
-# `select_squash_with` / `select_build_tag` / `select_after`, so that no loop
-# in this file decides it (fix round 8, F19; fix round 9, F20). `Build:`
-# matters here at all because a `Build: red` task's commit is folded into its
-# `Squash-with:` partner's before review, so the fold has to be resolved
-# before any field can be checked (see resolve_folded_task).
+# FIELD_RE recognises the fields this guard reads out of a task body. Four
+# names in it carry no value here: `Squash-with:`, `Build:`, `After:` and
+# `Decision:` are matched only so that such a line CLOSES a preceding
+# field's continuation (see parse_task_fields). What any of them SAYS is
+# lib/plan_grammar.py's `select_squash_with` / `select_build_tag` /
+# `select_after` — or, for `Decision:`, design.md's own `## Decisions`
+# entry the task cites by ID, which this file never opens, so nothing here
+# reads it (KAN-636). `Build:` matters here at all because a `Build: red`
+# task's commit is folded into its `Squash-with:` partner's before review,
+# so the fold has to be resolved before any field can be checked (see
+# resolve_folded_task).
 FIELD_RE = re.compile(
-    r"^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After)"
+    r"^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After|Decision)"
     r":\*\*\s*(.*)$"
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")
@@ -406,6 +444,111 @@ def _extract_backtick_tokens(value: str) -> List[str]:
         return tokens
     stripped = value.strip()
     return [stripped] if stripped else []
+
+
+# The plan preamble's path-shorthand legend opens with one keyword in
+# either spelling the corpus's real plans use — kan-579's "abbreviates",
+# kan-455's "abbreviating". "abbreviated" — past tense, prose about
+# something else — does not match.
+ABBREVIATES_KEYWORD_RE = re.compile(r"^(?:abbreviates|abbreviating)$")
+
+# Edge punctuation stripped from a BARE legend word, so "`gs`," and
+# "`gs`." read as `gs`; backticked segments are kept verbatim, the
+# backtick split already isolating them from the prose around them.
+_LEGEND_EDGE_RE = re.compile(r"^[.,;:()\[\]]+|[.,;:()\[\]]+$")
+
+
+def _legend_tokens(line: str) -> List[Tuple[str, bool]]:
+    """One legend line's `(token, backticked)` pairs: backtick segments
+    kept whole, the prose between them split on whitespace with its edge
+    punctuation stripped."""
+    tokens: List[Tuple[str, bool]] = []
+    for index, segment in enumerate(line.split("`")):
+        if index % 2 == 1:
+            if segment:
+                tokens.append((segment, True))
+            continue
+        for word in segment.split():
+            stripped = _LEGEND_EDGE_RE.sub("", word)
+            if stripped:
+                tokens.append((stripped, False))
+    return tokens
+
+
+def path_shorthand(lines: List[str]) -> Dict[str, str]:
+    """The path shorthand the plan's own preamble declares, as
+    `{abbreviation: target path}` — the `gs`/`gsTest` legend kan-579's plan
+    carried, whose `**Files:**` entries this guard otherwise reads as
+    literal paths no commit ever carries (KAN-636).
+
+    The legend is read from the preamble — every line above the first task
+    line, fences excluded — because it is a plan-level convention and every
+    real one in the corpus sits there. Its shape in every real plan is
+    "`abbrev` abbreviates `path`": the abbreviation is a backticked token
+    BEFORE the keyword, its path a token containing `/` AFTER it — so the
+    walk keeps the backticked tokens seen since the last path, and a path
+    following the keyword closes all of them at once, which is what lets
+    kan-455's "`commonTest` and `desktopTest` the `shared/src/commonTest/...`"
+    name two abbreviations for one path. Bare words are prose — connectors
+    and filler alike ride along as nothing. The first pair an abbreviation
+    wins is kept, and a blank line ends a legend sentence, so the pending
+    set never leaks across paragraphs.
+
+    Returns {} for a plan with no tasks, no legend, or a legend that lives
+    inside a fence; the caller's reading is then exactly the literal one it
+    always made."""
+    tasks = iter_tasks(lines)
+    if not tasks:
+        return {}
+    shorthand: Dict[str, str] = {}
+    pending: List[str] = []
+    armed = False
+    in_fence = False
+    for line in lines[: tasks[0].task_line - 1]:
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if line.strip() == "":
+            pending = []
+            armed = False
+            continue
+        for token, backticked in _legend_tokens(line):
+            if ABBREVIATES_KEYWORD_RE.match(token):
+                armed = True
+                continue
+            if "/" in token:
+                if armed:
+                    for abbrev in pending:
+                        shorthand.setdefault(abbrev, token)
+                pending = []
+                continue
+            if backticked:
+                pending.append(token)
+    return shorthand
+
+
+def _expand_shorthand(tokens: List[str], shorthand: Dict[str, str]) -> List[str]:
+    """`**Files:**`/`**Allowed-collateral:**` tokens with the preamble's
+    shorthand expanded: a token opening with `<abbreviation>/` is rewritten
+    to the abbreviation's target path plus the remainder, longest
+    abbreviation first, so `gsTest/core/...` resolves through `gsTest` and
+    never through `gs` (KAN-636). A token no abbreviation prefixes passes
+    through untouched; with no legend at all this is the identity — the
+    literal reading every plan without a shorthand legend has always
+    got."""
+    if not shorthand:
+        return tokens
+    by_length = sorted(shorthand, key=len, reverse=True)
+    expanded = []
+    for token in tokens:
+        for abbrev in by_length:
+            if token.startswith(abbrev + "/"):
+                token = shorthand[abbrev] + token[len(abbrev):]
+                break
+        expanded.append(token)
+    return expanded
 
 
 def _parse_test_specs(value: str) -> List[TestSpec]:
@@ -533,12 +676,19 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         None if fence_offset is None else found.body_start + fence_offset + 1
     )
 
+    # The preamble's shorthand legend is computed from the FULL line list —
+    # every caller passes the whole file's lines — so a declared `gs/...`
+    # path reads as the repo-relative path the legend maps it to (KAN-636).
+    shorthand = path_shorthand(lines)
+
     return TaskFields(
         id=task_id,
-        files=_extract_backtick_tokens(files_value),
+        files=_expand_shorthand(_extract_backtick_tokens(files_value), shorthand),
         tests=_parse_test_specs(tests_value),
         tests_value=tests_value,
-        allowed_collateral=_extract_backtick_tokens(collateral_value),
+        allowed_collateral=_expand_shorthand(
+            _extract_backtick_tokens(collateral_value), shorthand
+        ),
         commit=commit_value,
         baseline=baseline_counts,
         baseline_measured=baseline_measured,
