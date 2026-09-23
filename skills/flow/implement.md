@@ -924,6 +924,23 @@ report file exists, the parent runs `check-plan-unchanged.sh verify <worktree> <
 A reviewer that closed clean over a tree it changed has reported about evidence it destroyed —
 the verify answers whether the tree survived, never the prose.
 
+**Every dispatch that can touch the worktree is bracketed by content markers — the subagent's
+own clean-state claim never answers for the tree.** The plan-tree guard above is one instance of
+the general rule, and every other dispatched role gets the same treatment. Before any Agent call
+whose child can write to the worktree — an implementer group, a per-task reviewer, a panel round,
+the panel-fix subagent — the parent writes the dispatch's marker list beside the run's other
+dispatch records: one `<path><TAB><ERE>` line per artifact the dispatch must not damage, each ERE
+a string that artifact is known to contain (a decision ID, a task title, a section heading), then
+runs `check-tree-markers.sh snapshot <worktree> <markers-file> <snapshot-file>`. When the
+dispatch's report file exists, the parent runs `check-tree-markers.sh verify <worktree>
+<markers-file> <snapshot-file>` before the report is read or acted on. Exit 1 is the dispatch
+having mutated the tree, whatever its report claims — the same `## Question` stop as the
+plan-tree guard's, with the guard's lines verbatim; exit 2, the same stop. The markers sit beside
+the plan-tree guard, never in its place: that guard asserts git's view of one directory, while
+markers pin known content anywhere in the tree, independent of git entirely — content that was
+never committed has no git answer at all, which is exactly what KAN-579's
+destroyed-and-self-reported-restored artifacts were.
+
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix
 landed, and the last implementer's report carries no `## Full

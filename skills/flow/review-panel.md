@@ -338,7 +338,13 @@ finding is recorded — the slots read those artifacts, and a flight that change
 invalidated the reviews that flew. Exit 1 or 2 stops the round the same way the per-task
 reviewer's stop works (**The plan tree survives every reviewer dispatch**,
 `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this
-verify is the assertion that a breach cannot slide past as a clean report.
+verify is the assertion that a breach cannot slide past as a clean report. The round brackets
+itself with content markers beside that guard (**Every dispatch that can touch the worktree is
+bracketed by content markers**, `skills/flow/implement.md`): the marker list names the plan
+artifacts and working notes the round reads, `check-tree-markers.sh snapshot <worktree>
+<markers-file> <snapshot-file>` runs with the plan-tree guard's own snapshot, and
+`check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>` runs before any finding
+is recorded — a slot's clean report is never the answer to what happened to the tree.
 
 `-slot` names the dispatch's roles from **The roster** table above. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
