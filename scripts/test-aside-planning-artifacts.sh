@@ -251,6 +251,28 @@ else
   fail "case 8: rc=$RC out=$OUT stashes=$stash_count"
 fi
 
+# --- Case 9: a stash list long enough that git writes it in several pipe
+# chunks — restore reads the top entry and must never read git's SIGPIPE
+# (head exits after the first line) as a refusal. The reflog file is
+# appended directly: `update-ref` skips no-op writes, `stash store` demands
+# stash-like commits, and 250 real stashes would tax the suite's measured
+# runtime for no extra coverage. `git stash list` reads this file.
+new_repo
+HEAD_SHA="$(git -C "$REPO" rev-parse HEAD)"
+# one real entry creates the ref and its reflog; stash list reads a ref
+# that exists, never a reflog alone
+git -C "$REPO" update-ref -m "operator wip 0" --create-reflog refs/stash HEAD
+for n in $(seq 1 2000); do
+  printf '%s %s Test <test@example.invalid> %s +0000\toperator wip %s\n' \
+    "$HEAD_SHA" "$HEAD_SHA" "$((1700000000 + n))" "$n" >> "$REPO/.git/logs/refs/stash"
+done
+run_helper restore "$REPO"
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-NONE:'; then
+  pass "case 9: a long stash list is read without a SIGPIPE refusal"
+else
+  fail "case 9: rc=$RC out=$OUT"
+fi
+
 if [ "$FAILURES" -eq 0 ]; then
   printf 'aside-planning-artifacts: all cases pass\n'
   exit 0

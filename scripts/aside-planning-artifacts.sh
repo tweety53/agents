@@ -126,8 +126,14 @@ case "$ACTION" in
       case "$p" in /*) ;; *) p="$WT/$p" ;; esac
       [ -e "$p" ] && refuse "restore refused — a rebase/merge/cherry-pick is still in progress in: $WT"
     done
-    top="$(git -C "$WT" stash list --format='%H %gs' | head -n 1)" ||
+    # The list is captured whole and cut to its first line afterwards, never
+    # piped through `head -n 1`: under `set -o pipefail` git's SIGPIPE when
+    # head exits before the list's last chunk is written reads as a refusal
+    # (exit 2, nothing on stdout) on any repo whose stash list spans several
+    # pipe writes.
+    top="$(git -C "$WT" stash list --format='%H %gs')" ||
       refuse "git stash list refused in: $WT"
+    top="${top%%$'\n'*}"
     if [ -z "$top" ]; then
       printf 'PLANNING-ARTIFACTS-NONE: %s — no aside stash on top\n' "$WT"
       exit 0
