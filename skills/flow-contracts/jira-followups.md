@@ -237,9 +237,11 @@ this feature exists to prevent — and it does so silently, because a created is
 success. A failed search instead emits one `⚠ Jira: skipped — <reason>` line naming the search
 failure, files nothing, and lets the run continue and write its state as it would have, per
 **Never blocking** (`jira-integration.md`). What that costs is one tracker entry, and the cost
-is bounded because the outstanding list still reaches the planning commit's message and the handoff,
-which is where this pipeline requires the durable record to be; the run is re-entrant, so a later
-run files or joins once the tracker answers again.
+is bounded because each site's items are already recorded durably outside the tracker — the
+outstanding list in the planning commit's message and the handoff, the round's deferred findings
+in the store's finding rows and the panel record — which is where this pipeline requires the
+durable record to be; and the integrate run is re-entrant, so a later run files or joins once
+the tracker answers again.
 
 A follow-up filed for a different issue is a match, and that is the point:
 outstanding work accumulates in one place instead of in one issue per change. The project clause is
@@ -290,10 +292,14 @@ It does **not** reproduce the pre-existing description. The recovery path for th
 issue's own edit history in the tracker, which is where its author would look for it anyway, and
 which exists precisely because the write is an append the assertion above proved was a pure suffix.
 
-**The join is idempotent under retry, and each of its three writes is guarded on its own.** Run 1 is
-re-entered whenever the branch is not merged, so a run that filed or joined and then failed at a
-later step reaches this code again. The guard is therefore not one decision about whether to write
-at all — it is one per write:
+**The join is idempotent under retry, and each of its three writes is guarded on its own.** At
+`/flow`'s integrate run, run 1 is re-entered whenever the branch is not merged, so a run that
+filed or joined and then failed at a later step reaches this code again. The panel's round close
+has no such re-entry: its ask fires once per close, on the round's newly deferred findings, so a
+join left partial there is never re-attempted by a later close and is repaired by hand from the
+finding rows and the round's records, exactly as the window paragraph below treats a merge-closed
+window. Where this code does run again, the guard is therefore not one decision about whether to
+write at all — it is one per write:
 
 1. **The append** is skipped when the description already carries **every one** of this change's
    items, and appends **only the ones it does not** when it carries some but not all (see the
@@ -322,14 +328,18 @@ correctly emitted. A retry that still cannot complete the retitle or the union r
 `⚠ Jira: <KEY> partially joined — …` again, exactly as the table below requires, even though it
 appended nothing this time.
 
-**That window closes at the merge, and the `⚠` does not cross it.** Every site that joins is in
-`/flow`'s integrate run, and `<agents repo>/scripts/check-finish-preflight.sh` routes there only while the branch
+**That window closes at the merge, and the `⚠` does not cross it.** At `/flow`'s integrate run,
+`<agents repo>/scripts/check-finish-preflight.sh` routes there only while the branch
 is unmerged; once it returns `RUN2` no command reaches this code again, so a join still partial when
-the branch merged stays partial. Nothing carries the warning across: no state-file field records a
+the branch merged stays partial. The panel's round close has its own window, and it closes with the
+run: a close that declined the filing, or whose join failed part-way, is not re-asked at a later
+close — the ⚠ stays in that run's output, and the repair is the operator's, working from the
+finding rows. Nothing carries the warning across: no state-file field records a
 join outcome and this contract adds none, and run 2's only Jira write is the **Done** transition
 under **Transitions** (`jira-integration.md`), which reports that transition and nothing about
 a follow-up. Re-emitting the `⚠` is not what closes a partial join past that point — finding the
-issue is, and two records outlive the window. The outstanding items are in the planning commit's
+issue is, and two records outlive the window. At the integrate run the outstanding items are in
+the planning commit's
 message, per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`),
 which is the durable copy this pipeline requires and owes nothing to the tracker. The appended
 `## From <KEY>` section carries this change's key, so a description search finds the issue by key
@@ -394,10 +404,12 @@ neither:
 whose forged section already carries every item still gets a join that writes nothing to the
 description, and this contract cannot detect that — closing it needs provenance the tracker does not
 offer, and inventing a marker this pipeline signs would be a trust model neither the tools nor this
-contract has. The residue is bounded by where the durable record actually lives: the outstanding
-list reaches the planning commit's message and the handoff on every route, per
-**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`), so what a forged
-section can cost is the tracker copy of work that is recorded in git either way — never the record
+contract has. The residue is bounded by where the durable record actually lives: each site's
+items reach a durable record outside the tracker — the outstanding list in the planning commit's
+message and the handoff, per **Run 1 — the branch is not merged**
+(`skills/flow-contracts/finish-contract-run1.md`), the round's deferred findings in the store's
+finding rows — so what a forged
+section can cost is the tracker copy of work that is recorded either way — never the record
 itself.
 
 That yields **three** outcomes for the append, not two, and the third is a real one rather than a

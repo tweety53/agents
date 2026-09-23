@@ -26,7 +26,7 @@ flow's pipeline and its contract definitions.
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines, including standards-entry resolution and containment, the workspace-isolation and visual-verification tables, and the single-line-literal keys. Resolution rules only — see below for authoring guidance |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
-| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/flow`'s integrate run and no other command** |
+| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/flow`'s integrate run and the review panel's deferred-findings close** |
 | [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty, and what to do when a measurement contradicts the plan |
 | [plan-provenance-guard.md](plan-provenance-guard.md) | What check-plan-provenance.py enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
