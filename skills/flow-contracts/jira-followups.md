@@ -3,7 +3,9 @@
 **This file is the canonical definition of follow-up issues.** Skills reference it by name; none of
 them restate the contract. If a rule below and a skill ever disagree, this file wins.
 
-`/flow`'s integrate run is the only command that loads this file.
+`/flow`'s integrate run loads this file for its follow-up option, and the review panel's round
+close loads it when a round leaves findings deferred (**Deferred findings file their follow-up
+at round close**, `skills/flow/review-panel.md`) — two loading sites, one contract.
 
 ### Follow-up issues
 
@@ -13,6 +15,17 @@ A **follow-up** is an issue the pipeline files for work a run left outstanding. 
 (`jira-integration.md`) — a follow-up is not special.
 
 **This naming governs every site that files a follow-up.**
+
+### The filing site's outstanding items
+
+**The outstanding items are the filing site's own.** At `/flow`'s integrate run they are that
+run's outstanding work (**Run 1 — the branch is not merged**,
+`skills/flow-contracts/finish-contract-run1.md`). At the review panel's round close they are
+the findings that round recorded `deferred`: one item per finding, in ref order, one line
+naming the `F<n>` ref, the severity, the recorded location and the deferral's reason clause.
+Every rule below — the join search, the append guard's per-item matching, the three writes,
+the outcome rows — reads "this run's items" and "this run's `<m>` outstanding items" as that
+site's list.
 
 **Every filing ask explains before it asks.** Before the filing prompt fires, the message body
 explains each item the run would file — what was observed, what breaks because of it, and what the
