@@ -797,7 +797,7 @@ discovery, and the parent asks the operator, because the redesign alters scope t
 approved and proceeds only on the answer, never on the parent's own judgment. Only then does the
 parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never
 `tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, the
-capability spec the plan edits (`spectre/specs/<capability>.md`) is rewritten to the pivoted
+capability spec the plan edits (`<project>/spectre/specs/<capability>.md`) is rewritten to the pivoted
 scope in that same pass, and a
 decision the pivot displaces is superseded by ID per **Decisions**
 (`skills/flow/brainstorm-planner.md`) — the old entry's `**Status:**` set to `superseded by
