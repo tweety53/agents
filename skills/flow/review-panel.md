@@ -1204,6 +1204,16 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
 > run costs lines of context, not a build log.
 
+**Every fix subagent's dispatch prompt also carries the OUTPUT BUDGET paragraph**:
+
+> **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
+> whole context — a large output is paid for again on every turn after it. Read a file over 200
+> lines by line range — `grep -n` for the symbol, then `sed -n '<a>,<b>p'` or Read with
+> `offset`/`limit` — and never re-read a file already in your context unless you have edited it
+> since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
+> reproduce a failing block from its log rather than printing the whole log. Never print a
+> generated file — a lockfile, a snapshot, a bundle, a build artifact.
+
 **Every fix subagent's dispatch prompt also carries the MUTATION PROOF paragraph**:
 
 > **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you

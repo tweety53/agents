@@ -147,6 +147,8 @@
 #   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
 #   **REPORT, DON'T DECIDE:**          skills/flow/implement.md     1   (none)
 #   **CONTEXT BUNDLE FAILURE:**        skills/flow/review-panel.md  1   (none)
+#   **OUTPUT BUDGET:**                 skills/flow/implement.md     1   (none)
+#   **OUTPUT BUDGET:**                 skills/flow/review-panel.md  1   (none)
 #
 #   REPRODUCE, DON'T READ shared phrases: "crosses a boundary", "the store,
 #   the filesystem, a guard, a real transcript", "exercise the real thing"
@@ -163,6 +165,14 @@
 #   implement.md (implementer dispatch, the gated per-task reviewer dispatch,
 #   the parent's own §4 restatement) and twice in review-panel.md (panel slot
 #   dispatch, panel-fix subagent dispatch).
+#
+#   OUTPUT BUDGET shared phrases (no variants — every block carrying the
+#   label must carry all four): "re-reads your", "by line range", "never
+#   re-read a file already in your context", "Never print a generated
+#   file". Required once in each of implement.md (implementer dispatch) and
+#   review-panel.md (panel-fix subagent dispatch) — the two dispatches whose
+#   tool output grows with the task: every turn re-reads the whole context,
+#   so an uncapped read or log is paid for on every turn after it.
 #
 #   TARGETED TESTS shared phrases (no variants — every block carrying the
 #   label must carry all three): "the build tool's own selector", "once for
@@ -325,6 +335,7 @@ declare -A ENTRY_LABEL=(
   [entry]="**ENTRY CONTEXT:**"
   [findings]="**FINDINGS ARE INPUT:**"
   [contextbundle]="**CONTEXT BUNDLE FAILURE:**"
+  [budget]="**OUTPUT BUDGET:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
@@ -343,6 +354,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [entry]="your named entry context${US}not from a whole-tree exploration${US}the coverage trade"
   [findings]="input, not orders${US}resolve the defect the finding names${US}records the deviation and justifies it${US}A silent deviation is an unfixed finding"
   [contextbundle]="exited non-zero, or the bundle file is still${US}context bundle: build failed${US}dispatch every slot without the bundle${US}context bundle: dispatched without it — operator override${US}outcome stopped"
+  [budget]="re-reads your${US}by line range${US}never re-read a file already in your context${US}Never print a generated file"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -363,6 +375,7 @@ declare -A ENTRY_VARIANTS=(
   [entry]=""
   [findings]=""
   [contextbundle]=""
+  [budget]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -375,10 +388,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings contextbundle)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings contextbundle budget budget)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1 1 1 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {

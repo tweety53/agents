@@ -804,6 +804,25 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_STOPPED='> **CONTEXT BUNDLE FAILURE:** the gathe
 >   place, so the reviewers'"'"' reading the plan and decision directly is on the record, never a
 >   silent reduction of their context'
 
+# The OUTPUT BUDGET paragraph, reproduced verbatim from implement.md's
+# implementer dispatch and review-panel.md's panel-fix dispatch — cases 84-86.
+OUTPUT_BUDGET_BLOCK='> **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
+> whole context — a large output is paid for again on every turn after it. Read a file over 200
+> lines by line range — `grep -n` for the symbol, then `sed -n '"'"'<a>,<b>p'"'"'` or Read with
+> `offset`/`limit` — and never re-read a file already in your context unless you have edited it
+> since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
+> reproduce a failing block from its log rather than printing the whole log. Never print a
+> generated file — a lockfile, a snapshot, a bundle, a build artifact.'
+
+# OUTPUT_BUDGET_BLOCK with its "by line range" phrase dropped — case 86.
+OUTPUT_BUDGET_BLOCK_NO_RANGE='> **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
+> whole context — a large output is paid for again on every turn after it. Read a file over 200
+> lines in pieces — `grep -n` for the symbol, then `sed -n '"'"'<a>,<b>p'"'"'` or Read with
+> `offset`/`limit` — and never re-read a file already in your context unless you have edited it
+> since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
+> reproduce a failing block from its log rather than printing the whole log. Never print a
+> generated file — a lockfile, a snapshot, a bundle, a build artifact.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -870,7 +889,9 @@ $ENTRY_CONTEXT_BLOCK
 
 $FINDINGS_INPUT_BLOCK
 
-$CONTEXT_BUNDLE_FAILURE_BLOCK"
+$CONTEXT_BUNDLE_FAILURE_BLOCK
+
+$OUTPUT_BUDGET_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -899,7 +920,9 @@ $HANDSHAKE_BLOCK
 
 $DELEGATION_BLOCK
 
-$DELEGATION_BLOCK"
+$DELEGATION_BLOCK
+
+$OUTPUT_BUDGET_BLOCK"
 run_guard
 [ "$RC" -eq 0 ] && pass "case 1: both sites correct exits 0" \
   || fail "case 1: expected exit 0, got rc=$RC out=$OUT"
@@ -1776,7 +1799,9 @@ $ENTRY_CONTEXT_BLOCK
 
 $FINDINGS_INPUT_BLOCK
 
-$CONTEXT_BUNDLE_FAILURE_BLOCK"
+$CONTEXT_BUNDLE_FAILURE_BLOCK
+
+$OUTPUT_BUDGET_BLOCK"
 
 CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 
@@ -1806,7 +1831,9 @@ $HANDSHAKE_BLOCK
 
 $DELEGATION_BLOCK
 
-$DELEGATION_BLOCK"
+$DELEGATION_BLOCK
+
+$OUTPUT_BUDGET_BLOCK"
 
 # ===========================================================================
 # Case 31: the TOOLS label is absent entirely from implement.md — exit 1,
@@ -3338,6 +3365,50 @@ run_guard
 case "$OUT" in
   *"outcome stopped"*) pass "case 83: names the missing phrase" ;;
   *) fail "case 83: expected 'outcome stopped' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 84: the OUTPUT BUDGET label is absent from implement.md — exit 1,
+# names the file and the label.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "${CLEAN_IMPLEMENT%$'\n\n'"$OUTPUT_BUDGET_BLOCK"}"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 84: exits 1" || fail "case 84: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"OUTPUT BUDGET"*) pass "case 84: names implement.md and the missing OUTPUT BUDGET block" ;;
+  *) fail "case 84: expected implement.md and OUTPUT BUDGET named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 85: the OUTPUT BUDGET label is absent from review-panel.md — exit 1,
+# names the file and the label.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "${CLEAN_REVIEW_PANEL%$'\n\n'"$OUTPUT_BUDGET_BLOCK"}"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 85: exits 1" || fail "case 85: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"OUTPUT BUDGET"*) pass "case 85: names review-panel.md and the missing OUTPUT BUDGET block" ;;
+  *) fail "case 85: expected review-panel.md and OUTPUT BUDGET named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 86: an OUTPUT BUDGET block is present but missing "by line range" —
+# exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "${CLEAN_IMPLEMENT%$'\n\n'"$OUTPUT_BUDGET_BLOCK"}
+
+$OUTPUT_BUDGET_BLOCK_NO_RANGE"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 86: exits 1" || fail "case 86: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"by line range"*) pass "case 86: names the missing phrase" ;;
+  *) fail "case 86: expected 'by line range' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then

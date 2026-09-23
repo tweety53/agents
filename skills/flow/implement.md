@@ -654,6 +654,14 @@ applies **The handshake** stated above, unchanged.
 > the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
 > run costs lines of context, not a build log.
 
+> **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
+> whole context — a large output is paid for again on every turn after it. Read a file over 200
+> lines by line range — `grep -n` for the symbol, then `sed -n '<a>,<b>p'` or Read with
+> `offset`/`limit` — and never re-read a file already in your context unless you have edited it
+> since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
+> reproduce a failing block from its log rather than printing the whole log. Never print a
+> generated file — a lockfile, a snapshot, a bundle, a build artifact.
+
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
 > guard, a real transcript, a real process — at least one test you write MUST exercise the real
 > thing. A test backed by a fake or a hand-built value passes while the real integration is broken:
