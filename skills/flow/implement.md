@@ -451,13 +451,13 @@ commits with, the partner its `**Squash-with:**` field names.
 **Waves — concurrent dispatch of ready groups.** A group is ready when every id in the union of
 its bundles' `after <k>:` lines **that is not itself a task of one of the group's own bundles** has
 landed — committed and guard-passed, by direct commit or pick.
-**At most two implementer dispatches are in flight per wave**, on both `## execution mode` values.
+**At most three implementer dispatches are in flight per wave**, on both `## execution mode` values.
 A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
-worktree and commits directly; two ready groups launch together in one message,
+worktree and commits directly; two or three ready groups launch together in one message,
 each into its own throwaway worktree created by the sequence below, each copy then running the
-project's resolved `## worktree setup` command once before its implementer dispatches. A third or
+project's resolved `## worktree setup` command once before its implementer dispatches. A fourth or
 later ready group queues in plan order and launches, into its own throwaway worktree by the same
-sequence, as soon as one of the two in-flight groups is picked — the cap bounds dispatches in
+sequence, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in
 flight, never how many groups may be ready at once:
 
 ```bash

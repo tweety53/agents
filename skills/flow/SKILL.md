@@ -219,7 +219,7 @@ one per mark or per phase file.
   reduction — `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone — and it
   only ever removes; a dynamic roster is the decision's roster, and the docs-only reduction still
   only removes; see **The docs-only reduction** (`skills/flow/review-panel.md`).
-- Never run more than two implementer dispatches in flight at once, in any wave — a third or
+- Never run more than three implementer dispatches in flight at once, in any wave — a fourth or
   later ready group queues in plan order and launches only as an in-flight one is picked; see the
   Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).
 - Never dispatch review-panel roles as separate parallel `Agent` calls. A round is at most two

@@ -22,10 +22,11 @@ Two passes, both in plan order:
      group g such that deps(k) intersects members(g) and deps(k) is a
      subset of members(g) union ready(g); otherwise it opens a new group.
      Joining never changes ready(g).
-  2. Fold to at most two per ready-set. Among the chain-merged groups,
-     those sharing an identical ready set are folded down to exactly two,
-     alternating in plan order (1st and 3rd together, 2nd and 4th
-     together, ...).
+  2. Fold to at most MAX_IN_FLIGHT (three) per ready-set — the
+     implementer in-flight cap. Among the chain-merged groups, those
+     sharing an identical ready set are folded down to exactly three,
+     dealt round-robin in plan order (1st and 4th together, 2nd and 5th
+     together, 3rd and 6th together, ...).
 
 Scope is a single file per invocation, matching plan-dispatch-bundles.py's
 own scope. `plan-dispatch-groups.sh` is the thin wrapper, one-argument
@@ -72,6 +73,11 @@ def _load_check_file():
 
 
 check_file = _load_check_file()
+
+
+# The implementer in-flight cap (skills/flow/implement.md's **Waves**
+# paragraph): a ready-set folds to this many groups, never more.
+MAX_IN_FLIGHT = 3
 
 
 class _Group:
@@ -126,18 +132,11 @@ def compute_groups(
     folded: List[List[int]] = []
     for key in order:
         bucket = buckets[key]
-        if len(bucket) <= 2:
-            for g in bucket:
-                folded.append(sorted(g.bundle_ids))
-            continue
-        # Alternate: 1st and 3rd together, 2nd and 4th together, ...
-        even = [g for i, g in enumerate(bucket) if i % 2 == 0]
-        odd = [g for i, g in enumerate(bucket) if i % 2 == 1]
-        for pair in (even, odd):
-            if not pair:
-                continue
+        # Round-robin: the i-th group joins lane i mod MAX_IN_FLIGHT; a
+        # bucket at or under the cap leaves every group in its own lane.
+        for lane in range(min(len(bucket), MAX_IN_FLIGHT)):
             merged_ids: List[int] = []
-            for g in pair:
+            for g in bucket[lane::MAX_IN_FLIGHT]:
                 merged_ids.extend(g.bundle_ids)
             folded.append(sorted(merged_ids))
 
