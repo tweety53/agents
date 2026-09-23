@@ -397,7 +397,14 @@ gives it a shebang and `chmod +x`, and records that same path, the path relative
 not the `<abs-worktree>/`-prefixed form above; `run-reproducer.sh` refuses an absolute token.
 Bugbot and Mutation write theirs into the canonical worktree, never their own
 `<worktree>-<slot>-<round>` copy, which is removed the moment their dispatch closes. The parent
-records the path the slot supplied verbatim — there is no rename step. Carry this requirement on
+records the path the slot supplied verbatim — there is no rename step. **The cwd contract**: the
+reproducer always executes with its working directory set to the worktree the parent passes
+`run-reproducer.sh` — on a multi-worktree change the canonical worktree, the only tree the
+recorded relative path resolves in — never the worktree the finding's own `file:line` prefix
+names. A reproducer that operates on another worktree's project resolves that worktree inside the
+script by its absolute path and never assumes it inherited that worktree's cwd: a script authored
+on that assumption fails with a wrong-project error before it demonstrates anything, and a
+reproducer's first failure must be the defect, not the directory. Carry this requirement on
 every slot's dispatch prompt.
 
 **A reproducer for a finding whose defect may be target-specific is authored and run on the target
@@ -470,7 +477,10 @@ and, when it holds more than one worktree, the qualification rule:
 > **WORKTREES:** this change spans `<abs-worktree-1>`, `<abs-worktree-2>`, …; `final-review.diff`
 > is sectioned by worktree, each section headed `# worktree: <path> — merge base <sha>`. When more
 > than one is listed, prefix every finding's `file:line` with that worktree's basename
-> (`gymie-frontend:src/Foo.tsx:42`) and write its reproducer to run from that worktree.
+> (`gymie-frontend:src/Foo.tsx:42`), and author that finding's reproducer per the cwd contract the
+> reproducer rule states: it executes from the canonical worktree the parent passes the runner,
+> never from the worktree its own prefix names, and resolves that worktree by absolute path inside
+> itself.
 
 **Every slot's dispatch prompt also carries the CITATION CHECK paragraph, present for every
 worktree whose citation pre-check above wrote `<abs-worktree>/.superpowers/sdd/citation-check.md`,
