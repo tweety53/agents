@@ -717,7 +717,8 @@ costs more time than its Minors are worth — with
 `flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>`,
 the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query
 rather than a hand-read. Nothing in that round is fixed, inline or otherwise, and no slot re-runs:
-proceed to `check-panel-findings-closed.sh` and the stage close. An explicit decision the operator
+proceed to **Deferred findings file their follow-up at round close**, below, and then to
+`check-panel-findings-closed.sh` and the stage close. An explicit decision the operator
 gives on a finding in this session wins over either default. A fixed finding that fails
 verification takes the handback below, and that loop re-runs no slot either.
 
@@ -1236,6 +1237,36 @@ only raise was a defect recorded `withdrawn` under the carve-out above, or a rou
 whose findings was Minor, which re-runs no slot and closes beside them. A
 re-run that finds a fix incomplete opens the next fix round under the rules above, and the cycle repeats until a
 re-run comes back clean.
+
+### Deferred findings file their follow-up at round close
+
+**A round close that leaves findings newly recorded `deferred` does not end on the store rows
+alone.** That is the record a deferral leaves today — `finding-status:` lines on the panel
+record, archived with the change — and nothing durable follows it: no issue, no registry, no
+next-run pickup. So before the close guards below run, the parent loads **Follow-up issues**
+(`skills/flow-contracts/jira-followups.md`) — this close is that contract's second loading
+site, beside `/flow`'s integrate run — and runs its filing at this site; the round's newly
+deferred findings are the outstanding items **The filing site's outstanding items**
+(`skills/flow-contracts/jira-followups.md`) defines.
+
+**The filing asks once, at this close, and explains before it asks** — shape per **The
+shape** (`skills/flow-contracts/operator-prompts.md`), the message body carrying each item
+the filing would record: the defect the raising slot named, what it breaks, what fixing it
+would be.
+
+> **`<n>` finding(s) this round deferred would otherwise live only on the archived panel
+> record — file their follow-up now?**
+> - **File the follow-up** *(recommended)*
+> - **Leave them unfiled this run**
+
+Anything short of an explicit **File the follow-up** files nothing — the run reports one
+`⚠ Jira: skipped — deferred findings follow-up not filed — <reason>` line and the close
+guards below run unchanged. A yes runs the contract's machinery exactly as `/flow`'s
+integrate run runs it — the join search, the join confirmation, the append guard, the three
+writes and their outcome rows, the follow-up titled for this change's linked issue per the
+naming that governs every site that files a follow-up — and every failure in it degrades per
+**Never blocking** (`skills/flow-contracts/jira-integration.md`) exactly as every other Jira
+write does.
 
 **Before closing the stage**, the parent runs both close guards:
 
