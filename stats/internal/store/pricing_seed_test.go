@@ -118,11 +118,11 @@ func TestSeedPricingRatesCarryFable(t *testing.T) {
 func TestSeedPricingRatesOmitFastForModelsWithNone(t *testing.T) {
 	for _, rate := range store.SeedPricingRates() {
 		switch rate.Model {
-		case "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5-1":
+		case "claude-sonnet-5", "claude-haiku-4-5", "claude-haiku-4-5-20251001", "claude-fable-5-1", "claude-fable-5":
 			if rate.FastInputPerMTok != nil || rate.FastOutputPerMTok != nil {
 				t.Errorf("%s: fast rate present, want nil (no fast-mode rate is published for this model)", rate.Model)
 			}
-		case "claude-opus-5", "claude-opus-4-8":
+		case "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8":
 			if rate.FastInputPerMTok == nil || rate.FastOutputPerMTok == nil {
 				t.Errorf("%s: fast rate missing, want both FastInputPerMTok and FastOutputPerMTok set", rate.Model)
 			}
@@ -168,5 +168,39 @@ func TestSeedPricingRatesCarriesGLMFlash(t *testing.T) {
 	if found.FastInputPerMTok != nil || found.FastOutputPerMTok != nil {
 		t.Errorf("fast rates = (%v, %v), want (nil, nil): no fast-mode rate is published for this model",
 			found.FastInputPerMTok, found.FastOutputPerMTok)
+	}
+}
+
+// TestSeedPricingRatesCarryUnpricedServedModels pins the rows for the
+// model ids the harvester recorded with no rate in effect -- the live
+// store priced none of their stage runs, so every run on the operator's
+// Opus 5.5 session was left without a top-level cost_usd. Rates are the
+// published table read on 2026-09-23. The dated Haiku id is the id the
+// harness actually serves, priced at the Haiku 4.5 row's own rates.
+func TestSeedPricingRatesCarryUnpricedServedModels(t *testing.T) {
+	type want struct{ in, out, w5, w1h, read float64 }
+	cases := map[string]want{
+		"claude-opus-5-5":           {4, 20, 5, 8, 0.20},
+		"claude-fable-5":            {10, 50, 12.5, 20, 1},
+		"claude-haiku-4-5-20251001": {1, 5, 1.25, 2, 0.10},
+	}
+	got := map[string]store.PricingRate{}
+	for _, rate := range store.SeedPricingRates() {
+		got[rate.Model] = rate
+	}
+	for model, w := range cases {
+		r, ok := got[model]
+		if !ok {
+			t.Errorf("no seeded rate for %s", model)
+			continue
+		}
+		if r.InputPerMTok != w.in || r.OutputPerMTok != w.out || r.CacheWrite5mPerMTok != w.w5 ||
+			r.CacheWrite1hPerMTok == nil || *r.CacheWrite1hPerMTok != w.w1h || r.CacheReadPerMTok != w.read {
+			t.Errorf("%s: got in/out/w5/read %v/%v/%v/%v, want %+v", model, r.InputPerMTok, r.OutputPerMTok, r.CacheWrite5mPerMTok, r.CacheReadPerMTok, w)
+		}
+	}
+	if r := got["claude-opus-5-5"]; r.FastInputPerMTok == nil || *r.FastInputPerMTok != 8 ||
+		r.FastOutputPerMTok == nil || *r.FastOutputPerMTok != 40 {
+		t.Errorf("claude-opus-5-5: fast rates want 8/40")
 	}
 }

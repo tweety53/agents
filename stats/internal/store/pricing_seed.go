@@ -23,7 +23,10 @@ func fastRate(v float64) *float64 { return &v }
 // SeedPricingRates is the published rate table this change's own
 // plan-provenance tags cite. The Claude rows were read from
 // https://platform.claude.com/docs/en/about-claude/pricing on 2026-08-14,
-// with the claude-fable-5-1 row read from the same page on 2026-09-02. The
+// with the claude-fable-5-1 row read from the same page on 2026-09-02, and
+// the claude-opus-5-5, claude-fable-5 and claude-haiku-4-5-20251001 rows
+// read from it on 2026-09-23 -- the dated Haiku id is the one the harness
+// serves, at the Haiku 4.5 row's own rates. The
 // GLM-5.3-Flash row (kan-479, keyed to the canonical lowercase form of
 // the model id -- design decision model-id-canonical-lowercase) was read from
 // https://docs.z.ai/guides/overview/pricing on 2026-09-09: the launch-
@@ -66,6 +69,29 @@ func SeedPricingRates() []PricingRate {
 			CacheWrite1hPerMTok: fastRate(20),
 			CacheReadPerMTok:    0.25, // 0.025x input on this model, not the 0.1x every other row uses.
 			// No fast-mode rate published for this model (Opus 5 / 4.8 only).
+		},
+		{
+			Model:               "claude-fable-5",
+			EffectiveFrom:       pricingSeedEffectiveFrom,
+			InputPerMTok:        10,
+			OutputPerMTok:       50,
+			CacheWritePerMTok:   12.50,
+			CacheWrite5mPerMTok: 12.50,
+			CacheWrite1hPerMTok: fastRate(20),
+			CacheReadPerMTok:    1,
+			// No fast-mode rate published for this model.
+		},
+		{
+			Model:               "claude-opus-5-5",
+			EffectiveFrom:       pricingSeedEffectiveFrom,
+			InputPerMTok:        4,
+			OutputPerMTok:       20,
+			CacheWritePerMTok:   5,
+			CacheWrite5mPerMTok: 5,
+			CacheWrite1hPerMTok: fastRate(8),
+			CacheReadPerMTok:    0.20, // 0.05x input on this model.
+			FastInputPerMTok:    fastRate(8),
+			FastOutputPerMTok:   fastRate(40),
 		},
 		{
 			Model:               "claude-opus-5",
@@ -113,6 +139,16 @@ func SeedPricingRates() []PricingRate {
 			CacheWrite1hPerMTok: fastRate(2),
 			CacheReadPerMTok:    0.10,
 			// No fast-mode rate published for this model either.
+		},
+		{
+			Model:               "claude-haiku-4-5-20251001",
+			EffectiveFrom:       pricingSeedEffectiveFrom,
+			InputPerMTok:        1,
+			OutputPerMTok:       5,
+			CacheWritePerMTok:   1.25,
+			CacheWrite5mPerMTok: 1.25,
+			CacheWrite1hPerMTok: fastRate(2),
+			CacheReadPerMTok:    0.10,
 		},
 	}
 }
