@@ -122,6 +122,10 @@
 # lists the sites that require it, each site naming its minimum block count
 # and which variants it requires.
 #
+#   The verifier dispatch moved from verify-and-handoff.md to visual-verify.md
+#   when the visual-verification procedure split into its own on-demand file,
+#   so its three sites below name the new file.
+#
 #   Paragraph                          Site                        Min  Variants
 #   **REPRODUCE, DON'T READ:**         skills/flow/review-panel.md  1   reviewer
 #   **REPRODUCE, DON'T READ:**         skills/flow/implement.md     3   reviewer AND implementer
@@ -134,14 +138,14 @@
 #   **PIXEL PROBE:**                   skills/flow/review-panel.md  1   (none)
 #   **TOOLS:**                         skills/flow/implement.md     2   (none)
 #   **TOOLS:**                         skills/flow/review-panel.md  2   (none)
-#   **TOOLS:**                         skills/flow/verify-and-handoff.md 1 (none)
+#   **TOOLS:**                         skills/flow/visual-verify.md 1 (none)
 #   **MODEL HANDSHAKE:**               skills/flow/implement.md     2   (none)
 #   **MODEL HANDSHAKE:**               skills/flow/review-panel.md  2   (none)
-#   **MODEL HANDSHAKE:**               skills/flow/verify-and-handoff.md 1 (none)
+#   **MODEL HANDSHAKE:**               skills/flow/visual-verify.md 1 (none)
 #   **INDEPENDENT PASSES:**            skills/flow/review-panel.md  1   (none)
 #   **NO DELEGATION:**                 skills/flow/implement.md     2   (none)
 #   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
-#   **NO DELEGATION:**                 skills/flow/verify-and-handoff.md 1 (none)
+#   **NO DELEGATION:**                 skills/flow/visual-verify.md 1 (none)
 #   **ENTRY CONTEXT:**                 skills/flow/review-panel.md  1   (none)
 #   **FINDINGS ARE INPUT:**            skills/flow/review-panel.md  1   (none)
 #   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
@@ -228,7 +232,7 @@
 #   conductor's own copy, and the planner's in
 #   brainstorm.md, were removed with those roles, kan-488), twice in
 #   review-panel.md (panel slot dispatch, panel-fix subagent dispatch),
-#   and once in verify-and-handoff.md (verifier dispatch).
+#   and once in visual-verify.md (verifier dispatch).
 #
 #   MODEL HANDSHAKE shared phrases (no variants — every block carrying the
 #   label must carry all three): "the first line of your first reply",
@@ -237,7 +241,7 @@
 #   dispatch — the conductor's own copy, and
 #   the planner's in brainstorm.md, were removed with those roles,
 #   kan-488), twice in review-panel.md (panel slot dispatch, panel-fix
-#   subagent dispatch), and once in verify-and-handoff.md (verifier
+#   subagent dispatch), and once in visual-verify.md (verifier
 #   dispatch) — the same four sites TOOLS occupies.
 #
 #   INDEPENDENT PASSES shared phrases (no variants — every block carrying the
@@ -252,7 +256,7 @@
 #   a subagent", "the leaf of this run". Required twice in implement.md
 #   (implementer dispatch, gated per-task reviewer dispatch), twice in
 #   review-panel.md (panel slot dispatch,
-#   panel-fix subagent dispatch), once in verify-and-handoff.md (verifier
+#   panel-fix subagent dispatch), once in visual-verify.md (verifier
 #   dispatch) — there is no conductor or planner dispatch left to be a site
 #   (kan-488): the parent orchestrates directly and runs brainstorming
 #   inline.
@@ -389,7 +393,7 @@ declare -A VARIANT_PHRASE=(
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
 SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings contextbundle budget budget)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
 SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1 1 1 1)
 SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 

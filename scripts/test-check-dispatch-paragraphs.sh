@@ -65,11 +65,11 @@
 # phrase, each dropped in turn.
 #
 # Cases 31-34 cover KAN-473's TOOLS paragraph, required once in
-# implement.md, twice in review-panel.md, and once in verify-and-handoff.md
+# implement.md, twice in review-panel.md, and once in visual-verify.md
 # (kan-488 dropped implement.md's second copy and brainstorm.md's copy
 # entirely, along with the conductor and planner dispatches that carried
 # them): new_root seeds every sandbox with a correct TOOLS_BLOCK in
-# verify-and-handoff.md by default (no other case exercises that file),
+# visual-verify.md by default (no other case exercises that file),
 # and case 1's review-panel.md fixture carries two TOOLS_BLOCK blocks,
 # implement.md's own fixture at least one. Case 31 is the label absent
 # entirely from implement.md; cases 32-34 are one case per required
@@ -83,15 +83,15 @@
 #
 # Cases 35-41 cover KAN-472 task 10's MODEL HANDSHAKE paragraph, required
 # once in implement.md, twice in review-panel.md, and once in
-# verify-and-handoff.md — the same four sites TOOLS occupies (kan-488
+# visual-verify.md — the same four sites TOOLS occupies (kan-488
 # dropped implement.md's second copy and brainstorm.md's copy entirely,
 # along with the conductor and planner dispatches that carried them):
 # new_root also seeds every sandbox with a correct HANDSHAKE_BLOCK in
-# verify-and-handoff.md by default, and CLEAN_REVIEW_PANEL (and case 1's
+# visual-verify.md by default, and CLEAN_REVIEW_PANEL (and case 1's
 # own review-panel.md fixture) gain two HANDSHAKE_BLOCK blocks.
 # Case 35 is the label absent entirely from implement.md; case 36 the
 # label absent from review-panel.md; case 38 the label absent from
-# verify-and-handoff.md (overriding new_root's default); cases 39-41 are
+# visual-verify.md (overriding new_root's default); cases 39-41 are
 # one case per required phrase, each dropped from implement.md's
 # HANDSHAKE block.
 #
@@ -101,15 +101,15 @@
 # Case 45 is the label absent entirely from review-panel.md.
 #
 # Cases 46-51 cover KAN-484's NO DELEGATION paragraph, required once each in
-# implement.md (the implementer dispatch) and verify-and-handoff.md (the
+# implement.md (the implementer dispatch) and visual-verify.md (the
 # verifier dispatch), twice in review-panel.md (the panel slot and
 # panel-fix subagent dispatches): new_root now also seeds every sandbox's
-# verify-and-handoff.md with a correct DELEGATION_BLOCK by default, and
+# visual-verify.md with a correct DELEGATION_BLOCK by default, and
 # CLEAN_IMPLEMENT gains one copy, CLEAN_REVIEW_PANEL two, alongside case 1's
 # own fixtures. Case 46 is the label absent entirely from implement.md;
 # cases 47-49 are one case per required phrase, each dropped from one of
 # review-panel.md's two blocks while the other stays correct; case 50 is
-# the label absent from verify-and-handoff.md (overriding new_root's
+# the label absent from visual-verify.md (overriding new_root's
 # default); case 51 is review-panel.md with exactly one correct block and
 # the second required occurrence entirely missing, pinning the min-blocks
 # threshold from the start rather than after a review finds the gap, as
@@ -204,7 +204,7 @@ trap cleanup EXIT
 
 # new_root -> sets ROOT to a fresh sandbox directory carrying
 # skills/flow/, matching the required-site table's scan-root-relative
-# paths. verify-and-handoff.md is a required TOOLS, MODEL HANDSHAKE and NO
+# paths. visual-verify.md is a required TOOLS, MODEL HANDSHAKE and NO
 # DELEGATION site (min 1 block each) that no case below otherwise
 # exercises, so every root is seeded with a correct TOOLS_BLOCK,
 # HANDSHAKE_BLOCK and DELEGATION_BLOCK in it by default — a case testing
@@ -216,7 +216,7 @@ new_root() {
   ROOT="$(mktemp -d "${TMPDIR:-/tmp}/check-dispatch-paragraphs-test.XXXXXX")"
   DIRS+=("$ROOT")
   mkdir -p "$ROOT/skills/flow"
-  printf '%s\n\n%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" "$DELEGATION_BLOCK" > "$ROOT/skills/flow/verify-and-handoff.md"
+  printf '%s\n\n%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" "$DELEGATION_BLOCK" > "$ROOT/skills/flow/visual-verify.md"
 }
 
 # run_guard -> sets RC and OUT, running the real guard against $ROOT.
@@ -454,7 +454,7 @@ MUTATION_BLOCK_NO_NEVER_BUYS='> **MUTATION PROOF:** every executable behaviour y
 
 # The TOOLS paragraph, reproduced verbatim from design.md, required at six
 # dispatch sites (KAN-473): implement.md and review-panel.md twice each,
-# brainstorm.md and verify-and-handoff.md once each.
+# brainstorm.md and visual-verify.md once each.
 TOOLS_BLOCK='> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
@@ -481,7 +481,7 @@ TOOLS_BLOCK_NO_REPRICES='> **TOOLS:** Every tool you need that is not already li
 
 # The MODEL HANDSHAKE paragraph, reproduced verbatim from design.md, required
 # at the same six dispatch sites as TOOLS (KAN-472 task 10): implement.md and
-# review-panel.md twice each, brainstorm.md and verify-and-handoff.md once
+# review-panel.md twice each, brainstorm.md and visual-verify.md once
 # each.
 HANDSHAKE_BLOCK='> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.'
@@ -505,7 +505,7 @@ INDEPENDENT_BLOCK='> **INDEPENDENT PASSES:** each pass starts from `final-review
 > pass'"'"'s report file before beginning the next pass.'
 
 # The NO DELEGATION paragraph, reproduced verbatim from design.md, required
-# once each in implement.md and verify-and-handoff.md, twice in
+# once each in implement.md and visual-verify.md, twice in
 # review-panel.md (KAN-484).
 DELEGATION_BLOCK='> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
 > subagent, background agent or helper of any kind — you are the leaf of this run, and any child
@@ -851,7 +851,7 @@ write_site() {
 # ENTRY CONTEXT block (the panel slot dispatch, KAN-521) and one FINDINGS
 # ARE INPUT block (the panel-fix dispatch, KAN-564). new_root already
 # seeded
-# verify-and-handoff.md
+# visual-verify.md
 # with its own required TOOLS, MODEL HANDSHAKE and NO DELEGATION blocks —
 # brainstorm.md is no longer a dispatch site (kan-488) and is seeded with
 # nothing.
@@ -2002,22 +2002,22 @@ esac
 # Case 37 was the MODEL HANDSHAKE label absent from brainstorm.md — removed
 # (kan-488): brainstorm.md is no longer a dispatch site, and cases 35, 36
 # and 38 already cover "absent entirely" for implement.md, review-panel.md
-# and verify-and-handoff.md respectively, so MODEL HANDSHAKE's every
+# and visual-verify.md respectively, so MODEL HANDSHAKE's every
 # remaining site still has its own "label entirely absent" case.
 #
 # Case 38: the MODEL HANDSHAKE label is absent entirely from
-# verify-and-handoff.md (its default seeded by new_root is overridden) —
-# exit 1, names verify-and-handoff.md and the missing block.
+# visual-verify.md (its default seeded by new_root is overridden) —
+# exit 1, names visual-verify.md and the missing block.
 # ===========================================================================
 new_root
-write_site "skills/flow/verify-and-handoff.md" "No MODEL HANDSHAKE paragraph here at all, just prose."
+write_site "skills/flow/visual-verify.md" "No MODEL HANDSHAKE paragraph here at all, just prose."
 write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
 write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
 run_guard
 [ "$RC" -eq 1 ] && pass "case 38: exits 1" || fail "case 38: expected exit 1, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"verify-and-handoff.md"*"MODEL HANDSHAKE"*) pass "case 38: names verify-and-handoff.md and MODEL HANDSHAKE" ;;
-  *) fail "case 38: expected verify-and-handoff.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
+  *"visual-verify.md"*"MODEL HANDSHAKE"*) pass "case 38: names visual-verify.md and MODEL HANDSHAKE" ;;
+  *) fail "case 38: expected visual-verify.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
 esac
 
 # ===========================================================================
@@ -2297,12 +2297,12 @@ esac
 
 # ===========================================================================
 # Case 50: the NO DELEGATION label is absent entirely from
-# verify-and-handoff.md (its default seeded by new_root is overridden with
+# visual-verify.md (its default seeded by new_root is overridden with
 # only TOOLS and MODEL HANDSHAKE, KAN-484) — exit 1, names the file and the
 # missing block. The other two sites stay clean.
 # ===========================================================================
 new_root
-write_site "skills/flow/verify-and-handoff.md" "$TOOLS_BLOCK
+write_site "skills/flow/visual-verify.md" "$TOOLS_BLOCK
 
 $HANDSHAKE_BLOCK"
 write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
@@ -2310,8 +2310,8 @@ write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
 run_guard
 [ "$RC" -eq 1 ] && pass "case 50: exits 1" || fail "case 50: expected exit 1, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"verify-and-handoff.md"*"NO DELEGATION"*) pass "case 50: names verify-and-handoff.md and the missing NO DELEGATION block" ;;
-  *) fail "case 50: expected verify-and-handoff.md and NO DELEGATION named in output, got: $OUT" ;;
+  *"visual-verify.md"*"NO DELEGATION"*) pass "case 50: names visual-verify.md and the missing NO DELEGATION block" ;;
+  *) fail "case 50: expected visual-verify.md and NO DELEGATION named in output, got: $OUT" ;;
 esac
 
 # ===========================================================================

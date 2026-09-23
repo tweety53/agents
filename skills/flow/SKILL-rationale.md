@@ -179,7 +179,7 @@ text after it is the passage, verbatim.
 - *…the baseline is the project's own statement that the failure exists on an unmodified tree* — (KAN-547)
 - *`environment` where the environment itself failed twice* — KAN-510
 
-### verify-and-handoff.md — The verifier dispatch
+### visual-verify.md — The verifier dispatch
 
 - ***A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never `completed`.*** — The cause is what makes three environment-caused blocks in one run a query the store answers instead of a footnote in one run's ledger (KAN-510).
 
@@ -187,23 +187,23 @@ text after it is the passage, verbatim.
 
 - ***The stack behind the URLs is checked, not trusted.** … the project's declared `fingerprint` row … proves what the stack serves is the worktree's own build* — the check KAN-334's handoff lacked when it printed a URL backed by a bundle eleven commits stale.
 
-### verify-and-handoff.md — Visual verification, step 3 (pre-flight)
+### visual-verify.md — Visual verification, step 3 (pre-flight)
 
 - *The verifier's one re-dispatch cannot repair an environment that cannot pass* — gymie KAN-459's visual-verify stage retried three times over roughly five hours on pre-existing workspace-isolation gaps before the operator stopped it.
 
-### verify-and-handoff.md — Visual verification, step 6 (fingerprint)
+### visual-verify.md — Visual verification, step 6 (fingerprint)
 
 - *…a stack step 5 found already running may be serving a build older than the worktree* — gymie KAN-29's last fix round captured, and nearly accepted, the bug the fix had removed.
 
-### verify-and-handoff.md — Visual verification, step 10 (sidecar)
+### visual-verify.md — Visual verification, step 10 (sidecar)
 
 - ***No sidecar is never a silent skip.*** — A mockups directory sitting unused is what let gymie kan-30's own screens ship four fix rounds deep with their real, drawn frames never once diffed against the app — `mockups: no map` was reported and accepted every round, because nothing required the sidecar that triggers the compose step to exist.
 
-### verify-and-handoff.md — Visual verification, step 11 (record)
+### visual-verify.md — Visual verification, step 11 (record)
 
 - *No entry cites the worktree-absolute path of a file the worktree holds alone* — gymie KAN-29's record cited two screenshots that way, they died with `worktree remove --force` at archive, and the record kept two dead citations.
 
-### verify-and-handoff.md — Visual verification, step 12 (commit)
+### visual-verify.md — Visual verification, step 12 (commit)
 
 - *…never a bare `git commit`: the index of a main checkout may carry a pre-staged foreign tree* — and gymie kan-469's plain commit swept ~130 such files into a baselines commit
 
@@ -211,23 +211,23 @@ text after it is the passage, verbatim.
 
 - *…if the applications those instructions name are still serving pre-fix code, the operator reviews one thing and runs another* — measured, not hypothetical, in this repository's own `<project>/stats/internal/web/embed.go`, whose `//go:embed all:dist` makes a running daemon blind to an SPA source change until it is rebuilt.
 
-### verify-and-handoff.md — Visual verification (Blocking)
+### visual-verify.md — Visual verification (Blocking)
 
 - ***a defect the verifier reports in a captured screenshot — even when every assertion passed.*** — That last one is the whole point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and both test suites, and obvious the moment the page was opened.
 
-### verify-and-handoff.md — Visual verification, step 8 (capture)
+### visual-verify.md — Visual verification, step 8 (capture)
 
 - *A `toHaveScreenshot` passing over a baseline this change wrote is the app agreeing with itself, never with the mockup — step 10 is the only comparison, and `capture: exit 0` is never evidence of a frame's fidelity* — (gymie KAN-437 final verification: Q1's baseline was the implementer's own first capture, green on every later run while drawing three controls of the wrong kind)
 - *…d, goal or marker value outside the plotted range; a dataset whose derived numbers (axis ticks, averages, deltas, unit conversions) do not come out round; a list longer than the viewport; and the empty or first-time entry path beside the populated one* — (gymie KAN-437: a goal line drawn from a value outside the axis range rendered over the list below the chart, and axis labels read `82.333333333333 kg`; the spec's fixture kept the goal in range and its ticks round, so 22 frames passed and an operator found both by hand)
 - *Every date the fixture writes — a workout's day, a weigh-in, a target's `from` — derives from that same instant in the app's own timezone, never from `new Date()` and never from its UTC day where the app renders local* — (gymie KAN-339: the baselines embedded `THU 27 AUGUST` and expired at the next midnight, and the fixture's UTC date disagreed with the day the app drew, each costing a re-capture round)
 
-### verify-and-handoff.md — Visual verification, step 10 (band and seam pairing)
+### visual-verify.md — Visual verification, step 10 (band and seam pairing)
 
 - *…arture, so the first read of every pair is the script's band pairing, never the panel.** The panel is white wherever any channel differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the frame's own annotations alone* — (gymie KAN-437 final verification: every composed frame read `diff=0.20`–`0.52`)
 - *The pairing resyncs after an unpaired band; a pair count far below the frame's band count is itself the finding that the layout differs wholesale, and the composite is then read to say how* — (gymie KAN-437 fix round 5, Q2 pre-fix: the frame's four "HOW IT GOT THERE" hairlines listed `missing`, the "Adjust first" band paired with `edge #0088b0` against `#d7d3d3` — the outlined-accent variant shipped as the grey one — and the answer rows' `since_pair` short by the padding the row lacked; Q1 pre-fix: the ACTIVITY card and the GOAL segmented control each `missing` as the frame's bordered band and `extra` as the capture's unbordered one)
 - *…vertical structure inside every boxed band.** A segmented control with its two cell dividers gone and its wrapped labels left-anchored where the frame centres them is one band in both images, the same height and the same border colour, and pairs clean* — (gymie KAN-437 fix round 5, Q1's GOAL control: both shipped past the band pairing and every sweep, and an operator found them by eye)
 
-### verify-and-handoff.md — Visual verification, step 10 (control-level sweeps)
+### visual-verify.md — Visual verification, step 10 (control-level sweeps)
 
 - *Full-page comparison catches wrong regions and wrong overall layout, and wrong text only where the capture's data is the frame's own; it does not catch a border style, an icon's glyph, or a colour step, all of which are invisible at full-page scale* — (gymie KAN-30 fix round 6: a field's underline-only focus border, drawn against a mockup showing a full outline, read as a match at composite scale and was found only once the two were cropped and zoomed side by side)
 - *…a list row carrying a leading radio, or a quiet row whose only indicator is a trailing filled circle on the selected one; a segmented control of N cells each fitting its own label — a differing kind is a departure before any number is taken* — (gymie KAN-437 final verification, Q1: the WEIGHT field rendered in the weight tab's headline-figure style at about three times the frame's field height; every ACTIVITY row carried a leading outlined radio where the frame draws no indicator on unselected rows and a trailing filled circle on the selected one; the GOAL segments' two-line labels ran into the neighbouring cell — none subtle at 1x, none seen, the frame never on the list below)
@@ -243,7 +243,7 @@ text after it is the passage, verbatim.
 - *This sweep runs on a frame whose content already matches and on a frame already fixed for something else — a fix run re-verifies the whole frame, never the element it fixed* — (gymie KAN-437 final verification, Q2 and Q3: Q2's "HOW IT GOT THERE" rows had their label text fixed and were re-checked for that text only, and Q3 was passed as matching on its labels and values; the hairline rules both frames draw above, between and below their rows were never in the app, and an operator found both by hand)
 - *The report's `sweeps:` line then names the sweeps, not the numbers, so a round that re-checked one defect reads exactly like a round that measured the frame* — (gymie KAN-437 final verification, Q1 and Q2, one operator pass after `12a64fa`: Q1's ACTIVITY rows lacked their grey borders, its GOAL segments' labels sat off-centre in their cells, and its fat/carbs slider drew another track and thumb; Q2's headline figure was the wrong size, its PROTEIN/CARBS/FAT row the wrong colour and inset where the frame runs edge to edge, its "HOW IT GOT THERE" caption the wrong colour and its rows spaced differently from the dividers — seven departures across colour, size, width, alignment, border and control kind, on two frames already fixed and re-verified more than once, every one of them a property the script measures and none of them a cell any sweep asked for)
 
-### verify-and-handoff.md — Visual verification, step 10 (measurement preconditions)
+### visual-verify.md — Visual verification, step 10 (measurement preconditions)
 
 - *…sized or cropped image; measure it with `measure-visual-properties.sh`, then eyeball what it measured.** A crop is for reading text and layout, never edges or centres — interpolation and a small viewport shift an edge by pixels and hide a gap outright* — (gymie KAN-30 fix round 9: a card corner read "square, no gap" from a tight crop that ended before the corner; a row-by-row background-colour scan of the same boundary found a rounded corner and a 9px gap — done by hand-written one-off scripts, three attempts, the first two wrong)
 - *…it lists is an edge the region can sit on, and a miscrop is the glance again; and `--edge` lowered below the distance `runs` reports between a control's fill and its background where that distance is under the default 24, since a surface-on-page card* — (gymie: `#eae9e9` on `#f3f2f2`, 15.6 apart)

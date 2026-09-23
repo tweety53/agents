@@ -57,7 +57,7 @@ protected daemon. Neither target is isolated by the
 `## workspace isolation` section below — that section covers apply worktrees, and this stack is a
 single, main-checkout-only fixture instead.
 
-**This is the stack `flow.visual-verify` (`skills/flow/verify-and-handoff.md`) starts and stops.**
+**This is the stack `flow.visual-verify` (`skills/flow/visual-verify.md`) starts and stops.**
 That stage's step 5 probes a URL and, if nothing answers, "starts the stack from `## run`" — a
 project with more than one candidate stack has to say which one that means, so this paragraph is
 the answer: `make ui-test-up` / `make ui-test-down` against `http://127.0.0.1:4174`, matching the

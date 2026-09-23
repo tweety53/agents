@@ -5,7 +5,7 @@
 #
 # Usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base>
 #
-# WHY THIS GUARD EXISTS. `flow.visual-verify` (skills/flow/verify-and-handoff.md)
+# WHY THIS GUARD EXISTS. `flow.visual-verify` (skills/flow/visual-verify.md)
 # is the one stage built to catch a defect that is obvious the moment a page
 # is opened but invisible to a diff, a review panel and both test suites —
 # see that file's own **Blocking** paragraph. Nothing stopped an agent from
@@ -66,7 +66,7 @@
 #
 # NO PROJECT NEEDS A ROW PER WORKTREE. A cross-repo change resolves more
 # than one worktree, and flow.visual-verify dispatches once per worktree in
-# its own resolved set (**Visual verification**, verify-and-handoff.md) —
+# its own resolved set (**Visual verification**, verify-and-handoff.md, steps 1–2) —
 # so this guard is called once per worktree too, by its own caller, exactly
 # as check-base-moved.sh and check-unfinished-work.sh already are; it never
 # tries to resolve the whole set itself.

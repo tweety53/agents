@@ -50,7 +50,7 @@ These five rows are **every** Agent-tool dispatch the parent may make, across se
 | gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
-| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/verify-and-handoff.md`, **Visual verification** |
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 
 **Everything else in those five sections is the parent's own Bash and Read work, never
 delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,
@@ -387,7 +387,7 @@ report is complete only when its build's own success line is quoted and `git -C 
 status --porcelain` is empty or every entry it prints is explained in the report** — "waiting for
 the build" is never a finished report, and uncommitted WIP is a finding, never a state the next
 dispatch inherits; a fix to something visual names the fresh capture taken after that build, on
-the same footing as step 5's fingerprint (`skills/flow/verify-and-handoff.md`). A mutator that
+the same footing as step 6's fingerprint (`skills/flow/visual-verify.md`). A mutator that
 finds unrelated uncommitted changes mid-task says so and stops rather than fixing around them.
 
 **The parent records each dispatch in two calls — one as it goes out, one as it comes back.**
@@ -943,7 +943,8 @@ stated once here and cited — never restated — from `skills/flow/review-panel
   rule for implementers (TARGETED TESTS); it binds the parent's own `## lint`/`## test` runs in
   `flow.verify` and the full-suite run after a shared wave the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
-  are each read in full once, at the start of the stage that needs them; a later need is served by
+  — and `visual-verify.md` when the visual-verification stage loads it — are each read in full
+  once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;
   `tasks.md` re-read only through `spectre list --json` and `flow tasks tick` output afterward.

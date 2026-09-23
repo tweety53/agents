@@ -5,7 +5,7 @@
 # Usage: resolve-visual-screenshots.sh <project root> <capture spec basename>
 #
 # Replaces flow.visual-verify's step 9 resolution prose
-# (skills/flow/verify-and-handoff.md): "search recursively beneath
+# (skills/flow/visual-verify.md): "search recursively beneath
 # `screenshots` for every PNG whose path contains the capture spec's own
 # basename." Reading, still what a script cannot do, stays the agent's job —
 # this guard only resolves WHICH paths to read.
