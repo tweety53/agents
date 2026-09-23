@@ -479,7 +479,7 @@ replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-pol
 A compact roster is the floor bundle alone, on the floor bundle's model/effort. `bugbot` and
 `security` are prompt-driven roles like every other slot, dispatched in whichever bundle carries
 them on that bundle's model/effort. Compact when `compact_roll < 90`
-(small) or `< 60` (regular, big);
+(small, regular, big);
 experimental when `experimental_roll < 30` (every class, at most one slot), appended to whichever
 roster and run on the model/effort of the dispatch it joins.
 
