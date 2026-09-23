@@ -792,11 +792,17 @@ of discovering it.
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already
 moved, a premise a measurement disproved) has remaining tasks redesigned rather than implemented
-as written — the parent edits `proposal.md`, `design.md` and `tasks.md` in the same pass, never
-`tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, and a
+as written — the pivot is resolved **before the colliding code is written**: the run stops at the
+discovery, and the parent asks the operator, because the redesign alters scope the operator
+approved and proceeds only on the answer, never on the parent's own judgment. Only then does the
+parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never
+`tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, the
+capability spec the plan edits (`spectre/specs/<capability>.md`) is rewritten to the pivoted
+scope in that same pass, and a
 decision the pivot displaces is superseded by ID per **Decisions**
 (`skills/flow/brainstorm-planner.md`) — the old entry's `**Status:**` set to `superseded by
-<new-id>`, a fresh entry appended, nothing deleted or rewritten — so the record carries the
+<new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a
+fresh entry appended, nothing deleted or rewritten — so the record carries the
 superseded decision beside its replacement. The amended plan is
 re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches.
 
