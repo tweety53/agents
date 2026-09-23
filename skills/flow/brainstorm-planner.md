@@ -185,7 +185,12 @@ ID or it is re-argued from scratch, and which decisions a review round will want
 knowable at creation, so every decision the design records is written with one. **ID** is assigned
 once, at creation, and is **immutable** — the match key a later round uses to **supersede** a
 decision: set the old entry's `**Status:**` to `superseded by <new-id>` and append a new entry with a
-fresh ID. **Never delete or rewrite a superseded entry.**
+fresh ID. The superseded entry keeps its reasoning untouched and gains one appended
+`**Superseded because:**` line naming the trigger that displaced it — the already-shipped change
+the plan collided with, the measurement that disproved a premise, the operator's answer to a pivot
+ask — so the record states why the supersession happened, not only that it did. **Never delete or
+rewrite a superseded entry** — the `**Superseded because:**` line is the one addition a
+supersession makes to it.
 
 ### Open questions
 
