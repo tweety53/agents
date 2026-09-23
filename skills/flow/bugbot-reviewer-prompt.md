@@ -2,7 +2,7 @@ Use this template for the panel's **Bugbot** slot — a defect hunt over `final-
 dispatched like every other slot, per **The roster** (`skills/flow/review-panel.md`).
 
 Read-write review: this slot mutates code in its own throwaway worktree copies to prove each
-finding — see **The throwaway worktree** (`skills/flow/review-panel.md`) for how those copies are
+finding — see **The throwaway worktree** (`skills/flow/review-panel-optional-slots.md`) for how those copies are
 made and removed.
 
 ```
@@ -97,7 +97,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
   the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-bugbot.diff`, per **Panel re-runs**
   (`skills/flow/review-panel.md`).
 - `[REPO_COPIES]` — the throwaway worktree copy or copies made for this slot this round
-  (**The throwaway worktree**, `skills/flow/review-panel.md`), one path per repository in the
+  (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`), one path per repository in the
   resolved worktree set, in place of `<worktree>`.
 - `[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
   (`skills/flow/review-panel.md`): one path per worktree in this run's resolved set.

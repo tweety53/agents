@@ -2,7 +2,7 @@ description: What each changed behaviour does under error return, timeout, parti
 
 Use this template for the panel's experimental `exp-failure-modes` slot, dispatched only
 when `REVIEW_PANEL_TOGGLE` is `dynamic` and the run's experimental roll picked this file —
-see **Experimental slot** (`skills/flow/review-panel.md`).
+see **Experimental slot** (`skills/flow/review-panel-optional-slots.md`).
 
 Read-only review.
 

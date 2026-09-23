@@ -943,7 +943,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
   rule for implementers (TARGETED TESTS); it binds the parent's own `## lint`/`## test` runs in
   `flow.verify` and the full-suite run after a shared wave the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
-  — and `visual-verify.md` when the visual-verification stage loads it — are each read in full
+  — and `review-panel-optional-slots.md` and `visual-verify.md` when their stage loads them — are each read in full
   once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;

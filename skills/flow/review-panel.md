@@ -144,9 +144,9 @@ overrides:
 | `primary` | **Primary** — plan alignment and senior code review | `flow-review` + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
 | `principles` | **Principles** | `flow-review` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
 | `code-review-low` | **Code review (low)** | `flow-review` reviewer briefed for high-confidence defects only, against `final-review.diff` |
-| `bugbot` | **Bugbot** — defect hunt | `flow-review` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
+| `bugbot` | **Bugbot** — defect hunt | `flow-review` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 | `security` | **Security** | `flow-review` + `security-reviewer-prompt.md` |
-| `mutation` | **Mutation** — sabotage-proofing | `flow-review` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) |
+| `mutation` | **Mutation** — sabotage-proofing | `flow-review` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
 `primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
@@ -181,40 +181,9 @@ decision's `panel.rerun_dispatch` pair instead (**Panel re-runs**) — the dispa
 (the decision's `panel.compact`) is recorded with `flow record pass -round 0 -note 'roster: compact — <rolled value>'`; a full
 roster records `roster: full`.
 
-### Experimental slot
-
-When the decision's `panel.roster` carries an entry whose `slot` starts `exp-` — at most one, per
-design.md's **The rolls** — it is dispatched once, in pass 1 alongside the rest of the roster,
-exactly like any other slot in **The roster** table above, carrying the same paragraphs every
-slot's dispatch already carries above.
-
-Its prompt is not `principles-reviewer-prompt.md` or any other fixed template: it is the file the
-roster entry names in `prompt` — `skills/flow/experimental/<name>.md` inside the agents repo, never
-a path inside the project worktree — read by **absolute** path and substituted into the dispatch
-prompt the same way `[PRINCIPLES_PATH]` is resolved for Principles. Confirm the file exists before
-dispatching; an absent file at dispatch time (the roster was decided against a prompt that has since
-moved) is reported and this slot dropped from this run, never dispatched against nothing.
-
-Its `-slot` on the dispatch record, and every `flow record finding -slot` this slot raises, is the
-full `exp-<name>` id verbatim — never shortened to `experimental` or to `<name>` alone. Its report
-file is `<abs-worktree>/.superpowers/sdd/panel-report-<round>-exp-<name>.md`, the same
-`panel-report-<round>-<id>` shape every slot's REPORT FILE paragraph already names with `<id>`
-substituted. The rendered panel record's Slot column therefore shows the `exp-` id unchanged, so the
-prefix survives into the archive.
-
-It is a diff-reading slot like Primary, Principles, Code review (low) and Mutation: **Panel
-re-runs** below governs it unchanged. **The docs-only reduction** below still narrows a
-docs-only branch to `primary` alone: the experimental slot is never part of that reduced roster, and
-is dispatched again only if a later round's docs-only guard reclassifies the branch off the
-reduction.
-
-It runs at most once per change, whether or not the roster is `compact` — the experimental roll and
-the compact roll are independent per design.md's **The rolls** — and never at all when
-`REVIEW_PANEL_TOGGLE` is `default`, or when the decision recorded `experimental: none available`.
-
-Per **Bundled dispatch** below, it joins whichever group has room, last among the reading passes;
-when neither group has room for a third role it is skipped and recorded with
-`flow record pass -round <round> -note 'experimental: skipped — bundle cap'` rather than displacing a persistent role.
+**Load `skills/flow/review-panel-optional-slots.md`** before dispatching any round whose roster
+carries `bugbot`, `mutation` or an `exp-` slot — it carries **Experimental slot** and **The throwaway
+worktree**. A round whose roster carries none of them never reads it.
 
 **Before writing `final-review.diff`**, run
 
@@ -323,7 +292,7 @@ once, then one
 **PASS `<id>`** section per role in roster order, each carrying exactly the brief that role's solo
 dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`. Mutating
 roles (`mutation`, `bugbot`) are always the last passes of a bundle and still work in their
-throwaway copies (**The throwaway worktree** below); the reading passes before them read the shared
+throwaway copies (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); the reading passes before them read the shared
 `<worktree>`. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
@@ -578,89 +547,7 @@ operator withdraws it with a reason. A surviving mutant's reproducer carries the
 `run-reproducer.sh` reads as the mutation convention, since the build succeeding
 with the mutation landed is the bug present, the reverse of the generic exit-code contract.
 
-### The throwaway worktree
-
-Bugbot and Mutation both mutate code in place to run their brief; every other slot only reads the
-diff. Dispatching a mutating slot into the same worktree
-a reading slot concurrently reads is the
-collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched
-reading slot reads from `<worktree>` at that moment. **Independent multi-slot detection is the
-panel's core signal**: each of
-the two defect-hunting slots — Bugbot's and Mutation's dispatch, pass 1 and
-every fix-round re-run, both carrying the mutation-testing brief (Bugbot's own copy is
-`bugbot-reviewer-prompt.md`'s) — therefore runs
-against its own throwaway worktree, never the
-shared `<worktree>` the other slots read, so every slot's findings are raised against the same
-pristine snapshot and no slot's view ever contains another slot's work:
-
-**The parent creates and removes every throwaway copy itself, in its own Bash calls — never a
-subagent.** Run the sequence below once per worktree in the resolved set per slot, producing one
-`<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`bugbot` or `mutation`),
-so a roster carrying both produces two copies per repository per round.
-
-```bash
-git -C <worktree> worktree add --detach <worktree>-<slot>-<round> HEAD
-git -C <worktree> diff HEAD --binary | git -C <worktree>-<slot>-<round> apply --allow-empty
-git -C <worktree> status --porcelain -z | \
-  while IFS= read -r -d '' entry; do
-    st="${entry:0:2}"; f="${entry:3}"
-    [ "$st" = "??" ] || continue
-    mkdir -p "<worktree>-<slot>-<round>/$(dirname "$f")"
-    cp -a "<worktree>/$f" "<worktree>-<slot>-<round>/$f"
-  done
-mkdir -p "<worktree>-<slot>-<round>/.superpowers"
-if [ -d "<worktree>/.superpowers/sdd" ]; then
-  cp -a "<worktree>/.superpowers/sdd" "<worktree>-<slot>-<round>/.superpowers/sdd"
-fi
-```
-
-`git diff HEAD --binary` — against `HEAD`, not a bare `git diff --binary` — is the same "staged and
-unstaged together" semantics `final-review.diff` above already uses, and covers the transplant in
-one diff rather than the working-tree-only diff a bare `git diff` produces: a bare `git diff` misses
-anything staged, and (independently) fails to reconstruct a rename whose move is already reflected
-in the index. `--allow-empty` on the `apply` side makes the sequence a no-op, not a failure, when
-there is nothing to transplant — the common case, since task and fix-round work is committed and
-`worktree add --detach ... HEAD` already carries every committed change on its own. The
-untracked-file loop reads `git status --porcelain -z`, NUL-delimited, into `read -r -d ''` — the
-plain-text `awk` form cannot survive git's quote-escaping of a filename with a space or another
-special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal
-byte string through untouched, regardless of what the filename contains. The scaffold lines after
-the loop exist because the slot dispatched into the copy resolves the bundle paths its prompt names
-— `dispatch-context.md`, and the report file it writes — against its dispatched root. The `-d` test
-keeps a canonical worktree with no bundle yet a no-op rather than a failure.
-
-Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
-that slot as the repository paths to mutate and test in, in place of `<worktree>`.
-Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
-(including after the wall-clock re-dispatch), or the run stopped:
-
-```bash
-# for each copy:
-for f in <worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md \
-         <worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh; do
-  [ -s "$f" ] || continue
-  b="${f#<worktree>-<slot>-<round>/.superpowers/sdd/}"
-  mkdir -p "<worktree>/.superpowers/sdd/$(dirname "$b")"
-  c="<worktree>/.superpowers/sdd/$b"
-  [ -s "$c" ] && [ ! "$f" -nt "$c" ] && continue
-  cp -a "$f" "$c"
-done
-git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
-```
-
-The fold-back runs inside the removal step itself — on every path that removes a copy,
-completed, timed out or run stopped — because a report the slot resolved onto its dispatched root
-dies with the copy. It rescues the slot's reproducers beside its reports — both are recorded as
-worktree-relative paths the parent later runs, and one left only in the copy dangles. A copy-side
-file newer than the canonical one replaces it — the wall-clock re-dispatch's fresh report
-outranking a timed-out attempt's — and the `[ -s ]` tests keep an empty copy-side file from being
-copied.
-
-Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
-reproducer still runs against the real `<worktree>` at verification time, never against any slot's
-throwaway copy. Security is **not** isolated this way — nothing in this file requires it to
-mutate anything, so it keeps sharing `<worktree>` with the reading slots. It too is dispatched
-once, its prompt naming every worktree in the resolved set.
+### Principles
 
 Principles, when dispatched, is the panel's judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
@@ -682,7 +569,7 @@ Record which standards files were passed, or that none resolved.
 `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` itself, per the REPORT FILE paragraph
 its prompt carries — `<round>` the same value that round's findings carry on `-round` (`0` initial,
 `1..n` fix rounds), `<id>` the resolved reviewer id, never the slot display name. As each slot's
-`flow record dispatch end` is recorded, run **The throwaway worktree**'s fold-back for that slot's
+`flow record dispatch end` is recorded, run **The throwaway worktree**'s (`skills/flow/review-panel-optional-slots.md`) fold-back for that slot's
 copies first, then confirm the file exists and is non-empty (`test -s`); when it is not, write it
 yourself carrying the single line `no verbatim report captured — <reason>`.
 Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
