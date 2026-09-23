@@ -42,9 +42,10 @@
 #   2  cannot answer at all — missing arguments, a bad mode, a non-directory
 #      worktree, an unreadable markers file, a malformed spec line (no tab,
 #      an empty path or marker), a path that is absolute or carries a `..`
-#      component, a grep failure on an existing file, an unwritable
-#      snapshot path (on snapshot), or a missing or unreadable snapshot
-#      file (on verify)
+#      component, a markers file naming no artifact at all, the snapshot
+#      path being an existing directory, a grep failure on an existing
+#      file, an unwritable snapshot path (on snapshot), or a missing or
+#      unreadable snapshot file (on verify)
 set -euo pipefail
 
 export LC_ALL=C
@@ -146,9 +147,24 @@ OUT=""
 CURRENT=""
 trap 'rm -f -- "$SPECS"; [ -z "$OUT" ] || rm -f -- "$OUT"; [ -z "$CURRENT" ] || rm -f -- "$CURRENT"' EXIT
 read_specs > "$SPECS"
+# F2 (panel round 1): a markers file with zero valid lines would snapshot
+# and verify clean over a destroyed tree -- two empty line-sets compare
+# equal. An empty pin set pins nothing, so it cannot answer, and refusing
+# it is the same exit-2 course as every other degenerate marker list.
+[[ -s "$SPECS" ]] || {
+  echo "check-tree-markers: the markers file names no artifact -- cannot answer" >&2
+  exit 2
+}
 
 case "$MODE" in
   snapshot)
+    # F1 (panel round 1): mv files the snapshot INSIDE an existing
+    # directory, so the promised path would hold nothing while exit 0
+    # claimed a snapshot -- refused before anything is written.
+    [[ ! -d "$SNAP" ]] || {
+      echo "check-tree-markers: snapshot path is an existing directory: $SNAP" >&2
+      exit 2
+    }
     OUT="$(mktemp "${TMPDIR:-/tmp}/check-tree-markers-snap.XXXXXX")" || {
       echo "check-tree-markers: mktemp failed -- cannot answer" >&2
       exit 2

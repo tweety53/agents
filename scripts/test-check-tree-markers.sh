@@ -223,6 +223,30 @@ wt="$(make_repo)"; markers="$(make_markers)"
 snap="$(new_snap)/absent"
 expect_exit 'case 8: verify without a snapshot file exits 2' 2 run_guard verify "$wt" "$markers" "$snap"
 
+# ===========================================================================
+# Case 9: F1 (panel round 1) — an existing DIRECTORY as the snapshot path.
+# mv would file the snapshot inside it, the promised path would hold
+# nothing, and exit 0 would claim a snapshot that is not there. Refused at
+# exit 2 before anything is written.
+# ===========================================================================
+wt="$(make_repo)"; markers="$(make_markers)"
+snapdir="$(mktemp -d "${TMPDIR:-/tmp}/check-tree-markers-snapdir.XXXXXX")"
+SNAPS+=("$snapdir")
+expect_exit 'case 9: snapshot to an existing directory exits 2' 2 run_guard snapshot "$wt" "$markers" "$snapdir"
+
+# ===========================================================================
+# Case 10: F2 (panel round 1) — a markers file with zero valid lines.
+# Two empty line-sets compare equal, so a destroyed tree would verify
+# clean over an empty pin set. Refused at exit 2.
+# ===========================================================================
+wt="$(make_repo)"
+empty="$(mktemp -d "${TMPDIR:-/tmp}/check-tree-markers-empty.XXXXXX")"
+SNAPS+=("$empty")
+: > "$empty/markers"
+snap="$(new_snap)"
+expect_exit 'case 10a: snapshot over an empty markers file exits 2' 2 run_guard snapshot "$wt" "$empty/markers" "$snap"
+expect_exit 'case 10b: verify over an empty markers file exits 2' 2 run_guard verify "$wt" "$empty/markers" "$snap"
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi
