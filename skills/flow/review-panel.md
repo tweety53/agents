@@ -952,6 +952,13 @@ adds.** The fix subagent performs the proof and reports it, per the MUTATION PRO
 dispatch carries; the parent runs no build of its own here. A survivor the fix subagent cannot
 judge real or equivalent goes to the operator through the same handback the section already names.
 
+**A fix that adds or strengthens a test is proved by a flip of the fixed line itself, one flip per
+fixed finding.** The mutation flips the line the fix changed — the code the added or strengthened
+test exists to catch — and the test confirmed to fail under the flip is that added or strengthened
+test, not merely any test that happens to trip: the flip is what shows the fix's own test tests
+what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
+round closes.
+
 **Record each one with one `flow record mutation -change <name> -round <round> -path <path>
 -mutated <what> -test <test>` call per line, transcribed from the fix subagent's report — the
 exemption form records `-mutated none -test <reason>`; the lines the calls write are:**
@@ -977,7 +984,10 @@ field, `<pre>→<post> <what the observable counts>`
 **The parent checks the reported list against the fix diff before the round can close, reading the
 `fix-mutation:` lines and walking the diff itself.** Walk every
 hunk of the fix diff with a non-comment, non-whitespace change: each one is either covered by a
-reported line, or is not an executable behaviour at all. A hunk that removes or weakens a test or an
+reported line, or is not an executable behaviour at all. A fixed finding whose fix added or
+strengthened a test closes only with its own flip in the pass log — the per-finding obligation
+above is checked beside this walk, and a finding short its flip stays open for the handback below,
+never closed on another finding's line. A hunk that removes or weakens a test or an
 assertion states in the record what it used to cover and names what still covers that same behaviour
 now — checked by running the named covering test against the **pre-fix** code and confirming it
 fails. A hunk whose path is draw/geometry code is held to the **PIXEL PROBE** paragraph
@@ -1121,7 +1131,11 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
 > landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
 > never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
-> buys a test. Then confirm an existing test fails, and restore.
+> buys a test. Then confirm an existing test fails, and restore. Where your fix adds or
+> strengthens a test, the mechanism to mutate is the fixed line itself — flip the line your fix
+> changed, the code the added or strengthened test exists to catch — and the test confirmed to
+> fail under the flip is that added or strengthened test: one flip per fixed finding, the proof
+> that your fix's own test tests what it claims.
 > `mutate-and-verify.sh <patch-file> <harness>` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script's. Each mutation alters one mechanism — where a single
