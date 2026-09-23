@@ -395,6 +395,7 @@ Review the diff, then run it:
 Re-run this command to fix anything you find, or bare to move on to integrating it.
 
 Next:
+/clear
 /flow <name>
 ```
 

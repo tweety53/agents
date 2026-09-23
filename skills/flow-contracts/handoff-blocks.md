@@ -114,6 +114,7 @@ Review the diff, then run it:
 <what the operator does next>
 
 Next:
+/clear
 /flow <name>
 ```
 
@@ -202,6 +203,7 @@ recorded merge base falls back to the staged-diff line and says the range could 
 <what the operator must do before the next run>
 
 Next:
+/clear
 /flow <name>
 ```
 

@@ -277,6 +277,7 @@ general re-opening of this rule.
 <what the operator must do before the next run>
 
 Next:
+/clear
 /flow <name>
 ```
 

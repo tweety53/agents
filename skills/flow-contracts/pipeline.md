@@ -236,6 +236,11 @@ Next:
 
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
+- **A handoff that leaves the change at `IN_PROGRESS` puts `/clear` on the line above the next
+  command.** Every invocation re-enters from the state file and the change's own artifacts, so the
+  next run needs nothing this session carries — while a run started in this session re-reads all of
+  it on every turn. It is a recommendation the operator may skip, never a gate, and the next
+  command stays the last line.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
   **completed** archive is terminal and names nothing — a run that stopped on a cleanup leftover
