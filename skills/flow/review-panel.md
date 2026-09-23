@@ -697,18 +697,19 @@ presence or the rebase's own exit code.
 **Which slots re-run, and on what, follows from the severities the round raised — never from a
 mode table, a trigger list, or a round count.**
 
-**Every Critical and Important goes to the fix; a Minor is deferred by default and triggers no
-re-run either way.** Every Critical and Important the round raised goes to the fix subagent below,
-closed by the verification that follows it — the reproducer re-run exits 0 *and* the fix diff
-touches a path the finding named. For each Minor, the dispatcher decides before the fix goes out:
-`flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>` is the default — the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query rather than a hand-read; **fix**
-it inline only when it is trivially easy — confined to the lines the finding names, needs no new
-test, and needs no judgment call. A Minor fixed inline under this
-bar needs no dedicated re-review or re-verification pass of its own — the triviality that qualified
-it for the inline fix is also why it needs none; the existing guard/test run covering the touched
-lines is sufficient. When every finding the round raised was Minor, no slot re-runs: proceed to
-`check-panel-findings-closed.sh` and the stage close. A fixed finding that fails verification takes
-the handback below, and that loop re-runs no slot either.
+**Every Critical and Important goes to the fix; whether a Minor does follows from the rest of the
+round, and a Minor never causes a fix round of its own.** Every Critical and Important the round
+raised goes to the fix subagent below, closed by the verification that follows it — the reproducer
+re-run exits 0 *and* the fix diff touches a path the finding named. **A round that raised a
+Critical or Important sends every Minor it raised to that same fix**, closed by the same
+verification. **A round that raised no Critical and no Important defers every Minor** — a fix round
+costs more time than its Minors are worth — with
+`flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>`,
+the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query
+rather than a hand-read. Nothing in that round is fixed, inline or otherwise, and no slot re-runs:
+proceed to `check-panel-findings-closed.sh` and the stage close. An explicit decision the operator
+gives on a finding in this session wins over either default. A fixed finding that fails
+verification takes the handback below, and that loop re-runs no slot either.
 
 **A deferral's reason is one clause naming the mechanism — never a rationale essay, in the store
 row or in the round's output.**
@@ -725,11 +726,12 @@ each worktree's starting sha. **Check base movement first** above clears every s
 the rebased worktree on a clean rebase, whether taken at panel entry or at a round boundary, so
 that worktree's section falls under the no-held-sha rule in the next round. Then:
 
-- **a slot re-runs only when it raised a finding in the previous round, or the previous round
-  raised a new Critical** — every slot in the resolved roster, Primary included, and every
-  operator-added slot already dispatched in an earlier pass of this run, on that one rule. A slot
-  that raised nothing keeps the result it has; the round's own mutation-proof (below) covers what
-  the fix changed;
+- **a slot re-runs only when it raised a Critical or Important in the previous round, or the
+  previous round raised a new Critical** — every slot in the resolved roster, Primary included,
+  and every operator-added slot already dispatched in an earlier pass of this run, on that one
+  rule. A Minor, fixed or deferred, re-runs no slot: a fixed Minor closes on the verification
+  below alone. A slot that raised nothing keeps the result it has;
+  the round's own mutation-proof (below) covers what the fix changed;
 - **a diff-reading slot that re-runs reads its delta**; Bugbot, Mutation and Security read no diff
   file and re-run in their pass-1 shape, throwaway worktree included. **A diff-reading slot whose
   delta is empty in every worktree is not dispatched** — record `not re-run —
@@ -918,7 +920,8 @@ diff must also touch at least one path the finding named, with a non-comment, no
 change.** A fix that does not is not a fix: the finding stays open and goes to the operator through
 the handback below.
 
-A finding meeting both conditions is recorded closed there and then:
+A finding meeting both conditions is recorded closed there and then — a Minor recorded
+`none — <reason>` has no reproducer to flip and closes on the path condition alone:
 
 ```bash
 flow record status -change <name> -ref F<n> -status fixed
