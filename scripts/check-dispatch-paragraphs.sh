@@ -103,7 +103,16 @@
 # exit or an absent bundle file records the cause in the pass log and then
 # stops the stage or takes an explicit operator override before any slot is
 # dispatched, so the reviewers' context is never silently reduced — at the
-# panel pre-flight in review-panel.md alone.
+# panel pre-flight in review-panel.md alone. KAN-635 added a sixteenth
+# required paragraph — READ-ONLY REVIEW, which forbids the gated per-task
+# reviewer from mutating the worktree it reviews: no writing git command, no
+# commit, no index change, no edit outside its own report file, because a
+# reviewer that mutates the tree (gymie KAN-635's `git checkout <sha> -- .`
+# destroyed uncommitted planning artifacts) and self-reports a restore is a
+# data-loss shape nobody checked — at the gated per-task reviewer dispatch
+# in implement.md alone; the panel slots carry the same rule inside their
+# prompt files' own Read-Only Review sections, which this table does not
+# pin.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -225,6 +234,14 @@
 #   the same path through its existing "same as above", so it needs no
 #   second block.
 #
+#   READ-ONLY REVIEW shared phrases (no variants — every block carrying the
+#   label must carry all three): "never mutate it", "no file edit outside
+#   your own report file", "a claim nobody can check". Required once, at the
+#   gated per-task reviewer dispatch in implement.md alone — the panel slot
+#   dispatch is not a site: its slots carry the rule inside their prompt
+#   files' own Read-Only Review sections, not a shared paragraph this table
+#   pins.
+#
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
 #   query", "re-prices your whole context". Required twice in implement.md
@@ -340,6 +357,7 @@ declare -A ENTRY_LABEL=(
   [findings]="**FINDINGS ARE INPUT:**"
   [contextbundle]="**CONTEXT BUNDLE FAILURE:**"
   [budget]="**OUTPUT BUDGET:**"
+  [readonly]="**READ-ONLY REVIEW:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
@@ -359,6 +377,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [findings]="input, not orders${US}resolve the defect the finding names${US}records the deviation and justifies it${US}A silent deviation is an unfixed finding"
   [contextbundle]="exited non-zero, or the bundle file is still${US}context bundle: build failed${US}dispatch every slot without the bundle${US}context bundle: dispatched without it — operator override${US}outcome stopped"
   [budget]="re-reads your${US}by line range${US}never re-read a file already in your context${US}Never print a generated file"
+  [readonly]="never mutate it${US}no file edit outside your own report file${US}a claim nobody can check"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -380,6 +399,7 @@ declare -A ENTRY_VARIANTS=(
   [findings]=""
   [contextbundle]=""
   [budget]=""
+  [readonly]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -392,10 +412,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings contextbundle budget budget)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1 1 1 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings contextbundle budget budget readonly)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1 1 1 1 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {

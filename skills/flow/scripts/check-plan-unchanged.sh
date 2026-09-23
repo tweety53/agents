@@ -1,0 +1,1 @@
+../../../scripts/check-plan-unchanged.sh

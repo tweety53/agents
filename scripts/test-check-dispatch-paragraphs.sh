@@ -168,6 +168,12 @@
 # review-panel.md; cases 79-83 are one case per required phrase, each
 # dropped in turn.
 #
+# Cases 84-87 cover KAN-635's READ-ONLY REVIEW paragraph, required once in
+# implement.md (the gated per-task reviewer dispatch) and nowhere else: the
+# case 1 fixture and CLEAN_IMPLEMENT now carry one correct READONLY_BLOCK;
+# case 84 is the label absent entirely from implement.md; cases 85-87 are
+# one case per required phrase, each dropped in turn.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -822,6 +828,50 @@ OUTPUT_BUDGET_BLOCK_NO_RANGE='> **OUTPUT BUDGET:** Every tool result stays in yo
 > since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
 > reproduce a failing block from its log rather than printing the whole log. Never print a
 > generated file — a lockfile, a snapshot, a bundle, a build artifact.'
+# The READ-ONLY REVIEW paragraph, reproduced verbatim from the gated
+# per-task reviewer's shared paragraphs in skills/flow/implement.md
+# (KAN-635).
+READONLY_BLOCK='> **READ-ONLY REVIEW:** You review a tree other agents are working in — never mutate it. No
+> command that writes: no `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`,
+> no commit, no index change, and no file edit outside your own report file — the panel'"'"'s
+> mutating slots are the one declared exception, and they work in throwaway copies, not this
+> tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
+> `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
+> implementer inherits, and a restore you perform is a claim nobody can check: gymie KAN-635'"'"'s
+> reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts,
+> and reported the tree restored.'
+
+# Variants of READONLY_BLOCK, each with exactly one required phrase dropped
+# while staying a plausible paragraph — cases 88-90.
+READONLY_BLOCK_NO_NEVER_MUTATE='> **READ-ONLY REVIEW:** You review a tree other agents are working in — do not rewrite it. No
+> command that writes: no `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`,
+> no commit, no index change, and no file edit outside your own report file — the panel'"'"'s
+> mutating slots are the one declared exception, and they work in throwaway copies, not this
+> tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
+> `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
+> implementer inherits, and a restore you perform is a claim nobody can check: gymie KAN-635'"'"'s
+> reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts,
+> and reported the tree restored.'
+
+READONLY_BLOCK_NO_FILE_EDIT='> **READ-ONLY REVIEW:** You review a tree other agents are working in — never mutate it. No
+> command that writes: no `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`,
+> no commit, no index change, and no edit of any file but your own report — the panel'"'"'s
+> mutating slots are the one declared exception, and they work in throwaway copies, not this
+> tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
+> `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
+> implementer inherits, and a restore you perform is a claim nobody can check: gymie KAN-635'"'"'s
+> reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts,
+> and reported the tree restored.'
+
+READONLY_BLOCK_NO_CLAIM='> **READ-ONLY REVIEW:** You review a tree other agents are working in — never mutate it. No
+> command that writes: no `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`,
+> no commit, no index change, and no file edit outside your own report file — the panel'"'"'s
+> mutating slots are the one declared exception, and they work in throwaway copies, not this
+> tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
+> `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
+> implementer inherits, and a restore you perform is an assertion nothing verifies: gymie
+> KAN-635'"'"'s reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning
+> artifacts, and reported the tree restored.'
 
 write_site() {
   local relpath="$1" content="$2"
@@ -922,7 +972,9 @@ $DELEGATION_BLOCK
 
 $DELEGATION_BLOCK
 
-$OUTPUT_BUDGET_BLOCK"
+$OUTPUT_BUDGET_BLOCK
+
+$READONLY_BLOCK"
 run_guard
 [ "$RC" -eq 0 ] && pass "case 1: both sites correct exits 0" \
   || fail "case 1: expected exit 0, got rc=$RC out=$OUT"
@@ -1803,7 +1855,7 @@ $CONTEXT_BUNDLE_FAILURE_BLOCK
 
 $OUTPUT_BUDGET_BLOCK"
 
-CLEAN_IMPLEMENT="$REVIEWER_BLOCK
+CLEAN_IMPLEMENT_NO_READONLY="$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
 
@@ -1831,7 +1883,11 @@ $HANDSHAKE_BLOCK
 
 $DELEGATION_BLOCK
 
-$DELEGATION_BLOCK
+$DELEGATION_BLOCK"
+
+CLEAN_IMPLEMENT="$CLEAN_IMPLEMENT_NO_READONLY
+
+$READONLY_BLOCK
 
 $OUTPUT_BUDGET_BLOCK"
 
@@ -3409,6 +3465,68 @@ run_guard
 case "$OUT" in
   *"by line range"*) pass "case 86: names the missing phrase" ;;
   *) fail "case 86: expected 'by line range' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 87: the READ-ONLY REVIEW label is absent entirely from implement.md
+# (KAN-635) — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT_NO_READONLY"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 87: exits 1" || fail "case 87: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"READ-ONLY REVIEW"*) pass "case 87: names implement.md and the missing READ-ONLY REVIEW block" ;;
+  *) fail "case 87: expected implement.md and READ-ONLY REVIEW named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 88: a READ-ONLY REVIEW block is present but missing "never mutate it"
+# — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT_NO_READONLY
+
+$READONLY_BLOCK_NO_NEVER_MUTATE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 88: exits 1" || fail "case 88: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"never mutate it"*) pass "case 88: names the missing phrase" ;;
+  *) fail "case 88: expected 'never mutate it' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 89: a READ-ONLY REVIEW block is present but missing "no file edit
+# outside your own report file" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT_NO_READONLY
+
+$READONLY_BLOCK_NO_FILE_EDIT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 89: exits 1" || fail "case 89: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"no file edit outside your own report file"*) pass "case 89: names the missing phrase" ;;
+  *) fail "case 89: expected 'no file edit outside your own report file' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 90: a READ-ONLY REVIEW block is present but missing "a claim nobody
+# can check" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT_NO_READONLY
+
+$READONLY_BLOCK_NO_CLAIM"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 90: exits 1" || fail "case 90: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"a claim nobody can check"*) pass "case 90: names the missing phrase" ;;
+  *) fail "case 90: expected 'a claim nobody can check' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then

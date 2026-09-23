@@ -882,6 +882,16 @@ from `tasks.md`, its diff range `git diff <task-sha>^..<task-sha>` and its own R
 > closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
+> **READ-ONLY REVIEW:** You review a tree other agents are working in — never mutate it. No
+> command that writes: no `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`,
+> no commit, no index change, and no file edit outside your own report file — the panel's
+> mutating slots are the one declared exception, and they work in throwaway copies, not this
+> tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
+> `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
+> implementer inherits, and a restore you perform is a claim nobody can check: gymie KAN-635's
+> reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts,
+> and reported the tree restored.
+
 > **INDEPENDENT PASSES:** each pass reviews its own task's diff range and the code, never an
 > earlier pass's report or conclusions; a defect that sits in two passes' ranges is raised under
 > each. Write each pass's report file before beginning the next pass.
@@ -894,6 +904,19 @@ and, inside each **PASS task-`<n>`** section:
 > `fix`, and, on `fix`, each finding with its file and line. The dispatcher waits on every pass's
 > file (`test -s` on each), and a fix round's re-review writes
 > `reviewer-report-task-<n>-fix-<k>.md`.
+
+**The plan tree survives every reviewer dispatch — asserted by git, never by the reviewer's
+prose.** Before a gated reviewer bundle's Agent call goes out — original, fix re-review, or
+handshake retry alike — the parent commits any uncommitted edits under
+`<project>/spectre/changes/<name>/` in one commit (its own transcriptions and ticks made them,
+and task commits never carry plan paths, so the working tree held the only copy — exactly what
+`git checkout <sha> -- .` destroyed on gymie KAN-635), then runs
+`check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`. When the bundle's last
+report file exists, the parent runs `check-plan-unchanged.sh verify <worktree> <name>
+<snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit
+1 ends the turn with `## Question` carrying the guard's lines verbatim; exit 2, the same stop.
+A reviewer that closed clean over a tree it changed has reported about evidence it destroyed —
+the verify answers whether the tree survived, never the prose.
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix

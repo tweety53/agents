@@ -330,6 +330,16 @@ launched pass's report file; every `end` is recorded in one call once they all e
 discipline**, `skills/flow/implement.md`). A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
+The same plan-tree discipline rides every round, re-run rounds included: before the launches the
+parent commits any uncommitted edits under `<project>/spectre/changes/<name>/` and runs
+`check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file
+exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any
+finding is recorded — the slots read those artifacts, and a flight that changed them has
+invalidated the reviews that flew. Exit 1 or 2 stops the round the same way the per-task
+reviewer's stop works (**The plan tree survives every reviewer dispatch**,
+`skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this
+verify is the assertion that a breach cannot slide past as a clean report.
+
 `-slot` names the dispatch's roles from **The roster** table above. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
 roles are all reading against a delta and on no other; it takes one
