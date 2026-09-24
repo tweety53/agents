@@ -42,3 +42,11 @@ next one. Held uncommitted, the plan was also the one copy a reviewer's `git che
 destroy. Committing the folder once the operator has approved it — and again at each later
 boundary where the run itself edits it — removes both, while the task-commit check keeps planning
 out of every implementation commit, and integrate's reshape still lands a single planning commit.
+
+**Why a location guard on planning commits.** `spectre link` must run from a repository's primary
+checkout to resolve its peers file, so the directory a link commit is made from is one `cd` away
+from the landing target. A link commit there lands change-folder content on the base branch, or on
+whatever branch the main checkout holds, where no reshape, review or archive step of the change
+sees it. `check-planning-commit-location.sh` refuses any planning commit outside the change's own
+worktree and branch; `hooks/protect-main-checkout.py` covers only a main checkout on its default
+branch, and only under a harness that registers it.

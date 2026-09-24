@@ -269,7 +269,10 @@ link is always refused — and `--root <abs-worktree>/spectre` is what writes th
 `<canonical-peer>` is the canonical repository's own name in that worktree's
 `<project>/spectre/peers` file. Each link writes `link.md` on both sides, so each is followed by its
 link commit before the next link runs (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`) — never by `--force`. Record what the command wrote alongside that worktree's merge
+`skills/flow-contracts/git-boundaries.md`) — never by `--force`. Each link commit is made in the
+worktree holding that `link.md`, never the primary checkout the link ran from, behind
+`check-planning-commit-location.sh <abs-worktree> <name>`; a refusal stops the run like a refused
+link. Record what the command wrote alongside that worktree's merge
 base in this run's working notes. **A refusal is a hard failure of this stage**: report it and
 stop the run — a change whose cross-repo link cannot be established lands at integrate with a
 false OUTSTANDING verdict that forces hand verification. A change with one worktree runs

@@ -33,21 +33,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# new_repo -> sets REPO to a freshly initialized git repo with an initial
-# commit, so `git diff --cached --quiet` and `git commit` both have a HEAD to
+# new_repo -> sets MAIN to a freshly initialized git repo with an initial
+# commit and REPO to a linked worktree of it on spectre/demo — the only place
+# commit-split.sh commits, since it runs check-planning-commit-location.sh
+# first — so `git diff --cached --quiet` and `git commit` both have a HEAD to
 # work against from the first case onward.
 new_repo() {
-  REPO="$(mktemp -d "${TMPDIR:-/tmp}/commit-split-test.XXXXXX")"
-  REPOS+=("$REPO")
-  git -C "$REPO" init -q
-  git -C "$REPO" config user.email "test@example.com"
-  git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/spectre/changes" "$REPO/spectre/specs"
-  printf 'seed\n' > "$REPO/README.md"
-  printf 'seed\n' > "$REPO/spectre/changes/seed.md"
-  printf 'seed\n' > "$REPO/spectre/specs/seed.md"
-  git -C "$REPO" add -A
-  git -C "$REPO" commit -q -m "seed"
+  local root
+  root="$(mktemp -d "${TMPDIR:-/tmp}/commit-split-test.XXXXXX")"
+  REPOS+=("$root")
+  MAIN="$root/main"
+  REPO="$root/wt"
+  git init -q "$MAIN"
+  git -C "$MAIN" config user.email "test@example.com"
+  git -C "$MAIN" config user.name "Test"
+  mkdir -p "$MAIN/spectre/changes" "$MAIN/spectre/specs"
+  printf 'seed\n' > "$MAIN/README.md"
+  printf 'seed\n' > "$MAIN/spectre/changes/seed.md"
+  printf 'seed\n' > "$MAIN/spectre/specs/seed.md"
+  git -C "$MAIN" add -A
+  git -C "$MAIN" commit -q -m "seed"
+  git -C "$MAIN" worktree add -q -b spectre/demo "$REPO"
 }
 
 log_subjects() {
@@ -277,6 +283,28 @@ if [ -n "$CASE7_IMPL_SHA" ] \
 else
   fail "case 7: docs/research file not in the implementation commit (sha='${CASE7_IMPL_SHA:-none}')"
 fi
+
+# ===========================================================================
+# 8. The main checkout is refused by check-planning-commit-location.sh before
+#    anything is staged or committed.
+# ===========================================================================
+new_repo
+printf 'impl change\n' > "$MAIN/only.md"
+printf 'plan change\n' > "$MAIN/spectre/changes/plan.md"
+BEFORE_HEAD="$(git -C "$MAIN" rev-parse HEAD)"
+set +e
+OUT="$("$SCRIPT" "$MAIN" demo "impl: case8" "plan: case8" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 1 ] && pass "case 8: main checkout exits 1" || fail "case 8: rc=$RC out=$OUT"
+case "$OUT" in
+  *PLANNING-COMMIT-MAIN-CHECKOUT*) pass "case 8: guard's own line surfaces" ;;
+  *) fail "case 8: expected the guard's verdict, got: $OUT" ;;
+esac
+[ "$(git -C "$MAIN" rev-parse HEAD)" = "$BEFORE_HEAD" ] && pass "case 8: no commit made" \
+  || fail "case 8: a commit landed in the main checkout"
+[ -z "$(git -C "$MAIN" diff --cached --name-only)" ] && pass "case 8: nothing staged" \
+  || fail "case 8: the main checkout's index was touched"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

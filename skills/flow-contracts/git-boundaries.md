@@ -47,7 +47,8 @@ task-commit check — and is pushed plain (**Branch backup** below):
 | `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
 
 ```bash
-git -C <abs-worktree> add -A -- <path> \
+check-planning-commit-location.sh <abs-worktree> <name> \
+  && git -C <abs-worktree> add -A -- <path> \
   && { git -C <abs-worktree> diff --cached --quiet -- <path> \
        || git -C <abs-worktree> commit -m "<subject>" -- <path>; } \
   && git -C <abs-worktree> push origin <branch>
@@ -60,6 +61,18 @@ directory carries uncommitted modifications, and the answer to that refusal is t
 above, never an override. Integrate's reshape (**Branch backup** below) folds every planning commit
 back into the working tree with the rest of the branch, so the landed branch still carries one
 planning commit.
+
+**A planning commit lands only in the change's own worktree, on `spectre/<name>`.**
+`check-planning-commit-location.sh <abs-worktree> <name>` answers `PLANNING-COMMIT-LOCATION-OK` (exit
+0), or prints `PLANNING-COMMIT-MAIN-CHECKOUT` and/or `PLANNING-COMMIT-WRONG-BRANCH` (exit 1), or
+cannot answer (exit 2); anything but 0 stops the run before anything is staged, reporting the
+guard's lines. It matters most for a link commit: `spectre link` runs from a repository's primary
+checkout, which is where a link commit made from the wrong directory would land.
+`commit-split.sh` runs it itself. **When the guard cannot be located**,
+check by hand before committing: `git -C <abs-worktree> rev-parse --path-format=absolute --git-dir`
+must differ from `git -C <abs-worktree> rev-parse --path-format=absolute --git-common-dir`, and
+`git -C <abs-worktree> branch --show-current` must print `spectre/<name>`; otherwise stop without
+committing.
 
 ## Branch backup
 

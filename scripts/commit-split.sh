@@ -34,10 +34,11 @@
 # with the shell first — most commits touch no link.md at all, and that must
 # stay a no-op rather than a failure.
 #
-# `<name>` is accepted and currently unused by the chain itself; it is taken
-# as a parameter because both call sites already have a change name in hand
-# and passing it keeps the call shape stable if a future caller needs it in
-# a message or a path.
+# `<name>` is the change: before anything is staged,
+# check-planning-commit-location.sh refuses a <worktree> that is a main
+# checkout or is not on `spectre/<name>`, and its verdict and exit code stop
+# the chain — the planning half of this split is a planning commit, and a
+# planning commit lands only in the change's own worktree.
 #
 # A PLANNING PATH THAT IS A TRACKED SYMLINK IS NEVER WORKED AROUND. If
 # `spectre/changes/` is a tracked symlink — or `spectre/` is, putting
@@ -56,6 +57,8 @@ worktree="$1" name="$2" impl_msg="$3" plan_msg="$4"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/spec-root.sh"
 plan_dir="$(spec_root_leaf "$worktree")/changes/"
+
+"$SCRIPT_DIR/check-planning-commit-location.sh" "$worktree" "$name"
 
 git -C "$worktree" reset -q -- "$plan_dir"
 git -C "$worktree" add -A -- . ":(exclude)$plan_dir"

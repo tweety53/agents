@@ -199,7 +199,8 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
 
 Every guard those sections invoke resolves per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries
-each one those sections run: `check-worktree-location.sh <project>` and
+each one those sections run: `check-planning-commit-location.sh <worktree> <name>` (the commit
+below), `check-worktree-location.sh <project>` and
 `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate),
 `plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and
 `plan-dispatch-groups.sh <tasks.md>` (Decide).
@@ -207,11 +208,15 @@ each one those sections run: `check-worktree-location.sh <project>` and
 **On Yes, commit and push the planning artifacts** from the change worktree:
 
 ```bash
-git -C <worktree> add spectre/changes/<name>
-git -C <worktree> commit -m "chore(spectre): plan"
-git -C <worktree> push origin spectre/<name>
+check-planning-commit-location.sh <worktree> <name> \
+  && git -C <worktree> add spectre/changes/<name> \
+  && git -C <worktree> commit -m "chore(spectre): plan" \
+  && git -C <worktree> push origin spectre/<name>
 ```
 
+The guard's non-zero exit stops the capture before anything is staged — the commit lands only in
+the change worktree on `spectre/<name>` (**Planning commits**,
+`skills/flow-contracts/git-boundaries.md`, canonical for its verdicts and its by-hand fallback).
 Exactly that directory is staged — never `-A`, never anything else in the worktree. A push the
 remote rejects leaves the commit on `spectre/<name>` in the worktree; say so and name the commit,
 the branch and the worktree path. The worktree is kept either way — it is the change's, resumed by
