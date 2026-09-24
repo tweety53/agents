@@ -268,7 +268,7 @@ nothing about the single-repository path changes.
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
 `<rebased-merge-base>`, for a worktree **Sync the branch onto the base** above rebased**. This
-collapses every per-task and fixup commit `/flow`'s implement phase made on the branch back into the working
+collapses every per-task, fixup and planning commit `/flow`'s implement phase made on the branch back into the working
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
 

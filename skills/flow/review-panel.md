@@ -331,7 +331,8 @@ discipline**, `skills/flow/implement.md`). A dispatch whose report never appears
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
 The same plan-tree discipline rides every round, re-run rounds included: before the launches the
-parent commits any uncommitted edits under `<project>/spectre/changes/<name>/` and runs
+parent makes the reviewer-dispatch planning commit (**Planning commits**,
+`skills/flow-contracts/git-boundaries.md`) and runs
 `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file
 exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any
 finding is recorded — the slots read those artifacts, and a flight that changed them has

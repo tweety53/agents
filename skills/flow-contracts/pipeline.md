@@ -252,11 +252,12 @@ Next:
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work — and no `/flow` step checks out, stages or commits in the main checkout. Resolve
   app roots from `git worktree list` or the state file's `worktrees` keys.
-- **Implementation never stages `<project>/spectre/changes/` before integrating**, and the path
+- **Implementation never stages `<project>/spectre/changes/` into its own commits**, and the path
   is fixed here rather than configured per project. `<project>/spectre/specs/`
   and a change directory's `link.md` are deliberately not on it — see **Git boundaries**
-  (`skills/flow-contracts/git-boundaries.md`) for why. The integrate phase
-  stages the rest and commits it separately from the implementation, so nothing is lost. See
+  (`skills/flow-contracts/git-boundaries.md`) for why. The planning artifacts reach the branch
+  through their own commits (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), so
+  nothing is lost. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why leaving them unstaged
   — rather than filtering a display — is what keeps them out of every view of the staging area:
 

@@ -173,7 +173,7 @@ this run's preflight, the unfinished-work gate and the rebase.
 <recorded-merge-base>`, where `<recorded-merge-base>` is the merge base recorded in the state
 file's `worktrees` map for this worktree — **or `<rebased-merge-base>` from step 2 above, for a
 worktree this run rebased**, never the state file's now-stale pre-rebase value for that worktree.
-This collapses every per-task and fixup commit back into the working tree, uncommitted; using the
+This collapses every per-task, fixup and planning commit back into the working tree, uncommitted; using the
 stale value here would also collapse in the upstream commits the rebase just brought in, silently
 smuggling them into the implementation commit below.
 

@@ -1,7 +1,7 @@
 # Git boundaries
 
-Which git actions each command may take, and the guarded two-commit chain that enforces the split
-between implementation and planning artifacts.
+Which git actions each command may take, the planning commits, and the guarded two-commit chain
+that enforces the split between implementation and planning artifacts.
 
 **Loaded by `/flow`'s implement phase, bare `/flow` and `/flow-fast`** — at the step that commits or stages.
 
@@ -14,10 +14,10 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 
 | Command | Condition | Allowed git actions |
 |---------|-----------|---------------------|
-| `/flow`'s creating run | — | **Creates the worktree and pushes its empty branch** at kickoff; stages planning artifacts there and never commits |
-| `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in), **pushing after each** — no merge or PR |
-| `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way, pushing after each — no merge or PR |
-| `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes `--force-with-lease`** to the PR branch — implementation, then planning artifacts; the one planning-commit exception |
+| `/flow`'s creating run | — | **Creates the worktree and pushes its empty branch** at kickoff; makes the plan-gate planning commit once the plan gate answers **Yes** (**Planning commits** below), and nothing else |
+| `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in) and the **Planning commits** below, **pushing after each** — no merge or PR |
+| `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** and planning commits the same way, pushing after each — no merge or PR |
+| `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes `--force-with-lease`** to the PR branch — implementation, then whatever planning delta the last planning commit left |
 | bare `/flow` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes `--force-with-lease`; opens a PR or merges, by the operator's choice |
 | bare `/flow` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — in the landing worktree, and removes worktrees and branches |
 | bare `/flow` | run 2, during self-review | **Commits** the self-review report, or the context bundle on `## self review: defer`, on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
@@ -30,6 +30,36 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 capture — it reads the main checkout before then and writes nothing — and every write, stage,
 commit and push in the table above happens in a worktree. The main checkout is never checked out,
 staged, committed or written, whatever branch it sits on.
+
+## Planning commits
+
+**Planning artifacts are committed in their own commits, at fixed boundaries, and never inside a
+task or fixup commit.** Every planning commit is pathspec-scoped to the change folder, carries no
+`Task-Id:` trailer — which is what keeps it outside `check-task-commit-planning-paths.sh`'s
+task-commit check — and is pushed plain (**Branch backup** below):
+
+| Boundary | Carries | Subject |
+|----------|---------|---------|
+| The plan gate answers **Yes** (**Plan review gate**, `skills/flow/brainstorm-planner.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
+| After each `spectre link` in `flow.isolate-workspace` (`skills/flow/implement.md`), before the next link | each `<project>/spectre/changes/<name>/link.md` the link wrote — the canonical worktree's and the satellite's — in the worktree holding it | `chore(spectre): link <peer>` |
+| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
+| `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
+| `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
+
+```bash
+git -C <abs-worktree> add -A -- <path> \
+  && { git -C <abs-worktree> diff --cached --quiet -- <path> \
+       || git -C <abs-worktree> commit -m "<subject>" -- <path>; } \
+  && git -C <abs-worktree> push origin <branch>
+```
+
+`<path>` is the table's **Carries** cell with its `<project>/` prefix dropped — relative to the worktree root — and an empty delta skips the commit rather than failing
+it, exactly as the two-commit chain below skips. `<peer>` is the peer name the link command was
+given. **`spectre link` is never run with `--force`**: it refuses while the canonical change
+directory carries uncommitted modifications, and the answer to that refusal is the planning commit
+above, never an override. Integrate's reshape (**Branch backup** below) folds every planning commit
+back into the working tree with the rest of the branch, so the landed branch still carries one
+planning commit.
 
 ## Branch backup
 
@@ -45,8 +75,8 @@ push is plain.
 `/flow`'s implement phase clears it from the index and only then stages with it excluded by
 pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
-rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
-bare `/flow` is what commits it.
+rule hold rather than merely assert it. Its staging area therefore carries implementation only;
+planning reaches the branch through **Planning commits** below and nothing else.
 
 **A capability spec is implementation, not planning.** `<project>/spectre/specs/<capability>.md`
 states what the system must do, so changing it changes the product exactly as code does: the

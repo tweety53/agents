@@ -33,3 +33,12 @@ it" and "so wherever a run's instructions know the paths a commit should carry, 
 them": "— gymie kan-469's visual-verify step swept a ~130-file pre-staged foreign tree into a
 baselines commit in a main checkout, and gymie kan-468 lost task commits to staged planning
 artifacts the same way —".
+
+**Why planning artifacts are committed at the plan gate rather than held uncommitted until
+integrate.** An uncommitted change folder blocked every cross-repo change: `spectre link` refuses
+while the canonical change directory carries uncommitted modifications, so each link needed an
+operator-approved `--force`, and each link rewrote `link.md`, dirtying the folder again for the
+next one. Held uncommitted, the plan was also the one copy a reviewer's `git checkout` could
+destroy. Committing the folder once the operator has approved it — and again at each later
+boundary where the run itself edits it — removes both, while the task-commit check keeps planning
+out of every implementation commit, and integrate's reshape still lands a single planning commit.
