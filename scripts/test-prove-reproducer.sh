@@ -264,6 +264,38 @@ case_7() {
   fi
 }
 
+# ---------------------------------------------------------------- case 8
+# A leg the runner cannot verdict at all spends the proof: a reproducer
+# whose interpreter does not exist makes exec fail, run-reproducer answers
+# 4 on both legs, and the proof exits 2 naming cannot-spend — never a
+# verdict — with the scratch still removed on the way out.
+case_8() {
+  local repo pre out rc
+  repo="$(make_repo)"
+  pre="$(defect_fixture "$repo" "old-behaviour")"
+  mkdir -p "$repo/.superpowers/sdd/reproducers"
+  printf '#!/nonexistent-interpreter\n' > "$repo/.superpowers/sdd/reproducers/0-primary-1.sh"
+  chmod +x "$repo/.superpowers/sdd/reproducers/0-primary-1.sh"
+  fix_commit "$repo" "new-behaviour" >/dev/null
+  set +e
+  out="$("$GUARD" "$repo" "$pre" ".superpowers/sdd/reproducers/0-primary-1.sh" 2>&1)"
+  rc=$?
+  set -e
+  if [ "$rc" -ne 2 ]; then
+    printf 'case_8: expected exit 2, got %s\n%s\n' "$rc" "$out"
+    FAILED=1
+    return 0
+  fi
+  case "$out" in
+    *"cannot spend the proof"*) : ;;
+    *) printf 'case_8: verdict does not name the cannot-spend answer:\n%s\n' "$out"; FAILED=1; return 0 ;;
+  esac
+  if [ "$(scratch_count "$repo")" -ne 1 ]; then
+    printf 'case_8: scratch worktree survived the cannot-spend exit:\n%s\n' "$(git -C "$repo" worktree list)"
+    FAILED=1
+  fi
+}
+
 case_1
 case_2
 case_3
@@ -271,6 +303,7 @@ case_4
 case_5
 case_6
 case_7
+case_8
 
 if [ "$FAILED" -ne 0 ]; then
   printf 'test-prove-reproducer: FAILED\n'

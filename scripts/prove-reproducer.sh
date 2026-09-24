@@ -57,10 +57,13 @@ die() {
   exit 2
 }
 
-# Readability is checked before anything runs, the same rule
-# run-reproducer.sh applies to its own dependencies: a missing runner is
+# Readability is checked before anything is sourced or run, the same rule
+# run-reproducer.sh applies to its own dependencies: a missing dependency is
 # "cannot answer", never a verdict on a reproducer that was never executed.
 [ -r "$RUNNER" ] || die "cannot read $RUNNER — the per-leg verdicts have no runner"
+[ -r "$SCRIPT_DIR/lib/reproducer-path.sh" ] || die "cannot read $SCRIPT_DIR/lib/reproducer-path.sh — the recorded-form refusals have no source"
+# shellcheck source=lib/reproducer-path.sh
+source "$SCRIPT_DIR/lib/reproducer-path.sh"
 
 [ "$#" -eq 3 ] || { usage; exit 2; }
 
@@ -76,16 +79,14 @@ PRE_SHA="$(git -C "$WT" rev-parse --verify --quiet "${REF}^{commit}")" \
   || die "pre-fix ref does not resolve to a commit: $REF"
 [ -n "$PRE_SHA" ] || die "pre-fix ref does not resolve to a commit: $REF"
 
-# The reproducer path follows the recorded-form rules at the door: relative,
-# no `..` segment, no leading dash. The copy step resolves it against the
-# scratch root, so a `..` here would escape the scratch the same way F17's
-# absolute ROOT escaped the live tree.
-case "$REL" in
-  "") die "reproducer path is empty" ;;
-  /*) die "reproducer path must be relative to the worktree, got an absolute path: $REL" ;;
-  -*) die "reproducer path may not begin with a dash: $REL" ;;
-  ..|../*|*/..|*/../*) die "reproducer path may not contain a .. segment: $REL" ;;
-esac
+# The reproducer path follows the recorded-form refusals at the door, single-
+# sourced in lib/reproducer-path.sh: relative, no leading dash, no `..`
+# segment. The copy step resolves it against the scratch root, so a `..` here
+# would escape the scratch the same way F17's absolute ROOT escaped the live
+# tree.
+if ! REASON="$(reproducer_path_refusal "$REL")"; then
+  die "$REASON"
+fi
 [ -f "$WT/$REL" ] || die "no reproducer file at $REL in $WT"
 [ -x "$WT/$REL" ] || die "reproducer is not executable: $WT/$REL"
 
@@ -109,8 +110,12 @@ if ! git -C "$WT" worktree add --detach --quiet "$SCRATCH" "$PRE_SHA" >"$BASE/ad
   die "could not materialize the scratch worktree at $PRE_SHA"
 fi
 
-mkdir -p "$SCRATCH/$(dirname "$REL")"
-cp -p "$WT/$REL" "$SCRATCH/$REL"
+# The copy steps are guarded explicitly: under `set -e` an unguarded
+# failure here would exit 1 — the "proof did not hold" verdict code, with
+# no leg run and no PROOF FAILED line printed. A plumbing failure is the
+# documented cannot-answer 2, never a verdict.
+mkdir -p "$SCRATCH/$(dirname "$REL")" || die "cannot create $SCRATCH/$(dirname "$REL") in the scratch worktree"
+cp -p "$WT/$REL" "$SCRATCH/$REL" || die "cannot copy $WT/$REL into the scratch worktree"
 [ -x "$SCRATCH/$REL" ] || die "the scratch copy lost its executable bit: $SCRATCH/$REL"
 
 set +e
