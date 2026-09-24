@@ -160,12 +160,34 @@ WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducer-exit
 # store. The `worktrees` map this record carries keys every worktree of the
 # change by absolute path; it is what the per-finding resolution below
 # resolves a reproducer's tree from.
-if ! STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>/dev/null)"; then
-  echo "check-panel-reproducer-exit-contract: the store has no record of change '$NAME' under this worktree's project — a cross-repo change's guards answer only through its canonical worktree" >&2
+# The CLI's own stderr rides along in the refusal, so a missing `flow`
+# binary or a dead daemon is reported with its evidence instead of being
+# flattened into the cross-repo prose (panel finding F3, kan-658 round 0) —
+# the same shape its sibling guard carries.
+STATE_ERR_FILE=""
+FLOW_STATE_ERR=""
+if STATE_ERR_FILE="$(mktemp "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-state.XXXXXX" 2>/dev/null)"; then
+  STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>"$STATE_ERR_FILE")" && STATE_RC=0 || STATE_RC=$?
+  FLOW_STATE_ERR="$(tr '\n' ' ' < "$STATE_ERR_FILE" 2>/dev/null || true)"
+  rm -f "$STATE_ERR_FILE"
+else
+  STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>/dev/null)" && STATE_RC=0 || STATE_RC=$?
+fi
+if [ "$STATE_RC" -ne 0 ]; then
+  case "$STATE_RC" in
+    126|127)
+      # The CLI never ran — reporting the store fact would be a guess
+      # wearing evidence's clothes (panel finding F3, kan-658 round 0).
+      echo "check-panel-reproducer-exit-contract: cannot run the flow CLI (exit $STATE_RC${FLOW_STATE_ERR:+ — flow said: $FLOW_STATE_ERR}) — cannot determine anything" >&2
+      ;;
+    *)
+      echo "check-panel-reproducer-exit-contract: the store has no record of change '$NAME' under this worktree's project (flow exit $STATE_RC${FLOW_STATE_ERR:+ — flow said: $FLOW_STATE_ERR}) — a cross-repo change's guards answer only through its canonical worktree" >&2
+      ;;
+  esac
   exit 2
 fi
 if ! printf '%s' "$STATE_OUT" | jq -e 'type == "object"' >/dev/null 2>&1; then
-  echo "check-panel-reproducer-exit-contract: cannot read the state record for '$NAME' — cannot determine anything" >&2
+  echo "check-panel-reproducer-exit-contract: cannot read the state record for '$NAME' — cannot determine anything${FLOW_STATE_ERR:+ — flow said: $FLOW_STATE_ERR}" >&2
   exit 2
 fi
 if ! WORKTREES_LIST="$(printf '%s' "$STATE_OUT" | jq -r '(.worktrees // {}) | keys[]' 2>/dev/null)"; then
@@ -281,6 +303,12 @@ for ref in "${REFS[@]}"; do
       # realpath answers, and a map entry reached through a symlinked
       # prefix would otherwise lose every comparison on its shape alone.
       recorded_wt="$(cd -- "$recorded_wt" && pwd -P)" || continue
+      # Two map entries can name one physical tree through a symlinked
+      # prefix; counting the alias twice would refuse an unambiguous
+      # reproducer as ambiguous (panel finding F4, kan-658 round 0).
+      case " ${TREE_MATCHES[*]:-} " in
+        *" $recorded_wt "*) continue ;;
+      esac
       [ -e "$recorded_wt/$repro_path_token" ] || continue
       TREE_MATCHES+=("$recorded_wt")
     done <<< "$WORKTREES_LIST"

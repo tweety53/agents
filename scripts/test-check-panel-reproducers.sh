@@ -158,10 +158,11 @@ STUB
 }
 
 # make_worktree_store_unreachable -- a worktree-shaped sandbox whose stub
-# `flow` exits non-zero and prints nothing useful to stdout for `record
-# findings` (the store that command could not reach) and answers `state get`
-# the way a real unreachable store does: exit 0, nothing on stdout, the
-# fallback record it does not have.
+# `flow` answers `state get` the way a real unreachable store WITH a
+# fallback record does (exit 0, the record on stdout) and fails `record
+# findings` (exit 1) -- so this sandbox exercises the findings-read failure
+# branch, and the state-unreachable class keeps its own case (31, empty
+# stdout).
 make_worktree_store_unreachable() {
   local wt
   wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")" || {
@@ -170,10 +171,11 @@ make_worktree_store_unreachable() {
   }
   WORKTREES+=("$wt")
   mkdir -p "$wt/bin"
+  printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{}}' > "$wt/bin/state.json"
   cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
 case "${1:-}" in
-  state) exit 0 ;;
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
   *) echo "flow: connect: connection refused" >&2; exit 1 ;;
 esac
 STUB

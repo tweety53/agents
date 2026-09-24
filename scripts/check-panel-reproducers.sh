@@ -126,12 +126,33 @@ WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducers: wo
 # the record's `worktrees` map — every check below is deliberately lexical
 # and never touches the filesystem — so the record's presence and
 # readability are all it takes from it.
-if ! STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>/dev/null)"; then
-  echo "check-panel-reproducers: the store has no record of change '$NAME' under this worktree's project — a cross-repo change's guards answer only through its canonical worktree" >&2
+# The CLI's own stderr rides along in the refusal, so a missing `flow`
+# binary or a dead daemon is reported with its evidence instead of being
+# flattened into the cross-repo prose (panel finding F3, kan-658 round 0).
+STATE_ERR_FILE=""
+FLOW_STATE_ERR=""
+if STATE_ERR_FILE="$(mktemp "${TMPDIR:-/tmp}/check-panel-reproducers-state.XXXXXX" 2>/dev/null)"; then
+  STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>"$STATE_ERR_FILE")" && STATE_RC=0 || STATE_RC=$?
+  FLOW_STATE_ERR="$(tr '\n' ' ' < "$STATE_ERR_FILE" 2>/dev/null || true)"
+  rm -f "$STATE_ERR_FILE"
+else
+  STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>/dev/null)" && STATE_RC=0 || STATE_RC=$?
+fi
+if [ "$STATE_RC" -ne 0 ]; then
+  case "$STATE_RC" in
+    126|127)
+      # The CLI never ran — reporting the store fact would be a guess
+      # wearing evidence's clothes (panel finding F3, kan-658 round 0).
+      echo "check-panel-reproducers: cannot run the flow CLI (exit $STATE_RC${FLOW_STATE_ERR:+ — flow said: $FLOW_STATE_ERR}) — cannot determine anything" >&2
+      ;;
+    *)
+      echo "check-panel-reproducers: the store has no record of change '$NAME' under this worktree's project (flow exit $STATE_RC${FLOW_STATE_ERR:+ — flow said: $FLOW_STATE_ERR}) — a cross-repo change's guards answer only through its canonical worktree" >&2
+      ;;
+  esac
   exit 2
 fi
 if ! printf '%s' "$STATE_OUT" | jq -e 'type == "object"' >/dev/null 2>&1; then
-  echo "check-panel-reproducers: cannot read the state record for '$NAME' — cannot determine anything" >&2
+  echo "check-panel-reproducers: cannot read the state record for '$NAME' — cannot determine anything${FLOW_STATE_ERR:+ — flow said: $FLOW_STATE_ERR}" >&2
   exit 2
 fi
 

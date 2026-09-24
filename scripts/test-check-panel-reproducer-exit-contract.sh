@@ -123,11 +123,14 @@ runner_never_invoked() {
   fi
 }
 
-# make_store_unreachable_sandbox -- a sandbox whose stub `flow` exits
-# non-zero, simulating a store `record findings` could not reach. The stub
-# runner is still present, so the case exercises the store failure and not
-# a missing-runner cannot-answer the guard's own readability check would
-# otherwise answer first.
+# make_store_unreachable_sandbox -- a sandbox whose stub `flow` answers
+# `state get` the way a real unreachable store WITH a fallback record does
+# (exit 0, the record on stdout) and fails `record findings` (exit 1), so
+# the case exercises the findings-read failure branch; the state-unreachable
+# class keeps its own case (33, empty stdout). The stub runner is still
+# present, so the case exercises the store failure and not a missing-runner
+# cannot-answer the guard's own readability check would otherwise answer
+# first.
 make_store_unreachable_sandbox() {
   local wt
   wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")" || {
@@ -136,10 +139,11 @@ make_store_unreachable_sandbox() {
   }
   WORKTREES+=("$wt")
   mkdir -p "$wt/bin" "$wt/runner"
+  printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{}}' > "$wt/bin/state.json"
   cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
 case "${1:-}" in
-  state) exit 0 ;;
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
   *) echo "flow: connect: connection refused" >&2; exit 1 ;;
 esac
 STUB
@@ -715,7 +719,14 @@ STUB
 chmod +x "$wt/bin/flow"
 printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:peer content' 'exit 9' > "$wt_p1/repro.sh"
 printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:peer content' 'exit 9' > "$wt_p2/repro.sh"
-printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$wt/runner/run-reproducer.sh"
+# The stub writes the same argc marker the standard sandboxes use, so the
+# never-invoked assertion below can actually fail: a stub that writes
+# nothing would pin nothing.
+cat > "$wt/runner/run-reproducer.sh" <<STUB
+#!/usr/bin/env bash
+printf '%s' "\$#" > "$(printf '%s' "$wt")/runner/argc.txt"
+exit 0
+STUB
 chmod +x "$wt/runner/run-reproducer.sh"
 cp "$GUARD" "$wt/runner/check-panel-reproducer-exit-contract.sh"
 expect_exit_and_names 'case 35: a path resolving in several recorded worktrees is cannot-answer' 2 'F1' run_guard "$wt"
