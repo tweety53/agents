@@ -1,0 +1,15 @@
+# Self-review context bundle for kan-628-flow-fix-an-autosquash-rebase-over-unstaged
+
+found: 0 of 7 sources; skipped: 7 of 7 sources
+note: RECORDS LOSS — a flow.review-panel stage run completed for kan-628-flow-fix-an-autosquash-rebase-over-unstaged, but the store holds no dispatch rows for it: the run's dispatch and finding records never reached this store, most plausibly written to a per-workspace database later removed at cleanup. The ledger and panel sources below are absent or degraded for that reason, not because no panel ran.
+skipped: change summary (absent)
+skipped: .superpowers/sdd/ledgers/kan-628-flow-fix-an-autosquash-rebase-over-unstaged.md (absent)
+skipped: .superpowers/sdd/reviews/kan-628-flow-fix-an-autosquash-rebase-over-unstaged-panel.md (absent)
+skipped: spectre/changes/archive/kan-628-flow-fix-an-autosquash-rebase-over-unstaged/tasks.md (absent)
+skipped: spectre/changes/archive/kan-628-flow-fix-an-autosquash-rebase-over-unstaged/design.md (absent)
+skipped: spectre/changes/archive/kan-628-flow-fix-an-autosquash-rebase-over-unstaged/narrative.md (absent)
+skipped: git log --stat (absent)
+
+## Session narrative
+
+This session ran `/flow-fast kan-628 finish the task` and found the change already finished: KAN-628's fix — `scripts/aside-planning-artifacts.sh`, the pre-rebase planning-artifact stash, with its 16-assertion harness and citations at all three pipeline rebase sites — had been implemented, panel-reviewed (verdict fix, findings F1/F2 fixed in aa1cc92) and landed on `main` by an earlier run (377b314, aa1cc92, 9fd4d87, 648d4c9, context bundle 2c51006) whose Jira transitions could not fire for lack of credentials. The run therefore verified instead of writing code: all 17 `## lint` commands green in the worktree and the guard suite 81/81 including `test-aside-planning-artifacts.sh`; the dynamic decide machinery classified the verify-only plan small (inline, no implementer), and the decided compact panel — one bundled primary+principles dispatch — reviewed this run's delta, confirmed it empty (branch at merge base f95ec24, zero own commits) and passed both slots with no findings. The landing is a no-op code push plus this bundle commit, the earlier run's leftover husk worktree was removed, and the pipeline record completes with the In Review and Done transitions the earlier run could not make. The session struggled twice: the stale `.worktrees/kan-628-*` directory — a bare `.cwd-recovery` placeholder left when git removed the worktree mid-command — masqueraded as an unlanded earlier run until `git worktree list` showed no registered worktree and no branch behind it; and the self-review bundle reports RECORDS LOSS with seven of seven sources skipped, which is this run's honest shape rather than data loss — a `/flow-fast` run has no spectre artifacts, records its panel as a pass note rather than dispatch rows, and had no branch commits of its own at bundle time; the substantive record of the original implementation lives in the main-history commits and the superseded bundle `docs/self-review/kan-628-context.md` (off-contract name, replaced by this file in its commit and recoverable at 2c51006).
