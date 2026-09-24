@@ -38,8 +38,7 @@ and extra-principle slots) rather than the model. See **Model policy**
 model and effort the Decide step chose for them — any `ValidModels` member, `low`/`medium`/`high`
 — per **Model and effort** (`skills/flow/brainstorm-planner.md`), never on the defaults above. The
 fixer's pair is its own, not the implementer's; a fix-round re-run runs on the decision's
-`panel.rerun_dispatch` pair — a model no pass-1 dispatch used, at `low` effort — never on the
-pair that raised the finding.
+`panel.rerun_dispatch` pair — `DEFAULT_MODEL` at `low` effort.
 
 **An explicit operator instruction overrides either default, in either direction** — raising the
 panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical

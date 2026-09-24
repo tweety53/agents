@@ -69,11 +69,11 @@ failed; `missing-fixture` — a fixture or baseline the verify needed and the wo
 carry. A report with every exit zero still
 closes `-outcome completed`.
 
-**Handshake.** Compare the `Model:` line against `sonnet` (never `DEFAULT_MODEL` or a session
+**Handshake.** Compare the `Model:` line against `opus` (never `DEFAULT_MODEL` or a session
 override) and apply **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**),
 unchanged: a first mismatch closes `<key>` `-outcome fallback` and re-dispatches once under
 `<key>-retry`; a second mismatch closes `<key>-retry` `-outcome fallback` too and ends the turn
-with `## Question` naming `sonnet` and both models that answered, options **Continue on `<the
+with `## Question` naming `opus` and both models that answered, options **Continue on `<the
 model the second handshake named>`** or **Stop the run**.
 
 A verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`

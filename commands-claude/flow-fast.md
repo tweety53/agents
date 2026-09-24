@@ -1,5 +1,5 @@
 ---
-model: sonnet
+model: opus
 description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change, a git worktree for isolation only, every flow.* stage marked, Jira transitions kept, nothing else
 ---
 

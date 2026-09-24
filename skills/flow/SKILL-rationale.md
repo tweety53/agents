@@ -435,7 +435,7 @@ silence closes the panel, and running beyond the cap is an explicit choice, put 
 prompt is the bound; the operator-prompts contract's ⚠ marker in the handoff is what shows the
 silent default fired.
 
-**Rejected — a cheaper pair on the unasked repeats.** The rerun pair is a different model at
+**Rejected — a cheaper pair on the unasked repeats.** The rerun pair runs at
 `low`; the pass would keep its scope and lose its eyes. F10 is a race; a low-effort whole-branch
 read is the kind of read that misses one, and a pass that reads everything badly is a worse bargain
 than the prompt. Only the operator-chosen third pass, beyond the cap, runs on the budget rules'

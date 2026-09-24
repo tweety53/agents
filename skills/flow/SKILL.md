@@ -90,7 +90,7 @@ the shell started in a different repo of the same change.
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
-`sonnet` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`),
+`opus` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`),
 naming that this is a fallback rather than a resolved value, and continue: settings unreachable is
 never a reason to block implementation.
 
