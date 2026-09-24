@@ -327,6 +327,50 @@ assert_rc "case 15" 0
 assert_out_contains "case 15" "tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png"
 assert_out_not_contains "case 15" "declares no"
 
+# ===========================================================================
+# Case 16 (REPRODUCE, DON'T READ): the declared `regression checkout` is a main
+# checkout with a worktree on the project root's own branch — the worktree's
+# PNG is the one resolved, and the main checkout's same-named PNG and a
+# sibling worktree's are not. kan-744's full-app-suite zip failed on exactly
+# this: 126 paths across the main checkout and three worktrees, and `zip -j`
+# refused the repeated names.
+# ===========================================================================
+git_q() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false "$@" >/dev/null 2>&1; }
+new_root
+PW="$ROOT/pw"
+git_q init -q -b main "$PW"
+mkdir -p "$PW/app.spec.ts-snapshots"
+: > "$PW/app.spec.ts-snapshots/home-darwin.png"
+git_q -C "$PW" add -A
+git_q -C "$PW" commit -q -m init
+git_q -C "$PW" worktree add "$PW/.worktrees/change" -b spectre/change
+git_q -C "$PW" worktree add "$PW/.worktrees/other" -b spectre/other
+git_q init -q -b spectre/change "$ROOT/proj"
+mkdir -p "$ROOT/proj/.flow"
+CFG="$ROOT/proj/.flow/project.md"
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`gymie-frontend/**\` |
+| \`screenshots\` | \`.\` |
+| \`regression checkout\` | \`$PW\` |
+| \`regression repo\` | \`git@github.com:tweety53/gymie-playwright.git\` |"
+set +e; OUT="$("$GUARD" "$ROOT/proj" "app.spec.ts" 2>&1)"; RC=$?; set -e
+assert_rc "case 16" 0
+assert_out_line_count "case 16" 1
+assert_out_contains "case 16" "/.worktrees/change/app.spec.ts-snapshots/home-darwin.png"
+
+# ===========================================================================
+# Case 17: the same checkout, the project root on a branch no worktree holds —
+# the main checkout is searched, and its `.worktrees/` is not walked.
+# ===========================================================================
+git_q -C "$ROOT/proj" checkout -q -b elsewhere
+set +e; OUT="$("$GUARD" "$ROOT/proj" "app.spec.ts" 2>&1)"; RC=$?; set -e
+assert_rc "case 17" 0
+assert_out_line_count "case 17" 1
+assert_out_not_contains "case 17" ".worktrees"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

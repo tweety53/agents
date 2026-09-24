@@ -217,6 +217,15 @@ if [ "$CHECKOUT_FOUND" -eq 1 ]; then
     exit 2
   fi
   BASE="$(cd "$CHECKOUT_VAL" && pwd)"
+  # The declared checkout is a main checkout (project-configuration.md, "Roots in `## apps` are
+  # main checkouts"): while a worktree of it sits on the project root's own branch, that worktree
+  # holds the change's captures, and the main checkout holds only what already landed.
+  BRANCH="$(git -C "$ROOT_ABS" branch --show-current 2>/dev/null || true)"
+  if [ -n "$BRANCH" ]; then
+    CHANGE_WT="$(git -C "$BASE" worktree list --porcelain 2>/dev/null \
+      | awk -v b="branch refs/heads/$BRANCH" '/^worktree /{w=substr($0,10)} $0==b{print w; exit}')"
+    [ -n "$CHANGE_WT" ] && BASE="$CHANGE_WT"
+  fi
 fi
 
 SEARCH_ROOT="$BASE/$SCREENSHOTS_VAL"
@@ -237,7 +246,9 @@ if [ -d "$SEARCH_ROOT" ]; then
           ;;
       esac
     done
-  done < <(find "$SEARCH_ROOT_ABS" -type f -name '*.png' -print0)
+  # `.worktrees/` holds other changes' checkouts of the same files: sweeping them in returns one
+  # PNG name per checkout, and a zip built from the list refuses the repeats.
+  done < <(find "$SEARCH_ROOT_ABS" -type d -name .worktrees -prune -o -type f -name '*.png' -print0)
 fi
 
 sort -o "$MATCHES_FILE" "$MATCHES_FILE"
