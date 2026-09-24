@@ -399,9 +399,12 @@ Bugbot and Mutation write theirs into the canonical worktree, never their own
 `<worktree>-<slot>-<round>` copy, which is removed the moment their dispatch closes. The parent
 records the path the slot supplied verbatim — there is no rename step. **The cwd contract**: the
 reproducer always executes with its working directory set to the worktree the parent passes
-`run-reproducer.sh` — on a multi-worktree change the canonical worktree, the only tree the
-recorded relative path resolves in — never the worktree the finding's own `file:line` prefix
-names. A reproducer that operates on another worktree's project resolves that worktree inside the
+`run-reproducer.sh` — per finding, the worktree whose copy of the recorded relative path resolves:
+the canonical worktree first, else the one other entry of the state record's `worktrees` map
+carrying the path, the resolution `check-panel-reproducer-exit-contract.sh` performs before its
+audit and the parent's own per-finding runs repeat (KAN-658) — never the worktree the finding's own
+`file:line` prefix names. A reproducer whose script resolves in one tree while the defect it
+demonstrates lives in another resolves that worktree inside the
 script by its absolute path and never assumes it inherited that worktree's cwd: a script authored
 on that assumption fails with a wrong-project error before it demonstrates anything, and a
 reproducer's first failure must be the defect, not the directory. Carry this requirement on
@@ -889,7 +892,11 @@ check-panel-reproducers.sh <worktree> <change>
 Exit 0 proceeds. Exit 1 covers two classes: a **missing or malformed field** is added before
 dispatch; a **rejected reproducer shape** (a shell metacharacter, an absolute path, a `..` segment,
 a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **unverifiable** and put to
-the operator, never silently rewritten. Exit 2 stops the run.
+the operator, never silently rewritten. Exit 2 stops the run. Both guards first read the change's
+state record through the worktree argument, and a store-reached-but-absent record is exit 2 — on a
+cross-repo change the record resolves only through the canonical worktree's project key, so that
+shape is what invoking a guard on a peer tree reads as, and the empty findings array a peer tree's
+store read would otherwise answer is never a clean verdict (KAN-658).
 
 **The exit-code contract is checked mechanically before any dispatch decision reads a reproducer by
 hand**:
@@ -899,11 +906,16 @@ check-panel-reproducer-exit-contract.sh <worktree> <change>
 ```
 
 The guard runs every **open** finding's runnable reproducer through `run-reproducer.sh` against the
-worktree, bare, and requires the verdict *defect demonstrated* — the exit-code behaviour an open
+finding's own worktree — per finding, the worktree whose copy of the reproducer's recorded relative
+path resolves: the canonical worktree first, else the one other entry of the state record's
+`worktrees` map carrying the path; a path resolving in several recorded worktrees is cannot-answer,
+its tree genuinely unchoosable (KAN-658) — bare, and requires the verdict *defect demonstrated* —
+the exit-code behaviour an open
 finding's reproducer claims on the tree under review. Before anything runs, the guard audits the
 instrument itself: each runnable reproducer carries the `# demonstrates:
 <path>:<line>:<content>` declaration its authoring rule above requires, within the script's first
-10 lines, and the guard resolves every citation against the worktree — the path stays inside the
+10 lines, and the guard resolves every citation against the finding's resolved worktree — the path
+stays inside the
 tree, the file exists, the line exists, the content appears on that line. A reproducer whose
 citation does not resolve, or whose script cannot be read to audit, is never run — a verdict spent
 on an unresolvable instrument is the green flip the audit exists to deny. Findings at any other
@@ -918,7 +930,8 @@ bounced exactly as the per-finding run's own answer 1 below,
 once, back to the raising slot; a reproducer the runner refused as unusable is recorded
 **unverifiable** and put to the operator, exactly as the per-finding run's own answer 2 below, since
 a refused reproducer never ran and so carries no passing output a bounce could carry. Exit 2 — any
-reproducer the runner could not verdict: a timeout, a surviving process, a plumbing failure — stops
+reproducer the runner could not verdict: a timeout, a surviving process, a plumbing failure, the
+state record absent or unreadable, an ambiguous worktree — stops
 the run, the same as the lexical guard's exit 2.
 
 **For each open finding whose record carries a runnable `finding-reproducer:` command**, the
@@ -929,6 +942,10 @@ readable:
 ```bash
 run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
 ```
+
+`<worktree>` is the cwd contract's per-finding resolution — the worktree whose copy of the
+recorded relative path resolves, canonical first, else the one recorded worktree carrying it
+(KAN-658) — the same tree the exit-contract guard above already ran this reproducer in.
 
 Read its exit code: **0** dispatches the finding; **1** bounces it once, back to the raising slot,
 carrying the reproducer's passing output; **2** is a refusal — recorded **unverifiable**, put to the
