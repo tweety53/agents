@@ -60,10 +60,12 @@
 # location, in the grep-output shape the author pastes straight off the
 # defect-present tree, inside the same first-10-lines window the
 # mutation-reproducer convention (KAN-568) reads its own declaration from.
-# Each citation is resolved against the tree under review: the declared
-# path must be relative and stay inside the worktree — lexically (the
+# Each citation is resolved against the finding's own tree — the tree the
+# per-finding resolution below names, never unconditionally the guard's
+# worktree argument: the declared
+# path must be relative and stay inside that worktree — lexically (the
 # sibling lexical guard's own shape classes) and then physically, realpath-
-# resolved and required to remain under the worktree exactly as
+# resolved and required to remain under that worktree exactly as
 # run-reproducer.sh resolves the reproducer's own path token —, the file
 # must exist, the line must exist, and
 # the declared content must appear on that line. Any citation that does not
@@ -89,9 +91,14 @@
 #      content the tree does not carry, or a script that cannot be read to
 #      audit at all; each named on stderr
 #   2  cannot answer at all — usage, a worktree or change name that fails
-#      containment, the store unreachable, jq failing, an open finding
-#      carrying no reproducer field at all, or any reproducer the runner
-#      could not verdict (timeout, surviving process, plumbing failure).
+#      containment, the store unreachable, the change's state record absent
+#      or unreadable (a cross-repo change's guards answer only through its
+#      canonical worktree, so a peer tree's store read is a cannot-answer
+#      and never a clean verdict — KAN-658), jq failing, an open finding
+#      carrying no reproducer field at all, a reproducer path token
+#      resolving in several of the change's recorded worktrees, or any
+#      reproducer the runner could not verdict (timeout, surviving process,
+#      plumbing failure).
 #      Cannot-answer outranks exit 1: a read that could not be completed is
 #      never reported as a verdict, the same precedence its sibling guard
 #      gives a null reproducer over a clean answer.
@@ -134,6 +141,37 @@ case "$NAME" in
     ;;
 esac
 WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducer-exit-contract: worktree vanished before it could be resolved: ${WORKTREE}" >&2; exit 2; }
+
+# THE STATE RECORD IS THE CHANGE'S WORKTREES BOOTSTRAP (KAN-658). The store
+# addresses records by project and change name together, and the project key
+# resolves from the worktree argument — so on a cross-repo change only the
+# canonical worktree resolves the record at all, and a peer worktree's
+# findings read below would answer `[]` at exit 0: a clean verdict on a
+# change this invocation never actually saw. The record is read FIRST for
+# exactly that reason, and this block is DUPLICATED, on purpose, in
+# check-panel-reproducers.sh, whose store read has the same blind spot; the
+# two harnesses assert the same refused shapes, which is what keeps the
+# copies from drifting. `flow state get` reached-and-absent exits 1 — a fact
+# about this project/change pair, and on a cross-repo change the signature
+# of a guard invoked on a peer tree — reported at this guard's own exit 2,
+# never a clean answer. Store-unreachable exits 0 with the fallback record
+# only when one exists, so an empty or non-JSON stdout at exit 0 is the same
+# cannot-answer class the findings read below already gives an unreachable
+# store. The `worktrees` map this record carries keys every worktree of the
+# change by absolute path; it is what the per-finding resolution below
+# resolves a reproducer's tree from.
+if ! STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>/dev/null)"; then
+  echo "check-panel-reproducer-exit-contract: the store has no record of change '$NAME' under this worktree's project — a cross-repo change's guards answer only through its canonical worktree" >&2
+  exit 2
+fi
+if ! printf '%s' "$STATE_OUT" | jq -e 'type == "object"' >/dev/null 2>&1; then
+  echo "check-panel-reproducer-exit-contract: cannot read the state record for '$NAME' — cannot determine anything" >&2
+  exit 2
+fi
+if ! WORKTREES_LIST="$(printf '%s' "$STATE_OUT" | jq -r '(.worktrees // {}) | keys[]' 2>/dev/null)"; then
+  echo "check-panel-reproducer-exit-contract: jq failed — cannot determine anything" >&2
+  exit 2
+fi
 
 # THE STORE IS QUERIED ONCE, and a non-zero exit from `flow record
 # findings` is this guard's own exit 2 — the same reading its sibling guard
@@ -219,7 +257,41 @@ for ref in "${REFS[@]}"; do
   # finding F1, kan-606 round 0).
   IFS=$' \t' read -ra AUDIT_TOKENS <<< "$reproducer" || true
   repro_path_token="${AUDIT_TOKENS[0]:-}"
-  repro_path="$WORKTREE/$repro_path_token"
+  # THE FINDING'S TREE, RESOLVED PER FINDING (KAN-658). The canonical tree
+  # first — every single-repo change resolves here, exactly as this guard
+  # always has — then the change's recorded worktrees: on a cross-repo
+  # change a peer finding's reproducer script lives in ITS repository's
+  # worktree, the only tree its relative path token and its demonstrates
+  # citations resolve in, and running both against the canonical tree was
+  # the could-not-be-read false failure that made every affected reproducer
+  # a hand-run substitution. Exactly one recorded worktree carrying the path
+  # resolves the tree; several cannot be told apart, which is no verdict for
+  # this finding rather than a guessed one; none is the existing unreadable
+  # class below, unchanged. A recorded path that is not a directory on disk
+  # is skipped like an absent one — the map records git worktrees, and a
+  # vanished entry resolves nothing.
+  TREE="$WORKTREE"
+  if [ ! -e "$WORKTREE/$repro_path_token" ]; then
+    TREE_MATCHES=()
+    while IFS= read -r recorded_wt; do
+      [ -n "$recorded_wt" ] || continue
+      [ -d "$recorded_wt" ] || continue
+      # `cd ... && pwd -P` gives the recorded path the same physical shape
+      # $WORKTREE itself carries — the containment `case` below compares
+      # realpath answers, and a map entry reached through a symlinked
+      # prefix would otherwise lose every comparison on its shape alone.
+      recorded_wt="$(cd -- "$recorded_wt" && pwd -P)" || continue
+      [ -e "$recorded_wt/$repro_path_token" ] || continue
+      TREE_MATCHES+=("$recorded_wt")
+    done <<< "$WORKTREES_LIST"
+    if [ "${#TREE_MATCHES[@]}" -eq 1 ]; then
+      TREE="${TREE_MATCHES[0]}"
+    elif [ "${#TREE_MATCHES[@]}" -gt 1 ]; then
+      cannot "$ref's reproducer path token '$repro_path_token' resolves in ${#TREE_MATCHES[@]} of the change's recorded worktrees (${TREE_MATCHES[*]}) — the finding's tree is ambiguous, so no verdict is possible"
+      continue
+    fi
+  fi
+  repro_path="$TREE/$repro_path_token"
   if [ ! -f "$repro_path" ] || [ ! -r "$repro_path" ]; then
     add "$ref's reproducer script '$repro_path_token' could not be read — its demonstrates declaration cannot be audited, so its claim cannot be checked"
     continue
@@ -249,7 +321,7 @@ for ref in "${REFS[@]}"; do
           continue
           ;;
       esac
-      target="$WORKTREE/$dpath"
+      target="$TREE/$dpath"
       if [ ! -f "$target" ]; then
         add "$ref's reproducer demonstrates declaration cites '$dpath' — the tree under review carries no such file"
         continue
@@ -258,11 +330,12 @@ for ref in "${REFS[@]}"; do
       # `..`, `.` and symlinks in one step, so a citation whose declared
       # path carries no lexical `..` segment but escapes through a symlink
       # inside the worktree is caught here rather than read outside the
-      # tree (panel finding F4, kan-606 round 0). $WORKTREE is
-      # `pwd -P`-canonical above, the same physical shape realpath answers.
+      # tree (panel finding F4, kan-606 round 0). $TREE is the guard's own
+      # `pwd -P`-canonical worktree or a recorded map path resolved against
+      # it, the same physical shape realpath answers.
       resolved="$(realpath -- "$target" 2>/dev/null)" || resolved=""
       case "$resolved" in
-        "$WORKTREE"/*) : ;;
+        "$TREE"/*) : ;;
         *)
           add "$ref's reproducer demonstrates declaration cites '$dpath' — it resolves to '${resolved:-an unresolvable path}', outside the worktree under review — a symlink escape"
           continue
@@ -290,7 +363,7 @@ for ref in "${REFS[@]}"; do
 
   printf 'check-panel-reproducer-exit-contract: %s — running %s\n' "$ref" "$reproducer" >&2
   set +e
-  runner_out="$("$SCRIPT_DIR/run-reproducer.sh" "$WORKTREE" "$reproducer" 2>&1)"
+  runner_out="$("$SCRIPT_DIR/run-reproducer.sh" "$TREE" "$reproducer" 2>&1)"
   runner_rc=$?
   set -e
   case "$runner_rc" in

@@ -80,10 +80,13 @@ make_stub_sandbox() {
   WORKTREES+=("$wt")
   mkdir -p "$wt/bin" "$wt/runner"
   printf '%s' "$json" > "$wt/bin/findings.json"
+  printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{}}' > "$wt/bin/state.json"
   cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-cat "$(dirname -- "$0")/findings.json"
-exit 0
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
 STUB
   chmod +x "$wt/bin/flow"
   cat > "$wt/runner/run-reproducer.sh" <<STUB
@@ -135,8 +138,10 @@ make_store_unreachable_sandbox() {
   mkdir -p "$wt/bin" "$wt/runner"
   cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-echo "flow: connect: connection refused" >&2
-exit 1
+case "${1:-}" in
+  state) exit 0 ;;
+  *) echo "flow: connect: connection refused" >&2; exit 1 ;;
+esac
 STUB
   chmod +x "$wt/bin/flow"
   cat > "$wt/runner/run-reproducer.sh" <<'STUB'
@@ -167,10 +172,13 @@ make_real_sandbox() {
   mkdir -p "$wt/bin" "$wt/runner"
   json="$(findings_json F1 open demo-repro.sh)"
   printf '%s' "$json" > "$wt/bin/findings.json"
+  printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{}}' > "$wt/bin/state.json"
   cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-cat "$(dirname -- "$0")/findings.json"
-exit 0
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
 STUB
   chmod +x "$wt/bin/flow"
   printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt/target.txt"
@@ -355,14 +363,17 @@ findings_json \
   F1 open repro-good.sh \
   F2 open repro-inverted.sh \
   F3 fixed repro-old.sh > "$wt14/bin/findings.json"
+printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{}}' > "$wt14/bin/state.json"
 printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt14/target.txt"
 for script in repro-good.sh repro-inverted.sh repro-old.sh; do
   printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit 9' > "$wt14/$script"
 done
 cat > "$wt14/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-cat "$(dirname -- "$0")/findings.json"
-exit 0
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
 STUB
 chmod +x "$wt14/bin/flow"
 cat > "$wt14/runner/run-reproducer.sh" <<'STUB'
@@ -385,14 +396,17 @@ wt17="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXX
 WORKTREES+=("$wt17")
 mkdir -p "$wt17/bin" "$wt17/runner"
 findings_json F1 open repro-a.sh F2 open repro-b.sh > "$wt17/bin/findings.json"
+printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{}}' > "$wt17/bin/state.json"
 printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt17/target.txt"
 for script in repro-a.sh repro-b.sh; do
   printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit 9' > "$wt17/$script"
 done
 cat > "$wt17/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-cat "$(dirname -- "$0")/findings.json"
-exit 0
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
 STUB
 chmod +x "$wt17/bin/flow"
 cat > "$wt17/runner/run-reproducer.sh" <<'STUB'
@@ -591,6 +605,162 @@ expect_exit_and_names 'case 30: the not-demonstrated message names the mutation 
 #     suite, not slip through green.
 wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 1)"
 expect_exit_and_names 'case 31: the not-demonstrated message names the generic convention' 1 'a generic one demonstrates with a non-zero exit' run_guard "$wt"
+
+# ===========================================================================
+# THE STATE RECORD (KAN-658). The guard bootstraps from the change's state
+# record before it reads findings: the store addresses records by project,
+# and on a cross-repo change only the canonical worktree's project key
+# resolves it — a peer worktree's findings read answers `[]` at exit 0, so
+# answering from one was a false REPRODUCER-EXIT-CONTRACT-OK. `flow state
+# get` reached-and-absent exits 1 (a fact, named as the cross-repo misuse it
+# is); store-unreachable exits 0 with the record only when a fallback file
+# exists, so an empty or non-JSON stdout at exit 0 is the same cannot-answer
+# class the findings read already gives an unreachable store.
+# ===========================================================================
+
+# 32. The store was reached and has no record for this project and change --
+#     the shape of a guard invoked on a cross-repo change's peer worktree.
+#     Exit 2 naming the cross-repo reading, never a clean answer.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+cat > "$wt/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  state) exit 1 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
+STUB
+chmod +x "$wt/bin/flow"
+expect_exit_and_names 'case 32: a state record the store does not carry is cannot-answer' 2 \
+  'no record of change' run_guard "$wt"
+
+# 33. Store unreachable with no fallback record: `flow state get` exits 0
+#     and prints nothing on stdout -- the same cannot-answer class as the
+#     findings read's unreachable store.
+wt="$(make_stub_sandbox "$(findings_json F1 open repro.sh)" 0)"
+cat > "$wt/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  state) exit 0 ;;
+  *) echo "flow: connect: connection refused" >&2; exit 1 ;;
+esac
+STUB
+chmod +x "$wt/bin/flow"
+expect_exit_and_names 'case 33: an unreachable state read is cannot-answer' 2 \
+  'cannot determine anything' run_guard "$wt"
+
+# 34. THE CROSS-REPO RESOLUTION ITSELF: the recorded reproducer's path token
+#     exists only in a peer worktree listed in the state record's worktrees
+#     map, and its demonstrates citation resolves there too -- the audit and
+#     the runner must both run against THAT tree. The canonical tree's
+#     target.txt carries different content on the cited line on purpose: an
+#     audit resolved against the wrong tree fails this case instead of
+#     passing it.
+wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$wt")
+wt_peer="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$wt_peer")
+mkdir -p "$wt/bin" "$wt/runner"
+findings_json F1 open repro.sh > "$wt/bin/findings.json"
+printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{"'"$wt_peer"'":"abc123def456abc123def456abc123def456abc1"}}' > "$wt/bin/state.json"
+cat > "$wt/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
+STUB
+chmod +x "$wt/bin/flow"
+printf '%s\n' 'line one' 'canonical content' 'line three' > "$wt/target.txt"
+printf '%s\n' 'line one' 'peer content' 'line three' > "$wt_peer/target.txt"
+printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:peer content' 'exit 9' > "$wt_peer/repro.sh"
+cat > "$wt/runner/run-reproducer.sh" <<STUB
+#!/usr/bin/env bash
+printf '%s' "\$1" > "$(printf '%s' "$wt")/runner/wt.txt"
+echo "run-reproducer: defect demonstrated — '\$2' exited 9" >&2
+exit 0
+STUB
+chmod +x "$wt/runner/run-reproducer.sh"
+cp "$GUARD" "$wt/runner/check-panel-reproducer-exit-contract.sh"
+expect_exit 'case 34: a reproducer resolving only in a recorded peer worktree runs there' 0 run_guard "$wt"
+# The guard hands the runner the `pwd -P`-canonical peer path, the same
+# physical shape it carries — compare in that shape.
+runner_tree="$(cat "$wt/runner/wt.txt")"
+wt_peer_canonical="$(cd -- "$wt_peer" && pwd -P)"
+if [ "$runner_tree" = "$wt_peer_canonical" ]; then
+  printf 'ok: %s\n' 'case 34b: the runner was invoked with the peer worktree, not the canonical one'
+else
+  printf 'FAIL case 34b: the runner was invoked with %s, not the peer worktree\n' "$runner_tree"
+  FAILED=1
+fi
+
+# 35. THE AMBIGUOUS MAP: the canonical tree does not carry the path token,
+#     and TWO recorded worktrees do -- the finding's tree cannot be chosen,
+#     so no verdict is possible: cannot-answer (exit 2) naming the ref.
+wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$wt")
+wt_p1="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$wt_p1")
+wt_p2="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$wt_p2")
+mkdir -p "$wt/bin" "$wt/runner"
+findings_json F1 open repro.sh > "$wt/bin/findings.json"
+printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{"'"$wt_p1"'":"abc123def456abc123def456abc123def456abc1","'"$wt_p2"'":"bbc123def456abc123def456abc123def456abc2"}}' > "$wt/bin/state.json"
+cat > "$wt/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
+STUB
+chmod +x "$wt/bin/flow"
+printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:peer content' 'exit 9' > "$wt_p1/repro.sh"
+printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:peer content' 'exit 9' > "$wt_p2/repro.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$wt/runner/run-reproducer.sh"
+chmod +x "$wt/runner/run-reproducer.sh"
+cp "$GUARD" "$wt/runner/check-panel-reproducer-exit-contract.sh"
+expect_exit_and_names 'case 35: a path resolving in several recorded worktrees is cannot-answer' 2 'F1' run_guard "$wt"
+runner_never_invoked 'case 35b: an ambiguous tree means the runner never runs' "$wt"
+
+# 36. CANONICAL FIRST: the path token exists in the canonical tree AND in a
+#     recorded peer worktree -- the canonical resolution wins, unchanged
+#     single-repo behavior pinned against the map read.
+wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$wt")
+wt_p3="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducer-exit-contract-test.XXXXXX")"
+WORKTREES+=("$wt_p3")
+mkdir -p "$wt/bin" "$wt/runner"
+findings_json F1 open repro.sh > "$wt/bin/findings.json"
+printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{"'"$wt_p3"'":"abc123def456abc123def456abc123def456abc1"}}' > "$wt/bin/state.json"
+cat > "$wt/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
+STUB
+chmod +x "$wt/bin/flow"
+printf '%s\n' 'line one' 'defect present here' 'line three' > "$wt/target.txt"
+printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit 9' > "$wt/repro.sh"
+printf '%s\n' '#!/usr/bin/env bash' '# demonstrates: target.txt:2:defect present here' 'exit 9' > "$wt_p3/repro.sh"
+cat > "$wt/runner/run-reproducer.sh" <<STUB
+#!/usr/bin/env bash
+printf '%s' "\$1" > "$(printf '%s' "$wt")/runner/wt.txt"
+echo "run-reproducer: defect demonstrated — '\$2' exited 9" >&2
+exit 0
+STUB
+chmod +x "$wt/runner/run-reproducer.sh"
+cp "$GUARD" "$wt/runner/check-panel-reproducer-exit-contract.sh"
+expect_exit 'case 36: the canonical tree is preferred when it carries the path' 0 run_guard "$wt"
+# The guard hands the runner its `pwd -P`-canonical worktree, exactly as it
+# always has — the sandbox path reaches the comparison in that same shape.
+runner_tree="$(cat "$wt/runner/wt.txt")"
+wt_canonical="$(cd -- "$wt" && pwd -P)"
+if [ "$runner_tree" = "$wt_canonical" ]; then
+  printf 'ok: %s\n' 'case 36b: the runner ran against the canonical worktree'
+else
+  printf 'FAIL case 36b: the runner ran against %s, not the canonical worktree\n' "$runner_tree"
+  FAILED=1
+fi
 
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducer-exit-contract-test: one or more cases failed\n' >&2
