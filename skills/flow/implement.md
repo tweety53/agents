@@ -83,9 +83,8 @@ panel-fix rows whenever `REVIEW_PANEL_TOGGLE` is `dynamic` (`skills/flow/review-
 `model`/`effort` pair. On `REVIEW_PANEL_TOGGLE: default` a reviewer row dispatches `flow-review`
 (`agents/flow-review.md`) instead — a definition this repository owns, carrying the same
 allowlist, so the reviewer rows are structurally fork-free on both toggle values. The verifier
-row is unaffected regardless of any toggle: it dispatches
-`subagent_type: general-purpose` unconditionally (`skills/flow/verify-and-handoff.md`) — a
-harness-provided type this repository does not own and cannot restrict this way.
+row dispatches `flow-low` unconditionally, regardless of any toggle (`skills/flow/visual-verify.md`),
+so it is structurally fork-free too.
 
 **Inline — the parent implements** below takes this same table minus the implementer and panel-fix
 rows — the parent's only permitted dispatches inline are the panel-bundle, gated per-task-reviewer
