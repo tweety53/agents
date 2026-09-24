@@ -81,6 +81,15 @@ plan and the decision JSON.
    <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise
    `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — the
    default branch by name, never HEAD: the main checkout may be on any branch and is never moved.
+   **Persist the worktree into the state record before this step returns**, by the read-merge-write
+   **2. Isolate the workspace** (`skills/flow/implement.md`) applies to each additional worktree:
+   merge the entry `"<abs-worktree>": "<merge-base>"` into the record's `worktrees` map and write
+   it back, where `<merge-base>` is the sha `git -C <worktree> rev-parse HEAD` prints immediately
+   after the add — the commit the worktree starts from in either case above. The record written at
+   **A** carries `"worktrees": {}`, and the next durable write would otherwise be
+   `flow.isolate-workspace`'s, a whole brainstorming, design-gate and planning run later; a run
+   killed after the add but before that stage must not leave a real worktree and a pushed branch
+   behind an empty map — the stale `STARTED` record a resumed run reads as a fresh creating run.
 4. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
    root, in order, in the foreground — the printed body can carry fence markers and trailing prose
    outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
