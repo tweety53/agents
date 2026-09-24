@@ -407,6 +407,19 @@ on that assumption fails with a wrong-project error before it demonstrates anyth
 reproducer's first failure must be the defect, not the directory. Carry this requirement on
 every slot's dispatch prompt.
 
+**A reproducer is authored, or repaired, only with both recorded exits.** Before the finding's
+reproducer line is recorded, its author has executed the script in both directions and recorded
+both exits: once against a scratch worktree at the pre-fix commit, where it must read defect
+demonstrated, and once against the fix, where it must read defect not demonstrated.
+`prove-reproducer.sh <worktree> <pre-fix-ref> <reproducer-path>` runs both legs and prints both
+exits for the record — the detached scratch worktree it materializes at the pre-fix commit, with
+the script copied to the same worktree-relative path inside it, is what keeps the pre-fix leg off
+the already-fixed live tree, the failure mode where a pre-fix check silently reads a fixed
+worktree and proves nothing. At pass-1 authoring, where no fix exists yet, the demonstrated leg
+runs against the tree the finding was raised on and its exit is recorded in the slot's report
+beside the finding; at repair the pair is recorded in the fix round's report. The parent's
+guards below stay as the second layer, unchanged.
+
 **A reproducer for a finding whose defect may be target-specific is authored and run on the target
 the defect manifests on — the target `flow.visual-verify`'s verifier drives, never the test
 target alone.** A reported behaviour that will not reproduce on the JVM/desktop test target after
@@ -933,8 +946,10 @@ code names it: 0 means `demonstrated`, 1 `not-demonstrated`) — **and `--reprod
 that run printed>`**: the verdict comparison is valid only between two runs of the same file, so the
 runner pins the re-run to the dispatch-time reproducer and refuses a mismatch (exit 2, never
 executed). A refused re-run means the reproducer was re-authored — its mutation-convention
-declaration included — and it is re-run against the defect-present code for a fresh verdict and
-sha before the round continues: a run that answered `2`, `3` or `4` refused, went unverifiable,
+declaration included — and it is re-run against the defect-present code — the pre-fix leg
+`prove-reproducer.sh` runs, against a scratch worktree at the pre-fix commit — for a fresh
+verdict and sha before the round continues: a run that answered `2`, `3` or `4` refused, went
+unverifiable,
 or stopped before any dispatch, so nothing re-runs for it — and
 require the reproducer now to exit **0**, which the script answers **1**. The flag makes the
 script refuse (exit 2) a reproducer whose verdict here is identical to its pre-fix verdict —
