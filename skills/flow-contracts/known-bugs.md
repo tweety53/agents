@@ -21,7 +21,7 @@ the ordinary failing-command rules; the sweep never absorbs it.
 
 A pre-existing failure is **recorded, never repaired**:
 
-1. **Record it.** One entry per failure in `<project-root>/KNOWN-BUGS.md` (create the file with a
+1. **Record it.** One entry per failure in `<project>/KNOWN-BUGS.md` (create the file with a
    one-line title when absent), committed on the change's own branch:
 
    ```markdown
