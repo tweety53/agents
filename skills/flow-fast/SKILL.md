@@ -252,8 +252,7 @@ Run every command in `## lint`, in the worktree, and the `## test` commands scop
 change touched — the packages, modules or test files the diff names, never the full suite unless
 the operator asked for it. A failure is fixed and re-run under section 4's commit rule; the run
 never lands red — except a failing test **the sweep** (`skills/flow-contracts/known-bugs.md`)
-proves pre-existing, which is recorded per that contract, never fixed here, and does not block
-the run.
+classifies pre-existing, which takes that contract's known-failure course instead.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>

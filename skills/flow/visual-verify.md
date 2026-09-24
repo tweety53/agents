@@ -147,8 +147,8 @@ and 13 below as written, committing and pushing nothing.
    report makes the gap visible in every handoff, but this stage cannot prove what it was never
    told how to check.
 7. **Run `verify`.** A non-zero exit blocks — except a failing test **the sweep**
-   (`skills/flow-contracts/known-bugs.md`) proves pre-existing, which takes that contract's
-   known-failure course, its entry committed on this change's branch and named in the report.
+   (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's
+   known-failure course instead.
 8. **Capture** — author a spec covering the views this change touched, then run `capture` with
    `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration.md`; nothing here restates it. **Every screenshot
@@ -199,7 +199,9 @@ and 13 below as written, committing and pushing nothing.
    app's own routes or navigation and from every spec already in the checkout, never from this
    change's diff. Present → add a capture for every screen this change added and update the
    capture of every screen it changed or removed. Run `capture` with `<spec>` substituted for the
-   suite's path; a non-zero exit blocks as any `capture` failure does. Then rebuild the zip from
+   suite's path; a non-zero exit blocks as any `capture` failure does — except a failing test
+   **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes
+   that contract's known-failure course instead. Then rebuild the zip from
    exactly what the suite just produced:
 
    ```bash
