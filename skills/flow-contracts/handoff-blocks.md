@@ -96,6 +96,7 @@ rule the open-questions count reads through are stated once under **Open questio
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
 **Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted"> · **Deferred:** <count of deferred Minors>
 **Guards:** (run-only) <all present, or how many were missing and checked by hand>
+**Auto-resolved:** (run-only) <each prompt the run took on its recommended option, ⚠-marked, question and option taken, or "none">
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
 Worktree:   <absolute worktree path>

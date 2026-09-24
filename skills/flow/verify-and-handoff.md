@@ -377,6 +377,7 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 **Deferred:** <count of deferred Minors>
 **Costs:** <the line `flow record cost-status` printed>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
+**Auto-resolved:** none | ⚠ <question> → <the recommended option taken>[; ⚠ <question> → <option> …]
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
 Worktree:   <absolute worktree path>
@@ -419,6 +420,10 @@ budget rule — the whole-roster restriction **Rerun policy `full`** adds from i
 the panel, `demoted:` names that pass, the pair it ran, and the pair the normal resolution would
 have given; when the rerun cap closed the panel on its silent default, or the one extension an
 explicit operator choice ran, `rerun cap:` carries it, ⚠ marker included when the default fired.
+
+**The `Auto-resolved:` line names every prompt this run answered itself** on its recommended
+option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so the operator can
+overrule any of them with a fix run; it reads `none` when the run took none.
 "Clean on pass 8" and "clean on opus" are not the same evidence, and neither fact lives only in
 the pass log.
 

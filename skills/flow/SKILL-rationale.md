@@ -435,6 +435,13 @@ silence closes the panel, and running beyond the cap is an explicit choice, put 
 prompt is the bound; the operator-prompts contract's ⚠ marker in the handoff is what shows the
 silent default fired.
 
+**Superseded in part — the prompt is no longer asked.** The operator later asked that every
+prompt with a recommended option in an implementation or fix run be taken rather than asked
+(**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`). The cap's close is now taken
+automatically; this rejection's reason is still met, because the close is not silent — it is
+recorded as a pass note and carried by the `rerun cap:` field's ⚠ marker in the handoff — and a
+third whole-branch pass still needs the operator's explicit instruction.
+
 **Rejected — a cheaper pair on the unasked repeats.** The rerun pair is a different model at
 `low`; the pass would keep its scope and lose its eyes. F10 is a race; a low-effort whole-branch
 read is the kind of read that misses one, and a pass that reads everything badly is a worse bargain
