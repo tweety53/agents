@@ -748,6 +748,23 @@ else
   printf 'skip: cases 32-33 — no /bin/bash on this machine\n'
 fi
 
+# ===========================================================================
+# 34. AN EXEC THAT CANNOT RUN THE RESOLVED PATH is "cannot answer" — exit 4
+#     — never a verdict. Measured pre-fix, a reproducer whose interpreter
+#     did not exist let the python shim's own execvp traceback surface as
+#     the child's exit 1, which the verdict mapping read as the
+#     REPRODUCER's exit: "defect demonstrated" on a script that never ran.
+#     The shim now writes a second sentinel byte from its own except path,
+#     and this mapping reads it as the documented cannot-answer instead.
+# ===========================================================================
+wt="$(make_worktree)"
+mkdir -p "$wt/scripts"
+printf '#!/nonexistent-interpreter\n' > "$wt/scripts/no-interpreter.sh"
+chmod +x "$wt/scripts/no-interpreter.sh"
+expect_exit_and_names 'case 34: a reproducer whose interpreter is missing cannot answer (exec failure)' 4 \
+  'exec could not run' "$GUARD" "$wt" "scripts/no-interpreter.sh"
+assert_not_ran 'case 34' "$wt"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'test-run-reproducer: one or more cases failed\n' >&2
   exit 1

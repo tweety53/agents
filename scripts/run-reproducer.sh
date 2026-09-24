@@ -499,7 +499,7 @@ collect_descendants() {
 # is /dev/null: this script is non-interactive, and a reproducer that
 # prompts for input must fail rather than wait on a terminal nobody is
 # watching.
-( cd -- "$WORKTREE" && printf x >&$SENTINEL_FD && exec "$PYTHON3_BIN" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$RESOLVED_PATH" ${ARGS[@]+"${ARGS[@]}"} ) </dev/null >"$OUT_TMP" 2>"$ERR_TMP" &
+( cd -- "$WORKTREE" && printf x >&$SENTINEL_FD && exec "$PYTHON3_BIN" -c $'import os, sys\nos.setsid()\ntry:\n    os.execvp(sys.argv[1], sys.argv[1:])\nexcept BaseException:\n    os.write(9, b"exec-failure")\n    raise' "$RESOLVED_PATH" ${ARGS[@]+"${ARGS[@]}"} ) </dev/null >"$OUT_TMP" 2>"$ERR_TMP" &
 CMD_PID=$!
 # The process group pgrep/kill below target: os.setsid() sets the calling
 # process's own pgid to its own pid, and that calling process IS $CMD_PID
@@ -822,6 +822,26 @@ fi
 # state it should not be.
 if ! IFS= read -r -t 1 -n 1 -u "$SENTINEL_FD" _sentinel_byte 2>/dev/null; then
   echo "run-reproducer: cannot answer — the worktree vanished before '$CMD_TEXT' could be started" >&2
+  exit 4
+fi
+
+# A SECOND byte on the sentinel pipe means the subshell started but the
+# shim's `execvp` itself failed — the reproducer's interpreter missing, the
+# file not executable in the exec's own eyes, an EACCES/ENOENT at the exec
+# boundary — and the shim writes it from its own except path before dying.
+# Measured before this fix, that failure surfaced as the shim's own exit 1,
+# which the verdict mapping read as the REPRODUCER's exit: a reproducer
+# that could not be started at all answered "defect demonstrated" — a false
+# verdict spent on a script that never ran. Whatever byte arrives here, the
+# verdict below it is not the reproducer's, so the answer is "cannot
+# answer", never a pass or a fail. The window is 0.2s, generous against
+# python's own startup on the failure path and paid only as a timeout on
+# the success path, where no second byte ever comes; a reproducer writing
+# to fd 9 to forge the byte can only ever buy this same cannot-answer, the
+# same safe direction the sentinel above is trusted in.
+if IFS= read -r -t 0.2 -n 1 -u "$SENTINEL_FD" _exec_failure_byte 2>/dev/null; then
+  emit_captured_output 2
+  echo "run-reproducer: cannot answer — exec could not run '$RESOLVED_PATH' (interpreter missing or the exec refused); its exit status was never the reproducer's" >&2
   exit 4
 fi
 
