@@ -13,8 +13,11 @@
 # in that order; the archive shape commits with no push; an empty staged
 # diff is a clean no-op, never a failed commit; a rejected push exits
 # non-zero with the commit left local; both usage defects exit 2; foreign
-# staged work refuses the commit (kan-657); and a branch switched mid-run
-# is re-caught before the commit.
+# staged work refuses the commit (kan-657); a branch switched mid-run
+# is re-caught before the commit; the commit is pathspec-limited so
+# foreign work staged after the check cannot enter it; a vanished own
+# path is named by the refusal; and the --no-renames pin is held by a
+# rename-paired foreign deletion.
 #
 # Bash 3.2 is the floor: indexed arrays only, no associative arrays.
 set -euo pipefail
@@ -312,6 +315,99 @@ esac
 [ "$(git -C "$REPO" rev-parse HEAD)" = "$BASE_HEAD" ] \
   && pass "test_land_branch_switched_midrun_refuses: no commit was made" \
   || fail "test_land_branch_switched_midrun_refuses: HEAD moved"
+
+# ---------------------------------------------------------------------------
+# 11. The commit is pathspec-limited: the staged-set check and the commit
+#     are two git calls, so foreign content staged in between must not be
+#     swept in (panel F1) — the landing succeeds and the race file stays
+#     staged, uncommitted.
+# ---------------------------------------------------------------------------
+new_repo
+write_report kan-q
+REAL_GIT="$(command -v git)"
+RACE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/land-self-review-race.XXXXXX")"
+ROOTS+=("$RACE_DIR")
+cat > "$RACE_DIR/git" <<EOF
+#!/bin/bash
+FIRST="\$1"
+[ "\$FIRST" = -C ] && FIRST="\$3"
+if [ "\$FIRST" = commit ]; then
+  printf 'race\n' > "$REPO/race.txt"
+  "$REAL_GIT" -C "$REPO" add race.txt
+fi
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$RACE_DIR/git"
+BASE_HEAD="$(git -C "$REPO" rev-parse HEAD)"
+PATH="$RACE_DIR:$PATH" run_script "$REPO" main "docs(self-review): kan-q self-review report" \
+  "docs/self-review/kan-q-self-review.md"
+[ "$RC" -eq 0 ] && pass "test_land_commit_pathspec_limited: exits 0" \
+  || fail "test_land_commit_pathspec_limited: rc=$RC out=$OUT"
+COMMITTED="$(git -C "$REPO" show --name-only --format= --no-renames HEAD)"
+case "$COMMITTED" in
+  *race.txt*) fail "test_land_commit_pathspec_limited: the race file entered the commit: $COMMITTED" ;;
+  *kan-q-self-review.md*) pass "test_land_commit_pathspec_limited: the commit carries only the chain's own path" ;;
+  *) fail "test_land_commit_pathspec_limited: unexpected commit content: $COMMITTED" ;;
+esac
+STAGED_NOW="$(git -C "$REPO" diff --cached --name-only --no-renames)"
+case "$STAGED_NOW" in
+  *race.txt*) pass "test_land_commit_pathspec_limited: the race file is left staged, uncommitted" ;;
+  *) fail "test_land_commit_pathspec_limited: the race file vanished from the index: $STAGED_NOW" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 12. A vanished own path is named: when the mismatch is the chain's own
+#     path missing from the index rather than an extra foreign path, the
+#     refusal names it under "missing from the index" instead of firing
+#     with an empty foreign list (panel F2).
+# ---------------------------------------------------------------------------
+new_repo
+write_report kan-m
+git -C "$REPO" add docs/self-review/kan-m-self-review.md
+git -C "$REPO" commit -q -m "docs(self-review): kan-m self-review report"
+printf 'stray\n' > "$REPO/stray.txt"
+git -C "$REPO" add stray.txt
+run_script "$REPO" main "docs(self-review): kan-m self-review report" \
+  "docs/self-review/kan-m-self-review.md"
+[ "$RC" -eq 3 ] && pass "test_land_missing_own_path_named: exits 3" \
+  || fail "test_land_missing_own_path_named: rc=$RC out=$OUT"
+case "$OUT" in
+  *"missing from the index: "*kan-m-self-review.md*)
+    pass "test_land_missing_own_path_named: the vanished own path is named" ;;
+  *) fail "test_land_missing_own_path_named: own path not named: out=$OUT" ;;
+esac
+case "$OUT" in
+  *stray.txt*) pass "test_land_missing_own_path_named: the foreign path is still named" ;;
+  *) fail "test_land_missing_own_path_named: foreign path not named: out=$OUT" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 13. The --no-renames pin is load-bearing: a staged foreign deletion whose
+#     content matches the chain's own staged new file pairs as a rename
+#     under git's default detection, collapsing the deletion out of
+#     --name-only and reopening the sweep (panel F3). The real script must
+#     refuse, naming both paths.
+# ---------------------------------------------------------------------------
+new_repo
+mkdir -p "$REPO/docs/self-review"
+printf 'report content line\ntwo\n' > "$REPO/docs/self-review/old.md"
+git -C "$REPO" add docs/self-review/old.md
+git -C "$REPO" commit -q -m old
+git -C "$REPO" rm -q docs/self-review/old.md
+mkdir -p "$REPO/docs/self-review"
+printf 'report content line\ntwo\n' > "$REPO/docs/self-review/kan-p-self-review.md"
+BASE_HEAD="$(git -C "$REPO" rev-parse HEAD)"
+run_script "$REPO" main "docs(self-review): kan-p self-review report" \
+  "docs/self-review/kan-p-self-review.md"
+[ "$RC" -eq 3 ] && pass "test_land_rename_pair_refuses: exits 3" \
+  || fail "test_land_rename_pair_refuses: rc=$RC out=$OUT"
+case "$OUT" in
+  *old.md*) pass "test_land_rename_pair_refuses: the refusal names the deleted foreign path" ;;
+  *) fail "test_land_rename_pair_refuses: deleted path not named: out=$OUT" ;;
+esac
+git -C "$REPO" cat-file -e "$BASE_HEAD:docs/self-review/old.md" \
+  && pass "test_land_rename_pair_refuses: HEAD still carries the foreign file" \
+  || fail "test_land_rename_pair_refuses: the foreign deletion was swept into a commit"
 
 # ---------------------------------------------------------------------------
 if [ "$FAILURES" -ne 0 ]; then

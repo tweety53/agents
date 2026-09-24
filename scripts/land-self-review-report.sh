@@ -90,7 +90,7 @@ fi
 # git commit takes the whole index, and the chain staged only its own
 # paths: a shared checkout holding foreign staged work must not be swept
 # into the commit (kan-657, where 121 foreign paths landed as 66ae176 and
-# reverted a just-merged change). Refuse loudly, index untouched.
+# reverted a just-merged change). Refuse loudly, index untouched; the own-paths set is deliberately stated twice — in the add/rm calls and in EXPECTED below — because the staging verbs and this assertion must agree, and each side reads it in its own grammar.
 STAGED="$(g diff --cached --name-only --no-renames | sort)"
 if [ -n "$RM_PATH" ]; then
   EXPECTED="$(printf '%s\n%s\n' "$ADD_PATH" "$RM_PATH" | sort)"
@@ -99,13 +99,13 @@ else
 fi
 if [ "$STAGED" != "$EXPECTED" ]; then
   FOREIGN="$(comm -13 <(printf '%s\n' "$EXPECTED") <(printf '%s\n' "$STAGED") | tr '\n' ' ')"
-  echo "LAND-FOREIGN-STAGED: expected only $(printf '%s' "$EXPECTED" | tr '\n' ' ')— foreign staged: ${FOREIGN}— nothing committed, pulled or pushed; clear the staging or land from a clean checkout" >&2
+  echo "LAND-FOREIGN-STAGED: expected only $(printf '%s' "$EXPECTED" | tr '\n' ' ')— foreign staged: ${FOREIGN}— missing from the index: $(comm -23 <(printf '%s\n' "$EXPECTED") <(printf '%s\n' "$STAGED") | tr '\n' ' ')— nothing committed, pulled or pushed; clear the staging or land from a clean checkout" >&2
   exit 3
 fi
 
 assert_branch "before the commit — nothing committed, pulled or pushed"
 
-g commit -m "$SUBJECT"
+g commit -m "$SUBJECT" -- "$ADD_PATH" ${RM_PATH:+"$RM_PATH"}
 
 if [ -n "$PUSH_BASE" ]; then
   assert_branch "before the pull/push — nothing pulled or pushed"
