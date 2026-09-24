@@ -328,8 +328,10 @@ nothing else stages it.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 `worktrees` should already carry one absolute-path key per affected worktree and its merge base —
-**2. Isolate the workspace** (`skills/flow/implement.md`) writes each entry the moment that
-worktree exists, rather than deferring to here — so this step re-reads the current record and
+`flow.kickoff` writes the first worktree's entry the moment it is created
+(`skills/flow/brainstorm.md` step 3) and **2. Isolate the workspace**
+(`skills/flow/implement.md`) writes each additional one the moment that worktree exists, rather
+than deferring to here — so this step re-reads the current record and
 confirms every resolved worktree is present rather than reconstructing the map from scratch;
 add any entry still missing (a worktree added after the last incremental write) before
 proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort`

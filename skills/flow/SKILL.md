@@ -82,7 +82,7 @@ paths, or unset/empty when there is none — from the state record's `worktrees`
 this run has read that record (**Reading the state**, below): non-empty on a resumed `STARTED`
 run, a fix run, or a bare `IN_PROGRESS` run, since each already has a prior run's completed
 `worktrees` map to read; empty on a **creating** run, whose worktree set does not exist until
-`flow.isolate-workspace` creates it, well after this block runs — nothing beyond `MAIN_CHECKOUT`
+`flow.kickoff` creates it, well after this block runs — nothing beyond `MAIN_CHECKOUT`
 is knowable that early, which is a timing fact, not a bug to chase further. When set, a toggle
 that reads `default` from `MAIN_CHECKOUT` is re-checked against every other root in the set, and
 **any** of them declaring `dynamic` wins — a satellite repo's own opt-in is honored even though

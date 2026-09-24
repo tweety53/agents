@@ -249,7 +249,10 @@ earlier worktree in this same run), and write the merged record back with `flow 
 `state` stays exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still
 the only step entitled to flip it to `IN_PROGRESS`). Do this once per worktree, immediately after
 `spectre link` succeeds for it (or immediately after resuming it, on a fix or resumed run), not
-batched at the end.
+batched at the end. The kickoff worktree's own entry never waits for this stage: it is recorded
+where the worktree is created — `skills/flow/brainstorm.md` step 3 — so on a first creating run
+this stage finds it already present, and the paragraph's rule above keeps governing each
+additional worktree.
 
 **Load `skills/flow-contracts/worktree-resolution.md`** — it derives this run's resolved worktree
 set.
