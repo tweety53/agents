@@ -173,6 +173,7 @@ skills/flow-contracts/handoff-blocks.md 20240
 skills/flow-contracts/jira-followups.md 45385
 skills/flow-contracts/jira-integration-rationale.md 5043
 skills/flow-contracts/jira-integration.md 19932
+skills/flow-contracts/known-bugs.md 4061
 skills/flow-contracts/model-policy-rationale.md 7963
 skills/flow-contracts/model-policy.md 8010
 skills/flow-contracts/operator-prompts.md 2432
