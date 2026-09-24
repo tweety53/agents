@@ -62,6 +62,13 @@ other name.
 **The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.
 
+**Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
+`SendMessage` to a child that has written its report. A subagent's prompt cache lives five
+minutes, so a child woken later re-writes its whole context at the cache-write price. Whatever a
+finished child's work still needs — a guard refusal, a pick conflict, a reviewer's `fix` — is the
+parent's own inline fix, under the commit mechanics and records **Inline — the parent
+implements** below already states; a re-review is a fresh dispatch.
+
 Every row's own prompt carries the NO DELEGATION paragraph (section **4** below,
 `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so
 nothing exists below these rows.
@@ -477,10 +484,9 @@ is picked once every plan-earlier member of its wave is picked. The same
 `check-task-commit-fields.sh` call the task-close step above runs (empty fourth argument, canonical
 worktree fifth, resolved `<name>` sixth) runs on each picked commit, and the dispatch `end` records
 the picked sha. A pick conflict or a
-guard failure hands the group back to its own implementer — its throwaway worktree rebased onto
-the advanced branch HEAD, re-commit, re-pick — while sibling members, queued groups and
-already-ready later waves are unaffected. A copy is removed once its group is picked, or after
-handback resolves. A member reporting BLOCKED follows the existing BLOCKED handback. The
+guard failure is the parent's own to fix — it resolves the conflict or re-commits in the canonical
+worktree itself and re-runs the guard — while sibling members, queued groups and
+already-ready later waves are unaffected. A copy is removed once its group is picked. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
 **Gather one context bundle per group, immediately before that group's implementer goes out.**
@@ -672,7 +678,7 @@ applies **The handshake** stated above, unchanged.
 > `<abs-worktree>/.superpowers/sdd/implementer-report-<k>.md` as your **last** act — after your
 > commit and your final test run — carrying each commit's sha, the failing RED output you saw,
 > and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
-> file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
+> file's presence.
 
 Every implementer dispatch also carries:
 
@@ -682,19 +688,18 @@ Every implementer dispatch also carries:
 > and carry the question in your REPORT FILE; where it cannot proceed without the answer, report
 > BLOCKED. A decision you make silently is a decision nobody recorded.
 
-**The plan-last group's implementer dispatch — the group holding the last `bundle <k>` line
-`plan-dispatch-bundles.sh` printed — alone also carries:**
-
-> **FULL SUITE:** Yours is the plan-last group. After GREEN and before your commit, run the
-> resolved `## test` list once, in the foreground, in the order the context bundle carries it. A
-> failure in a file this task's `**Files:**` field names is yours: fix it and re-run. Any other
-> failure is not: record the command and its output verbatim in your REPORT FILE under a `## Full
-> suite` heading, unfixed, and still commit your own task. When the plan-last group belongs to a
-> shared wave, its implementer does not carry FULL SUITE — **the parent itself**, never a
-> subagent, instead runs the resolved `## test` list once on the canonical worktree after that
-> wave's final pick passes the guard, and a failure is the same verbatim-output `## Question`
-> handback as below. The existing last-boundary sentence about a full-suite failure report keeps
-> governing the singleton case.
+**The parent runs the full suite — never an implementer.** Once the plan-last group — the group
+holding the last `bundle <k>` line `plan-dispatch-bundles.sh` printed — has passed the guard, by
+direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
+once on the canonical worktree, in the foreground, in the order the context bundle carries it, its
+output through `tail`. A subagent's prompt cache lives five minutes, the parent's an hour: a suite
+run outlasting five minutes inside an implementer re-prices that implementer's whole context on its
+next turn. A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes
+itself**, as inline fixes are applied: it edits, commits on the route the branch's push state
+dictates (**Panel re-runs**, `skills/flow/review-panel.md`), records the round as one
+`dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline`
+under `full-suite-fix-<n>`, and re-runs the list. Any other failure is the last boundary's
+`## Question`, below.
 
 **The next implementer overlaps the guard.** The unit is the group — the decision's `groups`
 entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
@@ -715,7 +720,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
-   launches: **exit 1** sends that task back to the **same implementer**, which re-commits and
+   launches: **exit 1** is the parent's own fix — it re-commits that task itself and
    re-runs the guard before anything below; **exit 2 — the guard's not-a-verdict close (an
    unreadable plan, a task it cannot resolve, a commit range git cannot resolve, a usage error) —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
@@ -727,8 +732,8 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    The same Bash call also runs `check-task-commit-planning-paths.sh <worktree> <merge-base>`
    — the merge base recorded in this run's working notes — over every commit since it: exit 1
    names each task commit whose diff touches `<project>/spectre/changes/` (leaf resolved per
-   project) or `<project>/docs/superpowers/` and is the same handback as a fields refusal, the
-   same implementer re-committing without the swept paths before either guard re-runs; exit 2
+   project) or `<project>/docs/superpowers/` and is the same parent fix as a fields refusal, the
+   parent re-committing without the swept paths before either guard re-runs; exit 2
    stops the run.
 
    **A guard call that times out is inspected before it is retried.** Run
@@ -826,13 +831,13 @@ when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's o
 its report file's `## Verdict`, so per-task review yield stays measurable against the gate. **A
 mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
 closes the record, and every `fix` task takes the fix path below on its own sha, independently
-of its bundle-mates. **A fix resumes the task's own group's implementer** (`SendMessage`; one
-resume per group carrying every `fix` report path of that group's tasks, recorded as its own
-pair under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids); per task, it stages the
+of its bundle-mates. **The parent applies the fix itself**, never resuming the group's
+implementer: one inline round per group carrying every `fix` report of that group's tasks,
+recorded as one pair `-model <parent model> -effort <parent effort> -agent-id inline` under
+`task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids; per task, it stages the
 changed paths (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only, so
 a fix that adds a file stages first) and commits on the route the branch's push state dictates
-(**Panel re-runs**, `skills/flow/review-panel.md`), then writes
-`implementer-report-<k>-fix-<n>.md`. **A branch the remote already holds takes the fix as one
+(**Panel re-runs**, `skills/flow/review-panel.md`). **A branch the remote already holds takes the fix as one
 new commit on top, never a rewrite** — the normal case, **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`) having pushed every commit as it was made: a plain
 `git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**A commit a
@@ -843,7 +848,7 @@ history only**: the fix commits
 `git rebase --autosquash <task-sha>^` — the explicit base is load-bearing: a bare
 `git rebase --autosquash` rebases onto the branch's upstream, absorbing the operator base's
 movement into a task fix. A conflict there is
-between two of the branch's own commits, and the implementer resolves it by hand, keeping both
+between two of the branch's own commits, and the parent resolves it by hand, keeping both
 sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
 `skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
 fold never crosses the run's own uncommitted planning artifacts —
@@ -857,8 +862,7 @@ its re-run covers nothing — then re-dispatches the reviewer — one
 bundle carrying every fixed task of the group, under `task-<n+n>-reviewer-fix-<k>`, the same
 convention as the implementer's fix key — each pass on its own range: the on-top route reads its
 fix commit's own diff `git diff <fix-commit>^..<fix-commit>`, the fold its rewritten
-`git diff <task-sha>^..<new-task-sha>`. On an inline run the parent applies the fixes itself
-with the same commit mechanics, and the re-review is still a dispatch.
+`git diff <task-sha>^..<new-task-sha>`.
 
 Every gated reviewer bundle dispatch **must** carry the shared paragraphs below once, then one
 **PASS task-`<n>`** section per gate-fired task in plan order, each carrying that task's record
@@ -943,9 +947,9 @@ destroyed-and-self-reported-restored artifacts were.
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix
-landed, and the last implementer's report carries no `## Full
-suite` failure; the review panel's pre-work may share the last implementer's wait, in its one
-call. A report that records a full-suite failure ends your turn with `## Question` — the failing
+landed, and the parent's full-suite run has passed, after any fix of its own; the review panel's
+pre-work may share the last implementer's wait, in its one call. A full-suite failure outside the
+plan-last group's files ends your turn with `## Question` — the failing
 command and its output, verbatim — before `final-review.diff` is written: the panel never runs on
 a red branch, and the operator resolves it through a fix run.
 
@@ -987,7 +991,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Test/lint output through `tail`.** A targeted test or lint run's output is piped through
   `tail` (`| tail -20`, the failing block reproduced from the log file on a failure) — already the
   rule for implementers (TARGETED TESTS); it binds the parent's own `## lint`/`## test` runs in
-  `flow.verify` and the full-suite run after a shared wave the same way.
+  `flow.verify` and the full-suite run after the last group the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
   — and `review-panel-optional-slots.md` and `visual-verify.md` when their stage loads them — are each read in full
   once, at the start of the stage that needs them; a later need is served by
