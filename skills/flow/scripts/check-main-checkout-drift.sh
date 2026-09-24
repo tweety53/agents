@@ -1,0 +1,1 @@
+../../../scripts/check-main-checkout-drift.sh

@@ -97,6 +97,32 @@ together with any intent-to-add entry's ` A <path>` line,
 ask the same question over what that finds, and say in the handoff that the surfacing was done
 manually; it is never skipped for want of the script.
 
+In the same pre-run position, over the same distinct main checkouts, the run also surfaces each
+checkout's drift from its expected post-merge state — on the repository's default branch with
+nothing tracked modified, staged or unmerged. `check-main-checkout-drift.sh` runs once per
+distinct main checkout, and its header is canonical for the verdict grammar it prints: a
+`DRIFT-BRANCH` line names a checkout on any other branch than the one `refs/remotes/origin/HEAD`
+points at, a `DRIFT-DIRTY` line counts tracked entries — the shapes KAN-647's reverse-image
+incidents took, which the staged-only listing above cannot see. On `DRIFT-CLEAN` from every
+repository the run continues with nothing more said. On any `DRIFT-BRANCH` or `DRIFT-DIRTY`
+line, every repository's findings — this guard's and `check-foreign-staged.sh`'s alike — are
+shown together and the run stops to ask the question below exactly once; **an exit 2 with no
+verdict** — a checkout whose branch, default branch or status cannot be read — stops and asks the
+same way, an inability never reading as `DRIFT-CLEAN`. A checkout clean but behind its default
+branch is ordinary not-pulled state and never a finding here; the archive's own refresh step owns
+bringing it forward.
+
+> **Main checkouts carry foreign staged work or drift — how should the run proceed?**
+> - **Stop — I'll clean it up and re-run** *(default, recommended)*
+> - **Continue — leave it in place**
+
+**When the drift script is absent** — a repository that does not carry it — read each main
+checkout by hand in the same shape its header's hand-verification procedure gives: the current
+branch against the branch `refs/remotes/origin/HEAD` names with its prefix stripped, and
+`git status --porcelain --untracked-files=no`, asking the same question over what those find, and
+say in the handoff that the surfacing was done manually; it is never skipped for want of the
+script.
+
 ### Run 1 — the branch is not merged
 
 **Run 1 itself only starts from a fresh bare `/flow` (or `/flow <name>`) invocation — never inline,
