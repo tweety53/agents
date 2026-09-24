@@ -108,16 +108,32 @@ def protected(path):
 
 
 def resolve(path, cwd):
+    """path made absolute against cwd, or None when the shell would expand it (`$VAR`, a
+    backtick) or cwd itself is unknown — a path the hook cannot know is let through, never
+    guessed at: `cd $W; ... >$LOG` once resolved `$LOG` under the literal `$W` and walked up into
+    the main checkout."""
+    if "$" in path or "`" in path:
+        return None
     path = os.path.expanduser(path)
-    return path if os.path.isabs(path) else os.path.join(cwd, path)
+    if os.path.isabs(path):
+        return path
+    return os.path.join(cwd, path) if cwd else None
+
+
+def tokenize(command):
+    """Shell words with `;`, `&&`, `|` and redirects split out even where they touch a word —
+    `cd <worktree>; git commit` must not make `<worktree>;` the directory."""
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        return list(lexer)
+    except ValueError:
+        return command.split()
 
 
 def bash_hits(command, cwd):
     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`."""
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        tokens = command.split()
+    tokens = tokenize(command)
     hits = []
     cur = cwd
     i = 0
@@ -145,8 +161,9 @@ def bash_hits(command, cwd):
             for t in tokens[i + 1 :]:
                 if t in ("&&", "||", ";", "|"):
                     break
-                if not t.startswith("-") and os.path.exists(resolve(t, cur)):
-                    hits.append(resolve(t, cur))
+                path = None if t.startswith("-") else resolve(t, cur)
+                if path and os.path.exists(path):
+                    hits.append(path)
             i += 1
             continue
         if tok == "tee":
@@ -179,7 +196,7 @@ def bash_hits(command, cwd):
             i += 1
             continue
         i += 1
-    return hits
+    return [h for h in hits if h]
 
 
 def deny_reason(top, branch):
@@ -224,7 +241,7 @@ def main():
         return 0
 
     for path in candidates:
-        hit = protected(path)
+        hit = protected(path) if path else None
         if hit is None:
             continue
         json.dump(

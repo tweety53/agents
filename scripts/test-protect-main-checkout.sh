@@ -28,6 +28,9 @@
 #   20. Bash `land-self-review-report.sh <main> main ...` -> allow (a script, not a git verb)
 #   21. Bash `mv <elsewhere>/x ~/.Trash/` with cwd = main   -> allow (tilde expands, not cwd-relative)
 #   22. Bash `mv <main>/file /tmp/`                       -> deny (a move out of the checkout removes)
+#   23. Bash `cd <worktree>; git commit` (`;` touching the path) -> allow
+#   24. Bash `cd <worktree>; npx ... >$S/cap.log 2>&1` with cwd = main -> allow (unexpanded var)
+#   25. Bash `cd <main>;git reset HEAD~1` (separators touching)  -> deny
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -105,6 +108,13 @@ mkdir -p "$ROOT/elsewhere"; touch "$ROOT/elsewhere/x"
 expect "21 tilde destination is not cwd-relative" allow \
   "$(HOME="$ROOT" run "$MAIN" Bash "{\"command\":$(q "mv $ROOT/elsewhere/x ~/.Trash/")}")"
 expect "22 mv out of main checkout" deny "$(run "$ROOT" Bash "{\"command\":$(q "mv $MAIN/f.txt $ROOT/")}")"
+
+expect "23 cd worktree; git commit" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $WT; git commit -m x")}")"
+expect "24 cd worktree; redirect to an unexpanded var" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'S=/tmp/x; cd '"$WT"'; npx playwright test a.spec.ts >$S/cap.log 2>&1; echo cap=$?')}")"
+expect "25 cd main;git reset with separators touching" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $MAIN;git reset HEAD~1")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
