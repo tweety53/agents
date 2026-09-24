@@ -130,7 +130,7 @@ func TestSettingsAPI_Put_Valid(t *testing.T) {
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
 
-	body := `{"defaultModel":"opus","selfReviewModel":"","reviewers":["primary","principles","code-review-low","security"]}`
+	body := `{"defaultModel":"opus","selfReviewModel":"","reviewers":["primary","principles","mutation","security"]}`
 	req, err := http.NewRequest(http.MethodPut, ts.URL+"/api/v1/settings", bytes.NewReader([]byte(body)))
 	if err != nil {
 		t.Fatalf("build request: %v", err)
@@ -154,7 +154,7 @@ func TestSettingsAPI_Put_Valid(t *testing.T) {
 	if got.SelfReviewModel != "" {
 		t.Errorf("stored selfReviewModel = %q, want empty", got.SelfReviewModel)
 	}
-	want := []string{"primary", "principles", "code-review-low", "security"}
+	want := []string{"primary", "principles", "mutation", "security"}
 	if len(got.Reviewers) != len(want) {
 		t.Fatalf("stored reviewers = %v, want %v", got.Reviewers, want)
 	}
@@ -178,7 +178,7 @@ func TestSettingsAPI_Put_RejectsInvalidValue(t *testing.T) {
 	}{
 		{
 			name:        "unknown model",
-			body:        `{"defaultModel":"gpt-5","reviewers":["primary","principles","code-review-low"]}`,
+			body:        `{"defaultModel":"gpt-5","reviewers":["primary","principles","mutation"]}`,
 			wantInError: "gpt-5",
 		},
 		{
@@ -188,7 +188,7 @@ func TestSettingsAPI_Put_RejectsInvalidValue(t *testing.T) {
 		},
 		{
 			name:        "unknown self-review model",
-			body:        `{"defaultModel":"sonnet","selfReviewModel":"gpt-5","reviewers":["primary","principles","code-review-low"]}`,
+			body:        `{"defaultModel":"sonnet","selfReviewModel":"gpt-5","reviewers":["primary","principles","mutation"]}`,
 			wantInError: "gpt-5",
 		},
 	}

@@ -21,7 +21,7 @@ func TestSettingsStore_RoundTrip(t *testing.T) {
 	want := store.Settings{
 		DefaultModel:    "opus",
 		SelfReviewModel: "haiku",
-		Reviewers:       []string{"primary", "principles", "code-review-low", "bugbot", "mutation"},
+		Reviewers:       []string{"primary", "principles", "bugbot", "mutation"},
 	}
 
 	if err := st.PutSettings(ctx, want); err != nil {
@@ -151,5 +151,38 @@ func TestSettingsStore_RejectsUnknownReviewer(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), badReviewer) {
 		t.Errorf("PutSettings error = %q, want it to name the rejected value %q", err.Error(), badReviewer)
+	}
+}
+
+// TestSettingsStore_RejectsRetiredCodeReviewLow asserts the retired
+// "code-review-low" slot id is refused on write like any unknown id, while
+// a flow_settings row written before its retirement still loads unchanged:
+// validation guards writes only, so a stale row never breaks GetSettings.
+func TestSettingsStore_RejectsRetiredCodeReviewLow(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	err := st.PutSettings(ctx, store.Settings{
+		DefaultModel: "sonnet",
+		Reviewers:    []string{"primary", "code-review-low"},
+	})
+	if !errors.Is(err, store.ErrInvalidReviewer) {
+		t.Fatalf("PutSettings error = %v, want it to wrap ErrInvalidReviewer", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO flow_settings (id, default_model, self_review_model, reviewers)
+		VALUES (TRUE, 'sonnet', '', '["primary","principles","code-review-low"]')
+		ON CONFLICT (id) DO UPDATE SET reviewers = EXCLUDED.reviewers
+	`); err != nil {
+		t.Fatalf("seed legacy row: %v", err)
+	}
+	got, err := st.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings on a legacy row: %v", err)
+	}
+	want := []string{"primary", "principles", "code-review-low"}
+	if !reflect.DeepEqual(got.Reviewers, want) {
+		t.Errorf("GetSettings reviewers = %v, want %v", got.Reviewers, want)
 	}
 }

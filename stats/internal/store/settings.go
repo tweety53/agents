@@ -24,18 +24,20 @@ var ValidModels = map[string]bool{
 }
 
 // ValidReviewers is the fixed vocabulary a flow_settings.reviewers entry
-// may take. The panel dispatches exactly the resolved list; these six ids
+// may take. The panel dispatches exactly the resolved list; these five ids
 // no longer split into a required subset and an on-demand-only subset
 // (design.md's roster-from-settings decision superseded that split).
-// "simple-reviewer" was retired once primary absorbed its brief; the store
-// rejects it like any other unknown id.
+// "simple-reviewer" was retired once primary absorbed its brief, and
+// "code-review-low" once it proved a shallower copy of primary's
+// code-review angle; the store rejects both like any other unknown id.
+// Only writes are validated: GetSettings and the record/aggregate paths
+// read historical rows carrying a retired id unchanged.
 var ValidReviewers = map[string]bool{
-	"primary":         true,
-	"principles":      true,
-	"code-review-low": true,
-	"bugbot":          true,
-	"security":        true,
-	"mutation":        true,
+	"primary":    true,
+	"principles": true,
+	"bugbot":     true,
+	"security":   true,
+	"mutation":   true,
 }
 
 // ErrInvalidModel is returned by PutSettings when DefaultModel is not one
@@ -53,11 +55,11 @@ var ErrInvalidReviewer = errors.New("store: invalid reviewer")
 const DefaultModel = "sonnet"
 
 // DefaultReviewers is the value GetSettings reports for Reviewers when
-// flow_settings holds no row yet: primary, principles and code-review-low,
-// the same three ids skills/flow/SKILL.md's resolver falls back to when the
+// flow_settings holds no row yet: primary and principles,
+// the same two ids skills/flow/SKILL.md's resolver falls back to when the
 // store is unreachable (design.md's unreachable-falls-back-to-defaults
 // decision).
-var DefaultReviewers = []string{"primary", "principles", "code-review-low"}
+var DefaultReviewers = []string{"primary", "principles"}
 
 // Settings is the harness-wide record /flow-settings manages: which model
 // implements, fixes and reviews by default, which model self-review runs
