@@ -96,7 +96,9 @@ land-self-review-report.sh "<project>" "<default-branch>" \
   --push "<default-branch>"
 ```
 
-A branch mismatch stops here — nothing is committed, pulled, or pushed. A rejected push leaves the
+A branch mismatch stops here — nothing is committed, pulled, or pushed. Staged work in the
+checkout beyond the chain's own two paths refuses the commit (`LAND-FOREIGN-STAGED`) — clear
+the staging or land from a clean checkout, never around the refusal. A rejected push leaves the
 commit local and this run names it — never retried around.
 
 ### 6. Report

@@ -273,8 +273,9 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
      docs/self-review/<name>-self-review.md
    ```
 
-   A branch mismatch or a commit that FAILS is reported and stops this commit. The change stays
-   `FINISHED` regardless.
+A branch mismatch or a commit that FAILS is reported and stops this commit. A staged index
+holding anything beyond the chain's own path refuses the commit the same way
+(`LAND-FOREIGN-STAGED`). The change stays `FINISHED` regardless.
 
 ```bash
 flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
