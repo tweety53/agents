@@ -73,7 +73,7 @@ resolve_toggle() {
 EXECUTION_MODE_TOGGLE="$(resolve_toggle 'execution mode')"
 IMPLEMENTER_MODEL_TOGGLE="$(resolve_toggle 'implementer model')"
 REVIEW_PANEL_TOGGLE="$(resolve_toggle 'review panel')"
-VERIFY_MODEL=sonnet
+VERIFY_MODEL=opus
 ```
 
 **`STATE_WORKTREE_ROOTS` widens toggle resolution across the repositories a change already
@@ -109,10 +109,11 @@ self-review pass reads it, so it resolves there, at its point of consumption —
 
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
-and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `sonnet`, read from neither the
-settings store nor `<project>/.flow/project.md`; a plain-language session instruction does not
-override it; and it never falls back, because it is never resolved — the point is a predictable
-model for mechanical verification runs regardless of what `DEFAULT_MODEL` resolved to.
+and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort
+`low` through `subagent_type: flow-low`, read from neither the settings store nor
+`<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
+never falls back, because it is never resolved — the point is a predictable model for mechanical
+verification runs regardless of what `DEFAULT_MODEL` resolved to.
 
 **`EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` resolve
 `<project>/.flow/project.md`'s `## execution mode`, `## implementer model` and `## review panel`

@@ -10,9 +10,9 @@ this file.
 
 `flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
-parent dispatches nothing else in this file. `subagent_type: general-purpose`, the Agent tool's
+parent dispatches nothing else in this file. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
-literal `sonnet`, never `DEFAULT_MODEL` and never a session override — mapped on harness `zcode` per
+literal `opus`, never `DEFAULT_MODEL` and never a session override — mapped on harness `zcode` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
 compares against. Its prompt carries, verbatim:
 
@@ -48,7 +48,7 @@ own system prompt>`.
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
 **Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
-sonnet`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
+opus -effort low`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
 more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
 
