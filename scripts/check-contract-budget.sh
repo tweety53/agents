@@ -164,7 +164,7 @@ skills/flow-contracts/artifacts-registry-rationale.md 6981
 skills/flow-contracts/artifacts-registry.md 8509
 skills/flow-contracts/build-green.md 6678
 skills/flow-contracts/build-green-rationale.md 1008
-skills/flow-contracts/finish-contract-run1.md 30852
+skills/flow-contracts/finish-contract-run1.md 38565
 skills/flow-contracts/finish-contract-run2.md 46275
 skills/flow-contracts/git-boundaries-rationale.md 2968
 skills/flow-contracts/git-boundaries.md 9210

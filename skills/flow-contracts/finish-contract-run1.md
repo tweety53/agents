@@ -81,10 +81,6 @@ exit 2 with no verdict** — a main checkout whose status cannot be read — sto
 question a `STAGED-FOREIGN` asks, with nothing to list; an inability is never read as
 `STAGED-CLEAN`.
 
-> **Main checkouts carry foreign staged work — how should the run proceed?**
-> - **Stop — I'll clear it and re-run** *(default, recommended)*
-> - **Continue — leave it in place**
-
 **Stop** leaves the change where its state has it with nothing staged, committed, pushed, reset or
 stashed by the run; the operator commits, stashes or resets the residue themselves and re-runs.
 **Continue** carries the listing into the handoff and proceeds — and relaxes nothing: every later

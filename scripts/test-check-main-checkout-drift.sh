@@ -114,6 +114,16 @@ else
   fail "unreadable path: expected exit 2 with empty stdout, got RC=$RC OUT=<$OUT>"
 fi
 
+# ---- refusal: a regular file, not a directory ---------------------------
+# `cd` rejects an existing file differently from a missing path, but both are
+# refusals: exit 2, stdout empty, the message on stderr.
+run_guard "$ERRFILE"
+if [ "$RC" -eq 2 ] && [ -z "$OUT" ]; then
+  pass "regular file argument: exit 2, nothing on stdout"
+else
+  fail "regular file argument: expected exit 2 with empty stdout, got RC=$RC OUT=<$OUT>"
+fi
+
 # ---- refusal: no origin/HEAD -------------------------------------------
 # A repository with no remote-tracking HEAD has no default branch the guard
 # could name — an inability, never a verdict. `symbolic-ref -d` removes the
