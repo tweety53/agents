@@ -97,7 +97,11 @@ whose output names at least one failing test, and whose every failing test is kn
 `known failures only` marker beside its exit line in the `## Report`, names each known failure
 under it with its entry's reason, earns **no** inline re-run, and does not block this handoff —
 the baseline is the project's own statement that the failure exists on an unmodified tree. Output that names no failing test at all — a compile error, a harness crash — and a
-failing test with no matching entry behave exactly as the rules that follow.
+failing test with no matching entry behave exactly as the rules that follow. A failing test with
+no matching entry that **the sweep** (`skills/flow-contracts/known-bugs.md`) proves pre-existing
+— an introducing commit named and verified an ancestor of the default branch — is recorded by
+the sweep and takes the known-failure course above, its entry's root cause as its reason; the
+sweep never absorbs a failure it cannot pin to an introducing commit.
 
 A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A second non-zero exit from the same

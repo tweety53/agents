@@ -146,7 +146,9 @@ and 13 below as written, committing and pushing nothing.
    Exit 2 → report `fingerprint: not declared — <the guard's stderr reason>` and continue; the
    report makes the gap visible in every handoff, but this stage cannot prove what it was never
    told how to check.
-7. **Run `verify`.** A non-zero exit blocks.
+7. **Run `verify`.** A non-zero exit blocks — except a failing test **the sweep**
+   (`skills/flow-contracts/known-bugs.md`) proves pre-existing, which takes that contract's
+   known-failure course, its entry committed on this change's branch and named in the report.
 8. **Capture** — author a spec covering the views this change touched, then run `capture` with
    `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration.md`; nothing here restates it. **Every screenshot
