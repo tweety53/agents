@@ -12,7 +12,9 @@
 # report, removes the context bundle, commits, pull --rebases and pushes
 # in that order; the archive shape commits with no push; an empty staged
 # diff is a clean no-op, never a failed commit; a rejected push exits
-# non-zero with the commit left local; and both usage defects exit 2.
+# non-zero with the commit left local; both usage defects exit 2; foreign
+# staged work refuses the commit (kan-657); and a branch switched mid-run
+# is re-caught before the commit.
 #
 # Bash 3.2 is the floor: indexed arrays only, no associative arrays.
 set -euo pipefail
@@ -204,6 +206,112 @@ run_script "$REPO" main "docs(self-review): kan-v self-review report" \
 [ "$(head_subject)" = "docs(self-review): kan-v self-review report" ] \
   && pass "test_land_report_lands_and_pushes: the commit stays local on a rejected push" \
   || fail "test_land_report_lands_and_pushes: the commit is gone: $(head_subject)"
+
+# ---------------------------------------------------------------------------
+# 8. Foreign staged work refuses the commit: the chain stages only its own
+#    paths but a bare git commit takes the whole index, so a shared
+#    checkout's foreign staged content would be swept in (kan-657, where
+#    121 foreign paths landed as 66ae176). The chain must refuse instead:
+#    exit 3, one LAND-FOREIGN-STAGED line naming the foreign path, HEAD
+#    unchanged, nothing unstaged and nothing lost.
+# ---------------------------------------------------------------------------
+new_repo
+write_report kan-f
+printf 'stray\n' > "$REPO/stray.txt"
+git -C "$REPO" add stray.txt
+BASE_HEAD="$(git -C "$REPO" rev-parse HEAD)"
+run_script "$REPO" main "docs(self-review): kan-f self-review report" \
+  "docs/self-review/kan-f-self-review.md"
+[ "$RC" -eq 3 ] && pass "test_land_foreign_staged_refuses: exits 3" \
+  || fail "test_land_foreign_staged_refuses: rc=$RC out=$OUT"
+case "$OUT" in
+  *"LAND-FOREIGN-STAGED"*) pass "test_land_foreign_staged_refuses: the refusal is named" ;;
+  *) fail "test_land_foreign_staged_refuses: no refusal line: out=$OUT" ;;
+esac
+case "$OUT" in
+  *stray.txt*) pass "test_land_foreign_staged_refuses: the refusal names the foreign path" ;;
+  *) fail "test_land_foreign_staged_refuses: foreign path not named: out=$OUT" ;;
+esac
+[ "$(git -C "$REPO" rev-parse HEAD)" = "$BASE_HEAD" ] \
+  && pass "test_land_foreign_staged_refuses: no commit was made" \
+  || fail "test_land_foreign_staged_refuses: HEAD moved"
+STAGED_NOW="$(git -C "$REPO" diff --cached --name-only)"
+case "$STAGED_NOW" in
+  *stray.txt*) pass "test_land_foreign_staged_refuses: the foreign path is still staged" ;;
+  *) fail "test_land_foreign_staged_refuses: the foreign path left the index: $STAGED_NOW" ;;
+esac
+case "$STAGED_NOW" in
+  *kan-f-self-review.md*) pass "test_land_foreign_staged_refuses: the report is still staged" ;;
+  *) fail "test_land_foreign_staged_refuses: the report left the index: $STAGED_NOW" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 9. The same refusal under an rm path: a foreign staged file beside the
+#    report-and-bundle shape refuses too. The chain's own rm has already
+#    run by then, so the bundle is off-disk and its deletion staged — but
+#    nothing is committed: HEAD still carries the bundle.
+# ---------------------------------------------------------------------------
+new_repo
+write_report kan-r
+printf 'stray\n' > "$REPO/stray.txt"
+git -C "$REPO" add stray.txt
+BASE_HEAD="$(git -C "$REPO" rev-parse HEAD)"
+run_script "$REPO" main "docs(self-review): kan-r self-review report" \
+  "docs/self-review/kan-r-self-review.md" "docs/self-review/kan-r-context.md"
+[ "$RC" -eq 3 ] && pass "test_land_foreign_staged_with_rm_refuses: exits 3" \
+  || fail "test_land_foreign_staged_with_rm_refuses: rc=$RC out=$OUT"
+case "$OUT" in
+  *"LAND-FOREIGN-STAGED"*) pass "test_land_foreign_staged_with_rm_refuses: the refusal is named" ;;
+  *) fail "test_land_foreign_staged_with_rm_refuses: no refusal line: out=$OUT" ;;
+esac
+[ "$(git -C "$REPO" rev-parse HEAD)" = "$BASE_HEAD" ] \
+  && pass "test_land_foreign_staged_with_rm_refuses: no commit was made" \
+  || fail "test_land_foreign_staged_with_rm_refuses: HEAD moved"
+git -C "$REPO" cat-file -e "$BASE_HEAD:docs/self-review/kan-r-context.md" \
+  && pass "test_land_foreign_staged_with_rm_refuses: HEAD still carries the context bundle" \
+  || fail "test_land_foreign_staged_with_rm_refuses: the context bundle is gone from HEAD"
+
+# ---------------------------------------------------------------------------
+# 10. A branch switched mid-run is re-caught: the start-of-run assert can
+#     be stale on a shared checkout — a concurrent session switches it
+#     mid-run (kan-657) — so the chain re-asserts before the commit. A
+#     PATH git shim delegates every call to the real git but switches the
+#     checkout's branch on the chain's first `diff`, between the add and
+#     the commit: exit 1, one LAND-BRANCH-MISMATCH line naming both
+#     branches, no commit.
+# ---------------------------------------------------------------------------
+new_repo
+write_report kan-s
+REAL_GIT="$(command -v git)"
+SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/land-self-review-shim.XXXXXX")"
+ROOTS+=("$SHIM_DIR")
+MARKER="$SHIM_DIR/switched"
+cat > "$SHIM_DIR/git" <<EOF
+#!/bin/bash
+# The chain calls git -C <repo> <verb ...>: skip the -C pair before
+# reading the verb.
+FIRST="\$1"
+[ "\$FIRST" = -C ] && FIRST="\$3"
+if [ "\$FIRST" = diff ] && [ ! -f "$MARKER" ]; then
+  touch "$MARKER"
+  "$REAL_GIT" -C "$REPO" checkout -b other >/dev/null 2>&1
+fi
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$SHIM_DIR/git"
+BASE_HEAD="$(git -C "$REPO" rev-parse HEAD)"
+PATH="$SHIM_DIR:$PATH" run_script "$REPO" main "docs(self-review): kan-s self-review report" \
+  "docs/self-review/kan-s-self-review.md"
+[ "$RC" -eq 1 ] && pass "test_land_branch_switched_midrun_refuses: exits 1" \
+  || fail "test_land_branch_switched_midrun_refuses: rc=$RC out=$OUT"
+case "$OUT" in
+  *"LAND-BRANCH-MISMATCH: expected main, found other"*)
+    pass "test_land_branch_switched_midrun_refuses: the re-assert names both branches" ;;
+  *) fail "test_land_branch_switched_midrun_refuses: no mid-run mismatch line: out=$OUT" ;;
+esac
+[ "$(git -C "$REPO" rev-parse HEAD)" = "$BASE_HEAD" ] \
+  && pass "test_land_branch_switched_midrun_refuses: no commit was made" \
+  || fail "test_land_branch_switched_midrun_refuses: HEAD moved"
 
 # ---------------------------------------------------------------------------
 if [ "$FAILURES" -ne 0 ]; then
