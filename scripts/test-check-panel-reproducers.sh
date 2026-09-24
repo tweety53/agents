@@ -543,9 +543,19 @@ expect_exit_and_names 'case 30: a state record the store does not carry is canno
 
 # 31. Store unreachable with no fallback record: `flow state get` exits 0
 #     and prints nothing on stdout -- the same cannot-answer class as the
-#     findings read's unreachable store (case 22's shape, met one read
-#     earlier).
-wt="$(make_worktree_store_unreachable)"
+#     findings read's unreachable store. This is the ONLY lexical case on
+#     the object-check refusal: case 22's sandbox answers the state read
+#     with a valid record, so this shape keeps its own case (F5, kan-658
+#     round 1).
+wt="$(make_worktree_json "$(findings_json F1 open 'scripts/x.sh')")"
+cat > "$wt/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  state) exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
+STUB
+chmod +x "$wt/bin/flow"
 expect_exit_and_names 'case 31: an unreachable state read is cannot-answer' 2 \
   'cannot determine anything' run_guard "$wt"
 
