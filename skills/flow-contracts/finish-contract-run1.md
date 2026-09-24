@@ -264,18 +264,27 @@ section's grammar. A change with no `link.md` has one worktree and one trivially
 nothing about the single-repository path changes.
 
 **Before any route commits, reshape the branch.** Run
-`git -C <abs-worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the
+`reshape-branch.sh <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
-`<rebased-merge-base>`, for a worktree **Sync the branch onto the base** above rebased**. This
-collapses every per-task, fixup and planning commit `/flow`'s implement phase made on the branch back into the working
-tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
-that chain then commits from this reshaped state exactly as it always has.
+`<rebased-merge-base>`, for a worktree **Sync the branch onto the base** above rebased**. Every
+planning commit on the branch — each commit touching `<project>/spectre/changes/`: the plan-gate,
+link, reviewer-dispatch, fix-run and write-in-progress commits of **Planning commits**
+(`git-boundaries.md`) and `/flow-plan`'s capture commit — is kept as its own commit, in order, with
+its message and author, rebuilt on the merge base. Every per-task and fixup commit `/flow`'s
+implement phase made is collapsed back into the working tree, uncommitted, so the two-commit chain
+below commits it as one implementation commit on top of the kept planning commits. **Planning
+commits are never squashed into one**, at integrate or on any landing route. The script runs
+`check-planning-commit-location.sh` first and stops on its verdict. **When the script cannot be
+located**, stop and report it; never substitute `reset --soft`, which folds the planning commits
+away.
 
-All three routes first commit the work, in **two** commits and never one: the implementation,
+All three routes then commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
-reshaped diff carries, then the `<project>/spectre/changes/` planning artifacts, subject the
-fixed literal `chore(spectre): plan`.
+reshaped diff carries, then whatever `<project>/spectre/changes/` planning delta the kept planning
+commits left — this run's narrative and anything the operator edited — subject the fixed literal
+`chore(spectre): plan`. The landed branch is therefore: the kept planning commits, the
+implementation commit, then that last planning commit.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with

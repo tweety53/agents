@@ -169,16 +169,25 @@ flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harnes
 (`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering
 this run's preflight, the unfinished-work gate and the rebase.
 
-**Before any route commits, reshape the branch.** Run `git -C <worktree> reset --soft
-<recorded-merge-base>`, where `<recorded-merge-base>` is the merge base recorded in the state
+**Before any route commits, reshape the branch:**
+
+```bash
+reshape-branch.sh <worktree> <name> <recorded-merge-base>
+```
+
+`<recorded-merge-base>` is the merge base recorded in the state
 file's `worktrees` map for this worktree — **or `<rebased-merge-base>` from step 2 above, for a
 worktree this run rebased**, never the state file's now-stale pre-rebase value for that worktree.
-This collapses every per-task, fixup and planning commit back into the working tree, uncommitted; using the
+This keeps every planning commit as its own commit on the merge base and collapses every per-task
+and fixup commit back into the working tree, uncommitted; using the
 stale value here would also collapse in the upstream commits the rebase just brought in, silently
-smuggling them into the implementation commit below.
+smuggling them into the implementation commit below. **When the script cannot be located**, do
+not fall back to `reset --soft` — it folds the planning commits away; stop and report the missing
+guard.
 
-All three routes commit — implementation, then the `<project>/spectre/changes/` planning
-artifacts — as **two** commits, never one. The session records stay uncommitted under
+All three routes then commit — implementation, then the `<project>/spectre/changes/` planning
+delta the planning commits left — as **two** commits on top of the kept planning commits, never
+one. The session records stay uncommitted under
 `<abs-worktree>/.superpowers/sdd/`.
 
 **Load `skills/flow-contracts/session-records.md`** before rendering, below.
@@ -213,7 +222,7 @@ planning message is a **fixed literal**.
 symlinked-planning-path case are all under **Git boundaries**
 (`skills/flow-contracts/git-boundaries.md`).
 
-**Implementation first, planning artifacts second.** The second commit's message lists anything the
+**Implementation first, planning delta second.** The second commit's message lists anything the
 operator chose to integrate over at **1**. The state file is **not** committed.
 
 ```bash

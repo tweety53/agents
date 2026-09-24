@@ -41,7 +41,15 @@ operator-approved `--force`, and each link rewrote `link.md`, dirtying the folde
 next one. Held uncommitted, the plan was also the one copy a reviewer's `git checkout` could
 destroy. Committing the folder once the operator has approved it — and again at each later
 boundary where the run itself edits it — removes both, while the task-commit check keeps planning
-out of every implementation commit, and integrate's reshape still lands a single planning commit.
+out of every implementation commit.
+
+**Why integrate keeps the planning commits instead of folding them into one.** Folding them made
+the landed branch carry one `chore(spectre): plan` whose diff was every plan edit at once — the
+operator had approved each of them already, at the plan gate and at every later boundary, and was
+shown the same material again as one new commit. Kept, each lands as the commit that was approved,
+and only the delta no planning commit carried reaches integrate's own planning commit. Task and
+fixup commits are still collapsed: they are reviewed per task in flight, and land as one
+implementation commit.
 
 **Why a location guard on planning commits.** `spectre link` must run from a repository's primary
 checkout to resolve its peers file, so the directory a link commit is made from is one `cd` away

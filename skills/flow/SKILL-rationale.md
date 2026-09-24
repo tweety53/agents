@@ -111,7 +111,7 @@ no gap left for it to bridge.
 Pushing the branch at creation and after every commit was asked for in the same instruction, so a
 worktree lost with the machine, or removed by a stray cleanup, is rebuilt from `origin/<branch>`
 rather than lost. The cost accepted: one push per commit, and integrate's push after the
-`reset --soft` reshape becomes `--force-with-lease`, on a branch only the run writes.
+reshape becomes `--force-with-lease`, on a branch only the run writes.
 
 ## integrate.md — 2. Ask how the branch should land, the rebase's planning-artifact aside
 
