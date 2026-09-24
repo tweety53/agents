@@ -766,8 +766,7 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round;
 - **on `REVIEW_PANEL_TOGGLE` `dynamic`, each re-running role runs alone, in its own dispatch, on
-  the decision's `panel.rerun_dispatch` pair** — a model no pass-1 dispatch used, at `low` effort,
-  under the 5-minute ceiling — never on the pair that raised the finding, and never bundled with
+  the decision's `panel.rerun_dispatch` pair**, under the 5-minute ceiling — never bundled with
   another role. **The re-run is targeted at what that role raised and nothing else**: in place of
   its held-sha delta it reads the round's `fix-round-N.diff` plus the sites of its own open
   findings, each opened at its recorded `file:line` in the current tree, and its prompt lists
