@@ -25,7 +25,7 @@ file is `<abs-worktree>/.superpowers/sdd/panel-report-<round>-exp-<name>.md`, th
 substituted. The rendered panel record's Slot column therefore shows the `exp-` id unchanged, so the
 prefix survives into the archive.
 
-It is a diff-reading slot like Primary, Principles, Code review (low) and Mutation: **Panel
+It is a diff-reading slot like Primary, Principles and Mutation: **Panel
 re-runs** governs it unchanged. **The docs-only reduction** still narrows a
 docs-only branch to `primary` alone: the experimental slot is never part of that reduced roster, and
 is dispatched again only if a later round's docs-only guard reclassifies the branch off the

@@ -143,7 +143,6 @@ overrides:
 |---|------|---------------|
 | `primary` | **Primary** — plan alignment and senior code review | `flow-review` + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
 | `principles` | **Principles** | `flow-review` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
-| `code-review-low` | **Code review (low)** | `flow-review` reviewer briefed for high-confidence defects only, against `final-review.diff` |
 | `bugbot` | **Bugbot** — defect hunt | `flow-review` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 | `security` | **Security** | `flow-review` + `security-reviewer-prompt.md` |
 | `mutation` | **Mutation** — sabotage-proofing | `flow-review` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
@@ -276,8 +275,8 @@ two dispatches cannot hold shrinks to what they hold.
 design.md's **Bundled dispatch › Grouping** table, unchanged, no override — or `free` — the
 planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On `default`,
 the settings-store roster is grouped deterministically by the same static logic, no roll and no
-planner: reading roles (`primary`, `principles`, `security`, `code-review-low`) fill the first
-dispatch in that order up to three, the rest and the mutating roles (`bugbot`, `mutation`) the
+planner: reading roles (`primary`, `principles`, `security`) fill the first
+dispatch in that order up to three, the mutating roles (`bugbot`, `mutation`) the
 second, up to three; a list the two cannot hold is truncated in store order, and the truncation is
 recorded with `flow record pass -round <round>`.
 
@@ -311,7 +310,7 @@ group whose other members are clean dispatches with its re-running members only.
 role, its `-slot` that role alone (**Panel re-runs**).
 
 The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
-line name the dispatches as `+`-joined groups (`primary+principles · code-review-low+mutation`).
+line name the dispatches as `+`-joined groups (`primary+principles · bugbot+mutation`).
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
@@ -552,11 +551,6 @@ A second breach of the same slot is put to the operator, shape per Operator prom
 A timed-out slot raises no finding, consumes no fix round, and is not a clean result for the final
 pass.
 
-### Code review (low)
-
-Code review (low), when dispatched, invokes no skill — unlike Primary and Principles above. Its
-findings are ordinary `F<n>` rows, exactly like every other slot's.
-
 ### The mutation-testing brief
 
 Wherever the panel dispatches Bugbot or Mutation, the dispatch prompt carries a mutation-testing
@@ -602,10 +596,8 @@ Every dispatched slot ends up with one, a slot that raised nothing included. **N
 slot's report from this context** — record its `F<n>` rows and cite the file, per **Read
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 
-When two independently dispatched slots raise the same defect — the code-quality ground Primary
-and Code review (low) overlap, per `primary-reviewer-prompt.md`'s **Do
-Not** — the dispatcher records it once, under a `+`-joined `-slot` value naming both, rather than
-as two `F<n>` rows.
+When two independently dispatched slots raise the same defect, the dispatcher records it once,
+under a `+`-joined `-slot` value naming both, rather than as two `F<n>` rows.
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself. Every
