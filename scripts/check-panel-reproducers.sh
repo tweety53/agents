@@ -30,7 +30,10 @@
 #      on a finding whose severity is not Important)
 #   1  violations found; each is reported on stderr
 #   2  cannot answer at all — no worktree, no change name, a change name
-#      outside the allowlist, or the store unreachable
+#      outside the allowlist, the change's state record absent or
+#      unreadable (a cross-repo change's guards answer only through its
+#      canonical worktree, so a peer tree's store read is a cannot-answer
+#      and never a clean verdict — KAN-658), or the store unreachable
 set -euo pipefail
 
 export LC_ALL=C
@@ -103,6 +106,34 @@ esac
 # which `set -e` does not act on, so the guard's own exit 2 and message run
 # instead.
 WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducers: worktree vanished before it could be resolved: ${WORKTREE}" >&2; exit 2; }
+
+# THE STATE RECORD IS THE CHANGE'S BOOTSTRAP (KAN-658). The store addresses
+# records by project and change name together, and the project key resolves
+# from the worktree argument — so on a cross-repo change only the canonical
+# worktree resolves the record at all, and a peer worktree's findings read
+# below would answer `[]` at exit 0: a clean REPRODUCERS-OK on a change this
+# invocation never actually saw. The record is read FIRST for exactly that
+# reason, and this block is DUPLICATED, on purpose, in
+# check-panel-reproducer-exit-contract.sh, whose store read has the same
+# blind spot; the two harnesses assert the same refused shapes, which is
+# what keeps the copies from drifting. `flow state get` reached-and-absent
+# exits 1 — a fact about this project/change pair, and on a cross-repo
+# change the signature of a guard invoked on a peer tree — reported at this
+# guard's own exit 2, never a clean answer. Store-unreachable exits 0 with
+# the fallback record only when one exists, so an empty or non-JSON stdout
+# at exit 0 is the same cannot-answer class the findings read below already
+# gives an unreachable store. This guard resolves nothing per finding from
+# the record's `worktrees` map — every check below is deliberately lexical
+# and never touches the filesystem — so the record's presence and
+# readability are all it takes from it.
+if ! STATE_OUT="$(flow state get -C "$WORKTREE" "$NAME" 2>/dev/null)"; then
+  echo "check-panel-reproducers: the store has no record of change '$NAME' under this worktree's project — a cross-repo change's guards answer only through its canonical worktree" >&2
+  exit 2
+fi
+if ! printf '%s' "$STATE_OUT" | jq -e 'type == "object"' >/dev/null 2>&1; then
+  echo "check-panel-reproducers: cannot read the state record for '$NAME' — cannot determine anything" >&2
+  exit 2
+fi
 
 # THE STORE IS QUERIED ONCE, and a non-zero exit from `flow record
 # findings` is this guard's own exit 2 — "cannot determine anything" — never

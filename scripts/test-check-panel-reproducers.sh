@@ -145,18 +145,23 @@ make_worktree_json() {
   # prematurely close the quote and hand the shell a syntactically invalid
   # script -- a defect in the stub generator, not in anything under test.
   printf '%s' "$json" > "$wt/bin/findings.json"
+  printf '%s\n' '{"state":"IN_PROGRESS","worktrees":{}}' > "$wt/bin/state.json"
   cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-cat "$(dirname -- "$0")/findings.json"
-exit 0
+case "${1:-}" in
+  state) cat "$(dirname -- "$0")/state.json"; exit 0 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
 STUB
   chmod +x "$wt/bin/flow"
   printf '%s' "$wt"
 }
 
 # make_worktree_store_unreachable -- a worktree-shaped sandbox whose stub
-# `flow` exits non-zero and prints nothing useful to stdout, simulating a
-# store `record findings` could not reach.
+# `flow` exits non-zero and prints nothing useful to stdout for `record
+# findings` (the store that command could not reach) and answers `state get`
+# the way a real unreachable store does: exit 0, nothing on stdout, the
+# fallback record it does not have.
 make_worktree_store_unreachable() {
   local wt
   wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")" || {
@@ -167,8 +172,10 @@ make_worktree_store_unreachable() {
   mkdir -p "$wt/bin"
   cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-echo "flow: connect: connection refused" >&2
-exit 1
+case "${1:-}" in
+  state) exit 0 ;;
+  *) echo "flow: connect: connection refused" >&2; exit 1 ;;
+esac
 STUB
   chmod +x "$wt/bin/flow"
   printf '%s' "$wt"
@@ -509,6 +516,36 @@ expect_exit 'case 28: mixed Important-runnable and Minor-exempt findings exits 0
 # ===========================================================================
 wt="$(make_worktree_json "$(findings_json_sev F1 Important open none)")"
 expect_exit 'case 29: a bare none on an Important finding still exits 1' 1 run_guard "$wt"
+
+# ===========================================================================
+# 30. THE STATE RECORD (KAN-658). The store addresses records by project and
+#     change name together, and on a cross-repo change only the canonical
+#     worktree's project key resolves it — a peer worktree's findings read
+#     answers `[]` at exit 0, which under the old guard read as a clean
+#     REPRODUCERS-OK on a change this invocation never saw. The guard now
+#     reads `flow state get` first, and a store-reached-but-absent record
+#     (exit 1) is this guard's exit 2, naming the cross-repo reading — the
+#     same bootstrap its sibling guard carries, duplicated on purpose.
+# ===========================================================================
+wt="$(make_worktree_json "$(findings_json F1 open 'scripts/x.sh')")"
+cat > "$wt/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  state) exit 1 ;;
+  *) cat "$(dirname -- "$0")/findings.json"; exit 0 ;;
+esac
+STUB
+chmod +x "$wt/bin/flow"
+expect_exit_and_names 'case 30: a state record the store does not carry is cannot-answer' 2 \
+  'no record of change' run_guard "$wt"
+
+# 31. Store unreachable with no fallback record: `flow state get` exits 0
+#     and prints nothing on stdout -- the same cannot-answer class as the
+#     findings read's unreachable store (case 22's shape, met one read
+#     earlier).
+wt="$(make_worktree_store_unreachable)"
+expect_exit_and_names 'case 31: an unreachable state read is cannot-answer' 2 \
+  'cannot determine anything' run_guard "$wt"
 
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducers-test: one or more cases failed\n' >&2
