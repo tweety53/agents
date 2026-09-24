@@ -282,7 +282,9 @@ land-self-review-report.sh "<worktree>" "<name>" \
   --push "<name>"
 ```
 
-The bundle lands with the change on every route. `/flow-self-review <name>` then runs the pass
+The bundle lands with the change on every route. A staged index holding anything beyond the
+chain's own path refuses the commit (`LAND-FOREIGN-STAGED`) — clear the staging or land from a
+clean checkout, never around it. `/flow-self-review <name>` then runs the pass
 on `<default-branch>` and deletes the bundle in its report commit.
 
 ```bash
