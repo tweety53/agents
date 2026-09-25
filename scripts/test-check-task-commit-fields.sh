@@ -4493,6 +4493,79 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 143 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 143: fence content comment not flagged" || fail "case 143: rc=$RC out=$OUT"
 
+# Case 144: a LANGUAGE-LESS fence (```verified:) hides its tag behind the
+# backtick run — the tag check must strip the fence run and match the info
+# string, exactly as the plan-provenance guard does on the same line, or a
+# tag the plan guard refuses closes successfully (pass-1 panel F1).
+new_repo
+write_tasks_md "$REPO" '- [ ] 144. Language-less fence with a bare tag
+
+```verified:
+echo hi
+```
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 144 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 144: language-less fence bare tag fails" || fail "case 144: rc=$RC out=$OUT"
+
+# Case 145: an empty `unverified:` fence fails the close too — the tag set
+# is the plan guard's own, all four tags (pass-1 panel F4).
+new_repo
+write_tasks_md "$REPO" '- [ ] 145. Empty unverified fence
+
+```unverified:
+echo hi
+```
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 145 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 145: empty unverified fence fails" || fail "case 145: rc=$RC out=$OUT"
+case "$OUT" in
+  *"unverified:"*"carries no evidence"*) pass "case 145: names the unverified tag" ;;
+  *) fail "case 145: expected unverified message, out=$OUT" ;;
+esac
+
+# Case 146: an empty `predicted:` comment fails the close as well.
+new_repo
+write_tasks_md "$REPO" '- [ ] 146. Empty predicted comment
+
+After the change: 186 tests
+<!-- predicted: -->
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 146 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 146: empty predicted comment fails" || fail "case 146: rc=$RC out=$OUT"
+
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
