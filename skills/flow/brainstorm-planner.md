@@ -409,8 +409,8 @@ recorded as such:
    chosen per **Model and effort** below. The implementer pair is every implementer group's
    default (step 4). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
    round does — repair named findings against their reproducers, usually a narrower job than the
-   implementation — so it may differ from the implementer pair in model, effort or both, its
-   `reason` saying why. Both recorded `skipped — inline` when step 1 is inline, `default` when
+   implementation — so its effort may differ from the implementer pair's, its `reason` saying
+   why. Both recorded `skipped — inline` when step 1 is inline, `default` when
    the toggle is off.
 3. **review panel** — roster, compact/experimental, rerun policy, the **rerun pair**, and its
    **grouping** —
@@ -429,8 +429,8 @@ recorded as such:
    below, keyed on `class` and the rolls. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
    fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
    findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is
-   `DEFAULT_MODEL`, and its `effort` is `low`, fixed, since a re-run reads a delta
-   to confirm a fix and must be short and fast; its `reason` names the model choice only. Default: today's settings-store roster on
+   `DEFAULT_MODEL` like every pair (**Model and effort** below), and its `effort` is `low`, fixed,
+   since a re-run reads a delta to confirm a fix and must be short and fast. Default: today's settings-store roster on
    `DEFAULT_MODEL` and `default` effort for every dispatch, delta rerun, grouped by the static
    table deterministically (no roll), recorded `default`.
 4. **implementer groups** — on every run whose step 1 came out `sdd` (`## execution mode` toggle or
@@ -467,11 +467,13 @@ itself, the verify stage, or the self-review.
 
 #### Model and effort
 
-The tree fixes no model and no effort: every pair a `dynamic` step
-assigns — the implementer, the fixer, each panel dispatch, each implementer group — is the planner's
-own choice, `model` any member of the store's `ValidModels` set (`haiku`, `sonnet`, `opus`,
-`fable`; `flow settings models` prints it) and `effort` one of `low`/`medium`/`high`, decided
-from what that dispatch will actually do: the complexity of its tasks, the time and space
+Every pair a `dynamic` step assigns — the implementer, the fixer, each panel dispatch, the rerun
+pair, each implementer group — takes `model` `DEFAULT_MODEL` (**Model resolution**,
+`skills/flow/SKILL.md`), never another model; the decision varies the effort only. Pairs may
+repeat — two dispatches, or a pass-1 dispatch and the rerun pair, on the same model and effort is
+not a defect. The rerun pair's effort is fixed at `low` (step 3); every other `effort` is the
+planner's own choice, one of `low`/`medium`/`high`, decided from what that dispatch will actually
+do: the complexity of its tasks, the time and space
 complexity of the code it writes or reviews, and the scalability the change has to hold up under.
 A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency
 seam, a data-model change or a performance-sensitive path sits at the expensive end; nothing in
