@@ -101,7 +101,7 @@ never a reason to block implementation.
 |-------------|-----------------|
 | Reachable, list non-empty | exactly the list |
 | Reachable, list empty | `primary` alone |
-| Unreachable | `primary`, `principles`, `code-review-low` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
+| Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
 
 **`SELF_REVIEW_MODEL` is not resolved here.** It governs no dispatch and only the archive-phase
 self-review pass reads it, so it resolves there, at its point of consumption —

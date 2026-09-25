@@ -23,7 +23,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"defaultModel":"opus","selfReviewModel":"haiku","reviewers":["primary","principles","code-review-low"]}`))
+		_, _ = w.Write([]byte(`{"defaultModel":"opus","selfReviewModel":"haiku","reviewers":["primary","principles","mutation"]}`))
 	}))
 	defer srv.Close()
 
@@ -49,7 +49,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 	if got.SelfReviewModel != "haiku" {
 		t.Errorf("selfReviewModel = %q, want %q", got.SelfReviewModel, "haiku")
 	}
-	want := []string{"primary", "principles", "code-review-low"}
+	want := []string{"primary", "principles", "mutation"}
 	if len(got.Reviewers) != len(want) {
 		t.Fatalf("reviewers = %v, want %v", got.Reviewers, want)
 	}
@@ -78,7 +78,7 @@ func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
-			"-model", "gpt-5", "-reviewers", "primary,principles,code-review-low"},
+			"-model", "gpt-5", "-reviewers", "primary,principles,mutation"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
@@ -116,7 +116,7 @@ func TestSettingsCmd_Set_Valid(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
-			"-model", "sonnet", "-reviewers", "primary,principles,code-review-low"},
+			"-model", "sonnet", "-reviewers", "primary,principles,mutation"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
@@ -155,7 +155,7 @@ func TestSettingsCmd_Set_WithSelfReviewModel(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
-			"-model", "sonnet", "-reviewers", "primary,principles,code-review-low",
+			"-model", "sonnet", "-reviewers", "primary,principles,mutation",
 			"-self-review-model", "opus"},
 		strings.NewReader(""), &stdout, &stderr)
 

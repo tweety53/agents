@@ -157,7 +157,7 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
       experimentalSlot: "",
       rerun: "full",
       grouping: "static",
-      dispatches: "primary+principles · code-review-low+mutation",
+      dispatches: "primary+principles · bugbot+mutation",
       implementerGroups: "1+2 · 3",
       wallClockSeconds: 1200,
       inputTokens: 200,
@@ -257,7 +257,7 @@ describe("views render their fixture response's actual values", () => {
     expect(within(sddRow).getByText("sdd")).toBeInTheDocument();
     expect(within(sddRow).getByText("$3.75")).toBeInTheDocument();
     expect(within(sddRow).getByText("static")).toBeInTheDocument();
-    expect(within(sddRow).getByText("primary+principles · code-review-low+mutation")).toBeInTheDocument();
+    expect(within(sddRow).getByText("primary+principles · bugbot+mutation")).toBeInTheDocument();
     expect(within(sddRow).getByText("1+2 · 3")).toBeInTheDocument();
     expect(within(sddRow).getByText("sonnet/medium")).toBeInTheDocument();
     expect(within(sddRow).getByText("haiku/low")).toBeInTheDocument();

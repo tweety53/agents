@@ -1287,13 +1287,13 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 				"roster": [
 					{"slot": "primary", "experimental": false},
 					{"slot": "principles", "experimental": false},
-					{"slot": "code-review-low", "experimental": false},
+					{"slot": "bugbot", "experimental": false},
 					{"slot": "mutation", "experimental": false}
 				],
 				"grouping": "free",
 				"dispatches": [
 					{"slots": ["primary", "principles"], "model": "opus", "effort": "high"},
-					{"slots": ["code-review-low", "mutation"], "model": "sonnet", "effort": "high"}
+					{"slots": ["bugbot", "mutation"], "model": "sonnet", "effort": "high"}
 				],
 				"grouping_reason": "reading roles together, mutating roles together"
 			},
@@ -1316,7 +1316,7 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 				"compact": false, "rerun": "full",
 				"roster": [{"slot": "primary", "model": "opus", "effort": "high", "experimental": false}],
 				"grouping": "free",
-				"dispatches": [["primary", "principles"], ["code-review-low", "mutation"]],
+				"dispatches": [["primary", "principles"], ["bugbot", "mutation"]],
 				"grouping_reason": "legacy per-slot row"
 			},
 			"groups": [[1, 2], [3]],
@@ -1359,8 +1359,8 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 	if free.Grouping != "free" {
 		t.Errorf("kan-free Grouping = %q, want %q", free.Grouping, "free")
 	}
-	if free.Dispatches != "primary+principles · code-review-low+mutation" {
-		t.Errorf("kan-free Dispatches = %q, want %q", free.Dispatches, "primary+principles · code-review-low+mutation")
+	if free.Dispatches != "primary+principles · bugbot+mutation" {
+		t.Errorf("kan-free Dispatches = %q, want %q", free.Dispatches, "primary+principles · bugbot+mutation")
 	}
 	if free.ImplementerGroups != "1+2 · 3" {
 		t.Errorf("kan-free ImplementerGroups = %q, want %q", free.ImplementerGroups, "1+2 · 3")
@@ -1370,8 +1370,8 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 	if !ok {
 		t.Fatalf("no row for kan-legacy")
 	}
-	if legacy.Dispatches != "primary+principles · code-review-low+mutation" {
-		t.Errorf("kan-legacy Dispatches = %q, want %q", legacy.Dispatches, "primary+principles · code-review-low+mutation")
+	if legacy.Dispatches != "primary+principles · bugbot+mutation" {
+		t.Errorf("kan-legacy Dispatches = %q, want %q", legacy.Dispatches, "primary+principles · bugbot+mutation")
 	}
 	if legacy.ImplementerGroups != "1+2 · 3" {
 		t.Errorf("kan-legacy ImplementerGroups = %q, want %q", legacy.ImplementerGroups, "1+2 · 3")
