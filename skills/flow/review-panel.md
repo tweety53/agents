@@ -792,8 +792,23 @@ reproducer rerun and diff check below (**Once the fix subagent reports…**) are
 they must run against the post-rebase file content, never be satisfied by the fixup commit's
 presence or the rebase's own exit code.
 
+**A fixup whose fold empties its target commit is dropped, never kept as a no-op commit.** When the
+fold leaves the task commit it targeted with an empty diff against its own parent, the fix exactly
+undid what it folded into: `git reset --hard <the folded commit's parent>` takes the pair off the
+unpushed branch, and the plan's task entry stays — the record of the mistake the branch no longer
+carries. `git diff "$FIX_BASE"..HEAD` then reads the restoration itself, and the round's reproducer
+re-runs and diff check close on it unchanged.
+
 **Which slots re-run, and on what, follows from the severities the round raised — never from a
 mode table, a trigger list, or a round count.**
+
+**A Critical is confirmed against a primary source before any fix round rewrites working code on
+it.** The confirmation is the parent's, at acceptance: where the finding's premise is what something
+outside this change does — a tool's flag semantics, a library's behaviour, a published format — the
+parent checks that premise against the thing's own published documentation or source, never a
+secondary summary, and records the confirmation with the round's pass log. A premise the primary
+source does not support withdraws the finding with that reason through the round's auto-decisions
+below, and the working code stands.
 
 **Every Critical and Important goes to the fix; whether a Minor does follows from the rest of the
 round, and a Minor never causes a fix round of its own.** Every Critical and Important the round
