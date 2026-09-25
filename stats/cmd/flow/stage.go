@@ -268,7 +268,7 @@ func journalStageMark(projectKey, name, kind string, req any, stderr io.Writer) 
 	if err == nil {
 		_ = fallback.AppendJournalEntry(stageJournalPath(projectKey, name), projectKey, name, body, time.Now())
 	}
-	fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal")
+	fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal (flow journal flush's stderr carries the real cause)")
 }
 
 // warnNoOpenStageRun prints the KAN-700 diagnosis on a stage end the store

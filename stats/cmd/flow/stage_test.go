@@ -793,6 +793,35 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	}
 }
 
+// TestStageMarkJournalWarningNamesWhereTheRealCauseSurfaces pins the
+// second half of KAN-700: a genuine outage still journals, and its one
+// warning line tells the operator where the real cause surfaces -- a
+// replay that fails prints the actual API error on `flow journal flush`'s
+// stderr, which is how KAN-573's misdiagnosed mark was finally explained.
+func TestStageMarkJournalWarningNamesWhereTheRealCauseSurfaces(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
+	}
+	if got := countLines(stderr.String()); got != 1 {
+		t.Errorf("stderr line count = %d, want exactly 1:\n%s", got, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "wrote local journal") {
+		t.Errorf("stderr = %q, want the journal-fallback line", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "flow journal flush's stderr carries the real cause") {
+		t.Errorf("stderr = %q, want the pointer to flow journal flush's stderr", stderr.String())
+	}
+}
+
 func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
