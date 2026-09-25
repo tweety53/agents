@@ -485,7 +485,7 @@ commit; `**Files:**` widened to match.
     -count=1` three times (warm build cache); record real/user/sys.
   - [ ] **Step 3: Parity.** `go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS:
     Test<Name>/'` per port against the floors in the Baseline block above — task-commit-fields'
-    floor is 299 after task 12 (**Decision:** port-base-moves-into-go).
+    floor is 298 after task 12 (**Decision:** port-base-moves-into-go).
   - [ ] **Step 4: Record** an **After** table in `design.md`'s **Measurements**, same columns as
     **Before**, each figure tagged `measured:` with the command and `@ branch
     spectre/kan-760-agents-port-the-flow-guard-scripts-and-their`.
@@ -573,7 +573,7 @@ The source is `origin/main` at `58810503`, not `0747740`: read it with
 `scripts/test-check-task-commit-fields.sh` — both reach this branch at integrate's sync.
 
   - [ ] **Step 1: Failing tests.** Port cases 140–146 (from `# Cases 140-143:` to the file's
-    case-146 block) into `TestCheckTaskCommitFields`, one subtest per `pass "…"` label — 11 —
+    case-146 block) into `TestCheckTaskCommitFields`, one subtest per `pass "…"` label — 10 —
     named on the existing `case_<n>` convention, each asserting the exit code and message
     substrings the bash case asserted. Run `go test ./internal/guard/ -run
     'TestCheckTaskCommitFields/case_14[0-6]' -count=1` from `stats/` — expect the evidence-free
@@ -584,7 +584,14 @@ The source is `origin/main` at `58810503`, not `0747740`: read it with
     KAN-676 paragraph move in as Go comments. Fence detection reuses the port's existing
     `plan_grammar` fence rule, never a new one.
   - [ ] **Step 3: Green** — `go test ./internal/guard/ -run TestCheckTaskCommitFields -count=1 -v |
-    grep -cE -- '--- PASS: TestCheckTaskCommitFields/[^/ ]+/'` at least 299.
+    grep -cE -- '--- PASS: TestCheckTaskCommitFields/[^/ ]+/'` at least 298.
   - [ ] **Step 4: Verify.** From `stats/`: `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/
     -count=1 -race`; from the worktree root: `scripts/check-references.sh`,
     `scripts/check-guard-symlinks.sh`.
+
+Correction (2026-09-26): the plan counted 11 `pass "…"` labels in upstream cases 140–146; there
+are 10 (140:2, 141:2, 142:1, 143:1, 144:1, 145:2, 146:1), so the floor is 298, not 299.
+<!-- measured: sed -n '/# Cases 140-143:/,$p' <(git show origin/main:scripts/test-check-task-commit-fields.sh) | grep -cE '\bpass "' → 10 @ origin/main 58810503 -->
+The commit also extracts `tcfSelectTask` (port of `select_task`) out of `tcfParseTask`, which now
+calls it; `tcfCheckEvidenceTags` is its second caller. Old-vs-new: upstream's Python and the Go
+port gave byte-identical output and equal exit codes on all seven case blocks.

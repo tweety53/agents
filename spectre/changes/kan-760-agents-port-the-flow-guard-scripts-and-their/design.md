@@ -183,8 +183,8 @@ parity floor rises by the new cases' `pass` lines. The branch is not rebased mid
 onto the base stays integrate's, whose reshape is the one force-push **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`) allows — and that sync resolves the deleted harness's
 modify/delete conflict by keeping the deletion. First instance: KAN-676's evidence-tag check in
-`check-task-commit-fields.py` (`de387f3a`, `e42e982a`), cases 140–146, 11 `pass` lines, floor
-288 → 299.
+`check-task-commit-fields.py` (`de387f3a`, `e42e982a`), cases 140–146, 10 `pass` lines, floor
+288 → 298.
 <!-- measured: git log 0747740..origin/main -- scripts/check-task-commit-fields.py; awk '/^# Case 140:/,0' of git show origin/main:scripts/test-check-task-commit-fields.sh | grep -c 'pass "' @ origin/main 58810503 -->
 **Considered:** reconcile at integrate's sync — the `.py` addition merges cleanly but nothing runs
 it once the shim execs `flow-guard`, so the check would silently stop being enforced; a follow-up
