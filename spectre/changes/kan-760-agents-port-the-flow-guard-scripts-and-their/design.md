@@ -173,6 +173,23 @@ the Go tests' plan fixtures) and fails when the two differ.
 **Considered:** no parity test — silent drift between the Go port and the still-live bash/Python
 copies.
 
+### A guard change landing on the base after 0747740 is ported into Go
+
+**ID:** port-base-moves-into-go
+**Status:** active
+**Chosen:** a behaviour the base gains after `0747740` in a ported guard's source is ported into
+that guard's Go file by an appended task, its new bash cases as Go subtests, and that port's
+parity floor rises by the new cases' `pass` lines. The branch is not rebased mid-run — the sync
+onto the base stays integrate's, whose reshape is the one force-push **Branch backup**
+(`skills/flow-contracts/git-boundaries.md`) allows — and that sync resolves the deleted harness's
+modify/delete conflict by keeping the deletion. First instance: KAN-676's evidence-tag check in
+`check-task-commit-fields.py` (`de387f3a`, `e42e982a`), cases 140–146, 11 `pass` lines, floor
+288 → 299.
+<!-- measured: git log 0747740..origin/main -- scripts/check-task-commit-fields.py; awk '/^# Case 140:/,0' of git show origin/main:scripts/test-check-task-commit-fields.sh | grep -c 'pass "' @ origin/main 58810503 -->
+**Considered:** reconcile at integrate's sync — the `.py` addition merges cleanly but nothing runs
+it once the shim execs `flow-guard`, so the check would silently stop being enforced; a follow-up
+ticket — unenforced until it lands. Operator chose the appended task, 2026-09-26.
+
 ### Follow-ups filed at integrate
 
 **ID:** follow-ups-at-integrate

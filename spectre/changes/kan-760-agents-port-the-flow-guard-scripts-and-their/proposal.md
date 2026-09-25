@@ -26,6 +26,8 @@
 - The five bash harnesses are replaced by in-process Go tests in `stats/internal/guard/`, every
   case ported, run in parallel on shared fixtures; `run-guard-tests.sh` runs that package as one
   harness.
+- The Go `check-task-commit-fields` also carries KAN-676's evidence-tag close check (`de387f3a`,
+  `e42e982a`), which landed on `main` after this change's base `0747740`, with its cases 140–146.
 - `make build`, a new `make install-guard`, `make restart` and `setup.sh global` build
   `flow-guard`.
 - Before/after suite timings are measured on the same machine and recorded in `design.md`.

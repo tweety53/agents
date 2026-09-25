@@ -474,7 +474,7 @@ commit; `**Files:**` widened to match.
 **Regression:** none — no commit
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
-**After:** Task 4, 5, 6, 7, 8, 9, 11
+**After:** Task 4, 5, 6, 7, 8, 9, 11, 12
 **Commit:** none — this task commits nothing to this repository; its figures go into `design.md`'s **Measurements**, committed with the change's artifacts
 **Build:** green
 
@@ -484,7 +484,8 @@ commit; `**Files:**` widened to match.
   - [ ] **Step 2: Go package, after.** `cd stats && /usr/bin/time -p go test ./internal/guard/...
     -count=1` three times (warm build cache); record real/user/sys.
   - [ ] **Step 3: Parity.** `go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS:
-    Test<Name>/'` per port against the floors in the Baseline block above.
+    Test<Name>/'` per port against the floors in the Baseline block above — task-commit-fields'
+    floor is 299 after task 12 (**Decision:** port-base-moves-into-go).
   - [ ] **Step 4: Record** an **After** table in `design.md`'s **Measurements**, same columns as
     **Before**, each figure tagged `measured:` with the command and `@ branch
     spectre/kan-760-agents-port-the-flow-guard-scripts-and-their`.
@@ -547,3 +548,43 @@ Review fix (2026-09-25): four citations still dangled — `case_92`/`case_93` (o
 `case_92-93`), `test-check-task-build-green.sh`'s "that harness's case 56", `prove-reproducer.sh`'s
 "its existing harness" (the deleted `test-run-reproducer.sh`; `**Files:**` widened) and
 `lib/within-root.sh`'s present-tense "Sourced by" — repointed.
+
+- [ ] 12. Port KAN-676's evidence-tag close check to flow-guard
+
+**Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`
+**Tests:** `TestCheckTaskCommitFields`
+**Regression:** `TestCheckTaskCommitFields/case_140`…`case_146` fail if an evidence-free
+`verified:`/`unverified:` fence tag or `measured:`/`predicted:` comment in the closing task's
+record stops refusing the close, or if a tag with evidence, or a comment inside fence content,
+starts refusing it.
+**Baseline:** before=3 after=3
+<!-- measured: grep -cE '^func Test' stats/internal/guard/check_task_commit_fields_test.go @ cd342ecf -->
+**After:** Task 7, 11
+**Commit:** `feat(stats): port the evidence-tag task-close check to flow-guard`
+**Build:** green
+
+**Decision:** port-base-moves-into-go
+**Decision:** parity-by-case-count
+
+The source is `origin/main` at `58810503`, not `0747740`: read it with
+`git show origin/main:scripts/check-task-commit-fields.py` and
+`git show origin/main:scripts/test-check-task-commit-fields.sh`, and the two commits' own diffs
+(`git show de387f3a e42e982a`). Do not touch `scripts/check-task-commit-fields.py` or restore
+`scripts/test-check-task-commit-fields.sh` — both reach this branch at integrate's sync.
+
+  - [ ] **Step 1: Failing tests.** Port cases 140–146 (from `# Cases 140-143:` to the file's
+    case-146 block) into `TestCheckTaskCommitFields`, one subtest per `pass "…"` label — 11 —
+    named on the existing `case_<n>` convention, each asserting the exit code and message
+    substrings the bash case asserted. Run `go test ./internal/guard/ -run
+    'TestCheckTaskCommitFields/case_14[0-6]' -count=1` from `stats/` — expect the evidence-free
+    cases to fail.
+  - [ ] **Step 2: Port** `check_evidence_tags`, `EVIDENCE_FENCE_TAG_RE`, `EVIDENCE_MEASURED_RE`
+    and the call site in `check_task_commit` into `taskcommitfields.go`, at the same position in
+    the violation order, messages byte-identical; the Python docstring and the module header's
+    KAN-676 paragraph move in as Go comments. Fence detection reuses the port's existing
+    `plan_grammar` fence rule, never a new one.
+  - [ ] **Step 3: Green** — `go test ./internal/guard/ -run TestCheckTaskCommitFields -count=1 -v |
+    grep -cE -- '--- PASS: TestCheckTaskCommitFields/[^/ ]+/'` at least 299.
+  - [ ] **Step 4: Verify.** From `stats/`: `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/
+    -count=1 -race`; from the worktree root: `scripts/check-references.sh`,
+    `scripts/check-guard-symlinks.sh`.
