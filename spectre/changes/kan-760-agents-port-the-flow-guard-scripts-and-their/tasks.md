@@ -136,6 +136,10 @@ var Registry = map[string]Func{}
     -run 'TestUnknownGuardExits2|TestNoGuardNameExits2' -count=1`; `scripts/test-make-build.sh`;
     `scripts/check-vocabulary.sh`; `scripts/check-references.sh`; `scripts/check-contract-budget.sh`.
 
+Correction (2026-09-25): `run` takes no stdin — `run(args []string, stdout, stderr io.Writer) int` —
+since `Func` takes none and none of the five guards reads it; `main` calls
+`os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))`.
+
 - [ ] 2. The suite runner tests the branch's own flow-guard
 
 **Files:** `scripts/run-guard-tests.sh`, `scripts/test-run-guard-tests.sh`, `scripts/test-go-guards.sh`, `.flow/project.md`
@@ -177,13 +181,16 @@ PATH — the branch's shims would then run the installed binary.
   - [ ] **Step 4: `scripts/test-go-guards.sh`.** A harness: `cd "$SCRIPT_DIR/../stats" && go test
     ./internal/guard/... -count=1`, header stating it is the companion harness for every ported
     guard.
-    <!-- unverified: confirm check-guard-symlinks.sh and check-vocabulary.sh accept a test-*.sh with no check-*.sh counterpart -->
+    <!-- measured: scripts/check-guard-symlinks.sh and scripts/check-vocabulary.sh both exit 0 with scripts/test-go-guards.sh present @ 1c35fe3 -->
   - [ ] **Step 5: `.flow/project.md`'s `## test`** — one sentence after the paragraph on
     `run-guard-tests.sh`: it builds `flow-guard` from the tree and puts it first on PATH, and
     `test-go-guards.sh` runs the Go guard tests.
   - [ ] **Step 6: Verify.** `scripts/test-run-guard-tests.sh`; `scripts/check-vocabulary.sh`;
     `scripts/check-references.sh`; `scripts/check-guard-symlinks.sh`;
     `scripts/check-contract-budget.sh`.
+
+Correction (2026-09-25): `case 9:` passed before the change — it pins a regression rather than
+showing RED; breaking the companion rule on purpose failed it (`got 0`), restored it passed.
 
 - [ ] 3. Shared helpers: sha256, spec root, change plan
 
@@ -373,7 +380,7 @@ from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
 
 - [ ] 9. setup.sh global builds flow-guard
 
-**Files:** `setup.sh`, `scripts/test-setup.sh`
+**Files:** `setup.sh`, `scripts/test-setup.sh`, `scripts/check-installed-citations.py`
 **Tests:** `global installs flow-guard`
 **Regression:** fails if `setup.sh global` stops building `flow-guard` into
 `$HOME/.local/bin`.
@@ -393,9 +400,14 @@ from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
     no Go toolchain is `die "setup.sh global needs Go to build flow-guard"` (operator's choice:
     a machine without Go fails setup). Add it to the finish banner's summary lines the way other
     installs are listed.
-    <!-- unverified: confirm the sandboxed run keeps GOCACHE warm — a sandbox HOME moves go's default cache, making each test-setup.sh run a cold compile; if so, test-setup.sh exports GOCACHE="$(go env GOCACHE)" from the real HOME before sandboxing -->
+    <!-- measured: a sandbox HOME moves go's default cache — cold build 2.82s real, 0.46s with the real GOCACHE exported; test-setup.sh exports GOCACHE="$(go env GOCACHE)" before sandboxing @ 416330f -->
   - [ ] **Step 3: Verify.** `scripts/test-setup.sh`; `scripts/test-installer-sandbox-diff.sh`;
     `scripts/check-installed-citations.sh`; `scripts/check-vocabulary.sh`.
+
+Correction (2026-09-25): the plan declared `setup.sh` and `scripts/test-setup.sh` only. The same
+cold-cache cost hit `scripts/check-installed-citations.py`'s two sandboxed `setup.sh` runs (2.98s →
+4.55s real), so its `run_setup` now passes the real HOME's `GOCACHE` too, folded into this task's
+commit; `**Files:**` widened to match.
 
 - [ ] 10. Live verification: before/after timings
 
