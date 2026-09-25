@@ -395,7 +395,7 @@ Correction (2026-09-25): shipped differently from the plan in these measured poi
 - Review fix: a `[` inside a glob class is escaped as Python's `re` reads it, closing a false pass
   on `Allowed-collateral: docs/[x[:alpha:]*[y]` (`TestTcfFnmatchMatchesPython`).
 
-- [ ] 8. Port check-cleanup-complete
+- [x] 8. Port check-cleanup-complete
 
 **Files:** `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/check_cleanup_complete_test.go`, `scripts/check-cleanup-complete.sh`, `scripts/test-check-cleanup-complete.sh`
 **Tests:** `TestCheckCleanupComplete`
@@ -409,18 +409,18 @@ Correction (2026-09-25): shipped differently from the plan in these measured poi
 **Decision:** inject-deadlines-in-process
 **Decision:** parity-by-case-count
 
-  - [ ] **Step 1: Failing test** — every harness case, one subtest per `ok:` label; the
+  - [x] **Step 1: Failing test** — every harness case, one subtest per `ok:` label; the
     `skip:` path (locale) stays a `t.Skip` with the same reason. Survivor-timeout cases set
     `Env.SurvivorsTimeout`/`SurvivorsKillGrace` sub-second and still assert the survivor was
     terminated. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-cleanup-complete`. `CHECK_CLEANUP_SURVIVORS_TIMEOUT`
+  - [x] **Step 2: Port**, registering `check-cleanup-complete`. `CHECK_CLEANUP_SURVIVORS_TIMEOUT`
     keeps its bash parsing, range check and 60s default when `Env.SurvivorsTimeout` is zero; the
     survivor wait uses `exec.CommandContext` and timers, never a poll loop.
-  - [ ] **Step 3: Green** — `--- PASS: TestCheckCleanupComplete/` count at least 304.
-  - [ ] **Step 4: Shim and delete** — the shim keeps the header's hand-verification paragraph
+  - [x] **Step 3: Green** — `--- PASS: TestCheckCleanupComplete/` count at least 304.
+  - [x] **Step 4: Shim and delete** — the shim keeps the header's hand-verification paragraph
     verbatim (`pipeline.md`'s **Hand-verifying a guard verdict** cites it); `git rm
     scripts/test-check-cleanup-complete.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/test-check-worktree-processes.sh`,
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/test-check-worktree-processes.sh`,
     `scripts/test-resolve-base-branch.sh`, `scripts/test-check-workspace-isolation.sh`,
     `scripts/test-workspace.sh` with `stats/bin` first on PATH; `scripts/check-guard-symlinks.sh`;
     `scripts/check-references.sh`.
@@ -493,7 +493,7 @@ commit; `**Files:**` widened to match.
     harness red. Any of these is reported, not recorded as success.
     <!-- predicted: suite ≈ 60s real, bounded by test-check-panel-reproducers.sh; guard package < 10s — confirmed by steps 1–2 -->
 
-- [ ] 11. Move the ported guards' rationale into Go and repoint its citations
+- [x] 11. Move the ported guards' rationale into Go and repoint its citations
 
 **Files:** `rules/commit-scope-is-the-module.mdc`, `scripts/check-cleanup-complete.sh`, `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/check-panel-reproducers.sh`, `scripts/check-task-commit-fields.py`, `scripts/check-task-commit-fields.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-workspace-isolation.sh`, `scripts/gather-dispatch-context.sh`, `scripts/lib/change-plan.sh`, `scripts/lib/lexical-normalize.sh`, `scripts/lib/plan_grammar.py`, `scripts/lib/project-section.sh`, `scripts/lib/reproducer-path.sh`, `scripts/lib/sanitize-display.sh`, `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`, `scripts/lib/visual-table-cells.awk`, `scripts/lib/within-root.sh`, `scripts/reproducer-metachars.sh`, `scripts/prove-reproducer.sh`, `scripts/resolve-base-branch.sh`, `scripts/run-reproducer.sh`, `scripts/test-check-mutation-reproducer-pin.sh`, `scripts/test-check-task-build-green.sh`, `scripts/test-check-unfinished-work.sh`, `scripts/test-check-workspace-isolation.sh`, `scripts/test-lib-change-plan.sh`, `scripts/test-prove-reproducer.sh`, `scripts/test-resolve-base-branch.sh`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/project-configuration-rationale.md`, `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/runreproducer.go`, `stats/internal/guard/taskcommitfields.go`
 **Tests:** `scripts/check-mutation-reproducer-pin.sh`, `TestCheckCleanupComplete`
@@ -508,27 +508,27 @@ changes behaviour.
 
 **Decision:** flow-guard-binary-rationale-in-go
 
-  - [ ] **Step 1: Inventory.** For each of the five guards, diff its `0747740` bash body against its
+  - [x] **Step 1: Inventory.** For each of the five guards, diff its `0747740` bash body against its
     shim (`git show 0747740:scripts/<name>.sh`) and list every comment block below the header. The
     sweep in `<worktree>/.superpowers/sdd/reviewer-report-task-8.md`'s `## Dangling-reference sweep`
     is the citation list to repoint; confirm each entry and extend it with `grep -rn` for each
     guard's basename, its deleted `test-<name>.sh`, and each moved comment's own title across
     `scripts/`, `skills/`, `rules/`, `.flow/`, `README.md`, `CONTRIBUTING.md` (never
     `spectre/changes/archive/`).
-  - [ ] **Step 2: Move.** Place each comment beside the Go code it explains, in Go comment style,
+  - [x] **Step 2: Move.** Place each comment beside the Go code it explains, in Go comment style,
     updated only where the mechanism changed (python3 shim → `Setsid`, poll → timer, a sourced lib →
     the Go helper) — reasoning, rejected alternatives and recorded incidents kept whole. Correct a kept
     header only where the port made a statement false; say so in the shim's first comment line after
     the header.
-  - [ ] **Step 3: Repoint.** Every citation names the Go file (`stats/internal/guard/<file>.go`, the
+  - [x] **Step 3: Repoint.** Every citation names the Go file (`stats/internal/guard/<file>.go`, the
     moved comment's title) or the Go test (`TestX/<case>`). `lib/*.sh` headers saying "sourced by
     <guard>" drop that guard. `rules/commit-scope-is-the-module.mdc:35` and
     `skills/flow-contracts/pipeline-rationale.md:171` stop naming the `.py` as the enforcer.
-  - [ ] **Step 4: Lint.** `scripts/check-mutation-reproducer-pin.sh` reads the pinned line from
+  - [x] **Step 4: Lint.** `scripts/check-mutation-reproducer-pin.sh` reads the pinned line from
     `stats/internal/guard/runreproducer.go` (or wherever step 2 put it); prove it bites by breaking
     the pin and capturing its failure, then restoring. Its harness
     `scripts/test-check-mutation-reproducer-pin.sh` stays green.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/guard/
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/guard/
     -count=1 -race`; every `## lint` command in `.flow/project.md`; with a tree-built `flow-guard`
     first on PATH, `scripts/test-check-mutation-reproducer-pin.sh`, `scripts/test-check-panel-reproducers.sh`,
     `scripts/test-check-workspace-isolation.sh`, `scripts/test-check-unfinished-work.sh`,
