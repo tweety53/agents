@@ -40,7 +40,8 @@ the bash guard's body with the shim, delete the bash harness. Each Go subtest is
 bash case's `ok:` label, so the parity count in task 10 is a `--- PASS` count.
 
 **Shim template** — every ported `scripts/<name>.sh` keeps its header comment block verbatim
-(contracts cite gate guards' headers as canonical) and replaces everything after it with:
+(contracts cite gate guards' headers as canonical) and replaces everything after it with (the
+body's comments move to the Go file — task 11, **Decision:** flow-guard-binary-rationale-in-go):
 
 ```bash verified:authored for this plan (Decision: separate-flow-guard-binary, missing-binary-exits-2)
 set -euo pipefail
@@ -217,7 +218,7 @@ cases the test pins.
   - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
     ./internal/guard/ -run 'TestSHA256Hex|TestSpecRoot|TestChangePlan' -count=1 -race`.
 
-- [ ] 4. Port run-reproducer
+- [x] 4. Port run-reproducer
 
 **Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/metachars.go`, `scripts/run-reproducer.sh`, `scripts/test-run-reproducer.sh`, `scripts/test-check-panel-reproducers.sh`
 **Tests:** `TestRunReproducer`, `TestMetacharsMatchBashSource`
@@ -234,7 +235,7 @@ regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set dri
 **Decision:** helper-parity-tests
 **Decision:** parity-by-case-count
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-run-reproducer.sh` to
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-run-reproducer.sh` to
     `TestRunReproducer`, one subtest per `ok:` label, calling `guard.Registry["run-reproducer"]`
     in-process. The timeout/grace/double-fork cases set `Env.ReproducerBound`/`ReproducerGrace`
     to sub-second values instead of waiting out `sleep 30` fixtures; each such case still
@@ -242,19 +243,19 @@ regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set dri
     assertion. `TestMetacharsMatchBashSource` parses the set out of
     `../../../scripts/reproducer-metachars.sh` and compares it to `metachars.go`'s. Run — expect
     failure.
-  - [ ] **Step 2: Port** `scripts/run-reproducer.sh` (and the `reproducer-metachars.sh`,
+  - [x] **Step 2: Port** `scripts/run-reproducer.sh` (and the `reproducer-metachars.sh`,
     `lib/coverage.sh` parts it sources) to `runreproducer.go`/`metachars.go`, registering
     `run-reproducer`. The reproducer runs under `exec.CommandContext` with `SysProcAttr{Setpgid:
     true}`; the bound, the SIGTERM→SIGKILL grace and the survivor sweep kill the process group,
     driven by timers, never a poll loop. `RUN_REPRODUCER_BOUND_SECONDS`,
     `RUN_REPRODUCER_GRACE_SECONDS`, `RUN_REPRODUCER_BOUND_FILE` keep the bash parsing and
     defaults when `Env`'s durations are zero.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
     'TestRunReproducer|TestMetacharsMatchBashSource' -count=1 -race -v | grep -c -- '--- PASS:
     TestRunReproducer/'` — at least 109.
-  - [ ] **Step 4: Shim and delete.** Replace `scripts/run-reproducer.sh`'s body with the shim
+  - [x] **Step 4: Shim and delete.** Replace `scripts/run-reproducer.sh`'s body with the shim
     template; `git rm scripts/test-run-reproducer.sh`.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; `make -C stats
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/`; `make -C stats
     build` then with `stats/bin` first on PATH run the callers' harnesses:
     `scripts/test-prove-reproducer.sh`, `scripts/test-mutate-and-verify.sh`,
     `scripts/test-check-panel-reproducers.sh`, `scripts/test-check-mutation-reproducer-pin.sh`,
@@ -278,7 +279,7 @@ Correction (2026-09-25): shipped differently from the plan in four measured poin
   warm), so timeout cases fire the bound through `RUN_REPRODUCER_BOUND_FILE` when the fixture is
   ready, with a 30s backstop bound — no assertion loosened.
 
-- [ ] 5. Port check-panel-reproducer-exit-contract
+- [x] 5. Port check-panel-reproducer-exit-contract
 
 **Files:** `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/test-check-panel-reproducer-exit-contract.sh`
 **Tests:** `TestCheckPanelReproducerExitContract`
@@ -291,21 +292,21 @@ Correction (2026-09-25): shipped differently from the plan in four measured poin
 
 **Decision:** parity-by-case-count
 
-  - [ ] **Step 1: Failing test.** Port every case of the bash harness, one subtest per `ok:`
+  - [x] **Step 1: Failing test.** Port every case of the bash harness, one subtest per `ok:`
     label. The stub `flow` on PATH becomes `Env.Findings` returning the canned JSON (or an error
     for the store-unreachable case); the stub runner becomes a fake reproducer script the real
     in-process runner executes. Cases 16 and 17 keep using the real runner against a real
     reproducer, positive and inverted. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-panel-reproducer-exit-contract`; it calls the
+  - [x] **Step 2: Port**, registering `check-panel-reproducer-exit-contract`; it calls the
     run-reproducer Go function in-process instead of exec'ing `$SCRIPT_DIR/run-reproducer.sh`.
     With `Env.Findings` nil it execs `flow record findings -change <name>` exactly as the bash
     guard does.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run TestCheckPanelReproducerExitContract
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run TestCheckPanelReproducerExitContract
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckPanelReproducerExitContract/'` — at least
     59.
-  - [ ] **Step 4: Shim and delete** — shim template; `git rm
+  - [x] **Step 4: Shim and delete** — shim template; `git rm
     scripts/test-check-panel-reproducer-exit-contract.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/test-check-panel-reproducers.sh` with
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/test-check-panel-reproducers.sh` with
     `stats/bin` first on PATH; `scripts/check-guard-symlinks.sh`; `scripts/check-references.sh`.
 
 Correction (2026-09-25): the test file was planned as `panelexitcontract_test.go`; `scripts/run-guard-tests.sh`'s
@@ -316,7 +317,7 @@ Correction (2026-09-25): the bash guard also calls `flow state get`, which `Env`
 for; the tests keep a stub `flow` on `Env`'s PATH for it and use `Env.Findings` for findings —
 case 12 runs through the real `flow record findings` call. Subtest count 60 against the floor of 59.
 
-- [ ] 6. Port gather-dispatch-context
+- [x] 6. Port gather-dispatch-context
 
 **Files:** `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/gatherdispatch_test.go`, `scripts/gather-dispatch-context.sh`, `scripts/test-gather-dispatch-context.sh`
 **Tests:** `TestGatherDispatchContext`
@@ -329,18 +330,18 @@ case 12 runs through the real `flow record findings` call. Subtest count 60 agai
 
 **Decision:** parity-by-case-count
 
-  - [ ] **Step 1: Failing test** — every harness case, one subtest per `ok:` label; the
+  - [x] **Step 1: Failing test** — every harness case, one subtest per `ok:` label; the
     no-hash-tool case becomes a case asserting the Go port needs no hash tool (it uses
     `crypto/sha256`) — state that substitution in the subtest's comment. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `gather-dispatch-context`, including the parts of
+  - [x] **Step 2: Port**, registering `gather-dispatch-context`, including the parts of
     `lib/resolve-file.sh`, `lib/within-root.sh`, `lib/lexical-normalize.sh`,
     `lib/project-section.sh` it sources, in `gatherdispatch.go`.
-  - [ ] **Step 3: Green** — `--- PASS: TestGatherDispatchContext/` count at least 88.
-  - [ ] **Step 4: Shim and delete** — `git rm scripts/test-gather-dispatch-context.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/check-guard-symlinks.sh`;
+  - [x] **Step 3: Green** — `--- PASS: TestGatherDispatchContext/` count at least 88.
+  - [x] **Step 4: Shim and delete** — `git rm scripts/test-gather-dispatch-context.sh`.
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/check-guard-symlinks.sh`;
     `scripts/check-references.sh`; `scripts/check-vocabulary.sh`.
 
-- [ ] 7. Port check-task-commit-fields
+- [x] 7. Port check-task-commit-fields
 
 **Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `scripts/check-task-commit-fields.sh`, `scripts/test-check-task-commit-fields.sh`
 **Tests:** `TestCheckTaskCommitFields`, `TestTaskFieldParseMatchesPython`
@@ -357,18 +358,18 @@ from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
 **Decision:** helper-parity-tests
 **Decision:** parity-by-case-count
 
-  - [ ] **Step 1: Failing tests.** Port all 139 numbered cases, one subtest per `ok:` label.
+  - [x] **Step 1: Failing tests.** Port all 139 numbered cases, one subtest per `ok:` label.
     `TestTaskFieldParseMatchesPython` runs `python3` once over every plan fixture the Go test
     uses, importing `check-task-commit-fields.py` the way `check-task-records.py` does
     (`load_module`), dumps each task's parsed fields as JSON, and compares with the Go parse.
     Run — expect failure.
-  - [ ] **Step 2: Port** the wrapper and `check-task-commit-fields.py` (with the `plan_grammar`
+  - [x] **Step 2: Port** the wrapper and `check-task-commit-fields.py` (with the `plan_grammar`
     parts it imports) to `taskcommitfields.go`, registering `check-task-commit-fields`.
     `check-task-commit-fields.py` stays in place, unchanged.
-  - [ ] **Step 3: Green** — `--- PASS: TestCheckTaskCommitFields/` count at least 288.
-  - [ ] **Step 4: Shim and delete** — `git rm scripts/test-check-task-commit-fields.sh`. Keep
+  - [x] **Step 3: Green** — `--- PASS: TestCheckTaskCommitFields/` count at least 288.
+  - [x] **Step 4: Shim and delete** — `git rm scripts/test-check-task-commit-fields.sh`. Keep
     `scripts/check-task-commit-fields.py`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/test-check-task-records.sh`,
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/test-check-task-records.sh`,
     `scripts/test-check-plan-shape.sh`, `scripts/test-check-unfinished-work.sh`,
     `scripts/test-lib-change-plan.sh` with `stats/bin` first on PATH;
     `scripts/check-guard-symlinks.sh`; `scripts/check-references.sh`.
@@ -376,6 +377,23 @@ from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
 Correction (2026-09-25): the test file was planned as `taskcommitfields_test.go`; `scripts/run-guard-tests.sh`'s
 companion rule (task 2, **Decision:** go-tests-replace-harnesses) accepts only
 `stats/internal/guard/<name with - replaced by _>_test.go` for a shim guard, so it is renamed to match.
+
+Correction (2026-09-25): shipped differently from the plan in these measured points.
+- Step 3's count is `grep -cE -- '--- PASS: TestCheckTaskCommitFields/[^/ ]+/'` (288); the plain
+  prefix also counts case-group lines (403).
+- No `TestMain`: Go allows one per package and four ports share it, so each top-level test builds
+  its base repo once in its own temp dir.
+- Case 56 tested the wrapper's missing `lib/plan_grammar.py`, unreachable once compiled in; it now
+  runs the shim with no `flow-guard` on PATH (exit 2, install message). The wrapper's other exit-2
+  refusals (missing grammar/spec-root/change-plan module, missing or broken python3) are gone —
+  nothing left to be missing.
+- An unreadable (non-UTF-8) plan exits 1 with Python's final `UnicodeDecodeError` line, as the
+  `.py` actually does — its header's "exit 2" was never true.
+- Case 124's short timeout is a `tcfRunMeasuredAt` argument (600s prod, 1s test), not an `Env` field.
+- Python's Unicode `\d`/`\w`/`\b` are ASCII in the port: a non-ASCII letter or digit glued to a
+  task id, Case label or build keyword can parse differently; no plan in the corpus has one.
+- Review fix: a `[` inside a glob class is escaped as Python's `re` reads it, closing a false pass
+  on `Allowed-collateral: docs/[x[:alpha:]*[y]` (`TestTcfFnmatchMatchesPython`).
 
 - [ ] 8. Port check-cleanup-complete
 
@@ -410,6 +428,13 @@ companion rule (task 2, **Decision:** go-tests-replace-harnesses) accepts only
 Correction (2026-09-25): the test file was planned as `cleanupcomplete_test.go`; `scripts/run-guard-tests.sh`'s
 companion rule (task 2, **Decision:** go-tests-replace-harnesses) accepts only
 `stats/internal/guard/<name with - replaced by _>_test.go` for a shim guard, so it is renamed to match.
+
+Correction (2026-09-25): Step 1's "sub-second" and Step 2's "`exec.CommandContext`" shipped as
+`exec.Command` + `Setpgid` (bash's `set -m`) + a `time.Timer`. Cases 28, 28b, 28d fire the bound
+on readiness and 29 never fires it, through a new `Env.SurvivorsExpire` channel in
+`stats/internal/guard/guard.go` — a wall-clock bound, even 3s, raced macOS's ~0.2s first exec
+under the package's parallel `-race` load. Review fixes: survivors run as `bash` (argv[0]), and
+`TestCCSurvivorsTimeoutParsesEnvKnob` pins `CHECK_CLEANUP_SURVIVORS_TIMEOUT`'s parsing.
 
 - [x] 9. setup.sh global builds flow-guard
 
@@ -449,7 +474,7 @@ commit; `**Files:**` widened to match.
 **Regression:** none — no commit
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
-**After:** Task 4, 5, 6, 7, 8, 9
+**After:** Task 4, 5, 6, 7, 8, 9, 11
 **Commit:** none — this task commits nothing to this repository; its figures go into `design.md`'s **Measurements**, committed with the change's artifacts
 **Build:** green
 
@@ -467,3 +492,45 @@ commit; `**Files:**` widened to match.
     port's `--- PASS` count below its floor; `go test ./internal/guard/...` above 10s real; any
     harness red. Any of these is reported, not recorded as success.
     <!-- predicted: suite ≈ 60s real, bounded by test-check-panel-reproducers.sh; guard package < 10s — confirmed by steps 1–2 -->
+
+- [ ] 11. Move the ported guards' rationale into Go and repoint its citations
+
+**Files:** `scripts/check-cleanup-complete.sh`, `scripts/run-reproducer.sh`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/gather-dispatch-context.sh`, `scripts/check-task-commit-fields.sh`, `scripts/check-task-commit-fields.py`, `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-panel-reproducers.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-workspace-isolation.sh`, `scripts/resolve-base-branch.sh`, `scripts/reproducer-metachars.sh`, `scripts/plan-class.sh`, `scripts/lib/change-plan.sh`, `scripts/lib/lexical-normalize.sh`, `scripts/lib/plan_grammar.py`, `scripts/lib/project-section.sh`, `scripts/lib/reproducer-path.sh`, `scripts/lib/resolve-file.sh`, `scripts/lib/sanitize-display.sh`, `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`, `scripts/lib/visual-table-cells.awk`, `scripts/lib/within-root.sh`, `scripts/test-check-task-build-green.sh`, `scripts/test-check-unfinished-work.sh`, `scripts/test-check-workspace-isolation.sh`, `scripts/test-lib-change-plan.sh`, `scripts/test-prove-reproducer.sh`, `scripts/test-resolve-base-branch.sh`, `scripts/test-check-mutation-reproducer-pin.sh`, `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/runreproducer.go`, `stats/internal/guard/metachars.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/changeplan.go`, `stats/internal/guard/sha256.go`, `stats/internal/guard/specroot.go`, `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `.flow/project.md`, `rules/commit-scope-is-the-module.mdc`, `skills/flow-contracts/pipeline.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/project-configuration.md`, `skills/flow-contracts/project-configuration-rationale.md`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/finish-contract-run2.md`, `skills/flow-contracts/artifacts-registry-rationale.md`, `skills/flow/implement.md`, `skills/flow/review-panel.md`, `skills/flow/archive.md`
+**Tests:** `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-references.sh`, `TestCheckCleanupComplete`, `TestRunReproducer`
+**Regression:** `scripts/check-mutation-reproducer-pin.sh` exits 2 while it reads a line the
+`run-reproducer.sh` shim removed; `TestCheckCleanupComplete` and `TestRunReproducer` fail if a
+moved comment's code edit changes behaviour.
+**Baseline:** before=0 after=0
+<!-- predicted: no test is added by this task; check-mutation-reproducer-pin.sh goes from exit 2 to exit 0 -->
+**After:** Task 2, 3, 4, 5, 6, 7, 8
+**Commit:** `docs(stats): move the ported guards' rationale into Go and repoint its citations`
+**Build:** green
+
+**Decision:** flow-guard-binary-rationale-in-go
+
+  - [ ] **Step 1: Inventory.** For each of the five guards, diff its `0747740` bash body against its
+    shim (`git show 0747740:scripts/<name>.sh`) and list every comment block below the header. The
+    sweep in `<worktree>/.superpowers/sdd/reviewer-report-task-8.md`'s `## Dangling-reference sweep`
+    is the citation list to repoint; confirm each entry and extend it with `grep -rn` for each
+    guard's basename, its deleted `test-<name>.sh`, and each moved comment's own title across
+    `scripts/`, `skills/`, `rules/`, `.flow/`, `README.md`, `CONTRIBUTING.md` (never
+    `spectre/changes/archive/`).
+  - [ ] **Step 2: Move.** Place each comment beside the Go code it explains, in Go comment style,
+    updated only where the mechanism changed (python3 shim → `Setsid`, poll → timer, a sourced lib →
+    the Go helper) — reasoning, rejected alternatives and recorded incidents kept whole. Correct a kept
+    header only where the port made a statement false; say so in the shim's first comment line after
+    the header.
+  - [ ] **Step 3: Repoint.** Every citation names the Go file (`stats/internal/guard/<file>.go`, the
+    moved comment's title) or the Go test (`TestX/<case>`). `lib/*.sh` headers saying "sourced by
+    <guard>" drop that guard. `rules/commit-scope-is-the-module.mdc:35` and
+    `skills/flow-contracts/pipeline-rationale.md:171` stop naming the `.py` as the enforcer.
+  - [ ] **Step 4: Lint.** `scripts/check-mutation-reproducer-pin.sh` reads the pinned line from
+    `stats/internal/guard/runreproducer.go` (or wherever step 2 put it); prove it bites by breaking
+    the pin and capturing its failure, then restoring. Its harness
+    `scripts/test-check-mutation-reproducer-pin.sh` stays green.
+  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/guard/
+    -count=1 -race`; every `## lint` command in `.flow/project.md`; with a tree-built `flow-guard`
+    first on PATH, `scripts/test-check-mutation-reproducer-pin.sh`, `scripts/test-check-panel-reproducers.sh`,
+    `scripts/test-check-workspace-isolation.sh`, `scripts/test-check-unfinished-work.sh`,
+    `scripts/test-resolve-base-branch.sh`, `scripts/test-prove-reproducer.sh`,
+    `scripts/test-check-task-build-green.sh`, `scripts/test-lib-change-plan.sh`.

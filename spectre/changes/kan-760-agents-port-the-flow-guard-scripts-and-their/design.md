@@ -66,12 +66,32 @@ no owner.
 ### Invocation: a separate flow-guard binary behind basename shims
 
 **ID:** separate-flow-guard-binary
-**Status:** active
+**Status:** superseded by flow-guard-binary-rationale-in-go
 **Chosen:** a new `stats/cmd/flow-guard` binary; each ported `scripts/<name>.sh` keeps its header
 comment verbatim (contracts cite gate guards' headers as canonical) and its body becomes
 `command -v flow-guard` check + `exec flow-guard <name> "$@"` — the operator's choice.
 **Considered:** a `flow guard <name>` subcommand of the existing CLI — one binary fewer, but it
 couples guard releases to the state CLI; the operator chose the separate binary.
+**Superseded because:** "the body becomes the shim" deleted every comment below each header — the
+reasoning for each branch, one comment that called itself canonical (`check-cleanup-complete.sh`'s
+Protection 1) and ~50 citations to them across `scripts/`, `scripts/lib/` and
+`skills/flow-contracts/`, which `check-references.sh` does not see; `check-mutation-reproducer-pin.sh`
+(in `## lint`) went red reading a line the shim removed. Kept headers also went on describing
+plumbing the ports dropped (the python3 wrapper, `dispatch_python_guard`).
+
+### The flow-guard binary; each guard's rationale moves into its Go file
+
+**ID:** flow-guard-binary-rationale-in-go
+**Status:** active
+**Chosen:** the separate `stats/cmd/flow-guard` binary stands. Each ported `scripts/<name>.sh`
+keeps its header (contracts cite gate guards' headers as canonical), corrected only where the port
+made a statement false, and its body is the shim. The old body's comments move into the guard's
+Go file beside the code they explain, updated where the mechanism changed; every citation of a
+body comment or a deleted harness case is repointed to the Go file or test; guards that read a
+shimmed script's body read the Go source instead — the operator's choice.
+**Considered:** restoring the bash body comments verbatim into each shim — every citation resolves
+unchanged, but the comments would describe bash code that no longer exists beside them; fixing
+lint only and filing a follow-up — leaves ~50 stale citations on main.
 
 ### A missing flow-guard is exit 2, never a fallback
 

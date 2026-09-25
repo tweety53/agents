@@ -20,7 +20,8 @@
   `run-reproducer`, `gather-dispatch-context` — each with its CLI contract unchanged: arguments,
   environment overrides, verdict lines, stdout/stderr split, exit codes.
 - Each ported `scripts/<name>.sh` keeps its header comment and becomes a shim that execs
-  `flow-guard <name>`. Skills, `skills/*/scripts/` symlinks and every `$SCRIPT_DIR/<name>.sh`
+  `flow-guard <name>`; the old body's reasoning moves into the guard's Go file, and every
+  citation of it is repointed there. Skills, `skills/*/scripts/` symlinks and every `$SCRIPT_DIR/<name>.sh`
   caller are unchanged.
 - The five bash harnesses are replaced by in-process Go tests in `stats/internal/guard/`, every
   case ported, run in parallel on shared fixtures; `run-guard-tests.sh` runs that package as one
