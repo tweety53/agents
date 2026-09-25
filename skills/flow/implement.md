@@ -288,11 +288,13 @@ repository already holds a worktree for this change — the kickoff worktree's r
 peer's repository linked above, a second entry naming a repository already resolved by an
 earlier entry, or a repository where an earlier run of this change created one — records that
 worktree as its root and creates nothing. Every other entry gets the kickoff recipe in its own
-repository (`skills/flow/brainstorm.md` step 3), in the form that run's state calls for: when
-`git -C <repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an earlier run
-pushed — `git worktree add <repo>/.worktrees/<name> spectre/<name>`, a local branch tracking
-that remote one; otherwise `git worktree add <repo>/.worktrees/<name> -b spectre/<name>
-origin/<default-branch>` — after `check-worktree-location.sh <repo>`, with the merge base
+repository — `<project>` in the commands below is that entry's repository root, not this
+change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 3): when
+`git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an
+earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local
+branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b
+spectre/<name> origin/<default-branch>` — after `check-worktree-location.sh <that repo>`, with
+the merge base
 `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees`
 map by the read-merge-write at the top of this stage, and
 `git -C <that worktree> push -u origin spectre/<name>` per **Branch backup**
