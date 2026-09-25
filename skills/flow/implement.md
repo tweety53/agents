@@ -490,6 +490,25 @@ read records the literal `unknown (agent-defined)` and never a guess.
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
 and exits 0 — never branch on this command's exit code as a signal about the record.
 
+**An incident one dispatch caused rides the next dispatch to the same role.** When a dispatched
+child does what its brief should have prevented — a fixup folded against a sha that was not an
+ancestor, a checkout that destroyed uncommitted planning artifacts, any damage a marker or
+plan-tree verify later catches behind a clean report — the parent, before anything else
+dispatches, records it in the store every later context bundle renders:
+
+```bash
+flow record incident -guard <the check that would have caught it> -symptom <what happened, verbatim> \
+  -recovery <the exact commands that would have caught it> -minutes-lost <n> -change <name>
+```
+
+and opens the next dispatch to that same role with the incident carried verbatim: what happened,
+those exact commands, and an explicit **stop and report** instruction — a repeat is handed back,
+never self-recovered. A generic warning ("be careful with git") is not a carry: kan-527's chunk 1
+worked under one and its git incident happened anyway; chunk 2's dispatch carried the specific
+three and finished with ancestry confirmed clean. The child's own claim that nothing went wrong
+never closes an incident — the same reason the content markers assert by grep, never by the
+child's prose (KAN-643's rule).
+
 Run `plan-dispatch-bundles.sh <changeRoot>/tasks.md` for this plan's bundles:
 
 ```bash

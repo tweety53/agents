@@ -341,6 +341,11 @@ recorded with `flow record pass -round <round>`.
 `-model`/`-effort` the bundle's own, from the decision's `panel.dispatches` entry. Every finding still records its own single role in `-slot`, with the
 bundle's `-dispatch-seq`.
 
+An incident a round's slot caused takes the same course (**An incident one dispatch caused rides
+the next dispatch to the same role**, `skills/flow/implement.md`, **The parent orchestrates
+directly**): recorded with `flow record incident`, and the next dispatch to that role — a
+re-run, or the panel-fix subagent — carries it verbatim.
+
 **The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
 BUILDS, REPRODUCE DON'T READ, CITATION CHECK, ENTRY CONTEXT, MODEL HANDSHAKE, the reproducer rule —
 once, then one
