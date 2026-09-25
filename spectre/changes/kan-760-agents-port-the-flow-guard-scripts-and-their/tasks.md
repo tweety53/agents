@@ -219,7 +219,7 @@ cases the test pins.
 
 - [ ] 4. Port run-reproducer
 
-**Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/metachars.go`, `scripts/run-reproducer.sh`, `scripts/test-run-reproducer.sh`
+**Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/metachars.go`, `scripts/run-reproducer.sh`, `scripts/test-run-reproducer.sh`, `scripts/test-check-panel-reproducers.sh`
 **Tests:** `TestRunReproducer`, `TestMetacharsMatchBashSource`
 **Regression:** `TestRunReproducer` fails if any of the bash harness's 109 `ok:` behaviours
 regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set drifts from
@@ -261,6 +261,23 @@ regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set dri
     `scripts/test-break-and-prove.sh`; `scripts/check-guard-symlinks.sh`;
     `scripts/check-references.sh`; `scripts/check-vocabulary.sh`.
 
+Correction (2026-09-25): shipped differently from the plan in four measured points.
+- `scripts/test-check-panel-reproducers.sh` case 19 grepped `run-reproducer.sh` for its
+  `source reproducer-metachars.sh` line, which the shim removes; it now asserts the shim line and
+  the Go parity test, `ok:` label unchanged — `**Files:**` widened.
+- Step 2's "`lib/coverage.sh` parts it sources" is `reproducer-metachars.sh` and
+  `lib/sha256-hex.sh`; `run-reproducer.sh` names `coverage.sh` only in comments.
+  <!-- measured: grep -n 'coverage.sh' scripts/run-reproducer.sh @ 0747740 -->
+- `SysProcAttr{Setsid: true}`, not `Setpgid` — the bash guard's `os.setsid()` (new session and group).
+- The bound and the grace are timers; the descendant snapshot (200ms) and the survivor liveness
+  check (10ms, under the grace deadline) stay periodic — a self-detaching child is visible only
+  while its parent lives, and no portable wait exists on a pid the guard did not start.
+- The shim exits 4, not 2, when `flow-guard` is missing — run-reproducer's own cannot-answer code
+  (2 is its "refused"); **Decision:** missing-binary-cannot-answer-code.
+- Test bound: macOS's first exec of a freshly written script costs ~0.2s (0.201s cold, 0.009s
+  warm), so timeout cases fire the bound through `RUN_REPRODUCER_BOUND_FILE` when the fixture is
+  ready, with a 30s backstop bound — no assertion loosened.
+
 - [ ] 5. Port check-panel-reproducer-exit-contract
 
 **Files:** `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/test-check-panel-reproducer-exit-contract.sh`
@@ -294,6 +311,10 @@ regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set dri
 Correction (2026-09-25): the test file was planned as `panelexitcontract_test.go`; `scripts/run-guard-tests.sh`'s
 companion rule (task 2, **Decision:** go-tests-replace-harnesses) accepts only
 `stats/internal/guard/<name with - replaced by _>_test.go` for a shim guard, so it is renamed to match.
+
+Correction (2026-09-25): the bash guard also calls `flow state get`, which `Env` has no hook
+for; the tests keep a stub `flow` on `Env`'s PATH for it and use `Env.Findings` for findings —
+case 12 runs through the real `flow record findings` call. Subtest count 60 against the floor of 59.
 
 - [ ] 6. Port gather-dispatch-context
 

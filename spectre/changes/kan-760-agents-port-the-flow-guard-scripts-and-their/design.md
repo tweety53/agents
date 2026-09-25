@@ -76,12 +76,26 @@ couples guard releases to the state CLI; the operator chose the separate binary.
 ### A missing flow-guard is exit 2, never a fallback
 
 **ID:** missing-binary-exits-2
-**Status:** active
+**Status:** superseded by missing-binary-cannot-answer-code
 **Chosen:** a shim finding no `flow-guard` on PATH prints
 `<name>: flow-guard not on PATH — run make -C <agents repo>/stats install-guard` to stderr and
 exits 2, every guard's existing "cannot answer" code.
 **Considered:** keeping the bash body as a fallback — two implementations to keep in parity, which
 the port exists to remove.
+
+**Superseded because:** run-reproducer's own contract gives 2 as "refused" and 4 as "cannot
+answer", so a flat exit 2 made its callers (`prove-reproducer.sh`, `mutate-and-verify.sh`) read a
+missing binary as a refused reproducer.
+
+### A missing flow-guard exits the guard's own cannot-answer code
+
+**ID:** missing-binary-cannot-answer-code
+**Status:** active
+**Chosen:** a shim finding no `flow-guard` on PATH prints
+`<name>: flow-guard not on PATH — run make -C <agents repo>/stats install-guard` to stderr and
+exits that guard's existing "cannot answer" code: 4 for `run-reproducer`, 2 for the other four.
+**Considered:** exit 2 everywhere (missing-binary-exits-2) — reads as "refused" to run-reproducer's
+callers.
 
 ### Installed by make and setup.sh global
 
