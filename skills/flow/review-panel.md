@@ -583,8 +583,8 @@ landed: every mutation must confirm its edit landed before the tests run — the
 where the slot intended, not nowhere and not somewhere else. An edit that never applied must be
 redone with a working mechanism: it is a refusal, never a **surviving mutant**, and it never buys
 a test. A mutation no test catches is a
-**surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless the
-operator withdraws it with a reason. A surviving mutant's reproducer carries the exact line
+**surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless it is
+withdrawn with a reason under the fix round's handback. A surviving mutant's reproducer carries the exact line
 `# mutation-reproducer` within its first 10 lines — the declaration
 `run-reproducer.sh` reads as the mutation convention, since the build succeeding
 with the mutation landed is the bug present, the reverse of the generic exit-code contract.
@@ -644,7 +644,7 @@ flow record status -change <name> -ref F<n> -status fixed
 ```
 
 **`-status` carries the whole status text the marker line shows** — a withdrawal passes its reason
-with it: `-status 'withdrawn <the operator's reason>'`.
+with it: `-status 'withdrawn <reason>'`.
 
 **Render the record when the panel closes** — every slot's result clean, no finding open — into
 the canonical worktree, never into whichever worktree the closing pass runs in, so a
@@ -1262,23 +1262,38 @@ flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
 `-commit` is the task commit the fixup was folded into.
 
 A Minor either fixed or deferred blocks nothing; a Minor left `open` blocks exactly as a Critical
-does. When fix rounds do not converge,
-the run hands back to the operator, one finding at a time:
+does. When fix rounds do not converge, the run decides each unresolved finding itself, one finding
+at a time, and does not ask:
+
+- **A defect a code or document change can resolve takes another fix round** — whatever its
+  severity, and even where the fix reaches past the change's original scope. A Minor that reached
+  this loop is fixed here; the round's Minor-deferral default above does not apply to it.
+- **A finding no change to the tree can resolve is withdrawn** — a verification-only ask, a proof
+  that needs an environment the run does not have, a defect something already covers — recorded
+  `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. That reason stands
+  where the operator's would.
+- **Only a genuine inability reaches the operator:** a finding the run cannot judge either way, a
+  fix that needs an irreversible or outward-facing action, or a defect identity still open after
+  two automatic rounds on it. Only then does the run ask, shape per Operator prompts
+  (`skills/flow-contracts/operator-prompts.md`):
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
 > - **Take another round on it** *(default, recommended)*
 > - **Withdraw it — I'll give the reason** — the reason is recorded on the finding's marker line
 > - **Stop the run and hand it back to me**
 
-Only that answer records `withdrawn`, and only with the reason the operator gives.
+**Every automatic decision is recorded in the pass log** with `flow record pass -round <round>
+-note 'auto-decided F<n>: another round — <the defect>'` or `-note 'auto-decided F<n>: withdrawn —
+<reason>'`, so the handoff shows it. Only this loop records `withdrawn`: automatically with the
+run's reason, or on the operator's answer with theirs.
 
 **A fix round closes on a clean re-run, never on its own verification.** The reproducer re-runs
 and the fix-diff path check above close the findings that fix addressed; they never close the
 panel. After a round that dispatched a `panel-fix` chunk, the delta re-run the rules above trigger
 runs before the close guards below do, and the stage may close only on a re-run that raised no new
 finding at any severity; an empty-delta re-run whose slots were recorded `not re-run — nothing new
-since its last read` counts as clean, and a re-run that re-raises a defect the operator withdrew
-under the handback above is recorded `withdrawn` with the operator's original reason, never
+since its last read` counts as clean, and a re-run that re-raises a defect withdrawn
+under the handback above is recorded `withdrawn` with its original reason, never
 `open`, and does not stand in the way of that clean round. The last round before the stage close
 is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose
 only raise was a defect recorded `withdrawn` under the carve-out above, or a round every one of
