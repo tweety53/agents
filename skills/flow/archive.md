@@ -182,7 +182,12 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    ```bash
    MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
    SELF_REVIEW_MODEL="$(flow settings get | jq -r '.selfReviewModel // empty')"
-   PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>/dev/null | tr -d '`' | xargs)"
+   PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>&1)"; rc=$?
+   case "$rc" in
+     0) PROJECT_SRM="$(printf '%s' "$PROJECT_SRM" | tr -d '`' | xargs)" ;;
+     1) PROJECT_SRM="" ;;
+     *) echo "⛔ flow: project-get.sh exited $rc: $PROJECT_SRM — stop the run" >&2; exit 2 ;;
+   esac
    if [ -n "$PROJECT_SRM" ]; then
      if flow settings models | grep -qx -- "$PROJECT_SRM"; then SELF_REVIEW_MODEL="$PROJECT_SRM"
      else echo "⚠ flow: .flow/project.md '## self review model' body '$PROJECT_SRM' is not a valid model — dropped" >&2; fi

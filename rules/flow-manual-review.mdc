@@ -10,7 +10,8 @@ alwaysApply: true
 When running `/flow`, follow this **fixed three-state pipeline**:
 
 ```text
-/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff and run the apps
+/flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
+/flow  (STARTED, planned)  → IN_PROGRESS              you: review the staged diff and run the apps
 /flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```

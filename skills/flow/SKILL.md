@@ -53,9 +53,18 @@ MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-di
 SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
+project_key() {
+  local out rc
+  out="$(project-get.sh "$1" "$2" 2>&1)"; rc=$?
+  case "$rc" in
+    0) printf '%s' "$out" | tr -d '`' | xargs ;;
+    1) ;;
+    *) echo "⛔ flow: project-get.sh $1 '$2' exited $rc: $out — stop the run" >&2; exit 2 ;;
+  esac
+}
 resolve_toggle() {
   local key="$1" val root rval
-  val="$(project-get.sh "$MAIN_CHECKOUT" "$key" 2>/dev/null | tr -d '`' | xargs)"
+  val="$(project_key "$MAIN_CHECKOUT" "$key")" || exit 2
   if [ -n "$val" ] && [ "$val" != default ] && [ "$val" != dynamic ]; then
     echo "⚠ flow: .flow/project.md '## $key' body '$val' is not 'default' or 'dynamic' — dropped" >&2
     val=""
@@ -64,17 +73,24 @@ resolve_toggle() {
   if [ "$val" = default ] && [ -n "${STATE_WORKTREE_ROOTS:-}" ]; then
     for root in $STATE_WORKTREE_ROOTS; do
       [ "$root" = "$MAIN_CHECKOUT" ] && continue
-      rval="$(project-get.sh "$root" "$key" 2>/dev/null | tr -d '`' | xargs)"
+      rval="$(project_key "$root" "$key")" || exit 2
       if [ "$rval" = dynamic ]; then val=dynamic; break; fi
     done
   fi
   printf '%s' "$val"
 }
-EXECUTION_MODE_TOGGLE="$(resolve_toggle 'execution mode')"
-IMPLEMENTER_MODEL_TOGGLE="$(resolve_toggle 'implementer model')"
-REVIEW_PANEL_TOGGLE="$(resolve_toggle 'review panel')"
+EXECUTION_MODE_TOGGLE="$(resolve_toggle 'execution mode')" || exit 2
+IMPLEMENTER_MODEL_TOGGLE="$(resolve_toggle 'implementer model')" || exit 2
+REVIEW_PANEL_TOGGLE="$(resolve_toggle 'review panel')" || exit 2
 VERIFY_MODEL=opus
 ```
+
+**A read that failed is never a toggle set to `default`.** `project-get.sh` resolves per **Guard
+resolution** (`skills/flow-contracts/pipeline.md`) and is not on `PATH`: discarding its stderr once read
+its `command not found` as an absent key and resolved every toggle `default` while the project
+declared `dynamic` (gymie KAN-746). Exit 1 — the key or `<project>/.flow/project.md` absent — is
+the only failure that resolves `default`; any other exit, 127 included, stops the run with the
+lines above.
 
 **`STATE_WORKTREE_ROOTS` widens toggle resolution across the repositories a change already
 spans.** Set it — space-separated absolute
@@ -144,9 +160,9 @@ flow state get <name-or-best-guess> -C <repo-root>
 ```
 
 - **Exit 1**, or exit 0 with `"synthetic": true` — **no state**: a creating run. See
-  **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`); once `## Plan`
-  returns, continue directly into **The parent orchestrates directly**
-  (`skills/flow/implement.md`).
+  **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`); the run ends at
+  the plan gate's **Yes** with a `/clear` handoff, and the next `/flow <name>` enters **The parent
+  orchestrates directly** (`skills/flow/implement.md`).
 - **Exit 0, `"state": "STARTED"`** — a creating run interrupted before it reached `IN_PROGRESS`. See
   **Resuming at `STARTED`** (`skills/flow/brainstorm.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run — or a plain message, per

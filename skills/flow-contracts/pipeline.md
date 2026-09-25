@@ -26,7 +26,8 @@ discovery aid, never a second statement of what they say:
 A change is always in exactly one of three states, recorded in its state file.
 
 ```text
-/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff — the stack is running
+/flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
+/flow  (STARTED, planned)  → IN_PROGRESS              you: review the staged diff — the stack is running
 /flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff — the stack is running
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route — see the finish contract
 ```
@@ -76,8 +77,8 @@ ignored word is indistinguishable from a flag that stopped working.
 
 | Command | Accepts | Ends at |
 |---------|---------|---------|
-| `/flow` | *(no state — creates the change)* | `STARTED`, same invocation continuing to `IN_PROGRESS` unless it stops early (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`) |
-| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still resuming) or `IN_PROGRESS` |
+| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`) |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready) |
 | `/flow` | `IN_PROGRESS`, with an argument | fix run; state unchanged |
 | *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) |
 | `/flow` | `IN_PROGRESS`, bare | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
@@ -236,8 +237,8 @@ Next:
 
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
-- **A handoff that leaves the change at `IN_PROGRESS` puts `/clear` on the line above the next
-  command.** Every invocation re-enters from the state file and the change's own artifacts, so the
+- **A handoff that leaves the change at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
+  Yes, puts `/clear` on the line above the next command.** Every invocation re-enters from the state file and the change's own artifacts, so the
   next run needs nothing this session carries — while a run started in this session re-reads all of
   it on every turn. It is a recommendation the operator may skip, never a gate, and the next
   command stays the last line.

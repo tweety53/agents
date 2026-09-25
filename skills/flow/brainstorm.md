@@ -186,8 +186,10 @@ flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 — the prose summary of the logic to be implemented, the `## Decision` block, **Proceed to implementation?** with **Yes** /
 **No (plan needs updates)**; a **No** revises and re-decides per that section, recording each
 re-decision through the sequence above. On **Yes**, make the plan-gate planning commit and push
-it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then continue into
-`skills/flow/implement.md` directly.
+it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then **end the run** with
+the `STARTED` handoff (**The block each state renders**, `skills/flow-contracts/handoff-blocks.md`),
+`/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds
+the plan ready (**Resuming at `STARTED`** above) and implements on a fresh context.
 
 ## Resume and fix runs
 

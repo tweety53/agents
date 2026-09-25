@@ -605,5 +605,5 @@ Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record seq
 decision row — then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
 
 What happens once this section's plan enrichment completes is stated in **Run brainstorming and
-planning directly** (`skills/flow/brainstorm.md`) — continuing directly into
-`skills/flow/implement.md`.
+planning directly** (`skills/flow/brainstorm.md`) — the run ends with a `/clear` handoff, and the
+next `/flow <name>` enters `skills/flow/implement.md`.

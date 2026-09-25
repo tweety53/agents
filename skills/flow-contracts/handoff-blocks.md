@@ -75,6 +75,7 @@ open -na "IntelliJ IDEA" --args "<absolute main-checkout path>"
 <what the operator does next>
 
 Next:
+/clear
 /flow <name>
 ```
 
