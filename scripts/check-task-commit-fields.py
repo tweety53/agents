@@ -61,6 +61,20 @@ be created. The cost KAN-442 removed — two full suites per task, paid
 unconditionally — is here paid only where the plan author recorded a
 command, which is the plan opting in.
 
+KAN-676 adds the one check that reads a tag's PAYLOAD rather than a field:
+a verification tag in the closing task's own record — a `verified:` on a
+fence info string, a `measured:` comment in its prose — must carry its
+evidence, the command, source URL or output that shows the check ran
+(`check_evidence_tags`). The evidence rule is canonical in
+skills/flow-contracts/plan-provenance.md; a tag naming nothing after the
+colon is the false-label shape that rule exists to prevent — worse than no
+tag, because the reader trusts it — so the close fails like any other field
+violation. The honest tags (`unverified:`, `predicted:`) are not this
+guard's subject: the plan-provenance guard owns their payloads at the plan
+level. Fence content is never scanned (a comment-shaped line inside a
+worked example is code), on lib/plan_grammar.py's own fence rule, the same
+toggle `parse_task_fields` uses.
+
 Scope is one task, in one tasks.md, in one worktree, checked against one
 commit (and its parent) — unlike check-task-build-green.py, which scans an
 entire tasks.md's tags in one pass. The one exception is a folded pair,
@@ -322,6 +336,7 @@ from plan_grammar import (
     DOTTED_ID,
     FENCE_RE,
     SQUASH_WITH_FIELD_RE,
+    TaskBody,
     iter_tasks,
     select_build_tag,
     select_squash_with,
@@ -1517,6 +1532,69 @@ def check_commit_scope(task: TaskFields, change_name: str) -> List[str]:
     return []
 
 
+# The evidence-rule tag shapes this guard refuses at task close. The fence
+# tag is anchored like check-plan-provenance.py's FENCE_TAG_RE — start or
+# whitespace before `verified:`, so `preverified:` cannot satisfy it — and
+# the comment regex is that guard's PROVENANCE_RE narrowed to `measured:`,
+# the one comment tag that claims a check happened rather than predicting
+# one. Both payloads are tested for evidence by the function below, never
+# by these patterns.
+EVIDENCE_FENCE_TAG_RE = re.compile(r"(^|\s)verified:")
+EVIDENCE_MEASURED_RE = re.compile(r"<!--\s*measured:")
+
+
+def check_evidence_tags(body: TaskBody) -> List[str]:
+    """The evidence rule, enforced on the closing task's own record: a
+    `verified:` tag on a fence info string, or a `measured:` comment in
+    the task's prose, must name what shows its check ran — the command,
+    the source URL, or the output. A tag naming nothing after the colon
+    asserts a check while carrying no evidence, which
+    skills/flow-contracts/plan-provenance.md ("The evidence is part of
+    the tag") makes a violation rather than an omission: it is worse
+    than the honest untagged shape, because the reader trusts it.
+
+    Payload and presence are tested together here and presence alone at
+    the plan level, so one defective tag costs one finding from whichever
+    guard runs first. Fence CONTENT is never scanned — the toggle is
+    lib/plan_grammar.py's fence rule, the same one `parse_task_fields`
+    uses, so a comment-shaped line inside a worked example stays code —
+    and the fence's own OPENING line is where an info-string tag is
+    looked for, a closing line carrying no info string to read.
+    """
+    violations: List[str] = []
+    in_fence = False
+    for offset, line in enumerate(body.lines):
+        # body_start is the 0-based index of the body's first line, so the
+        # file line number of body.lines[offset] is body_start + offset + 1.
+        lineno = body.body_start + offset + 1
+        if FENCE_RE.match(line):
+            if not in_fence:
+                match = EVIDENCE_FENCE_TAG_RE.search(line)
+                if match and not line[match.end():].strip():
+                    violations.append(
+                        f"task {body.id}: verified: tag on the fence at "
+                        f"tasks.md line {lineno} carries no evidence after "
+                        "the colon — write the command, source URL or output "
+                        "that shows the check ran, or tag the block "
+                        "unverified"
+                    )
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        match = EVIDENCE_MEASURED_RE.search(line)
+        if match:
+            closer = line.find("-->", match.end())
+            if closer != -1 and not line[match.end():closer].strip():
+                violations.append(
+                    f"task {body.id}: measured: comment at tasks.md line "
+                    f"{lineno} carries no evidence after the colon — write "
+                    "the command and ref that were run, or tag the claim "
+                    "predicted"
+                )
+    return violations
+
+
 def check_task_commit(
     tasks_md_path: str, task_id: str, worktree: str, commit_sha: str,
     parent_sha: Optional[str] = None,
@@ -1579,6 +1657,11 @@ def check_task_commit(
     ).strip()
 
     violations: List[str] = []
+    # The evidence rule (KAN-676) is a plan-text check like the unclosed
+    # fence above, but a defective tag does not blind the field checks the
+    # way an unclosed fence does — it joins them as one more violation of
+    # the same close.
+    violations += check_evidence_tags(select_task(lines, task_id))
     # `folded` carries the union file set and the surviving commit's expected
     # subject; `task` carries what this task itself declared, which is what
     # Tests: and the declared-scope check are about either way.

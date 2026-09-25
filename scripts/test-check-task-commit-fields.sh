@@ -4381,6 +4381,119 @@ run_guard "$REPO" 139 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 139: export-ignored blob still searched" || fail "case 139: rc=$RC out=$OUT"
 
 
+# ===========================================================================
+# Cases 140-143: the evidence rule (KAN-676) — a verification tag in the
+# closing task's own record must carry its evidence, per
+# skills/flow-contracts/plan-provenance.md's "The evidence is part of the
+# tag".
+# ===========================================================================
+
+# Case 140: a fence tagged `verified:` with nothing after the colon fails
+# the close, naming the task, the line and the rule.
+new_repo
+write_tasks_md "$REPO" '- [ ] 140. Evidence-free verified tag
+
+Run the check:
+
+```bash verified:
+echo hi
+```
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 140 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 140: evidence-free verified tag fails" || fail "case 140: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 140"*"carries no evidence"*) pass "case 140: names the task and the evidence rule" ;;
+  *) fail "case 140: expected evidence message, out=$OUT" ;;
+esac
+
+# Case 141: an empty `measured:` comment in the task's prose fails the same
+# way — presence alone stopped satisfying the evidence rule.
+new_repo
+write_tasks_md "$REPO" '- [ ] 141. Evidence-free measured comment
+
+Baseline: 197 tests
+<!-- measured: -->
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 141 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 141: evidence-free measured comment fails" || fail "case 141: rc=$RC out=$OUT"
+case "$OUT" in
+  *"measured: comment at tasks.md line"*"carries no evidence"*)
+    pass "case 141: names the line and the comment" ;;
+  *) fail "case 141: expected measured-comment message, out=$OUT" ;;
+esac
+
+# Case 142 (control): tags WITH evidence pass — the guard demands a payload,
+# never a particular `@ <ref>` shape; the machine-local carve-out stays open.
+new_repo
+write_tasks_md "$REPO" '- [ ] 142. Evidence carried
+
+```bash verified:ran it locally before writing
+echo hi
+```
+
+Baseline: 197 tests
+<!-- measured: wc -l on the machine-local log; no ref, the file is machine-local -->
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 142 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 142: tags with evidence pass" || fail "case 142: rc=$RC out=$OUT"
+
+# Case 143 (control): comment CONTENT inside fence content is code, never a
+# comment — the fence grammar owns it and the evidence check does not read it.
+new_repo
+write_tasks_md "$REPO" '- [ ] 143. Comment inside fence content
+
+```bash verified:ran it locally
+echo "<!-- measured: -->"
+```
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 143 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 143: fence content comment not flagged" || fail "case 143: rc=$RC out=$OUT"
+
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
