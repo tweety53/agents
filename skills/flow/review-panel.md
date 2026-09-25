@@ -783,7 +783,12 @@ commits that landed on the base mid-panel out of the fold, where an `origin/$BAS
 carry them straight into the round's delta. The route's own diff is
 `git diff "$FIX_BASE"..HEAD`, read once the fold has landed — the same held pre-fix sha to HEAD
 as the plain route; the fold rewrites `<task-sha>` in place, so no diff endpoint is ever
-re-resolved, and a movable base can never leak into the delta.
+re-resolved, and a movable base can never leak into the delta. The fold is bracketed by the
+ancestry guard: `guard-autosquash.sh targets <worktree> <task-sha>` before the autosquash,
+`guard-autosquash.sh after <worktree> <task-sha>^ <changeRoot>/tasks.md` once it lands — the
+post-check's base is the fold's own upstream, never `FIX_BASE`, which the fold deliberately holds
+stale as its diff endpoint, and a refusal from either stops the round before anything builds on
+the rewritten history (`scripts/guard-autosquash.sh`).
 
 **A clean `git rebase --autosquash` is not evidence the fix survived it.** Where the fixup and the
 commit it folds into touch nearby lines, git's 3-way auto-merge can resolve in favour of the
