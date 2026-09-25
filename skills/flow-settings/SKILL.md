@@ -101,14 +101,14 @@ the value read in step 1 for each field that did not.
 
 **Before the write, tell the operator which slots cannot dispatch as themselves here.** The
 roster's slots spawn as **The roster** (`skills/flow/review-panel.md`) spawns them — on
-`flow-review`, or on `flow-<effort>` where the panel is decided — and a conductor whose harness
+`flow-low`, or on `flow-<effort>` where the panel is decided — and a conductor whose harness
 offers neither substitutes a harness-provided type (`general-purpose`) for those slots. Compare
 each confirmed slot's spawn type against the agent types this session's own harness offers at
 conductor depth, and when the type is absent print one line ahead of the write, naming every
 affected slot in roster order:
 
 ```
-⚠ roster: no `flow-review` agent type at conductor depth — primary, principles, bugbot will be substituted (general-purpose) at panel time
+⚠ roster: no `flow-low` agent type at conductor depth — primary, principles, bugbot will be substituted (general-purpose) at panel time
 ```
 
 The write proceeds either way: never a gate. Never

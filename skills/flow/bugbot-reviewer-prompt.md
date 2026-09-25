@@ -6,7 +6,7 @@ finding — see **The throwaway worktree** (`skills/flow/review-panel-optional-s
 made and removed.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # flow-review on a `default` panel;
+Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;   
                                             # flow-<effort> on a decided panel
   description: "Defect hunt (Bugbot)"
   model: <the bundle's own model>         # DEFAULT_MODEL on a `default` panel, the decision's

@@ -143,11 +143,11 @@ overrides:
 
 | id | Slot | How to spawn |
 |---|------|---------------|
-| `primary` | **Primary** — plan alignment and senior code review | `flow-review` + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
-| `principles` | **Principles** | `flow-review` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
-| `bugbot` | **Bugbot** — defect hunt | `flow-review` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
-| `security` | **Security** | `flow-review` + `security-reviewer-prompt.md` |
-| `mutation` | **Mutation** — sabotage-proofing | `flow-review` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
+| `primary` | **Primary** — plan alignment and senior code review | `flow-low` + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
+| `principles` | **Principles** | `flow-low` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
+| `bugbot` | **Bugbot** — defect hunt | `flow-low` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
+| `security` | **Security** | `flow-low` + `security-reviewer-prompt.md` |
+| `mutation` | **Mutation** — sabotage-proofing | `flow-low` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
 `primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
@@ -159,9 +159,9 @@ dispatcher resolves their paths, confirms each exists, and names them in the pro
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts.
 `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
 for this run. Every slot in this table,
-Bugbot and Security included, is dispatched on `flow-review` (`agents/flow-review.md`, on
-a `default` panel) and carries the same model rule. `flow-review` is a definition
-this repository owns, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a
+Bugbot and Security included, is dispatched on `flow-low` (`agents/flow-low.md`, on
+a `default` panel) and carries the same model rule. The `flow-<effort>` definitions are
+this repository's own, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a
 capability the slot structurally does not have, not by the NO DELEGATION paragraph alone;
 `general-purpose` is a harness-provided type whose tool set cannot be restricted.
 
@@ -356,7 +356,7 @@ panel record names every worktree's sha beside the delta path. `-model` is `DEFA
 a `default` panel and the dispatch's own model from the decision's
 `panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a
 fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` likewise:
-`default` on a `default` panel, and the dispatch's own effort on a decided panel,
+`low` on a `default` panel, and the dispatch's own effort on a decided panel,
 `panel.rerun_dispatch`'s `low` on a re-run.
 
 **`-agent-id` is never typed, never invented** — the daemon captures the launch identifier,

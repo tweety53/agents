@@ -28,7 +28,7 @@ any project.
 | `rules/` | Rules. Whether one is always-on is declared by `alwaysApply` in its own frontmatter; opt-in rules (e.g. the Kotlin backend standard) reach only projects that name them. `agent-baseline.md` is not a rule — it is the file every dispatched subagent is told to read |
 | `skills/` | The `/flow*` skills; `skills/flow-contracts/` holds the on-demand contracts, with `pipeline.md` canonical for the state machine. Command map: `skills/README.md` |
 | `commands/`, `commands-claude/` | Thin slash-command wrappers for Cursor and for Claude Code/ZCode |
-| `agents/` | Subagent definitions (`flow-low`, `flow-medium`, `flow-high`, `flow-review`) |
+| `agents/` | Subagent definitions (`flow-low`, `flow-medium`, `flow-high`) |
 | `hooks/` | `enforce-agent-baseline.py` (denies a dispatch missing the baseline pointer), `protect-main-checkout.py` (denies edits on a main checkout's default branch), `flow-active-change.py` (turns a plain problem report into a fix run) |
 | `scripts/` | The guards `/flow` runs, each with its `test-*.sh` harness |
 | `stats/` | `flowd` — the PostgreSQL-backed service holding pipeline state and per-stage telemetry, with a web UI. See `stats/README.md` |

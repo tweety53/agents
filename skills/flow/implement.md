@@ -80,9 +80,8 @@ dispatch-time parameter) carries a `tools:` allowlist that omits
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row whenever it dispatches on its group's
-`model`/`effort` pair. On a `default` panel a reviewer row dispatches `flow-review`
-(`agents/flow-review.md`) instead — a definition this repository owns, carrying the same
-allowlist, so the reviewer rows are structurally fork-free on both panel shapes. The verifier
+`model`/`effort` pair. On a `default` panel a reviewer row dispatches `flow-low`, so the
+reviewer rows are structurally fork-free on both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too.
 
