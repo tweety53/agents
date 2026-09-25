@@ -328,7 +328,11 @@ with `**Build:**` per **The build-green tag**
   a count differing from the declared one fails the task — record a command whose stdout is one
   integer (a `| grep -c` pipeline is the shape), and read
   "never from a test run" as constraining how the declared numbers are derived at plan time, not
-  the guard's re-measurement.
+  the guard's re-measurement. The recorded command names no ref of its own — no tree, sha, branch
+  or revision argument anywhere inside it: the re-measurement checks each of its two points out
+  itself and runs the command in that working tree, so a command naming a ref measures that one
+  tree at both points, reports identical counts, and fails any nonzero declared delta. The
+  comment's `@ <ref>` is the provenance annotation, never part of the command.
 - `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
   the task's own `**Files:**` field carries, per **Commit scopes name the module**
   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
