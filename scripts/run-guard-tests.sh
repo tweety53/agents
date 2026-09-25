@@ -143,6 +143,24 @@ fi
 # Cleaned up explicitly at the end of a normal run; a mktemp -d leaking on
 # SIGINT here is a trivial cost next to parallel.sh's own cleanup of its
 # (much larger) capture directory, which its process-wide trap already owns.
+# Longest first. parallel_run starts jobs in array order, so a slow harness
+# that starts late ends the run on its own tail: in glob order the suite took
+# ~150s wall for ~945s of work on ten cores. Each harness's last duration is
+# kept in the repository's git dir (never committed, rewritten every run); a
+# harness with no recorded duration sorts first, as if it were the slowest.
+DURATIONS=""
+[ -n "$WATCHED" ] && DURATIONS="$(git -C "$WATCHED" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/guard-test-durations"
+if [ -n "$DURATIONS" ] && [ -f "$DURATIONS" ]; then
+  ORDERED=()
+  while IFS=$'\t' read -r _ h; do ORDERED+=("$h"); done < <(
+    for h in "${HARNESSES[@]}"; do
+      d="$(awk -F'\t' -v n="${h##*/}" '$2 == n { print $1; exit }' "$DURATIONS")"
+      printf '%s\t%s\n' "${d:-999999}" "$h"
+    done | sort -t$'\t' -k1,1nr
+  )
+  HARNESSES=("${ORDERED[@]}")
+fi
+
 TIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-time.XXXXXX")"
 
 if [ -n "$WATCHED" ]; then
@@ -199,6 +217,13 @@ done
 
 # TIME_DIR itself survives until an exit path below: the tree gate's
 # after.status snapshot is still to be written into it.
+if [ -n "$DURATIONS" ]; then
+  i=0
+  for h in "${HARNESSES[@]}"; do
+    printf '%s\t%s\n' "$(cat "$TIME_DIR/$i.time" 2>/dev/null || printf 0)" "${h##*/}"
+    i=$((i + 1))
+  done > "$DURATIONS" 2>/dev/null || true
+fi
 TOTAL=${#HARNESSES[@]}
 WALL=$SECONDS
 
