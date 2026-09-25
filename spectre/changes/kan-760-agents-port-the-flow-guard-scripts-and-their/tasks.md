@@ -474,7 +474,7 @@ commit; `**Files:**` widened to match.
 **Regression:** none — no commit
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
-**After:** Task 4, 5, 6, 7, 8, 9, 11, 12
+**After:** Task 4, 5, 6, 7, 8, 9, 11, 12, 13
 **Commit:** none — this task commits nothing to this repository; its figures go into `design.md`'s **Measurements**, committed with the change's artifacts
 **Build:** green
 
@@ -549,7 +549,7 @@ Review fix (2026-09-25): four citations still dangled — `case_92`/`case_93` (o
 "its existing harness" (the deleted `test-run-reproducer.sh`; `**Files:**` widened) and
 `lib/within-root.sh`'s present-tense "Sourced by" — repointed.
 
-- [ ] 12. Port KAN-676's evidence-tag close check to flow-guard
+- [x] 12. Port KAN-676's evidence-tag close check to flow-guard
 
 **Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`
 **Tests:** `TestCheckTaskCommitFields`
@@ -572,20 +572,20 @@ The source is `origin/main` at `58810503`, not `0747740`: read it with
 (`git show de387f3a e42e982a`). Do not touch `scripts/check-task-commit-fields.py` or restore
 `scripts/test-check-task-commit-fields.sh` — both reach this branch at integrate's sync.
 
-  - [ ] **Step 1: Failing tests.** Port cases 140–146 (from `# Cases 140-143:` to the file's
+  - [x] **Step 1: Failing tests.** Port cases 140–146 (from `# Cases 140-143:` to the file's
     case-146 block) into `TestCheckTaskCommitFields`, one subtest per `pass "…"` label — 10 —
     named on the existing `case_<n>` convention, each asserting the exit code and message
     substrings the bash case asserted. Run `go test ./internal/guard/ -run
     'TestCheckTaskCommitFields/case_14[0-6]' -count=1` from `stats/` — expect the evidence-free
     cases to fail.
-  - [ ] **Step 2: Port** `check_evidence_tags`, `EVIDENCE_FENCE_TAG_RE`, `EVIDENCE_MEASURED_RE`
+  - [x] **Step 2: Port** `check_evidence_tags`, `EVIDENCE_FENCE_TAG_RE`, `EVIDENCE_MEASURED_RE`
     and the call site in `check_task_commit` into `taskcommitfields.go`, at the same position in
     the violation order, messages byte-identical; the Python docstring and the module header's
     KAN-676 paragraph move in as Go comments. Fence detection reuses the port's existing
     `plan_grammar` fence rule, never a new one.
-  - [ ] **Step 3: Green** — `go test ./internal/guard/ -run TestCheckTaskCommitFields -count=1 -v |
+  - [x] **Step 3: Green** — `go test ./internal/guard/ -run TestCheckTaskCommitFields -count=1 -v |
     grep -cE -- '--- PASS: TestCheckTaskCommitFields/[^/ ]+/'` at least 298.
-  - [ ] **Step 4: Verify.** From `stats/`: `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/
+  - [x] **Step 4: Verify.** From `stats/`: `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/
     -count=1 -race`; from the worktree root: `scripts/check-references.sh`,
     `scripts/check-guard-symlinks.sh`.
 
@@ -595,3 +595,40 @@ are 10 (140:2, 141:2, 142:1, 143:1, 144:1, 145:2, 146:1), so the floor is 298, n
 The commit also extracts `tcfSelectTask` (port of `select_task`) out of `tcfParseTask`, which now
 calls it; `tcfCheckEvidenceTags` is its second caller. Old-vs-new: upstream's Python and the Go
 port gave byte-identical output and equal exit codes on all seven case blocks.
+
+- [ ] 13. Cut the guard test package to at most 10s
+
+**Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/check_cleanup_complete_test.go`
+**Allowed-collateral:** `stats/internal/guard/*.go`
+**Tests:** `TestRunReproducer`, `TestCheckPanelReproducerExitContract`, `TestCheckTaskCommitFields`, `TestCheckCleanupComplete`
+**Regression:** each named test's `--- PASS` count stays at its task-10 figure — cleanup-complete
+309, task-commit-fields 298, run-reproducer 109, panel-reproducer-exit-contract 60 — and
+`go test ./internal/guard/... -count=1` exceeds 10s real if the removed waits return.
+**Baseline:** before=0 after=0
+<!-- predicted: no test function is added or removed; the change is to how existing cases wait and build fixtures -->
+**After:** Task 4, 5, 7, 8, 11, 12
+**Commit:** `perf(stats): cut the guard test package to under ten seconds`
+**Build:** green
+
+**Decision:** guard-package-under-10s
+**Decision:** inject-deadlines-in-process
+
+  - [ ] **Step 1: Profile.** From `stats/`: `go test -c -o $TMPDIR/guard.test ./internal/guard/`,
+    then `/usr/bin/time -p $TMPDIR/guard.test -test.run '^<Test>$' -test.count=1` per top-level
+    test, and `-test.v` with `-test.parallel 1` for the slowest subtests of each. Name, per test,
+    where its wall time goes — an un-injected real-time wait, a poll tick, repeated fixture
+    building, process spawns — with the measurement. Baseline the package:
+    `/usr/bin/time -p go test ./internal/guard/... -count=1` ×3.
+  - [ ] **Step 2: Fix at the source**, one cause at a time, re-measuring after each. Every fix
+    satisfies **guard-package-under-10s**: every case kept and asserting what it asserted, no
+    `-short` skip, no loosened assertion, and a production default or CLI-visible behaviour
+    changed only where the change is a pure latency cut with identical output (e.g. the supervise
+    loop waking on the child's exit rather than the next tick, with the final descendant snapshot
+    kept). Report every production-code change with the output-identity evidence.
+  - [ ] **Step 3: Green and parity.** `go test ./internal/guard/ -count=1 -race`; the four
+    `--- PASS` counts equal their Regression figures (greps as in task 10's report).
+  - [ ] **Step 4: Measure.** `/usr/bin/time -p go test ./internal/guard/... -count=1` ×3 from
+    `stats/`, all ≤10s real. A run above 10s is reported, never recorded as success.
+  - [ ] **Step 5: Verify.** `gofmt -l .`, `go vet ./...` from `stats/`; from the worktree root,
+    with the tree's `flow-guard` first on PATH, `scripts/test-check-panel-reproducers.sh` and
+    `scripts/test-check-mutation-reproducer-pin.sh` (callers of `run-reproducer.sh`).

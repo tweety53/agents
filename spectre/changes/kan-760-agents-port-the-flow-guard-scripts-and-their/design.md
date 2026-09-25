@@ -190,6 +190,24 @@ modify/delete conflict by keeping the deletion. First instance: KAN-676's eviden
 it once the shim execs `flow-guard`, so the check would silently stop being enforced; a follow-up
 ticket — unenforced until it lands. Operator chose the appended task, 2026-09-26.
 
+### The guard test package runs in at most 10s
+
+**ID:** guard-package-under-10s
+**Status:** active
+**Chosen:** `go test ./internal/guard/... -count=1` runs in ≤10s real on this machine, every
+case kept, fixed at the source of the wall time — a real-time wait a test can inject away
+(**inject-deadlines-in-process**), a poll that notices a finished child only on its next tick,
+fixture work repeated per case that a shared read-only fixture covers — never by dropping a case,
+skipping one under `-short`, or loosening an assertion. Production defaults and every CLI contract
+stay as ported. Measured at `6ed51f22`: the package ran 28.9–33.8s real, 16–17s user, 30–31s sys
+(task 10). In isolation `TestCheckPanelReproducerExitContract` took 10.3s real on 2.2s sys and
+`TestRunReproducer` 9.1s on 3.6s — waiting, not spawning — while `TestCheckTaskCommitFields` took
+5.4s real on 20.5s sys — spawning. `TestRunReproducer`'s `exit 0` control case took 0.34s alone,
+with the supervise loop polling every 200ms (`rrPoll`).
+<!-- measured: cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1 (x3) @ 6ed51f22; go test -c then /usr/bin/time -p guard.test -test.run '^<Test>$' per top-level test @ 6ed51f22 -->
+**Considered:** accept the measurement and raise the criterion, or file a follow-up slice — the
+operator chose to fix it in this change, 2026-09-26.
+
 ### Follow-ups filed at integrate
 
 **ID:** follow-ups-at-integrate
