@@ -71,12 +71,11 @@ diff literally — and `tasks.md`'s H1 stays the exact `# <change-id>` literal `
 requires, never a title the note supplies.
 
 **The note's verification tags are evidence-checked at seeding.** A `verified:`/`measured:` tag
-the note carries is copied only with its evidence in hand — the command, the source URL, or the
-output that shows the check ran; a tag naming nothing is rewritten to the honest
-`unverified:`/`predicted:` tag, or dropped, never copied. Seeding is otherwise how an
-unverifiable verification tag enters a plan believing itself checked — the exact shape
-**Plan provenance**'s evidence rule (`skills/flow-contracts/plan-provenance.md`) exists to
-prevent, and the one the task-close guard refuses a close over.
+the note carries is copied only when its evidence is in hand; a tag naming nothing is rewritten to
+the honest `unverified:`/`predicted:` tag, or dropped, never copied — per **Plan provenance**'s
+evidence rule (`skills/flow-contracts/plan-provenance.md`), which also names why: seeding is how
+an unverifiable verification tag enters a plan believing itself checked. The task-close guard
+refuses a close over the shape.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
