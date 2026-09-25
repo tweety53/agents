@@ -64,7 +64,7 @@ Live verification: task 10 runs the real suite on this machine and records befor
 
 ---
 
-- [ ] 1. The flow-guard binary and its build
+- [x] 1. The flow-guard binary and its build
 
 **Files:** `stats/cmd/flow-guard/main.go`, `stats/cmd/flow-guard/main_test.go`, `stats/internal/guard/guard.go`, `stats/Makefile`, `scripts/test-make-build.sh`, `stats/README.md`
 **Tests:** `TestUnknownGuardExits2`, `TestNoGuardNameExits2`, `build target emits bin/flow-guard`
@@ -81,7 +81,7 @@ exiting 2; `build target emits bin/flow-guard` fails if `make build` stops writi
 **Decision:** separate-flow-guard-binary
 **Decision:** install-via-make-and-setup
 
-  - [ ] **Step 1: Failing tests.** In `stats/cmd/flow-guard/main_test.go` write
+  - [x] **Step 1: Failing tests.** In `stats/cmd/flow-guard/main_test.go` write
     `TestUnknownGuardExits2` (calling `run([]string{"no-such-guard"}, …)` returns 2, stderr
     contains `unknown guard`) and `TestNoGuardNameExits2` (`run(nil, …)` returns 2, stderr carries
     the usage). In `scripts/test-make-build.sh` add, beside the existing `build target emits
@@ -89,7 +89,7 @@ exiting 2; `build target emits bin/flow-guard` fails if `make build` stops writi
     `go build -o bin/flow-guard ./cmd/flow-guard`. Run: `cd stats && go test ./cmd/flow-guard/
     -run 'TestUnknownGuardExits2|TestNoGuardNameExits2'` — expect a compile failure;
     `scripts/test-make-build.sh` — expect the new assertion to FAIL.
-  - [ ] **Step 2: `stats/internal/guard/guard.go`.** The package's shared types — the only API
+  - [x] **Step 2: `stats/internal/guard/guard.go`.** The package's shared types — the only API
     later tasks build on:
 
 ```go unverified:compile it; adjust field names only if gofmt/vet demand, and update every later task's use to match
@@ -118,21 +118,21 @@ type Func func(args []string, env Env, stdout, stderr io.Writer) int
 // task adds its own entry in its own file's init().
 var Registry = map[string]Func{}
 ```
-  - [ ] **Step 3: `stats/cmd/flow-guard/main.go`.** `main` calls
+  - [x] **Step 3: `stats/cmd/flow-guard/main.go`.** `main` calls
     `os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))`; `run` prints usage and returns 2
     on no arguments, prints `flow-guard: unknown guard <name>` and returns 2 on an unregistered
     name, else calls `guard.Registry[name](args[1:], guard.Env{Getenv: os.Getenv, Dir: cwd},
     stdout, stderr)`. Header comment in the style of `stats/cmd/flow/main.go`'s.
-  - [ ] **Step 4: `stats/Makefile`.** `build` gains `go build -o bin/flow-guard
+  - [x] **Step 4: `stats/Makefile`.** `build` gains `go build -o bin/flow-guard
     ./cmd/flow-guard` after the `bin/flow` line. Add `install-guard`: `mkdir -p
     $(HOME)/.local/bin` and `go build -o $(HOME)/.local/bin/flow-guard ./cmd/flow-guard`, with a
     comment stating it never touches the dev daemon; make `restart` depend on `install-guard`
     (`restart: build install-guard`). Add `install-guard` to `.PHONY` if the file declares one.
-  - [ ] **Step 5: `stats/README.md`.** One short section, `flow-guard`: what it is (Go ports of
+  - [x] **Step 5: `stats/README.md`.** One short section, `flow-guard`: what it is (Go ports of
     guard scripts, invoked through `scripts/<name>.sh` shims), how it is installed (`make
     install-guard`, `make restart`, `setup.sh global`), and that `design.md` of this change holds
     the measurements — no figures copied.
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./cmd/flow-guard/
+  - [x] **Step 6: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./cmd/flow-guard/
     -run 'TestUnknownGuardExits2|TestNoGuardNameExits2' -count=1`; `scripts/test-make-build.sh`;
     `scripts/check-vocabulary.sh`; `scripts/check-references.sh`; `scripts/check-contract-budget.sh`.
 
@@ -140,7 +140,7 @@ Correction (2026-09-25): `run` takes no stdin — `run(args []string, stdout, st
 since `Func` takes none and none of the five guards reads it; `main` calls
 `os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))`.
 
-- [ ] 2. The suite runner tests the branch's own flow-guard
+- [x] 2. The suite runner tests the branch's own flow-guard
 
 **Files:** `scripts/run-guard-tests.sh`, `scripts/test-run-guard-tests.sh`, `scripts/test-go-guards.sh`, `.flow/project.md`
 **Tests:** `case 8:`, `case 9:`, `case 10:`
@@ -156,7 +156,7 @@ PATH — the branch's shims would then run the installed binary.
 
 **Decision:** go-tests-replace-harnesses
 
-  - [ ] **Step 1: Failing cases** in `scripts/test-run-guard-tests.sh`, in its existing
+  - [x] **Step 1: Failing cases** in `scripts/test-run-guard-tests.sh`, in its existing
     `RUN_GUARD_TESTS_ROOT` fixture style: `case 8:` a fixture `check-x.sh` whose body is the
     shim (contains `exec flow-guard check-x`) plus `../stats/internal/guard/check_x_test.go`
     relative to the fixture root, no `test-check-x.sh` — the runner does not refuse it; `case 9:`
@@ -164,12 +164,12 @@ PATH — the branch's shims would then run the installed binary.
     10:` a fixture harness that runs `command -v flow-guard` and prints it — the path printed is
     under the runner's temp directory, not `~/.local/bin`. Run the harness — expect all three to
     FAIL.
-  - [ ] **Step 2: Companion rule.** In `scripts/run-guard-tests.sh`'s companion scan (the loop
+  - [x] **Step 2: Companion rule.** In `scripts/run-guard-tests.sh`'s companion scan (the loop
     filling `MISSING_COMPANIONS`), accept a guard as covered when `test-<name>.sh` exists **or**
     the guard's file contains `exec flow-guard <name>` and
     `$TEST_ROOT/../stats/internal/guard/<name with - replaced by _>_test.go` exists. Update the
     header's COMPANION PRESENCE paragraph to state the second form.
-  - [ ] **Step 3: Build flow-guard first.** Before launching harnesses, build
+  - [x] **Step 3: Build flow-guard first.** Before launching harnesses, build
     `go build -o "$tmp/bin/flow-guard" ./cmd/flow-guard` from `$TEST_ROOT/../stats` into a
     `mktemp -d` directory, export `PATH="$tmp/bin:$PATH"`, and remove the directory on exit
     through `scripts/lib/parallel.sh`'s existing cleanup (its header: it owns the traps — add no
@@ -178,21 +178,21 @@ PATH — the branch's shims would then run the installed binary.
     build (one stderr line) when `$TEST_ROOT/../stats/cmd/flow-guard` does not exist, so fixture
     roots without it still run. Header paragraph: why — a shim would otherwise run the installed
     binary, not the branch's.
-  - [ ] **Step 4: `scripts/test-go-guards.sh`.** A harness: `cd "$SCRIPT_DIR/../stats" && go test
+  - [x] **Step 4: `scripts/test-go-guards.sh`.** A harness: `cd "$SCRIPT_DIR/../stats" && go test
     ./internal/guard/... -count=1`, header stating it is the companion harness for every ported
     guard.
     <!-- measured: scripts/check-guard-symlinks.sh and scripts/check-vocabulary.sh both exit 0 with scripts/test-go-guards.sh present @ 1c35fe3 -->
-  - [ ] **Step 5: `.flow/project.md`'s `## test`** — one sentence after the paragraph on
+  - [x] **Step 5: `.flow/project.md`'s `## test`** — one sentence after the paragraph on
     `run-guard-tests.sh`: it builds `flow-guard` from the tree and puts it first on PATH, and
     `test-go-guards.sh` runs the Go guard tests.
-  - [ ] **Step 6: Verify.** `scripts/test-run-guard-tests.sh`; `scripts/check-vocabulary.sh`;
+  - [x] **Step 6: Verify.** `scripts/test-run-guard-tests.sh`; `scripts/check-vocabulary.sh`;
     `scripts/check-references.sh`; `scripts/check-guard-symlinks.sh`;
     `scripts/check-contract-budget.sh`.
 
 Correction (2026-09-25): `case 9:` passed before the change — it pins a regression rather than
 showing RED; breaking the companion rule on purpose failed it (`got 0`), restored it passed.
 
-- [ ] 3. Shared helpers: sha256, spec root, change plan
+- [x] 3. Shared helpers: sha256, spec root, change plan
 
 **Files:** `stats/internal/guard/sha256.go`, `stats/internal/guard/specroot.go`, `stats/internal/guard/changeplan.go`, `stats/internal/guard/helpers_test.go`
 **Tests:** `TestSHA256Hex`, `TestSpecRoot`, `TestChangePlan`
@@ -204,17 +204,17 @@ cases the test pins.
 **Commit:** `feat(stats): port the guard helpers sha256, spec root and change plan to Go`
 **Build:** green
 
-  - [ ] **Step 1: Scope.** For each of `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`,
+  - [x] **Step 1: Scope.** For each of `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`,
     `scripts/lib/change-plan.sh`, list the functions the five guards actually call (`grep` each
     guard for the function names). Port only those.
-  - [ ] **Step 2: Failing tests** in `helpers_test.go`: `TestSHA256Hex` (known vectors, including
+  - [x] **Step 2: Failing tests** in `helpers_test.go`: `TestSHA256Hex` (known vectors, including
     the empty file); `TestSpecRoot` and `TestChangePlan` as table tests whose rows are the
     relevant cases of `scripts/test-lib-change-plan.sh` and any spec-root cases in the harnesses
     of the guards that use it — each row carrying the bash helper's own expected output. Run
     `cd stats && go test ./internal/guard/ -run 'TestSHA256Hex|TestSpecRoot|TestChangePlan'` —
     expect compile failure.
-  - [ ] **Step 3: Port** into the three files, `sha256` through `crypto/sha256` (no subprocess).
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
+  - [x] **Step 3: Port** into the three files, `sha256` through `crypto/sha256` (no subprocess).
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
     ./internal/guard/ -run 'TestSHA256Hex|TestSpecRoot|TestChangePlan' -count=1 -race`.
 
 - [ ] 4. Port run-reproducer
@@ -263,11 +263,11 @@ regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set dri
 
 - [ ] 5. Port check-panel-reproducer-exit-contract
 
-**Files:** `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/panelexitcontract_test.go`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/test-check-panel-reproducer-exit-contract.sh`
+**Files:** `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/test-check-panel-reproducer-exit-contract.sh`
 **Tests:** `TestCheckPanelReproducerExitContract`
 **Regression:** fails if any of the bash harness's 59 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
-<!-- measured: cat stats/internal/guard/panelexitcontract_test.go 2>/dev/null | grep -cE '^func Test' @ 0747740 -->
+<!-- measured: cat stats/internal/guard/check_panel_reproducer_exit_contract_test.go 2>/dev/null | grep -cE '^func Test' @ 0747740 -->
 **After:** Task 4
 **Commit:** `feat(stats): port check-panel-reproducer-exit-contract to Go`
 **Build:** green
@@ -290,6 +290,10 @@ regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set dri
     scripts/test-check-panel-reproducer-exit-contract.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet`; `scripts/test-check-panel-reproducers.sh` with
     `stats/bin` first on PATH; `scripts/check-guard-symlinks.sh`; `scripts/check-references.sh`.
+
+Correction (2026-09-25): the test file was planned as `panelexitcontract_test.go`; `scripts/run-guard-tests.sh`'s
+companion rule (task 2, **Decision:** go-tests-replace-harnesses) accepts only
+`stats/internal/guard/<name with - replaced by _>_test.go` for a shim guard, so it is renamed to match.
 
 - [ ] 6. Port gather-dispatch-context
 
@@ -317,14 +321,14 @@ regress; `TestMetacharsMatchBashSource` fails if the Go banned-character set dri
 
 - [ ] 7. Port check-task-commit-fields
 
-**Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/taskcommitfields_test.go`, `scripts/check-task-commit-fields.sh`, `scripts/test-check-task-commit-fields.sh`
+**Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `scripts/check-task-commit-fields.sh`, `scripts/test-check-task-commit-fields.sh`
 **Tests:** `TestCheckTaskCommitFields`, `TestTaskFieldParseMatchesPython`
 **Regression:** `TestCheckTaskCommitFields` fails if any of the bash harness's 288 `ok:`
 behaviours regress; `TestTaskFieldParseMatchesPython` fails if the Go task-field parse drifts
 from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
 `check-plan-shape.py` still load.
 **Baseline:** before=0 after=2
-<!-- measured: cat stats/internal/guard/taskcommitfields_test.go 2>/dev/null | grep -cE '^func Test' @ 0747740 -->
+<!-- measured: cat stats/internal/guard/check_task_commit_fields_test.go 2>/dev/null | grep -cE '^func Test' @ 0747740 -->
 **After:** Task 2, 3
 **Commit:** `feat(stats): port check-task-commit-fields to Go`
 **Build:** green
@@ -348,13 +352,17 @@ from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
     `scripts/test-lib-change-plan.sh` with `stats/bin` first on PATH;
     `scripts/check-guard-symlinks.sh`; `scripts/check-references.sh`.
 
+Correction (2026-09-25): the test file was planned as `taskcommitfields_test.go`; `scripts/run-guard-tests.sh`'s
+companion rule (task 2, **Decision:** go-tests-replace-harnesses) accepts only
+`stats/internal/guard/<name with - replaced by _>_test.go` for a shim guard, so it is renamed to match.
+
 - [ ] 8. Port check-cleanup-complete
 
-**Files:** `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/cleanupcomplete_test.go`, `scripts/check-cleanup-complete.sh`, `scripts/test-check-cleanup-complete.sh`
+**Files:** `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/check_cleanup_complete_test.go`, `scripts/check-cleanup-complete.sh`, `scripts/test-check-cleanup-complete.sh`
 **Tests:** `TestCheckCleanupComplete`
 **Regression:** fails if any of the bash harness's 304 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
-<!-- measured: cat stats/internal/guard/cleanupcomplete_test.go 2>/dev/null | grep -cE '^func Test' @ 0747740 -->
+<!-- measured: cat stats/internal/guard/check_cleanup_complete_test.go 2>/dev/null | grep -cE '^func Test' @ 0747740 -->
 **After:** Task 2, 3
 **Commit:** `feat(stats): port check-cleanup-complete to Go`
 **Build:** green
@@ -378,7 +386,11 @@ from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
     `scripts/test-workspace.sh` with `stats/bin` first on PATH; `scripts/check-guard-symlinks.sh`;
     `scripts/check-references.sh`.
 
-- [ ] 9. setup.sh global builds flow-guard
+Correction (2026-09-25): the test file was planned as `cleanupcomplete_test.go`; `scripts/run-guard-tests.sh`'s
+companion rule (task 2, **Decision:** go-tests-replace-harnesses) accepts only
+`stats/internal/guard/<name with - replaced by _>_test.go` for a shim guard, so it is renamed to match.
+
+- [x] 9. setup.sh global builds flow-guard
 
 **Files:** `setup.sh`, `scripts/test-setup.sh`, `scripts/check-installed-citations.py`
 **Tests:** `global installs flow-guard`
@@ -392,16 +404,16 @@ from `scripts/check-task-commit-fields.py`, which `check-task-records.py` and
 
 **Decision:** install-via-make-and-setup
 
-  - [ ] **Step 1: Failing assertion** in `scripts/test-setup.sh`'s global run: `assert_…
+  - [x] **Step 1: Failing assertion** in `scripts/test-setup.sh`'s global run: `assert_…
     "global installs flow-guard"` — `$home/.local/bin/flow-guard` exists and is executable. Run —
     expect FAIL.
-  - [ ] **Step 2: `setup.sh`** — in `install_global`, a function `install_flow_guard` that runs
+  - [x] **Step 2: `setup.sh`** — in `install_global`, a function `install_flow_guard` that runs
     `go build -o "$HOME/.local/bin/flow-guard" ./cmd/flow-guard` from the repository's `stats/`;
     no Go toolchain is `die "setup.sh global needs Go to build flow-guard"` (operator's choice:
     a machine without Go fails setup). Add it to the finish banner's summary lines the way other
     installs are listed.
     <!-- measured: a sandbox HOME moves go's default cache — cold build 2.82s real, 0.46s with the real GOCACHE exported; test-setup.sh exports GOCACHE="$(go env GOCACHE)" before sandboxing @ 416330f -->
-  - [ ] **Step 3: Verify.** `scripts/test-setup.sh`; `scripts/test-installer-sandbox-diff.sh`;
+  - [x] **Step 3: Verify.** `scripts/test-setup.sh`; `scripts/test-installer-sandbox-diff.sh`;
     `scripts/check-installed-citations.sh`; `scripts/check-vocabulary.sh`.
 
 Correction (2026-09-25): the plan declared `setup.sh` and `scripts/test-setup.sh` only. The same
