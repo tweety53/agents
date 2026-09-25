@@ -298,6 +298,19 @@ worktree add that fails is a hard failure of this stage**, reported and stopping
 like a refused link: a declared app left unresolved is the commit destination a later stage
 creates by hand, off the wrong base, unrecorded.
 
+**Then make the merge-order record cover the whole set.** The canonical `link.md`'s
+`## Merge order` is what **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
+reads to sequence run 1's routes, so every repository of the resolved worktree set — linked or
+not — is named in it before this stage ends. When `spectre link` wrote the canonical side's
+`link.md`, extend its `## Merge order` with the resolved repositories it does not yet name; when
+no link ran and the resolved set holds more than one repository, write the change's own
+`<changeRoot>link.md` carrying a `## Merge order` section alone — never a `## Part of`, the
+section that makes a `link.md` a satellite's. Order is `.` first, then the remaining
+repositories in `## apps` declaration order. The write lands as a planning commit in the
+worktree holding the file, behind `check-planning-commit-location.sh <abs-worktree> <name>`
+(**Planning commits**, `skills/flow-contracts/git-boundaries.md`), and what it wrote is recorded
+in the working notes beside the merge bases. A change with one repository runs nothing here.
+
 **Then run `flow workspace-id <name>` for this worktree's workspace id**, once per run, on a fix
 run exactly as on the first.
 
