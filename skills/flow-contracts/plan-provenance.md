@@ -10,7 +10,8 @@ claim carries one in an HTML comment within the two lines after it; an assumptio
 not verify carries one in the task that depends on it:
 
 - `verified:<how>` — on a fenced block's info string. The snippet was checked against something
-  real; `<how>` names the check, e.g. `verified:javap intellij.platform.diff.jar`.
+  real; `<how>` names that check — the command run, the source URL consulted, or the output
+  observed — e.g. `verified:javap intellij.platform.diff.jar`.
 - `unverified:<what-to-check>` — on a fenced block's info string. The snippet is the implementer's
   best guess, not a checked fact; `<what-to-check>` names exactly what to confirm before trusting
   it, e.g. `unverified:confirm the member is a property, not a function`. The tag also sits on a
@@ -71,6 +72,12 @@ without doing the check it names is worse than leaving the block `unverified` or
 `predicted` — it tells the next reader a check happened when it did not, which is exactly the
 failure this contract exists to prevent. A prose `unverified:` assumption in a task carries the
 same duty on the reading side: the implementing task confirms it before building on it.
+
+**The evidence is part of the tag.** A `verified:`/`measured:` tag carries the command, the source
+URL, or the output that shows its check ran — or it is not written at all, the honest alternative
+being the `unverified:`/`predicted:` tag. An evidence-free verification tag — a bare `verified:`
+or `measured:` naming nothing after the colon — is a violation, the same way an `unverified:` with
+no `<what-to-check>` is, and both are reported as such.
 
 ## When a measurement contradicts the plan
 
