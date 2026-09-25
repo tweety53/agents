@@ -73,8 +73,8 @@
 # `-session-token` either — attribution happens once, at `begin`. Only lines that
 # invoke `stage begin` are examined.
 #
-# `/flow-status` marks nothing, per its own row in README.md's Level 1
-# table, so a `flow stage begin` appearing in its SKILL.md would itself be
+# `/flow-status` marks nothing, per README.md's Level 1 section
+# so a `flow stage begin` appearing in its SKILL.md would itself be
 # a defect this guard would (correctly) catch — there is no exemption for it.
 #
 # It also enforces that a `stage begin`'s change argument is never a guess.

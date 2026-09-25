@@ -219,7 +219,7 @@ call rather than worked around.
 `begin`, and the harness recorded there is immutable, so an end mark can never contradict the harness
 a stage began under.
 
-`/flow-status` marks nothing — its own row in the Level 1 table says so, and a read-only report
+`/flow-status` marks nothing — the Level 1 section of `README.md` says so, and a read-only report
 that wrote stage runs would be recording work nobody did.
 
 ## Handoff output
