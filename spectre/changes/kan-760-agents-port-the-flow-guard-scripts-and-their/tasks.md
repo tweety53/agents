@@ -495,11 +495,11 @@ commit; `**Files:**` widened to match.
 
 - [ ] 11. Move the ported guards' rationale into Go and repoint its citations
 
-**Files:** `scripts/check-cleanup-complete.sh`, `scripts/run-reproducer.sh`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/gather-dispatch-context.sh`, `scripts/check-task-commit-fields.sh`, `scripts/check-task-commit-fields.py`, `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-panel-reproducers.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-workspace-isolation.sh`, `scripts/resolve-base-branch.sh`, `scripts/reproducer-metachars.sh`, `scripts/plan-class.sh`, `scripts/lib/change-plan.sh`, `scripts/lib/lexical-normalize.sh`, `scripts/lib/plan_grammar.py`, `scripts/lib/project-section.sh`, `scripts/lib/reproducer-path.sh`, `scripts/lib/resolve-file.sh`, `scripts/lib/sanitize-display.sh`, `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`, `scripts/lib/visual-table-cells.awk`, `scripts/lib/within-root.sh`, `scripts/test-check-task-build-green.sh`, `scripts/test-check-unfinished-work.sh`, `scripts/test-check-workspace-isolation.sh`, `scripts/test-lib-change-plan.sh`, `scripts/test-prove-reproducer.sh`, `scripts/test-resolve-base-branch.sh`, `scripts/test-check-mutation-reproducer-pin.sh`, `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/runreproducer.go`, `stats/internal/guard/metachars.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/changeplan.go`, `stats/internal/guard/sha256.go`, `stats/internal/guard/specroot.go`, `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `.flow/project.md`, `rules/commit-scope-is-the-module.mdc`, `skills/flow-contracts/pipeline.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/project-configuration.md`, `skills/flow-contracts/project-configuration-rationale.md`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/finish-contract-run2.md`, `skills/flow-contracts/artifacts-registry-rationale.md`, `skills/flow/implement.md`, `skills/flow/review-panel.md`, `skills/flow/archive.md`
-**Tests:** `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-references.sh`, `TestCheckCleanupComplete`, `TestRunReproducer`
+**Files:** `rules/commit-scope-is-the-module.mdc`, `scripts/check-cleanup-complete.sh`, `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/check-panel-reproducers.sh`, `scripts/check-task-commit-fields.py`, `scripts/check-task-commit-fields.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-workspace-isolation.sh`, `scripts/gather-dispatch-context.sh`, `scripts/lib/change-plan.sh`, `scripts/lib/lexical-normalize.sh`, `scripts/lib/plan_grammar.py`, `scripts/lib/project-section.sh`, `scripts/lib/reproducer-path.sh`, `scripts/lib/sanitize-display.sh`, `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`, `scripts/lib/visual-table-cells.awk`, `scripts/lib/within-root.sh`, `scripts/reproducer-metachars.sh`, `scripts/resolve-base-branch.sh`, `scripts/run-reproducer.sh`, `scripts/test-check-mutation-reproducer-pin.sh`, `scripts/test-check-task-build-green.sh`, `scripts/test-check-unfinished-work.sh`, `scripts/test-check-workspace-isolation.sh`, `scripts/test-lib-change-plan.sh`, `scripts/test-prove-reproducer.sh`, `scripts/test-resolve-base-branch.sh`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/project-configuration-rationale.md`, `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/runreproducer.go`, `stats/internal/guard/taskcommitfields.go`
+**Tests:** `scripts/check-mutation-reproducer-pin.sh`, `TestCheckCleanupComplete`
 **Regression:** `scripts/check-mutation-reproducer-pin.sh` exits 2 while it reads a line the
-`run-reproducer.sh` shim removed; `TestCheckCleanupComplete` and `TestRunReproducer` fail if a
-moved comment's code edit changes behaviour.
+`run-reproducer.sh` shim removed; `TestCheckCleanupComplete` fails if a moved comment's code edit
+changes behaviour.
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task; check-mutation-reproducer-pin.sh goes from exit 2 to exit 0 -->
 **After:** Task 2, 3, 4, 5, 6, 7, 8
@@ -534,3 +534,12 @@ moved comment's code edit changes behaviour.
     `scripts/test-check-workspace-isolation.sh`, `scripts/test-check-unfinished-work.sh`,
     `scripts/test-resolve-base-branch.sh`, `scripts/test-prove-reproducer.sh`,
     `scripts/test-check-task-build-green.sh`, `scripts/test-lib-change-plan.sh`.
+
+Correction (2026-09-25): `**Files:**` narrowed to the 39 paths the commit touched — the other 17
+declared paths held no stale citation — and widened by `scripts/reproducer-metachars.sh`, whose
+"sourced by both callers" line named run-reproducer. `**Tests:**` drops `scripts/check-references.sh`
+and `TestRunReproducer`, which the commit's diff does not name; both still run green. Comments with
+no Go counterpart (the bash 3.2 floor, the FIFO/fd 9 sentinel, `SECONDS`, the job-notification
+redirect, the three-way grep status, awk failing) were dropped, each listed in the implementer
+report. `scripts/lib/lexical-normalize.sh` and `scripts/lib/within-root.sh` now have no bash
+caller; their headers say so, and deleting them is out of this change's scope.
