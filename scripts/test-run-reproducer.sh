@@ -246,22 +246,35 @@ fi
 #     That is the real, narrow window run-reproducer.sh's own final check
 #     relies on, and this fixture is what makes it observable on demand
 #     rather than left to chance.
+#
+#     The bound is fired by the fixture, not by the clock: the detached child
+#     reports over a pipe once setsid and SIG_IGN are in place, and only then
+#     does the parent create RUN_REPRODUCER_BOUND_FILE. A 2-second wall bound
+#     (really 1-2 s, since $SECONDS counts whole seconds) raced the fixture's
+#     own startup chain and lost under a loaded suite, the parent killed
+#     before it forked. RUN_REPRODUCER_BOUND_SECONDS=60 is only the backstop.
 # ===========================================================================
 wt="$(make_worktree)"
 fixture "$wt" "scripts/detach.sh" 'exec python3 -c "
 import os, time, signal
+ready_r, ready_w = os.pipe()
 if os.fork() == 0:
     os.setsid()
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    os.write(ready_w, b\"x\")
     time.sleep(30)
     os._exit(0)
 else:
+    os.read(ready_r, 1)
+    open(os.environ[\"RUN_REPRODUCER_BOUND_FILE\"], \"w\").close()
     time.sleep(30)
 "'
+bound10="$(mktemp -u "${TMPDIR:-/tmp}/run-reproducer-bound10.XXXXXX")"
 set +e
-out10="$(RUN_REPRODUCER_BOUND_SECONDS=2 RUN_REPRODUCER_GRACE_SECONDS=1 "$GUARD" "$wt" "scripts/detach.sh" 2>&1)"
+out10="$(RUN_REPRODUCER_BOUND_SECONDS=60 RUN_REPRODUCER_BOUND_FILE="$bound10" RUN_REPRODUCER_GRACE_SECONDS=1 "$GUARD" "$wt" "scripts/detach.sh" 2>&1)"
 got10=$?
 set -e
+rm -f "$bound10"
 if [ "$got10" -eq 3 ] && [[ "$out10" == *'surviving process'* ]] && [[ "$out10" =~ pid\(s\):\ [0-9]+ ]]; then
   printf 'ok: %s\n' 'case 10: a detached survivor is named with its pid'
 else

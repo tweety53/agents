@@ -370,6 +370,17 @@ GRACE="${RUN_REPRODUCER_GRACE_SECONDS:-2}"
 case "$BOUND" in *[!0-9]*|'') BOUND=20 ;; esac
 case "$GRACE" in *[!0-9]*|'') GRACE=2 ;; esac
 
+# RUN_REPRODUCER_BOUND_FILE, when set, also expires the bound the moment that
+# path exists. Test-only, and monotone the same way: it can end the wait
+# early, never extend it. It exists because $SECONDS counts whole seconds, so
+# a BOUND of 2 fires anywhere from 1 to 2 seconds after launch — a window a
+# fixture's own startup chain (subshell, setsid wrapper, bash, python, fork)
+# overran under a loaded suite, killing the parent before the process the
+# case exists to observe was ever forked. A file the fixture creates once
+# that process is in place makes the bound fire on the case's condition,
+# not on the machine's load.
+BOUND_FILE="${RUN_REPRODUCER_BOUND_FILE:-}"
+
 OUT_TMP=""
 ERR_TMP=""
 cleanup_tmp() {
@@ -527,7 +538,7 @@ DESC_LOG=""
     seen="$(collect_descendants "$CMD_PID")"
     [ -n "$seen" ] && DESC_LOG="$DESC_LOG
 $seen"
-    if [ "$SECONDS" -ge "$DEADLINE" ]; then
+    if [ "$SECONDS" -ge "$DEADLINE" ] || { [ -n "$BOUND_FILE" ] && [ -e "$BOUND_FILE" ]; }; then
       TIMED_OUT=1
       # Captured HERE too, right as the bound fires, rather than relying on
       # an earlier poll alone: a reproducer that double-forks or detaches
