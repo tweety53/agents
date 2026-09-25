@@ -32,7 +32,7 @@ A pre-existing failure is **recorded, never repaired**:
    The entry is the durable record — what fails, why, and since when — and the next change's
    known-failure baseline. Delete an entry only in the commit that actually fixes its bug. A
    project whose lint carries `check-contract-budget.sh` adds a `budgets()` row for
-   `KNOWN-BUGS.md` the moment the sweep first creates the file — the ratchet refuses an owned
+   `<project>/KNOWN-BUGS.md` the moment the sweep first creates the file — the ratchet refuses an owned
    Markdown file with no declared budget.
 
 2. **Keep the defect out of the change's diff.** The sweep documents a failure; it never fixes,

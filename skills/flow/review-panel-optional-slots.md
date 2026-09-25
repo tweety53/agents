@@ -27,9 +27,11 @@ prefix survives into the archive.
 
 It is a diff-reading slot like Primary, Principles and Mutation: **Panel
 re-runs** governs it unchanged. **The docs-only reduction** still narrows a
-docs-only branch to `primary` alone: the experimental slot is never part of that reduced roster, and
-is dispatched again only if a later round's docs-only guard reclassifies the branch off the
-reduction.
+docs-only branch to `primary` alone, and so does **The late-fix reduction**
+(`skills/flow/review-panel.md`) on a qualifying fix run: the experimental slot is never part of
+either reduced roster, and is dispatched again when a later round reclassifies the run off the
+reduction — a docs-only guard reclassification, or a late-fix round whose Critical or Important
+voids the reduction for the rest of the run.
 
 It runs at most once per change, whether or not the roster is `compact` — the experimental roll and
 the compact roll are independent per design.md's **The rolls** — and never at all on a `default`
