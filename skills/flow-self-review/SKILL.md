@@ -45,6 +45,9 @@ present-but-empty for an angle with no findings, never omitted:
 | 4 | What could be automated or moved to a script | `flow-automation` |
 | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
 
+What may be filed is bounded by run 2 step 9's **A finding is filed only from the five angles**
+paragraph (`skills/flow-contracts/finish-contract-run2.md`).
+
 **One combined pass** — never five separate reads. A deferred pass covers what the bundle holds
 and nothing a same-run session could still remember beyond it — **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9 — say so in the report, never imply
 parity with a same-run pass.
