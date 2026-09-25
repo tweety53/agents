@@ -374,7 +374,7 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 ## Implementation staged — review and test | Implementation committed — review and test
 
 **Change:** <name>
-**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">; demoted: <"pass <n> ran <model>/<effort> in place of <the pair the normal resolution would have given>" when a budget rule substituted the closing pass's pair, or "no">; rerun cap: <"⚠ the cap closed the panel on the silent default" when it fired, or "extended once — the operator ordered the third whole-branch pass" when that choice ran, or "no">
+**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " or "late-fix — " followed by the resolved slot(s) not dispatched, or "no">; <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">; demoted: <"pass <n> ran <model>/<effort> in place of <the pair the normal resolution would have given>" when a budget rule substituted the closing pass's pair, or "no">; rerun cap: <"⚠ the cap closed the panel on the silent default" when it fired, or "extended once — the operator ordered the third whole-branch pass" when that choice ran, or "no">
 **Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
@@ -408,8 +408,9 @@ Next:
 Implementation commits per task, so an ordinary run reads "committed"; the "staged and
 uncommitted" spelling covers a run resuming before any task committed. **The `Panel:` line is
 `/flow`'s own** — it states what **Review panel** (`skills/flow/review-panel.md`) actually
-dispatched this run: the resolved roster or its docs-only reduction to `primary` (**The docs-only
-reduction**, `skills/flow/review-panel.md`), any slot an explicit operator instruction added
+dispatched this run: the resolved roster, its docs-only reduction to `primary` (**The docs-only
+reduction**, `skills/flow/review-panel.md`), or its late-fix reduction (**The late-fix
+reduction**, `skills/flow/review-panel.md`); any slot an explicit operator instruction added
 beyond the resolved list; and, per **Bundled dispatch** and **The `## Decision` block**
 (`skills/flow/review-panel.md`, `skills/flow/brainstorm.md`), whether the decision's panel was
 `default` (a `micro` class) or decided, the run's class, whether the roster was `compact` or `full`, its rerun

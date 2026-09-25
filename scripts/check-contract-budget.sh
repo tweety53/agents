@@ -153,7 +153,7 @@ skills/flow/implement.md 77479
 skills/flow/integrate.md 18602
 skills/flow/primary-reviewer-prompt.md 6975
 skills/flow/principles-reviewer-prompt.md 13103
-skills/flow/review-panel.md 121157
+skills/flow/review-panel.md 122297
 skills/flow/review-panel-optional-slots.md 9728
 skills/flow/security-reviewer-prompt.md 5730
 skills/flow/verify-and-handoff.md 33033
