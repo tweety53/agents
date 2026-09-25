@@ -282,8 +282,10 @@ Then run to completion without asking again. The answer is never remembered betw
 **The reshape-commit-route sequence below runs once per worktree in the resolved set, in the order
 given by the canonical `link.md`'s `## Merge order`, stopping on the first failure with that
 repository's own output.** docs/links.md in the `spectre` repository is canonical for that
-section's grammar. A change with no `link.md` has one worktree and one trivially-ordered route, so
-nothing about the single-repository path changes.
+section's grammar. A multi-repository change always carries the record: the implement phase
+writes it (`skills/flow/implement.md`), naming every repository of the resolved set whether or
+not a link created it. A change with no `link.md` has one repository and one trivially-ordered
+route, so nothing about the single-repository path changes.
 
 **Before any route commits, reshape the branch.** Run
 `reshape-branch.sh <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the

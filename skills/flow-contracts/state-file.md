@@ -269,7 +269,10 @@ keeps its worktrees under `<project>/.worktrees/` — enforced by `check-worktre
 
 The **order** those repositories land in is not recorded here at all: it lives in the canonical
 `link.md`'s `## Merge order`, which **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
-reads to sequence run 1's routes.
+reads to sequence run 1's routes. The run itself is what keeps that record whole: every
+repository of the resolved set, linked or not, is named in it at `flow.isolate-workspace`
+(`skills/flow/implement.md`), so a repository no `spectre link` ever touched still has a
+mechanical landing position instead of one reasoned out from prose mid-archive.
 
 ```json
 "worktrees": {
