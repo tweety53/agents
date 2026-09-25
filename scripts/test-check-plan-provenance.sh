@@ -4704,6 +4704,108 @@ True" ] \
   && pass "_region_at fails closed on a violated precondition, and the producer check agrees" \
   || fail "_region_at precondition: got '$REGION_RESULT'"
 
+# ===========================================================================
+# SECTION: The evidence rule — a tag with an empty payload is a violation
+# (the evidence is part of the tag, plan-provenance.md; cases 231-238)
+# ===========================================================================
+
+# 231. A fence tagged `verified:` with nothing after the colon fails, at the
+# fence's opening line. The tag asserts a check while naming nothing that
+# could show it — the false-label shape the evidence rule exists to prevent.
+new_fixture
+{
+  printf '```bash verified:\n'
+  printf 'echo hi\n'
+  printf '```\n'
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -ne 0 ] && pass "empty-payload verified: fails" || fail "empty verified:: expected non-zero"
+case "$OUT" in
+  *"spectre/changes/demo-change/tasks.md:1"*carries*"no evidence"*)
+    pass "empty-payload verified: reports file:line and the evidence message" ;;
+  *) fail "empty verified: message: out=$OUT" ;;
+esac
+
+# 232. Same for `unverified:` — an unexpanded guess tag names nothing to
+# confirm, so it is the same violation.
+new_fixture
+{
+  printf '```bash unverified:\n'
+  printf 'echo hi\n'
+  printf '```\n'
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -ne 0 ] && pass "empty-payload unverified: fails" || fail "empty unverified:: expected non-zero"
+
+# 233. Whitespace-only payload is empty — the check strips before testing.
+new_fixture
+printf '```bash verified:   \necho hi\n```\n' \
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -ne 0 ] && pass "whitespace-only payload fails" || fail "whitespace payload: expected non-zero"
+
+# 234. An evidence-free measured: comment is ONE finding, not two: it still
+# satisfies the numeric claim it attributes (presence and payload are
+# orthogonal), so the claim-side message must NOT also appear.
+new_fixture
+{
+  printf 'Baseline: 197 tests\n'
+  printf '<!-- measured: -->\n'
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -ne 0 ] && pass "empty-payload measured: fails" || fail "empty measured:: expected non-zero"
+case "$OUT" in
+  *"numeric claim with no"*) fail "empty measured: double-reports the claim: out=$OUT" ;;
+  *) pass "empty measured: costs one finding, claim stays satisfied" ;;
+esac
+
+# 235. Same for an empty predicted: comment.
+new_fixture
+{
+  printf 'After the deletion: 186 tests\n'
+  printf '<!-- predicted: -->\n'
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -ne 0 ] && pass "empty-payload predicted: fails" || fail "empty predicted:: expected non-zero"
+
+# 236. LINE-SCOPED, pinned as fail-open: a measured: comment whose --> sits
+# on a later line is not evidence-checked (its payload is not on the matched
+# line either), and the claim it attributes stays satisfied by its presence.
+new_fixture
+{
+  printf 'Baseline: 197 tests\n'
+  printf '<!-- measured:\n'
+  printf './gradlew test @ c515c42 -->\n'
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "comment closing on a later line is not evidence-checked" \
+  || fail "multi-line comment: rc=$RC out=$OUT"
+
+# 237. A payload without the `@ <ref>` shape passes: the evidence rule asks
+# that the payload NAME something, and plan-provenance.md's machine-local
+# carve-out says exactly this shape — say why no ref — is legitimate. The
+# guard never demands a ref, only a non-empty payload.
+new_fixture
+{
+  printf 'Baseline: 197 tests\n'
+  printf '<!-- measured: wc -l on the machine-local log; no ref, the file is machine-local -->\n'
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "payload without a ref passes" || fail "payload without ref: rc=$RC out=$OUT"
+
+# 238. Comment CONTENT inside a fenced block is code, never a comment: the
+# fence grammar owns everything between the markers, so the evidence check
+# (an outside-fence check) must not fire on it.
+new_fixture
+{
+  printf '```bash verified:ran it locally\n'
+  printf 'echo "<!-- measured: -->"\n'
+  printf '```\n'
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "empty comment inside fence content is not flagged" \
+  || fail "fence content comment: rc=$RC out=$OUT"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '\n%d assertion(s) failed\n' "$FAILURES" >&2
   exit 1

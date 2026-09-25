@@ -78,7 +78,9 @@ failures each rule settles and what they cost, measured.
 ## What the guard does not do
 
 The guard checks that provenance is **stated**: every code block carries `verified:` or
-`unverified:`, every number is followed by `measured:` or `predicted:` — in all three files alike.
+`unverified:`, every number is followed by `measured:` or `predicted:`, and every tag carries a
+**payload** — a tag whose evidence names nothing after the colon is its own violation, per
+**the evidence is part of the tag** (`skills/flow-contracts/plan-provenance.md`) — in all three files alike.
 It does not, and cannot, check that the stated provenance is **true**.
 `verified:javap intellij.platform.diff.jar` passes the guard whether or not `javap` was actually run — no script can confirm a verification was
 performed, only that a claim of one was written down. The guard converts "silently unverified"
@@ -86,10 +88,10 @@ into "loudly unlabelled or falsely labelled"; only a human reviewing the plan's 
 labelled-and-true from labelled-and-false.
 
 **It does not verify a `measured:` tag's `@ <ref>`** — or its `<command>`, or that either exists at
-all. The guard's whole test is that a `measured:`/`predicted:` comment is *present* in the window
-after the claim. It never resolves the ref, never checks the command exists at it, and never runs
-anything. The `<command> @ <ref>` shape is a convention this file states and a human enforces; a
-comment that omits the ref entirely still passes.
+all. Its test is that a `measured:`/`predicted:` comment is *present* in the window after the
+claim **and names something** — an empty payload fails the same way an untagged fence does. It
+never resolves the ref, never checks the command exists at it, and never runs anything: whether
+what the payload names is real, and whether the check was actually performed, a human enforces.
 
 **It does not always scan a file to the end.** A fence-like run of backticks/tildes that the
 guard's container-prefix grammar cannot resolve — behind a prefix shape it does not recognise, a

@@ -2430,6 +2430,32 @@ class ProvenanceGuard:
                 print(_veto_note(relfile, lineno, scan.veto))
             self.failures += 1
 
+    def _check_comment_evidence(self, line: str, relfile: str, lineno: int) -> None:
+        """An evidence-free measured:/predicted: comment is its own
+        violation — the evidence rule ("The implementer's duty",
+        skills/flow-contracts/plan-provenance.md) makes the payload part
+        of the tag, so a comment naming nothing after the colon is the
+        false-label shape that rule exists to prevent. Presence and
+        payload are orthogonal: such a comment still SATISFIES the
+        numeric claim it attributes (the claim logic above never calls
+        this), so one defective tag costs one finding, not two.
+        Line-scoped like every other check here: a comment whose `-->`
+        sits on a later line is not checked, because its payload is not
+        on this line either — the fence grammar, not this method, owns
+        everything inside a fenced block, so comment CONTENT is never
+        scanned.
+        """
+        match = PROVENANCE_RE.search(line)
+        if match is None:
+            return
+        closer = line.find("-->", match.end())
+        if closer != -1 and not line[match.end():closer].strip():
+            print(
+                f"{relfile}:{lineno}: measured:/predicted: comment "
+                "carries no evidence after the colon"
+            )
+            self.failures += 1
+
     def check_file(self, path: str, repo_root: str) -> Optional[str]:
         """Walks the file line by line, tracking fence state with
         CommonMark's closing rule scoped to the fence's own open-time
@@ -2711,7 +2737,22 @@ class ProvenanceGuard:
                 fence_len = cls.run_len
                 fence_start_line = lineno
                 fence_context = cls.context
-                fence_tagged = bool(FENCE_TAG_RE.search(cls.info))
+                fence_match = FENCE_TAG_RE.search(cls.info)
+                fence_tagged = bool(fence_match)
+                # The evidence rule ("The implementer's duty",
+                # skills/flow-contracts/plan-provenance.md): a verification tag
+                # carries what shows its check ran, or it is not written. A tag
+                # whose payload is empty to the end of the info string asserts a
+                # check while naming nothing that could show it — reported as
+                # its own violation, at the fence's opening line. Presence and
+                # payload stay orthogonal: `fence_tagged` above keeps answering
+                # only "is the block tagged at all".
+                if fence_match and not cls.info[fence_match.end():].strip():
+                    print(
+                        f"{relfile}:{lineno}: verified:/unverified: tag on the "
+                        "info string carries no evidence after the colon"
+                    )
+                    self.failures += 1
 
                 # A numeric claim can sit on the fence's own OPENING line,
                 # in its info string (e.g. ```bash verified:ran 500 tests).
@@ -2726,6 +2767,7 @@ class ProvenanceGuard:
                 # Outside a fence: check for an unattributed numeric
                 # claim, within the two-line lookahead window.
                 self._check_numeric_claim(line, lines, i, total, relfile, lineno)
+                self._check_comment_evidence(line, relfile, lineno)
 
             i += 1
 
