@@ -380,6 +380,14 @@ budget answer named, it keeps the counter true: every task its append adds raise
 appended:**` value by one, creating the line in `tasks.md`'s header when the plan has never
 carried one.
 
+**The appended task's verification tags are evidence-checked like a seeded note's.** An appended
+task carries a `verified:`/`measured:` tag only with its evidence in hand — the command, the
+source URL, or the output that shows the check ran; an unverifiable one is written
+`unverified:`/`predicted:` instead, never appended as a verification tag. The append is where a
+fix round is most tempted to assert a check nobody made, and `check-task-commit-fields.sh`
+refuses the close of a task whose record carries the evidence-free shape — per **Plan
+provenance**'s evidence rule (`skills/flow-contracts/plan-provenance.md`).
+
 **A passing test that asserts the behaviour the fix instructions report as wrong is evidence of
 the code, not of the spec — it decides nothing on its own.** Before the planning pass treats such
 a test as the tie-breaker, search this change's `design.md`, `proposal.md`, panel records and the
