@@ -598,9 +598,9 @@ port gave byte-identical output and equal exit codes on all seven case blocks.
 
 - [ ] 13. Cut the guard test package to at most 10s
 
-**Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/check_cleanup_complete_test.go`
+**Files:** `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/gatherdispatch_test.go`, `stats/internal/guard/helpers_test.go`, `stats/internal/guard/runreproducer_test.go`
 **Allowed-collateral:** `stats/internal/guard/*.go`
-**Tests:** `TestRunReproducer`, `TestCheckPanelReproducerExitContract`, `TestCheckTaskCommitFields`, `TestCheckCleanupComplete`
+**Tests:** `TestMain`, `TestCheckPanelReproducerExitContract`, `TestCheckTaskCommitFields`
 **Regression:** each named test's `--- PASS` count stays at its task-10 figure — cleanup-complete
 309, task-commit-fields 298, run-reproducer 109, panel-reproducer-exit-contract 60 — and
 `go test ./internal/guard/... -count=1` exceeds 10s real if the removed waits return.
@@ -632,3 +632,17 @@ port gave byte-identical output and equal exit codes on all seven case blocks.
   - [ ] **Step 5: Verify.** `gofmt -l .`, `go vet ./...` from `stats/`; from the worktree root,
     with the tree's `flow-guard` first on PATH, `scripts/test-check-panel-reproducers.sh` and
     `scripts/test-check-mutation-reproducer-pin.sh` (callers of `run-reproducer.sh`).
+
+Correction (2026-09-26): `**Files:**` narrowed to the six `_test.go` files the commit touched — no
+production `.go` changed; `gatherdispatch_test.go` and `helpers_test.go` widened in. The plan's
+premise that the supervise loop waited on its next `rrPoll` tick was wrong: `rrSupervise` already
+selects on the child's exit. The wall time was macOS's first-exec assessment of each freshly
+written executable fixture (~0.17s, serialised machine-wide, 213 per run); the fix shares
+executable fixtures as hard links to content-keyed master inodes (`writeExec`, `execFixtures`),
+names fixture paths from `$0` so bodies can share a master, puts `$(git --exec-path)` first on
+PATH in `TestMain` (skipping the `/usr/bin/git` xcrun trampoline), disables `maintenance.auto`
+for fixture git, reads HEAD from the loose ref, copies trees in-process, and splits `case 112-121`
+and `20-21b` into parallel entries. 901 leaf subtests before and after, identical names.
+<!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 → 9.80s, 8.53s, 8.39s real @ 788b398a; 27.89s, 28.55s with inode sharing disabled @ 788b398a -->
+`**Tests:**` names the tests whose names the diff carries — `TestMain` is new; `TestRunReproducer` and
+`TestCheckCleanupComplete` changed only through shared helpers (`writeExec`, `fixtureRoot`) and still run in the Regression counts.
