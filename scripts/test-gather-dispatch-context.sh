@@ -104,6 +104,28 @@ run_it() {
   capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
 }
 
+# mirror_path_except <dest-dir> <name>... -> populates <dest-dir> with a
+# symlink to every executable on the current PATH except the named ones, the
+# first PATH entry winning a name, as command lookup does. One `ln` per PATH
+# directory and no per-file subprocess: the per-file basename+ln version forked
+# ~6000 processes per call and was 60 of this suite's 70 seconds.
+mirror_path_except() {
+  local dest="$1" dir bin base skip links
+  shift
+  local IFS=:
+  for dir in $PATH; do
+    [ -d "$dir" ] || continue
+    links=()
+    for bin in "$dir"/*; do
+      [ -f "$bin" ] && [ -x "$bin" ] || continue
+      base="${bin##*/}"
+      for skip in "$@"; do [ "$base" = "$skip" ] && continue 2; done
+      [ -e "$dest/$base" ] || links+=("$bin")
+    done
+    [ "${#links[@]}" -eq 0 ] || ln -s "${links[@]}" "$dest/" 2>/dev/null || true
+  done
+}
+
 # make_no_hash_tool_dir <dest-dir> -> populates <dest-dir> with a symlink to
 # every executable on the current PATH EXCEPT shasum/sha256sum/openssl, so a
 # call made with PATH="<dest-dir>" still finds mkdir/cat/awk/date/git (which
@@ -111,18 +133,7 @@ run_it() {
 # (kan-288, F3) — both need the same no-hash-tool PATH, and a second caller is
 # exactly when duplicating this loop stops being the simplest thing.
 make_no_hash_tool_dir() {
-  local dest="$1" dir bin base
-  for dir in $(printf '%s' "$PATH" | tr ':' '\n'); do
-    [ -d "$dir" ] || continue
-    for bin in "$dir"/*; do
-      [ -f "$bin" ] && [ -x "$bin" ] || continue
-      base="$(basename "$bin")"
-      case "$base" in
-        shasum | sha256sum | openssl) continue ;;
-      esac
-      [ -e "$dest/$base" ] || ln -s "$bin" "$dest/$base" 2>/dev/null || true
-    done
-  done
+  mirror_path_except "$1" shasum sha256sum openssl
 }
 
 # make_openssl_only_dir <dest-dir> -> populates <dest-dir> with a symlink to
@@ -135,18 +146,7 @@ make_no_hash_tool_dir() {
 # first two so sha256_hex's openssl branch (line 38 of lib/sha256-hex.sh) is
 # the one actually reached, for case 35 (F5).
 make_openssl_only_dir() {
-  local dest="$1" dir bin base
-  for dir in $(printf '%s' "$PATH" | tr ':' '\n'); do
-    [ -d "$dir" ] || continue
-    for bin in "$dir"/*; do
-      [ -f "$bin" ] && [ -x "$bin" ] || continue
-      base="$(basename "$bin")"
-      case "$base" in
-        shasum | sha256sum) continue ;;
-      esac
-      [ -e "$dest/$base" ] || ln -s "$bin" "$dest/$base" 2>/dev/null || true
-    done
-  done
+  mirror_path_except "$1" shasum sha256sum
 }
 
 # make_no_flow_dir <dest-dir> -> populates <dest-dir> with a symlink to every
@@ -156,16 +156,7 @@ make_openssl_only_dir() {
 # regardless of whether the developer's own machine happens to have a real
 # `flow` on PATH.
 make_no_flow_dir() {
-  local dest="$1" dir bin base
-  for dir in $(printf '%s' "$PATH" | tr ':' '\n'); do
-    [ -d "$dir" ] || continue
-    for bin in "$dir"/*; do
-      [ -f "$bin" ] && [ -x "$bin" ] || continue
-      base="$(basename "$bin")"
-      [ "$base" = "flow" ] && continue
-      [ -e "$dest/$base" ] || ln -s "$bin" "$dest/$base" 2>/dev/null || true
-    done
-  done
+  mirror_path_except "$1" flow
 }
 
 # make_flow_stub_dir <dest-dir> <incidents-json> -> populates <dest-dir> with
