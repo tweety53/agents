@@ -280,6 +280,24 @@ stop the run — a change whose cross-repo link cannot be established lands at i
 false OUTSTANDING verdict that forces hand verification. A change with one worktree runs
 nothing here.
 
+**Every `## apps` entry is resolved in this stage too, before any implementation runs — never
+improvised mid-run by a later stage in need of a commit destination.** Read
+`<project>/.flow/project.md`'s `## apps` table and resolve each entry per **Roots in `## apps`
+are main checkouts** (`skills/flow-contracts/project-configuration.md`): an entry whose
+repository already holds this change's worktree — the kickoff worktree's repository, a peer's
+repository linked above, or a second entry naming a repository already resolved — records that
+worktree as its root and creates nothing. Every other entry gets the kickoff recipe in its own
+repository (`skills/flow/brainstorm.md` step 3): `check-worktree-location.sh <repo>`,
+`git worktree add <repo>/.worktrees/<name> -b spectre/<name> origin/<default-branch>`, the merge
+base `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees`
+map by the read-merge-write at the top of this stage, and
+`git -C <that worktree> push -u origin spectre/<name>` per **Branch backup**
+(`skills/flow-contracts/git-boundaries.md`). No `spectre link` runs for these worktrees — they
+are declared apps, not peers — and each of them joins this run's resolved worktree set. **A
+worktree add that fails is a hard failure of this stage**, reported and stopping the run exactly
+like a refused link: a declared app left unresolved is the commit destination a later stage
+creates by hand, off the wrong base, unrecorded.
+
 **Then run `flow workspace-id <name>` for this worktree's workspace id**, once per run, on a fix
 run exactly as on the first.
 
