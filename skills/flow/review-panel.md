@@ -1259,9 +1259,10 @@ A Minor either fixed or deferred blocks nothing; a Minor left `open` blocks exac
 does. When fix rounds do not converge, the run decides each unresolved finding itself, one finding
 at a time, and does not ask:
 
-- **A defect a code or document change can resolve takes another fix round** — whatever its
-  severity, and even where the fix reaches past the change's original scope. A Minor that reached
-  this loop is fixed here; the round's Minor-deferral default above does not apply to it.
+- **A defect a code or document change can resolve takes another fix round** — at Critical or
+  Important, and even where the fix reaches past the change's original scope. A Minor that reached
+  this loop joins that round only beside a Critical or Important taking one; with none, it is
+  deferred under the round's Minor-deferral default above.
 - **A finding no change to the tree can resolve is withdrawn** — a verification-only ask, a proof
   that needs an environment the run does not have, a defect something already covers — recorded
   `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. That reason stands
@@ -1285,7 +1286,7 @@ run's reason, or on the operator's answer with theirs.
 and the fix-diff path check above close the findings that fix addressed; they never close the
 panel. After a round that dispatched a `panel-fix` chunk, the delta re-run the rules above trigger
 runs before the close guards below do, and the stage may close only on a re-run that raised no new
-finding at any severity; an empty-delta re-run whose slots were recorded `not re-run — nothing new
+finding above Minor; an empty-delta re-run whose slots were recorded `not re-run — nothing new
 since its last read` counts as clean, and a re-run that re-raises a defect withdrawn
 under the handback above is recorded `withdrawn` with its original reason, never
 `open`, and does not stand in the way of that clean round. The last round before the stage close
