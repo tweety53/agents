@@ -693,6 +693,106 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 	}
 }
 
+// TestStageEndNoOpenRunNamesMissingBegin pins the KAN-700 diagnosis: a
+// stage end the store answers with "no open stage run" (HTTP 404 -- the
+// store was reached and answered definitively) names the missing begin
+// instead of printing the store-unreachable fallback a real outage gets.
+// The answer is definitive, so nothing is journalled either: replaying an
+// end for a run that never opened can only fail the same way again, which
+// is exactly the wasted journal round trip KAN-573 paid for.
+func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/stages/end" {
+			t.Errorf("unexpected request path %q; an end mark alone was sent", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("api: no open stage run for that change, command and stage"))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.review-panel", "-outcome", "completed", "kan-700-demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (a definitive store answer never blocks); stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "no open stage run for kan-700-demo/flow.review-panel — was `stage begin` recorded?") {
+		t.Errorf("stderr = %q, want the missing-begin diagnosis", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "store unreachable") {
+		t.Errorf("stderr = %q, want no store-unreachable line -- the store was reached and answered", stderr.String())
+	}
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-700-demo") + ".stage")
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("stage journal has %d entries, want 0 -- a definitive no-open-run answer is never journalled", len(entries))
+	}
+}
+
+// TestRunStageWrapEndNoOpenRunNamesMissingBegin pins the same KAN-700
+// diagnosis on `stage wrap`'s end half: begin opened a run, the store then
+// answers the end mark with no-open-stage-run, and the wrapper must print
+// that diagnosis -- never the outage fallback -- while still exiting with
+// the child's own code and journaling nothing.
+func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/stages/end" {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("api: no open stage run for that change, command and stage"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
+			"-session-token", "ff-session-token-wrap-noopen", "kan-700-demo",
+			"--", "sh", "-c", "true"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (the child's own exit code); stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "no open stage run for kan-700-demo/flow.brainstorm — was `stage begin` recorded?") {
+		t.Errorf("stderr = %q, want the missing-begin diagnosis", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "store unreachable") {
+		t.Errorf("stderr = %q, want no store-unreachable line -- the store was reached and answered", stderr.String())
+	}
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-700-demo") + ".stage")
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("stage journal has %d entries, want 0 -- a definitive no-open-run answer is never journalled", len(entries))
+	}
+}
+
 func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)

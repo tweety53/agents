@@ -271,6 +271,15 @@ func journalStageMark(projectKey, name, kind string, req any, stderr io.Writer) 
 	fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal")
 }
 
+// warnNoOpenStageRun prints the KAN-700 diagnosis on a stage end the store
+// answered with no open stage run: the store was reached and gave a
+// definitive answer, so the failure is a bookkeeping slip -- the begin was
+// never recorded, or another session closed the run -- and the message
+// names it instead of the store-unreachable fallback an outage gets.
+func warnNoOpenStageRun(stderr io.Writer, name, stage string) {
+	fmt.Fprintf(stderr, "⚠ flow: no open stage run for %s/%s — was `stage begin` recorded?\n", name, stage)
+}
+
 // runStageBegin implements `flow stage begin`. It validates the stage
 // key against internal/stages' documented table -- README.md's Level 1
 // table, transcribed there -- before ever contacting the store: an
@@ -504,11 +513,18 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	case errors.Is(endErr, client.ErrUndocumentedStage), errors.Is(endErr, client.ErrStageMarkRejected):
 		fmt.Fprintf(stderr, "flow: stage end refused: %v\n", endErr)
 		return 1
+	case errors.Is(endErr, client.ErrNotFound):
+		// The store was reached and answered definitively: no open
+		// stage run matches. That is a bookkeeping slip, not an
+		// outage -- name the missing begin, and journal nothing:
+		// replaying an end for a run that never opened can only fail
+		// the same way again (KAN-700).
+		warnNoOpenStageRun(stderr, journalName(f), f.stage)
+		return 0
 	default:
-		// ErrUnavailable, ErrNotFound (no open run -- the store was
-		// reached, but the mark can no longer be attributed to anything;
-		// there is nothing left to do but the same fallback as an
-		// outage), or ErrRefused: none of these may block the pipeline.
+		// ErrUnavailable or ErrRefused: neither may block the
+		// pipeline. (ErrNotFound no longer lands here -- a definitive
+		// no-open-run answer names the missing begin above.)
 		journalStageMark(projectKey, journalName(f), "end", req, stderr)
 		return 0
 	}
@@ -803,6 +819,11 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 	case endErr == nil:
 	case errors.Is(endErr, client.ErrUndocumentedStage), errors.Is(endErr, client.ErrStageMarkRejected):
 		fmt.Fprintf(stderr, "flow: stage end refused: %v\n", endErr)
+	case errors.Is(endErr, client.ErrNotFound):
+		// A definitive no-open-run answer names the missing begin
+		// (KAN-700), exactly as runStageEnd's own case does, and
+		// journals nothing.
+		warnNoOpenStageRun(stderr, journalName(f), f.stage)
 	default:
 		journalStageMark(projectKey, journalName(f), "end", endReq, stderr)
 	}
