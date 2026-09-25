@@ -32,7 +32,7 @@ Buying a cheaper implementer with a more expensive review is the wrong trade.
 **Two further instructions in that same upstream skill are also overridden, and are named here
 rather than left to be discovered.** subagent-driven-development says to dispatch the *final
 review* on the most capable model: flow does not — it fixes every panel slot at the panel's
-model, Sonnet by default, for the reason above, and escalates the panel's **breadth** instead (the conditional Security, Adversarial
+model, Opus by default, for the reason above, and escalates the panel's **breadth** instead (the conditional Security, Adversarial
 and extra-principle slots), which buys more independent readings rather than one stronger one.
 It also says to *escalate the model in fix rounds 4-5*: flow cannot, because its implementers
 already sit at the ceiling from round 1. Fix rounds escalate the same way — more slots, not a
@@ -44,6 +44,13 @@ names the agent that *applies* a fix, which is an implementer — so the impleme
 already governs it. Fix rounds escalate the panel's breadth rather than its model precisely because
 implementers sit at the ceiling from round 1, and a fix-wave default of Sonnet would contradict both
 of those rules at once.
+
+**The rerun pair is `DEFAULT_MODEL` at `low`, and no longer a model no pass-1 dispatch used.**
+Rejected — the exclusion: with every pass-1 dispatch on Opus it left only Sonnet and Haiku, so it
+forced every fix-round re-run off the model the operator set as the one model for every run, and
+its `sonnet` fallback did the same whenever the exclusion left nothing. The re-run's
+independence comes from reading only the fix delta against named findings,
+not from a different model.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 A model policy that nothing records is a policy nothing can verify — and the absence of that record

@@ -5,7 +5,7 @@ category: flow
 description: View and change the harness-wide flow defaults — default model, reviewer slots and self-review model
 ---
 
-**Model:** Sonnet (or your default) is fine here — no brainstorming or implementation happens in
+**Model:** Opus (or your default) is fine here — no brainstorming or implementation happens in
 this command.
 
 Use the **flow-settings** skill — installed globally, so let your harness resolve it by name

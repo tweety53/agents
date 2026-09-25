@@ -125,15 +125,15 @@ rollout transcripts the harvester reads as a second source, kan-479).
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
 
-- **`/flow`'s implement phase never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
-  finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
+- **`/flow`'s implement phase never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` into
+  its own commits.** The plan was read at `STARTED`; presenting it again as code to review hides the
   implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
   display command, is what makes them absent from *every* view of the staging area — a filtered
   display leaves them in the index, where `git status`, a graphical client and the IDE's
   staged-changes pane show them again. The list is fixed here rather than configured per project; the
   pipeline chooses these paths
-  itself, so no project can differ. `/flow`'s integrate run stages them and commits them separately
-  from the implementation, so nothing is lost.
+  itself, so no project can differ. The planning commits carry the change folder separately from
+  the implementation, and `/flow`'s integrate run commits whatever remains, so nothing is lost.
 
 ## Artifact brevity
 

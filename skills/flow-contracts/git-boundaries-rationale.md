@@ -33,3 +33,28 @@ it" and "so wherever a run's instructions know the paths a commit should carry, 
 them": "— gymie kan-469's visual-verify step swept a ~130-file pre-staged foreign tree into a
 baselines commit in a main checkout, and gymie kan-468 lost task commits to staged planning
 artifacts the same way —".
+
+**Why planning artifacts are committed at the plan gate rather than held uncommitted until
+integrate.** An uncommitted change folder blocked every cross-repo change: `spectre link` refuses
+while the canonical change directory carries uncommitted modifications, so each link needed an
+operator-approved `--force`, and each link rewrote `link.md`, dirtying the folder again for the
+next one. Held uncommitted, the plan was also the one copy a reviewer's `git checkout` could
+destroy. Committing the folder once the operator has approved it — and again at each later
+boundary where the run itself edits it — removes both, while the task-commit check keeps planning
+out of every implementation commit.
+
+**Why integrate keeps the planning commits instead of folding them into one.** Folding them made
+the landed branch carry one `chore(spectre): plan` whose diff was every plan edit at once — the
+operator had approved each of them already, at the plan gate and at every later boundary, and was
+shown the same material again as one new commit. Kept, each lands as the commit that was approved,
+and only the delta no planning commit carried reaches integrate's own planning commit. Task and
+fixup commits are still collapsed: they are reviewed per task in flight, and land as one
+implementation commit.
+
+**Why a location guard on planning commits.** `spectre link` must run from a repository's primary
+checkout to resolve its peers file, so the directory a link commit is made from is one `cd` away
+from the landing target. A link commit there lands change-folder content on the base branch, or on
+whatever branch the main checkout holds, where no reshape, review or archive step of the change
+sees it. `check-planning-commit-location.sh` refuses any planning commit outside the change's own
+worktree and branch; `hooks/protect-main-checkout.py` covers only a main checkout on its default
+branch, and only under a harness that registers it.

@@ -166,8 +166,8 @@ skills/flow-contracts/build-green.md 6678
 skills/flow-contracts/build-green-rationale.md 1008
 skills/flow-contracts/finish-contract-run1.md 38565
 skills/flow-contracts/finish-contract-run2.md 46275
-skills/flow-contracts/git-boundaries-rationale.md 2968
-skills/flow-contracts/git-boundaries.md 9210
+skills/flow-contracts/git-boundaries-rationale.md 5395
+skills/flow-contracts/git-boundaries.md 12826
 skills/flow-contracts/handoff-blocks-rationale.md 13086
 skills/flow-contracts/handoff-blocks.md 20240
 skills/flow-contracts/jira-followups.md 45385

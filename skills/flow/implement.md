@@ -270,7 +270,12 @@ directory, so from inside a worktree `../<peer>` resolves into `<project>/.workt
 link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side
 `link.md` into the worktree, where `check-unfinished-work.sh` reads it at integrate.
 `<canonical-peer>` is the canonical repository's own name in that worktree's
-`<project>/spectre/peers` file. Record what the command wrote alongside that worktree's merge
+`<project>/spectre/peers` file. Each link writes `link.md` on both sides, so each is followed by its
+link commit before the next link runs (**Planning commits**,
+`skills/flow-contracts/git-boundaries.md`) — never by `--force`. Each link commit is made in the
+worktree holding that `link.md`, never the primary checkout the link ran from, behind
+`check-planning-commit-location.sh <abs-worktree> <name>`; a refusal stops the run like a refused
+link. Record what the command wrote alongside that worktree's merge
 base in this run's working notes. **A refusal is a hard failure of this stage**: report it and
 stop the run — a change whose cross-repo link cannot be established lands at integrate with a
 false OUTSTANDING verdict that forces hand verification. A change with one worktree runs
@@ -373,6 +378,9 @@ per-change surprise:
 ```bash
 flow tasks count -C <worktree> <name>
 ```
+
+Then make the fix-run planning commit over the appended plan (**Planning commits**,
+`skills/flow-contracts/git-boundaries.md`), before any implementer is dispatched.
 
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
@@ -853,7 +861,7 @@ movement into a task fix. A conflict there is
 between two of the branch's own commits, and the parent resolves it by hand, keeping both
 sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
 `skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
-fold never crosses the run's own uncommitted planning artifacts —
+fold never crosses the run's own uncommitted planning edits —
 `aside-planning-artifacts.sh <aside|restore> <worktree>` around the rebase: set aside before it,
 restored once it has finished or aborted, never mid-way; restore refuses while the rebase is
 still unresolved, and the paths it sets aside are the spec tree's changes directory — the leaf
@@ -919,9 +927,9 @@ and, inside each **PASS task-`<n>`** section:
 
 **The plan tree survives every reviewer dispatch — asserted by git, never by the reviewer's
 prose.** Before a gated reviewer bundle's Agent call goes out — original, fix re-review, or
-handshake retry alike — the parent commits any uncommitted edits under
-`<project>/spectre/changes/<name>/` in one commit (its own transcriptions and ticks made them,
-and task commits never carry plan paths, so the working tree held the only copy — exactly what
+handshake retry alike — the parent makes the reviewer-dispatch planning commit (**Planning
+commits**, `skills/flow-contracts/git-boundaries.md`) over its own transcriptions and ticks
+(task commits never carry plan paths, so uncommitted edits are the only copy — exactly what
 `git checkout <sha> -- .` destroyed on gymie KAN-635), then runs
 `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`. When the bundle's last
 report file exists, the parent runs `check-plan-unchanged.sh verify <worktree> <name>

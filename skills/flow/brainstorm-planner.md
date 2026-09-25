@@ -428,11 +428,9 @@ recorded as such:
    dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree**
    below, keyed on `class` and the rolls. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
    fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
-   findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is any `ValidModels`
-   member **no `panel.dispatches` entry uses** — a re-review by the model that raised the finding
-   is not a second pair of eyes — **and never `fable`** — and its `effort` is `low`, fixed, since a re-run reads a delta
-   to confirm a fix and must be short and fast; its `reason` names the model choice only. When those two exclusions leave no member, the pair is
-   `sonnet` / `low`, its `reason` the literal `fallback — no eligible model`. Default: today's settings-store roster on
+   findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is
+   `DEFAULT_MODEL`, and its `effort` is `low`, fixed, since a re-run reads a delta
+   to confirm a fix and must be short and fast; its `reason` names the model choice only. Default: today's settings-store roster on
    `DEFAULT_MODEL` and `default` effort for every dispatch, delta rerun, grouped by the static
    table deterministically (no roll), recorded `default`.
 4. **implementer groups** — on every run whose step 1 came out `sdd` (`## execution mode` toggle or
@@ -470,7 +468,7 @@ itself, the verify stage, or the self-review.
 #### Model and effort
 
 The tree fixes no model and no effort: every pair a `dynamic` step
-assigns — the implementer, the fixer, each panel dispatch, the rerun pair's model, each implementer group — is the planner's
+assigns — the implementer, the fixer, each panel dispatch, each implementer group — is the planner's
 own choice, `model` any member of the store's `ValidModels` set (`haiku`, `sonnet`, `opus`,
 `fable`; `flow settings models` prints it) and `effort` one of `low`/`medium`/`high`, decided
 from what that dispatch will actually do: the complexity of its tasks, the time and space
@@ -564,7 +562,7 @@ Prepend these three lines directly above the `## Decision` block — the one pla
 appear in a run, never printed twice:
 
 ```text
-planning:  inline, this session (<DEFAULT_MODEL>)
+planning:  inline, this session (<the model named in this session's own system prompt>)
 toggles:   execution mode <default|dynamic> · implementer model <default|dynamic> · review panel <default|dynamic>
 models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
 ```

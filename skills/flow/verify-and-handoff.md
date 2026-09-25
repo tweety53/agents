@@ -205,11 +205,11 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 
 **Load `skills/flow-contracts/git-boundaries.md`** before committing below.
 
-**The one planning-commit exception.** Every task and fixup commit already sits on the branch,
+**The PR-branch split.** Every task, fixup and planning commit already sits on the branch,
 pushed as it landed (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). If the state
-file records a `prUrl`, a PR is already open, so this run also commits
-`<project>/spectre/changes/` and pushes everything to the PR
-branch; otherwise this step commits nothing more. On that path only — and in this order — run
+file records a `prUrl`, a PR is already open, so this run also commits whatever the operator
+edited at the human gate and whatever planning delta the last planning commit left, and pushes
+everything to the PR branch; otherwise this step commits nothing more. On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <canonical-worktree>` (the same member the
 ledger render above targets); then `commit-split.sh <worktree>
 <name> "<impl-msg>" "chore(spectre): plan"`; then push the branch
@@ -324,9 +324,9 @@ flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harnes
 `<abs-worktree>/spectre/changes/<name>/narrative.md` (create it with the title `# <name> —
 session narrative` when absent) one section `## <YYYY-MM-DD> — <creating run | fix run>` holding
 this session's own prose account of the run — problems hit, workarounds, time sinks, environment
-gaps, operator decisions taken mid-run — and nothing the ledger or panel record already holds. It
-rides the next planning commit through `commit-split.sh`'s existing `<project>/spectre/changes/` pathspec;
-nothing else stages it.
+gaps, operator decisions taken mid-run — and nothing the ledger or panel record already holds. The
+write-in-progress planning commit carries it (**Planning commits**,
+`skills/flow-contracts/git-boundaries.md`), made once the append lands; nothing else stages it.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 `worktrees` should already carry one absolute-path key per affected worktree and its merge base —

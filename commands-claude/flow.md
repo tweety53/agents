@@ -1,5 +1,5 @@
 ---
-model: sonnet
+model: opus
 description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, and integrate, pausing only at the human gates
 ---
 

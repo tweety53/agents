@@ -1,5 +1,5 @@
 ---
-model: sonnet
+model: opus
 description: Research — a thinking partner for exploring ideas and clarifying requirements
 ---
 

@@ -333,7 +333,8 @@ discipline**, `skills/flow/implement.md`). A dispatch whose report never appears
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
 The same plan-tree discipline rides every round, re-run rounds included: before the launches the
-parent commits any uncommitted edits under `<project>/spectre/changes/<name>/` and runs
+parent makes the reviewer-dispatch planning commit (**Planning commits**,
+`skills/flow-contracts/git-boundaries.md`) and runs
 `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file
 exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any
 finding is recorded — the slots read those artifacts, and a flight that changed them has
@@ -785,9 +786,8 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round;
 - **on `REVIEW_PANEL_TOGGLE` `dynamic`, each re-running role runs alone, in its own dispatch, on
-  the decision's `panel.rerun_dispatch` pair** — a model no pass-1 dispatch used, at `low` effort,
-  under the 5-minute ceiling — never on the pair that raised the finding, and never bundled with
-  another role. **The re-run is targeted at what that role raised and nothing else**: in place of
+  the decision's `panel.rerun_dispatch` pair** — `DEFAULT_MODEL` at `low` effort,
+  under the 5-minute ceiling — and never bundled with another role. **The re-run is targeted at what that role raised and nothing else**: in place of
   its held-sha delta it reads the round's `fix-round-N.diff` plus the sites of its own open
   findings, each opened at its recorded `file:line` in the current tree, and its prompt lists
   those `F<n>` rows verbatim, states that it is re-reviewing their fix, and names that diff path.
@@ -839,14 +839,13 @@ fix round closes on, which stay uncapped. The scoped-round rule above adds its o
 pass under the same cap.
 
 **From the third full-roster pass this policy adds onward, every dispatch in that pass runs on
-`sonnet` or `haiku` — never `opus`, never `fable`**, regardless of what `DEFAULT_MODEL`,
-`panel.dispatches`, or a session override would otherwise resolve for it. Pass 1 (dispatched before
+`DEFAULT_MODEL` at `low` effort**, regardless of what `panel.dispatches` or a session override
+would otherwise resolve for it. Pass 1 (dispatched before
 any fix round) and pass 2 (the first repeat `full` adds, after the first fix round closes clean)
 are unaffected and keep whatever the normal resolution above gives them — this restriction applies
 only from the *third* time the whole roster re-reads `final-review.diff` onward: the run has by
 then already paid for two full-strength passes and is looping to confirm convergence, which does
-not need `opus` or `fable`. Pick `sonnet` unless the run is already on `DEFAULT_MODEL` `haiku`, in
-which case stay on `haiku`. Record the substituted model with `flow record pass -round <round>`
+not need more than `low` effort. Record the substituted model with `flow record pass -round <round>`
 alongside this pass's other entry-check notes, naming what the normal resolution would have given
 so the swap is visible in the pass log.
 

@@ -111,7 +111,7 @@ no gap left for it to bridge.
 Pushing the branch at creation and after every commit was asked for in the same instruction, so a
 worktree lost with the machine, or removed by a stray cleanup, is rebuilt from `origin/<branch>`
 rather than lost. The cost accepted: one push per commit, and integrate's push after the
-`reset --soft` reshape becomes `--force-with-lease`, on a branch only the run writes.
+reshape becomes `--force-with-lease`, on a branch only the run writes.
 
 ## integrate.md — 2. Ask how the branch should land, the rebase's planning-artifact aside
 
@@ -442,7 +442,7 @@ automatically; this rejection's reason is still met, because the close is not si
 recorded as a pass note and carried by the `rerun cap:` field's ⚠ marker in the handoff — and a
 third whole-branch pass still needs the operator's explicit instruction.
 
-**Rejected — a cheaper pair on the unasked repeats.** The rerun pair is a different model at
+**Rejected — a cheaper pair on the unasked repeats.** The rerun pair runs at
 `low`; the pass would keep its scope and lose its eyes. F10 is a race; a low-effort whole-branch
 read is the kind of read that misses one, and a pass that reads everything badly is a worse bargain
 than the prompt. Only the operator-chosen third pass, beyond the cap, runs on the budget rules'

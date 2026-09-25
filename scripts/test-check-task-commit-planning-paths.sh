@@ -97,7 +97,8 @@ task_commit() {
 }
 
 # plain_commit <repo> <message> <path>... — one real commit with no trailer,
-# the shape of the planning commit bare /flow makes at integrate.
+# the shape of every planning commit (git-boundaries.md's **Planning
+# commits**, and the one bare /flow makes at integrate).
 plain_commit() {
   local repo="$1" msg="$2"; shift 2
   mkdir -p "$(dirname "$repo/$1")"
@@ -214,8 +215,8 @@ else
 fi
 
 # ---- not a task commit: trailer-less commit sweeping spectre/changes/ ----
-# The planning commit bare /flow makes at integrate sweeps exactly these
-# paths and must stay outside this guard's contract.
+# A planning commit carries exactly these paths and must stay outside this
+# guard's contract.
 PLAIN="$(new_repo plain)"
 BASE_PLAIN="$(git -C "$PLAIN" rev-parse HEAD)"
 plain_commit "$PLAIN" "chore(spectre): plan" "spectre/changes/kan-1/tasks.md"
@@ -367,6 +368,23 @@ if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "1 task commit(s) checked"; t
   pass "range: swept planning commit before <base> not flagged"
 else
   fail "range: expected exit 0 with 1 checked, got RC=$RC OUT=<$OUT>"
+fi
+
+# ---- planning commits interleaved with task commits -----------------------
+# The plan-gate, link and reviewer-dispatch planning commits sit between task
+# commits on the branch; only the task commits are checked, and both are clean.
+MIXED_BRANCH="$(new_repo interleaved)"
+BASE_MIXED_BRANCH="$(git -C "$MIXED_BRANCH" rev-parse HEAD)"
+plain_commit "$MIXED_BRANCH" "chore(spectre): plan" "spectre/changes/kan-1/tasks.md"
+plain_commit "$MIXED_BRANCH" "chore(spectre): link peer" "spectre/changes/kan-1/link.md"
+task_commit "$MIXED_BRANCH" "feat(app): first" 1 src/one.go
+plain_commit "$MIXED_BRANCH" "chore(spectre): plan" "spectre/changes/kan-1/design.md"
+task_commit "$MIXED_BRANCH" "feat(app): second" 2 src/two.go
+run_guard "$MIXED_BRANCH" "$BASE_MIXED_BRANCH"
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "PLANNING-PATHS-CLEAN: .* 2 task commit(s) checked"; then
+  pass "interleaved planning commits: exit 0, two task commits checked"
+else
+  fail "interleaved planning commits: expected exit 0 with 2 checked, got RC=$RC OUT=<$OUT>"
 fi
 
 # ---- summary --------------------------------------------------------------

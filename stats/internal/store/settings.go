@@ -47,10 +47,10 @@ var ErrInvalidModel = errors.New("store: invalid model")
 var ErrInvalidReviewer = errors.New("store: invalid reviewer")
 
 // DefaultModel is the value GetSettings reports for DefaultModel when
-// flow_settings holds no row yet -- the model-default-sonnet decision's
-// default, so a /flow run started before /flow-settings has ever been run
+// flow_settings holds no row yet -- opus, the one model the operator set for
+// every run (it superseded the model-default-sonnet decision's sonnet), so a /flow run started before /flow-settings has ever been run
 // still resolves to a defined default rather than an error.
-const DefaultModel = "sonnet"
+const DefaultModel = "opus"
 
 // DefaultReviewers is the value GetSettings reports for Reviewers when
 // flow_settings holds no row yet: primary, principles and code-review-low,

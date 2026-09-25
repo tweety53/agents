@@ -167,7 +167,7 @@ flow stage end   -command '/flow' -stage flow.design-approval -outcome completed
 
 After the `flow.design-approval` mark above closes, mark `flow.create-artifacts` begin and
 continue directly into **C** — `spectre new` and the three artifacts, in the worktree, uncommitted
-and never staged there, per the existing git-boundaries rule. Mark `flow.create-artifacts` end once
+until the plan gate answers **Yes**. Mark `flow.create-artifacts` end once
 **C**'s artifacts are written, then mark `flow.writing-plans` begin and run **D** — writing-plans
 enrichment and the Decide step, its JSON at `<abs-worktree>/.superpowers/sdd/decision.json`. Mark
 `flow.writing-plans` end once **D**'s plan enrichment and Decide step complete.
@@ -185,7 +185,9 @@ flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 **The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`)
 — the prose summary of the logic to be implemented, the `## Decision` block, **Proceed to implementation?** with **Yes** /
 **No (plan needs updates)**; a **No** revises and re-decides per that section, recording each
-re-decision through the sequence above. Then continue into `skills/flow/implement.md` directly.
+re-decision through the sequence above. On **Yes**, make the plan-gate planning commit and push
+it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then continue into
+`skills/flow/implement.md` directly.
 
 ## Resume and fix runs
 

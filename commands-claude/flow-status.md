@@ -1,5 +1,5 @@
 ---
-model: sonnet
+model: opus
 description: Status — where every open change actually is (read-only)
 ---
 

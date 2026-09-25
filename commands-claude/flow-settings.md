@@ -1,5 +1,5 @@
 ---
-model: sonnet
+model: opus
 description: View and change the harness-wide flow defaults — default model, reviewer slots and self-review model
 ---
 
