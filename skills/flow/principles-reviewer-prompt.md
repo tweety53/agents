@@ -13,11 +13,11 @@ so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path
 Read-only review.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
-                                            # flow-<effort> on `dynamic`
+Subagent (<the dispatch's subagent_type>):  # flow-review on a `default` panel;
+                                            # flow-<effort> on a decided panel
   description: "Principles review (Merged)"
-  model: <the bundle's own model>             # DEFAULT_MODEL on `default`, the decision's
-                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on `dynamic`
+  model: <the bundle's own model>             # DEFAULT_MODEL on a `default` panel, the decision's
+                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
   prompt: |
     You are an engineering-principles reviewer. You are NOT doing a bug hunt, a
     security audit, or a plan-alignment review — other panel agents own those and

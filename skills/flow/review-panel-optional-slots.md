@@ -32,8 +32,8 @@ is dispatched again only if a later round's docs-only guard reclassifies the bra
 reduction.
 
 It runs at most once per change, whether or not the roster is `compact` — the experimental roll and
-the compact roll are independent per design.md's **The rolls** — and never at all when
-`REVIEW_PANEL_TOGGLE` is `default`, or when the decision recorded `experimental: none available`.
+the compact roll are independent per design.md's **The rolls** — and never at all on a `default`
+panel (a `micro` class), or when the decision recorded `experimental: none available`.
 
 Per **Bundled dispatch**, it joins whichever group has room, last among the reading passes;
 when neither group has room for a third role it is skipped and recorded with

@@ -140,8 +140,7 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 ```
 
 Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow -->
-directly — the resolved `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and
-`REVIEW_PANEL_TOGGLE` (**Model resolution**, `skills/flow/SKILL.md`) and the resolved worktree
+directly — `DEFAULT_MODEL` and `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) and the resolved worktree
 count (per **Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`) are
 already in scope from this run's own earlier resolution.
 

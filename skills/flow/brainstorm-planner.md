@@ -407,20 +407,15 @@ steps 1–4 below record the micro row's values without choosing — execution `
 and fixer `skipped — inline`, panel the string `default`, groups `null` — with decision.json
 carrying `class: micro`.
 
-Read `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` from this
-run's own earlier resolution (**Model resolution**, `skills/flow/SKILL.md`) — already in scope,
-since nothing dispatched this section. Decide, in this order, each step only when its own toggle is
-`dynamic` and (for steps 2-3) step 1 held; otherwise the step takes the stated default and is
-recorded as such:
+Decide, in this order — step 2 only when step 1 came out `sdd`:
 
-1. **execution mode** — `inline` (`class` micro, small or regular) or `sdd` (`class` big); default `sdd`.
+1. **execution mode** — `inline` (`class` micro, small or regular) or `sdd` (`class` big).
 2. **implementer and fixer model + effort** — only when step 1 came out `sdd`; two pairs, each
    chosen per **Model and effort** below. The implementer pair is every implementer group's
    default (step 4). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
    round does — repair named findings against their reproducers, usually a narrower job than the
    implementation — so its effort may differ from the implementer pair's, its `reason` saying
-   why. Both recorded `skipped — inline` when step 1 is inline, `default` when
-   the toggle is off.
+   why. Both recorded `skipped — inline` when step 1 is inline.
 3. **review panel** — roster, compact/experimental, rerun policy, the **rerun pair**, and its
    **grouping** —
    `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a
@@ -439,11 +434,8 @@ recorded as such:
    fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
    findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is
    `DEFAULT_MODEL` like every pair (**Model and effort** below), and its `effort` is `low`, fixed,
-   since a re-run reads a delta to confirm a fix and must be short and fast. Default: today's settings-store roster on
-   `DEFAULT_MODEL` and `default` effort for every dispatch, delta rerun, grouped by the static
-   table deterministically (no roll), recorded `default`.
-4. **implementer groups** — on every run whose step 1 came out `sdd` (`## execution mode` toggle or
-   not): run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
+   since a re-run reads a delta to confirm a fix and must be short and fast.
+4. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
    `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
    most three implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
@@ -454,11 +446,10 @@ recorded as such:
    collapse a real parallel wave. `groups_override` is `null` when the mechanical grouping is
    taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
    reason when `groups_override` is set. **Each group carries its own `model` and `effort`**:
-   step 2's implementer value by default, or — only when `IMPLEMENTER_MODEL_TOGGLE` is
-   `dynamic` — a different pair the planner picks for that group alone per **Model and effort**
-   (a group of mechanical, well-specified tasks on a cheaper model; a group carrying the change's
-   hardest seam one step up), the reason in that group's own `reason`. On `default` every group is `DEFAULT_MODEL` /
-   `default`. `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
+   step 2's implementer value by default, or a different pair the planner picks for that group
+   alone per **Model and effort** (a group of mechanical, well-specified tasks at a lower effort; a
+   group carrying the change's hardest seam one step up), the reason in that group's own `reason`.
+   `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
 
 **The tree**, one row per `class`:
@@ -476,7 +467,7 @@ itself, the verify stage, or the self-review.
 
 #### Model and effort
 
-Every pair a `dynamic` step assigns — the implementer, the fixer, each panel dispatch, the rerun
+Every pair a Decide step assigns — the implementer, the fixer, each panel dispatch, the rerun
 pair, each implementer group — takes `model` `DEFAULT_MODEL` (**Model resolution**,
 `skills/flow/SKILL.md`), never another model; the decision varies the effort only. Pairs may
 repeat — two dispatches, or a pass-1 dispatch and the rerun pair, on the same model and effort is
@@ -508,7 +499,7 @@ there still applies and still only removes.
 
 Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — on a first creating
 run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
-(**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `toggles`, `class`, `classMechanical`,
+(**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `class`, `classMechanical`,
 `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
 (`compact`, `experimental`, `bundle`), `execution`, `implementer` and `fixer` (each an object
 `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
@@ -523,7 +514,7 @@ skipped for the cap is recorded as the string `"experimental": "skipped — bund
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
-overrides to a *result*, never a toggle; empty unless one was given). Print this exact shape as the
+overrides to a *result*; empty unless one was given). Print this exact shape as the
 run's own output once the Decide step completes, filling every cell from what was just decided:
 
 ```markdown
@@ -537,12 +528,12 @@ run's own output once the Decide step completes, filling every cell from what wa
 | roll: experimental | <N> <"<" or "≥"> 30 | <slot name\|"no slot"\|"none available"> |
 | roll: bundle       | <N> <"<" or "≥"> 30 | <static\|free> grouping |
 
-| Setting            | Toggle           | Result |
+| Setting            | Rule             | Result |
 |--------------------|------------------|--------|
-| execution mode     | <default\|dynamic> | <inline\|sdd> |
-| implementer model  | <default\|dynamic> — <reason> | <"skipped — inline"\|"default"\|model/effort> |
-| ↳ fixer            | <model> / <effort> — <reason> | <"skipped — inline"\|"default"\|model/effort> |
-| review panel       | <default\|dynamic> | <"default"\|<compact\|full> · <delta\|full> rerun> |
+| execution mode     | class <class>    | <inline\|sdd> |
+| implementer model  | <reason>         | <"skipped — inline"\|model/effort> |
+| ↳ fixer            | <model> / <effort> — <reason> | <"skipped — inline"\|model/effort> |
+| review panel       | class <class>    | <"default"\|<compact\|full> · <delta\|full> rerun> |
 | ↳ dispatch <n>     | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
 | ↳ rerun            | <model> / low — <reason> | every fix-round re-run, one role per dispatch |
 | ↳ grouping         | free             | <grouping_reason> |
@@ -569,12 +560,11 @@ object in `groups`, its rule cell the group's model and effort with its `reason`
 the string `default` the review-panel value cell is `default` and no `↳` row follows it; when
 `implementer` is a string the `↳ fixer` row carries the same string and no pair.
 
-Prepend these three lines directly above the `## Decision` block — the one place these choices
+Prepend these two lines directly above the `## Decision` block — the one place these choices
 appear in a run, never printed twice:
 
 ```text
 planning:  inline, this session (<the model named in this session's own system prompt>)
-toggles:   execution mode <default|dynamic> · implementer model <default|dynamic> · review panel <default|dynamic>
 models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
 ```
 

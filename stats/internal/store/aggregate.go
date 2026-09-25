@@ -632,9 +632,9 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 // carries a reason (design.md's mechanical-class-one-step-override
 // decision) -- a JSON null or an absent key both read as false. ImplementerModel
 // and ImplementerEffort come from the decision's "implementer" field, which
-// is polymorphic: an object ({"model":...,"effort":...}) when the toggle
-// was dynamic and execution was "sdd", or a bare string ("skipped —
-// inline" / "default") otherwise -- ImplementerModel carries the model in
+// is polymorphic: an object ({"model":...,"effort":...}) when execution
+// was "sdd", or a bare string ("skipped — inline", or "default" on rows
+// recorded before the project toggles were removed) otherwise -- ImplementerModel carries the model in
 // the first case and the string itself in the second, so the column always
 // has something to show; ImplementerEffort is empty in the second case,
 // since a string carries no effort to read. Fixer reads the decision's

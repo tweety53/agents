@@ -9,8 +9,8 @@
 # frontmatters each carry their own `effort:` line and no `model:` line — the
 # Agent tool's dispatch-time `model` parameter overrides a definition's
 # `model`, so the model axis needs no definition of its own while the effort
-# axis does. flow-review carries neither axis: the default-toggle panel
-# decides no effort, and its `tools:` allowlist must omit `Agent` — a
+# axis does. flow-review carries neither axis: a `default` panel (a micro
+# class) decides no effort, and its `tools:` allowlist must omit `Agent` — a
 # reviewer structurally cannot fork (KAN-495). The installer's captured
 # output goes to its own mktemp file, removed with the sandbox by the same
 # EXIT trap — never a fixed path under /tmp, which two concurrent runs of
@@ -80,7 +80,7 @@ else
     fail "$reviewer_link frontmatter still carries a 'model:' line"
   fi
   if grep -qE '^effort: ' "$reviewer_link"; then
-    fail "$reviewer_link carries an 'effort:' line — the default toggle decides no effort"
+    fail "$reviewer_link carries an 'effort:' line — a default panel decides no effort"
   fi
 fi
 

@@ -1,6 +1,6 @@
 ---
 name: flow-fast
-description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, inline implementation, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file, no pipeline guards. Use for /flow-fast.
+description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, implementation and review panel as the plan's class decides, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file. Use for /flow-fast.
 allowed-tools: Bash(flow:*), Bash(land-self-review-report.sh:*)
 license: MIT
 ---
@@ -9,8 +9,8 @@ Do the work the way a careful engineer does it by hand — read, edit, verify, c
 record it the way `/flow` does: every `flow.*` stage mark below, in this order, under one
 session token, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
 `/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`, no state file
-and no three states, no staged-diff gate, no archive branch, and no pipeline guard. Dispatch, a decision and a review panel exist only where a
-`dynamic` toggle decides them (**Dynamic decisions** below). The only isolation is git's: a
+and no three states, no staged-diff gate, no archive branch, and no pipeline guard. Dispatch and a review panel exist only where the recorded
+decision names them (**Dynamic decisions** below). The only isolation is git's: a
 worktree on its own branch. `prepare-workspace.sh`, the per-change
 database, bucket, ports and cache index of **Workspace isolation**
 (`skills/flow-contracts/workspace-isolation.md`) are never set up.
@@ -28,7 +28,7 @@ mark a stage `/flow-fast` has nothing to run for; the mark stays so the run's st
 
 **Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
 an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never
-a planner or a verifier, and nothing at all on every-toggle-`default`. Never ask a model,
+a planner or a verifier. Never ask a model,
 planning-effort or review question. Never write `<project>/spectre/`
 or a state file. Never set up workspace isolation and never call a
 guard script a cited `skills/flow/` section does not call itself. Never push to a branch other
@@ -56,18 +56,10 @@ the deferred bundle of section 5 alone — never a reasoning pass.
 
 ## Dynamic decisions
 
-Read `## execution mode`, `## implementer model` and `## review panel` with
-`project-get.sh <project> <key>` before section 2, each matched per **Model resolution**
-(`skills/flow/SKILL.md`) — `default` or `dynamic`, any other body reported by name and dropped
-as `default`; `STATE_WORKTREE_ROOTS` is never set, since a `/flow-fast` change spans one
-repository. `DEFAULT_MODEL` resolves per the same section, and is read only where a `dynamic`
-execution decides `sdd` while `## implementer model` is `default`.
+`DEFAULT_MODEL` and `REVIEWERS` resolve per **Model resolution** (`skills/flow/SKILL.md`) before
+section 2.
 
-**`default` here means the stage as this file runs it without the toggle** — inline, no
-implementer, no panel — never `/flow`'s own `default`. With all three `default`, nothing in this
-section applies and the stage marks below stay empty pairs.
-
-**With any toggle `dynamic`**, `<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
+`<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
 basename is what keys the rolls — and `<project>/.superpowers/` joins `<project>/.worktrees/` in
 `<project>/.git/info/exclude`. Every `skills/flow/` section cited below runs as written, with
 these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it
@@ -90,7 +82,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   steps 1–4 and **The
   tree** (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
-  `## Decision` block under its `planning:`/`toggles:`/`models:` lines.
+  `## Decision` block under its `planning:`/`models:` lines.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
   written — one implementer per decided group on that group's model and effort, the context
   bundle gathered on `<changeRoot>`, every dispatch-prompt paragraph, both dispatch records, the
@@ -102,7 +94,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   grouping and dispatches on their own model and effort, every fix-round re-run on its
   `panel.rerun_dispatch` pair, findings recorded, fixes as that file
   states them: the parent itself on `inline`, the panel-fix subagent on `sdd` on the decision's
-  `fixer` pair. `default` runs no panel.
+  `fixer` pair. A `default` panel (the `micro` class) runs no panel.
 
 The change summary in section 5 then also carries the `## Decision` block and, when a panel ran,
 each finding with its status.
@@ -170,15 +162,14 @@ flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harne
 ```
 
 Register the steps of this change with the harness's task-list mechanism — one entry per file or
-logical unit you will touch, so the operator can follow along. Nothing is written to disk unless
-**Dynamic decisions**' `writing-plans` step applies.
+logical unit you will touch, so the operator can follow along. **Dynamic decisions**' `writing-plans` step then writes the plan.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>
 flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-**Dynamic decisions**' `decide` step runs here when any toggle is `dynamic`.
+**Dynamic decisions**' `decide` step runs here.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <name>

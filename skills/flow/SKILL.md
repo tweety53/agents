@@ -49,60 +49,11 @@ The full key list, in the order each phase file marks them:
 **Resolve this once, near the top of every run, before any dispatch below reads it:**
 
 ```bash
-MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
 SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
-project_key() {
-  local out rc
-  out="$(project-get.sh "$1" "$2" 2>&1)"; rc=$?
-  case "$rc" in
-    0) printf '%s' "$out" | tr -d '`' | xargs ;;
-    1) ;;
-    *) echo "⛔ flow: project-get.sh $1 '$2' exited $rc: $out — stop the run" >&2; exit 2 ;;
-  esac
-}
-resolve_toggle() {
-  local key="$1" val root rval
-  val="$(project_key "$MAIN_CHECKOUT" "$key")" || exit 2
-  if [ -n "$val" ] && [ "$val" != default ] && [ "$val" != dynamic ]; then
-    echo "⚠ flow: .flow/project.md '## $key' body '$val' is not 'default' or 'dynamic' — dropped" >&2
-    val=""
-  fi
-  [ -z "$val" ] && val=default
-  if [ "$val" = default ] && [ -n "${STATE_WORKTREE_ROOTS:-}" ]; then
-    for root in $STATE_WORKTREE_ROOTS; do
-      [ "$root" = "$MAIN_CHECKOUT" ] && continue
-      rval="$(project_key "$root" "$key")" || exit 2
-      if [ "$rval" = dynamic ]; then val=dynamic; break; fi
-    done
-  fi
-  printf '%s' "$val"
-}
-EXECUTION_MODE_TOGGLE="$(resolve_toggle 'execution mode')" || exit 2
-IMPLEMENTER_MODEL_TOGGLE="$(resolve_toggle 'implementer model')" || exit 2
-REVIEW_PANEL_TOGGLE="$(resolve_toggle 'review panel')" || exit 2
 VERIFY_MODEL=opus
 ```
-
-**A read that failed is never a toggle set to `default`.** `project-get.sh` resolves per **Guard
-resolution** (`skills/flow-contracts/pipeline.md`) and is not on `PATH`: discarding its stderr once read
-its `command not found` as an absent key and resolved every toggle `default` while the project
-declared `dynamic` (gymie KAN-746). Exit 1 — the key or `<project>/.flow/project.md` absent — is
-the only failure that resolves `default`; any other exit, 127 included, stops the run with the
-lines above.
-
-**`STATE_WORKTREE_ROOTS` widens toggle resolution across the repositories a change already
-spans.** Set it — space-separated absolute
-paths, or unset/empty when there is none — from the state record's `worktrees` map keys, once
-this run has read that record (**Reading the state**, below): non-empty on a resumed `STARTED`
-run, a fix run, or a bare `IN_PROGRESS` run, since each already has a prior run's completed
-`worktrees` map to read; empty on a **creating** run, whose worktree set does not exist until
-`flow.kickoff` creates it, well after this block runs — nothing beyond `MAIN_CHECKOUT`
-is knowable that early, which is a timing fact, not a bug to chase further. When set, a toggle
-that reads `default` from `MAIN_CHECKOUT` is re-checked against every other root in the set, and
-**any** of them declaring `dynamic` wins — a satellite repo's own opt-in is honored even though
-the shell started in a different repo of the same change.
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
@@ -110,8 +61,14 @@ no per-change fallback file for this record. Report the CLI's stderr and fall ba
 naming that this is a fallback rather than a resolved value, and continue: settings unreachable is
 never a reason to block implementation.
 
-**`REVIEWERS` resolves from the same call, into the roster the panel dispatches**
-(`skills/flow/review-panel.md` is canonical for what dispatching it means):
+**Execution mode, implementer effort and the review panel are decided per change, never
+configured.** The plan's class and rolls decide all three — **Decide**
+(`skills/flow/brainstorm-planner.md`) — and the run reads them from the recorded
+`decision.json`.
+
+**`REVIEWERS` resolves from the same call, into the roster a `micro` decision's panel
+dispatches** — the one class whose `panel` is the string `default` (`skills/flow/review-panel.md`
+is canonical for what dispatching it means):
 
 | Store state | Resolved roster |
 |-------------|-----------------|
@@ -130,16 +87,6 @@ and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatch
 `<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
 never falls back, because it is never resolved — the point is a predictable model for mechanical
 verification runs regardless of what `DEFAULT_MODEL` resolved to.
-
-**`EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` resolve
-`<project>/.flow/project.md`'s `## execution mode`, `## implementer model` and `## review panel`
-keys** — each `default` or `dynamic`; `default` runs execution, the implementer and the panel
-exactly as this run would without the toggle, `dynamic` hands the corresponding decision to the
-plan's class (and, for the panel, its rolls) — see design.md's **Toggles** section for what each
-value means in full. A plain-language session instruction overrides a *result*, never a toggle.
-**On a change already known to span more than one repository** (a resumed, fix, or bare
-`IN_PROGRESS` run — see `STATE_WORKTREE_ROOTS` above), a key resolves `dynamic` if **any** of
-those repositories declares it, never `MAIN_CHECKOUT` alone.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot, Bugbot and Security included (every one a
@@ -226,8 +173,7 @@ one per mark or per phase file.
 ## Guardrails
 
 - Never ask a planning-effort, model, or review-panel-roster question on a creating run. The
-  roster is resolved from the settings store, never asked, or from the recorded decision when
-  `## review panel` is `dynamic`; see **Model resolution** above and
+  roster is the recorded decision's, never asked — the settings store's on a `micro` decision; see **Model resolution** above and
   **Review panel** (`skills/flow/review-panel.md`).
 - Never publish a proposal artifact. `artifactUrl` is written
   `null` and stays `null` for the life of the change.
@@ -236,16 +182,14 @@ one per mark or per phase file.
   other trigger — only an explicit operator instruction adds one, for that run only, checked at the
   start of the panel stage and at every fix round. The one automatic change to the roster is a
   reduction — `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone — and it
-  only ever removes; a dynamic roster is the decision's roster, and the docs-only reduction still
-  only removes; see **The docs-only reduction** (`skills/flow/review-panel.md`).
+  only ever removes, from the decision's roster as from any other; see **The docs-only reduction** (`skills/flow/review-panel.md`).
 - Never run more than three implementer dispatches in flight at once, in any wave — a fourth or
   later ready group queues in plan order and launches only as an in-flight one is picked; see the
   Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).
 - Never dispatch review-panel roles as separate parallel `Agent` calls. A round is at most two
   dispatches, each one `Agent` call carrying one to three roles as its own `PASS <id>` sections —
   see **Bundled dispatch** (`skills/flow/review-panel.md`). Before dispatching any panel round,
-  re-check that section's grouping (or the decision's `panel.dispatches`/`panel.grouping` on
-  `dynamic`).
+  re-check the decision's `panel.dispatches`/`panel.grouping`.
 - Never hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
   defines it. A deferred Minor is not open.

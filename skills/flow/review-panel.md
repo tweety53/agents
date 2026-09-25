@@ -2,10 +2,10 @@
 
 Loaded by `skills/flow/SKILL.md` immediately after `skills/flow/implement.md`'s `flow.sdd-tdd`
 stage closes, on every implementation run — creating, resumed, or fix. Dispatches the resolved
-roster: `REVIEWERS` — `skills/flow/SKILL.md`'s **Model resolution** resolves from the settings
-store, which that file is canonical for — when `REVIEW_PANEL_TOGGLE` is `default`, or this run's
-decision's `panel.roster` (`<abs-worktree>/.superpowers/sdd/decision.json`, per design.md's **The
-`## Decision` block**) when it is `dynamic`. This file owns dispatch: mapping each resolved id to
+roster: this run's decision's `panel.roster` (`<abs-worktree>/.superpowers/sdd/decision.json`, per
+design.md's **The `## Decision` block**), or — when the decision's `panel` is the string `default`,
+a `micro` class — `REVIEWERS`, which `skills/flow/SKILL.md`'s **Model resolution** resolves from the
+settings store and is canonical for. This file owns dispatch: mapping each resolved id to
 its slot and spawning it.
 
 ```bash
@@ -136,9 +136,9 @@ of this stage's own reporting.
 
 ## The roster
 
-Every resolved id maps to one slot, dispatched this run because the resolved roster (`REVIEWERS`,
-or the decision's `panel.roster` on `dynamic` — see the opening paragraph above) carries it — the
-spawn column names the `REVIEW_PANEL_TOGGLE: default` spawn, which the `dynamic` paragraph below
+Every resolved id maps to one slot, dispatched this run because the resolved roster (the decision's `panel.roster`,
+or `REVIEWERS` on a `default` panel — see the opening paragraph above) carries it — the
+spawn column names the `default`-panel spawn, which the decided-panel paragraph below
 overrides:
 
 | id | Slot | How to spawn |
@@ -160,7 +160,7 @@ dispatcher resolves their paths, confirms each exists, and names them in the pro
 `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
 for this run. Every slot in this table,
 Bugbot and Security included, is dispatched on `flow-review` (`agents/flow-review.md`, on
-`REVIEW_PANEL_TOGGLE: default`) and carries the same model rule. `flow-review` is a definition
+a `default` panel) and carries the same model rule. `flow-review` is a definition
 this repository owns, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a
 capability the slot structurally does not have, not by the NO DELEGATION paragraph alone;
 `general-purpose` is a harness-provided type whose tool set cannot be restricted.
@@ -173,7 +173,7 @@ retroactively to a pass already closed. It is never written back to the settings
 slots were added this way and why (the operator's own words) with `flow record pass -round <round>`,
 and record explicitly when none were: "no addition this round — the resolved list ran alone."
 
-**On `REVIEW_PANEL_TOGGLE` `dynamic`**, model and effort belong to the dispatch, not the slot:
+**On a decided panel** (the decision's `panel` an object), model and effort belong to the dispatch, not the slot:
 each entry of the decision's `panel.dispatches` carries its `slots` and its own `model` and
 `effort`, and every slot in it runs on that pair in pass 1 — and in every fix-round re-run on the
 decision's `panel.rerun_dispatch` pair instead (**Panel re-runs**) — the dispatch's `subagent_type` is
@@ -225,7 +225,7 @@ named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
 `primary` is the reduced roster even when the resolved list does not carry it — the
 same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
-This reduction applies to a dynamic roster unchanged: it still narrows to `primary` alone, on the model and
+This reduction applies to a decided roster unchanged: it still narrows to `primary` alone, on the model and
 effort of the decided dispatch that carried `primary` — one dispatch, never bundled.
 
 **Exit 1 runs the resolved roster unchanged**; the first non-documentation path any worktree's run
@@ -269,13 +269,13 @@ grouped into those dispatches.
 
 ### Bundled dispatch
 
-**At most two review dispatches per round, each carrying one to three roles**, on both
-`REVIEW_PANEL_TOGGLE` values and in both execution modes. A dispatch carrying one role covers that role alone; a roster the
+**At most two review dispatches per round, each carrying one to three roles**, on
+decided and `default` panels alike and in both execution modes. A dispatch carrying one role covers that role alone; a roster the
 two dispatches cannot hold shrinks to what they hold.
 
-**Grouping.** On `dynamic`, the decision's `panel.grouping` is `static` — the class's row in
+**Grouping.** On a decided panel, the decision's `panel.grouping` is `static` — the class's row in
 design.md's **Bundled dispatch › Grouping** table, unchanged, no override — or `free` — the
-planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On `default`,
+planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On a `default` panel,
 the settings-store roster is grouped deterministically by the same static logic, no roll and no
 planner: reading roles (`primary`, `principles`, `security`) fill the first
 dispatch in that order up to three, the mutating roles (`bugbot`, `mutation`) the
@@ -308,7 +308,7 @@ Every bundle prompt also carries this paragraph verbatim:
 
 **Re-runs are re-grouped by the same grouping**, carrying only the roles re-running this round — a
 group whose other members are clean dispatches with its re-running members only. On
-`REVIEW_PANEL_TOGGLE` `dynamic` a fix round's re-running roles are never bundled: one dispatch per
+a decided panel a fix round's re-running roles are never bundled: one dispatch per
 role, its `-slot` that role alone (**Panel re-runs**).
 
 The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
@@ -353,10 +353,10 @@ is recorded — a slot's clean report is never the answer to what happened to th
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
 panel record names every worktree's sha beside the delta path. `-model` is `DEFAULT_MODEL` (or this run's override) on
-`REVIEW_PANEL_TOGGLE` `default` and the dispatch's own model from the decision's
-`panel.dispatches` on `dynamic` — bundled or one-role alike, no exception — or, on a fix-round
-re-run on `dynamic`, `panel.rerun_dispatch`'s model. `-effort` likewise:
-`default` on `REVIEW_PANEL_TOGGLE` `default`, and the dispatch's own effort on `dynamic`,
+a `default` panel and the dispatch's own model from the decision's
+`panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a
+fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` likewise:
+`default` on a `default` panel, and the dispatch's own effort on a decided panel,
 `panel.rerun_dispatch`'s `low` on a re-run.
 
 **`-agent-id` is never typed, never invented** — the daemon captures the launch identifier,
@@ -545,7 +545,7 @@ agent reports to nobody the dispatcher is tracking. Repair it by dispatching the
 that reports back directly; never drop the slot.
 
 Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 5 minutes for a
-fix-round re-run dispatch on `REVIEW_PANEL_TOGGLE` `dynamic`, which reads a delta at `low` effort
+fix-round re-run dispatch on a decided panel, which reads a delta at `low` effort
 and has no business running longer. The dispatcher
 tracks each in-flight slot's elapsed time itself rather than blocking indefinitely on a completion
 notification. **The ceiling is a record-and-review bound, not a stop**: it cannot halt
@@ -777,7 +777,7 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round;
-- **on `REVIEW_PANEL_TOGGLE` `dynamic`, each re-running role runs alone, in its own dispatch, on
+- **on a decided panel, each re-running role runs alone, in its own dispatch, on
   the decision's `panel.rerun_dispatch` pair**, under the 5-minute ceiling — never bundled with
   another role. **The re-run is targeted at what that role raised and nothing else**: in place of
   its held-sha delta it reads the round's `fix-round-N.diff` plus the sites of its own open
@@ -805,7 +805,7 @@ roster re-reads the whole `final-review.diff` (Bugbot and Mutation in their pass
 from that final pass opens an ordinary fix round under the rules above; the final pass then repeats
 once that round closes clean — one repeat, unasked; what runs past that is **The rerun cap** below.
 **Rerun policy `delta`** — `small` and `regular`, and every run on
-`REVIEW_PANEL_TOGGLE` `default` — is the section above as it stands: no added final pass, beyond
+a `default` panel — is the section above as it stands: no added final pass, beyond
 the one the scoped-round rule above requires of a run that reached a third fix round.
 
 **The rerun cap.** The whole-roster re-reads this mechanism adds are capped at two unasked — the
@@ -1236,8 +1236,7 @@ to exactly this shape (**Before closing the stage**, below). Inline
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
 panel-fix -agent-id inline`. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. **Dispatch it on `DEFAULT_MODEL`**. **On
-`IMPLEMENTER_MODEL_TOGGLE` `dynamic` with an `sdd` decision, dispatch it instead on the decision's
+writing its fix. **Dispatch it on `DEFAULT_MODEL`**. **On an `sdd` decision, dispatch it instead on the decision's
 `fixer` object** — its own model and effort, chosen apart from the implementer's, `subagent_type:
 flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
 `-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). Record

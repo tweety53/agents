@@ -101,7 +101,7 @@ the value read in step 1 for each field that did not.
 
 **Before the write, tell the operator which slots cannot dispatch as themselves here.** The
 roster's slots spawn as **The roster** (`skills/flow/review-panel.md`) spawns them — on
-`flow-review`, or on `flow-<effort>` where the panel is dynamic — and a conductor whose harness
+`flow-review`, or on `flow-<effort>` where the panel is decided — and a conductor whose harness
 offers neither substitutes a harness-provided type (`general-purpose`) for those slots. Compare
 each confirmed slot's spawn type against the agent types this session's own harness offers at
 conductor depth, and when the type is absent print one line ahead of the write, naming every

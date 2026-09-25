@@ -1265,8 +1265,8 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 // dispatch groups and two implementer-merge groups renders each as its
 // roles/ids '+'-joined within a group and ' · '-joined across groups,
 // whether the groups are {slots|bundles, model, effort} objects or the bare
-// id arrays older rows recorded; a decision whose panel is still the bare
-// "default" string (the toggle was off) renders Grouping as "default" with
+// id arrays older rows recorded; a decision whose panel is the bare
+// "default" string (a micro class) renders Grouping as "default" with
 // no dispatches to show, and a nil groups field (inline execution) renders
 // as empty.
 func TestDecisionsRendersGrouping(t *testing.T) {

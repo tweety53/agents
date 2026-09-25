@@ -8,7 +8,9 @@ than assuming a project-local path.
 
 Follow that skill exactly. One invocation runs from the Jira key to the landed change: resolve the
 issue and name per **Transitions** (`skills/flow-contracts/jira-integration.md`), move it to In Progress, create a git worktree on a branch named after the change (git isolation only
-— no workspace setup, database or bucket), implement inline in this session, run the project's
+— no workspace setup, database or bucket), write `tasks.md` and decide how to implement it per
+the plan's class — inline, or implementer subagents per group, with the review panel the class
+calls for — run the project's
 `## lint` and the tests the change touches, with `## self review` `defer` commit the self-review
 context bundle on the branch for `/flow-self-review`, print the change summary, then — unless the project's `## handoff` is `none` — stop for the
 operator to review the branch; land by the project's `## default landing route` (asking only
@@ -16,8 +18,8 @@ when none is declared), move the issue to In Review, and —
 on merge and push — remove the worktree and branch and move the issue to Done. Every `flow.*`
 stage `/flow` marks is marked, most as an empty pair, so the stats views see one pipeline.
 
-No spectre artifacts, no state file, no decision record, no subagent, no review panel, no guard
-script. Asks no model, planning-effort or review question.
+No spectre artifacts and no state file; subagents and a review panel only as the recorded decision
+names them. Asks no model, planning-effort or review question.
 
 Also follow the flow rule (`flow-manual-review.mdc`) — installed globally, so let your harness
 resolve it rather than assuming a project-local path — for the Jira contract it points at; the

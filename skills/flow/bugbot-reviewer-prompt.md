@@ -6,11 +6,11 @@ finding — see **The throwaway worktree** (`skills/flow/review-panel-optional-s
 made and removed.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
-                                            # flow-<effort> on `dynamic`
+Subagent (<the dispatch's subagent_type>):  # flow-review on a `default` panel;
+                                            # flow-<effort> on a decided panel
   description: "Defect hunt (Bugbot)"
-  model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's
-                                           # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on `dynamic`
+  model: <the bundle's own model>         # DEFAULT_MODEL on a `default` panel, the decision's
+                                           # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
   prompt: |
     You are a defect-hunt reviewer. You are NOT doing a plan-alignment review, a principles
     review, a security audit, or a failure-modes review — other panel slots own those and

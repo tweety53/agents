@@ -4,11 +4,11 @@ slot, per **The roster** (`skills/flow/review-panel.md`).
 Read-only review.
 
 ```
-Subagent (<the dispatch's subagent_type>):  # flow-review on `default`;
-                                            # flow-<effort> on `dynamic`
+Subagent (<the dispatch's subagent_type>):  # flow-review on a `default` panel;
+                                            # flow-<effort> on a decided panel
   description: "Security review"
-  model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's
-                                           # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on `dynamic`
+  model: <the bundle's own model>         # DEFAULT_MODEL on a `default` panel, the decision's
+                                           # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
   prompt: |
     You are a security-focused reviewer for this project's code. You are NOT doing a
     plan-alignment review, a principles review, or a defect hunt — other panel slots own

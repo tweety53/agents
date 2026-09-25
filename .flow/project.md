@@ -263,24 +263,6 @@ scripts/check-references.sh
 
 `fable`
 
-## toggles
-
-All three toggles below are declared `dynamic` for this repository: execution mode, implementer
-model and the review panel roster are each handed to the plan's class (and, for the panel, its
-rolls) rather than running as this run would without the toggle.
-
-## execution mode
-
-`dynamic`
-
-## implementer model
-
-`dynamic`
-
-## review panel
-
-`dynamic`
-
 ## workspace isolation
 
 | Resource | Variable | Default | In a workspace |

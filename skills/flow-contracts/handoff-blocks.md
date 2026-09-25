@@ -93,7 +93,7 @@ rule the open-questions count reads through are stated once under **Open questio
 ## Implementation staged — review and test
 
 **Change:** <name>
-**Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired"> · <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; demoted: <the closing pass's substituted pair and what the normal resolution would have given, or "no">; rerun cap: <the cap's fired silent default — ⚠ marker included — or the operator's one extension, or "no">
+**Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired"> · <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; demoted: <the closing pass's substituted pair and what the normal resolution would have given, or "no">; rerun cap: <the cap's fired silent default — ⚠ marker included — or the operator's one extension, or "no">
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
 **Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted"> · **Deferred:** <count of deferred Minors>
 **Guards:** (run-only) <all present, or how many were missing and checked by hand>

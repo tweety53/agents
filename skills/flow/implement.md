@@ -30,9 +30,9 @@ after the fix's edit.
 
 **Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and
 run the guard-presence check, before this run's first dispatch. Read the decision JSON
-(`<abs-worktree>/.superpowers/sdd/decision.json`) for the three resolved toggles —
-`EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE`, `REVIEW_PANEL_TOGGLE` — per **The `##
-Decision` block** (`design.md`), and for the recorded `groups` field, which section **4** below
+(`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `execution`, `implementer`,
+`fixer` and `panel` — per **The `## Decision` block** (`design.md`) — and for the recorded
+`groups` field, which section **4** below
 dispatches by.
 
 **Never end a turn with a child in flight** — wait for every implementer, reviewer, slot or fix
@@ -78,12 +78,12 @@ tool's dispatch-time `model` parameter overrides a definition's `model` while `e
 dispatch-time parameter) carries a `tools:` allowlist that omits
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
 structurally does not have, not by prompt text alone. This covers the panel bundle and
-panel-fix rows whenever `REVIEW_PANEL_TOGGLE` is `dynamic` (`skills/flow/review-panel.md`'s own
+panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row whenever it dispatches on its group's
-`model`/`effort` pair. On `REVIEW_PANEL_TOGGLE: default` a reviewer row dispatches `flow-review`
+`model`/`effort` pair. On a `default` panel a reviewer row dispatches `flow-review`
 (`agents/flow-review.md`) instead — a definition this repository owns, carrying the same
-allowlist, so the reviewer rows are structurally fork-free on both toggle values. The verifier
-row dispatches `flow-low` unconditionally, regardless of any toggle (`skills/flow/visual-verify.md`),
+allowlist, so the reviewer rows are structurally fork-free on both panel shapes. The verifier
+row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too.
 
 **Inline — the parent implements** below takes this same table minus the implementer and panel-fix
@@ -435,10 +435,9 @@ flat integer id, omitted for a dispatch against no single task. `-session-token`
 never a shell substitution. The start and end instants are the daemon's own — never
 caller inputs.
 
-**`-model` is the model this dispatch was actually given — `DEFAULT_MODEL`** (`skills/flow/SKILL.md`'s
-**Model resolution**), or the run's session-instruction override when one was given for the
-implementer role; on `IMPLEMENTER_MODEL_TOGGLE` `dynamic` it is the group's own `model` from the
-decision's `groups` entry, `-effort` its `effort`, and the dispatch's `subagent_type` is
+**`-model` is the model this dispatch was actually given — the group's own `model` from the
+decision's `groups` entry** (`DEFAULT_MODEL`, `skills/flow/SKILL.md`'s **Model resolution**, or
+the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is
 `flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
 omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A slot whose model the dispatcher cannot
@@ -468,7 +467,7 @@ commits with, the partner its `**Squash-with:**` field names.
 **Waves — concurrent dispatch of ready groups.** A group is ready when every id in the union of
 its bundles' `after <k>:` lines **that is not itself a task of one of the group's own bundles** has
 landed — committed and guard-passed, by direct commit or pick.
-**At most three implementer dispatches are in flight per wave**, on both `## execution mode` values.
+**At most three implementer dispatches are in flight per wave**, on every `sdd` decision.
 A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
 worktree and commits directly; two or three ready groups launch together in one message,
 each into its own throwaway worktree created by the sequence below, each copy then running the

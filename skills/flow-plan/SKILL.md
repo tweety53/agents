@@ -182,8 +182,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    enrichment, its guards and `flow tasks count`, as written.
 5. **Decide** (`skills/flow/brainstorm-planner.md`) — `plan-class.sh` on `<changeRoot>/tasks.md`
    with `<repos>` the number of distinct repository roots the plan's `**Files:**` fall under
-   (the project's `## apps` table; `1` when every path is in this one); the three toggles per
-   **Model resolution** (`skills/flow/SKILL.md`) against the main checkout alone;
+   (the project's `## apps` table; `1` when every path is in this one);
    `DEFAULT_MODEL` from `flow settings get`; the JSON at
    `<abs-worktree>/.superpowers/sdd/decision.json`; the `## Decision` block printed. Record it
    against the change:

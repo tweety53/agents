@@ -33,8 +33,7 @@ panel slot at the panel's model instead and escalates breadth (the conditional S
 and extra-principle slots) rather than the model. See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
 
-**A `dynamic` toggle hands the choice to the planner.** Where `## implementer model` or
-`## review panel` is `dynamic`, the implementer, the fixer and each panel dispatch run on
+**The planner makes the choice.** The implementer, the fixer and each panel dispatch run on
 `DEFAULT_MODEL` at the effort the Decide step chose for them, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`). The fixer's pair is its own, not the implementer's; a
 fix-round re-run runs on the decision's `panel.rerun_dispatch` pair.

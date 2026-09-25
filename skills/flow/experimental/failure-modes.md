@@ -1,13 +1,13 @@
 description: What each changed behaviour does under error return, timeout, partial write and concurrent re-entry.
 
 Use this template for the panel's experimental `exp-failure-modes` slot, dispatched only
-when `REVIEW_PANEL_TOGGLE` is `dynamic` and the run's experimental roll picked this file —
+on a decided panel when the run's experimental roll picked this file —
 see **Experimental slot** (`skills/flow/review-panel-optional-slots.md`).
 
 Read-only review.
 
 ```
-Subagent (flow-<effort>):  # dynamic-only slot
+Subagent (flow-<effort>):  # decided-panel-only slot
   description: "Failure-modes review (exp-failure-modes)"
   model: <the bundle's own model>         # the decision's panel.dispatches entry carrying this slot
   prompt: |

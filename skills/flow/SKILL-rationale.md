@@ -142,10 +142,6 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 in-sentence reason stay there. The quoted fragment before each dash is that rule, for attribution; the
 text after it is the passage, verbatim.
 
-### SKILL.md — Model resolution (`STATE_WORKTREE_ROOTS`)
-
-- *When set, a toggle that reads `default` from `MAIN_CHECKOUT` is re-checked against every other root in the set, and **any** of them declaring `dynamic` wins.* — This is deliberately narrower than "every repository this project could ever touch": it widens resolution only to repositories **this specific change already knows it spans** (the state record's own `worktrees`), never to every peer `<project>/spectre/peers` declares — that file lists every repository a project *could* cross into (`agents` among them, for a project like `gymie` that opts into shared standards), most of which a given change never touches, so unioning over it would flip `dynamic` on for changes that have nothing to do with those repositories.
-
 ### brainstorm-planner.md — The checklist
 
 - ***A frame-specified design needs its handoff assets reachable from the tree.*** — gymie kan-29's routes A–F were built with the handoffs outside the tree, which is what left every "different from the mockup" report unanswerable and let an unchecked caption survive review.
@@ -308,8 +304,8 @@ text after it is the passage, verbatim.
 
 ### review-panel.md — Bundled dispatch
 
-> **At most two review dispatches per round, each carrying one to three roles**, on both
-> `REVIEW_PANEL_TOGGLE` values and in both execution modes (design.md's
+> **At most two review dispatches per round, each carrying one to three roles**, on
+> decided and `default` panels alike and in both execution modes (design.md's
 > `two-dispatch-cap-everywhere`).
 
 > A one-role dispatch is unchanged from today.

@@ -2,11 +2,11 @@
 # check-model-resolution-shell.sh — proves the two documented bash blocks
 # that resolve /flow's run-level variables actually resolve them correctly,
 # rather than trusting the prose by eye: skills/flow/SKILL.md's "Model
-# resolution" block for the three toggles (EXECUTION_MODE_TOGGLE,
-# IMPLEMENTER_MODEL_TOGGLE, REVIEW_PANEL_TOGGLE), and skills/flow/archive.md
-# step 9's block for SELF_REVIEW_MODEL. The two are extracted and run
-# together, in that order, so the cases below assert all four variables at
-# once exactly as they did when one block resolved all four. SELF_REVIEW_MODEL
+# resolution" block (DEFAULT_MODEL), and skills/flow/archive.md step 9's
+# block for SELF_REVIEW_MODEL. The two are extracted and run together, in
+# that order, so the cases below assert both variables at once. The three
+# project toggles that block once resolved were removed: execution mode,
+# implementer effort and the review panel are always the plan's decision. SELF_REVIEW_MODEL
 # moved to archive.md because only the archive-phase self-review pass reads it
 # and it governs no dispatch — resolving it on every run cost two subprocess
 # calls a run that stops earlier never needs.
@@ -95,12 +95,11 @@ ARCHIVE_BLOCK="$(awk '
 [[ -n "$ARCHIVE_BLOCK" ]] || die "no \`\`\`bash block found under the 'Resolve SELF_REVIEW_MODEL here' marker in $ARCHIVE_MD"
 echo "$ARCHIVE_BLOCK" | grep -q 'SELF_REVIEW_MODEL' || die "extracted archive block does not mention SELF_REVIEW_MODEL — marker or fence shape changed"
 echo "$SKILL_BLOCK" | grep -q 'SELF_REVIEW_MODEL' && die "SKILL.md's block still mentions SELF_REVIEW_MODEL — it resolves in archive.md now, this guard's own drift check"
-echo "$SKILL_BLOCK" | grep -q 'EXECUTION_MODE_TOGGLE' || die "extracted block does not mention EXECUTION_MODE_TOGGLE — heading or fence shape changed"
-echo "$SKILL_BLOCK" | grep -q 'IMPLEMENTER_MODEL_TOGGLE' || die "extracted block does not mention IMPLEMENTER_MODEL_TOGGLE — heading or fence shape changed"
-echo "$SKILL_BLOCK" | grep -q 'REVIEW_PANEL_TOGGLE' || die "extracted block does not mention REVIEW_PANEL_TOGGLE — heading or fence shape changed"
+echo "$SKILL_BLOCK" | grep -q 'DEFAULT_MODEL' || die "extracted block does not mention DEFAULT_MODEL — heading or fence shape changed"
+echo "$SKILL_BLOCK" | grep -q '_TOGGLE' && die "SKILL.md's block still resolves a toggle — the decision is always the planner's, this guard's own drift check"
 echo "$SKILL_BLOCK" | grep -q 'PLANNING_MODEL' && die "extracted block still mentions PLANNING_MODEL — kan-488 removed it end to end, this guard's own drift check"
 
-# Run order matches the run's own: the toggles first, then archive step 9.
+# Run order matches the run's own: Model resolution first, then archive step 9.
 BLOCK="$SKILL_BLOCK
 $ARCHIVE_BLOCK"
 
@@ -108,21 +107,15 @@ STUB_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-model-resolution-shell.XXXXXX")" \
   || die "cannot create a temp dir for the flow stub"
 trap 'rm -rf "$STUB_DIR"' EXIT
 
-# run_case <settings-json> <expected self_review_model> <case name> \
-#          [project.md body] [expected execution mode toggle] [expected implementer model toggle] \
-#          [expected review panel toggle] [expected stderr substring]
+# run_case <settings-json> <expected self_review_model> <case name> [project.md body]
 # The fourth argument, when non-empty, is written verbatim to a fresh
 # MAIN_CHECKOUT fixture's .flow/project.md; when omitted or empty, the
 # fixture carries no .flow/project.md at all (project-get.sh's "no file"
-# exit 1), reproducing the pre-task-6 behaviour cases 1-3 still expect. The
-# three toggle arguments default to "default" — the no-key/absent-key
-# resolution every pre-task-6 case still exercises. The eighth argument, when
-# non-empty, must appear in the block's stderr.
+# exit 1). Every case also asserts DEFAULT_MODEL resolved to the stub's
+# `sonnet`.
 FAILURES=0
 run_case() {
-  local json="$1" expect_srm="$2" name="$3" project_body="${4:-}" \
-        expect_exec="${5:-default}" expect_impl="${6:-default}" expect_panel="${7:-default}" \
-        expect_stderr="${8:-}"
+  local json="$1" expect_srm="$2" name="$3" project_body="${4:-}"
 
   cat >"$STUB_DIR/flow" <<EOF
 #!/usr/bin/env bash
@@ -142,40 +135,25 @@ EOF
     printf '%s\n' "$project_body" >"$checkout/.flow/project.md"
   fi
 
-  local out stderr_file stderr_out
-  stderr_file="$(mktemp "${TMPDIR:-/tmp}/check-model-resolution-shell-stderr.XXXXXX")" \
-    || die "cannot create a temp stderr file"
-  out="$(MAIN_CHECKOUT="$checkout" PATH="$STUB_DIR:$SCRIPT_DIR:$PATH" bash -c "$BLOCK"$'\n''printf "%s\t%s\t%s\t%s\n" "$SELF_REVIEW_MODEL" "$EXECUTION_MODE_TOGGLE" "$IMPLEMENTER_MODEL_TOGGLE" "$REVIEW_PANEL_TOGGLE"' 2>"$stderr_file")"
+  local out
+  out="$(MAIN_CHECKOUT="$checkout" PATH="$STUB_DIR:$SCRIPT_DIR:$PATH" bash -c "$BLOCK"$'\n''printf "%s\t%s\n" "$SELF_REVIEW_MODEL" "$DEFAULT_MODEL"' 2>/dev/null)"
   local rc=$?
-  stderr_out="$(cat "$stderr_file")"
-  rm -rf "$checkout" "$stderr_file"
+  rm -rf "$checkout"
   if [[ $rc -ne 0 ]]; then
     echo "check-model-resolution-shell: case '$name' — block exited non-zero: $out" >&2
     FAILURES=$((FAILURES + 1))
     return
   fi
 
-  local got_srm got_exec got_impl got_panel
-  IFS=$'\t' read -r got_srm got_exec got_impl got_panel <<<"$out"
+  local got_srm got_default
+  IFS=$'\t' read -r got_srm got_default <<<"$out"
 
   if [[ "$got_srm" != "$expect_srm" ]]; then
     echo "check-model-resolution-shell: case '$name' — SELF_REVIEW_MODEL resolved to '$got_srm', want '$expect_srm'" >&2
     FAILURES=$((FAILURES + 1))
   fi
-  if [[ "$got_exec" != "$expect_exec" ]]; then
-    echo "check-model-resolution-shell: case '$name' — EXECUTION_MODE_TOGGLE resolved to '$got_exec', want '$expect_exec'" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  if [[ "$got_impl" != "$expect_impl" ]]; then
-    echo "check-model-resolution-shell: case '$name' — IMPLEMENTER_MODEL_TOGGLE resolved to '$got_impl', want '$expect_impl'" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  if [[ "$got_panel" != "$expect_panel" ]]; then
-    echo "check-model-resolution-shell: case '$name' — REVIEW_PANEL_TOGGLE resolved to '$got_panel', want '$expect_panel'" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  if [[ -n "$expect_stderr" ]] && [[ "$stderr_out" != *"$expect_stderr"* ]]; then
-    echo "check-model-resolution-shell: case '$name' — stderr did not contain '$expect_stderr': got '$stderr_out'" >&2
+  if [[ "$got_default" != sonnet ]]; then
+    echo "check-model-resolution-shell: case '$name' — DEFAULT_MODEL resolved to '$got_default', want 'sonnet'" >&2
     FAILURES=$((FAILURES + 1))
   fi
 }
@@ -216,26 +194,10 @@ run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":""}' \
   "sonnet" "project key valid wins over fable fallback" \
   $'## self review model\n\n`sonnet`\n'
 
-# Case 8: all three toggle keys declared `dynamic` — each resolves to
-# `dynamic`, independently of the model key.
-run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":"opus"}' \
-  "opus" "all three toggles dynamic" \
-  $'## execution mode\n\n`dynamic`\n\n## implementer model\n\n`dynamic`\n\n## review panel\n\n`dynamic`\n' \
-  "dynamic" "dynamic" "dynamic"
-
-# Case 9: `## review panel` holds a literal that is neither `default` nor
-# `dynamic` — reported and dropped, resolving as `default`, with the
-# warning on stderr.
-run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":"opus"}' \
-  "opus" "review panel toggle invalid falls back to default" \
-  $'## review panel\n\n`sometimes`\n' \
-  "default" "default" "default" \
-  "'## review panel' body 'sometimes' is not 'default' or 'dynamic' — dropped"
-
 if [[ "$FAILURES" -gt 0 ]]; then
   echo "check-model-resolution-shell: $FAILURES failure(s)" >&2
   exit 1
 fi
 
-echo "MODEL-RESOLUTION-SHELL-OK: 9 case(s) checked"
+echo "MODEL-RESOLUTION-SHELL-OK: 7 case(s) checked"
 exit 0
