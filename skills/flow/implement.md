@@ -1013,7 +1013,9 @@ The parent's own `## lint`/`## test` runs, reproducer runs and boundary checks a
 > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
 > before you reject it.
 
-On BLOCKED: pause and report. Never guess.
+On BLOCKED: pause and report. Never guess. A question the report carries that takes one
+recommended option is not a guess: **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`)
+takes it, and only a question with none pauses the run.
 
 **Before closing the stage**, the parent runs this guard:
 
@@ -1026,7 +1028,8 @@ proceeds to the stage close below. Exit 1 names every violation of the gated-
 per-task-reviewer bundling contract above — a bundle carrying more than one non-retry dispatch, a
 retry with no original, a key outside the canonical shape, two gate-fired tasks of the same
 implementer group split across separate reviewer bundles, or (on `small`/`regular`) more than one
-original bundle for the whole run — and is a handback `## Question`, the same shape
+original bundle for the whole run — and is a prompt, resolved on its recommended **Continue** per
+**Auto-resolution** (`skills/flow-contracts/operator-prompts.md`), the same shape
 `skills/flow/review-panel.md`'s own `check-panel-fix-single-dispatch.sh` handback carries:
 
 > **The gated per-task reviewer broke the bundled-dispatch shape:** <the guard's violation lines>

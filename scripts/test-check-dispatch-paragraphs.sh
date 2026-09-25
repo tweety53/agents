@@ -739,7 +739,8 @@ FINDINGS_INPUT_BLOCK_NO_SILENT='> **FINDINGS ARE INPUT:** a finding names a defe
 CONTEXT_BUNDLE_FAILURE_BLOCK='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
 > absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
-> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> failed — <the script'"'"'s stderr>'"'"'`, then resolve it, never asked, per **Auto-resolution**
+> (`skills/flow-contracts/operator-prompts.md`):
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
 >   closes `flow.review-panel` with `-outcome stopped`
 > - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
@@ -753,7 +754,8 @@ CONTEXT_BUNDLE_FAILURE_BLOCK='> **CONTEXT BUNDLE FAILURE:** the gather above exi
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_NONZERO='> **CONTEXT BUNDLE FAILURE:** the gather above failed outright, or the bundle file is
 > absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
-> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> failed — <the script'"'"'s stderr>'"'"'`, then resolve it, never asked, per **Auto-resolution**
+> (`skills/flow-contracts/operator-prompts.md`):
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
 >   closes `flow.review-panel` with `-outcome stopped`
 > - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
@@ -765,7 +767,8 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_NONZERO='> **CONTEXT BUNDLE FAILURE:** the gathe
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_BUILD_FAILED='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
 > absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: gather
-> error — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> error — <the script'"'"'s stderr>'"'"'`, then resolve it, never asked, per **Auto-resolution**
+> (`skills/flow-contracts/operator-prompts.md`):
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
 >   closes `flow.review-panel` with `-outcome stopped`
 > - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
@@ -777,7 +780,8 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_BUILD_FAILED='> **CONTEXT BUNDLE FAILURE:** the 
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_DISPATCH='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
 > absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
-> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> failed — <the script'"'"'s stderr>'"'"'`, then resolve it, never asked, per **Auto-resolution**
+> (`skills/flow-contracts/operator-prompts.md`):
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
 >   closes `flow.review-panel` with `-outcome stopped`
 > - **Continue — run the panel regardless** — recorded with `flow record pass
@@ -789,7 +793,8 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_DISPATCH='> **CONTEXT BUNDLE FAILURE:** the gath
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_OVERRIDE='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
 > absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
-> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> failed — <the script'"'"'s stderr>'"'"'`, then resolve it, never asked, per **Auto-resolution**
+> (`skills/flow-contracts/operator-prompts.md`):
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
 >   closes `flow.review-panel` with `-outcome stopped`
 > - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
@@ -801,7 +806,8 @@ CONTEXT_BUNDLE_FAILURE_BLOCK_NO_OVERRIDE='> **CONTEXT BUNDLE FAILURE:** the gath
 CONTEXT_BUNDLE_FAILURE_BLOCK_NO_STOPPED='> **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
 > absent when the `test -f` on the rebuild'"'"'s output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note '"'"'context bundle: build
-> failed — <the script'"'"'s stderr>'"'"'`, then ask the operator once:
+> failed — <the script'"'"'s stderr>'"'"'`, then resolve it, never asked, per **Auto-resolution**
+> (`skills/flow-contracts/operator-prompts.md`):
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
 >   closes `flow.review-panel` as stopped
 > - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass

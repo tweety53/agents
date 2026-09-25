@@ -38,9 +38,10 @@ that worktree automatically — `git -C <worktree> rebase origin/$BASE` runs at 
 prompt, and the run reports that it happened rather than asking whether it should; its outcome
 takes the **Clean** and **Conflict** sub-bullets below exactly as an operator-chosen **Rebase**
 would. `REFUSE`, an exit 2, or an empty resolved set stops and asks; an overlap from any worktree
-means the rebase is not confirmed conflict-free, so the operator stays in the loop for that risk —
-ask once for the whole change, shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`):
+means the rebase is not confirmed conflict-free, so the run never takes that risk on itself — one
+prompt for the whole change, shape per Operator prompts
+(`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on
+its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction:
 
 > **The base branch has moved and touches paths this change also touched — how should the
 > panel proceed?**
@@ -123,7 +124,8 @@ of this stage's own reporting.
 > **CONTEXT BUNDLE FAILURE:** the gather above exited non-zero, or the bundle file is still
 > absent when the `test -f` on the rebuild's output path above says so — a failed
 > build. Record the cause with `flow record pass -round <round> -note 'context bundle: build
-> failed — <the script's stderr>'`, then ask the operator once:
+> failed — <the script's stderr>'`, then resolve it, never asked, per **Auto-resolution**
+> (`skills/flow-contracts/operator-prompts.md`):
 > - **Stop — resolve the build, then re-run the panel** *(recommended; silence defaults here)* —
 >   closes `flow.review-panel` with `-outcome stopped`
 > - **Continue — dispatch every slot without the bundle** — recorded with `flow record pass
@@ -556,8 +558,9 @@ and where it does not, let the dispatch return and record the breach then; close
 (`-outcome timed-out`); record the breach in the panel record, naming the slot and its elapsed
 time; re-dispatch that one slot once.
 
-A second breach of the same slot is put to the operator, shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`):
+A second breach of the same slot is a prompt, shape per Operator prompts
+(`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
+its recommended **Stop the run**:
 
 > **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
 > - **Re-dispatch it again**
@@ -815,8 +818,8 @@ the one the scoped-round rule above requires of a run that reached a third fix r
 
 **The rerun cap.** The whole-roster re-reads this mechanism adds are capped at two unasked — the
 first final pass and its one repeat. When the second's fix round closes clean, no third is
-dispatched on the mechanism's own motion; the run asks once, shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`):
+dispatched on the mechanism's own motion; the run resolves one prompt on its recommended **Close
+the panel**, per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`):
 
 > **The whole-branch pass has run twice; the fix round for its findings closed clean. A third
 > whole-branch read runs only by your choice — the cap holds by default.**
@@ -827,9 +830,10 @@ dispatched on the mechanism's own motion; the run asks once, shape per Operator 
 >   fix-round loop, and the panel closes when that round's delta re-run comes back clean. No
 >   fourth whole-branch read is dispatched whatever it finds.
 
-Silence closes the panel, and the handoff's `Panel:` line carries the `rerun cap:` field's ⚠ marker
-naming that the silent default fired; a third pass is recorded with `flow record pass -round
-<round>`, naming the operator's words. The cap bounds how many whole-branch re-reads a run
+The auto-taken close is recorded as that contract states, and the handoff's `Panel:` line carries
+the `rerun cap:` field's ⚠ marker naming that the default fired; a third pass runs only on an
+explicit operator instruction and is recorded with `flow record pass -round <round>`, naming the
+operator's words. The cap bounds how many whole-branch re-reads a run
 dispatches unasked — never what any dispatched pass reads, and never the targeted delta re-runs a
 fix round closes on, which stay uncapped. The scoped-round rule above adds its one whole-branch
 pass under the same cap.
@@ -976,8 +980,8 @@ unfinished fix. **The parent runs these re-runs itself, in its own
 Bash calls** (**Dispatch sites — the
 parent's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
-change.** A fix that does not is not a fix: the finding stays open and goes to the operator through
-the handback below.
+change.** A fix that does not is not a fix: the finding stays open and goes through the handback
+below.
 
 A finding meeting both conditions is recorded closed there and then — a Minor recorded
 `none — <reason>` has no reproducer to flip and closes on the path condition alone:
@@ -999,7 +1003,7 @@ whole fix diff.
 **Every executable behaviour the fix changed is mutation-proved, not only the test cases the round
 adds.** The fix subagent performs the proof and reports it, per the MUTATION PROOF paragraph its
 dispatch carries; the parent runs no build of its own here. A survivor the fix subagent cannot
-judge real or equivalent goes to the operator through the same handback the section already names.
+judge real or equivalent goes through the same handback the section already names.
 
 **A fix that adds or strengthens a test is proved by a flip of the fixed line itself, one flip per
 fixed finding.** The mutation flips the line the fix changed — the code the added or strengthened
@@ -1262,15 +1266,17 @@ flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
 `-commit` is the task commit the fixup was folded into.
 
 A Minor either fixed or deferred blocks nothing; a Minor left `open` blocks exactly as a Critical
-does. When fix rounds do not converge,
-the run hands back to the operator, one finding at a time:
+does. When fix rounds do not converge, each finding is a prompt, one at a time, resolved per
+**Auto-resolution** (`skills/flow-contracts/operator-prompts.md`): its recommended **Take another
+round on it** is taken once, and the same finding failing to converge again is asked, per that
+contract's no-repeat rule:
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
 > - **Take another round on it** *(default, recommended)*
 > - **Withdraw it — I'll give the reason** — the reason is recorded on the finding's marker line
 > - **Stop the run and hand it back to me**
 
-Only that answer records `withdrawn`, and only with the reason the operator gives.
+Only an explicit **Withdraw** records `withdrawn`, and only with the reason the operator gives.
 
 **A fix round closes on a clean re-run, never on its own verification.** The reproducer re-runs
 and the fix-diff path check above close the findings that fix addressed; they never close the
@@ -1300,7 +1306,8 @@ deferred findings are the outstanding items **The filing site's outstanding item
 **The filing asks once, at this close, and explains before it asks** — shape per **The
 shape** (`skills/flow-contracts/operator-prompts.md`), the message body carrying each item
 the filing would record: the defect the raising slot named, what it breaks, what fixing it
-would be.
+would be. A Jira write, so it is asked even in a fix run, never auto-resolved (**What still
+stops**, the same file).
 
 > **`<n>` finding(s) this round deferred would otherwise live only on the archived panel
 > record — file their follow-up now?**
@@ -1334,7 +1341,8 @@ check-panel-fix-single-dispatch.sh <worktree> <change> <session-token>
 — the token this run stamped on its own dispatches. Exit 0 proceeds to the stage close below.
 Exit 1 names every violation of the chunked fix-dispatch contract above — an over-bound chunk
 count, non-contiguous chunks, a chunked round with no bare key, a per-chunk count or retry
-violation, a key outside the canonical shape — and is a handback `## Question`:
+violation, a key outside the canonical shape — and is a prompt, resolved on its recommended
+**Continue** per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`):
 
 > **The fix round(s) broke the chunked fix-dispatch shape:** <the guard's violation lines>
 > - **Continue — the violation stays recorded in this run's output** *(default, recommended)* —
