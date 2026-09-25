@@ -277,19 +277,23 @@ worktree holding that `link.md`, never the primary checkout the link ran from, b
 link. Record what the command wrote alongside that worktree's merge
 base in this run's working notes. **A refusal is a hard failure of this stage**: report it and
 stop the run — a change whose cross-repo link cannot be established lands at integrate with a
-false OUTSTANDING verdict that forces hand verification. A change with one worktree runs
+false OUTSTANDING verdict that forces hand verification. A change with no linked peers runs
 nothing here.
 
 **Every `## apps` entry is resolved in this stage too, before any implementation runs — never
 improvised mid-run by a later stage in need of a commit destination.** Read
 `<project>/.flow/project.md`'s `## apps` table and resolve each entry per **Roots in `## apps`
 are main checkouts** (`skills/flow-contracts/project-configuration.md`): an entry whose
-repository already holds this change's worktree — the kickoff worktree's repository, a peer's
-repository linked above, or a second entry naming a repository already resolved — records that
+repository already holds a worktree for this change — the kickoff worktree's repository, a
+peer's repository linked above, a second entry naming a repository already resolved by an
+earlier entry, or a repository where an earlier run of this change created one — records that
 worktree as its root and creates nothing. Every other entry gets the kickoff recipe in its own
-repository (`skills/flow/brainstorm.md` step 3): `check-worktree-location.sh <repo>`,
-`git worktree add <repo>/.worktrees/<name> -b spectre/<name> origin/<default-branch>`, the merge
-base `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees`
+repository (`skills/flow/brainstorm.md` step 3), in the form that run's state calls for: when
+`git -C <repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an earlier run
+pushed — `git worktree add <repo>/.worktrees/<name> spectre/<name>`, a local branch tracking
+that remote one; otherwise `git worktree add <repo>/.worktrees/<name> -b spectre/<name>
+origin/<default-branch>` — after `check-worktree-location.sh <repo>`, with the merge base
+`git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees`
 map by the read-merge-write at the top of this stage, and
 `git -C <that worktree> push -u origin spectre/<name>` per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`). No `spectre link` runs for these worktrees — they
@@ -302,11 +306,12 @@ creates by hand, off the wrong base, unrecorded.
 `## Merge order` is what **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
 reads to sequence run 1's routes, so every repository of the resolved worktree set — linked or
 not — is named in it before this stage ends. When `spectre link` wrote the canonical side's
-`link.md`, extend its `## Merge order` with the resolved repositories it does not yet name; when
-no link ran and the resolved set holds more than one repository, write the change's own
-`<changeRoot>link.md` carrying a `## Merge order` section alone — never a `## Part of`, the
-section that makes a `link.md` a satellite's. Order is `.` first, then the remaining
-repositories in `## apps` declaration order. The write lands as a planning commit in the
+`link.md`, extend its `## Merge order` with the resolved repositories it does not yet name,
+appended in `## apps` declaration order after the entries it found — never reordering what the
+link wrote; when no link ran and the resolved set holds more than one repository, write the
+change's own `<changeRoot>link.md` carrying a `## Merge order` section alone — never a
+`## Part of`, the section that makes a `link.md` a satellite's — ordered `.` first, then the
+remaining repositories in `## apps` declaration order. The write lands as a planning commit in the
 worktree holding the file, behind `check-planning-commit-location.sh <abs-worktree> <name>`
 (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), and what it wrote is recorded
 in the working notes beside the merge bases. A change with one repository runs nothing here.
