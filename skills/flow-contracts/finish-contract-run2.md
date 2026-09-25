@@ -9,6 +9,10 @@ bare `/flow` is the only command that loads this file.
 1. **Verify the merge.** Use a PR CLI when one is usable for the host; otherwise
    `git merge-base --is-ancestor`. That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge. **Not merged → this is not run 2.**
+   **On the merge-and-push continuation, the evidence is local**: run 1 merged into `<base>` in
+   `<landing-worktree>` without pushing it, so neither a PR CLI nor `origin/<base>` can see the
+   merge yet — `git -C <landing-worktree> merge-base --is-ancestor spectre/<name> <base>` is the
+   test there.
 2. **Position the landing worktree on the archive branch, before anything else touches it.** The
    landing worktree — `<project>/.worktrees/_landing-<name>` — is a throwaway worktree run 2 (and
    the merge-and-push route) uses in place of the main checkout, which is never checked out, staged
@@ -26,6 +30,8 @@ bare `/flow` is the only command that loads this file.
    `<base>` cannot be reconciled with `origin` — it has diverged, `origin/<base>` does not resolve,
    or there is no `origin` remote at all. Anything but exit `0` stops run 2 here, with nothing
    staged, committed, pushed or removed, and the main checkout untouched throughout.
+   On the merge-and-push continuation, `<base>` already holds run 1's unpushed merge: the
+   fast-forward is a no-op, and `chore/archive-<name>` is cut on top of that merge.
 
    **The pre-flight classifies; the guard still refuses.** `classify-untracked.sh` sorts the
    landing worktree's untracked entries into three classes instead of leaving the guard's flat
@@ -288,19 +294,21 @@ bare `/flow` is the only command that loads this file.
 
     | Reached via | Then |
     |---|---|
-    | the merge-and-push continuation, same invocation as run 1 | in `<landing-worktree>`: push `chore/archive-<name>`; merge it into `<base>`; push `<base>` — the same three sub-steps Run 1's own merge-and-push route (`skills/flow-contracts/finish-contract-run1.md`) performs, applied to the archive branch instead |
+    | the merge-and-push continuation, same invocation as run 1 | in `<landing-worktree>`: `git checkout <base>`; `git merge --ff-only chore/archive-<name>`; `git push origin <base>` — **the route's one push of `<base>`**, carrying run 1's merge, the archive commit and step 9's output together. `chore/archive-<name>` is not pushed; its local branch stays, since `flow self-review bundle` reads the archive from it |
     | a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, then **merge it immediately with that same CLI** (`gh pr merge --merge --delete-branch` or the host's equivalent) — no wait for checks or review, and no operator prompt, because everything this PR carries is this pipeline's own mechanical output (the archive move, the self-review report or context bundle), never code a human review gate exists for. When no PR CLI is usable for the host, print the forge's create-PR URL and ask whether it was opened **and merged** — the same shape Run 1's pull-request route uses, extended to cover the merge this row no longer defers |
 
     This push carries both the archive commit and step 9's output — the self-review report, or the
     context bundle on `defer` — either way, so there is no window in which the archive lands while
     that output is still unwritten. Run 2
-    never pushes anything but `chore/archive-<name>` and, on the merge-and-push row, `<base>`
-    itself; the standalone row's PR-CLI merge does not push `<base>` directly — the forge's own
+    never pushes anything but `chore/archive-<name>` on the standalone row and `<base>` on the
+    merge-and-push row; the standalone row's PR-CLI merge does not push `<base>` directly — the forge's own
     merge does that on the PR CLI's behalf.
 
     A failed push, a failed merge, or a failed pull-request creation is reported with the
     command's own output. It never moves the change off `FINISHED` — the change is already
-    terminal by step 8. On the standalone row, a PR opened but not yet merged — the CLI's merge
+    terminal by step 8. On the merge-and-push row nothing is lost: the merge, the archive and
+    step 9's output stay in the local `<base>` and `chore/archive-<name>` refs, and the handoff
+    prints `git -C <main-checkout> push origin <base>` to land them. On the standalone row, a PR opened but not yet merged — the CLI's merge
     call itself failed, or no CLI was usable and the operator has not yet confirmed it — has the
     handoff name the open PR and print the exact merge command needed to land it by hand; a PR
     that was never even opened falls back to naming the unpushed branch and the create-PR command
@@ -510,7 +518,8 @@ fi
 
 - **The remote branch is deleted without a further prompt.** Run 2 is reached only by proving the
   branch is an ancestor of the base branch, so its commits are in the base branch and nothing can be
-  lost — which is why this is not gated the way check 4's disclosure is.
+  lost — on the merge-and-push continuation the local `<base>`, not yet pushed until step 10, whose
+  failure step 10 reports with the push command — which is why this is not gated the way check 4's disclosure is.
 - **An already-absent remote branch is success**, not an error, and the outcome is reported either
   way: deleted, already gone, or refused.
 - **A refused push is reported, never swallowed.** A bare `|| true` would make an expired

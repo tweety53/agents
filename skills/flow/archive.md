@@ -21,7 +21,8 @@ flow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -s
 ```
 
 1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor`. Fetch
-   first. Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **archive
+   first. On the merge-and-push continuation the merge is still local, so the test is
+   `git -C <landing-worktree> merge-base --is-ancestor spectre/<name> <base>`. Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **archive
    nothing** — end this mark `-outcome not-run-2` and stop.
 
 ```bash
@@ -284,7 +285,9 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
 
 10. **Push the archive branch and land it.** The procedure — the two-row route table keyed on how
     this run of `archive.md` was reached, the guarantee that the archive commit and step 9's
-    self-review report or context bundle always land together, and the failure-reporting rules —
+    self-review report or context bundle always land together — on the merge-and-push
+    continuation, in the one push of `<base>` that also carries run 1's merge — and the
+    failure-reporting rules —
     is **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step
     10, canonical for it.
 11. **Remove the landing worktree.** Successful or not — never leave it behind for a later run to
@@ -313,7 +316,7 @@ flow stage end -command '/flow' -stage flow.push-archive -outcome completed <nam
 
 **Change:** <name>
 **Archived:** spectre/changes/archive/<name>/ (committed on chore/archive-<name>)
-**Archive PR:** <prUrl> (merged) | none — merged directly into <base> | <prUrl> — open, not yet merged: <reason>; land it with: gh pr merge <prUrl> --merge | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open and merge a PR against <base>
+**Archive PR:** <prUrl> (merged) | none — merged directly into <base> | none — <base> not pushed: <reason>; land it with: git -C <main-checkout> push origin <base> | <prUrl> — open, not yet merged: <reason>; land it with: gh pr merge <prUrl> --merge | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open and merge a PR against <base>
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
