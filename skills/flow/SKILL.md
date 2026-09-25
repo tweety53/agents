@@ -180,9 +180,12 @@ one per mark or per phase file.
 - Never skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
 - Never add a slot beyond the resolved roster automatically, by diff size, touched area, or any
   other trigger — only an explicit operator instruction adds one, for that run only, checked at the
-  start of the panel stage and at every fix round. The one automatic change to the roster is a
-  reduction — `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone — and it
-  only ever removes, from the decision's roster as from any other; see **The docs-only reduction** (`skills/flow/review-panel.md`).
+  start of the panel stage and at every fix round. The automatic changes to the roster are
+  reductions, and they only ever remove, from the decision's roster as from any other:
+  `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone
+  (**The docs-only reduction**, `skills/flow/review-panel.md`), and so does the late-fix
+  reduction on a small fix run against an already-clean stage
+  (**The late-fix reduction**, `skills/flow/review-panel.md`).
 - Never run more than three implementer dispatches in flight at once, in any wave — a fourth or
   later ready group queues in plan order and launches only as an in-flight one is picked; see the
   Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).

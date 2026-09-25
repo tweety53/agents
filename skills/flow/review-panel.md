@@ -238,10 +238,54 @@ Record the verdict, the printed path where there is one, and the roster actually
 `flow record pass -round <round>` on **every** run, beside the diff-size
 fields above.
 
-**This is the one automatic reduction, and it only ever removes.** No slot is ever added by diff
+**This and the late-fix reduction below are the only automatic reductions, and they only ever
+remove.** No slot is ever added by diff
 size, touched area, or any other automatic trigger: beyond the reduced or resolved roster,
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
+
+### The late-fix reduction
+
+**A fix run whose delta is small against an already-clean, already-verified stage reduces pass 1
+to `primary` alone reading the delta only** — the narrow late-fix review path. An appended fix
+that a full pass would bury under re-covered ground is reviewed by one targeted dispatch on what
+the fix actually changed; the full-read coverage stays exactly where it earns its keep, on every
+round this reduction does not fire for. Like the docs-only reduction this only ever removes, and
+it fires only on a **fix run** — a `/flow` invocation whose argument is fix instructions — never
+on a creating run, whose pass 1 is always the full resolved roster. Every condition must hold,
+checked once when this stage opens its first round on the fix run:
+
+1. **Already clean, already verified** — the change's store findings carry no `open` row
+   (`check-panel-findings-closed.sh <worktree> <change>` exits 0), and this stage has closed
+   clean before on this change, the pass log or the rendered panel record naming that close;
+2. **the base has not moved since that close** — every worktree's `Check base movement first`
+   verdict this round was `CLEAR`, so no rebase has invalidated the reviewed state;
+3. **the delta is small** — per worktree, `git diff --numstat` from the sha that close reviewed
+   there (the `-diff-base` its clean dispatches recorded) to the current tree, insertions and
+   deletions summed across the resolved set, is at most **40 changed lines**;
+4. **no scope growth** — the delta adds no task line to the change's plan `tasks.md`;
+5. **the panel's own machinery is untouched** — the delta names no path under
+   `skills/flow/review-panel*.md` and no `scripts/check-panel-*.sh` guard of the repository the
+   change edits. A consuming project typically carries none of those paths and the condition
+   holds vacuously there; a fix to the review machinery itself is never its own reviewer.
+
+**On trigger, pass 1 is one dispatch: `primary` alone**, plus every slot the operator named at
+this stage's start, reading not the whole `final-review.diff` but only a
+`<abs-worktree>/.superpowers/sdd/late-fix.diff` written from the since-close range — the same
+per-worktree sectioned shape as `final-review.diff`, each `# worktree:` header naming the
+since-close sha — on the decision's `panel.rerun_dispatch` pair, under the fix-round re-run's
+5-minute ceiling. Bugbot, Mutation and Security are not dispatched. Every entry check above
+still runs as any round's — base movement, the diff-size cap, the docs-only guard — and where
+both reductions fire, the late-fix one governs the read scope, the roster being `primary` alone
+either way. The reduction is recorded with `flow record pass -round <round>`:
+`late-fix reduction: <n> changed lines since <sha>`.
+
+A finding the targeted dispatch raises feeds the ordinary fix-round loop unchanged, and Minors
+defer under the standing rule — but **any Critical or Important it raises voids the reduction
+for the rest of the run**: a delta that small producing a defect that severe means the narrow
+read's context was not enough, so every later round this run opens takes the full path. When the
+targeted dispatch reads the delta clean, the close sha moves to the round's HEAD and the stage
+closes under the existing rules — the reduction is a read-scope decision, never a weaker close.
 
 Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every**
 worktree in the change's resolved set (**Resolving a change's worktrees**,
@@ -871,7 +915,10 @@ re-run and it has not, or when any commit or working-tree change to source lande
 last read, from any stage — `flow.verify` included**. An unrecorded edit after the panel closes is
 stale by definition, not only one a fix round produced. A fix against which a slot raised no
 finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
-fix changed.
+fix changed. The same holds for a delta the late-fix reduction's targeted dispatch read clean:
+`primary`'s clean read on the since-close range leaves every slot it did not dispatch current —
+the reduction's own conditions, already clean and already verified with the machinery untouched,
+being what the full roster's coverage rests on for that delta.
 
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
 finding's own recorded location, taken verbatim from the findings table. *Theme* is the finding's
