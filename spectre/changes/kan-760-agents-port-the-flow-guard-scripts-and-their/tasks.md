@@ -642,7 +642,14 @@ executable fixtures as hard links to content-keyed master inodes (`writeExec`, `
 names fixture paths from `$0` so bodies can share a master, puts `$(git --exec-path)` first on
 PATH in `TestMain` (skipping the `/usr/bin/git` xcrun trampoline), disables `maintenance.auto`
 for fixture git, reads HEAD from the loose ref, copies trees in-process, and splits `case 112-121`
-and `20-21b` into parallel entries. 901 leaf subtests before and after, identical names.
+and `20-21b` into parallel entries. 857 leaf subtests before and after, identical once the split
+groups' renaming is mapped back.
 <!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 → 9.80s, 8.53s, 8.39s real @ 788b398a; 27.89s, 28.55s with inode sharing disabled @ 788b398a -->
 `**Tests:**` names the tests whose names the diff carries — `TestMain` is new; `TestRunReproducer` and
 `TestCheckCleanupComplete` changed only through shared helpers (`writeExec`, `fixtureRoot`) and still run in the Regression counts.
+Review fix (2026-09-26): `writeFile` unlinks before writing, so a write through a hard-linked
+fixture can no longer reach its shared master (the invariant was documented only); fixture git
+pins `GIT_DEFAULT_REF_FORMAT=files`, which `tcfRepo.head()`'s loose-ref read assumes (128 cases
+failed under reftable); `rrFixture` names the `$0`-marker trade — a guard exec'ing a copy of a
+refused reproducer would slip past "never executed" — with its ceiling.
+<!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 → 9.82s, 9.02s, 9.00s real at load 9.5–9.8; 309/298/109/60 --- PASS under -race @ fix commit -->
