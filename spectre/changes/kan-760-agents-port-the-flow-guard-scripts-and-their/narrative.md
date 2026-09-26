@@ -30,3 +30,22 @@
 - Operator direction mid-run: skip the handoff stop and go straight through integrate
   (merge-and-push) to archive, picking the recommended option at every question. This overrides
   the pipeline's bare-invocation gate for this session only.
+
+## 2026-09-26 — integrate run
+
+- The preflight returned RUN1. Foreign-staged and drift checks were clean, and the unfinished-work and
+  visual-verify gates were clear.
+- The rebase onto `origin/main` (`ad72b904`, 41 upstream commits) stopped twice, both times on
+  KAN-676's evidence-tag check, which upstream added to the Python guard after this change's base.
+  - **Modify/delete on `scripts/test-check-task-commit-fields.sh`:** kept the deletion. Upstream's
+    only change was cases 140–146, which task 12 had already ported to the Go tests.
+  - **Content conflict on `scripts/check-task-commit-fields.py`:** kept the branch's trimmed module.
+    Upstream's `check_evidence_tags` and its docstring paragraph sit in the verdict half this change
+    deleted, and both are ported to `taskcommitfields.go`.
+  - `finish-contract-run1.md` merged cleanly.
+- The rebase needed resolution, so the whole `## lint` and `## test` lists re-ran: 33/33 exit 0, and
+  84/84 harnesses, one of them newly added upstream.
+- Route: merge and push, from the project's configured default. It also matches the operator's
+  session instruction.
+- A PreToolUse main-checkout hook blocked a compound command that began with `cd`. Every later
+  command ran on its own with absolute paths.
