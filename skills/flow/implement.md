@@ -739,6 +739,12 @@ applies **The handshake** stated above, unchanged.
 > the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
 > run costs lines of context, not a build log.
 
+> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size
+> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per
+> step. Your report states the measured rate and the run count. Sizing the runs never replaces
+> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still
+> shows the check failing with the mechanism removed.
+
 > **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
 > whole context — a large output is paid for again on every turn after it. Read a file over 200
 > lines by line range — `grep -n` for the symbol, then `sed -n '<a>,<b>p'` or Read with
