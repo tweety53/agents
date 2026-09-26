@@ -467,7 +467,7 @@ cold-cache cost hit `scripts/check-installed-citations.py`'s two sandboxed `setu
 4.55s real), so its `run_setup` now passes the real HOME's `GOCACHE` too, folded into this task's
 commit; `**Files:**` widened to match.
 
-- [ ] 10. Live verification: before/after timings
+- [x] 10. Live verification: before/after timings
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -478,21 +478,25 @@ commit; `**Files:**` widened to match.
 **Commit:** none — this task commits nothing to this repository; its figures go into `design.md`'s **Measurements**, committed with the change's artifacts
 **Build:** green
 
-  - [ ] **Step 1: Suite, after.** On this machine, nothing else heavy running:
+  - [x] **Step 1: Suite, after.** On this machine, nothing else heavy running:
     `/usr/bin/time -p scripts/run-guard-tests.sh` three times; record each run's real/user/sys
     and harness count, and the slowest three harnesses.
-  - [ ] **Step 2: Go package, after.** `cd stats && /usr/bin/time -p go test ./internal/guard/...
+  - [x] **Step 2: Go package, after.** `cd stats && /usr/bin/time -p go test ./internal/guard/...
     -count=1` three times (warm build cache); record real/user/sys.
-  - [ ] **Step 3: Parity.** `go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS:
+  - [x] **Step 3: Parity.** `go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS:
     Test<Name>/'` per port against the floors in the Baseline block above — task-commit-fields'
     floor is 298 after task 12 (**Decision:** port-base-moves-into-go).
-  - [ ] **Step 4: Record** an **After** table in `design.md`'s **Measurements**, same columns as
+  - [x] **Step 4: Record** an **After** table in `design.md`'s **Measurements**, same columns as
     **Before**, each figure tagged `measured:` with the command and `@ branch
     spectre/kan-760-agents-port-the-flow-guard-scripts-and-their`.
-  - [ ] **Step 5: Judge.** Failure looks like: suite real not below the Before 120.7s; any
+  - [x] **Step 5: Judge.** Failure looks like: suite real not below the Before 120.7s; any
     port's `--- PASS` count below its floor; `go test ./internal/guard/...` above 10s real; any
     harness red. Any of these is reported, not recorded as success.
-    <!-- predicted: suite ≈ 60s real, bounded by test-check-panel-reproducers.sh; guard package < 10s — confirmed by steps 1–2 -->
+    <!-- measured: suite median 166.43s (117.32/166.43/181.86, load 4→33), bounded by test-check-installed-citations.sh, not panel-reproducers; guard package median 9.53s (9.34/9.53/10.93) — /usr/bin/time -p x3 each @ f4205935 -->
+
+Correction (2026-09-26): step 5's suite criterion failed at `f4205935` under load (median 166.4s;
+run 1 117.3s at load 4); recorded as failed in `design.md`'s **After**, not as success — the
+operator chose to proceed to the panel. Harness count 86 → 82 (five ported harnesses → one Go package).
 
 - [x] 11. Move the ported guards' rationale into Go and repoint its citations
 
@@ -596,7 +600,7 @@ The commit also extracts `tcfSelectTask` (port of `select_task`) out of `tcfPars
 calls it; `tcfCheckEvidenceTags` is its second caller. Old-vs-new: upstream's Python and the Go
 port gave byte-identical output and equal exit codes on all seven case blocks.
 
-- [ ] 13. Cut the guard test package to at most 10s
+- [x] 13. Cut the guard test package to at most 10s
 
 **Files:** `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/check_panel_reproducer_exit_contract_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`, `stats/internal/guard/gatherdispatch_test.go`, `stats/internal/guard/helpers_test.go`, `stats/internal/guard/runreproducer_test.go`
 **Allowed-collateral:** `stats/internal/guard/*.go`
@@ -606,30 +610,30 @@ port gave byte-identical output and equal exit codes on all seven case blocks.
 `go test ./internal/guard/... -count=1` exceeds 10s real if the removed waits return.
 **Baseline:** before=0 after=0
 <!-- predicted: no test function is added or removed; the change is to how existing cases wait and build fixtures -->
-**After:** Task 4, 5, 7, 8, 11, 12
+**After:** Task 3, 4, 5, 6, 7, 8, 11, 12
 **Commit:** `perf(stats): cut the guard test package to under ten seconds`
 **Build:** green
 
 **Decision:** guard-package-under-10s
 **Decision:** inject-deadlines-in-process
 
-  - [ ] **Step 1: Profile.** From `stats/`: `go test -c -o $TMPDIR/guard.test ./internal/guard/`,
+  - [x] **Step 1: Profile.** From `stats/`: `go test -c -o $TMPDIR/guard.test ./internal/guard/`,
     then `/usr/bin/time -p $TMPDIR/guard.test -test.run '^<Test>$' -test.count=1` per top-level
     test, and `-test.v` with `-test.parallel 1` for the slowest subtests of each. Name, per test,
     where its wall time goes — an un-injected real-time wait, a poll tick, repeated fixture
     building, process spawns — with the measurement. Baseline the package:
     `/usr/bin/time -p go test ./internal/guard/... -count=1` ×3.
-  - [ ] **Step 2: Fix at the source**, one cause at a time, re-measuring after each. Every fix
+  - [x] **Step 2: Fix at the source**, one cause at a time, re-measuring after each. Every fix
     satisfies **guard-package-under-10s**: every case kept and asserting what it asserted, no
     `-short` skip, no loosened assertion, and a production default or CLI-visible behaviour
     changed only where the change is a pure latency cut with identical output (e.g. the supervise
     loop waking on the child's exit rather than the next tick, with the final descendant snapshot
     kept). Report every production-code change with the output-identity evidence.
-  - [ ] **Step 3: Green and parity.** `go test ./internal/guard/ -count=1 -race`; the four
+  - [x] **Step 3: Green and parity.** `go test ./internal/guard/ -count=1 -race`; the four
     `--- PASS` counts equal their Regression figures (greps as in task 10's report).
-  - [ ] **Step 4: Measure.** `/usr/bin/time -p go test ./internal/guard/... -count=1` ×3 from
+  - [x] **Step 4: Measure.** `/usr/bin/time -p go test ./internal/guard/... -count=1` ×3 from
     `stats/`, all ≤10s real. A run above 10s is reported, never recorded as success.
-  - [ ] **Step 5: Verify.** `gofmt -l .`, `go vet ./...` from `stats/`; from the worktree root,
+  - [x] **Step 5: Verify.** `gofmt -l .`, `go vet ./...` from `stats/`; from the worktree root,
     with the tree's `flow-guard` first on PATH, `scripts/test-check-panel-reproducers.sh` and
     `scripts/test-check-mutation-reproducer-pin.sh` (callers of `run-reproducer.sh`).
 
@@ -654,3 +658,37 @@ failed under reftable); `rrFixture` names the `$0`-marker trade — a guard exec
 refused reproducer would slip past "never executed" — with its ceiling.
 <!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 → 9.82s, 9.02s, 9.00s real at load 9.5–9.8; 309/298/109/60 --- PASS under -race @ fix commit -->
 Review fix 2 (2026-09-26): case 8 also asserts nothing ran at the symlink's own side (`never executed#01`), so a guard exec'ing the unresolved link path fails it — proved by mutating `runreproducer.go` to exec `candidate` before the escape refusal. `TestRunReproducer`'s `--- PASS` count is 110.
+
+- [ ] 14. Make run-reproducer's survivor detection deterministic
+
+**Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`
+**Allowed-collateral:** `stats/internal/guard/*.go`
+**Tests:** `TestRunReproducer`
+**Regression:** `TestRunReproducer` cases 10, 13, 14, 16, 18 fail intermittently under load if a
+detached or double-forked survivor can again go unnamed; `--- PASS: TestRunReproducer/` stays at 110.
+**Baseline:** before=0 after=0
+<!-- predicted: the fix changes how existing cases are made deterministic; a stress test function may be added, confirmed by grep -cE '^func Test' stats/internal/guard/runreproducer_test.go -->
+**After:** Task 4, 11, 13
+**Commit:** `fix(stats): run-reproducer names every survivor under load`
+**Build:** green
+
+**Decision:** survivor-detection-deterministic
+**Decision:** inject-deadlines-in-process
+
+  - [ ] **Step 1: Reproduce.** From `stats/`: `go test ./internal/guard/ -run 'TestRunReproducer$'
+    -count=20 -race -parallel 32` (and with CPU load from `yes > /dev/null` ×10 alongside, killed
+    afterwards) until the failure rate for cases 10/13/14/16/18 is measured. Record it.
+  - [ ] **Step 2: Diagnose** per superpowers:systematic-debugging: which read loses — the
+    descendant snapshot missing a child that detached and whose leader exited between polls, the
+    post-SIGKILL `kill -0` at `rrSupervise`'s retry sweep racing the reaper, or `rrProcTable`
+    returning empty on a failed `ps`. Evidence per case, not a guess.
+  - [ ] **Step 3: Fix at the source** of each cause found, satisfying
+    **survivor-detection-deterministic**: no retry, no longer grace or bound, no loosened
+    assertion; every verdict line byte-identical. Prove each fix bites: remove it and show the
+    step-1 stress reproduce the failure; restore and show 0 failures across the same stress.
+  - [ ] **Step 4: Verify.** `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/ -count=1
+    -race`; the step-1 stress at 0 failures; `/usr/bin/time -p go test ./internal/guard/...
+    -count=1` still ≤10s real (**guard-package-under-10s**); from the worktree root, with the tree's
+    `flow-guard` first on PATH, `scripts/test-check-panel-reproducers.sh` and
+    `scripts/test-check-mutation-reproducer-pin.sh`.
+

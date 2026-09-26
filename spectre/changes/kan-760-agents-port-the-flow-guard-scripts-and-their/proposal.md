@@ -30,6 +30,8 @@
   `e42e982a`), which landed on `main` after this change's base `0747740`, with its cases 140–146.
 - `go test ./internal/guard/...` runs in at most 10s real on this machine, so the Go package is
   not the new ceiling the ported harnesses were.
+- The Go `run-reproducer` names a detached or double-forked survivor deterministically, under any
+  machine load.
 - `make build`, a new `make install-guard`, `make restart` and `setup.sh global` build
   `flow-guard`.
 - Before/after suite timings are measured on the same machine and recorded in `design.md`.

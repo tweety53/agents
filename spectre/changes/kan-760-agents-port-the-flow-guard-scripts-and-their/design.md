@@ -47,8 +47,30 @@
 
 <!-- measured: suite per-harness lines, then /usr/bin/time -p scripts/test-<name>.sh one at a time @ 0747740 -->
 
-**After** — filled by the live-verification task, same machine, same commands plus
-`go test ./internal/guard/...`.
+**After** — this machine, 2026-09-26, 82 harnesses (the five ported harnesses replaced by one Go
+package harness), all green on every run. Other sessions shared the machine; load is the 1-minute
+average read before each run.
+
+| run | real | user | sys | load |
+|---|---|---|---|---|
+| suite @ `6ed51f22` (before task 13), runs 1/2/3 | 102.9s / 99.0s / 88.7s | 168.6s / 190.2s / 176.1s | 232.1s / 269.4s / 240.4s | not read |
+| suite @ `f4205935`, runs 1/2/3 | 117.3s / 166.4s / 181.9s | 208.1s / 209.0s / 211.2s | 292.1s / 292.9s / 299.6s | 4.0 / 19.4 / 33.2 |
+| `go test ./internal/guard/...` @ `6ed51f22` | 33.8s / 28.9s / 30.5s | 16.9s / 16.3s / 16.7s | 31.4s / 30.1s / 31.0s | not read |
+| `go test ./internal/guard/...` @ `f4205935` | 9.3s / 9.5s / 10.9s | 10.6s / 10.7s / 10.9s | 24.3s / 24.2s / 24.2s | 23.1 / 21.3 / 19.1 |
+
+<!-- measured: /usr/bin/time -p scripts/run-guard-tests.sh and cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1, x3 each, sysctl -n vm.loadavg before each @ 6ed51f22 and f4205935 -->
+
+- Slowest harnesses @ `f4205935`, every run: `test-check-installed-citations.sh` (104/118/167s),
+  `test-check-plan-provenance.sh` (93/113/175s), `test-check-references.sh` (81/101/165s) — none
+  ported; `test-check-panel-reproducers.sh` 56s in run 1.
+- Parity @ `f4205935`: cleanup-complete 309 (floor 304), task-commit-fields 298 (298),
+  run-reproducer 110 (109), gather-dispatch-context 88 (88), panel-reproducer-exit-contract 60 (59).
+- **Judgement:** the suite criterion (below the Before 120.7s) is **not met** at `f4205935` — only
+  run 1, at load 4, came in below, by 3%; the median was 166.4s under load rising to 33. It was
+  met at `6ed51f22` (median 99.0s, load not read). The wall is now bounded by unported harnesses,
+  the first slice **follow-ups-at-integrate** names. The guard package meets ≤10s on its median
+  (9.5s), one run 10.9s at load 19. Operator decision, 2026-09-26: record, proceed to the panel.
+<!-- measured: grep '^ok' of each suite log sorted by seconds; go test ./internal/guard/ -count=1 -v | grep -c per port @ f4205935 -->
 
 ## Decisions
 
@@ -209,6 +231,23 @@ with the supervise loop polling every 200ms (`rrPoll`).
 <!-- measured: cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1 (x3) @ 6ed51f22; go test -c then /usr/bin/time -p guard.test -test.run '^<Test>$' per top-level test @ 6ed51f22 -->
 **Considered:** accept the measurement and raise the criterion, or file a follow-up slice — the
 operator chose to fix it in this change, 2026-09-26.
+
+### run-reproducer's survivor detection is deterministic
+
+**ID:** survivor-detection-deterministic
+**Status:** active
+**Chosen:** the Go `run-reproducer` names every detached or double-forked descendant it is
+contracted to catch on every run, whatever the machine's load — the nondeterminism fixed where it
+lives (the descendant snapshot's timing against the leader's exit, the post-SIGKILL `kill -0`
+liveness read against the reaper, a `ps` read that fails and returns an empty table), never by a
+retry, a longer grace or a wider bound. The CLI contract and every verdict line stay as ported.
+Measured: `TestRunReproducer` case 13 exited 1 ("defect not demonstrated — exited 0") instead of 3
+in the full `## test` run at load ~10; cases 10, 14, 16, 18 fail the same way under
+`-race -parallel 32` (4 in ~37 package runs at `788b398a`, 1 in 12 at `8ad5a22d`); 6 isolated runs
+of `TestRunReproducer` passed.
+<!-- measured: scripts/run-guard-tests.sh (test-go-guards.sh FAIL, case 13 exit 1 want 3) @ f4205935; reviewer-report-task-13.md stress runs @ 788b398a and 8ad5a22d -->
+**Considered:** file it as a follow-up and proceed on a green re-run — rejected by the operator,
+2026-09-26: a flake is fixed at its source, and the panel never runs on a red branch.
 
 ### Follow-ups filed at integrate
 
