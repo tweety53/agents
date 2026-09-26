@@ -788,7 +788,7 @@ ancestry guard: `guard-autosquash.sh targets <worktree> <task-sha>` before the a
 `guard-autosquash.sh after <worktree> <task-sha>^ <changeRoot>/tasks.md` once it lands — the
 post-check's base is the fold's own upstream, never `FIX_BASE`, which the fold deliberately holds
 stale as its diff endpoint, and a refusal from either stops the round before anything builds on
-the rewritten history (`scripts/guard-autosquash.sh`).
+the rewritten history (`<agents repo>/scripts/guard-autosquash.sh`).
 
 **A clean `git rebase --autosquash` is not evidence the fix survived it.** Where the fixup and the
 commit it folds into touch nearby lines, git's 3-way auto-merge can resolve in favour of the

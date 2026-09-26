@@ -930,7 +930,8 @@ of HEAD — a target that merely resolves hands the autosquash a spurious merge 
 unrelated history into the branch — and once it lands,
 `guard-autosquash.sh after <worktree> <task-sha>^ <changeRoot>/tasks.md` re-asserts the base's
 ancestry and sweeps the plan's recorded shas for reachability, so a rewritten branch cannot pass
-while `tasks.md` still names shas it no longer reaches (`scripts/guard-autosquash.sh`). A conflict
+while `tasks.md` still names shas it no longer reaches
+(`<agents repo>/scripts/guard-autosquash.sh`). A conflict
 there is
 between two of the branch's own commits, and the parent resolves it by hand, keeping both
 sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
