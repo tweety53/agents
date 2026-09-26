@@ -653,3 +653,4 @@ pins `GIT_DEFAULT_REF_FORMAT=files`, which `tcfRepo.head()`'s loose-ref read ass
 failed under reftable); `rrFixture` names the `$0`-marker trade — a guard exec'ing a copy of a
 refused reproducer would slip past "never executed" — with its ceiling.
 <!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 → 9.82s, 9.02s, 9.00s real at load 9.5–9.8; 309/298/109/60 --- PASS under -race @ fix commit -->
+Review fix 2 (2026-09-26): case 8 also asserts nothing ran at the symlink's own side (`never executed#01`), so a guard exec'ing the unresolved link path fails it — proved by mutating `runreproducer.go` to exec `candidate` before the escape refusal. `TestRunReproducer`'s `--- PASS` count is 110.
