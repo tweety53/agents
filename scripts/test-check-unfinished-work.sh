@@ -518,7 +518,7 @@ fi
 #     anyone able to open a pull request can edit — and it is concatenated into
 #     every path above. The allowlist is records.Destination's Protection 1
 #     (stats/internal/records/render.go), and these cases are the same shapes
-#     test-check-cleanup-complete.sh rejects, asserted here so the two copies
+#     TestCheckCleanupComplete/12 rejects, asserted here so the two copies
 #     cannot drift apart in silence. Without it `../../../planted/clear` reads a plan outside the
 #     worktree entirely and reports CLEAR for a change that has none.
 for bad_name in "../../../planted/clear" "demo*" "demo/../demo" ".hidden" "demo?x"; do
@@ -539,7 +539,7 @@ done
 #     `démo` is REJECTED under LC_ALL=C and ACCEPTED under en_US.UTF-8. A guard
 #     whose accepted input set changes with the operator's environment is the same
 #     defect class as a status compared by collation, and this copy of the
-#     allowlist would then diverge from check-cleanup-complete.sh's under one
+#     allowlist would then diverge from check-cleanup-complete's (plainChangeName) under one
 #     locale and not the other. The guard pins the locale for its whole run; this
 #     case is what proves the pin is load-bearing rather than decorative.
 for loc in C en_US.UTF-8; do

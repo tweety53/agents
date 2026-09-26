@@ -27,7 +27,16 @@
 # never exit 2's "cannot answer". The scan is the same flat TEST_ROOT glob
 # the harness discovery uses (never recursive, never a hand-maintained
 # list), which is also what lets this runner's own harness exercise the
-# check through a RUN_GUARD_TESTS_ROOT fixture.
+# check through a RUN_GUARD_TESTS_ROOT fixture. A guard ported to Go
+# (kan-760) is covered by its Go test instead: when the guard's file contains
+# `flow_guard_exec <name> ` and
+# TEST_ROOT/../stats/internal/guard/<name, - replaced by _>_test.go exists,
+# it needs no test-check-*.sh — scripts/test-go-guards.sh runs those tests.
+#
+# FLOW-GUARD CACHE (kan-760): a ported guard's shim builds flow-guard from
+# its own checkout into a cache (scripts/lib/flow-guard.sh). The runner
+# points that cache at its own temp directory through FLOW_GUARD_CACHE_DIR,
+# so no harness writes into the operator's real cache.
 #
 # RUN_GUARD_TESTS_ROOT (design.md's runner-root-override): an explicit,
 # opt-in override honoured only when set — copied verbatim from
@@ -119,7 +128,10 @@ MISSING_COMPANIONS=()
 for f in "$TEST_ROOT"/check-*.sh; do
   [ -e "$f" ] || continue
   name="$(basename "$f" .sh)"
-  [ -e "$TEST_ROOT/test-$name.sh" ] || MISSING_COMPANIONS+=("$(basename "$f")")
+  [ -e "$TEST_ROOT/test-$name.sh" ] && continue
+  grep -qF "flow_guard_exec $name " "$f" \
+    && [ -e "$TEST_ROOT/../stats/internal/guard/${name//-/_}_test.go" ] && continue
+  MISSING_COMPANIONS+=("$(basename "$f")")
 done
 
 if [ "${#MISSING_COMPANIONS[@]}" -gt 0 ]; then
@@ -162,6 +174,8 @@ if [ -n "$DURATIONS" ] && [ -f "$DURATIONS" ]; then
 fi
 
 TIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-time.XXXXXX")"
+
+export FLOW_GUARD_CACHE_DIR="$TIME_DIR/flow-guard-cache"
 
 if [ -n "$WATCHED" ]; then
   if git -C "$WATCHED" status --porcelain --untracked-files=normal > "$TIME_DIR/before.status" 2>/dev/null; then

@@ -38,9 +38,11 @@ set -euo pipefail
 
 export LC_ALL=C
 
-# The banned-character set is single-sourced with run-reproducer.sh's own
-# copy of the same check — see scripts/reproducer-metachars.sh's header for
-# why: this set has already drifted between the two scripts twice.
+# The banned-character set is single-sourced with run-reproducer's own
+# copy of the same check — its Go port's reproducerMetachars
+# (stats/internal/guard/metachars.go), pinned to scripts/reproducer-metachars.sh
+# by TestMetacharsMatchBashSource — see scripts/reproducer-metachars.sh's
+# header for why: this set has already drifted between the two scripts twice.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # Readability is checked before the source, not left to `set -e` to catch a
 # failed source. Without this, a missing or unreadable
@@ -89,8 +91,8 @@ esac
 # contains it) would otherwise make `-C`'s value look like a flag to
 # `flow`'s own argument parser. `cd ... && pwd -P` always yields a path
 # rooted at `/`, which closes that hazard; `pwd -P` rather than the bare
-# builtin, matching scripts/run-reproducer.sh's own canonicalisation of the
-# same variable: bash's `pwd` is logical by default and does not resolve a
+# builtin, matching run-reproducer's own canonicalisation of the same
+# variable (filepath.EvalSymlinks in stats/internal/guard/runreproducer.go): bash's `pwd` is logical by default and does not resolve a
 # symlink in the path it printed, so on a symlinked worktree this guard's own
 # `$WORKTREE` and the runner's later, physical resolution of the same
 # worktree would disagree about what counts as "inside" it.
@@ -114,9 +116,11 @@ WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducers: wo
 # below would answer `[]` at exit 0: a clean REPRODUCERS-OK on a change this
 # invocation never actually saw. The record is read FIRST for exactly that
 # reason, and this block is DUPLICATED, on purpose, in
-# check-panel-reproducer-exit-contract.sh, whose store read has the same
-# blind spot; the two harnesses assert the same refused shapes, which is
-# what keeps the copies from drifting. `flow state get` reached-and-absent
+# check-panel-reproducer-exit-contract's Go port
+# (stats/internal/guard/panelexitcontract.go), whose store read has the same
+# blind spot; this guard's harness and TestCheckPanelReproducerExitContract
+# assert the same refused shapes, which is what keeps the copies from
+# drifting. `flow state get` reached-and-absent
 # exits 1 — a fact about this project/change pair, and on a cross-repo
 # change the signature of a guard invoked on a peer tree — reported at this
 # guard's own exit 2, never a clean answer. Store-unreachable exits 0 with

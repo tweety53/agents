@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # test-lib-change-plan.sh — assertion harness for scripts/lib/change-plan.sh,
 # the shared resolver KAN-363 task 7 adds. Sources the library directly
-# rather than through either caller (check-unfinished-work.sh,
-# check-task-commit-fields.sh — tasks 8 and 9), per this repository's own
+# rather than through its caller (check-unfinished-work.sh, task 8;
+# check-task-commit-fields.sh, task 9, was the other until its Go port),
+# per this repository's own
 # convention (see test-lib-coverage.sh's header): the thing under test is
 # the library's own contract, not any caller's use of it.
 #
@@ -385,8 +386,9 @@ assert_eq "case 6c: it prints nothing to stdout" "" "$OUT"
 # Cases 7-9 (KAN-393): change_plan_ref — the link's `<peer>:<change-id>`
 # for a satellite (no local tasks.md, a link.md carrying ## Part of), and
 # return 1 with no output for a local plan or a link.md that is not a
-# satellite's. gather-dispatch-context.sh reads it for its
-# "(canonical <peer>:<change-id>)" section labels. Asserted here, in the
+# satellite's. gather-dispatch-context read it for its
+# "(canonical <peer>:<change-id>)" section labels; its Go port reads its
+# own port of it (changePlanRef, stats/internal/guard/changeplan.go). Asserted here, in the
 # library's own harness, because the ref is the library's contract, not
 # any caller's.
 # ---------------------------------------------------------------------------

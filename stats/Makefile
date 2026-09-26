@@ -56,10 +56,16 @@ web-build:
 # target -- and why an operator who skipped that half ran whatever stale
 # bin/flowd was already on disk. scripts/test-make-build.sh asserts all
 # three lines are present, over `make -n build`.
+#
+# bin/flow-guard is the Go ports of the guard scripts (cmd/flow-guard),
+# built here so `make build` compiles every binary; scripts/test-make-build.sh
+# asserts its line too. No shim runs this copy: a ported scripts/<name>.sh
+# builds its own from the checkout (scripts/lib/flow-guard.sh).
 build: web-build
 	go build ./...
 	go build -o bin/flowd ./cmd/flowd
 	go build -o bin/flow  ./cmd/flow
+	go build -o bin/flow-guard ./cmd/flow-guard
 
 # Brings up the dedicated flow-postgres container (see docker-compose.yml).
 # Does not touch any other compose stack running on this machine.

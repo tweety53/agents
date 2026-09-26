@@ -22,8 +22,10 @@
 # behavioural — evidence that the named row, cell and rule reached the report,
 # not a transcript of its prose.
 #
-# WHY THIS DUPLICATES test-check-cleanup-complete.sh's HELPERS instead of
-# sharing them. The two guards read the same section of the same file and are
+# WHY THIS DUPLICATES the cleanup guard's test helpers (once
+# test-check-cleanup-complete.sh's; now ccNew, ccVerdict and their siblings in
+# stats/internal/guard/check_cleanup_complete_test.go) instead of sharing
+# them. The two guards read the same section of the same file and are
 # deliberately kept independent: that guard asks whether the removal happened,
 # this one asks whether the declaration is well formed, and a shared harness
 # library would couple their suites so that a change to one guard's contract
@@ -270,7 +272,7 @@ assert_refuses "a path that is not a directory"
 #     `rc=0` and `ISOLATION-OK` — measured once in six runs on this machine
 #     before the gate changed. `-r` asks the runtime condition the guard itself
 #     branches on instead of guessing it from the user id, which is what
-#     test-check-cleanup-complete.sh's case 26 already does for the same
+#     TestCheckCleanupComplete/26 already does for the same
 #     scenario.
 new_project
 write_config "# fixture"

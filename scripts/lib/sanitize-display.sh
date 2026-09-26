@@ -8,7 +8,7 @@
 # cannot-answer exit — a copy that missed the next escape a terminal control
 # sequence needs would be a forged-verdict hazard in exactly one of the
 # three and not the other two, the same drift `scripts/lib/resolve-file.sh`
-# and `scripts/lib/within-root.sh` were written to close. One definition,
+# was written to close. One definition,
 # sourced by every guard that can safely reach it, is what stops that drift
 # from happening here too.
 #
@@ -19,9 +19,10 @@
 # hand-copying a single file into an unrelated project's own tooling cannot.
 # All three callers above ship through the farm — each carries its own
 # `lib` symlink into scripts/lib/ beside it — so each sources this file
-# rather than carrying its own copy. `check-cleanup-complete.sh` and
-# `check-workspace-isolation.sh` carry their own, separate copies of this
-# same function and are deliberately left alone: KAN-73's guard-to-skill map
+# rather than carrying its own copy. `check-workspace-isolation.sh` carries
+# its own, separate copy of this same function, as check-cleanup-complete's
+# Go port does (ccSanitize, stats/internal/guard/cleanupcomplete.go), and both are
+# deliberately left alone: KAN-73's guard-to-skill map
 # does not change what either of those two already does, and this task's
 # scope is the three visual guards, not a repository-wide consolidation.
 #

@@ -18,6 +18,12 @@
 # against a resolved file there); only the DATA the checks scan for has one
 # home.
 #
+# Since KAN-760 run-reproducer is Go and cannot source this file: its port
+# carries the set as reproducerMetachars (stats/internal/guard/metachars.go),
+# and TestMetacharsMatchBashSource fails the moment the two differ, so this
+# file stays the one place a character is added. check-panel-reproducers.sh
+# is the caller that still sources it.
+#
 # Usage: `source "<dir of this file>/reproducer-metachars.sh"` binds
 # REPRODUCER_METACHARS in the caller's shell. Not executable on its own.
 REPRODUCER_METACHARS='|;&$`<>(){}~*?[]#\'\''"'

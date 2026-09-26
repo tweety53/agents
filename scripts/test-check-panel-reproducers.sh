@@ -390,12 +390,17 @@ expect_exit "case 18: an ordinary command with no banned metacharacter is accept
 #     file's value is exactly the expected set (so the shared copy itself
 #     has not silently lost or gained a character). Untouched by the store
 #     rewrite: this checks the two scripts' own source, not a panel record.
+#     run-reproducer.sh is now a shim for its Go port (KAN-760), whose copy
+#     of the set TestMetacharsMatchBashSource compares against the shared
+#     file, so the second arm asserts the shim and that parity test instead
+#     of a `source` line.
 # ===========================================================================
 METACHARS_FILE="$SCRIPT_DIR/reproducer-metachars.sh"
 EXPECTED_METACHARS='|;&$`<>(){}~*?[]#\'\''"'
 if [ -f "$METACHARS_FILE" ] \
   && grep -qF 'source "$SCRIPT_DIR/reproducer-metachars.sh"' "$GUARD" \
-  && grep -qF 'source "$SCRIPT_DIR/reproducer-metachars.sh"' "$SCRIPT_DIR/run-reproducer.sh" \
+  && grep -qF 'flow_guard_exec run-reproducer ' "$SCRIPT_DIR/run-reproducer.sh" \
+  && grep -qF 'func TestMetacharsMatchBashSource' "$SCRIPT_DIR/../stats/internal/guard/runreproducer_test.go" \
   && ! grep -qE "^\s*metachars='" "$GUARD" \
   && ! grep -qE "^\s*metachars='" "$SCRIPT_DIR/run-reproducer.sh"; then
   # shellcheck disable=SC1090

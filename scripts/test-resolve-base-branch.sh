@@ -25,8 +25,8 @@ fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
 pass() { printf 'ok: %s\n' "$1"; }
 
 # skip <label> <reason> — a case this environment cannot decide, reported as
-# neither a pass nor a failure. Matches test-check-cleanup-complete.sh's own
-# `skip` helper and its two environmental reasons: a file mode of 000 still
+# neither a pass nor a failure. Matches the t.Skip paths of
+# TestCheckCleanupComplete/4d and /26 and their two environmental reasons: a file mode of 000 still
 # readable by root, and a git that stores refs packed (or in the reftable
 # backend) rather than as loose files, so there is nothing to `chmod` at all.
 # Printing "ok" for either would be a green result for an assertion that
@@ -287,7 +287,8 @@ expect_refusal "hostile HEAD branch value: non-ASCII byte under a UTF-8 locale" 
 #     and it requires a git that stores the branch as a loose ref file at
 #     all — a git using the packed-refs or reftable backend leaves nothing
 #     at REF_FILE to chmod. Skipped rather than asserted when either holds,
-#     matching test-check-cleanup-complete.sh's own unreadable-ref case.
+#     matching TestCheckCleanupComplete/4d, the cleanup guard's
+#     unreadable-ref case.
 new_worktree
 REF_FILE="$WT/.git/refs/heads/spectre/fixture"
 if [ ! -f "$REF_FILE" ]; then

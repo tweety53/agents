@@ -30,8 +30,9 @@
 # exemption. scripts/the retired self-review gather (kan-526) carries its own
 # resolve_file (a differently-shaped, non-hardened variant than this file's
 # own — see that script's header), on the same false premise that it did
-# not ship through the farm; it does, and it already sources
-# lib/within-root.sh for within_root. It was left untouched when that
+# not ship through the farm; it does, and it sourced the shared
+# within_root (lib/within-root.sh, deleted with no caller left, KAN-760).
+# It was left untouched when that
 # within_root duplication was closed, because that was the scope of the
 # change which closed it. Follow-up question, still open: whether that copy
 # should ever join this file. A second file used to be named here for the

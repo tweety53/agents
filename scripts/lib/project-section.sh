@@ -1,11 +1,12 @@
 # scripts/lib/project-section.sh — project_section, defined once.
 #
-# Sourced by scripts/project-get.sh, scripts/gather-dispatch-context.sh and
-# scripts/check-model-keys.sh — three inline copies of the identical
+# Sourced by scripts/project-get.sh and scripts/check-model-keys.sh, as it
+# was by scripts/gather-dispatch-context.sh until its Go port (KAN-760), which
+# carries its own copy (projectSection,
+# stats/internal/guard/gatherdispatch.go) — three inline copies of the identical
 # heading-to-next-heading awk used to live one in each, the same drift
-# hazard scripts/lib/within-root.sh's own header records for
-# gather-dispatch-context.sh's and the retired self-review gather's (kan-526) copy of
-# within_root. One definition, sourced by every caller that can safely
+# hazard gather-dispatch-context.sh's and the retired self-review gather's
+# (kan-526) copies of within_root once carried. One definition, sourced by every caller that can safely
 # reach it, is what stops that drift from happening a second time here.
 #
 # "SAFELY REACH IT" IS THE OPERATIVE PHRASE — see scripts/lib/resolve-file.sh's

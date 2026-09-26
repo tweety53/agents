@@ -25,7 +25,8 @@
 # the argv-exec barrier, the wall-clock bound, the kill sequence, the
 # verdict vocabulary and the mutation-reproducer convention (read from the
 # script itself, in whichever tree the leg runs in) are all run-reproducer's
-# own contract, asserted by its existing harness; this script composes two
+# own contract, asserted by its Go port's tests (TestRunReproducer,
+# stats/internal/guard/runreproducer_test.go); this script composes two
 # calls of it and judges the pair. A refused or unverifiable leg (exit 2 or
 # 3) or a leg that cannot answer at all (4) spends the proof: nothing is
 # claimed about the defect either way.

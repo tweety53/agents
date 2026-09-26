@@ -23,10 +23,11 @@
 #
 # check-workspace-isolation.sh's OWN copy of this trio (widened to four
 # columns) is deliberately left alone: that guard's own header records why
-# ITS parser stays a copy rather than a sourced helper — it is the same
-# parser check-cleanup-complete.sh carries, and THAT guard is hand-copied
-# into a project's own tooling standalone, which cannot assume a sibling
-# `lib/` travels with it. This task's scope is the three visual guards,
+# ITS parser stays a copy rather than a sourced helper — that guard is
+# single-file by design and hand-copied into a project's own tooling
+# standalone, which cannot assume a sibling `lib/` travels with it. (The
+# parser began as the one check-cleanup-complete.sh carried, since ported to
+# Go as ccWorkspaceRow, stats/internal/guard/cleanupcomplete.go.) This task's scope is the three visual guards,
 # which carry no such standalone copy anywhere, not a repository-wide
 # consolidation of every table parser.
 #

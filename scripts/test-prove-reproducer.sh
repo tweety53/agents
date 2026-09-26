@@ -5,7 +5,8 @@
 # writes a reproducer at a worktree-relative path, commits the fix, and runs
 # the two-direction proof against the pair — asserting the exit code, the
 # leg the verdict names, and (on refusals) that no scratch worktree was ever
-# created, so nothing ran. Follows test-run-reproducer.sh's shape: a case_N
+# created, so nothing ran. Follows the bash test-run-reproducer.sh's shape
+# (since ported to stats/internal/guard/runreproducer_test.go): a case_N
 # section per case, a counter, and a non-zero exit when any case fails.
 #
 # `set -e` as well as `-u`/`pipefail`, matching this repository's sibling
@@ -30,7 +31,9 @@ trap cleanup EXIT
 # make_repo -> prints a fresh real git repository path with an initial
 # commit already on it. Fails loudly rather than returning an empty path: a
 # silent empty path from a failed mktemp is the same stale-sandbox hazard
-# test-run-reproducer.sh's own make_worktree guards against.
+# the bash test-run-reproducer.sh's make_worktree guarded against (its Go
+# successor, rrWorktree in stats/internal/guard/runreproducer_test.go, builds
+# on t.TempDir, which cannot hand back an empty path).
 make_repo() {
   local repo
   repo="$(mktemp -d "${TMPDIR:-/tmp}/prove-reproducer-test.XXXXXX")" || {

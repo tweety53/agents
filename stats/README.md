@@ -43,6 +43,21 @@ database (see `internal/store/testsupport_test.go`), used once and never
 shared with the live database, another test, or the UI-test stack below.
 Nobody running `go test` needs to bring up the UI-test stack first.
 
+## flow-guard
+
+`flow-guard` (`cmd/flow-guard`) runs the Go ports of the repository's guard
+scripts. A ported `scripts/<name>.sh` keeps its header comment as the guard's
+contract and runs `flow-guard <name>` built from its own checkout
+(`scripts/lib/flow-guard.sh`): it hashes the sources `flow-guard` is built
+from, builds on the first call for a hash into
+`${XDG_CACHE_HOME:-$HOME/.cache}/flow-guard/<hash>/flow-guard`
+(`FLOW_GUARD_CACHE_DIR` overrides the directory), and execs the cached binary
+after that. Nothing is installed. With no `go` to build it, or a failed build,
+the shim exits that guard's own cannot-answer code — 4 for `run-reproducer`,
+2 for the others — and names the cause. Before/after suite timings
+for the port are recorded in the design of change
+kan-760-agents-port-the-flow-guard-scripts-and-their, not here.
+
 ## The UI-test stack
 
 For testing the application's browser interface by hand, from the main

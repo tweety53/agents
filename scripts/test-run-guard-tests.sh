@@ -476,6 +476,78 @@ rm -rf "$FIXTURE" "$WATCHED"
 # automatically on every run.
 
 # ---------------------------------------------------------------------------
+# 8-10. Ported guards (kan-760). A check-*.sh whose body calls
+#       flow_guard_exec is a shim; its companion may be the Go test
+#       ../stats/internal/guard/<name with - as _>_test.go instead of a
+#       test-check-*.sh. And the runner points the shims' flow-guard build
+#       cache at its own temp directory, so no harness writes into the
+#       operator's real cache. These fixtures are a <parent>/scripts root,
+#       since the companion rule resolves ../stats from it.
+# ---------------------------------------------------------------------------
+# new_shim_fixture -> PARENT with scripts/check-x.sh (a flow-guard shim) and
+# a passing scripts/test-alpha.sh; FIXTURE is PARENT/scripts.
+new_shim_fixture() {
+  PARENT="$(mktemp -d "${TMPDIR:-/tmp}/run-guard-tests-shim.XXXXXX")"
+  FIXTURE="$PARENT/scripts"
+  mkdir -p "$FIXTURE"
+  cat > "$FIXTURE/check-x.sh" <<'EOF'
+#!/usr/bin/env bash
+flow_guard_exec check-x 2 "check-x:" "$@"
+EOF
+  cat > "$FIXTURE/test-alpha.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "$FIXTURE/check-x.sh" "$FIXTURE/test-alpha.sh"
+}
+
+# 8. A shim guard whose Go test exists is covered — no test-check-x.sh needed.
+new_shim_fixture
+mkdir -p "$PARENT/stats/internal/guard"
+printf 'package guard\n' > "$PARENT/stats/internal/guard/check_x_test.go"
+run_runner "$FIXTURE"
+if [ "$RC" -eq 0 ] && [[ "$OUT" != *companion* ]]; then
+  pass "case 8: a shim guard with its Go test is not refused as uncompanioned"
+else
+  fail "case 8: expected exit 0 and no companion gap, got $RC — out=$OUT"
+fi
+rm -rf "$PARENT"
+
+# 9. The same shim with neither companion is still refused, exit 1, naming it.
+new_shim_fixture
+run_runner "$FIXTURE"
+if [ "$RC" -eq 1 ] && [[ "$OUT" == *"check-x.sh has no companion"* ]]; then
+  pass "case 9: a shim guard with neither companion is refused, exit 1, named"
+else
+  fail "case 9: expected exit 1 naming check-x.sh, got $RC — out=$OUT"
+fi
+rm -rf "$PARENT"
+
+# 10. A harness sees FLOW_GUARD_CACHE_DIR under the runner's own temp
+#     directory. The harness records the variable where this case can read
+#     it, and the runner's TMPDIR is a fresh directory, so "under the
+#     runner's temp directory" is a prefix check on that directory.
+new_shim_fixture
+rm -f "$FIXTURE/check-x.sh"
+mkdir -p "$PARENT/tmp"
+cat > "$FIXTURE/test-which.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s' "${FLOW_GUARD_CACHE_DIR:-}" > "$(dirname "$0")/../which.out"
+EOF
+chmod +x "$FIXTURE/test-which.sh"
+set +e
+OUT="$(TMPDIR="$PARENT/tmp" RUN_GUARD_TESTS_ROOT="$FIXTURE" bash "$RUNNER" 2>&1)"
+RC=$?
+set -e
+WHICH="$(cat "$PARENT/which.out" 2>/dev/null || printf '')"
+if [ "$RC" -eq 0 ] && [[ "$WHICH" == "$PARENT/tmp/"* ]]; then
+  pass "case 10: harnesses build flow-guard into the runner's temp directory, never the real cache"
+else
+  fail "case 10: expected exit 0 and FLOW_GUARD_CACHE_DIR under $PARENT/tmp, got $RC, FLOW_GUARD_CACHE_DIR=$WHICH — out=$OUT"
+fi
+rm -rf "$PARENT"
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0
