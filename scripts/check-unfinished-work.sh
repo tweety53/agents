@@ -114,7 +114,8 @@ set -euo pipefail
 # allowlist below under `LC_ALL=C` and ACCEPTED under `en_US.UTF-8` — so without
 # this line the guard's accepted input set changes with the operator's
 # environment, and this copy of the change-name allowlist diverges from
-# check-cleanup-complete.sh's under some locales and not others. It also pins
+# check-cleanup-complete's (plainChangeName, stats/internal/guard/cleanupcomplete.go) under
+# some locales and not others. It also pins
 # `[[:space:]]` and `sort`'s ordering to bytes, which costs nothing and removes
 # the question. test-check-unfinished-work.sh case 8e-i asserts the allowlist
 # behaves identically under both locales.
@@ -153,11 +154,13 @@ fi
 # THE ALLOWED CHARACTERS ARE ENUMERATED RATHER THAN WRITTEN AS RANGES, and here
 # that is belt AND braces rather than the fix: `export LC_ALL=C` above already
 # makes this copy byte-wise, for the reasons stated there. The enumeration is what
-# the other copy needs — check-cleanup-complete.sh runs a project-supplied command
-# and so cannot export a locale at all — and this copy takes it so the rule stays
-# identical character for character across both, which is the property both
-# harnesses assert and the only thing keeping them from drifting.
-# check-cleanup-complete.sh's own Protection 1 comment is canonical for the
+# the bash check-cleanup-complete.sh needed — it ran a project-supplied command
+# and so could not export a locale at all — and this copy took it so the rule
+# stays identical character for character across both. That guard is now Go
+# (plainChangeName, stats/internal/guard/cleanupcomplete.go), whose byte comparison needs no
+# locale; this guard's harness (case 8e) and TestCheckCleanupComplete/12 still
+# assert the same rejected shapes, the only thing keeping the copies from
+# drifting. plainChangeName's own Protection 1 comment is canonical for the
 # measurement and the reasoning; it took that role from the record-copying script
 # this repository has since retired. The accepted set is unchanged.
 case "$NAME" in

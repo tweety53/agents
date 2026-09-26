@@ -52,8 +52,9 @@ set -euo pipefail
 # blocks below admit it, printing it on stdout — exactly the value the spec's
 # unconditional-assertions requirement says must be refused. Under `LC_ALL=C`
 # the same value is correctly rejected. `export LC_ALL=C` for the whole
-# script — matching check-panel-reproducers.sh's precedent, not
-# check-cleanup-complete.sh's enumerated allowlist — because this script
+# script — matching check-panel-reproducers.sh's precedent, not the
+# enumerated allowlist the bash check-cleanup-complete.sh carried (its
+# reasoning now on plainChangeName, stats/internal/guard/cleanupcomplete.go) — because this script
 # invokes no downstream project-supplied command whose own locale must be
 # preserved: everything after this line is git plumbing and shell builtins,
 # so pinning the locale here costs nothing outside this file.

@@ -9,8 +9,8 @@
 # there would point the copy step outside the tree the leg runs in, the
 # same escape the refusals exist to prevent.
 #
-# run-reproducer.sh and check-panel-reproducers.sh keep their own, older
-# copies of these refusals beside their wider lexical sets (shell
+# run-reproducer (its Go port, stats/internal/guard/runreproducer.go) and
+# check-panel-reproducers.sh keep their own, older copies of these refusals beside their wider lexical sets (shell
 # metacharacters, URLs, NUL bytes, resolved-symlink containment) — the same
 # split reproducer-metachars.sh records for its own extraction: only what
 # is verbatim-identical moves here; each of those scripts applies the ban

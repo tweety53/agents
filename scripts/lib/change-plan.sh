@@ -2,9 +2,10 @@
 # once.
 #
 # One owner for "where is this change's tasks.md, really" — KAN-363 task 7,
-# sourced by check-unfinished-work.sh and check-task-commit-fields.sh (tasks
-# 8 and 9) in place of each composing `<worktree>/<spec-root>/changes/<name>`
-# directly. KAN-343 shipped a cross-repository change by hand: the second
+# sourced by check-unfinished-work.sh (task 8) in place of composing
+# `<worktree>/<spec-root>/changes/<name>` directly, as check-task-commit-fields.sh
+# (task 9) did until its Go port (KAN-760): the Go guards carry one port of
+# this library, stats/internal/guard/changeplan.go. KAN-343 shipped a cross-repository change by hand: the second
 # repository's worktree carried no plan at all, and every guard that looked
 # for one there reported the absence as a verdict — `OUTSTANDING: no plan at
 # <path>`, or exit 2 with nothing further — because "no tasks.md" and "this
@@ -104,7 +105,8 @@ source "$_CHANGE_PLAN_LIB_DIR/spec-root.sh"
 # a letter or digit, and contains only letters, digits, '.', '_' and '-'.
 # The same allowlist check-unfinished-work.sh applies to its own <name>
 # argument, character for character — kept as its own copy here rather than
-# sourced from that guard, matching check-cleanup-complete.sh's own copy:
+# sourced from that guard, matching check-cleanup-complete's own copy
+# (plainChangeName, stats/internal/guard/cleanupcomplete.go):
 # the six-line check gains nothing from being centralized a third time, and
 # this file must not depend on a guard script to do library work.
 _change_plan_name_ok() {
@@ -458,10 +460,12 @@ _change_plan_resolve_dir() {
 # The ref is deliberately NOT re-validated here: a caller uses it to LABEL
 # a resolution change_plan_dir has already succeeded at, and that call has
 # already applied the allowlist to both halves of this exact string.
-# gather-dispatch-context.sh (KAN-393) reads it for its
+# gather-dispatch-context (KAN-393) reads it for its
 # "(canonical <peer>:<change-id>)" section labels — the ref parsed here, in
 # the library that owns link.md's grammar, rather than re-parsed by every
-# caller that needs it.
+# bash caller that needs it. The Go port of that guard reads its own port of
+# this function (changePlanRef, stats/internal/guard/changeplan.go) — a
+# second copy of the grammar, exercised by TestGatherDispatchContext.
 change_plan_ref() {
   local worktree="$1" name="$2" spec_root link ref
   _change_plan_name_ok "$name" || return 1

@@ -421,7 +421,7 @@ run_guard "$TASKS_MD"
 # instead of each looping over the body itself; this case pins that the
 # shared selection still skips the non-gating candidate and resolves the
 # partner named by the gating one. The same fixture is asserted against
-# check-task-commit-fields.sh as its own case 57, which used to take the
+# check-task-commit-fields as TestCheckTaskCommitFields/case_57, which used to take the
 # first field-SHAPED line and reach the opposite verdict on this very body.
 # ===========================================================================
 new_fixture
@@ -439,10 +439,12 @@ run_guard "$TASKS_MD"
 
 # ===========================================================================
 # Case 20 (fix round 8, F18): this wrapper's OWN missing-grammar check, at
-# runtime — the check its sibling check-task-commit-fields.sh has carried
-# since fix round 6 and this one did not, though the Python guard underneath
-# gained the same lib/plan_grammar.py import in the same round. Mirrors that
-# harness's case 56: a throwaway copy of the guard pair with no lib/ sibling,
+# runtime — the check its sibling check-task-commit-fields.sh carried from
+# fix round 6 until its Go port (KAN-760, grammar compiled in, so no module
+# to miss) and this one did not, though the Python guard underneath
+# gained the same lib/plan_grammar.py import in the same round. Mirrors case
+# 56 of test-check-task-commit-fields.sh as it stood at 0747740 (the Go port's
+# case 56 now pins the shim's missing-flow-guard exit instead): a throwaway copy of the guard pair with no lib/ sibling,
 # run against a fixture the shipped guard passes, so both assertions
 # discriminate — without the check the copy reaches python3, whose
 # `from plan_grammar import ...` raises and exits 1 with a traceback rather
@@ -474,7 +476,7 @@ rm -rf "$STRIPPED"
 # select_build_tag, which both guards call: the FIRST line-gated tag wins,
 # so this task is red and its missing partner is reported. Read
 # last-line-wins it would be green and this plan would pass. The same body
-# is asserted against check-task-commit-fields.sh as its own case 58, where
+# is asserted against check-task-commit-fields as TestCheckTaskCommitFields/case_58, where
 # the last-wins reading was what that guard actually did.
 # ===========================================================================
 new_fixture
@@ -495,7 +497,7 @@ esac
 # Case 22 (fix round 9, F20): the **Build:** tag is LINE-SCOPED. A prose
 # line following the tag with no blank line between is not part of it, so
 # the task is still red. The same body is asserted against
-# check-task-commit-fields.sh as its own case 59, where that line used to be
+# check-task-commit-fields as TestCheckTaskCommitFields/case_59, where that line used to be
 # joined onto the tag's value and left the task with no tag at all.
 # ===========================================================================
 new_fixture
@@ -516,7 +518,7 @@ esac
 # Case 23 (fix round 9): a fenced example task line opens no task, so the
 # defective fold shown inside it is documentation and not a violation.
 # Case 9 pins the same rule for this guard's own body parsing; this body is
-# the one asserted against check-task-commit-fields.sh as its own case 60,
+# the one asserted against check-task-commit-fields as TestCheckTaskCommitFields/case_60,
 # where the fenced task line used to open a real task whose ungated
 # `Squash-with:` failed every task in the plan.
 # ===========================================================================
@@ -541,7 +543,7 @@ run_guard "$TASKS_MD"
 # green one — so no "itself red" violation is reported for it, however many
 # later task lines reuse that id. The duplicate itself is still reported (case
 # 10's rule). The same body is asserted against
-# check-task-commit-fields.sh as its own case 61, where the id used to
+# check-task-commit-fields as TestCheckTaskCommitFields/case_61, where the id used to
 # resolve to the LAST task line instead.
 # ===========================================================================
 new_fixture
@@ -572,7 +574,7 @@ esac
 # `**Build:**` tag below it is code and is correctly not read — but calling
 # the task untagged names the consequence and hides the cause. The detection
 # is lib/plan_grammar.py's `unclosed_fence`, and the same body is asserted
-# against check-task-commit-fields.sh as its own case 64, where the
+# against check-task-commit-fields as TestCheckTaskCommitFields/case_64, where the
 # swallowed `**Files:**` made the commit be blamed for touching the file the
 # task really did declare.
 # ===========================================================================
@@ -772,7 +774,7 @@ run_guard "$TASKS_MD"
 # ===========================================================================
 # Case 31 (KAN-394): a red tag with trailing prose is still red -- its
 # partner is resolved exactly as for a bare `red`. The same body is asserted
-# against check-task-commit-fields.sh as its own case 87.
+# against check-task-commit-fields as TestCheckTaskCommitFields/case_87.
 # ===========================================================================
 new_fixture
 {

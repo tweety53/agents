@@ -87,10 +87,12 @@
 # hazards are the same because its input is: a `|` inside a cell, written `\|`,
 # must not split the row; a row may omit its trailing `|`; a file may arrive
 # with CRLF line endings; and a row may be indented. THE PARSER ITSELF stays a
-# copy, for the reason recorded in check-cleanup-complete.sh's containment
-# comment — these guards are single-file by design and are copied into
-# projects one at a time, so a sourced helper would make a guard that is
-# present but unrunnable.
+# copy: this guard is single-file by design and is copied into projects one at
+# a time, so a sourced helper would make a guard that is present but
+# unrunnable — the reason plainChangeName's comment in
+# stats/internal/guard/cleanupcomplete.go records for the bash guards' copies of the
+# allowlist. (The cleanup guard is itself Go now; its parser is ccWorkspaceRow
+# there.)
 #
 # `resolve_file` IS THE ONE EXCEPTION TO THAT RULE ON THIS FILE, and the
 # exception is deliberate rather than accidental. Unlike the containment
@@ -175,8 +177,9 @@ fi
 # The heading rule, written once and used by the presence test, the duplicate
 # count and the extraction alike. Two spellings of it would be two answers to
 # "is this project isolated?", and the extraction's would win silently. It is
-# check-cleanup-complete.sh's rule character for character, so a section that
-# guard reads is a section this one validates.
+# check-cleanup-complete's rule (ccHeading, stats/internal/guard/cleanupcomplete.go,
+# spelled there as a Go regexp over the ASCII-lowercased line), so a section
+# that guard reads is a section this one validates.
 ISO_HEADING='^##[[:space:]]+workspace isolation[[:space:]]*$'
 
 TOTAL_VIOLATIONS=0
@@ -207,8 +210,9 @@ TOTAL_VIOLATIONS=0
 # lead bytes of ordinary UTF-8, so a project whose bucket is named `café-bücket`
 # reports its real name; escaping them would mangle every non-ASCII declaration
 # in exchange for nothing, since a UTF-8 terminal acts on none of them. `LC_ALL=C`
-# is a prefix on this one command rather than an export, exactly as
-# check-cleanup-complete.sh keeps it off its own environment: it makes `length`
+# is a prefix on this one command rather than an export, exactly as the bash
+# check-cleanup-complete.sh kept it off its own environment (its Go port,
+# ccSanitize, has no locale to pin): it makes `length`
 # and `substr` count bytes here without changing the locale anything else sees.
 sanitize_display() {
   LC_ALL=C awk '
@@ -558,7 +562,8 @@ for ROOT in "$@"; do
     }
 
     # Every token in a cell, one per call, walked left to right. The shape is
-    # check-cleanup-complete.sh, character for character: `<[A-Za-z0-9_:.-]+>`
+    # the one check-cleanup-complete uses (ccUnknownToken in
+    # stats/internal/guard/cleanupcomplete.go), character for character: `<[A-Za-z0-9_:.-]+>`
     # admits `<id>`, `<id_underscored>` and `<value:NAME>` and excludes `>`, so
     # an ordinary shell redirection in a command cell carries no match. A wider
     # shape would report `cmd < in.txt > out.txt` as naming a token.
@@ -642,7 +647,8 @@ for ROOT in "$@"; do
       # states, and the ranges are written out rather than as `[[:alpha:]]`
       # because a character class is exactly the construct that starts meaning
       # something else in another locale — the same reasoning the Protection 1
-      # comment in check-cleanup-complete.sh records for its enumerated set.
+      # comment on plainChangeName (stats/internal/guard/cleanupcomplete.go) records for
+      # its enumerated set.
       var = trimcell(cells[2])
       if (var == "") {
         violation(lineno, "resource row: the Variable cell is empty — a row with no variable carries nothing, so the row is dropped")

@@ -124,6 +124,8 @@ assert_recipe_matches "build target emits bin/flowd" \
   '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/flowd[[:space:]]+\./cmd/flowd([[:space:]]|$)'
 assert_recipe_matches "build target emits bin/flow" \
   '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/flow[[:space:]]+\./cmd/flow([[:space:]]|$)'
+assert_recipe_matches "build target emits bin/flow-guard" \
+  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/flow-guard[[:space:]]+\./cmd/flow-guard([[:space:]]|$)'
 
 # ===========================================================================
 # 3. The compile-all pass survives. Replacing `go build ./...` with the two

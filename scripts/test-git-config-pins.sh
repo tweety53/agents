@@ -15,7 +15,13 @@
 # and run-guard-tests.sh discovers this file by glob. The auditor takes one
 # argument — the scripts-like directory to scan — so the fixture cases below
 # point it at a sandbox and the live case points it at the real corpus; the
-# default is this repository's own scripts/ directory.
+# default is this repository's own scripts/ directory. The same auditor
+# scans a directory's non-test *.go files too, reading each git argument list
+# ("diff", "status", ... up to its call's closing parenthesis): the guards
+# ported to Go (KAN-760) carry the pins KAN-540 and KAN-596 put in their bash
+# and python originals, so case 7 points it at stats/internal/guard/ — without
+# it those pins could be deleted with this harness and `go test` both green
+# (panel round 2, F18).
 #
 # THE THREE RULES, and their exemptions (all deliberate):
 #   R1  every `git diff`/`git diff-tree` whose output carries names or text
@@ -64,9 +70,9 @@ if not root.is_dir():
 
 targets = sorted(
     p
-    for pat in ("*.sh", "*.py", "lib/*.sh", "lib/*.py")
+    for pat in ("*.sh", "*.py", "lib/*.sh", "lib/*.py", "*.go")
     for p in root.glob(pat)
-    if not p.name.startswith("test-")
+    if not p.name.startswith("test-") and not p.name.endswith("_test.go")
 )
 
 OPTION_WITH_VALUE = {"-C", "--git-dir", "--work-tree", "-c"}
@@ -179,10 +185,44 @@ def scan_python(path, hits):
         classify(f"{path}:{lineno}", sub, span, hits)
 
 
+def scan_go(path, hits):
+    # A git argument list in Go is a call's string arguments: the subcommand
+    # literal (never a map index like o["status"]) through the call's
+    # closing parenthesis.
+    text = path.read_text(errors="replace")
+    for m in re.finditer(r'(?<![\w\[])"(diff|diff-tree|apply|status)"\s*[,)]', text):
+        depth = 0
+        i = m.start()
+        quote = None
+        end = len(text)
+        while i < end:
+            ch = text[i]
+            if quote:
+                if ch == "\\":
+                    i += 2
+                    continue
+                if ch == quote:
+                    quote = None
+            elif ch in "\"`":
+                quote = ch
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                if depth == 0:
+                    end = i
+                    break
+                depth -= 1
+            i += 1
+        lineno = text[: m.start()].count("\n") + 1
+        classify(f"{path}:{lineno}", m.group(1), text[m.start() : end], hits)
+
+
 hits = []
 for path in targets:
     if path.suffix == ".py":
         scan_python(path, hits)
+    elif path.suffix == ".go":
+        scan_go(path, hits)
     else:
         scan_shell(path, hits)
 
@@ -285,6 +325,40 @@ if [ "$AUDIT_RC" -eq 0 ] && [ -z "$AUDIT_OUT" ]; then
   pass "case 5: live corpus — every verdict-bearing git call is pinned"
 else
   fail "case 5: live corpus is not pinned (rc=$AUDIT_RC):
+$AUDIT_OUT"
+fi
+
+# --- case 6: go argument lists ------------------------------------------
+GODIR="$SANDBOX/go"
+mkdir -p "$GODIR"
+cat > "$GODIR/guard.go" <<'EOF'
+func a() { names, err := runGit(env, wt, "diff", "--name-only", parent+".."+commit) }
+func b() { names, err := runGit(env, wt, "diff", "--no-renames", "--name-only", parent+".."+commit) }
+func c() { out, err := exec.Command("git", "-C", wt, "status", "--porcelain").Output() }
+func d() {
+	out, err := exec.Command("git", "-C", wt,
+		"status", "--porcelain", "--untracked-files=normal").Output()
+	s := pcRaw(o["status"])
+}
+EOF
+cat > "$GODIR/guard_test.go" <<'EOF'
+func t() { runGit(env, wt, "diff", "--name-only") }
+EOF
+run_audit "$GODIR"
+if [ "$AUDIT_RC" -eq 1 ] && grep -q 'guard.go:1: R1' <<<"$AUDIT_OUT" \
+  && grep -q 'guard.go:3: R3' <<<"$AUDIT_OUT" \
+  && [ "$(grep -c . <<<"$AUDIT_OUT")" -eq 2 ]; then
+  pass "case 6: go — unpinned diff and status are named; pinned, multi-line, map-index and _test.go are not"
+else
+  fail "case 6: go — rc=$AUDIT_RC out=[$AUDIT_OUT]"
+fi
+
+# --- case 7: the live Go guards — the ported pins hold --------------------
+run_audit "$SCRIPT_DIR/../stats/internal/guard"
+if [ "$AUDIT_RC" -eq 0 ] && [ -z "$AUDIT_OUT" ]; then
+  pass "case 7: live Go guards — every verdict-bearing git call is pinned"
+else
+  fail "case 7: live Go guards are not pinned (rc=$AUDIT_RC):
 $AUDIT_OUT"
 fi
 

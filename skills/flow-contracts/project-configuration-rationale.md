@@ -92,8 +92,8 @@ cannot write one correctly without being told which directory that is.
 
 - **`survivors` runs from the main checkout**, and that is not a convention invented here.
   `<agents repo>/scripts/check-cleanup-complete.sh` launches it as
-  `( cd "$REPO" && exec bash -o pipefail -c "$cmd" )` against
-  the repository it was handed, and it is handed the main checkout: by the time the guard asks, the
+  `bash -o pipefail -c "$cmd"` with the repository it was handed as the working directory
+  (`ccRunSurvivors`, `<agents repo>/stats/internal/guard/cleanupcomplete.go`), and it is handed the main checkout: by the time the guard asks, the
   change's apply worktree has already been removed.
 
 - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
@@ -119,7 +119,8 @@ a slow report is what the skip rule exists to prevent.
 
 **What the bound terminates is a process group on the machine running the guard, and a command
 that puts its real work outside that group outlives the bound.** The termination is
-`<agents repo>/scripts/check-cleanup-complete.sh`'s, and it signals the process group it created — which reaches
+`<agents repo>/scripts/check-cleanup-complete.sh`'s (`ccRunSurvivors`, `<agents repo>/stats/internal/guard/cleanupcomplete.go`),
+and it signals the process group it created — which reaches
 a pipeline, a subshell and any ordinary child, and reaches nothing that has left the group. Two
 shapes leave it, and the second is the one a project actually writes: a command that starts its
 work under its own job control, and **a command that reaches its service through a container

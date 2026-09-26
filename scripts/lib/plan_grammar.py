@@ -24,9 +24,14 @@ asserting parity with the other, they drifted twice:
     "read one field the same way" was, like the one before it, wrong.
 
 A comment cannot hold two grammars together; an import can. Every pattern
-below is imported by both guards and defined nowhere else, and so is
-`select_squash_with`, which is the whole of WHICH line is the field —
-neither guard loops over a task body looking for it any more.
+below is imported by both guards and defined nowhere else in Python, and so
+is `select_squash_with`, which is the whole of WHICH line is the field —
+neither guard loops over a task body looking for it any more. Since KAN-760
+the check-task-commit-fields guard runs as Go
+(stats/internal/guard/taskcommitfields.go), which carries its own port of
+the patterns it uses — a second definition no import holds together, which
+is why TestTaskFieldParseMatchesPython runs check-task-commit-fields.py's
+parse and the Go parse over the same plans and fails where they differ.
 
 Scoping: `**Squash-with:**` is LINE-SCOPED
 -----------------------------------------

@@ -5,18 +5,21 @@
 # with CHECK_MUTATION_REPRODUCER_PIN_ROOT, invoking the REAL
 # scripts/check-mutation-reproducer-pin.sh as a subprocess against REAL
 # fixture files on disk — never a copy of its logic. Never edits this
-# repository's own skills/flow/review-panel.md or scripts/run-reproducer.sh.
+# repository's own skills/flow/review-panel.md, scripts/run-reproducer.sh
+# or stats/internal/guard/runreproducer.go.
 #
 # KAN-624 (panel F5 of kan-568's deferred self-review): the marker literal
-# `# mutation-reproducer` and the 10-line window are stated in both
-# skills/flow/review-panel.md and scripts/run-reproducer.sh with no
-# mechanical pin keeping them together. The cases:
+# `# mutation-reproducer` and the 10-line window are stated in
+# skills/flow/review-panel.md and scripts/run-reproducer.sh's header, and
+# declared in code by stats/internal/guard/runreproducer.go (KAN-760: the
+# runner's Go port), with no mechanical pin keeping them together. The
+# cases:
 #
 #   pin_ok                        — agreeing fixtures exit 0 with the OK verdict
 #   marker_drift_in_prose_fails   — prose marker changed, runner unchanged: exit 1
 #   window_drift_in_prose_fails   — prose window changed, runner unchanged: exit 1
-#   comment_drift_fails           — runner comment window changed, code unchanged: exit 1
-#   missing_declaration_is_exit_2 — the canonical declaration line absent: exit 2
+#   comment_drift_fails           — runner header window changed, code unchanged: exit 1
+#   missing_declaration_is_exit_2 — a canonical declaration line absent: exit 2
 #
 # plus, from the round-0 panel findings:
 #
@@ -26,8 +29,8 @@
 #                                     lines, the brief's own shape: exit 1
 #   near_miss_marker_in_prose_fails — F1: a backticked `# mutation-...` span
 #                                     that is not the canonical literal: exit 1
-#   double_quoted_marker_is_exit_2  — F2: the canonical line's marker re-quoted
-#                                     to double quotes — not extractable: exit 2
+#   raw_string_marker_is_exit_2     — F2: the marker constant re-quoted as a Go
+#                                     raw string — not extractable: exit 2
 #
 # and two cannot-answer cases: the root env var set but empty, and a
 # pinned site file missing entirely. Every fixture tree is removed on
@@ -52,10 +55,26 @@ write_runner() {
 # THE MUTATION-REPRODUCER CONVENTION (KAN-568). Such a reproducer declares
 # itself with the exact line `# mutation-reproducer` within its first 10 lines,
 # and this script then reads it under that convention.
-CONVENTION="generic"
-if head -n 10 -- "$RESOLVED_PATH" | grep -qx '# mutation-reproducer'; then
-  CONVENTION="mutation"
-fi
+exec flow-guard run-reproducer "$@"
+EOF
+}
+
+write_source() {
+  cat > "$TMP_ROOT/stats/internal/guard/runreproducer.go" <<'EOF'
+package guard
+
+const (
+	rrMarker     = "# mutation-reproducer"
+)
+
+func declaresMutation(path string) bool {
+	for _, l := range headLines(path, 10) {
+		if l == rrMarker {
+			return true
+		}
+	}
+	return false
+}
 EOF
 }
 
@@ -70,7 +89,8 @@ EOF
 new_root() {
   [ -n "$TMP_ROOT" ] && rm -rf "$TMP_ROOT"
   TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mutation-reproducer-pin.XXXXXX")"
-  mkdir -p "$TMP_ROOT/scripts" "$TMP_ROOT/skills/flow"
+  mkdir -p "$TMP_ROOT/scripts" "$TMP_ROOT/skills/flow" "$TMP_ROOT/stats/internal/guard"
+  write_source
   write_runner
   write_panel
 }
@@ -133,10 +153,7 @@ comment_drift_fails() {
 # THE MUTATION-REPRODUCER CONVENTION (KAN-568). Such a reproducer declares
 # itself with the exact line `# mutation-reproducer` within its first 12 lines,
 # and this script then reads it under that convention.
-CONVENTION="generic"
-if head -n 10 -- "$RESOLVED_PATH" | grep -qx '# mutation-reproducer'; then
-  CONVENTION="mutation"
-fi
+exec flow-guard run-reproducer "$@"
 EOF
   run_guard
   [ "$RC" -eq 1 ] && pass "comment_drift_fails: exits 1" || fail "comment_drift_fails: expected exit 1, got rc=$RC out=$OUT"
@@ -148,13 +165,20 @@ EOF
 
 missing_declaration_is_exit_2() {
   new_root
-  cat > "$TMP_ROOT/scripts/run-reproducer.sh" <<'EOF'
-#!/usr/bin/env bash
-# THE MUTATION-REPRODUCER CONVENTION (KAN-568), declared elsewhere now.
-CONVENTION="generic"
-case "$(head -n 10 -- "$RESOLVED_PATH")" in
-  *'# mutation-reproducer'*) CONVENTION="mutation" ;;
-esac
+  cat > "$TMP_ROOT/stats/internal/guard/runreproducer.go" <<'EOF'
+package guard
+
+// The window is declared elsewhere now.
+const rrMarker = "# mutation-reproducer"
+
+func declaresMutation(lines []string) bool {
+	for _, l := range lines {
+		if l == rrMarker {
+			return true
+		}
+	}
+	return false
+}
 EOF
   run_guard
   [ "$RC" -eq 2 ] && pass "missing_declaration_is_exit_2: exits 2" || fail "missing_declaration_is_exit_2: expected exit 2, got rc=$RC out=$OUT"
@@ -179,8 +203,7 @@ missing_site_file_is_exit_2() {
   [ "$RC" -eq 2 ] && pass "missing_site_file_is_exit_2: exits 2" || fail "missing_site_file_is_exit_2: expected exit 2, got rc=$RC out=$OUT"
 }
 
-# KAN-624 F1: the real runner states its window twice (header comment and
-# the declaration comment), so a drift of one alone must fail even though
+# KAN-624 F1: a runner site can state its window more than once, so a drift of one alone must fail even though
 # the other still reads correctly — presence-per-file cannot see it, the
 # near-miss scan must.
 multi_site_drift_fails() {
@@ -192,10 +215,7 @@ multi_site_drift_fails() {
 # and this script then reads it under that convention.
 # Exact line, within the first 10 lines: a line that merely contains the
 # marker is prose, not a declaration.
-CONVENTION="generic"
-if head -n 10 -- "$RESOLVED_PATH" | grep -qx '# mutation-reproducer'; then
-  CONVENTION="mutation"
-fi
+exec flow-guard run-reproducer "$@"
 EOF
   run_guard
   [ "$RC" -eq 1 ] && pass "multi_site_drift_fails: exits 1" || fail "multi_site_drift_fails: expected exit 1, got rc=$RC out=$OUT"
@@ -244,24 +264,30 @@ EOF
   esac
 }
 
-# KAN-624 F2: a canonical line whose marker is not single-quoted (a
-# re-quote refactor) is not extractable — exit 2, never a bogus exit-1
-# drift row pasting the whole line as the marker.
-double_quoted_marker_is_exit_2() {
+# KAN-624 F2: a marker constant that is not an interpreted string literal
+# (a re-quote refactor to a Go raw string) is not extractable — exit 2,
+# never a bogus exit-1 drift row pasting the whole line as the marker.
+raw_string_marker_is_exit_2() {
   new_root
-  cat > "$TMP_ROOT/scripts/run-reproducer.sh" <<'EOF'
-#!/usr/bin/env bash
-# header comment stating `# mutation-reproducer` within its first 10 lines
-CONVENTION="generic"
-if head -n 10 -- "$RESOLVED_PATH" | grep -qx "# mutation-reproducer"; then
-  CONVENTION="mutation"
-fi
+  cat > "$TMP_ROOT/stats/internal/guard/runreproducer.go" <<'EOF'
+package guard
+
+const rrMarker = `# mutation-reproducer`
+
+func declaresMutation(path string) bool {
+	for _, l := range headLines(path, 10) {
+		if l == rrMarker {
+			return true
+		}
+	}
+	return false
+}
 EOF
   run_guard
-  [ "$RC" -eq 2 ] && pass "double_quoted_marker_is_exit_2: exits 2" || fail "double_quoted_marker_is_exit_2: expected exit 2, got rc=$RC out=$OUT"
+  [ "$RC" -eq 2 ] && pass "raw_string_marker_is_exit_2: exits 2" || fail "raw_string_marker_is_exit_2: expected exit 2, got rc=$RC out=$OUT"
   case "$OUT" in
-    *"could not be extracted"*) pass "double_quoted_marker_is_exit_2: names the extraction failure" ;;
-    *) fail "double_quoted_marker_is_exit_2: expected the extraction failure named, got: $OUT" ;;
+    *"could not be extracted"*) pass "raw_string_marker_is_exit_2: names the extraction failure" ;;
+    *) fail "raw_string_marker_is_exit_2: expected the extraction failure named, got: $OUT" ;;
   esac
 }
 
@@ -275,7 +301,7 @@ missing_site_file_is_exit_2
 multi_site_drift_fails
 wrapped_window_drift_fails
 near_miss_marker_in_prose_fails
-double_quoted_marker_is_exit_2
+raw_string_marker_is_exit_2
 
 if [ "$FAIL" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAIL" >&2

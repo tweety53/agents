@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # check-task-commit-fields.sh — thin wrapper.
 #
-# All field-parsing and diff-checking logic lives in
-# check-task-commit-fields.py (Python 3, standard library only), following
-# the same split check-task-build-green.sh uses and for the same reason:
-# this file exists only so an operator's muscle memory invoking this exact
-# filename, and .flow/project.md's declared commands, keep working, while
-# the field grammar underneath gets a real parser.
+# All field-parsing and diff-checking logic lives in the Go port,
+# stats/internal/guard/taskcommitfields.go, which ports
+# check-task-commit-fields.py (Python 3, standard library only) — the parser
+# the bash body exec'd, split out the same way check-task-build-green.sh is
+# and for the same reason. That .py stays, loaded as a module by
+# check-task-records.py and check-plan-shape.py. This file exists only so an
+# operator's muscle memory invoking this exact filename, and
+# .flow/project.md's declared commands, keep working, while the field
+# grammar underneath gets a real parser.
 #
 # Unlike check-task-build-green.sh (which resolves WHICH tasks.md files to
 # scan, zero or more of them, with no per-task identity), this guard checks
@@ -25,7 +28,8 @@
 # ambiguity scan entirely (KAN-367): when given, this wrapper resolves
 # directly against <worktree>/spectre/changes/<change-name> — still honoring
 # its own -fix-N sibling and its own link.md, but never looking at any other
-# directory under spectre/changes/ — and takes priority over the glob below.
+# directory under spectre/changes/ — and takes priority over the glob in
+# stats/internal/guard/taskcommitfields.go.
 #
 # WHERE A LINK IS FOLLOWED. A satellite change directory (spectre task 1's
 # `link.md`, carrying `## Part of`) has no `tasks.md` of its own by design,
@@ -34,7 +38,8 @@
 # When that glob comes back empty, and exactly one LINK-ONLY change
 # directory exists under `<worktree>/<spec-root>/changes/` — one whose own
 # `link.md` exists and whose own `tasks.md` does not — this wrapper resolves
-# that satellite's plan through `scripts/lib/change-plan.sh` (task 7),
+# that satellite's plan through `scripts/lib/change-plan.sh`'s rules (task
+# 7; ported to stats/internal/guard/changeplan.go),
 # passing the optional fifth argument straight through as its
 # canonical-worktree, before giving up. More than one link-only directory,
 # or a resolution that fails, still ends in the same "no tasks.md found"
@@ -49,13 +54,13 @@
 # where the plan lives.
 #
 # A LINK-ONLY DIRECTORY IS NEVER COUNTED TOWARD THE ROOT-CHANGE AMBIGUITY
-# TEST below either, for the same reason a `<name>-fix-N` sibling is not: a
+# TEST in stats/internal/guard/taskcommitfields.go either, for the same reason a `<name>-fix-N` sibling is not: a
 # satellite carries no `tasks.md`, so the `*/tasks.md` glob that test is
 # built from never sees it — a satellite sitting beside a genuine root
 # change changes nothing about which root that test resolves to.
 #
-# SYMLINKS. `-f` and `-d`, used throughout this file and in
-# scripts/lib/change-plan.sh, follow symlinks — so a symlink at
+# SYMLINKS. The file and directory tests used throughout the Go port, as
+# `-f` and `-d` in scripts/lib/change-plan.sh, follow symlinks — so a symlink at
 # `<worktree>/<spec-root>/changes/<allowlisted-name>` is followed and its
 # content read as that change's plan. check-unfinished-work.sh's own header
 # accepts the identical tradeoff for the identical reason; this is not a
@@ -71,10 +76,10 @@
 # therefore not ambiguity: the highest-numbered one resolves, or the root when
 # there is none. The mechanism, the digit test that keeps a merely
 # similarly-named change out of it, and two caveats on the numbering are in
-# the body below.
+# stats/internal/guard/taskcommitfields.go.
 # EXIT CODES. 0 — the commit passes. 1 — a verdict against the commit:
 # violations print on stdout, one per line. 2 — could not judge: a caller or
-# environment mistake (usage, unreadable plan, missing worktree or module, a
+# environment mistake (usage, unreadable plan, missing worktree, a
 # git call that cannot evaluate its arguments), never a judgment about the
 # commit. Every exit-2 refusal prints the same unmistakable stderr opening,
 # "COULD NOT JUDGE — not a commit verdict:", so a caller mistake is never
@@ -82,323 +87,17 @@
 # where a merge base mistyped by one character surfaced git's bare
 # "ambiguous argument" message through this guard's exit and cost a second
 # look to tell a typo from a real defect.
+
+# Header corrected for the Go port (KAN-760): the logic lives in Go and a
+# missing Python module is no longer a refusal, since the grammar is
+# compiled in. The body's reasoning is in
+# stats/internal/guard/taskcommitfields.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-# could_not_judge <detail> — the one printer for every exit-2 refusal, so
-# the EXIT CODES opening above stays identical at every site. The detail is
-# the site's own specifics; this adds the standard opening in front of it.
-could_not_judge() {
-  printf 'check-task-commit-fields: COULD NOT JUDGE — not a commit verdict: %s\n' "$1" >&2
-}
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_GUARD="$SCRIPT_DIR/check-task-commit-fields.py"
-# The Python guard imports the tasks.md grammar it shares with
-# check-task-build-green.py from lib/plan_grammar.py, resolving it through
-# its own real path. It is named here as well, and checked, for two
-# reasons: a Python `import` is invisible to check-guard-symlinks.sh's rule
-# 2, which derives a guard's required siblings by grepping its source for
-# $SCRIPT_DIR/<name> — so without this line the shipped guard would carry a
-# sibling dependency no guard can see — and a module that is missing should
-# say so rather than surface as a traceback.
-GRAMMAR_MODULE="$SCRIPT_DIR/lib/plan_grammar.py"
-# Named and checked for the same two reasons as the grammar module above:
-# a `source` is as invisible to check-guard-symlinks.sh rule 2 as an
-# import is unless the path appears as $SCRIPT_DIR/<name>, and a missing
-# sibling should say which one rather than surface as a bash error.
-SPEC_ROOT_LIB="$SCRIPT_DIR/lib/spec-root.sh"
-# change_plan_path (KAN-363 task 7) is what WHERE A LINK IS FOLLOWED above
-# resolves a satellite's plan through. Named and checked for the same two
-# reasons as the grammar module and spec-root module above.
-CHANGE_PLAN_LIB="$SCRIPT_DIR/lib/change-plan.sh"
-
-if [ ! -f "$GRAMMAR_MODULE" ]; then
-  could_not_judge "shared grammar module not found: $GRAMMAR_MODULE"
-  exit 2
-fi
-
-if [ ! -f "$SPEC_ROOT_LIB" ]; then
-  could_not_judge "shared spec-root module not found: $SPEC_ROOT_LIB"
-  exit 2
-fi
-source "$SPEC_ROOT_LIB"
-
-if [ ! -f "$CHANGE_PLAN_LIB" ]; then
-  could_not_judge "shared change-plan module not found: $CHANGE_PLAN_LIB"
-  exit 2
-fi
-source "$CHANGE_PLAN_LIB"
-
-command -v python3 >/dev/null 2>&1 || {
-  could_not_judge "python3 not found on PATH — cannot run the guard"
+. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "check-task-commit-fields: COULD NOT JUDGE — not a commit verdict: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-if ! python3 -c 'import sys; sys.exit(0)'; then
-  could_not_judge "python3 is present but failed to run a trivial program (see above) — cannot run the guard"
-  exit 2
-fi
-
-if [ "$#" -lt 3 ] || [ "$#" -gt 6 ]; then
-  could_not_judge "usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name] — got $# argument(s)"
-  exit 2
-fi
-
-WORKTREE="$1"
-TASK_ID="$2"
-COMMIT_SHA="$3"
-PARENT_SHA="${4:-}"
-CANONICAL_WORKTREE="${5:-}"
-CHANGE_NAME="${6:-}"
-
-# A task id is ONE flat integer — plan_grammar.py's TASK_ID, spectre's own
-# task-line id. Anything else in $2 is a caller mistake, not a plan fact,
-# and it is refused here at the argument boundary rather than flowed down
-# to the grammar: the shape this refusal exists for is a verification loop
-# handing its whole joined task list to this one argument, which used to
-# surface as "task <joined list> not found" — every task reported missing,
-# read as a plan defect, and costing a rerun one call per task to diagnose
-# (KAN-528). A dotted id is no task either (plan_grammar's DOTTED_ID), so
-# the digit test refuses it from here too, where "task 1.2 not found"
-# would have read as the task missing rather than the argument malformed —
-# with its own remediation line, since the fix for a dotted id is a flat
-# id, not a per-task rerun (panel F4). A leading zero ("01") names no task
-# spectre ever wrote either, and gets the same refusal rather than a
-# "task 01 not found" that reads as the task missing (panel F1).
-case "$TASK_ID" in
-  '' | 0* | *[!0-9.]*)
-    could_not_judge "task id argument is not a single flat-integer task id: '$TASK_ID' — a joined multi-task list in one call is the loop-clobber shape; invoke one call per task"
-    exit 2
-    ;;
-  *.*)
-    could_not_judge "task id argument is a dotted id, and a dotted id is no task to spectre: '$TASK_ID' — use the task's own flat integer id"
-    exit 2
-    ;;
-esac
-
-if [ ! -d "$WORKTREE" ]; then
-  could_not_judge "worktree not found: $WORKTREE"
-  exit 2
-fi
-
-CHANGES_DIR="$WORKTREE/$(spec_root_leaf "$WORKTREE")/changes"
-
-# highest_fix_sibling <changes-dir> <root> <candidate...> — selects the
-# highest-numbered "<root>-fix-N" candidate whose own tasks.md exists,
-# echoing <root> unchanged when none qualify. Shared by the named-change
-# resolution block below and the ambiguity-scan path at the bottom of this
-# file, so the fix-sibling-selection rule (same digit validation, same
-# $((10#$suffix)) numeric comparison, same tasks.md existence requirement,
-# same root fallback) lives in exactly one place.
-highest_fix_sibling() {
-  local changes_dir="$1" root="$2"
-  shift 2
-  local chosen="$root" chosen_n=-1 candidate suffix
-  for candidate in "$@"; do
-    case "$candidate" in "$root"-fix-*) ;; *) continue ;; esac
-    suffix="${candidate##*-fix-}"
-    case "$suffix" in '' | *[!0-9]*) continue ;; esac
-    [ -f "$changes_dir/$candidate/tasks.md" ] || continue
-    if [ "$((10#$suffix))" -gt "$chosen_n" ]; then
-      chosen_n="$((10#$suffix))"
-      chosen="$candidate"
-    fi
-  done
-  printf '%s\n' "$chosen"
-}
-
-# dispatch_python_guard <tasks-md> — execs the Python guard against
-# <tasks-md>, forwarding $PARENT_SHA when the caller set one. Shared by all
-# three resolution paths (named change, satellite link, glob-path) so the
-
-# resolve_plan_or_ambiguity <worktree> <change-name> [canonical-worktree] —
-# change_plan_path with one addition (KAN-267): when the lib's store step
-# returns 3 — the state record resolved the name to more than one project's
-# plan — the lib's per-match lines are relayed on stderr and the function
-# returns 3, which the call sites turn into this guard's outright exit-2
-# refusal. Checking one task's fields against a plan the record names twice
-# would make the verdict a coin flip, which is the one thing a
-# commit-fields guard must never be. Sets PLAN_TASKS; runs in the shell (no
-# command substitution), since a subshell's exit could not reach the guard.
-resolve_plan_or_ambiguity() {
-  local err rc=0
-  err="$(mktemp)"
-  PLAN_TASKS="$(change_plan_path "$1" "$2" "${3:-}" 2>"$err")" || rc=$?
-  if [ "$rc" -eq 3 ]; then
-    cat "$err" >&2
-    echo "check-task-commit-fields.sh: the state record resolves change '$2' to more than one project's plan — cannot determine which" >&2
-  fi
-  rm -f "$err"
-  return "$rc"
-}
-
-# dispatch_python_guard <tasks-md> — execs the Python guard against
-# <tasks-md>, forwarding $PARENT_SHA when the caller set one. Shared by all
-# three resolution paths (named change, satellite link, glob-path) so the
-# exec dispatch lives in exactly one place; the function itself execs, so
-# there is no return to the caller either way — same early-return shape the
-# three separate copies had.
-dispatch_python_guard() {
-  local tasks_md="$1"
-  if [ -n "$PARENT_SHA" ]; then
-    exec python3 "$PYTHON_GUARD" "$tasks_md" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA" "$PARENT_SHA"
-  fi
-  exec python3 "$PYTHON_GUARD" "$tasks_md" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA"
-}
-
-if [ -n "$CHANGE_NAME" ]; then
-  case "$CHANGE_NAME" in
-    *[!A-Za-z0-9._-]* | . | .. | */*)
-      could_not_judge "invalid change name: $CHANGE_NAME"
-      exit 2
-      ;;
-  esac
-
-  ROOT_DIR="$CHANGES_DIR/$CHANGE_NAME"
-  TASKS_MD=""
-
-  if [ -f "$ROOT_DIR/tasks.md" ]; then
-    # Scoped version of the existing highest-numbered-fix-sibling rule (see
-    # the unchanged glob path below): look only at $CHANGE_NAME's own
-    # -fix-N family, never at any other directory under $CHANGES_DIR.
-    FIX_CANDIDATES=()
-    for change_dir in "$CHANGES_DIR/$CHANGE_NAME"-fix-*/; do
-      [ -d "$change_dir" ] || continue
-      cname="${change_dir%/}"
-      cname="${cname##*/}"
-      FIX_CANDIDATES+=("$cname")
-    done
-    CHOSEN="$(highest_fix_sibling "$CHANGES_DIR" "$CHANGE_NAME" "${FIX_CANDIDATES[@]+"${FIX_CANDIDATES[@]}"}")"
-    TASKS_MD="$CHANGES_DIR/$CHOSEN/tasks.md"
-  else
-    # One resolver for every shape without a local tasks.md: a satellite's
-    # link.md, and — KAN-260 — NO change directory here at all, where the
-    # plan lives only in the canonical worktree the caller supplied.
-    # change_plan_path owns both branches and their containment rules; every
-    # shape it cannot resolve still reaches the refusal below. The wrapper
-    # adds one thing (KAN-267): an ambiguous state-record answer is relayed
-    # and refused outright, never read as an ordinary absence.
-    PLAN_RC=0
-    resolve_plan_or_ambiguity "$WORKTREE" "$CHANGE_NAME" "$CANONICAL_WORKTREE" || PLAN_RC=$?
-    if [ "$PLAN_RC" -eq 3 ]; then
-      exit 2
-    fi
-    TASKS_MD="$PLAN_TASKS"
-  fi
-
-  if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
-    could_not_judge "no tasks.md found for change '$CHANGE_NAME' under $CHANGES_DIR"
-    exit 2
-  fi
-
-  dispatch_python_guard "$TASKS_MD"
-fi
-
-MATCHES=()
-NAMES=()
-if [ -d "$CHANGES_DIR" ]; then
-  for tasks_file in "$CHANGES_DIR"/*/tasks.md; do
-    [ -e "$tasks_file" ] || continue
-    MATCHES+=("$tasks_file")
-    change_dir="${tasks_file%/tasks.md}"
-    NAMES+=("${change_dir##*/}")
-  done
-fi
-
-if [ "${#MATCHES[@]}" -eq 0 ]; then
-  # WHERE A LINK IS FOLLOWED (see header): find the link-only change
-  # directories — link.md present, tasks.md absent — under CHANGES_DIR.
-  # Exactly one is a satellite worktree; anything else (none, or more than
-  # one) cannot be resolved without guessing and falls through to the same
-  # refusal a plain "no tasks.md at all" worktree always got.
-  SATELLITES=()
-  if [ -d "$CHANGES_DIR" ]; then
-    for change_dir in "$CHANGES_DIR"/*/; do
-      [ -d "$change_dir" ] || continue
-      cname="${change_dir%/}"
-      cname="${cname##*/}"
-      [ -f "$CHANGES_DIR/$cname/link.md" ] || continue
-      [ -f "$CHANGES_DIR/$cname/tasks.md" ] && continue
-      SATELLITES+=("$cname")
-    done
-  fi
-
-  TASKS_MD=""
-  if [ "${#SATELLITES[@]}" -eq 1 ]; then
-    PLAN_RC=0
-    resolve_plan_or_ambiguity "$WORKTREE" "${SATELLITES[0]}" "$CANONICAL_WORKTREE" || PLAN_RC=$?
-    if [ "$PLAN_RC" -eq 3 ]; then
-      exit 2
-    fi
-    TASKS_MD="$PLAN_TASKS"
-  fi
-
-  if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
-    could_not_judge "no tasks.md found under $CHANGES_DIR"
-    exit 2
-  fi
-
-  dispatch_python_guard "$TASKS_MD"
-fi
-
-# A <name>-fix-N SUB-CHANGE IS NOT AMBIGUITY. Under spectre a sub-change is a
-# FLAT SIBLING of its parent under spectre/changes/ -- `spectre new` refuses an
-# id that is not a single flat directory name -- so the glob above matches the
-# parent AND every fix sibling as soon as one exists. Under OpenSpec a
-# sub-change was nested and never matched, so "more than one tasks.md" meant
-# two unrelated changes and refusing was right. Refusing now would take this
-# guard out of service on exactly the runs it was added for: every fix round
-# after the first sub-change is created.
-#
-# is_fix_sibling_of_set <name> -- true when <name> is "<stem>-fix-<digits>" AND
-# <stem> is itself one of the matched change names. The digit test is the same
-# one check-cleanup-complete.sh's sub-change row uses, and for the same reason:
-# a change merely named like a neighbour (`demo-fix-the-parser`) is a change of
-# its own, not this change's sub-change, and must still count as ambiguity.
-is_fix_sibling_of_set() {
-  local candidate="$1" suffix stem other
-  case "$candidate" in *-fix-*) ;; *) return 1 ;; esac
-  suffix="${candidate##*-fix-}"
-  case "$suffix" in '' | *[!0-9]*) return 1 ;; esac
-  stem="${candidate%-fix-$suffix}"
-  for other in "${NAMES[@]}"; do
-    [ "$other" = "$stem" ] && return 0
-  done
-  return 1
-}
-
-ROOTS=()
-for change_name in "${NAMES[@]}"; do
-  is_fix_sibling_of_set "$change_name" || ROOTS+=("$change_name")
-done
-
-# MORE THAN ONE ROOT IS STILL A REFUSAL, unchanged: two changes neither of
-# which is the other's fix sibling is the genuine ambiguity this check has
-# always existed to catch, and nothing here may guess between them.
-if [ "${#ROOTS[@]}" -ne 1 ]; then
-  could_not_judge "more than one tasks.md found under $CHANGES_DIR, cannot resolve which change: ${MATCHES[*]}"
-  exit 2
-fi
-
-ROOT="${ROOTS[0]}"
-
-# THE HIGHEST-NUMBERED FIX SIBLING WINS, and the root wins when there is none.
-# A fix round creates <name>-fix-N and implements THAT plan; an earlier
-# sub-change is finished, and the parent's own tasks were done before any fix
-# round opened. So the newest sub-change is the plan whose tasks are being
-# dispatched, which is the plan this guard has to read.
-#
-# TWO CAVEATS, both accepted. (1) N INCREMENTING IS CONVENTION, NOT CONTRACT:
-# nothing in skills/flow/review-panel.md specifies that a fix round numbers its
-# sub-change one higher than the last, so "highest-numbered" reads an ordering
-# nobody promised. (2) Reading the wrong plan is normally LOUD rather than
-# silent — the commit's files are undeclared there and the guard exits 1
-# naming one — but it can pass silently when the chosen plan's task N declares
-# a SUPERSET of the intended plan's files. Passing the change name as an
-# argument would remove both; that changes a call signature
-# skills/flow/implement.md documents, and was judged not worth it.
-CHOSEN="$(highest_fix_sibling "$CHANGES_DIR" "$ROOT" "${NAMES[@]+"${NAMES[@]}"}")"
-
-TASKS_MD="$CHANGES_DIR/$CHOSEN/tasks.md"
-
-dispatch_python_guard "$TASKS_MD"
+flow_guard_exec check-task-commit-fields 2 "check-task-commit-fields: COULD NOT JUDGE — not a commit verdict:" "$@"

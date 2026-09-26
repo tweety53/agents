@@ -7,7 +7,10 @@
 # rules/build-the-simplest-thing.mdc defers abstraction "until a second
 # caller exists"; a second caller is exactly what had just been added, which
 # is the case FOR extraction under that same rule, not against it. Both
-# callers ship through the skills/flow/scripts/ symlink farm, alongside its
+# of those callers have since been ported to Go (KAN-760) and share
+# sha256Hex (stats/internal/guard/sha256.go) instead; the bash caller that
+# remains is scripts/plan-class.sh. Both original callers shipped through
+# the skills/flow/scripts/ symlink farm, alongside its
 # own `lib` symlink into scripts/lib/ — the "SAFELY REACH IT" criterion
 # scripts/lib/resolve-file.sh's own header states for when a guard may
 # source a sibling instead of carrying its own copy.

@@ -5,8 +5,8 @@
 # this repository until this file existed; this is its only current caller,
 # extracted anyway rather than left in place so the next guard that needs
 # ambient-`GIT_*` neutralisation sources it instead of re-deriving it —
-# `scripts/lib/resolve-file.sh`'s and `scripts/lib/within-root.sh`'s own
-# headers record the same shape of drift for a function copied only after a
+# `scripts/lib/resolve-file.sh`'s own
+# header records the same shape of drift for a function copied only after a
 # second caller needed it.
 #
 # "SAFELY REACH IT" IS THE OPERATIVE PHRASE — see

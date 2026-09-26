@@ -76,7 +76,9 @@ cd stats/web && npm test
 
 `scripts/run-guard-tests.sh` discovers every `scripts/test-*.sh` by glob and runs them concurrently
 through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with
-no edit needed here.
+no edit needed here. It points `FLOW_GUARD_CACHE_DIR` at its own temp directory, so a ported
+guard's shim builds `flow-guard` from this tree there rather than in the operator's cache;
+`scripts/test-go-guards.sh` runs the Go guard tests (`stats/internal/guard/`) as one harness.
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
 canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
