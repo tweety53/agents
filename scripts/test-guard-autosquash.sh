@@ -19,6 +19,7 @@ pass() { printf 'ok: %s\n' "$1"; }
 
 REPOS=()
 cleanup() {
+  [ -n "${SANDBOX:-}" ] && rm -rf "$SANDBOX"
   [ "${#REPOS[@]}" -eq 0 ] && return 0
   for repo in "${REPOS[@]}"; do
     rm -rf "$repo"
@@ -91,8 +92,13 @@ if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q "$stray"; then
 else
   fail "targets on a non-ancestor sha: rc=$RC err=$ERR"
 fi
+# targets-reports-a-non-resolving-sha-as-unresolved
 run_guard targets "$repo" deadbeefcafe1234
-if [ "$RC" -eq 1 ]; then pass "targets refuses a sha that resolves to nothing"; else fail "targets on a bogus sha: rc=$RC"; fi
+if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q 'does not resolve as a commit object'; then
+  pass "targets reports a non-resolving sha as unresolved"
+else
+  fail "targets on a bogus sha: rc=$RC err=$ERR"
+fi
 
 # after-accepts-a-clean-branch
 repo="$(new_repo)"
@@ -103,7 +109,8 @@ if [ "$RC" -eq 0 ]; then pass "after accepts a clean branch"; else fail "after o
 # after-refuses-a-moved-off-base
 repo="$(new_repo)"
 stray="$(orphan_commit "$repo")"
-run_guard after "$repo" "$stray" /dev/null
+: >"$SANDBOX/empty-tasks.md"
+run_guard after "$repo" "$stray" "$SANDBOX/empty-tasks.md"
 if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q "$stray"; then
   pass "after refuses a base that is no ancestor of HEAD"
 else
@@ -130,6 +137,24 @@ if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q 'defaced'; then
 else
   fail "after on a prose hex token: rc=$RC err=$ERR"
 fi
+
+# after-reports-a-long-hex-run — a sha glued into a longer hex run must be
+# reported, never silently skipped for exceeding the sha-length window.
+repo="$(new_repo)"
+LONGHEX="a12345678901234567890123456789012345678901"
+printf -- '- baseline %s\n' "$LONGHEX" >"$SANDBOX/long-tasks.md"
+run_guard after "$repo" "$(root_sha "$repo")" "$SANDBOX/long-tasks.md"
+if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q "$LONGHEX"; then
+  pass "after reports a long hex run"
+else
+  fail "after on a long hex run: rc=$RC err=$ERR"
+fi
+
+# after-exit-2-on-a-tasks-md-directory — a directory passes a readability
+# test but not a regular-file test; the sweep must refuse, never fail open.
+repo="$(new_repo)"
+run_guard after "$repo" "$(root_sha "$repo")" "$SANDBOX"
+if [ "$RC" -eq 2 ] && [ -z "$OUT" ]; then pass "after exits 2 on a tasks-md directory"; else fail "after on a tasks-md directory: rc=$RC out=$OUT"; fi
 
 # after-exit-2-on-a-missing-tasks-md — cannot-answer exits, and stdout says
 # nothing a caller could mistake for a verdict.
