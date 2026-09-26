@@ -32,8 +32,9 @@
   not the new ceiling the ported harnesses were.
 - The Go `run-reproducer` names a detached or double-forked survivor deterministically, under any
   machine load.
-- `make build`, a new `make install-guard`, `make restart` and `setup.sh global` build
-  `flow-guard`.
+- Each guard shim builds `flow-guard` from its own checkout on first call, cached by a hash of its
+  sources (**Decision:** guard-binary-built-from-checkout); nothing installs it.
 - Before/after suite timings are measured on the same machine and recorded in `design.md`.
-- Expected suite wall ≈ 60s, bounded by `test-check-panel-reproducers.sh`; the remaining guards
-  are follow-up KAN slices, filed at integrate.
+- The suite wall is then bounded by the unported harnesses (`test-check-installed-citations.sh`,
+  `test-check-plan-provenance.sh`, `test-check-references.sh`), measured in `design.md`'s **After**;
+  porting them is follow-up KAN slices, filed at integrate.

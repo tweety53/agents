@@ -198,6 +198,7 @@ Correction (2026-09-25): `case 9:` passed before the change — it pins a regres
 showing RED; breaking the companion rule on purpose failed it (`got 0`), restored it passed.
 
 Review fix (2026-09-26, panel round 1 — F1, F2, F8, commits `11db90f3`, `938e03c0`, `09d1f6d8`): the runner no longer builds `flow-guard` onto PATH; shims build it from their own checkout through `scripts/lib/flow-guard.sh` (**Decision:** guard-binary-built-from-checkout) and the runner points `FLOW_GUARD_CACHE_DIR` at its temp dir; `scripts/test-lib-flow-guard.sh` added (cases 1–11).
+Review fix (2026-09-26, panel round 2 — F17, F22, F20, F21, commit `6d4c8c30`): `scripts/lib/flow-guard.sh` builds for the host (`env -u GOOS -u GOARCH -u GOFLAGS`), so a cross-compile environment can no longer cache a foreign binary; a failed rename into the cache exits the guard's cannot-answer code; the five shims load their lib by `dirname`, so a bare-filename invocation works; `scripts/test-lib-flow-guard.sh` gains cases 12–14 (cases 1–14).
 
 - [x] 3. Shared helpers: sha256, spec root, change plan
 
@@ -225,6 +226,7 @@ cases the test pins.
     ./internal/guard/ -run 'TestSHA256Hex|TestSpecRoot|TestChangePlan' -count=1 -race`.
 
 Review fix (2026-09-26, panel round 1 — F11, commits `379d9975`, `892d875f`): `changePlanNameOK` removed; every caller uses `ccPlainName`, which took over the empty-name refusal (`TestPlainNameRefusesEmpty`).
+Review fix (2026-09-26, panel round 2 — F25, commit `55c9525a`): `ccPlainName` renamed `plainChangeName`, every caller and citation with it; `TestGatherDispatchContext` runs under `t.Parallel()` (F23, commit `0ec4be60`).
 
 - [x] 4. Port run-reproducer
 
@@ -409,6 +411,7 @@ Review fix (2026-09-26, panel round 1 — F6, F9, commits `11db90f3`, `3ac359b2`
 <!-- measured: wc -l scripts/check-task-commit-fields.py before and after commit 3ac359b2 — panel-fix-report-1.md -->
 
 Review fix (2026-09-26, panel round 1 — F14, commit `23f12765`): `TestTaskFieldParseMatchesPython` and `TestTcfFnmatchMatchesPython` fail rather than skip when python3 is absent.
+Review fix (2026-09-26, panel round 2 — F24, F18, commits `05889922`, `cefef088`, `baa50e5e`): the measured-baseline worktree is made under the guard's `Env` TMPDIR, never the process's (case 124a); `scripts/test-git-config-pins.sh` also audits the non-test Go guard sources' git pins (cases 6–7).
 
 - [x] 8. Port check-cleanup-complete
 
