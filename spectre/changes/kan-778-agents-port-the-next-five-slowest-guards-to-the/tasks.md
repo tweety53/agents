@@ -51,7 +51,7 @@ Live verification: tasks 1 and 9 run the real suite on this machine and record b
 
 ---
 
-- [ ] 1. Live verification: before timings
+- [x] 1. Live verification: before timings
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -63,13 +63,13 @@ Live verification: tasks 1 and 9 run the real suite on this machine and record b
 
 **Decision:** suite-median-below-before
 
-  - [ ] **Step 1: Suite, before.** On this machine at `3e48ecac`, nothing else heavy running:
+  - [x] **Step 1: Suite, before.** On this machine at `3e48ecac`, nothing else heavy running:
     `sysctl -n vm.loadavg` then `FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p
     scripts/run-guard-tests.sh`, three times; record each run's real/user/sys, load, harness
     count and the slowest five harnesses.
-  - [ ] **Step 2: Go package, before.** `cd stats && /usr/bin/time -p go test
+  - [x] **Step 2: Go package, before.** `cd stats && /usr/bin/time -p go test
     ./internal/guard/... -count=1` three times; record real/user/sys.
-  - [ ] **Step 3: Record** a **Before** table under `design.md`'s **Measurements** → **Suite
+  - [x] **Step 3: Record** a **Before** table under `design.md`'s **Measurements** → **Suite
     before/after**, each figure tagged `measured:` with the command and `@ 3e48ecac`.
 
 This task commits nothing; its figures are committed with the change's artifacts.
@@ -103,7 +103,7 @@ same inputs.
 
 - [ ] 3. Port check-panel-reproducers
 
-**Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `scripts/check-panel-reproducers.sh`, `scripts/test-check-panel-reproducers.sh`
+**Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `scripts/check-panel-reproducers.sh`, `scripts/test-check-panel-reproducers.sh`, `skills/flow/scripts/reproducer-metachars.sh`
 **Tests:** `TestCheckPanelReproducers`
 **Regression:** fails if any of the harness's 55 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -125,6 +125,13 @@ same inputs.
     TestCheckPanelReproducers/'` — at least 55.
   - [ ] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-panel-reproducers.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-guard-symlinks.sh`.
+
+Correction (2026-09-27): Step 2 declared the port calls the run-reproducer Go function in-process;
+the guard at `3e48ecac` never runs run-reproducer — it sources `reproducer-metachars.sh` and checks each
+reproducer lexically. Shipped: `metachars.go`'s `reproducerMetachars` in place of sourcing
+`$SCRIPT_DIR/reproducer-metachars.sh`; findings via `Env.Findings`, nil → exec `flow record findings`.
+The shim no longer needs `reproducer-metachars.sh`, so `scripts/check-guard-symlinks.sh` rule 6 flagged
+`skills/flow/scripts/reproducer-metachars.sh` as dead weight and the commit deletes it.
 
 - [ ] 4. Port check-unfinished-work
 
@@ -152,7 +159,7 @@ same inputs.
 
 - [ ] 5. Port check-references
 
-**Files:** `stats/internal/guard/references.go`, `stats/internal/guard/check_references_test.go`, `scripts/check-references.sh`, `scripts/test-check-references.sh`
+**Files:** `stats/internal/guard/references.go`, `stats/internal/guard/check_references_test.go`, `scripts/check-references.sh`, `scripts/test-check-references.sh`, `stats/internal/guard/guard.go`, `stats/cmd/flow-guard/main.go`
 **Tests:** `TestCheckReferences`
 **Regression:** fails if any of the harness's 41 `ok` behaviours regress.
 **Baseline:** before=0 after=1
@@ -174,6 +181,14 @@ same inputs.
   - [ ] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-references.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-references.sh`
     on this tree exits 0 with the same member counts it printed at base.
+
+Correction (2026-09-27): the shim template declared `flow_guard_exec` alone after the loader; the
+guard defaults its root to its own checkout (`BASH_SOURCE`), which the cached Go binary cannot see,
+so the shim also exports `FLOW_GUARD_REPO_ROOT` (`cd "$(dirname …)/.." && pwd`, logical, as the bash
+did). Telling a set-but-empty `CHECK_REFERENCES_ROOT` from an unset one needs `Env.LookupEnv`, added to
+`guard.go` and wired to `os.LookupEnv` in `stats/cmd/flow-guard/main.go` — hence the widened
+`**Files:**`. File and path-set order is collated by exec'ing `sort` under the caller's locale, as the
+bash's `sort`/`sort -u` did.
 
 - [ ] 6. Port check-plan-provenance
 
@@ -233,6 +248,13 @@ same inputs.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-installed-citations.sh` on this tree exits 0 with the same member counts it
     printed at base.
+
+Correction (2026-09-27): the shim exports `FLOW_GUARD_REPO_ROOT` (`cd -P … && pwd`, physical, as the
+Python's `realpath` did) beside the template, for the same reason as task 5's; the header's
+wrapper/sentinel explanation was replaced by the exit contract from the `.py` docstring. Three harness-only
+labels (CHECK PHASE build-order replay, EXIT-trap chaining on clean exit and on SIGINT) tested the
+harness's own trap plumbing, not the guard; three rows stand in for them (no sandbox left behind on a clean
+run, on a refused run; `setup.sh` runs with HOME and cwd inside the guard's sandbox), keeping the count at 61.
 
 - [ ] 8. Repoint citations of the deleted files
 
