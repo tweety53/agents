@@ -475,7 +475,6 @@ commit; `**Files:**` widened to match.
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
 **After:** Task 4, 5, 6, 7, 8, 9, 11, 12, 13
-**Commit:** none — this task commits nothing to this repository; its figures go into `design.md`'s **Measurements**, committed with the change's artifacts
 **Build:** green
 
   - [x] **Step 1: Suite, after.** On this machine, nothing else heavy running:
@@ -494,13 +493,16 @@ commit; `**Files:**` widened to match.
     harness red. Any of these is reported, not recorded as success.
     <!-- measured: suite median 166.43s (117.32/166.43/181.86, load 4→33), bounded by test-check-installed-citations.sh, not panel-reproducers; guard package median 9.53s (9.34/9.53/10.93) — /usr/bin/time -p x3 each @ f4205935 -->
 
+This task commits nothing to this repository and so declares no `**Commit:**`; its figures go into
+`design.md`'s **Measurements**, committed with the change's artifacts.
+
 Correction (2026-09-26): step 5's suite criterion failed at `f4205935` under load (median 166.4s;
 run 1 117.3s at load 4); recorded as failed in `design.md`'s **After**, not as success — the
 operator chose to proceed to the panel. Harness count 86 → 82 (five ported harnesses → one Go package).
 
 - [x] 11. Move the ported guards' rationale into Go and repoint its citations
 
-**Files:** `rules/commit-scope-is-the-module.mdc`, `scripts/check-cleanup-complete.sh`, `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/check-panel-reproducers.sh`, `scripts/check-task-commit-fields.py`, `scripts/check-task-commit-fields.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-workspace-isolation.sh`, `scripts/gather-dispatch-context.sh`, `scripts/lib/change-plan.sh`, `scripts/lib/lexical-normalize.sh`, `scripts/lib/plan_grammar.py`, `scripts/lib/project-section.sh`, `scripts/lib/reproducer-path.sh`, `scripts/lib/sanitize-display.sh`, `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`, `scripts/lib/visual-table-cells.awk`, `scripts/lib/within-root.sh`, `scripts/reproducer-metachars.sh`, `scripts/prove-reproducer.sh`, `scripts/resolve-base-branch.sh`, `scripts/run-reproducer.sh`, `scripts/test-check-mutation-reproducer-pin.sh`, `scripts/test-check-task-build-green.sh`, `scripts/test-check-unfinished-work.sh`, `scripts/test-check-workspace-isolation.sh`, `scripts/test-lib-change-plan.sh`, `scripts/test-prove-reproducer.sh`, `scripts/test-resolve-base-branch.sh`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/project-configuration-rationale.md`, `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/runreproducer.go`, `stats/internal/guard/taskcommitfields.go`
+**Files:** `rules/commit-scope-is-the-module.mdc`, `scripts/check-cleanup-complete.sh`, `scripts/check-mutation-reproducer-pin.sh`, `scripts/check-panel-reproducer-exit-contract.sh`, `scripts/check-panel-reproducers.sh`, `scripts/check-task-commit-fields.py`, `scripts/check-task-commit-fields.sh`, `scripts/check-unfinished-work.sh`, `scripts/check-workspace-isolation.sh`, `scripts/gather-dispatch-context.sh`, `scripts/lib/change-plan.sh`, `scripts/lib/lexical-normalize.sh`, `scripts/lib/plan_grammar.py`, `scripts/lib/project-section.sh`, `scripts/lib/reproducer-path.sh`, `scripts/lib/sanitize-display.sh`, `scripts/lib/sha256-hex.sh`, `scripts/lib/spec-root.sh`, `scripts/lib/visual-table-cells.awk`, `scripts/lib/within-root.sh`, `scripts/reproducer-metachars.sh`, `scripts/resolve-base-branch.sh`, `scripts/run-reproducer.sh`, `scripts/test-check-mutation-reproducer-pin.sh`, `scripts/test-check-task-build-green.sh`, `scripts/test-check-unfinished-work.sh`, `scripts/test-check-workspace-isolation.sh`, `scripts/test-lib-change-plan.sh`, `scripts/test-prove-reproducer.sh`, `scripts/test-resolve-base-branch.sh`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/project-configuration-rationale.md`, `stats/internal/guard/check_cleanup_complete_test.go`, `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/gatherdispatch.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/runreproducer.go`, `stats/internal/guard/taskcommitfields.go`
 **Tests:** `scripts/check-mutation-reproducer-pin.sh`, `TestCheckCleanupComplete`
 **Regression:** `scripts/check-mutation-reproducer-pin.sh` exits 2 while it reads a line the
 `run-reproducer.sh` shim removed; `TestCheckCleanupComplete` fails if a moved comment's code edit
@@ -550,7 +552,7 @@ report. `scripts/lib/lexical-normalize.sh` and `scripts/lib/within-root.sh` now 
 caller; their headers say so, and deleting them is out of this change's scope.
 Review fix (2026-09-25): four citations still dangled — `case_92`/`case_93` (one subtest,
 `case_92-93`), `test-check-task-build-green.sh`'s "that harness's case 56", `prove-reproducer.sh`'s
-"its existing harness" (the deleted `test-run-reproducer.sh`; `**Files:**` widened) and
+"its existing harness" (the deleted `test-run-reproducer.sh`) — that repoint landed in the review-fix commit `d81e39a8`, not in this task's commit `50a52695`, so `**Files:**` does not name `scripts/prove-reproducer.sh` and
 `lib/within-root.sh`'s present-tense "Sourced by" — repointed.
 
 - [x] 12. Port KAN-676's evidence-tag close check to flow-guard
@@ -686,11 +688,13 @@ detached or double-forked survivor can again go unnamed; `--- PASS: TestRunRepro
     **survivor-detection-deterministic**: no retry, no longer grace or bound, no loosened
     assertion; every verdict line byte-identical. Prove each fix bites: remove it and show the
     step-1 stress reproduce the failure; restore and show 0 failures across the same stress.
+    <!-- predicted: the step-1 stress reads 0 survivor-case failures once every cause is fixed — confirmed by the stress run, see the Correction below -->
   - [x] **Step 4: Verify.** `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/ -count=1
-    -race`; the step-1 stress at 0 failures; `/usr/bin/time -p go test ./internal/guard/...
+    -race`; the step-1 stress without a failure; `/usr/bin/time -p go test ./internal/guard/...
     -count=1` still ≤10s real (**guard-package-under-10s**); from the worktree root, with the tree's
     `flow-guard` first on PATH, `scripts/test-check-panel-reproducers.sh` and
     `scripts/test-check-mutation-reproducer-pin.sh`.
+    <!-- measured: step-1 stress 0 failures in 240 and 480 iterations; package 7.51s real — implementer-report-14.md @ 1f07942b -->
 
 Correction (2026-09-26): two causes confirmed and fixed at source. (1) The retry sweep read a
 survivor's liveness after SIGKILL, racing the reaper: `rrSweep` now reads it at the end of the

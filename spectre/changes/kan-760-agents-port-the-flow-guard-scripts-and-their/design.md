@@ -132,22 +132,25 @@ missing binary as a refused reproducer.
 ### A missing flow-guard exits the guard's own cannot-answer code
 
 **ID:** missing-binary-cannot-answer-code
-**Status:** active
+**Status:** superseded by guard-binary-built-from-checkout
 **Chosen:** a shim finding no `flow-guard` on PATH prints
 `<name>: flow-guard not on PATH — run make -C <agents repo>/stats install-guard` to stderr and
 exits that guard's existing "cannot answer" code: 4 for `run-reproducer`, 2 for the other four.
 **Considered:** exit 2 everywhere (missing-binary-exits-2) — reads as "refused" to run-reproducer's
 callers.
+**Superseded because:** the shim no longer looks for `flow-guard` on PATH (guard-binary-built-from-checkout).
 
 ### Installed by make and setup.sh global
 
 **ID:** install-via-make-and-setup
-**Status:** active
+**Status:** superseded by guard-binary-built-from-checkout
 **Chosen:** `make build` writes `bin/flow-guard`; a new `make install-guard` builds it to
 `~/.local/bin/flow-guard` without touching the dev daemon; `restart` depends on `install-guard`;
 `setup.sh global` builds it too — the operator's choice.
 **Considered:** make only — a fresh `setup.sh global` would install shims whose binary is absent.
 Installing via `restart` alone — rejected because `restart` stops flowd, which no agent may do.
+**Superseded because:** panel round 0 (F1, F2, F8) — an installed binary drifts from the checkout it
+claims to be, and nothing installs it where a merge lands.
 
 ### Go tests replace the bash harnesses
 
@@ -248,6 +251,21 @@ of `TestRunReproducer` passed.
 <!-- measured: scripts/run-guard-tests.sh (test-go-guards.sh FAIL, case 13 exit 1 want 3) @ f4205935; reviewer-report-task-13.md stress runs @ 788b398a and 8ad5a22d -->
 **Considered:** file it as a follow-up and proceed on a green re-run — rejected by the operator,
 2026-09-26: a flake is fixed at its source, and the panel never runs on a red branch.
+
+### The shim builds flow-guard from its own checkout
+
+**ID:** guard-binary-built-from-checkout
+**Status:** active
+**Chosen:** each shim derives its binary from the checkout it lives in: it hashes the Go sources
+`flow-guard` is built from (`stats/go.mod`, `stats/go.sum`, `stats/cmd/flow-guard/`, the non-test
+files of `stats/internal/guard/`), builds into a per-user cache keyed by that hash when no binary is
+there yet (atomically, so concurrent first calls are safe), and execs it — so a guard is always its
+source, as the bash guard was, with no install step anywhere. No Go toolchain, or a build that
+fails, exits that guard's existing cannot-answer code (4 for `run-reproducer`, 2 for the other
+four) with a message naming the cause. `make install-guard` and the build in `setup.sh global` go.
+**Considered:** a source hash embedded in an installed binary, the shim refusing a mismatch — still
+needs an install step on every machine and after every merge, and refuses rather than runs.
+Operator instruction 2026-09-26: take the recommended option.
 
 ### Follow-ups filed at integrate
 
