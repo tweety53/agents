@@ -304,6 +304,17 @@ exit code or figures the run produced. A premise the run disproves strikes the t
 planning, before the panel reads the plan — the same verify-the-premise move the filed-finding
 reachability check makes at checklist open, applied to each task's own premise.
 
+**A task premise about a harness or tool is spiked live at plan time, never assumed.** When a
+task written here rests on how a harness or tool behaves — that a config key takes effect where
+the task puts it, how a clock or timer behaves, what a dev-stack rebuild picks up — planning runs
+a live spike of five minutes or less for each such assumption before the task is written, and
+records the result in the task as a `measured:` comment per **Plan provenance**
+(`skills/flow-contracts/plan-provenance.md`), naming the command and the ref. A premise the spike
+disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
+stays tagged `unverified:<what-to-check>` for the implementer. KAN-750's task 11 was blocked for
+35 minutes on a plan that assumed Playwright's `reducedMotion` took effect under `use`, where it
+takes effect only under `contextOptions`.
+
 **Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
 with `**Build:**` per **The build-green tag**
 (`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
