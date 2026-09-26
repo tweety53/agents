@@ -661,13 +661,13 @@ Review fix 2 (2026-09-26): case 8 also asserts nothing ran at the symlink's own 
 
 - [ ] 14. Make run-reproducer's survivor detection deterministic
 
-**Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`
+**Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/runreproducer_darwin.go`, `stats/internal/guard/runreproducer_other.go`
 **Allowed-collateral:** `stats/internal/guard/*.go`
-**Tests:** `TestRunReproducer`
+**Tests:** `TestRunReproducer`, `TestRunReproducerSurvivorNamedWhenReapedAtKill`
 **Regression:** `TestRunReproducer` cases 10, 13, 14, 16, 18 fail intermittently under load if a
 detached or double-forked survivor can again go unnamed; `--- PASS: TestRunReproducer/` stays at 110.
-**Baseline:** before=0 after=0
-<!-- predicted: the fix changes how existing cases are made deterministic; a stress test function may be added, confirmed by grep -cE '^func Test' stats/internal/guard/runreproducer_test.go -->
+**Baseline:** before=4 after=5
+<!-- measured: grep -cE '^func Test' stats/internal/guard/runreproducer_test.go → 4 before, 5 after (TestRunReproducerSurvivorNamedWhenReapedAtKill) @ 1f07942b -->
 **After:** Task 4, 11, 13
 **Commit:** `fix(stats): run-reproducer names every survivor under load`
 **Build:** green
@@ -691,4 +691,17 @@ detached or double-forked survivor can again go unnamed; `--- PASS: TestRunRepro
     -count=1` still ≤10s real (**guard-package-under-10s**); from the worktree root, with the tree's
     `flow-guard` first on PATH, `scripts/test-check-panel-reproducers.sh` and
     `scripts/test-check-mutation-reproducer-pin.sh`.
+
+Correction (2026-09-26): two causes confirmed and fixed at source. (1) The retry sweep read a
+survivor's liveness after SIGKILL, racing the reaper: `rrSweep` now reads it at the end of the
+SIGTERM grace, before the kill (pinned by `TestRunReproducerSurvivorNamedWhenReapedAtKill`).
+(2) A `ps` read took 360–900ms under load, straddling a detached child's parented window: the
+darwin process table is read in-process (`__sysctl` `KERN_PROC_ALL`, buffer sized by
+`kern.maxproc` so it cannot ENOMEM), `ps` kept for non-darwin. The `ps`-returns-empty route was
+ruled out (0 of 9,231 reads). Stress (4×`-count=20 -parallel 32 -race` ×3 under `yes`×10): 17
+survivor-case failures in 240 iterations before, 0 in 240 and 0 in 480 after; old-vs-new
+`flow-guard` output identical on pass/fail/timeout/detach fixtures. Residual: a `setsid` child is
+findable only while its parent lives — the contract's own stated limit; closing it needs kernel
+fork tracking, not pursued.
+<!-- measured: implementer-report-14.md stress tables; /usr/bin/time -p go test ./internal/guard/... -count=1 → 7.51s real @ 1f07942b -->
 
