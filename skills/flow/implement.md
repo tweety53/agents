@@ -160,7 +160,9 @@ these substitutions:
 - **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
   <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
   model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see
-  inline work under the same roles a dispatched run would use. A gated per-task reviewer's own
+  inline work under the same roles a dispatched run would use. An inline fix's `dispatch begin`
+  is recorded when the parent starts the fix, before its first edit, and its `dispatch end` once
+  the fix commit lands — never the two together, which records the fix as taking no time. A gated per-task reviewer's own
   rows carry the dispatched agent's id, never `inline`; the gated fix round it causes records
   `-model <parent model> -effort <parent effort> -agent-id inline` under the task's fix key.
 
