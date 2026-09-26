@@ -1,7 +1,7 @@
 # full-suite-in-parent — self-review
 
 **Deferred:** reasoning pass run on account:zai-individual-coding-plan/GLM-5.3-Flash from docs/self-review/full-suite-in-parent-context.md
-**Rating:** 4/5
+**Rating:** not collected — the pass filed without the operator prompt, at the operator's instruction
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 

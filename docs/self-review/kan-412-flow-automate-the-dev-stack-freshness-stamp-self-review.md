@@ -1,7 +1,7 @@
 # kan-412-flow-automate-the-dev-stack-freshness-stamp — self-review
 
 **Deferred:** reasoning pass run on account:zai-individual-coding-plan/GLM-5.3-Flash from docs/self-review/kan-412-flow-automate-the-dev-stack-freshness-stamp-context.md
-**Rating:** 4/5
+**Rating:** not collected — the pass filed without the operator prompt, at the operator's instruction
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
