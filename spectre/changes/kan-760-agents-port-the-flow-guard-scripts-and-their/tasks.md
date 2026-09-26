@@ -659,7 +659,7 @@ refused reproducer would slip past "never executed" — with its ceiling.
 <!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 → 9.82s, 9.02s, 9.00s real at load 9.5–9.8; 309/298/109/60 --- PASS under -race @ fix commit -->
 Review fix 2 (2026-09-26): case 8 also asserts nothing ran at the symlink's own side (`never executed#01`), so a guard exec'ing the unresolved link path fails it — proved by mutating `runreproducer.go` to exec `candidate` before the escape refusal. `TestRunReproducer`'s `--- PASS` count is 110.
 
-- [ ] 14. Make run-reproducer's survivor detection deterministic
+- [x] 14. Make run-reproducer's survivor detection deterministic
 
 **Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/runreproducer_darwin.go`, `stats/internal/guard/runreproducer_other.go`
 **Allowed-collateral:** `stats/internal/guard/*.go`
@@ -675,18 +675,18 @@ detached or double-forked survivor can again go unnamed; `--- PASS: TestRunRepro
 **Decision:** survivor-detection-deterministic
 **Decision:** inject-deadlines-in-process
 
-  - [ ] **Step 1: Reproduce.** From `stats/`: `go test ./internal/guard/ -run 'TestRunReproducer$'
+  - [x] **Step 1: Reproduce.** From `stats/`: `go test ./internal/guard/ -run 'TestRunReproducer$'
     -count=20 -race -parallel 32` (and with CPU load from `yes > /dev/null` ×10 alongside, killed
     afterwards) until the failure rate for cases 10/13/14/16/18 is measured. Record it.
-  - [ ] **Step 2: Diagnose** per superpowers:systematic-debugging: which read loses — the
+  - [x] **Step 2: Diagnose** per superpowers:systematic-debugging: which read loses — the
     descendant snapshot missing a child that detached and whose leader exited between polls, the
     post-SIGKILL `kill -0` at `rrSupervise`'s retry sweep racing the reaper, or `rrProcTable`
     returning empty on a failed `ps`. Evidence per case, not a guess.
-  - [ ] **Step 3: Fix at the source** of each cause found, satisfying
+  - [x] **Step 3: Fix at the source** of each cause found, satisfying
     **survivor-detection-deterministic**: no retry, no longer grace or bound, no loosened
     assertion; every verdict line byte-identical. Prove each fix bites: remove it and show the
     step-1 stress reproduce the failure; restore and show 0 failures across the same stress.
-  - [ ] **Step 4: Verify.** `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/ -count=1
+  - [x] **Step 4: Verify.** `gofmt -l .`, `go vet ./...`, `go test ./internal/guard/ -count=1
     -race`; the step-1 stress at 0 failures; `/usr/bin/time -p go test ./internal/guard/...
     -count=1` still ≤10s real (**guard-package-under-10s**); from the worktree root, with the tree's
     `flow-guard` first on PATH, `scripts/test-check-panel-reproducers.sh` and
