@@ -57,7 +57,9 @@ literally as shown, the same placeholder the repository's prose already uses.
 
 **Test isolation:** every Go test calls `t.Parallel()`; fixture git repositories are built once
 per package in `TestMain` and each case copies its own (`cp -R` or `git clone --local`) into
-`t.TempDir()`; nothing writes outside `t.TempDir()`. Tests inject deadlines on `Env` as
+`t.TempDir()`; nothing writes outside `t.TempDir()` except `TestMain`'s executable-fixture masters
+directory (`os.MkdirTemp`, removed after the run), whose lifetime must span the package run
+(**Decision:** guard-package-under-10s). Tests inject deadlines on `Env` as
 sub-second `time.Duration`s, never through the environment (**Decision:**
 inject-deadlines-in-process).
 
@@ -141,6 +143,8 @@ Correction (2026-09-25): `run` takes no stdin — `run(args []string, stdout, st
 since `Func` takes none and none of the five guards reads it; `main` calls
 `os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))`.
 
+Review fix (2026-09-26, panel round 1 — F5, F16, commit `c77c9d10`): `flow-guard` exits the named guard's own cannot-answer code (4 for `run-reproducer`) where it cannot read its working directory; `TestCannotAnswerIsTheGuardsOwnCode` added; the "exit 2 for every guard" wording corrected in `main.go` and `stats/README.md`.
+
 - [x] 2. The suite runner tests the branch's own flow-guard
 
 **Files:** `scripts/run-guard-tests.sh`, `scripts/test-run-guard-tests.sh`, `scripts/test-go-guards.sh`, `.flow/project.md`
@@ -193,6 +197,8 @@ PATH — the branch's shims would then run the installed binary.
 Correction (2026-09-25): `case 9:` passed before the change — it pins a regression rather than
 showing RED; breaking the companion rule on purpose failed it (`got 0`), restored it passed.
 
+Review fix (2026-09-26, panel round 1 — F1, F2, F8, commits `11db90f3`, `938e03c0`, `09d1f6d8`): the runner no longer builds `flow-guard` onto PATH; shims build it from their own checkout through `scripts/lib/flow-guard.sh` (**Decision:** guard-binary-built-from-checkout) and the runner points `FLOW_GUARD_CACHE_DIR` at its temp dir; `scripts/test-lib-flow-guard.sh` added (cases 1–11).
+
 - [x] 3. Shared helpers: sha256, spec root, change plan
 
 **Files:** `stats/internal/guard/sha256.go`, `stats/internal/guard/specroot.go`, `stats/internal/guard/changeplan.go`, `stats/internal/guard/helpers_test.go`
@@ -217,6 +223,8 @@ cases the test pins.
   - [x] **Step 3: Port** into the three files, `sha256` through `crypto/sha256` (no subprocess).
   - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
     ./internal/guard/ -run 'TestSHA256Hex|TestSpecRoot|TestChangePlan' -count=1 -race`.
+
+Review fix (2026-09-26, panel round 1 — F11, commits `379d9975`, `892d875f`): `changePlanNameOK` removed; every caller uses `ccPlainName`, which took over the empty-name refusal (`TestPlainNameRefusesEmpty`).
 
 - [x] 4. Port run-reproducer
 
@@ -278,6 +286,8 @@ Correction (2026-09-25): shipped differently from the plan in four measured poin
 - Test bound: macOS's first exec of a freshly written script costs ~0.2s (0.201s cold, 0.009s
   warm), so timeout cases fire the bound through `RUN_REPRODUCER_BOUND_FILE` when the fixture is
   ready, with a 30s backstop bound — no assertion loosened.
+
+Review fix (2026-09-26, panel round 1 — F1/F8 shim, commit `11db90f3`): case 15 now reads "a flow-guard the shim cannot build is never a verdict (shim, exit 4)".
 
 - [x] 5. Port check-panel-reproducer-exit-contract
 
@@ -395,6 +405,11 @@ Correction (2026-09-25): shipped differently from the plan in these measured poi
 - Review fix: a `[` inside a glob class is escaped as Python's `re` reads it, closing a false pass
   on `Allowed-collateral: docs/[x[:alpha:]*[y]` (`TestTcfFnmatchMatchesPython`).
 
+Review fix (2026-09-26, panel round 1 — F6, F9, commits `11db90f3`, `3ac359b2`): the shim's own exit 2 opens `COULD NOT JUDGE — not a commit verdict:` (case 56); `check-task-commit-fields.py`'s unused verdict half deleted (1652 → 790 lines), its docstrings moved beside their Go ports in `taskcommitfields.go`.
+<!-- measured: wc -l scripts/check-task-commit-fields.py before and after commit 3ac359b2 — panel-fix-report-1.md -->
+
+Review fix (2026-09-26, panel round 1 — F14, commit `23f12765`): `TestTaskFieldParseMatchesPython` and `TestTcfFnmatchMatchesPython` fail rather than skip when python3 is absent.
+
 - [x] 8. Port check-cleanup-complete
 
 **Files:** `stats/internal/guard/cleanupcomplete.go`, `stats/internal/guard/check_cleanup_complete_test.go`, `scripts/check-cleanup-complete.sh`, `scripts/test-check-cleanup-complete.sh`
@@ -466,6 +481,8 @@ Correction (2026-09-25): the plan declared `setup.sh` and `scripts/test-setup.sh
 cold-cache cost hit `scripts/check-installed-citations.py`'s two sandboxed `setup.sh` runs (2.98s →
 4.55s real), so its `run_setup` now passes the real HOME's `GOCACHE` too, folded into this task's
 commit; `**Files:**` widened to match.
+
+Superseded (2026-09-26, panel round 1 — F1, F2, F8, commit `055a31a4`): **Decision:** guard-binary-built-from-checkout removes every install step — `make install-guard`, `restart`'s dependency on it and the build in `setup.sh global` are gone; `setup.sh`, `scripts/test-setup.sh` and `scripts/check-installed-citations.py` are back to `0747740`. This task's commit stays in history; its effect does not.
 
 - [x] 10. Live verification: before/after timings
 
@@ -554,6 +571,8 @@ Review fix (2026-09-25): four citations still dangled — `case_92`/`case_93` (o
 `case_92-93`), `test-check-task-build-green.sh`'s "that harness's case 56", `prove-reproducer.sh`'s
 "its existing harness" (the deleted `test-run-reproducer.sh`) — that repoint landed in the review-fix commit `d81e39a8`, not in this task's commit `50a52695`, so `**Files:**` does not name `scripts/prove-reproducer.sh` and
 `lib/within-root.sh`'s present-tense "Sourced by" — repointed.
+
+Review fix (2026-09-26, panel round 1 — F12, commit `2838973c`): the "out of this change's scope" deferral above is superseded — `scripts/lib/within-root.sh` and `scripts/lib/lexical-normalize.sh` are deleted, the comments that cited them repointed at `withinRoot`/`lexicallyCollapse` in `gatherdispatch.go`.
 
 - [x] 12. Port KAN-676's evidence-tag close check to flow-guard
 
@@ -661,6 +680,9 @@ refused reproducer would slip past "never executed" — with its ceiling.
 <!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 → 9.82s, 9.02s, 9.00s real at load 9.5–9.8; 309/298/109/60 --- PASS under -race @ fix commit -->
 Review fix 2 (2026-09-26): case 8 also asserts nothing ran at the symlink's own side (`never executed#01`), so a guard exec'ing the unresolved link path fails it — proved by mutating `runreproducer.go` to exec `candidate` before the escape refusal. `TestRunReproducer`'s `--- PASS` count is 110.
 
+Review fix (2026-09-26, panel round 1 — F13, commit `c880cbc8`): `TestMain` no longer rewrites the process PATH to `$(git --exec-path)`; guards resolve `git` as production does, wall time unchanged (8.4–9.4s real); the masters directory stays, recorded as the header's one exception.
+<!-- measured: /usr/bin/time -p go test ./internal/guard/... -count=1 before and after c880cbc8 — panel-fix-report-1-2.md -->
+
 - [x] 14. Make run-reproducer's survivor detection deterministic
 
 **Files:** `stats/internal/guard/runreproducer.go`, `stats/internal/guard/runreproducer_test.go`, `stats/internal/guard/runreproducer_darwin.go`, `stats/internal/guard/runreproducer_other.go`
@@ -709,3 +731,4 @@ findable only while its parent lives — the contract's own stated limit; closin
 fork tracking, not pursued.
 <!-- measured: implementer-report-14.md stress tables; /usr/bin/time -p go test ./internal/guard/... -count=1 → 7.51s real @ 1f07942b -->
 
+Review fix (2026-09-26, panel round 1 — F7, F15, commit `af1b0127`): a failed process-table read is an error, never an empty table: `run-reproducer` still kills and sweeps, then exits 4 (`Env.ProcTable` seam; subtest "a failed process-table read is never a verdict (exit 4)").
