@@ -870,6 +870,22 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   `-model`/`-effort` recorded is the rerun pair (**Bundled dispatch**). The final pass **Rerun
   policy `full`** adds is pass-1 work and runs on `panel.dispatches` as pass 1 did.
 
+**A fix-round re-run reviews the fix, never the branch.** Every re-running slot's dispatch prompt —
+on every panel, Bugbot, Mutation and Security included — carries the FIX-ROUND SCOPE paragraph,
+with `<fix report>` the round's `panel-fix-report-<round>.md` (every chunk's file on a chunked
+round):
+
+> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given
+> and the sites of the findings it fixes — nothing else on the branch. Run only the tests and
+> specs that diff touches, never the module, repository or live-spec suite. The fix report at
+> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,
+> and the failure with the fix reverted. Check that proof against the diff; reproduce it
+> yourself only where it is missing, does not match the diff, or does not show the failure it
+> claims — and say which of those it was.
+
+The final pass **Rerun policy `full`** adds is pass-1 work and carries no FIX-ROUND SCOPE
+paragraph.
+
 **From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
 reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
 each site opened at its recorded `file:line` in the current tree — in place of its held-sha
@@ -1298,8 +1314,10 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > appends its own suffix, `panel-fix-report-<round>-<n>.md` — as your **last** act — after
 > the rebase and your final test run — naming each finding you addressed, the executable
 > behaviours your fix changed, the `fix-mutation:` and `fix-mutations-total:` lines this round's
-> contract requires, and the task commit each fixup folded into. The dispatcher waits
-> on that file's presence.
+> contract requires, and the task commit each fixup folded into. Each fixed finding carries its
+> proof, each run's command and the tail of its output: the test run before the fix, the same
+> run after it, and the failure that run shows with the fix reverted — the re-running slot checks
+> this proof rather than re-deriving it. The dispatcher waits on that file's presence.
 
 Give the surviving findings to fix subagents in **chunks of at most 10 findings**. The round's
 findings are split into sequential chunks of at most 10 — the cap that keeps one dispatch from
