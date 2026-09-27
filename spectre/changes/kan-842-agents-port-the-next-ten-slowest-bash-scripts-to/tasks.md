@@ -152,7 +152,7 @@ The gated review found the walk listed the children of a directory it could read
 which `/usr/bin/find` lists without children, silently, status 0; fix commit `4fd1d5d8` matches it,
 pinned by a parity row.
 
-- [ ] 3. Port check-workspace-isolation
+- [x] 3. Port check-workspace-isolation
 
 **Files:** `stats/internal/guard/workspaceisolation.go`, `stats/internal/guard/check_workspace_isolation_test.go`, `scripts/check-workspace-isolation.sh`, `scripts/test-check-workspace-isolation.sh`
 **Tests:** `TestCheckWorkspaceIsolation`
@@ -165,17 +165,17 @@ pinned by a parity row.
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-workspace-isolation.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-workspace-isolation.sh`,
     one subtest per `ok:` label; fixtures are small trees in `t.TempDir()`. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-workspace-isolation`; file resolution through
+  - [x] **Step 2: Port**, registering `check-workspace-isolation`; file resolution through
     `resolvefile.go`; the body's awk program (the `#SUMMARY` emitter, the resource and command
     table parsers) ported as Go code, each violation message byte for byte;
     `CHECK_WORKSPACE_ISOLATION_PRINT_ROWS` read as the bash does.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckWorkspaceIsolation$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckWorkspaceIsolation$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckWorkspaceIsolation/'` — at least 152.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-check-workspace-isolation.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-workspace-isolation.sh` on this tree exits with the code and output it printed
     at `c5379c0a`, directly and through a symlink to it in a temp directory.
 
