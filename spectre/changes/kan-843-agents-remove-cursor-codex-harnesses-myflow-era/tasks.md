@@ -37,7 +37,7 @@ to a scratch copy of the dev store, recording before/after row counts.
 
 ---
 
-- [ ] 1. Stats: migrate legacy rows and remove the legacy readers
+- [x] 1. Stats: migrate legacy rows and remove the legacy readers
 
 **Files:** `stats/internal/store/migrations/0031_drop_legacy_shapes.sql`, `stats/internal/store/legacyshapes_test.go`, `stats/internal/store/aggregate.go`, `stats/internal/store/aggregate_test.go`, `stats/internal/store/pricing.go`, `stats/internal/store/pricing_seed.go`, `stats/internal/store/pricing_seed_test.go`, `stats/internal/store/pricing_test.go`, `stats/internal/store/stageruns_test.go`, `stats/internal/stages/synthetic.go`, `stats/internal/stages/synthetic_test.go`
 **Allowed-collateral:** `stats/internal/store/testsupport_test.go`, `stats/internal/store/migrations.go`
@@ -55,7 +55,7 @@ current-shape row.
 
 Correction (2026-09-28): the plan declared `names.go`, `cmd/flow/state.go`, `state_test.go` and `api/stages.go`; none needed an edit (they name `stages.SyntheticChangeUpdatedBy` only, never its text), so they left `**Files:**`. `pricing_seed.go` also seeds `glm-5.3-flash`'s `CacheWrite1hPerMTok` as 0 — `flowd` re-upserts seed rows at startup, and a nil 1h would undo 0031's backfill. The migration test applies 0031 through the real migrator by pre-recording it as applied, seeding at 0030, then deleting the record — no prefix-apply helper was needed.
 
-  - [ ] **Step 1: Failing test.** In `stats/internal/store/legacyshapes_test.go`, write
+  - [x] **Step 1: Failing test.** In `stats/internal/store/legacyshapes_test.go`, write
     `TestMigration0031RewritesLegacyRows` against a fresh test database migrated through `0030`
     only, seeded with: a `changes` row updated by `myflow stage begin (synthetic)` and one by
     `/flow`; a decision whose `panel.dispatches` mixes a bare array and an object, one whose
@@ -66,24 +66,24 @@ Correction (2026-09-28): the plan declared `names.go`, `cmd/flow/state.go`, `sta
     migration list — if not, add an unexported-through-export_test.go helper that applies
     migrations up to a named file. Run `cd stats && go test ./internal/store/ -run
     '^TestMigration0031RewritesLegacyRows$' -count=1` — expect failure.
-  - [ ] **Step 2: Migration.** Write `0031_drop_legacy_shapes.sql`: the `changes.updated_by`
+  - [x] **Step 2: Migration.** Write `0031_drop_legacy_shapes.sql`: the `changes.updated_by`
     rename; the two `jsonb` rewrites (`jsonb_agg` over `jsonb_array_elements … WITH ORDINALITY`,
     wrapping only elements whose `jsonb_typeof` is `array`, order preserved); the pricing backfill
     where `cache_write_1h_per_mtok IS NULL AND cache_write_per_mtok = cache_write_5m_per_mtok`;
     then `ALTER TABLE pricing DROP COLUMN cache_write_per_mtok`.
-  - [ ] **Step 3: Readers.** `SyntheticChangeUpdatedBy` = `flow stage begin (synthetic)` (and its
+  - [x] **Step 3: Readers.** `SyntheticChangeUpdatedBy` = `flow stage begin (synthetic)` (and its
     comment in `names.go`, callers' comments in `state.go`, `api/stages.go`); drop the aggregate
     SQL's bare-array `ELSE` branch and its doc comment's legacy clauses; drop
     `PricingRate.CacheWritePerMTok`, its column in every `pricing` SELECT/INSERT, its seed values,
     and restate the flat rule in `pricing.go` as "the 1h rate equals the 5m rate". Update the
     tests that seeded or asserted the old shapes.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/store/
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/store/
     ./internal/stages/ ./internal/api/ ./cmd/flow/ -count=1 -race`.
 
 - [ ] 2. setup.sh: install for Claude Code and zcode only
 
-**Files:** `setup.sh`, `scripts/test-setup.sh`, `commands/flow.md`, `commands/flow-fast.md`, `commands/flow-plan.md`, `commands/flow-self-review.md`, `commands/flow-settings.md`, `commands/flow-status.md`, `scripts/lib/owned-corpus.sh`, `scripts/installer-sandbox-diff.sh`, `scripts/test-installer-sandbox-diff.sh`, `scripts/check-installed-rules.sh`, `scripts/test-check-normative-inventory.sh`, `stats/internal/guard/check_installed_rules_test.go`, `stats/internal/guard/references.go`, `stats/internal/guard/installedcitations.go`
-**Allowed-collateral:** `stats/internal/guard/ownedcorpus.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/check_references_test.go`, `stats/internal/guard/check_installed_citations_test.go`
+**Files:** `setup.sh`, `scripts/test-setup.sh`, `commands/flow.md`, `commands/flow-fast.md`, `commands/flow-plan.md`, `commands/flow-self-review.md`, `commands/flow-settings.md`, `commands/flow-status.md`, `scripts/lib/owned-corpus.sh`, `scripts/test-check-normative-inventory.sh`, `skills/flow-contracts/pipeline-rationale.md`, `stats/internal/guard/check_installed_rules_test.go`, `stats/internal/guard/references.go`, `stats/internal/guard/installedcitations.go`
+**Allowed-collateral:** `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/check_references_test.go`, `stats/internal/guard/check_installed_citations_test.go`
 **Tests:** `global install writes nothing under .cursor or .codex`
 **Regression:** fails if a `global` run creates `~/.cursor` or `~/.codex` in the sandbox HOME, or
 if `setup.sh cursor|codex|all` is still accepted.
@@ -94,6 +94,8 @@ if `setup.sh cursor|codex|all` is still accepted.
 **Build:** green
 
 **Decision:** harnesses-claude-code-and-zcode
+
+Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-installed-rules.sh` mention neither harness nor `commands/`, so they left `**Files:**`; `ownedcorpus.go` does not exist (no Go twin). `pipeline-rationale.md` joined: its `commands/` citation failed `check-installed-citations.sh` once `commands/` was deleted. With `all` gone, `check-installed-citations.sh` runs `setup.sh` three times (`global`, `claude-code`, `zcode`); `.flow/project.md` says so. The principles reviewer no longer auto-detects `.cursor/rules/*.mdc`. The stage-mark port-parity subtest rewrites the old harness clause of the bash pinned at d71a2327 before its byte comparison.
 
   - [ ] **Step 1: Failing case.** In `scripts/test-setup.sh`, add a case labelled `global install
     writes nothing under .cursor or .codex` (fresh HOME, `run_setup … global`, `assert_absent` on
@@ -195,6 +197,8 @@ if `setup.sh cursor|codex|all` is still accepted.
 
 **Decision:** self-review-delete-17-relabel-14
 
+Correction (2026-09-28): 13 reports were relabelled, not 14 — `kan-197-require-mutation-test-for-every-guard-self-review.md` carried a `myflow-` label and was also one of the 17 deleted. The guard's OK line drops its "declared pre-rule" count.
+
   - [ ] **Step 1: Reports.** `git rm` every file named in `DECLARED_REPORTS`; in every report
     `git grep -lE 'myflow-(fix|cost|improvement|automation)' docs/self-review` lists, rewrite each
     `myflow-<angle>` label to `flow-<angle>`.
@@ -225,10 +229,10 @@ if `setup.sh cursor|codex|all` is still accepted.
     `workspaceid_test.go`; recompute the expected id with `cd stats && go run ./cmd/flow
     workspace-id kan-15-parallel-flow-task-lanes` and update every place that quotes it.
   - [ ] **Step 3: Verify.** `git grep -il myflow -- . ':!docs/' ':!spectre/changes/archive/'
-    ':!KNOWN-BUGS.md' ':!.idea/'` prints nothing; `scripts/test-prepare-workspace.sh && cd stats
+    ':!spectre/changes/kan-843-agents-remove-cursor-codex-harnesses-myflow-era/' ':!KNOWN-BUGS.md' ':!.idea/'` prints nothing; `scripts/test-prepare-workspace.sh && cd stats
     && go test ./cmd/flow/ -run '^TestWorkspaceID' -count=1`.
 
-- [ ] 8. Drop ticket special cases
+- [x] 8. Drop ticket special cases
 
 **Files:** `scripts/check-model-resolution-shell.sh`, `stats/internal/store/stageruns.go`
 **Allowed-collateral:** `scripts/test-check-model-resolution-shell.sh`, `scripts/test-setup.sh`
@@ -242,12 +246,12 @@ if `setup.sh cursor|codex|all` is still accepted.
 
 **Decision:** drop-ticket-special-cases
 
-  - [ ] **Step 1: Edit.** Rename `test-setup.sh`'s "KAN-369: __pycache__ churn" group and its
+  - [x] **Step 1: Edit.** Rename `test-setup.sh`'s "KAN-369: __pycache__ churn" group and its
     tree_fingerprint comment by behaviour ("__pycache__ churn leaves the source fingerprint
     unchanged"); restate `check-model-resolution-shell.sh:100`'s message without kan-488 (and its
     harness's expectation if it matches the text); delete the `// KAN-185` comment on
     `stageRunSupersedeLockNamespace`, value unchanged.
-  - [ ] **Step 2: Verify.** `scripts/test-setup.sh && scripts/test-check-model-resolution-shell.sh
+  - [x] **Step 2: Verify.** `scripts/test-setup.sh && scripts/test-check-model-resolution-shell.sh
     && cd stats && go build ./...`.
 
 - [ ] 9. Live verification
