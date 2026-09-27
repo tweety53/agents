@@ -205,8 +205,12 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
 
 Correction (2026-09-27): the script's header and body disagree on an unreadable decision row
 (`[1]`): the header treats it as class `big`, the bash body died under `set -e` with an
-undocumented exit 5. The port follows the header (exit 0, `big`); exit 5 was outside the script's
-own 0/1/2 contract. The `flow record decisions` read has no `Env` hook (`dispatches-via-env-hook`
+undocumented exit 5. The port first followed the header (exit 0, `big`); the gated review found
+`big` is the looser class for this guard (it tolerates one bundle per group, small/regular one per
+run), so that reading passed what the bash blocked, and a top-level JSON object read as `big` too.
+Fix commit `1b2cf11c` makes both a cannot-answer (exit 2, "decision rows were not readable JSON")
+— inside the 0/1/2 contract, failing closed as the bash did; a failed `flow record decisions` call
+still reads as `big`, as in the bash. The header's sentence is corrected to match. The `flow record decisions` read has no `Env` hook (`dispatches-via-env-hook`
 names dispatches only) and execs `flow` on PATH through `pcFlow`; tests run with no `flow` on PATH,
 three cases with a stub.
 
@@ -293,7 +297,7 @@ three cases with a stub.
     `CHECK_INSTALLED_RULES_HOME=$(mktemp -d) scripts/check-installed-rules.sh` exits with the code
     and line it printed at `c5379c0a`.
 
-- [ ] 8. Port resolve-base-branch
+- [x] 8. Port resolve-base-branch
 
 **Files:** `stats/internal/guard/resolvebasebranch.go`, `stats/internal/guard/resolve_base_branch_test.go`, `scripts/resolve-base-branch.sh`, `scripts/test-resolve-base-branch.sh`, `skills/flow-status/scripts/lib`
 **Tests:** `TestResolveBaseBranch`
@@ -306,17 +310,17 @@ three cases with a stub.
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-resolve-base-branch.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-resolve-base-branch.sh`, one
     subtest per `ok:` label; fixture repos with and without an `origin` remote built once and
     copied per case. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `resolve-base-branch`; git as child processes with the
+  - [x] **Step 2: Port**, registering `resolve-base-branch`; git as child processes with the
     bash's arguments; exit 3 (no `origin`) kept distinct from exit 2, as the header's "WHY EXIT 3
     IS SEPARATE" paragraph requires.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestResolveBaseBranch$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestResolveBaseBranch$' -count=1
     -race -v | grep -c -- '--- PASS: TestResolveBaseBranch/'` — at least 39.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
     dropped; `git rm scripts/test-resolve-base-branch.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/resolve-base-branch.sh <dir>` on a branch checkout whose origin/HEAD is main prints
     `main` and exits 0, as at `c5379c0a` (a detached worktree exits 1 on both).
 
