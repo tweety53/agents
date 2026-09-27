@@ -103,7 +103,7 @@ same inputs.
 
 - [ ] 3. Port check-panel-reproducers
 
-**Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `scripts/check-panel-reproducers.sh`, `scripts/test-check-panel-reproducers.sh`, `skills/flow/scripts/reproducer-metachars.sh`
+**Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `scripts/check-panel-reproducers.sh`, `scripts/test-check-panel-reproducers.sh`, `skills/flow/scripts/reproducer-metachars.sh`, `stats/internal/guard/panelexitcontract.go`
 **Tests:** `TestCheckPanelReproducers`
 **Regression:** fails if any of the harness's 55 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -133,6 +133,15 @@ reproducer lexically. Shipped: `metachars.go`'s `reproducerMetachars` in place o
 The shim no longer needs `reproducer-metachars.sh`, so `scripts/check-guard-symlinks.sh` rule 6 flagged
 `skills/flow/scripts/reproducer-metachars.sh` as dead weight and the commit deletes it.
 
+Correction (2026-09-27): the guard's header and body disagreed on findings output the real
+`flow record findings` never emits — `[null]`, `{}`, empty stdout at exit 0, two values, a ref-less
+finding: the body passed several at exit 0 (`REPRODUCERS-OK`), which the header's exit-0 contract rules
+out. The operator decided: refuse every shape that is not one array of objects with exit 2 (`jq failed —
+cannot determine anything`), in this guard and check-unfinished-work alike; subtests pin each shape, and
+`pcParseFindings`' doc comment in `panelexitcontract.go` states it — hence that path is added to
+`**Files:**`. Case 20's label is kept for label parity; with the set compiled in, it asserts the set
+still binds (exit 1 on `;`), as its comment says.
+
 - [ ] 4. Port check-unfinished-work
 
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `scripts/test-check-unfinished-work.sh`
@@ -156,6 +165,13 @@ The shim no longer needs `reproducer-metachars.sh`, so `scripts/check-guard-syml
     -race -v | grep -c -- '--- PASS: TestCheckUnfinishedWork/'` — at least 102.
   - [ ] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-unfinished-work.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-guard-symlinks.sh`.
+
+Correction (2026-09-27): findings output that is not one array of objects — empty stdout at exit 0, an
+object, a null element, two values — is refused with exit 2 (`jq failed — cannot determine anything`),
+the operator's decision recorded in task 3's Correction. The bash body read empty stdout and `{}` as zero
+findings (CLEAR), an object's values as findings, and two values as CLEAR. The jq/grep diagnostic lines
+bash printed before its own refusal on four paths are not reproduced (KAN-760's `pcJQFailed` idiom);
+exit code, stdout and the guard's own lines match.
 
 - [ ] 5. Port check-references
 
@@ -270,7 +286,7 @@ labels (CHECK PHASE build-order replay, EXIT-trap chaining on clean exit and on 
 harness's own trap plumbing, not the guard; three rows stand in for them (no sandbox left behind on a clean
 run, on a refused run; `setup.sh` runs with HOME and cwd inside the guard's sandbox), keeping the count at 61.
 
-- [ ] 8. Repoint citations of the deleted files
+- [x] 8. Repoint citations of the deleted files
 
 **Files:** `.flow/project.md`, `.flow/project-rationale.md`, `.gitignore`, `scripts/check-markdown-integrity.py`, `scripts/check-plan-shape.py`, `scripts/check-task-build-green.py`, `scripts/check-task-build-green.sh`, `scripts/check-task-commit-fields.py`, `scripts/generate-relocation-comparison.py`, `scripts/lib/plan_grammar.py`, `scripts/lib/parallel.sh`, `scripts/plan-dispatch-bundles.py`, `scripts/plan-dispatch-bundles.sh`, `scripts/plan-dispatch-groups.py`, `skills/flow/SKILL.md`, `skills/flow/review-panel.md`, `skills/flow-contracts/SKILL.md`, `skills/flow-contracts/build-green-rationale.md`, `skills/flow-contracts/plan-provenance-guard.md`, `skills/flow-contracts/plan-provenance-guard-rationale.md`, `stats/internal/guard/taskcommitfields.go`
 **Allowed-collateral:** `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `skills/**/*.md`, `stats/internal/records/render_test.go`
@@ -284,7 +300,7 @@ run, on a refused run; `setup.sh` runs with HOME and cwd inside the guard's sand
 
 **Decision:** carry-kan-760-port-decisions
 
-  - [ ] **Step 1: Find.** `grep -rlF -e check-plan-provenance.py -e check-installed-citations.py
+  - [x] **Step 1: Find.** `grep -rlF -e check-plan-provenance.py -e check-installed-citations.py
     -e test-check-plan-provenance.sh -e test-check-installed-citations.sh -e
     test-check-references.sh -e test-check-unfinished-work.sh -e test-check-panel-reproducers.sh
     --exclude-dir=archive --exclude-dir=.worktrees --exclude-dir=node_modules --exclude-dir=.git
@@ -292,13 +308,13 @@ run, on a refused run; `setup.sh` runs with HOME and cwd inside the guard's sand
     declared above: a non-test file in the files field, a harness comment (`scripts/test-*.sh`, `scripts/lib/test-git-shim.sh`,
     `stats/internal/records/render_test.go`) under the collateral globs.
     <!-- measured: this grep, 42 files, 10 of them the port tasks' own, the other 32 in Files: above (plus skills/flow/SKILL.md, step 2) @ 3e48ecac; docs/self-review/ is history, left as is -->
-  - [ ] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it
+  - [x] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it
     cites (`stats/internal/guard/planprovenance.go`, `installedcitations.go`, the
     `check_*_test.go` files); a sentence describing Python or bash plumbing that no longer exists
     is corrected, not repointed. `.flow/project.md`'s "Bash + Python" paragraph states which
     guards are Go now. `skills/flow/SKILL.md`'s sentence that `check-unfinished-work.sh` needs
     `lib/change-plan.sh` as a sibling is corrected to what the shim needs (`lib/flow-guard.sh`).
-  - [ ] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-778-*` and
+  - [x] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-778-*` and
     `docs/self-review/`; every guard in `.flow/project.md`'s `## lint` exits 0.
 
 Correction (2026-09-27): Step 3 declared the grep returns only `spectre/changes/kan-778-*` and
