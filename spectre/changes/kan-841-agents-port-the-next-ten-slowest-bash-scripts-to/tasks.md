@@ -172,7 +172,7 @@ joins **Files:**. Step 5's "through a symlink to it in a temp directory" cannot 
 documented divergence: under a UTF-8 locale macOS awk aborts on invalid UTF-8 and the bash counted
 that file as zero calls; the port checks it (the two agree under `LC_ALL=C`).
 
-- [ ] 4. Port check-guard-symlinks
+- [x] 4. Port check-guard-symlinks
 
 **Files:** `stats/internal/guard/guardsymlinks.go`, `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/check-guard-symlinks.sh`, `scripts/test-check-guard-symlinks.sh`
 **Tests:** `TestCheckGuardSymlinks`
@@ -187,19 +187,19 @@ that file as zero calls; the port checks it (the two agree under `LC_ALL=C`).
 
 **Decision:** shared-helper-go-twins
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-guard-symlinks.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-guard-symlinks.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-guard-symlinks`; link resolution through
+  - [x] **Step 2: Port**, registering `check-guard-symlinks`; link resolution through
     `resolvefile.go` (task 2), coverage through `coverage.go`; every awk program in the body
     (`CITATION_AWK`, `DELEGATE_AWK`, `RULE3_AWK`) ported as Go code with its rule's subtests
     pinning it. Rule 2's sibling derivation, which greps a guard's source for
     `$SCRIPT_DIR/<name>`, keeps reading the Go source for a shimmed guard, as the bash does since
     KAN-760 — now including the ten scripts this change shims.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckGuardSymlinks$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckGuardSymlinks$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckGuardSymlinks/'` — at least 118.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-check-guard-symlinks.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-guard-symlinks.sh` on this tree exits 0 with the same output it printed at
     `d71a2327`, directly and through a symlink to it in a temp directory.
 
@@ -251,7 +251,7 @@ header, GNU grep and `LC_ALL=C` — finds it.
 
 - [ ] 6. Port mutate-and-verify
 
-**Files:** `stats/internal/guard/mutateandverify.go`, `stats/internal/guard/mutate_and_verify_test.go`, `scripts/mutate-and-verify.sh`, `scripts/test-mutate-and-verify.sh`
+**Files:** `stats/internal/guard/mutateandverify.go`, `stats/internal/guard/mutate_and_verify_test.go`, `scripts/mutate-and-verify.sh`, `scripts/test-mutate-and-verify.sh`, `stats/cmd/flow-guard/main.go`, `stats/cmd/flow-guard/main_test.go`
 **Tests:** `TestMutateAndVerify`
 **Regression:** fails if any of the harness's 44 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -279,6 +279,14 @@ header, GNU grep and `LC_ALL=C` — finds it.
     `git rev-parse`); `git rm scripts/test-mutate-and-verify.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/mutate-and-verify.sh`
     with no arguments exits 4 with the usage line it printed at `d71a2327`.
+
+Correction (2026-09-27): `flow-guard`'s own failure path (`os.Getwd` failing) answered
+`cannotAnswer`'s 2, which `mutate-and-verify` reads as "refused"; `cannotAnswer` now returns 4 for
+it, pinned by a row in `TestCannotAnswerIsTheGuardsOwnCode`, so `stats/cmd/flow-guard/main.go` and
+`main_test.go` join **Files:**. Signals: the bash's EXIT trap restored the touched files and
+reported on SIGTERM/SIGHUP before dying of the signal; the port handles SIGHUP/SIGINT/SIGTERM the
+same way and re-raises (pinned through the real shim). On SIGINT it restores at once where
+`/bin/bash` 3.2 waited for the harness — a `ponytail:` comment names it.
 
 - [ ] 7. Port prepare-archive-branch
 
@@ -340,7 +348,7 @@ header, GNU grep and `LC_ALL=C` — finds it.
 
 - [ ] 9. Port check-panel-fix-single-dispatch
 
-**Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `scripts/test-check-panel-fix-single-dispatch.sh`
+**Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `scripts/test-check-panel-fix-single-dispatch.sh`, `stats/internal/guard/guard.go`
 **Tests:** `TestCheckPanelFixSingleDispatch`
 **Regression:** fails if any of the harness's 20 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -365,6 +373,13 @@ header, GNU grep and `LC_ALL=C` — finds it.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-panel-fix-single-dispatch.sh` with no arguments exits 2 with the line it
     printed at `d71a2327`.
+
+Correction (2026-09-27): the guard reads `flow record dispatches` as well as findings, so
+`guard.go` gains an `Env.Dispatches` hook and joins **Files:**. Header and body disagreed on one
+edge: malformed findings JSON on a chunked round exits 5 (or 1) in the body, 2 ("jq … failing")
+in the header. The port follows the header's cannot-answer contract — exit 2, `findings rows were
+not readable JSON -- cannot answer` — surfaced to the operator at the handoff. Dispatch rows given
+as a JSON object (never printed by `flow`) are refused with exit 2 where jq walked its values.
 
 - [ ] 10. Port check-model-keys
 
@@ -396,7 +411,7 @@ header, GNU grep and `LC_ALL=C` — finds it.
 
 - [ ] 11. Port prove-reproducer
 
-**Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`, `scripts/test-prove-reproducer.sh`, `scripts/lib/reproducer-path.sh`
+**Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`, `scripts/test-prove-reproducer.sh`, `scripts/lib/reproducer-path.sh`, `stats/internal/guard/guard.go`
 **Tests:** `TestProveReproducer`
 **Regression:** fails if any of the harness's 8 cases regress.
 **Baseline:** before=0 after=1
@@ -425,6 +440,9 @@ header, GNU grep and `LC_ALL=C` — finds it.
     dropped; `git rm scripts/test-prove-reproducer.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/prove-reproducer.sh`
     with no arguments exits 2 with the usage line it printed at `d71a2327`.
+
+Correction (2026-09-27): `guard.go` gains `Env.Signals` so a test decides when a signal arrives
+(SIGTERM mid-leg removes the scratch and exits 143, as the bash did), and joins **Files:**.
 
 - [ ] 12. Port check-finish-preflight
 
