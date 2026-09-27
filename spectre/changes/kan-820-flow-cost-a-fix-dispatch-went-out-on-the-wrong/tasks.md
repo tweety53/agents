@@ -10,7 +10,7 @@ Merge base: `4a278320` (origin/main). No `spectre/specs/` capability exists for 
 configuration or model policy — `check-spec-reach.sh .` passes with nothing to reach, so no
 spec-edit task exists.
 
-- [ ] 1. Go model-key guard validates the `## model` key
+- [x] 1. Go model-key guard validates the `## model` key
 **Build:** green
 **Files:** `stats/internal/guard/modelkeys.go`, `stats/internal/guard/check_model_keys_test.go`
 **Tests:** `TestCheckModelKeysDispatchKey`
@@ -22,17 +22,17 @@ spec-edit task exists.
 
 **Decision:** project-key-home
 
-  - [ ] **Step 1: RED — write the failing test.** In `stats/internal/guard/check_model_keys_test.go`, add `TestCheckModelKeysDispatchKey` beside the existing test, table-driven over three fixtures of a project root's `.flow/project.md`: body `opus` (present, valid → exit 0), body `gpt-9` (present, invalid → exit 1 naming the key and body), section absent (→ exit 0). Reuse the existing test's fixture and invocation helpers — read them first; the valid set comes from the same source the existing test uses.
-  - [ ] **Step 2: Run it to verify it fails.** Run: `cd stats && go test ./internal/guard/ -run TestCheckModelKeysDispatchKey -count=1 | tail -5`. Expected: FAIL — `## model` is not scanned (modelkeys.go:104 scans only `self review model`).
-  - [ ] **Step 3: GREEN — extend the guard.** Generalize the scanned key set in `stats/internal/guard/modelkeys.go` from the single `const key = "self review model"` to both `self review model` and `model`, keeping one shared code path (loop over a key slice; no per-key duplication). Both keys stay optional and independent: absence of either is exit 0.
-  - [ ] **Step 4: Run the package and the shim.** Run: `cd stats && go test ./internal/guard/ -count=1 | tail -3` (expected PASS, whole package) and `scripts/check-model-keys.sh` (expected exit 0 — this repo declares only `## self review model` today; `## model` absent is valid).
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 1: RED — write the failing test.** In `stats/internal/guard/check_model_keys_test.go`, add `TestCheckModelKeysDispatchKey` beside the existing test, table-driven over three fixtures of a project root's `.flow/project.md`: body `opus` (present, valid → exit 0), body `gpt-9` (present, invalid → exit 1 naming the key and body), section absent (→ exit 0). Reuse the existing test's fixture and invocation helpers — read them first; the valid set comes from the same source the existing test uses.
+  - [x] **Step 2: Run it to verify it fails.** Run: `cd stats && go test ./internal/guard/ -run TestCheckModelKeysDispatchKey -count=1 | tail -5`. Expected: FAIL — `## model` is not scanned (modelkeys.go:104 scans only `self review model`).
+  - [x] **Step 3: GREEN — extend the guard.** Generalize the scanned key set in `stats/internal/guard/modelkeys.go` from the single `const key = "self review model"` to both `self review model` and `model`, keeping one shared code path (loop over a key slice; no per-key duplication). Both keys stay optional and independent: absence of either is exit 0.
+  - [x] **Step 4: Run the package and the shim.** Run: `cd stats && go test ./internal/guard/ -count=1 | tail -3` (expected PASS, whole package) and `scripts/check-model-keys.sh` (expected exit 0 — this repo declares only `## self review model` today; `## model` absent is valid).
+  - [x] **Step 5: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
 cd stats && gofmt -w internal/guard && git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- internal/guard/modelkeys.go internal/guard/check_model_keys_test.go ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "feat(guard): model-keys validates the ## model dispatch key" -m "Task-Id: 1" -- internal/guard/modelkeys.go internal/guard/check_model_keys_test.go
 ```
 
-- [ ] 2. Model resolution resolves the project key; its guard asserts it
+- [x] 2. Model resolution resolves the project key; its guard asserts it
 **Build:** green
 **Files:** `skills/flow/SKILL.md`, `scripts/check-model-resolution-shell.sh`
 **Tests:** `project-model-wins` `project-model-invalid-drops` `store-down-project-wins` `store-null-falls-back`
@@ -44,7 +44,7 @@ cd stats && gofmt -w internal/guard && git reset -q -- spectre/changes/ openspec
 
 **Decision:** resolution-precedence
 
-  - [ ] **Step 1: RED — extend the guard's cases first.** In `scripts/check-model-resolution-shell.sh`, parameterize the default assertion: the `run_case` verdict line becomes `[[ "$got_default" != "${EXPECTED_DEFAULT:-sonnet}" ]]`. Add a fail mode to the `flow` stub — when the case's JSON argument is empty, `settings get` exits 3 (store unreachable). Then add four cases after the existing seven:
+  - [x] **Step 1: RED — extend the guard's cases first.** In `scripts/check-model-resolution-shell.sh`, parameterize the default assertion: the `run_case` verdict line becomes `[[ "$got_default" != "${EXPECTED_DEFAULT:-sonnet}" ]]`. Add a fail mode to the `flow` stub — when the case's JSON argument is empty, `settings get` exits 3 (store unreachable). Then add four cases after the existing seven:
 
 ```bash verified:stub and case shapes mirror the guard's own run_case at merge-base 4a278320, read in this session
 # Case 8: project ## model valid — beats the store's sonnet.
@@ -69,7 +69,7 @@ run_case '{"defaultModel":null,"reviewers":[],"selfReviewModel":""}' \
 EXPECTED_DEFAULT=sonnet
 ```
 
-  - [ ] **Step 2: Run the guard to verify the new cases fail.** Run: `scripts/check-model-resolution-shell.sh | tail -5`. Expected: exit 1 — `project-model-wins`, `store-down-project-wins` and `store-null-falls-back` resolve `sonnet`/wrong today because the block has no project-key arm.
+  - [x] **Step 2: Run the guard to verify the new cases fail.** Run: `scripts/check-model-resolution-shell.sh | tail -5`. Expected: exit 1 — `project-model-wins`, `store-down-project-wins` and `store-null-falls-back` resolve `sonnet`/wrong today because the block has no project-key arm.
 
     Correction (2026-09-28): the plan's case block left `EXPECTED_DEFAULT=opus` set across case 9
     (`project-model-invalid-drops`), whose expected default is the store's `sonnet` — the drop
@@ -77,7 +77,7 @@ EXPECTED_DEFAULT=sonnet
     (opus for `project-model-wins`, sonnet for the drop case, opus for the two fallback cases)
     so each case asserts its own resolution; the plan's single leading assignment would have
     failed the guard's green run.
-  - [ ] **Step 3: GREEN — replace SKILL.md's Model resolution block** (the first ```bash fence under `## Model resolution`) with:
+  - [x] **Step 3: GREEN — replace SKILL.md's Model resolution block** (the first ```bash fence under `## Model resolution`) with:
 
 ```bash unverified:scripts/check-model-resolution-shell.sh extracts and runs this block verbatim once this task's cases land
 SETTINGS_JSON="$(flow settings get)"
@@ -104,8 +104,8 @@ VERIFY_MODEL=opus
 ```
 
     Keep the surrounding prose's fallback paragraph and add one sentence: the resolved source (`project`, `store` or `fallback`) is reported beside the model, per **Model policy**. Do not mention `SELF_REVIEW_MODEL`, `PLANNING_MODEL` or `_TOGGLE` in the block — the guard's drift checks refuse those.
-  - [ ] **Step 4: Run the guard and its sandbox harness.** Run: `scripts/check-model-resolution-shell.sh` (expected exit 0, all 11 cases) and `scripts/test-check-model-resolution-shell.sh | tail -3` (expected pass). Then `scripts/check-markdown-integrity.py` and `scripts/check-references.sh`.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Run the guard and its sandbox harness.** Run: `scripts/check-model-resolution-shell.sh` (expected exit 0, all 11 cases) and `scripts/test-check-model-resolution-shell.sh | tail -3` (expected pass). Then `scripts/check-markdown-integrity.py` and `scripts/check-references.sh`.
+  - [x] **Step 5: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
 git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow/SKILL.md scripts/check-model-resolution-shell.sh ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "feat(scripts): model resolution reads the project key behind the store default" -m "Task-Id: 2" -- skills/flow/SKILL.md scripts/check-model-resolution-shell.sh
