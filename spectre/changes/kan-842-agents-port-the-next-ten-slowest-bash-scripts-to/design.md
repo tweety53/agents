@@ -153,7 +153,7 @@ cover.
 ### Scope: the ten next bash scripts
 
 **ID:** scope-ten-next-scripts
-**Status:** active
+**Status:** superseded in part by `remove-contract-budget-guard`
 **Chosen:** port `check-workspace-isolation`, `check-task-reviewer-single-dispatch`,
 `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`,
 `check-visual-verify-dispatched`, `check-contract-budget`, `check-task-commit-planning-paths` and
@@ -175,7 +175,7 @@ the one place a slip would reach that container, for a tool that is not a guard.
 ### New shared helpers get Go twins; sha256-hex.sh is deleted
 
 **ID:** kan842-helper-twins
-**Status:** active
+**Status:** superseded in part by `remove-contract-budget-guard`
 **Chosen:** per `shared-helper-go-twins`, `lib/panel-touched-paths.sh` and `lib/owned-corpus.sh`
 get Go twins (`paneltouchedpaths.go`, `ownedcorpus.go`) with parity tests running the bash library
 and the Go function over the same inputs; the bash libraries stay. Per
@@ -215,5 +215,27 @@ budget — the Go package becomes the next ceiling unseen.
 base and at the last implementation commit; met when the after median is below the before median;
 the slowest remaining harness is named and the next slice identified.
 **Considered:** record only — no criterion to fail.
+
+### The contract-budget guard is removed
+
+**ID:** remove-contract-budget-guard
+**Status:** active
+**Chosen:** the operator removed the contract-budget guard entirely (`e595f199`, merged into the
+branch): `check-contract-budget` leaves this slice's scope after its port landed — the shim,
+`contractbudget.go` and its tests are deleted — and `lib/owned-corpus.sh` keeps no Go twin, its
+`ownedcorpus.go` and parity test deleted with their only caller; `lib/owned-corpus.sh` stays for
+`check-normative-inventory.sh`. Supersedes those parts of `scope-ten-next-scripts` and
+`kan842-helper-twins`; nine ports remain.
+**Considered:** keeping the guard — the operator judged the per-file byte budget useless.
+
+### check-visual-verify-dispatched parity follows KAN-809
+
+**ID:** visual-verify-parity-follows-main
+**Status:** active
+**Chosen:** origin/main's KAN-809 changed `check-visual-verify-dispatched.sh` after `c5379c0a`;
+the branch merged origin/main (`d09aaaa2`, the operator's choice at the panel's base-movement
+check) and `97c6f38b` ports KAN-809's behaviour, so that guard's parity reference is origin/main's
+bash at `4a278320`, not `c5379c0a` — the one exception to `port-base-moves-into-go`'s base.
+**Considered:** keeping the `c5379c0a` behaviour — the merge would have silently reverted KAN-809.
 
 ## Open questions

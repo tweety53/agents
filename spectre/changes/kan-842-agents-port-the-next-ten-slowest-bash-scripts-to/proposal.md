@@ -9,16 +9,17 @@
 
 ## What changes
 
-- Ten scripts run as Go ports inside `flow-guard`: `check-workspace-isolation`,
+- Nine scripts run as Go ports inside `flow-guard`: `check-workspace-isolation`,
   `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`,
   `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`,
-  `check-contract-budget`, `check-task-commit-planning-paths`, `check-panel-citation-trigger` —
+  `check-task-commit-planning-paths`, `check-panel-citation-trigger` —
   each CLI contract unchanged: arguments, environment overrides, output lines, stdout/stderr
   split, side effects, exit codes.
 - Each `scripts/<name>.sh` becomes a `flow_guard_exec` shim keeping its header; its ten bash
   harnesses are replaced by in-process Go tests, every case ported.
-- `lib/panel-touched-paths.sh` and `lib/owned-corpus.sh` gain Go twins with parity tests; the bash
-  libraries stay for their remaining bash callers.
+- `lib/panel-touched-paths.sh` gains a Go twin with parity tests; the bash library stays for its
+  remaining bash callers.
+- The contract-budget guard is removed (design.md `remove-contract-budget-guard`).
 - `lib/sha256-hex.sh`, whose last bash caller is `plan-class.sh`, is deleted; `sha256.go` already
   holds its Go form.
 - `go test ./internal/guard/...` runs in at most 40s real.
