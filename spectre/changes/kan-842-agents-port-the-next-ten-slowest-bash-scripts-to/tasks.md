@@ -552,7 +552,7 @@ subtest pins the trigger lookup.
     `docs/self-review/` and the Go ports' own history comments; every guard in
     `.flow/project.md`'s `## lint` exits 0.
 
-- [ ] 14. Live verification: after timings and parity
+- [x] 14. Live verification: after timings and parity
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -566,15 +566,15 @@ subtest pins the trigger lookup.
 
 **Decision:** guard-package-under-40s
 
-  - [ ] **Step 1: Suite, after.** Task 1 step 1's command, three times, on the branch head; same
+  - [x] **Step 1: Suite, after.** Task 1 step 1's command, three times, on the branch head; same
     fields recorded.
-  - [ ] **Step 2: Go package, after.** Task 1 step 2's command, three times.
-  - [ ] **Step 3: Parity.** `cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '---
+  - [x] **Step 2: Go package, after.** Task 1 step 2's command, three times.
+  - [x] **Step 3: Parity.** `cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '---
     PASS: Test<Name>/'` per port against its floor in `design.md`.
-  - [ ] **Step 4: Record** an **After** table beside **Before**, same columns, each figure tagged
+  - [x] **Step 4: Record** an **After** table beside **Before**, same columns, each figure tagged
     `measured:` with the command and
     `@ branch spectre/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to`; name the slowest
     remaining harness and the next slice.
-  - [ ] **Step 5: Judge.** Failure looks like: suite median not below the Before median; any
+  - [x] **Step 5: Judge.** Failure looks like: suite median not below the Before median; any
     port's `--- PASS` count below its floor; the Go package median above 40s real; any harness
     red. Any of these is reported, not recorded as success.

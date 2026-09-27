@@ -98,13 +98,41 @@ its floor.
 
 <!-- measured: cd stats && go test ./internal/guard/ -count=1 -v, exit 0, grep -c per port @ branch spectre/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to -->
 
-Judgement: `suite-median-below-before` **not met** (69.27s against 69.20s);
-`guard-package-under-40s` **not met** (51.14s median). Load was 18–28 through every run.
-The suite's wall is bound by `test-setup.sh` and `test-go-guards.sh`, both 62–68s, which the ten
-retired harnesses never were, so removing them left the median unmoved; `test-go-guards.sh` runs
-the Go package, which grew with the ports, so the Go package is now the suite's critical path.
-Slowest remaining harness: `test-go-guards.sh`. Next slice: the Go package's wall time and
-`test-setup.sh`, not further bash ports.
+First judgement: `suite-median-below-before` not met (69.27s against 69.20s);
+`guard-package-under-40s` not met (51.14s median), load 18–28 through every run. The Go package,
+which `test-go-guards.sh` runs, had become the suite's critical path: its tests held parallel slots
+idle behind a per-case `sync.OnceValues`, paid macOS's `/usr/bin/git` xcrun trampoline on every
+fixture call, rebuilt `flow-guard` per test, and ran the 33-run workspace-isolation parity loop
+serially. `9a6aa00a` fixes each at the source, test files only, every case kept.
+
+**Re-measured after `9a6aa00a`** — Before (`@ c5379c0a`) and After
+(`@ branch spectre/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to`) run back to back on
+the same machine:
+
+| Run | load before (1/5/15) | suite real/user/sys | slowest five | Go pkg load | Go pkg real/user/sys |
+|---|---|---|---|---|---|
+| Before 1 | 8.12 7.76 9.70 | 64.68 / 106.93 / 146.30 | go-guards 63s, setup 49s, compose-mockup-frames 28s, check-plan-shape 27s, check-task-reviewer-single-dispatch 20s | 22.14 12.94 11.43 | 27.41 / 33.54 / 53.87 |
+| Before 2 | 11.64 9.14 10.09 | 52.38 / 109.48 / 153.41 | setup 50s, go-guards 49s, check-plan-shape 24s, compose-mockup-frames 21s, check-task-reviewer-single-dispatch 18s | 17.77 12.79 11.43 | 24.60 / 34.22 / 54.42 |
+| Before 3 | 17.20 10.86 10.66 | 55.16 / 106.14 / 149.05 | go-guards 53s, setup 46s, check-plan-shape 26s, lib-flow-guard 24s, check-visual-verify-dispatched 20s | 17.01 13.03 11.55 | 25.83 / 33.32 / 53.28 |
+| **Before median** | | **55.16** (69 harnesses, all exit 0) | | | **25.83** |
+| After 1 | 17.77 13.59 11.80 | 45.21 / 100.10 / 141.07 | setup 45s, go-guards 44s, lib-flow-guard 22s, check-plan-shape 20s, compose-mockup-frames 18s | 26.63 18.64 14.10 | 27.16 / 38.51 / 67.12 |
+| After 2 | 21.52 15.10 12.44 | 46.99 / 101.16 / 141.36 | setup 46s, go-guards 43s, compose-mockup-frames 38s, generate-relocation-comparison 21s, check-plan-shape 20s | 22.62 18.28 14.09 | 27.64 / 37.11 / 66.24 |
+| After 3 | 25.75 17.14 13.33 | 46.11 / 101.59 / 142.89 | setup 45s, go-guards 43s, compose-mockup-frames 25s, check-plan-shape 25s, measure-visual-properties 22s | 16.99 17.35 13.90 | 27.05 / 37.81 / 67.88 |
+| **After median** | | **46.11** (59 harnesses, all exit 0) | | | **27.16** |
+
+<!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p scripts/run-guard-tests.sh x3; cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1 x3; sysctl -n vm.loadavg before each; @ c5379c0a then @ branch spectre/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to (9a6aa00a) -->
+
+Parity after `9a6aa00a`: CheckWorkspaceIsolation 195, CheckTaskReviewerSingleDispatch 27,
+RecoverGuardIncident 151, PlanClass 31, CheckInstalledRules 22, ResolveBaseBranch 52,
+CheckVisualVerifyDispatched 41, CheckContractBudget 45, CheckTaskCommitPlanningPaths 19,
+CheckPanelCitationTrigger 25 — each at or above its floor, 0 FAIL.
+
+<!-- measured: cd stats && go test ./internal/guard/ -count=1 -v, exit 0, grep -c -- '--- PASS: Test<Name>/' per port @ branch spectre/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to (9a6aa00a) -->
+
+Judgement: `suite-median-below-before` **met** (46.11s against 55.16s);
+`guard-package-under-40s` **met** (27.16s). Slowest remaining harness: `test-setup.sh` (45–46s),
+with `test-go-guards.sh` beside it (43–44s). Next slice: `test-setup.sh`'s wall time, then the Go
+package's, not further bash ports.
 
 ## Decisions
 
