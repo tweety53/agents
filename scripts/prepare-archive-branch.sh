@@ -35,7 +35,13 @@
 #            read it as an option.
 #   Exit 2   Cannot answer — an argument is missing, <landing-worktree> could
 #            not be created when absent, or — once positioned as a worktree —
-#            is unreadable or not a git worktree, HEAD's own ref cannot be
+#            is unreadable or not a git worktree, is not ITSELF a git
+#            worktree (its directory carries no .git entry of its own, so
+#            the resolution walked up out of it — step 2c), is a worktree of
+#            a different repository than the main checkout above its
+#            .worktrees parent (step 2c), the working tree state cannot be
+#            read — before the branch moves, or on the post-run recompute —,
+#            HEAD's own ref cannot be
 #            read, or a `git checkout` this script performs fails: moving to
 #            <base>, reusing an existing <archive-branch>, or creating it.
 #            These are exit 2 rather than exit 1 because a checkout or
@@ -85,6 +91,18 @@
 #      skipped entirely and every check below runs against it unchanged,
 #      exactly as it always has against what used to be called
 #      <main-checkout>.
+#   2c. Assert the landing directory is itself a git worktree of the right
+#      repository, before any further `git -C` run. `git -C <landing>`
+#      resolves by walking up: a `_landing-<name>` a daemon recreated as a
+#      plain directory inside the main checkout's tree resolves there, and
+#      every later step would act on the main checkout, whose stale tree the
+#      chain then found only through the dirty-tree refusal (KAN-823's
+#      incident). So the landing root must carry its own .git entry —
+#      anything the resolution reached by walking up does not — and, when
+#      its parent is `.worktrees` (the construction this script creates
+#      under), its common directory must be the main checkout's, resolved
+#      as in step 2b. Off that construction no repository is compared
+#      against and none is guessed.
 #   3. Confirm 'origin' exists, then run the bounded, credential-free fetch
 #      (WHY THE FETCH IS WRAPPED, below).
 #   4. Read HEAD. Detached -> exit 1.
