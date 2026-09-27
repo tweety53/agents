@@ -15,3 +15,11 @@
   - F4's reproducer hardcoded Go line numbers instead of reading the KNOWN-BUGS citations. It was re-authored by the parent and proved on both legs.
   - Five Minors were deferred to KNOWN-BUGS.md.
 - Verify: the guard-tests harness took 70s wall this run, against 49s at the sdd-tdd close.
+
+## 2026-09-27 — integrate run
+
+- Preflight `RUN1`; main checkout `STAGED-CLEAN`/`DRIFT-CLEAN` (its untracked `skills/flow/scripts/guard-autosquash.sh` belongs to the separate `fix/guard-autosquash-symlink` worktree and trips `check-guard-symlinks.sh` rule 6 there — unrelated to this change).
+- Unfinished-work gate `CLEAR`; visual verify `VISUAL-VERIFY-OK` (no UI paths).
+- `check-base-moved.sh` `CLEAR` — no rebase needed.
+- Route `merge and push`, taken from the project's configured default, not asked.
+- First `flow state get` call failed with usage exit 2: flags must precede the change name (`-C` after the name is rejected).
