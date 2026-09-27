@@ -235,6 +235,9 @@ bash blocked; a failed `flow record decisions` call and output that is not JSON 
 `jq empty` gate) still read as `big`, as in the bash. The header's sentences are corrected to match. The `flow record decisions` read has no `Env` hook (`dispatches-via-env-hook`
 names dispatches only) and execs `flow` on PATH through `pcFlow`; tests run with no `flow` on PATH,
 except the cases that put a stub `flow` there.
+Panel round 1 (F6, F7, `2100f149`): the two siblings now run under `LC_ALL=C`, as the bash exported
+it — pinned by the subtest "plan-dispatch siblings run under LC_ALL=C" — and the `FLOW_GUARD_SELF`
+resolution is `guardSelfDir`, shared with task 9's guard.
 
 - [x] 5. Port recover-guard-incident
 
@@ -318,6 +321,9 @@ A NUL byte anywhere in the tasks file, or invalid UTF-8 on a `**Files:**` line u
 pipeline print "Binary file … matches" and leave the list empty: `files=0`, `migration=no`,
 `spec=no`, never micro, and a class that can differ (measured `small` in the bash, `regular` in the
 port). The port reads the `**Files:**` union for all of them, as the header defines `files` — pinned by a port subtest in `c4824102`.
+Panel round 1 (F5, `a423e11e`): the shim drops the two `FLOW_GUARD_REPO_ROOT` lines — the bash
+derived only its `lib/` sourcing path from `$SCRIPT_DIR`, and no Go code `plan-class` runs reads the
+variable.
 
 - [x] 7. Port check-installed-rules
 
@@ -354,6 +360,12 @@ the sibling ports. Untested edges differ: a directory as `CHECK_INSTALLED_RULES_
 different refusal line (both exit 1), and glob characters in a `managed_files` element are not
 expanded. An unset `HOME` with no override first read as empty (a green verdict where the bash died
 under `set -u`, exit 1); fix commit `f5d76c2f` refuses it, exit 1, pinned by a port subtest.
+
+Correction (2026-09-28, panel F3): with a relative `CHECK_INSTALLED_RULES_HOME` the port answers
+per the script's header contract (OK on a correct install), where the `c5379c0a` bash answered
+STALE (exit 1) for every relative value — it ran `readlink` on the relative link path after `cd`ing
+into the link's directory. The divergence is deliberate: the bash behaviour contradicts its own
+header, and the override is a test-only knob.
 
 - [x] 8. Port resolve-base-branch
 

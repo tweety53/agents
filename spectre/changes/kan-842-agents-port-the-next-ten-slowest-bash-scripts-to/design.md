@@ -124,8 +124,9 @@ the same machine:
 
 Parity after `9a6aa00a`: CheckWorkspaceIsolation 195, CheckTaskReviewerSingleDispatch 27,
 RecoverGuardIncident 151, PlanClass 31, CheckInstalledRules 22, ResolveBaseBranch 52,
-CheckVisualVerifyDispatched 41, CheckContractBudget 45, CheckTaskCommitPlanningPaths 19,
-CheckPanelCitationTrigger 25 — each at or above its floor, 0 FAIL.
+CheckVisualVerifyDispatched 41, CheckContractBudget 45 (the test was deleted with the guard,
+`e595f199`), CheckTaskCommitPlanningPaths 19, CheckPanelCitationTrigger 25 — each at or above its
+floor, 0 FAIL. Superseded by the HEAD figures below.
 
 <!-- measured: cd stats && go test ./internal/guard/ -count=1 -v, exit 0, grep -c -- '--- PASS: Test<Name>/' per port @ branch spectre/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to (9a6aa00a) -->
 
@@ -133,6 +134,41 @@ Judgement: `suite-median-below-before` **met** (46.11s against 55.16s);
 `guard-package-under-40s` **met** (27.16s). Slowest remaining harness: `test-setup.sh` (45–46s),
 with `test-go-guards.sh` beside it (43–44s). Next slice: `test-setup.sh`'s wall time, then the Go
 package's, not further bash ports.
+
+**Re-measured at HEAD `2100f149`** — after the origin/main merge (`d09aaaa2`), the KAN-809 port
+(`97c6f38b`), the contract-budget removal (`e595f199`) and panel round 1's fixes. The figures above
+predate all four.
+
+Parity: CheckWorkspaceIsolation 195 (152), CheckTaskReviewerSingleDispatch 28 (11),
+RecoverGuardIncident 151 (67), PlanClass 31 (25), CheckInstalledRules 22 (20),
+ResolveBaseBranch 52 (39), CheckVisualVerifyDispatched 80 (18), CheckTaskCommitPlanningPaths 19
+(19), CheckPanelCitationTrigger 25 (24) — nine ports, each at or above its floor, 0 FAIL.
+
+<!-- measured: cd stats && go test ./internal/guard/ -count=1 -v, exit 0, grep -c -- '--- PASS: Test<Name>/' per port, grep -c -- '--- FAIL' 0 @ 2100f149 -->
+
+| Run | load before (1/5/15) | Go pkg real/user/sys | control `9a6aa00a` load | control real/user/sys |
+|---|---|---|---|---|
+| 1 | 15.56 10.63 11.34 | 63.52 / 51.96 / 88.56 | | |
+| 2 | 24.91 13.94 12.51 | 90.76 / 49.93 / 84.28 | | |
+| 3 | 44.49 23.19 16.21 | 49.90 / 50.15 / 84.22 | | |
+| 4 | 29.86 23.50 16.87 | 65.76 / 49.28 / 81.95 | 38.34 26.70 18.52 | 90.76 / 57.74 / 83.53 |
+| 5 | 34.37 28.77 20.16 | 44.88 / 50.27 / 83.47 | 30.23 28.47 20.49 | 63.19 / 51.83 / 86.07 |
+| 6 | 33.13 29.35 21.39 | 124.23 / 52.43 / 89.60 | 56.74 39.62 26.54 | 66.84 / 51.08 / 85.62 |
+| **median** | | **64.64** (runs 1–6); **63.52** (runs 1–3) | | **66.84** |
+
+<!-- measured: cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1, sysctl -n vm.loadavg before each, all exit 0; runs 1–3 back to back @ 2100f149, runs 4–6 interleaved with a detached 9a6aa00a worktree @ 2100f149 and 9a6aa00a -->
+
+Judgement at HEAD: `guard-package-under-40s` **not confirmed** — every run exceeded 40s, under load
+15–57 from other work on this machine (webpack, headless Chromium). The `9a6aa00a` control, which
+measured 27.16s at load 17–27 above, ran 63–91s interleaved with HEAD's runs, so the load, not the
+four later commits, sets these figures; the budget needs a re-take on a quiet machine.
+`suite-median-below-before` was not re-taken (suite re-timing not required this round).
+
+Once every guard is in Go, a later slice drops the `scripts/<name>.sh` shims and calls
+`flow-guard <name>` directly: the build-on-demand `lib/flow-guard.sh` performs moves into the `flow`
+CLI or `setup.sh`, every caller in skills, contracts and `.flow/project.md` is repointed, and the
+invoked-path hint (`FLOW_GUARD_SELF`) becomes an explicit argument — the shims exist only so the
+ports changed no caller, and cost one bash start-up plus a source hash per call.
 
 ## Decisions
 
