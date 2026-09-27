@@ -190,6 +190,11 @@ did). Telling a set-but-empty `CHECK_REFERENCES_ROOT` from an unset one needs `E
 `**Files:**`. File and path-set order is collated by exec'ing `sort` under the caller's locale, as the
 bash's `sort`/`sort -u` did.
 
+Correction (2026-09-27): an unreadable file in the scan set exited 1 at `3e48ecac` — the read loop's
+redirect failing under `set -e`, with only bash's own error on stderr — an accident, not the contract. The
+port refuses with 2, this guard's cannot-answer code, and names the file (`check-references: cannot read
+<file>: …`); a subtest pins it.
+
 - [ ] 6. Port check-plan-provenance
 
 **Files:** `stats/internal/guard/planprovenance.go`, `stats/internal/guard/check_plan_provenance_test.go`, `scripts/check-plan-provenance.sh`, `scripts/check-plan-provenance.py`, `scripts/test-check-plan-provenance.sh`
@@ -229,7 +234,7 @@ lose their measured figure, and eight python3-interpreter cases become their mis
 `go` equivalents run through the real shim (KAN-760's case-56 precedent); one case is added (shim
 default root). Every Python pattern using lookaround or Unicode `\s`/`\w` was rewritten as code.
 
-- [ ] 7. Port check-installed-citations
+- [x] 7. Port check-installed-citations
 
 **Files:** `stats/internal/guard/installedcitations.go`, `stats/internal/guard/check_installed_citations_test.go`, `scripts/check-installed-citations.sh`, `scripts/check-installed-citations.py`, `scripts/test-check-installed-citations.sh`
 **Tests:** `TestCheckInstalledCitations`
@@ -243,18 +248,18 @@ default root). Every Python pattern using lookaround or Unicode `\s`/`\w` was re
 **Decision:** scope-five-next-guards
 **Decision:** coverage-go-twin
 
-  - [ ] **Step 1: Failing test.** Port every case, one subtest per `ok:` label. Run — expect
+  - [x] **Step 1: Failing test.** Port every case, one subtest per `ok:` label. Run — expect
     failure.
-  - [ ] **Step 2: Port** the Python classifier and the wrapper's coverage handling into one Go
+  - [x] **Step 2: Port** the Python classifier and the wrapper's coverage handling into one Go
     guard, registering `check-installed-citations`: the sentinel-prefix hand-off between `.py`
     and `.sh` disappears; coverage is decided in-process through `coverage.go`, and the sandbox
     `mkdtemp`/subprocess the classifier runs becomes `os.MkdirTemp`/`exec.Command` with the same
     arguments and cleanup.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckInstalledCitations$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckInstalledCitations$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckInstalledCitations/'` — at least 61.
-  - [ ] **Step 4: Shim and delete** — shim template (the wrapper/sentinel paragraphs in the header
+  - [x] **Step 4: Shim and delete** — shim template (the wrapper/sentinel paragraphs in the header
     go); `git rm scripts/check-installed-citations.py scripts/test-check-installed-citations.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-installed-citations.sh` on this tree exits 0 with the same member counts it
     printed at base.
 
@@ -295,6 +300,13 @@ run, on a refused run; `setup.sh` runs with HOME and cwd inside the guard's sand
     `lib/change-plan.sh` as a sibling is corrected to what the shim needs (`lib/flow-guard.sh`).
   - [ ] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-778-*` and
     `docs/self-review/`; every guard in `.flow/project.md`'s `## lint` exits 0.
+
+Correction (2026-09-27): Step 3 declared the grep returns only `spectre/changes/kan-778-*` and
+`docs/self-review/`; it also returns the Go ports' own headers and tests, which name the deleted
+`.py` files and harnesses as the history they were ported from, pinned to `3e48ecac` (KAN-760's
+`flow-guard-binary-rationale-in-go`), and `check_panel_reproducers_test.go`'s fixture string. Those
+hits are intended. Beyond Step 1's grep, the sweep also corrected statements the grep cannot match:
+libraries and harness comments still naming a ported guard as a caller that sources them.
 
 - [ ] 9. Live verification: after timings and parity
 
