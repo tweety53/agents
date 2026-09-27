@@ -73,6 +73,29 @@
 # verifier from a dead one. See **The return** (skills/flow/implement.md)
 # for why only `completed` closes a dispatch's own story.
 #
+# THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY — the
+# habit stats/internal/guard/unfinishedwork.go already carries, mirrored
+# here in bash. Once the dispatch check has reached one of its two
+# store-evidence verdicts (the OK above, or the MISSING below), the guard
+# records the line verbatim — `flow record verdict -change <name> -guard
+# check-visual-verify-dispatched -worktree <worktree> -verdict "<line>"
+# -C <worktree>` — with the write's stdout, stderr and exit code all
+# discarded: a store outage can neither move the verdict nor change the
+# exit code, and a store that refuses the row leaves the gate exactly as
+# it printed it. The recorded rows are what make an operator's
+# hand-verified override land at all: `flow record verdict false-positive
+# -guard check-visual-verify-dispatched` refuses a (change, guard) pair
+# the store holds no verdict row for (KAN-809's second break — the
+# override path the gate's refusal names refused the very verdict the
+# operator had just hand-verified), and on MISSING the guard reads those
+# prior false positives back (`flow record verdicts -guard ...
+# -false-positive`) and prints the same advisory stderr hint
+# unfinished-work prints — skipped on any failure or an empty array,
+# never moving the verdict — so the next run reads the override where it
+# was written. The two trigger-side verdicts (`not configured`, `no UI
+# paths touched`) fire before the store read in the guard's own code
+# order, record nothing, and stay store-free.
+#
 # NO PROJECT NEEDS A ROW PER WORKTREE. A cross-repo change resolves more
 # than one worktree, and flow.visual-verify dispatches once per worktree in
 # its own resolved set (**Visual verification**, verify-and-handoff.md, steps 1–2) —
@@ -167,10 +190,45 @@ MATCH_COUNT="$(printf '%s' "$ROWS" | jq \
      )
    )] | length')"
 
+# record_verdict <line> -- one guard's verdict row, the habit
+# unfinishedwork.go carries. The write's result is discarded: a store
+# outage can neither move the verdict nor change the exit code, and a
+# store that refuses the row leaves the gate exactly as it printed it.
+record_verdict() {
+  flow record verdict \
+    -change "$NAME" \
+    -guard check-visual-verify-dispatched \
+    -worktree "$WORKTREE" \
+    -verdict "$1" \
+    -C "$WORKTREE" >/dev/null 2>&1 || true
+}
+
+# prior_false_positives_hint <verdicts-json> -- the advisory stderr hint
+# unfinishedwork.go prints, skipped on any failure or an empty array:
+# a gate that cannot fire without a store must never block on a hint.
+prior_false_positives_hint() {
+  vv_n=""
+  vv_n="$(printf '%s' "$1" | jq 'if type == "array" then length else empty end' 2>/dev/null)" || return 0
+  case "$vv_n" in
+    ''|*[!0-9]*) return 0 ;;
+  esac
+  [ "$vv_n" -ge 1 ] || return 0
+  vv_last="$(printf '%s' "$1" | jq -r '(.[0].falsePositiveReason // "") + " (" + (.[0].change // "") + ", " + ((.[0].flaggedAt // "") | tostring | .[0:10]) + ")"' 2>/dev/null)" || vv_last=""
+  printf 'check-visual-verify-dispatched: prior false positives for this guard on this project: %s — last: %s\n' "$vv_n" "$vv_last" >&2
+}
+
 if [ "$MATCH_COUNT" -ge 1 ]; then
-  echo "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '$NAME'"
+  VV_VERDICT="VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '$NAME'"
+  record_verdict "$VV_VERDICT"
+  echo "$VV_VERDICT"
   exit 0
 fi
 
-echo "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '$NAME' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
+VV_VERDICT="VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '$NAME' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
+record_verdict "$VV_VERDICT"
+if PRIOR="$(flow record verdicts -guard check-visual-verify-dispatched -false-positive -C "$WORKTREE" 2>/dev/null)"; then
+  prior_false_positives_hint "$PRIOR"
+fi
+echo "$VV_VERDICT"
+exit 1
 exit 1

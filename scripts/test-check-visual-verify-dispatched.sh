@@ -126,16 +126,55 @@ STUB
       rows="$store"
       cat > "$WT/bin/flow" <<STUB
 #!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$WT/bin/calls.log"
 if [ "\${1:-}" = record ] && [ "\${2:-}" = dispatches ]; then
   cat "$WT/bin/dispatches.json"
+  exit 0
+fi
+if [ "\${1:-}" = record ] && [ "\${2:-}" = verdict ]; then
+  printf '%s\n' "\$*" >> "$WT/bin/verdicts.log"
+  exit 0
+fi
+if [ "\${1:-}" = record ] && [ "\${2:-}" = verdicts ]; then
+  cat "$WT/bin/flags.json"
   exit 0
 fi
 echo "stub flow: unexpected invocation: \$*" >&2
 exit 2
 STUB
       printf '%s' "$rows" > "$WT/bin/dispatches.json"
+      printf '[]\n' > "$WT/bin/flags.json"
+      : > "$WT/bin/calls.log"
+      : > "$WT/bin/verdicts.log"
       ;;
   esac
+  chmod +x "$WT/bin/flow"
+}
+
+# flag_json <reason> <change> <flaggedAt> -- one false-positive verdict
+# row, the shape `flow record verdicts -false-positive` serves.
+flag_json() {
+  jq -nc '[{falsePositive: true, falsePositiveReason: $r, change: $c, flaggedAt: $t}]' \
+    --arg r "$1" --arg c "$2" --arg t "$3"
+}
+
+# refuse_verdict_writes -- overwrites the sandbox's stub `flow` so the
+# verdict write itself fails (a store that refuses the row), while the
+# dispatches read still answers.
+refuse_verdict_writes() {
+  cat > "$WT/bin/flow" <<STUB
+#!/usr/bin/env bash
+if [ "\${1:-}" = record ] && [ "\${2:-}" = dispatches ]; then
+  cat "$WT/bin/dispatches.json"
+  exit 0
+fi
+if [ "\${1:-}" = record ] && [ "\${2:-}" = verdict ]; then
+  echo "stub flow: refused" >&2
+  exit 1
+fi
+echo "stub flow: unexpected invocation: \$*" >&2
+exit 2
+STUB
   chmod +x "$WT/bin/flow"
 }
 
@@ -330,6 +369,113 @@ OUT="$(PATH="$WT/bin:$PATH" "$GUARD" "$WT" ../evil "$BASE" 2>&1)"; RC=$?
 set -e
 [ "$RC" -eq 2 ] && pass "case 8f: a change name outside the allowlist exits 2" \
   || fail "case 8f: rc=$RC out=$OUT"
+
+# ---------------------------------------------------------------------------
+# 9. The verdict is recorded on both store-evidence verdicts — the OK that
+#    a dispatch row backs, and the MISSING — each as one `flow record
+#    verdict` call naming this guard, the change, the worktree and the
+#    verdict line verbatim (KAN-809's second break: without the row, the
+#    operator's `flow record verdict false-positive` is refused outright).
+# ---------------------------------------------------------------------------
+make_wt "$(dispatch_json visual-verify-wt2 verifier completed)" declare-section
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 0 ] || fail "case 9a: rc=$RC out=$OUT"
+[ "$(wc -l < "$WT/bin/verdicts.log" | tr -d ' ')" -eq 1 ] \
+  && pass "case 9a: exactly one verdict row recorded on OK" \
+  || fail "case 9a: verdict rows: $(cat "$WT/bin/verdicts.log")"
+case "$(cat "$WT/bin/verdicts.log")" in
+  *"record verdict -change demo -guard check-visual-verify-dispatched -worktree"*"VISUAL-VERIFY-OK:"*)
+    pass "case 9a: the recorded row names guard, change, worktree and verdict" ;;
+  *) fail "case 9a: unexpected verdict row: $(cat "$WT/bin/verdicts.log")" ;;
+esac
+
+make_wt "$(dispatch_json visual-verify verifier aborted)" declare-section
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 1 ] || fail "case 9b: rc=$RC out=$OUT"
+case "$(cat "$WT/bin/verdicts.log")" in
+  *"record verdict -change demo -guard check-visual-verify-dispatched"*"VISUAL-VERIFY-MISSING:"*)
+    pass "case 9b: the MISSING verdict is recorded too" ;;
+  *) fail "case 9b: no recorded MISSING row: $(cat "$WT/bin/verdicts.log")" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 10. The trigger-side verdicts record nothing — both fire before the
+#     store read in the guard's own code order, and neither the dispatches
+#     read nor the verdict write is ever invoked on those paths.
+# ---------------------------------------------------------------------------
+make_wt "[]" plain
+touch_paths "docs/note.md"
+run_guard
+[ "$RC" -eq 0 ] || fail "case 10a: rc=$RC out=$OUT"
+[ ! -s "$WT/bin/calls.log" ] \
+  && pass "case 10a: the not-configured verdict invokes no store call at all" \
+  || fail "case 10a: store calls on a store-free path: $(cat "$WT/bin/calls.log")"
+
+make_wt "[]" declare-section
+touch_paths "docs/note.md"
+run_guard
+[ "$RC" -eq 0 ] || fail "case 10b: rc=$RC out=$OUT"
+[ ! -s "$WT/bin/calls.log" ] \
+  && pass "case 10b: the no-UI-paths verdict invokes no store call at all" \
+  || fail "case 10b: store calls on a store-free path: $(cat "$WT/bin/calls.log")"
+
+# ---------------------------------------------------------------------------
+# 11. On MISSING, a recorded false positive for this guard prints the same
+#     advisory stderr hint unfinished-work prints; an empty flag array
+#     prints nothing. The hint never moves the verdict or the exit code.
+# ---------------------------------------------------------------------------
+make_wt "[]" declare-section
+printf '%s' "$(flag_json "the verifier ran; the mark was lost to a session restart" demo 2026-09-20T14:00:00Z)" > "$WT/bin/flags.json"
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 1 ] || fail "case 11a: rc=$RC out=$OUT"
+case "$OUT" in
+  *"prior false positives for this guard on this project: 1 — last: the verifier ran; the mark was lost to a session restart (demo, 2026-09-20)"*)
+    pass "case 11a: the advisory hint names count, reason, change and date" ;;
+  *) fail "case 11a: no advisory hint: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"VISUAL-VERIFY-MISSING:"*) pass "case 11a: the verdict still prints" ;;
+  *) fail "case 11a: hint displaced the verdict: out=$OUT" ;;
+esac
+
+make_wt "[]" declare-section
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 1 ] || fail "case 11b: rc=$RC out=$OUT"
+case "$OUT" in
+  *"prior false positives"*) fail "case 11b: hint printed on an empty flag array: out=$OUT" ;;
+  *) pass "case 11b: no hint on an empty flag array" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 12. A store that refuses the verdict write moves nothing: the verdict
+#     line and the exit code are exactly what the dispatch evidence
+#     decided (the write's result is discarded, never read).
+# ---------------------------------------------------------------------------
+make_wt "$(dispatch_json visual-verify verifier completed)" declare-section
+touch_paths "app/src/Widget.tsx"
+refuse_verdict_writes
+run_guard
+[ "$RC" -eq 0 ] && pass "case 12a: a refused write leaves the OK verdict standing" \
+  || fail "case 12a: rc=$RC out=$OUT"
+case "$OUT" in
+  VISUAL-VERIFY-OK:*) pass "case 12a: the verdict is intact" ;;
+  *) fail "case 12a: verdict displaced by the refused write: out=$OUT" ;;
+esac
+
+make_wt "$(dispatch_json visual-verify reviewer completed)" declare-section
+touch_paths "app/src/Widget.tsx"
+refuse_verdict_writes
+run_guard
+[ "$RC" -eq 1 ] && pass "case 12b: a refused write leaves the MISSING verdict standing" \
+  || fail "case 12b: rc=$RC out=$OUT"
+case "$OUT" in
+  VISUAL-VERIFY-MISSING:*) pass "case 12b: the verdict is intact" ;;
+  *) fail "case 12b: verdict displaced by the refused write: out=$OUT" ;;
+esac
 
 # ---------------------------------------------------------------------------
 if [ "$FAILURES" -ne 0 ]; then
