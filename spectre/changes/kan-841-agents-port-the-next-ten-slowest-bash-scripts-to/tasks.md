@@ -140,7 +140,7 @@ written a second time, so `gatherdispatch.go` joins **Files:**. `project_section
 file is left without a parity row: bash prints `cat`'s error, the twin prints nothing, and every
 caller checks existence first.
 
-- [ ] 3. Port check-stage-mark-calls
+- [x] 3. Port check-stage-mark-calls
 
 **Files:** `stats/internal/guard/stagemarkcalls.go`, `stats/internal/guard/check_stage_mark_calls_test.go`, `stats/internal/guard/guard.go`, `scripts/check-stage-mark-calls.sh`, `scripts/test-check-stage-mark-calls.sh`
 **Tests:** `TestCheckStageMarkCalls`
@@ -153,16 +153,16 @@ caller checks existence first.
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-stage-mark-calls.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-stage-mark-calls.sh`,
     one subtest per `ok:` label; fixtures are small trees in `t.TempDir()`. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-stage-mark-calls`; per-member coverage through
+  - [x] **Step 2: Port**, registering `check-stage-mark-calls`; per-member coverage through
     `coverage.go`; the stage-key set it reads from the stats Go sources (`go` calls in the body)
     read the same way.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckStageMarkCalls$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckStageMarkCalls$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckStageMarkCalls/'` — at least 74.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-check-stage-mark-calls.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-stage-mark-calls.sh` on this tree exits 0 with the same output it printed at
     `d71a2327`, directly and through a symlink to it in a temp directory.
 
@@ -207,9 +207,11 @@ Correction (2026-09-27): step 2's premise was false — at `d71a2327` rule 2 rea
 `scripts/<guard>`, which for a shimmed guard is the shim, not its Go source, and no KAN-760 commit
 changed that. The port keeps the bash behaviour (parity): a shimmed guard contributes no
 `$SCRIPT_DIR/` siblings. The task-4 review found the citation, rule 3 and delegation scans read past
-a NUL where the bash's awk ended the line; fixed to parity and pinned against the live bash.
+a NUL where the bash's awk ended the line; fixed to parity and pinned against the live bash. A NUL
+in a rule-4 guard source still differs on stderr only: bash adds its own `ignored null byte`
+warning naming the script's path, which a Go binary cannot emit.
 
-- [ ] 5. Port check-dispatch-paragraphs
+- [x] 5. Port check-dispatch-paragraphs
 
 **Files:** `stats/internal/guard/dispatchparagraphs.go`, `stats/internal/guard/check_dispatch_paragraphs_test.go`, `scripts/check-dispatch-paragraphs.sh`, `scripts/test-check-dispatch-paragraphs.sh`
 **Tests:** `TestCheckDispatchParagraphs`
@@ -222,19 +224,19 @@ a NUL where the bash's awk ended the line; fixed to parity and pinned against th
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-dispatch-paragraphs.sh`
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-dispatch-paragraphs.sh`
     (3542 lines), one subtest per `ok:` label, grouped into table-driven subtests by the harness's
     own sections. Run — expect failure.
     <!-- measured: wc -l < scripts/test-check-dispatch-paragraphs.sh @ d71a2327 -->
-  - [ ] **Step 2: Port**, registering `check-dispatch-paragraphs`; the site table (`SITE_PATHS`,
+  - [x] **Step 2: Port**, registering `check-dispatch-paragraphs`; the site table (`SITE_PATHS`,
     `SITE_VARIANTS`, `SITE_MIN_BLOCKS`, `ENTRY_*`) becomes a Go table in the same order;
     `CHECK_DISPATCH_PARAGRAPHS_ROOT` and `CHECK_GUARD_SYMLINKS_ROOT` overrides kept, set-but-empty
     told from unset through `Env.LookupEnv`.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckDispatchParagraphs$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckDispatchParagraphs$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckDispatchParagraphs/'` — at least 183.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-check-dispatch-paragraphs.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-dispatch-paragraphs.sh` on this tree exits 0 with the same output it printed at
     `d71a2327`.
 
