@@ -30,3 +30,12 @@
   prescription for the sdd-stage fix round; auto-resolved Continue, recorded.
 - Store hiccup: one stage-end write journalled mid-run (`store unreachable` warning, exit 0);
   per the state contract the journal replays.
+
+## 2026-09-28 — integrate run
+
+- Preflight RUN1; unfinished-work gate CLEAR; visual-verify OK (no UI paths).
+- The base had moved 39 commits since the panel's rebase, overlapping KNOWN-BUGS.md — the sync
+  rebase stopped on that file, resolved in place (upstream's five new deferred entries kept, this
+  change's entry appended after), and the full lint+test lists ran green afterwards, per the
+  resolution-requiring-rebase rule.
+- Landing route taken from the project's configured default (merge and push), not asked.
