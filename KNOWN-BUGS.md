@@ -55,3 +55,9 @@
 - `stats/internal/guard/preparearchivebranch.go:204` — F1, Minor, kan-823-prepare-archive-branch-sh-fails-silently — the new post-run recompute rc == 2 exit path is the only new exit path with no covering test (beyond tasks.md's spec) — breaks: a regression in the recompute-failure exit would land untested — fix: a case corrupting the working-tree read after the branch moves, asserting exit 2 — deferred: coverage-gap.
 - `stats/internal/guard/prepare_archive_branch_test.go:625` — F2, Minor, kan-823-prepare-archive-branch-sh-fails-silently — new refusal cases 23-25 drop the file's own c.snap/c.unchanged discipline (all 15 pre-existing refusal cases pin state unchanged; these pin branch only, or nothing) — breaks: a refusal that mutates the landing tree could pass the new cases — fix: add snap/unchanged to the new cases where their fixtures allow a readable state — deferred: coverage-gap.
 - `stats/internal/guard/prepare_archive_branch_test.go:625` — F3, Minor, kan-823-prepare-archive-branch-sh-fails-silently — testing principles: refusal cases should pin the full observable behavior including no-mutation (the same defect F2 raises, re-raised under this pass's angle) — breaks: same as F2 — fix: same as F2 — deferred: coverage-gap.
+- `stats/internal/guard/prepare_archive_branch_test.go:570` — F8, Minor,
+  kan-823-flow-fix-prepare-archive-branch-sh-fails — four test comments (:570,
+  :645, :664, :817) still say git's stderr prints "beneath the named line"
+  after the prose was corrected to "before" — breaks: a reader of the comments
+  learns the wrong output order — fix: four one-word edits ("beneath" →
+  "before") — deferred: cosmetic.
