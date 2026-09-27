@@ -420,6 +420,13 @@ both exit 1; its expectation is restated for a branch checkout above.
     `scripts/check-visual-verify-dispatched.sh` with no arguments exits 2 with the line it printed
     at `c5379c0a`.
 
+Correction (2026-09-28): origin/main landed KAN-809 (`4d14fbc1`, `489ce395`, `2056def4`),
+which changed `check-visual-verify-dispatched.sh` after `c5379c0a` — an ended verifier dispatch
+with no outcome is evidence, the verdict is recorded, a MISSING verdict surfaces prior false
+positives. The branch merged origin/main (`d09aaaa2`, the operator's choice at the panel's
+base-movement check) keeping the shim, and `97c6f38b` ports that behaviour to the Go guard with
+the `Verdict`/`Verdicts` `Env` hooks, parity now against origin/main's bash.
+
 - [x] 10. Port check-contract-budget
 
 **Files:** `stats/internal/guard/contractbudget.go`, `stats/internal/guard/check_contract_budget_test.go`, `scripts/check-contract-budget.sh`, `scripts/test-check-contract-budget.sh`
@@ -464,6 +471,10 @@ ran, or ran `../scripts/`'s sibling and passed where the bash refused. `c491ccc7
 (task 4) replace it: each shim exports `FLOW_GUARD_SELF="${BASH_SOURCE[0]}"` (task 3's mechanism) and
 the Go guard execs its siblings from that path's directory, as the bash's `$SCRIPT_DIR` did; a port
 subtest pins the trigger lookup.
+
+Correction (2026-09-28): the operator removed the contract-budget guard entirely (`e595f199`,
+merged into the branch): this task's `contractbudget.go`, its tests and the shim are deleted, and
+with them task 2's `ownedcorpus.go` twin and its parity test, whose only caller it was.
 
 - [x] 11. Port check-task-commit-planning-paths
 
