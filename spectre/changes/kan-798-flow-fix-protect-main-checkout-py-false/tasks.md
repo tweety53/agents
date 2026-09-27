@@ -23,13 +23,14 @@ swallow later lines' arguments. Pre-split the command text into logical lines an
 separately, threading `cd` state (`cur`) across lines — bash treats a newline as a command
 separator, not a session reset.
 
-**Files:** hooks/protect-main-checkout.py, scripts/test-protect-main-checkout.sh
+**Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
 **Tests:** `26 multi-line cp cannot swallow a later line's target`, `27 multi-line second line judged on its own`
 **Regression:** revert drops the per-line split and both cases fail: 26 re-denies a legitimate
 multi-line `cp` (the mode-3 false positive KAN-798 observed), 27 misses a real `git reset` smuggled
 onto a later line
 **Baseline:** before=24 after=26
 <!-- measured: grep -c 'expect "' scripts/test-protect-main-checkout.sh @ 4a278320 (merge base, the count BEFORE this change) -->
+**Commit:** fix(hooks): scan bash commands per logical line
 **After:** none
 **Build:** green
 
@@ -56,12 +57,13 @@ A redirect into the main checkout through a variable set in the same command
 command's own assignments and expand them before resolution, keeping the let-through for anything
 still unknown.
 
-**Files:** hooks/protect-main-checkout.py, scripts/test-protect-main-checkout.sh
+**Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
 **Tests:** `28 assignment-set redirect into main resolves and denies`, `29 nested variable stays let-through`
 **Regression:** revert drops expansion and both cases fail: 28 stops denying a redirect that lands
 in the main checkout through `C`, 29 still passes but only by accident of the same hole
 **Baseline:** before=26 after=28
 <!-- measured: grep -c 'expect "' scripts/test-protect-main-checkout.sh @ branch spectre/kan-798-flow-fix-protect-main-checkout-py-false -->
+**Commit:** fix(hooks): expand command-text assignments before path resolution
 **After:** Task 1
 **Build:** green
 
@@ -80,31 +82,32 @@ in the main checkout through `C`, 29 still passes but only by accident of the sa
   - [ ] **Step 4: Verify.** `scripts/test-protect-main-checkout.sh` passes and
     `scripts/check-python-suppressions.sh` is clean.
 
-- [ ] 3. Treat future `.worktrees` paths as outside the main checkout (mode 2)
+- [x] 3. Treat future `.worktrees` paths as outside the main checkout (mode 2)
 
 `cp /tmp/a.md <MAIN>/.worktrees/new-landing/spectre/foo.md` is denied: the destination does not
 exist, `existing_dir()` walks up to `<MAIN>/.worktrees`, and git resolves that directory under the
 main checkout on `main`. When the nearest existing ancestor is a directory named `.worktrees`, the
 path is future worktree content — outside the protected tree.
 
-**Files:** hooks/protect-main-checkout.py, scripts/test-protect-main-checkout.sh
+**Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
 **Tests:** `30 cp into a not-yet-existing worktree path`, `31 loose file directly in .worktrees`
 **Regression:** revert drops the rule and both cases fail: 30 re-denies the landing-worktree write
 (the mode-2 false positive KAN-798 observed), 31 denies a harmless write into the gitignored
 worktree root
 **Baseline:** before=28 after=30
 <!-- measured: grep -c 'expect "' scripts/test-protect-main-checkout.sh @ branch spectre/kan-798-flow-fix-protect-main-checkout-py-false -->
+**Commit:** fix(hooks): treat future .worktrees paths as outside the main checkout
 **After:** Task 1, 2
 **Build:** green
 
 **Decision:** future-paths-narrow-worktrees-rule
 
-  - [ ] **Step 1: Rule.** In `protected()` (or its caller), when the nearest existing ancestor
+  - [x] **Step 1: Rule.** In `protected()` (or its caller), when the nearest existing ancestor
     `existing_dir()` returned has basename `.worktrees`, return no protection — the path is future
     worktree content. Every other not-yet-existing path keeps today's walk-up: a new file whose
     nearest existing ancestor is `<MAIN>` itself still denies.
-  - [ ] **Step 2: Cases.** Add harness cases 30 and 31: 30 runs the `cp` above (cwd `$ROOT`) and
+  - [x] **Step 2: Cases.** Add harness cases 30 and 31: 30 runs the `cp` above (cwd `$ROOT`) and
     expects allow; 31 is a `Write` of `<MAIN>/.worktrees/loose.txt` expecting allow. Case 1 (Write
     `<MAIN>/new.txt` → deny) must still deny, unchanged.
-  - [ ] **Step 3: Verify.** `scripts/test-protect-main-checkout.sh` passes and
+  - [x] **Step 3: Verify.** `scripts/test-protect-main-checkout.sh` passes and
     `scripts/check-python-suppressions.sh` is clean.
