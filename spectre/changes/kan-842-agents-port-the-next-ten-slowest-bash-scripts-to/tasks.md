@@ -148,6 +148,9 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
 Correction (2026-09-27): `lib/owned-corpus.sh`'s header says a symlink loop is refused as "cannot
 look through"; measured, `/usr/bin/find -L` skips a loop silently and exits 0. The Go twin and
 `TestOwnedCorpusParity` follow the measured behaviour; the header is corrected in task 13.
+The gated review found the walk listed the children of a directory it could read but not search,
+which `/usr/bin/find` lists without children, silently, status 0; fix commit `4fd1d5d8` matches it,
+pinned by a parity row.
 
 - [ ] 3. Port check-workspace-isolation
 
@@ -262,7 +265,9 @@ a lexical `filepath.Join` accepted an empty argument (bash 5: "null directory", 
 `--apply` the port aborted the cwd's revert), a missing component before `..`, and a directory
 without search permission. Fix commit `d3810105` checks existence on the uncleaned path and search
 permission, and refuses an empty argument, each with `not a directory: <arg>`, exit 2 — pinned by
-three port subtests. Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
+three port subtests; the re-review found an absolute `<symlink>/..` resolved through the link
+where `cd` removes the previous component lexically — fix commit `68826f86` cleans it, pinned by a
+port subtest. Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
 paths, so their `--apply` restore fails after the abort, in the bash and the port alike.
 
 - [ ] 6. Port plan-class
@@ -300,8 +305,11 @@ tasks file exits 2 (`plan-class.sh: cannot read …`) where the bash printed a m
 wrong-argument-count refusal has no Go form (the function takes one root). `\b` in the
 `**Build:** red` match follows the caller's locale, as grep's did. `sha256.go:10` and
 `helpers_test.go:53` still cite the deleted `lib/sha256-hex.sh`; repointed in task 13.
+A tasks file grep classifies as binary (a NUL byte; invalid UTF-8 under a UTF-8 locale) made the
+bash's `**Files:**` pipeline print "Binary file … matches" and report `files=0`; the port counts
+the `**Files:**` union, as the header defines `files` — pinned by a port subtest in `c4824102`.
 
-- [ ] 7. Port check-installed-rules
+- [x] 7. Port check-installed-rules
 
 **Files:** `stats/internal/guard/installedrules.go`, `stats/internal/guard/check_installed_rules_test.go`, `scripts/check-installed-rules.sh`, `scripts/test-check-installed-rules.sh`
 **Tests:** `TestCheckInstalledRules`
@@ -314,17 +322,17 @@ wrong-argument-count refusal has no Go form (the function takes one root). `\b` 
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-installed-rules.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-installed-rules.sh`, one
     subtest per `ok:` label, each with `CHECK_INSTALLED_RULES_HOME` set to its own temp directory.
     Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-installed-rules`; `HOME` and
+  - [x] **Step 2: Port**, registering `check-installed-rules`; `HOME` and
     `CHECK_INSTALLED_RULES_HOME` read through `Env.Getenv`/`Env.LookupEnv` as the bash reads them;
     the front-matter awk ported as Go code; the `.git`-is-a-file early exit kept.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckInstalledRules$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckInstalledRules$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckInstalledRules/'` — at least 20.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code **1**;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code **1**;
     `git rm scripts/test-check-installed-rules.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `CHECK_INSTALLED_RULES_HOME=$(mktemp -d) scripts/check-installed-rules.sh` exits with the code
     and line it printed at `c5379c0a`.
 
@@ -456,7 +464,7 @@ both exit 1; its expectation is restated for a branch checkout above.
     `scripts/check-task-commit-planning-paths.sh` with no arguments exits 2 with the line it
     printed at `c5379c0a`.
 
-- [ ] 12. Port check-panel-citation-trigger
+- [x] 12. Port check-panel-citation-trigger
 
 **Files:** `stats/internal/guard/panelcitationtrigger.go`, `stats/internal/guard/check_panel_citation_trigger_test.go`, `scripts/check-panel-citation-trigger.sh`, `scripts/test-check-panel-citation-trigger.sh`
 **Tests:** `TestCheckPanelCitationTrigger`
@@ -471,16 +479,16 @@ both exit 1; its expectation is restated for a branch checkout above.
 
 **Decision:** kan842-helper-twins
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-panel-citation-trigger.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-panel-citation-trigger.sh`,
     one subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-panel-citation-trigger`; git resolution, worktree
+  - [x] **Step 2: Port**, registering `check-panel-citation-trigger`; git resolution, worktree
     validation and the touched-path read through `paneltouchedpaths.go` (task 2); the first path
     ending `.md` or `.mdc` decides exit 0.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPanelCitationTrigger$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPanelCitationTrigger$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckPanelCitationTrigger/'` — at least 24.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
     dropped; `git rm scripts/test-check-panel-citation-trigger.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-panel-citation-trigger.sh "$PWD" c5379c0a` exits the code
     `git show c5379c0a:scripts/check-panel-citation-trigger.sh` run with its libraries at
     `c5379c0a` exits for the same arguments on this branch.
