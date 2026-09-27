@@ -103,7 +103,7 @@ same inputs.
 
 - [x] 3. Port check-panel-reproducers
 
-**Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `scripts/check-panel-reproducers.sh`, `scripts/test-check-panel-reproducers.sh`, `skills/flow/scripts/reproducer-metachars.sh`, `stats/internal/guard/panelexitcontract.go`
+**Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `scripts/check-panel-reproducers.sh`, `scripts/test-check-panel-reproducers.sh`, `skills/flow/scripts/reproducer-metachars.sh`
 **Tests:** `TestCheckPanelReproducers`
 **Regression:** fails if any of the harness's 55 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -138,8 +138,8 @@ Correction (2026-09-27): the guard's header and body disagreed on findings outpu
 finding: the body passed several at exit 0 (`REPRODUCERS-OK`), which the header's exit-0 contract rules
 out. The operator decided: refuse every shape that is not one array of objects with exit 2 (`jq failed —
 cannot determine anything`), in this guard and check-unfinished-work alike; subtests pin each shape, and
-`pcParseFindings`' doc comment in `panelexitcontract.go` states it — hence that path is added to
-`**Files:**`. "Ref-less" means a `ref` that is not a JSON string — absent, null or a number: the bash
+`pcParseFindings`' doc comment in `panelexitcontract.go` states it — landed in fix commit `b3692a72`, so
+the path stays off `**Files:**`, which names task commit `472c162f`'s files (`check-task-records.sh`). "Ref-less" means a `ref` that is not a JSON string — absent, null or a number: the bash
 body's per-ref `select(.ref == $ref)` never matched one, so its reproducer went unchecked while it counted
 toward `REPRODUCERS-OK`; the port refuses it with the same line. Case 20's label is kept for label parity; with the set compiled in, it asserts the set
 still binds (exit 1 on `;`), as its comment says.
