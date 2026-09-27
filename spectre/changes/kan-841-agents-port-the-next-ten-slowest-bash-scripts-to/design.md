@@ -57,6 +57,35 @@ Each Go test file carries at least its harness's floor in cases (`parity-by-case
 Task 1 records **Before**; the last task records **After**. Shape as KAN-778's: x3 each, load
 average read before each run, slowest five harnesses per run.
 
+#### Before
+
+| Run | real (s) | user (s) | sys (s) | load (1/5/15) | exit | harnesses |
+|-----|---------:|---------:|--------:|---------------|-----:|-----------|
+| suite 1 | 63.25 | 112.57 | 154.22 | 2.26 2.81 3.75 | 0 | 79 (79 passed) |
+| suite 2 | 52.75 | 119.55 | 169.11 | 8.95 4.97 4.51 | 0 | 79 (79 passed) |
+| suite 3 | 53.58 | 122.36 | 172.87 | 12.03 6.44 5.08 | 0 | 79 (79 passed) |
+| go 1 | 11.27 | 16.71 | 30.09 | 17.36 8.93 6.09 | 0 | — |
+| go 2 | 13.17 | 16.47 | 28.74 | 18.59 9.45 6.31 | 0 | — |
+| go 3 | 13.07 | 17.00 | 29.84 | 16.76 9.48 6.37 | 0 | — |
+
+- Median real: suite **53.58s**; Go package **13.07s**.
+- Go exit: each run printed `ok … stats/internal/guard`; the 0 is read from that line.
+
+<!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p scripts/run-guard-tests.sh x3 @ d71a2327 -->
+<!-- measured: cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1 x3 @ d71a2327 -->
+
+Slowest five harnesses (runner's per-harness `(Ns)`):
+
+| Rank | Suite 1 | Suite 2 | Suite 3 |
+|-----:|---------|---------|---------|
+| 1 | test-setup.sh 35s | test-setup.sh 37s | test-setup.sh 42s |
+| 2 | test-check-panel-fix-single-dispatch.sh 26s | test-mutate-and-verify.sh 24s | test-compose-mockup-frames.sh 27s |
+| 3 | test-compose-mockup-frames.sh 25s | test-compose-mockup-frames.sh 22s | test-mutate-and-verify.sh 23s |
+| 4 | test-lib-flow-guard.sh 23s | test-check-guard-symlinks.sh 20s | test-check-guard-symlinks.sh 22s |
+| 5 | test-go-guards.sh 23s | test-check-dispatch-paragraphs.sh 19s | test-check-dispatch-paragraphs.sh 22s |
+
+<!-- measured: grep '(Ns)' of each task1-suiteN.log, sorted descending @ d71a2327 -->
+
 ## Decisions
 
 ### Carry KAN-760's and KAN-778's port decisions unchanged

@@ -79,7 +79,7 @@ Live verification: tasks 1 and 14 run the real suite on this machine and record 
 
 ---
 
-- [ ] 1. Live verification: before timings
+- [x] 1. Live verification: before timings
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -91,13 +91,13 @@ Live verification: tasks 1 and 14 run the real suite on this machine and record 
 
 **Decision:** suite-median-below-before
 
-  - [ ] **Step 1: Suite, before.** On this machine at `d71a2327`, nothing else heavy running:
+  - [x] **Step 1: Suite, before.** On this machine at `d71a2327`, nothing else heavy running:
     `sysctl -n vm.loadavg` then `FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p
     scripts/run-guard-tests.sh`, three times; record each run's real/user/sys, load, harness
     count and the slowest five harnesses (`grep '(Ns)'` of each log, sorted descending).
-  - [ ] **Step 2: Go package, before.** `cd stats && /usr/bin/time -p go test
+  - [x] **Step 2: Go package, before.** `cd stats && /usr/bin/time -p go test
     ./internal/guard/... -count=1` three times; record real/user/sys.
-  - [ ] **Step 3: Record** a **Before** table under `design.md`'s **Measurements** → **Suite
+  - [x] **Step 3: Record** a **Before** table under `design.md`'s **Measurements** → **Suite
     before/after**, KAN-778's columns, each figure tagged `measured:` with the command and
     `@ d71a2327`.
 
@@ -105,7 +105,7 @@ This task commits nothing; its figures are committed with the change's artifacts
 
 - [ ] 2. Go twins of resolve-file, project-section and post-mutation-check
 
-**Files:** `stats/internal/guard/resolvefile.go`, `stats/internal/guard/projectsection.go`, `stats/internal/guard/postmutationcheck.go`, `stats/internal/guard/libtwins_test.go`
+**Files:** `stats/internal/guard/resolvefile.go`, `stats/internal/guard/projectsection.go`, `stats/internal/guard/postmutationcheck.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/gatherdispatch.go`
 **Tests:** `TestResolveFileParity`, `TestProjectSectionParity`, `TestPostMutationCheckParity`
 **Regression:** each parity test fails if its Go twin's output, return status or side effect
 differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
@@ -133,9 +133,16 @@ differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
     ./internal/guard/ -run '^(TestResolveFileParity|TestProjectSectionParity|TestPostMutationCheckParity)$'
     -count=1 -race`.
 
+Correction (2026-09-27): the plan declared three new twins. `resolveFile` and `projectSection`
+already existed, untested, inside `gatherdispatch.go`; they were moved unchanged into
+`resolvefile.go`/`projectsection.go` (helper `gdcPhysicalDir` renamed `physicalDir`) instead of
+written a second time, so `gatherdispatch.go` joins **Files:**. `project_section` on a missing
+file is left without a parity row: bash prints `cat`'s error, the twin prints nothing, and every
+caller checks existence first.
+
 - [ ] 3. Port check-stage-mark-calls
 
-**Files:** `stats/internal/guard/stagemarkcalls.go`, `stats/internal/guard/check_stage_mark_calls_test.go`, `scripts/check-stage-mark-calls.sh`, `scripts/test-check-stage-mark-calls.sh`
+**Files:** `stats/internal/guard/stagemarkcalls.go`, `stats/internal/guard/check_stage_mark_calls_test.go`, `stats/internal/guard/guard.go`, `scripts/check-stage-mark-calls.sh`, `scripts/test-check-stage-mark-calls.sh`
 **Tests:** `TestCheckStageMarkCalls`
 **Regression:** fails if any of the harness's 74 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -158,6 +165,9 @@ differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-stage-mark-calls.sh` on this tree exits 0 with the same output it printed at
     `d71a2327`, directly and through a symlink to it in a temp directory.
+
+Correction (2026-09-27): the injected `Env.StageKeys` hook lives on `Env` in `guard.go`, which
+joins **Files:**.
 
 - [ ] 4. Port check-guard-symlinks
 
@@ -190,6 +200,11 @@ differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
     `scripts/check-guard-symlinks.sh` on this tree exits 0 with the same output it printed at
     `d71a2327`, directly and through a symlink to it in a temp directory.
 
+Correction (2026-09-27): step 2's premise was false — at `d71a2327` rule 2 reads
+`scripts/<guard>`, which for a shimmed guard is the shim, not its Go source, and no KAN-760 commit
+changed that. The port keeps the bash behaviour (parity): a shimmed guard contributes no
+`$SCRIPT_DIR/` siblings.
+
 - [ ] 5. Port check-dispatch-paragraphs
 
 **Files:** `stats/internal/guard/dispatchparagraphs.go`, `stats/internal/guard/check_dispatch_paragraphs_test.go`, `scripts/check-dispatch-paragraphs.sh`, `scripts/test-check-dispatch-paragraphs.sh`
@@ -218,6 +233,12 @@ differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-dispatch-paragraphs.sh` on this tree exits 0 with the same output it printed at
     `d71a2327`.
+
+Correction (2026-09-27): step 2 named a `CHECK_GUARD_SYMLINKS_ROOT` override; the script at
+`d71a2327` never reads it (its header cites it only as the precedent it mirrors), so only
+`CHECK_DISPATCH_PARAGRAPHS_ROOT` is kept. The old-vs-new diff matched 93 of 94 runs byte for
+byte; the one difference is bash's own `ignored null byte` warning on the NUL fixture, which a Go
+binary cannot emit.
 
 - [ ] 6. Port mutate-and-verify
 
