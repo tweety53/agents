@@ -40,7 +40,7 @@ flow_guard_exec <name> 2 "<name>:" "$@"
 
 `<name>` is the guard's basename without `.sh`, written literally. All five use cannot-answer
 code 2.
-<!-- unverified: each implementer confirms from its guard's header that 2 is its cannot-answer exit before writing the shim -->
+<!-- verified: each port's implementer read its guard's header at 3e48ecac — 2 is the cannot-answer exit for all five (check-plan-provenance's 3 and 4 are verdict codes) -->
 
 **Test isolation:** every Go test calls `t.Parallel()`; fixture trees are built once in
 `TestMain` (or a `sync.Once` helper) and each case copies its own into `t.TempDir()`; a stub
@@ -219,6 +219,15 @@ bash's `sort`/`sort -u` did.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-plan-provenance.sh` over this change's own `tasks.md` exits 0, as the Python
     guard did at base.
+
+Correction (2026-09-27): the shim template declared `flow_guard_exec` alone after the loader; the
+Python guard defaulted its root to its own file's location, which the cached Go binary cannot see, so
+the shim resolves the checkout (`cd -P … && pwd`) and exports it only when unset:
+`export CHECK_PLAN_PROVENANCE_ROOT="${CHECK_PLAN_PROVENANCE_ROOT-$root}"` — an explicit value, empty
+included, passes through. Twelve harness labels were relabelled: three timing and one exit-code label
+lose their measured figure, and eight python3-interpreter cases become their missing/broken/working
+`go` equivalents run through the real shim (KAN-760's case-56 precedent); one case is added (shim
+default root). Every Python pattern using lookaround or Unicode `\s`/`\w` was rewritten as code.
 
 - [ ] 7. Port check-installed-citations
 
