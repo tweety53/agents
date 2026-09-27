@@ -72,12 +72,12 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
    it (**Finish contract**, `skills/flow-contracts/finish-contract-run1.md`):
 
    ```bash
-   for pair in "ledgers/<name>.md ledger.md" "reviews/<name>-panel.md panel.md"; do
+   bash -c 'for pair in "ledgers/<name>.md ledger.md" "reviews/<name>-panel.md panel.md"; do
      set -- $pair
      [ -f "<canonical-worktree>/.superpowers/sdd/$1" ] \
        && cp "<canonical-worktree>/.superpowers/sdd/$1" \
              "<landing-worktree>/spectre/changes/archive/<name>/$2"
-   done
+   done'
    [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
      && git -C <landing-worktree> add -A \
      && check-archive-scope.sh <landing-worktree> "spectre/changes/" \
@@ -86,7 +86,11 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
    ```
 
    **The copy loop runs before the `add -A`, so the preserved copies ride the archive commit under
-   the scope `check-archive-scope.sh` verifies.** Why the preservation exists — step 5 destroys
+   the scope `check-archive-scope.sh` verifies.** The loop is invoked through `bash -c` (KAN-816):
+   its `set -- $pair` relies on word-splitting an unquoted parameter, which zsh — the shell an
+   executing session may run — does not do, leaving `$2` empty and both records uncopied; the pin
+   fixes the loop's bash semantics rather than rewriting it in zsh-only splitting syntax.
+   Why the preservation exists — step 5 destroys
    the worktree the renders live in, and step 9's bundle serves the copies when the store renders
    report skipped — is step 4 of **Run 2 — the branch is merged**
    (`skills/flow-contracts/finish-contract-run2.md`), canonical for it.
