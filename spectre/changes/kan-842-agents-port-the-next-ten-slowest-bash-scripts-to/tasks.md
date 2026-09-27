@@ -115,7 +115,7 @@ port implementers; it runs instead after task 13 lands and immediately before ta
 machine rather than Before under three concurrent `go test -race` runs — a Before inflated by
 that load would bias `suite-median-below-before` toward passing.
 
-- [ ] 2. Go twins of panel-touched-paths and owned-corpus
+- [x] 2. Go twins of panel-touched-paths and owned-corpus
 
 **Files:** `stats/internal/guard/paneltouchedpaths.go`, `stats/internal/guard/ownedcorpus.go`, `stats/internal/guard/libtwins_test.go`
 **Tests:** `TestPanelTouchedPathsParity`, `TestOwnedCorpusParity`
@@ -129,7 +129,7 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
 
 **Decision:** kan842-helper-twins
 
-  - [ ] **Step 1: Failing tests.** Read each library's header for its functions and contract.
+  - [x] **Step 1: Failing tests.** Read each library's header for its functions and contract.
     For each function, a table of inputs covering every branch of its body (panel-touched-paths:
     `panel_resolve_git` with and without an override, `panel_validate_worktree` on a missing
     argument, a non-directory, a non-repository and an unknown merge base, `panel_touched_paths`
@@ -139,9 +139,9 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
     <args>'` against a fixture in `t.TempDir()` and the Go function in-process, comparing stdout,
     stderr and status byte for byte. Run `cd stats && go test ./internal/guard/ -run
     '^(TestPanelTouchedPathsParity|TestOwnedCorpusParity)$' -count=1` — expect a compile failure.
-  - [ ] **Step 2: Port** each library's functions into its Go file, its header citing the bash
+  - [x] **Step 2: Port** each library's functions into its Go file, its header citing the bash
     library as the source of truth it mirrors and the parity test that pins them.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
     ./internal/guard/ -run '^(TestPanelTouchedPathsParity|TestOwnedCorpusParity)$' -count=1
     -race`.
 
@@ -273,7 +273,7 @@ where `cd` removes the previous component lexically — fix commit `68826f86` cl
 port subtest. Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
 paths, so their `--apply` restore fails after the abort, in the bash and the port alike.
 
-- [ ] 6. Port plan-class
+- [x] 6. Port plan-class
 
 **Files:** `stats/internal/guard/planclass.go`, `stats/internal/guard/plan_class_test.go`, `scripts/plan-class.sh`, `scripts/test-plan-class.sh`, `scripts/lib/sha256-hex.sh`
 **Tests:** `TestPlanClass`
@@ -288,17 +288,17 @@ paths, so their `--apply` restore fails after the abort, in the bash and the por
 
 **Decision:** kan842-helper-twins
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-plan-class.sh`, one subtest per
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-plan-class.sh`, one subtest per
     `ok:` label, plus the Review Focus row pinning the three output lines against the bash at
     `c5379c0a` for a fixed change name. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `plan-class`; hashing through `sha256.go`, the
+  - [x] **Step 2: Port**, registering `plan-class`; hashing through `sha256.go`, the
     `micro` touched-path read through `paneltouchedpaths.go` (task 2); `git rm
     scripts/lib/sha256-hex.sh`.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestPlanClass$' -count=1 -race -v |
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestPlanClass$' -count=1 -race -v |
     grep -c -- '--- PASS: TestPlanClass/'` — at least 25.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-plan-class.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/plan-class.sh spectre/changes/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to/tasks.md 1`
     prints the three lines the bash printed for the same plan at `c5379c0a`.
 
@@ -308,9 +308,11 @@ tasks file exits 2 (`plan-class.sh: cannot read …`) where the bash printed a m
 wrong-argument-count refusal has no Go form (the function takes one root). `\b` in the
 `**Build:** red` match follows the caller's locale, as grep's did. `sha256.go:10` and
 `helpers_test.go:53` still cite the deleted `lib/sha256-hex.sh`; repointed in task 13.
-A tasks file grep classifies as binary (a NUL byte; invalid UTF-8 under a UTF-8 locale) made the
-bash's `**Files:**` pipeline print "Binary file … matches" and report `files=0`; the port counts
-the `**Files:**` union, as the header defines `files` — pinned by a port subtest in `c4824102`.
+A NUL byte anywhere in the tasks file, or invalid UTF-8 on a `**Files:**` line under a UTF-8 locale
+(where the pipeline's `grep -oE` stage makes the binary call), made the bash's `**Files:**`
+pipeline print "Binary file … matches" and leave the list empty: `files=0`, `migration=no`,
+`spec=no`, never micro, and a class that can differ (measured `small` in the bash, `regular` in the
+port). The port reads the `**Files:**` union for all of them, as the header defines `files` — pinned by a port subtest in `c4824102`.
 
 - [x] 7. Port check-installed-rules
 
