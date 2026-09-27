@@ -290,9 +290,12 @@ same way and re-raises (pinned through the real shim). On SIGINT it restores at 
 task 11 as `trapExitSignals` (`provereproducer.go`, which joins **Files:**) and also takes
 SIGPIPE: bash 3.2's trap restored on a closed stdout where bash 5.3 died leaving the mutation, and
 the port restores and exits 141 at once (the Go runtime cannot re-raise a SIGPIPE it did not
-raise). A sent SIGABRT, SIGBUS, SIGFPE, SIGILL, SIGSEGV, SIGSYS or SIGTRAP, which the Go runtime
-answers with a stack dump and exit 2 (read as "refused, nothing was mutated"), is trapped the same
-way and exits 128+n; SIGABRT is pinned. The patch is never applied once a signal is being handled
+raise), and the main flow halts at the failed write, so no later harness starts (pinned with a
+second harness). A sent SIGABRT, SIGFPE, SIGSYS or SIGTRAP, which the Go runtime answers with a
+stack dump and exit 2 (read as "refused, nothing was mutated"), is trapped the same way and exits
+128+n; SIGABRT is pinned. A sent SIGSEGV, SIGBUS or SIGILL, and darwin's SIGEMT, never reach
+`signal.Notify` on darwin — the runtime crashes with exit 2 and the mutation stays — accepted and
+named in the `ponytail:` comment, a trap in the shim being the upgrade path. The patch is never applied once a signal is being handled
 (pinned on `mvRun.apply`). Other signals bash's trap caught (SIGUSR1, ...) the Go runtime ignores, and a SIGTERM ignored at start is not seen as ignored — both accepted
 and named in the `ponytail:` comment. A harness with no `#!` line reads as unanswered (exit 4) where
 bash ran it as a script — accepted, every harness this runs has one. The mechanisms bash got from
@@ -377,7 +380,7 @@ so it joins **Files:**. The path lists carry `core.quotePath` octal escapes (`"\
 exactly as the bash printed them, pinned by a non-ASCII fixture, and the usage text cites
 `base_ref_usage_message` at `d71a2327` since task 12 deletes that lib.
 
-- [ ] 9. Port check-panel-fix-single-dispatch
+- [x] 9. Port check-panel-fix-single-dispatch
 
 **Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `scripts/test-check-panel-fix-single-dispatch.sh`, `stats/internal/guard/guard.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/panelreproducers.go`
 **Tests:** `TestCheckPanelFixSingleDispatch`
@@ -390,18 +393,18 @@ exactly as the bash printed them, pinned by a non-ASCII fixture, and the usage t
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of
+  - [x] **Step 1: Failing test.** Port every case of
     `scripts/test-check-panel-fix-single-dispatch.sh`, one subtest per `ok:` label; the stub
     `flow` the harness puts on PATH becomes the injected findings hook on `Env` the existing
     ports use (`panelreproducers.go`). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-panel-fix-single-dispatch`; the `jq` filters become
+  - [x] **Step 2: Port**, registering `check-panel-fix-single-dispatch`; the `jq` filters become
     `encoding/json` decoding of the same fields; `CANONICAL_KEY_RE` ported as a Go `regexp` only
     where RE2 matches identically, with a subtest pinning it.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPanelFixSingleDispatch$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPanelFixSingleDispatch$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckPanelFixSingleDispatch/'` — at least 20.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
     dropped; `git rm scripts/test-check-panel-fix-single-dispatch.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-panel-fix-single-dispatch.sh` with no arguments exits 2 with the line it
     printed at `d71a2327`.
 
@@ -497,9 +500,10 @@ process group; the subtest sends it that way. `guard.go` joins **Files:** only t
 `Env.Signals` hook an earlier revision added. `mkdir -p` and `cp -p` run as child processes so
 their stderr reaches the caller byte for byte, the directory taken by `dirname`, uncleaned
 (`a/./r.sh` creates `a/.`). The exec-bit check on the copy stays: it fails on a noexec TMPDIR,
-which a unit test cannot mount, so it is verified by hand against the bash, not pinned. A SIGPIPE
-on the verdict write exits 141, as both bash versions did, and a sent crash signal exits 128+n
-(the trap is task 6's, shared). The legs' run-reproducer temp files go under the scratch base, so
+and is pinned against the bash through a `cp` first on PATH that drops the mode. A SIGPIPE on the
+verdict write exits 141, as both bash versions did, and a sent SIGABRT, SIGFPE, SIGSYS or SIGTRAP
+exits 128+n (the trap is task 6's, shared); a sent SIGSEGV, SIGBUS or SIGILL crashes the Go
+runtime on darwin, leaving the scratch — accepted, as recorded under task 6. The legs' run-reproducer temp files go under the scratch base, so
 the cleanup removes them on a signal too, as the bash's separate run-reproducer process did. A
 comment fix to task 9's test rode this task's second fix commit, so
 `stats/internal/guard/check_panel_fix_single_dispatch_test.go` joins **Files:**.
