@@ -339,7 +339,7 @@ bash at `d71a2327`, status and branch included. Two defects the bash had and the
 relative landing path given from outside the main checkout; porcelain-quoted paths never
 classified) are recorded in `KNOWN-BUGS.md`.
 
-- [ ] 8. Port check-base-moved
+- [x] 8. Port check-base-moved
 
 **Files:** `stats/internal/guard/basemoved.go`, `stats/internal/guard/resolveremotebase.go`, `stats/internal/guard/check_base_moved_test.go`, `scripts/check-base-moved.sh`, `scripts/test-check-base-moved.sh`, `stats/internal/guard/changeplan.go`
 **Tests:** `TestCheckBaseMoved`
@@ -354,17 +354,17 @@ classified) are recorded in `KNOWN-BUGS.md`.
 
 **Decision:** sole-user-helpers-move-into-go
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-base-moved.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-base-moved.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-base-moved`; `scripts/lib/resolve-remote-base.sh`'s
+  - [x] **Step 2: Port**, registering `check-base-moved`; `scripts/lib/resolve-remote-base.sh`'s
     function ported to `resolveremotebase.go` (shared with task 12); the `MOVED`/`CLEAR` verdict
     lines and the sorted path lists kept byte for byte, sort collation per Review Focus.
     `scripts/lib/resolve-remote-base.sh` stays until task 12 removes its last caller.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckBaseMoved$' -count=1 -race
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckBaseMoved$' -count=1 -race
     -v | grep -c -- '--- PASS: TestCheckBaseMoved/'` — at least 63.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines dropped;
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines dropped;
     `git rm scripts/test-check-base-moved.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-base-moved.sh`
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-base-moved.sh`
     run against this worktree and `d71a2327` prints the same verdict as the bash at `d71a2327`.
 
 Correction (2026-09-27): the port's private `fromDir`/git-output helpers duplicated
@@ -417,7 +417,7 @@ vanished, as the bash's `cd` refused it; the helper `pcAbs` replaces the identic
 in `panelexitcontract.go` and `panelreproducers.go`, which join **Files:** — their own
 search-permission gap is out of scope and recorded in `KNOWN-BUGS.md`.
 
-- [ ] 10. Port check-model-keys
+- [x] 10. Port check-model-keys
 
 **Files:** `stats/internal/guard/modelkeys.go`, `stats/internal/guard/check_model_keys_test.go`, `scripts/check-model-keys.sh`, `scripts/test-check-model-keys.sh`, `scripts/lib/project-section.sh`, `stats/internal/guard/gatherdispatch.go`
 **Tests:** `TestCheckModelKeys`
@@ -432,17 +432,17 @@ search-permission gap is out of scope and recorded in `KNOWN-BUGS.md`.
 
 **Decision:** shared-helper-go-twins
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-model-keys.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-model-keys.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-model-keys`; section reads through
+  - [x] **Step 2: Port**, registering `check-model-keys`; section reads through
     `projectsection.go` (task 2); the valid-model set it reads from
     `stats/internal/store/settings.go` read from that file's text as the bash does, never by
     importing the store package, so a fixture tree can supply its own.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckModelKeys$' -count=1 -race
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckModelKeys$' -count=1 -race
     -v | grep -c -- '--- PASS: TestCheckModelKeys/'` — at least 30.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-check-model-keys.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-model-keys.sh`
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-model-keys.sh`
     on this tree exits 0 with the same output it printed at `d71a2327`.
 
 Correction (2026-09-27): the script's header says it checks "both keys"; its loop at `d71a2327`
@@ -494,7 +494,7 @@ their stderr reaches the caller byte for byte, the directory taken by `dirname`,
 comment fix to task 9's test rode this task's second fix commit, so
 `stats/internal/guard/check_panel_fix_single_dispatch_test.go` joins **Files:**.
 
-- [ ] 12. Port check-finish-preflight
+- [x] 12. Port check-finish-preflight
 
 **Files:** `stats/internal/guard/finishpreflight.go`, `stats/internal/guard/check_finish_preflight_test.go`, `scripts/check-finish-preflight.sh`, `scripts/test-check-finish-preflight.sh`, `scripts/lib/resolve-remote-base.sh`, `scripts/lib/base-ref-usage.sh`
 **Tests:** `TestCheckFinishPreflight`
@@ -511,19 +511,19 @@ comment fix to task 9's test rode this task's second fix commit, so
 
 **Decision:** sole-user-helpers-move-into-go
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-finish-preflight.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-finish-preflight.sh`,
     one subtest per `ok:` label; cases that stub `check-worktree-location.sh` keep stubbing it as a
     sibling file in the fixture's scripts directory. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-finish-preflight`; base resolution through
+  - [x] **Step 2: Port**, registering `check-finish-preflight`; base resolution through
     `resolveremotebase.go` (task 8); `check-worktree-location.sh` exec'd from
     `$FLOW_GUARD_REPO_ROOT/scripts/` with the bash's argv, its exit code and stderr handled as
     the bash did (the ancestor test's "only exit 1 means not an ancestor" kept);
     `git rm scripts/lib/resolve-remote-base.sh`, whose last caller this was.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckFinishPreflight$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckFinishPreflight$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckFinishPreflight/'` — at least 58.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT` (the sibling
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT` (the sibling
     exec needs it), code 2; `git rm scripts/test-check-finish-preflight.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-finish-preflight.sh` against this worktree prints the same verdict the bash
     printed at `d71a2327`, directly and through a symlink to it in a temp directory.
 
