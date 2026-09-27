@@ -196,4 +196,15 @@ during this run, which deferred seven Minors (F6–F12).
 for the prompt to go; a new per-change Markdown file — `KNOWN-BUGS.md` already carries the
 recorded-not-repaired entries a next change reads.
 
+### Panel re-reviews read the diff, never the whole branch
+
+**ID:** drop-full-rerun-policy
+**Status:** active
+**Chosen:** retire rerun policy `full` — its final whole-branch pass, the one repeat and the rerun
+cap; every panel pass after pass 1 reads the diff it re-reviews and at most the code neighbouring
+its hunks — the operator's instruction during this run, after this change's whole-branch pass
+re-read 24k lines and raised only Minors.
+**Considered:** keeping the final whole-branch pass for `big` changes — the cost the operator
+asked to remove.
+
 ## Open questions
