@@ -145,6 +145,10 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
     ./internal/guard/ -run '^(TestPanelTouchedPathsParity|TestOwnedCorpusParity)$' -count=1
     -race`.
 
+Correction (2026-09-27): `lib/owned-corpus.sh`'s header says a symlink loop is refused as "cannot
+look through"; measured, `/usr/bin/find -L` skips a loop silently and exits 0. The Go twin and
+`TestOwnedCorpusParity` follow the measured behaviour; the header is corrected in task 13.
+
 - [ ] 3. Port check-workspace-isolation
 
 **Files:** `stats/internal/guard/workspaceisolation.go`, `stats/internal/guard/check_workspace_isolation_test.go`, `scripts/check-workspace-isolation.sh`, `scripts/test-check-workspace-isolation.sh`
@@ -269,6 +273,13 @@ three cases with a stub.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/plan-class.sh spectre/changes/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to/tasks.md 1`
     prints the three lines the bash printed for the same plan at `c5379c0a`.
+
+Correction (2026-09-27): three cases no harness covered diverge from the bash: an unreadable
+tasks file exits 2 (`plan-class.sh: cannot read …`) where the bash printed a malformed answer; a
+`<repos>` beyond int64 classifies the same without bash's `[` error line; `owned_corpus_files`'
+wrong-argument-count refusal has no Go form (the function takes one root). `\b` in the
+`**Build:** red` match follows the caller's locale, as grep's did. `sha256.go:10` and
+`helpers_test.go:53` still cite the deleted `lib/sha256-hex.sh`; repointed in task 13.
 
 - [ ] 7. Port check-installed-rules
 
