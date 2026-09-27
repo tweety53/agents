@@ -320,7 +320,7 @@ same way and re-raises (pinned through the real shim). On SIGINT it restores at 
 
 - [ ] 8. Port check-base-moved
 
-**Files:** `stats/internal/guard/basemoved.go`, `stats/internal/guard/resolveremotebase.go`, `stats/internal/guard/check_base_moved_test.go`, `scripts/check-base-moved.sh`, `scripts/test-check-base-moved.sh`
+**Files:** `stats/internal/guard/basemoved.go`, `stats/internal/guard/resolveremotebase.go`, `stats/internal/guard/check_base_moved_test.go`, `scripts/check-base-moved.sh`, `scripts/test-check-base-moved.sh`, `stats/internal/guard/changeplan.go`
 **Tests:** `TestCheckBaseMoved`
 **Regression:** fails if any of the harness's 63 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -346,9 +346,15 @@ same way and re-raises (pinned through the real shim). On SIGINT it restores at 
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-base-moved.sh`
     run against this worktree and `d71a2327` prints the same verdict as the bash at `d71a2327`.
 
+Correction (2026-09-27): the port's private `fromDir`/git-output helpers duplicated
+`changeplan.go`'s; they are folded into the existing `capture`, which `changeplan.go` now shares,
+so it joins **Files:**. The path lists carry `core.quotePath` octal escapes (`"\303\244.txt"`)
+exactly as the bash printed them, pinned by a non-ASCII fixture, and the usage text cites
+`base_ref_usage_message` at `d71a2327` since task 12 deletes that lib.
+
 - [ ] 9. Port check-panel-fix-single-dispatch
 
-**Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `scripts/test-check-panel-fix-single-dispatch.sh`, `stats/internal/guard/guard.go`
+**Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `scripts/test-check-panel-fix-single-dispatch.sh`, `stats/internal/guard/guard.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/panelreproducers.go`
 **Tests:** `TestCheckPanelFixSingleDispatch`
 **Regression:** fails if any of the harness's 20 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -380,10 +386,17 @@ edge: malformed findings JSON on a chunked round exits 5 (or 1) in the body, 2 (
 in the header. The port follows the header's cannot-answer contract — exit 2, `findings rows were
 not readable JSON -- cannot answer` — surfaced to the operator at the handoff. Dispatch rows given
 as a JSON object (never printed by `flow`) are refused with exit 2 where jq walked its values.
+The mechanisms the bash got implicitly from jq and `$(...)` — a NUL in a key dropped, trailing
+newlines trimmed, a boolean `round` at round 0, an empty findings array, 64-bit wrap, a null row —
+are pinned by a `port:` subtest that runs the bash at `d71a2327` beside the port. A multi-value
+findings stream cannot answer (exit 2). A worktree without search permission is refused as
+vanished, as the bash's `cd` refused it; the helper `pcAbs` replaces the identical `abs` closures
+in `panelexitcontract.go` and `panelreproducers.go`, which join **Files:** — their own
+search-permission gap is out of scope and recorded in `KNOWN-BUGS.md`.
 
 - [ ] 10. Port check-model-keys
 
-**Files:** `stats/internal/guard/modelkeys.go`, `stats/internal/guard/check_model_keys_test.go`, `scripts/check-model-keys.sh`, `scripts/test-check-model-keys.sh`
+**Files:** `stats/internal/guard/modelkeys.go`, `stats/internal/guard/check_model_keys_test.go`, `scripts/check-model-keys.sh`, `scripts/test-check-model-keys.sh`, `scripts/lib/project-section.sh`, `stats/internal/guard/gatherdispatch.go`
 **Tests:** `TestCheckModelKeys`
 **Regression:** fails if any of the harness's 30 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -408,6 +421,11 @@ as a JSON object (never printed by `flow`) are refused with exit 2 where jq walk
     `git rm scripts/test-check-model-keys.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-model-keys.sh`
     on this tree exits 0 with the same output it printed at `d71a2327`.
+
+Correction (2026-09-27): the script's header says it checks "both keys"; its loop at `d71a2327`
+checks only `self review model`. The port follows the code, and the header question is surfaced to
+the operator at the handoff. `lib/project-section.sh`'s header and `gatherdispatch.go`'s comment
+named `check-model-keys.sh` as a caller, so both join **Files:** to drop it.
 
 - [ ] 11. Port prove-reproducer
 
@@ -441,12 +459,16 @@ as a JSON object (never printed by `flow`) are refused with exit 2 where jq walk
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/prove-reproducer.sh`
     with no arguments exits 2 with the usage line it printed at `d71a2327`.
 
-Correction (2026-09-27): `guard.go` gains `Env.Signals` so a test decides when a signal arrives
-(SIGTERM mid-leg removes the scratch and exits 143, as the bash did), and joins **Files:**.
+Correction (2026-09-27): signals are handled as the bash's trap did — on SIGINT/SIGTERM/SIGHUP
+the scratch worktree is removed at once and the signal re-raised (143 for SIGTERM), with signals
+ignored at entry left ignored; no per-step checkpoint. `guard.go` joins **Files:** only to drop the
+`Env.Signals` hook an earlier revision added. `mkdir -p` and `cp -p` run as child processes so
+their stderr reaches the caller byte for byte. The exec-bit-loss exit the bash guarded is
+unreachable once `cp -p` succeeded, and is not ported.
 
 - [ ] 12. Port check-finish-preflight
 
-**Files:** `stats/internal/guard/finishpreflight.go`, `stats/internal/guard/check_finish_preflight_test.go`, `scripts/check-finish-preflight.sh`, `scripts/test-check-finish-preflight.sh`, `scripts/lib/resolve-remote-base.sh`
+**Files:** `stats/internal/guard/finishpreflight.go`, `stats/internal/guard/check_finish_preflight_test.go`, `scripts/check-finish-preflight.sh`, `scripts/test-check-finish-preflight.sh`, `scripts/lib/resolve-remote-base.sh`, `scripts/lib/base-ref-usage.sh`
 **Tests:** `TestCheckFinishPreflight`
 **Regression:** fails if any of the harness's 58 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -476,6 +498,10 @@ Correction (2026-09-27): `guard.go` gains `Env.Signals` so a test decides when a
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-finish-preflight.sh` against this worktree prints the same verdict the bash
     printed at `d71a2327`, directly and through a symlink to it in a temp directory.
+
+Correction (2026-09-27): `scripts/lib/base-ref-usage.sh` loses its last caller with this port and
+is removed, so it joins **Files:**. The dirty-file count, the physical main-checkout path and the
+signal-killed child's `exited 143` wording are pinned against the bash at `d71a2327`.
 
 - [ ] 13. Repoint citations of the deleted files
 
