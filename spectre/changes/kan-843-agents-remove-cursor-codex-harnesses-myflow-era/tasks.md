@@ -39,7 +39,7 @@ to a scratch copy of the dev store, recording before/after row counts.
 
 - [ ] 1. Stats: migrate legacy rows and remove the legacy readers
 
-**Files:** `stats/internal/store/migrations/0031_drop_legacy_shapes.sql`, `stats/internal/store/legacyshapes_test.go`, `stats/internal/store/aggregate.go`, `stats/internal/store/aggregate_test.go`, `stats/internal/store/pricing.go`, `stats/internal/store/pricing_seed.go`, `stats/internal/store/pricing_seed_test.go`, `stats/internal/store/pricing_test.go`, `stats/internal/store/stageruns_test.go`, `stats/internal/stages/synthetic.go`, `stats/internal/stages/synthetic_test.go`, `stats/internal/stages/names.go`, `stats/cmd/flow/state.go`, `stats/cmd/flow/state_test.go`, `stats/internal/api/stages.go`
+**Files:** `stats/internal/store/migrations/0031_drop_legacy_shapes.sql`, `stats/internal/store/legacyshapes_test.go`, `stats/internal/store/aggregate.go`, `stats/internal/store/aggregate_test.go`, `stats/internal/store/pricing.go`, `stats/internal/store/pricing_seed.go`, `stats/internal/store/pricing_seed_test.go`, `stats/internal/store/pricing_test.go`, `stats/internal/store/stageruns_test.go`, `stats/internal/stages/synthetic.go`, `stats/internal/stages/synthetic_test.go`
 **Allowed-collateral:** `stats/internal/store/testsupport_test.go`, `stats/internal/store/migrations.go`
 **Tests:** `TestMigration0031RewritesLegacyRows`
 **Regression:** fails if 0031 leaves a `myflow stage begin (synthetic)` row, a bare-array
@@ -52,6 +52,8 @@ current-shape row.
 **Build:** green
 
 **Decision:** stats-legacy-migrate-then-remove
+
+Correction (2026-09-28): the plan declared `names.go`, `cmd/flow/state.go`, `state_test.go` and `api/stages.go`; none needed an edit (they name `stages.SyntheticChangeUpdatedBy` only, never its text), so they left `**Files:**`. `pricing_seed.go` also seeds `glm-5.3-flash`'s `CacheWrite1hPerMTok` as 0 — `flowd` re-upserts seed rows at startup, and a nil 1h would undo 0031's backfill. The migration test applies 0031 through the real migrator by pre-recording it as applied, seeding at 0030, then deleting the record — no prefix-apply helper was needed.
 
   - [ ] **Step 1: Failing test.** In `stats/internal/store/legacyshapes_test.go`, write
     `TestMigration0031RewritesLegacyRows` against a fresh test database migrated through `0030`
