@@ -31,12 +31,10 @@
 # CLEAR for every held fixture and prove nothing — which is precisely the defect
 # case 2 exists to catch, so the harness must not carry it too.
 #
-# WHY THIS DUPLICATES test-check-workspace-isolation.sh's HELPERS instead of
-# sharing them. That harness's shape — sandboxed TMPDIR fixtures, `pass`/`fail`
-# counters, a `run_guard` that captures stdout and stderr separately — is
-# followed here deliberately, and copied rather than extracted: the two suites
-# test unrelated guards, and a shared harness library would mean a change to one
-# guard's contract could only be made by editing a file the other one also runs.
+# The harness shape — sandboxed TMPDIR fixtures, `pass`/`fail` counters, a
+# `run_guard` that captures stdout and stderr separately — is self-contained on
+# purpose: a shared harness library would mean a change to one guard's contract
+# could only be made by editing a file another suite also runs.
 # The duplication is the cheaper of the two, and it is recorded here rather than
 # left unexplained.
 #

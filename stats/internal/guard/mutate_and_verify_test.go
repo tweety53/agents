@@ -136,7 +136,7 @@ func mvBuild(t *testing.T) mvFixtures {
 // mvGit runs git -C dir under fixtureGitEnv and returns its whole stdout.
 func mvGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
 	cmd.Env = append(os.Environ(), fixtureGitEnv...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -575,7 +575,7 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf(`trap '' %d; exec /bin/bash "$0" "$@"`, int(sig)), shim, c.patch, h)
 	}
 	cmd.Dir = c.repo
-	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+dir+"/cache", "MV_READY="+ready, "MV_RELEASE="+release)
+	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "MV_READY="+ready, "MV_RELEASE="+release)
 	// Files, not buffers: Wait then waits for the process alone, never for
 	// a pipe an orphaned harness might still hold.
 	out, errf := mvCreate(t, dir+"/stdout"), mvCreate(t, dir+"/stderr")
@@ -648,7 +648,7 @@ func mvSIGPIPECase(t *testing.T, fx mvFixtures) {
 	c.snap()
 	cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/mutate-and-verify.sh", c.patch, h, h2)
 	cmd.Dir = c.repo
-	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+dir+"/cache", "MV_RELEASE="+release, "MV_SECOND="+second)
+	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "MV_RELEASE="+release, "MV_SECOND="+second)
 	cmd.Stderr = mvCreate(t, dir+"/stderr")
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -687,19 +687,15 @@ func mvSIGPIPECase(t *testing.T, fx mvFixtures) {
 func mvApplyEPIPECase(t *testing.T, fx mvFixtures) {
 	dir := t.TempDir()
 	c := fx.newFixture(t, dir, 4, "4/flip:2")
-	realGit, err := exec.LookPath("git")
-	if err != nil {
-		t.Fatal(err)
-	}
 	stub := dir + "/bin"
 	mkdir(t, stub)
 	writeExec(t, stub+"/git", "#!/usr/bin/env bash\n"+
 		"if [ \"$1\" = apply ] && [ \"$2\" = --whitespace=nowarn ]; then yes applying | head -n 100000; fi\n"+
-		"exec "+realGit+" \"$@\"\n")
+		"exec "+fixtureGit+" \"$@\"\n")
 	c.snap()
 	cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/mutate-and-verify.sh", c.patch, c.harness)
 	cmd.Dir = c.repo
-	cmd.Env = append(os.Environ(), "PATH="+stub+":"+os.Getenv("PATH"), "FLOW_GUARD_CACHE_DIR="+dir+"/cache")
+	cmd.Env = append(os.Environ(), "PATH="+stub+":"+os.Getenv("PATH"), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 	cmd.Stderr = mvCreate(t, dir+"/stderr")
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -739,7 +735,7 @@ func bashAtBase(t *testing.T, rels ...string) string {
 	t.Helper()
 	dir := t.TempDir()
 	for _, rel := range rels {
-		src, err := exec.Command("git", "-C", "../../..", "show", "d71a2327:scripts/"+rel).Output()
+		src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "d71a2327:scripts/"+rel).Output()
 		if err != nil {
 			t.Fatalf("git show d71a2327:scripts/%s: %v", rel, err)
 		}

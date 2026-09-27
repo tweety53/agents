@@ -85,7 +85,7 @@ func pabNewCheckout(t *testing.T, base, dir string) *pabCase {
 // git runs git -C dir with the fixture identity, returning trimmed stdout.
 func (c *pabCase) git(dir string, args ...string) string {
 	c.t.Helper()
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
 	cmd.Env = append(os.Environ(), append(fixtureGitEnv,
 		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
 		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")...)
@@ -100,7 +100,7 @@ func (c *pabCase) git(dir string, args ...string) string {
 
 // ok reports whether git -C dir args exits 0.
 func (c *pabCase) ok(dir string, args ...string) bool {
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
 	cmd.Env = append(os.Environ(), fixtureGitEnv...)
 	return cmd.Run() == nil
 }
@@ -115,7 +115,7 @@ func (c *pabCase) advanceOrigin() string {
 }
 
 func (c *pabCase) branch(dir string) string {
-	cmd := exec.Command("git", "-C", dir, "branch", "--show-current")
+	cmd := exec.Command(fixtureGit, "-C", dir, "branch", "--show-current")
 	out, _ := cmd.Output()
 	return strings.TrimRight(string(out), "\n")
 }
@@ -249,7 +249,7 @@ func (c *pabCase) runPinned(args ...string) pabRes {
 func TestPrepareArchiveBranch(t *testing.T) {
 	t.Parallel()
 	base := pabBase(t)
-	shimCache := t.TempDir()
+	shimCache := guardCache(t)
 	newCheckout := func(t *testing.T) *pabCase { return pabNewCheckout(t, base, t.TempDir()) }
 	cases := []struct {
 		name string
@@ -414,13 +414,9 @@ func TestPrepareArchiveBranch(t *testing.T) {
 			c := newCheckout(t)
 			l := c.landing()
 			shim := t.TempDir()
-			realGit, err := exec.LookPath("git")
-			if err != nil {
-				t.Fatal(err)
-			}
 			writeExec(t, shim+"/git", pabGitShim)
 			cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/prepare-archive-branch.sh", l, "main", pabArchive)
-			cmd.Env = append(os.Environ(), "PAB_REAL="+realGit, "PAB_COUNT="+shim+"/count", "PAB_LANDING="+l,
+			cmd.Env = append(os.Environ(), "PAB_REAL="+fixtureGit, "PAB_COUNT="+shim+"/count", "PAB_LANDING="+l,
 				"PATH="+shim+":"+os.Getenv("PATH"), "FLOW_GUARD_CACHE_DIR="+shimCache)
 			var out, errb bytes.Buffer
 			cmd.Stdout, cmd.Stderr = &out, &errb

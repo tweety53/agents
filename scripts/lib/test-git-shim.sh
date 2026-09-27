@@ -1,6 +1,7 @@
 # scripts/lib/test-git-shim.sh — shim_failing_git, used by
-# test-check-panel-citation-trigger.sh (and once by test-check-finish-preflight.sh
-# and test-check-base-moved.sh, deleted with their Go ports, KAN-841) to
+# test-check-panel-citation-trigger.sh (deleted with its Go port, KAN-842),
+# test-check-finish-preflight.sh and test-check-base-moved.sh (deleted with
+# theirs, KAN-841) to
 # build a `git` that fails one invocation and
 # passes every other one through to the real git. KAN-88 fix round 2:
 # extracted after this exact block was copied three times (fix round 1's
@@ -10,9 +11,9 @@
 # TEST-ONLY, DELIBERATELY IN scripts/lib/ (KAN-88 fix round 3, F10). Every
 # other file in this directory is production logic with a `check-*.sh`
 # consumer and `test-*.sh` files as secondary readers of that same logic;
-# this file inverts that — its consumers are
-# test-check-panel-citation-trigger.sh, a test harness, and its own test,
-# test-lib-test-git-shim.sh. Considered moving it to a directory name that says so
+# this file inverts that — its consumers were test harnesses, and since
+# the last of them went with its Go port (KAN-842) only its own test,
+# test-lib-test-git-shim.sh, remains. Considered moving it to a directory name that says so
 # (`scripts/test-lib/`), but nothing else in this repository enumerates
 # `scripts/lib/`'s membership or its file count — not check-guard-symlinks.sh
 # (which validates skills/*/scripts/ symlink targets, never scripts/lib's own

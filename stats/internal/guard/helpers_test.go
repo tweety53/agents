@@ -50,8 +50,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// The rows below pin the bash helpers' own outputs: scripts/lib/sha256-hex.sh
-// (known SHA-256 vectors), scripts/lib/spec-root.sh (its four documented
+// The rows below pin the helpers' own outputs: sha256.go (known SHA-256
+// vectors, the outputs the retired scripts/lib/sha256-hex.sh produced), scripts/lib/spec-root.sh (its four documented
 // branches) and scripts/lib/change-plan.sh (every case of
 // scripts/test-lib-change-plan.sh, named after its ok: label).
 
@@ -469,6 +469,61 @@ func idleMaster() string {
 	return filepath.Join(execFixtures.dir, strconv.Itoa(execFixtures.n))
 }
 
+// guardCache is the FLOW_GUARD_CACHE_DIR every test shares whose shim only
+// has to reach the guard, the binary built into it once per run. A cache of
+// its own costs each such test a `go build` of flow-guard and the first exec
+// of a new binary, which macOS assesses serialised machine-wide
+// (execFixtures). The key is the sources' hash, so a shim run from any
+// checkout of these sources finds the one binary -- under this process's
+// locale: flow_guard_key's glob sorts by collation, so a shim run with no
+// LANG (check_plan_provenance's) keys and builds a second. A test about the
+// build itself -- no go, a broken go -- keeps an empty cache of its own.
+// Lives in execFixtures.dir, which TestMain removes after the run.
+func guardCache(t *testing.T) string {
+	t.Helper()
+	dir, err := guardCacheBuilt()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+var guardCacheBuilt = sync.OnceValues(func() (string, error) {
+	dir := filepath.Join(execFixtures.dir, "flow-guard-cache")
+	lib, err := filepath.Abs("../../../scripts/lib/flow-guard.sh")
+	if err != nil {
+		return "", err
+	}
+	// flow_guard_exec builds under the shim's own key, then execs the
+	// binary; spec-root's verdict is not read.
+	cmd := exec.Command("bash", "-c", `. "$1" && flow_guard_exec spec-root 2 guard-cache:`, "_", lib)
+	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+dir)
+	out, _ := cmd.CombinedOutput()
+	if bins, _ := filepath.Glob(dir + "/*/flow-guard"); len(bins) != 1 {
+		return "", fmt.Errorf("building the shared flow-guard cache left %d binaries in %s:\n%s", len(bins), dir, out)
+	}
+	return dir, nil
+})
+
+// fixtureGit is the git binary every fixture runs, and every git stub a test
+// writes execs as the real one: the binary `git` on PATH runs, resolved once
+// through its own --exec-path. On macOS /usr/bin/git is an xcrun trampoline
+// that spawns the real binary, which doubles each call's cost -- measured
+// here at 14.5ms CPU and 26ms wall against 8ms and 12ms direct -- and the
+// fixtures spawn thousands. The guards under test still resolve `git` from
+// PATH themselves. Plain "git" when the lookup fails.
+var fixtureGit = func() string {
+	out, err := exec.Command("git", "--exec-path").Output()
+	if err != nil {
+		return "git"
+	}
+	p, err := filepath.EvalSymlinks(strings.TrimSpace(string(out)) + "/git")
+	if err != nil {
+		return "git"
+	}
+	return p
+}()
+
 // fixtureGitEnv is what every fixture-building git runs under: the user's
 // global config masked, as the bash harnesses' GIT_CONFIG_GLOBAL=/dev/null
 // did, no `git maintenance run --auto` child spawned after each commit, and
@@ -485,7 +540,7 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	if dir != "" {
 		args = append([]string{"-C", dir}, args...)
 	}
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(fixtureGit, args...)
 	cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
 		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
 		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")

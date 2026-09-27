@@ -304,7 +304,7 @@ func TestGatherDispatchContext(t *testing.T) {
 			}
 		}},
 		{"header carries the HEAD sha", base, func(t *testing.T, f *gdcFx, r gdcResult) {
-			sha, err := exec.Command("git", "-C", f.repo, "rev-parse", "--short", "HEAD").Output()
+			sha, err := exec.Command(fixtureGit, "-C", f.repo, "rev-parse", "--short", "HEAD").Output()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -523,7 +523,7 @@ func TestGatherDispatchContext(t *testing.T) {
 				"CANON-PROPOSAL-BODY", "CANON-DESIGN-BODY", "CANON-TASKS-BODY", "SAT-LINT-MARKER"),
 			lacks("CANON-LINT-MARKER"),
 			func(t *testing.T, f *gdcFx, r gdcResult) {
-				sha, err := exec.Command("git", "-C", f.repo, "rev-parse", "--short", "HEAD").Output()
+				sha, err := exec.Command(fixtureGit, "-C", f.repo, "rev-parse", "--short", "HEAD").Output()
 				if err != nil {
 					t.Fatal(err)
 				}

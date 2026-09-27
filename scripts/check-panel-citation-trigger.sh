@@ -14,30 +14,14 @@
 # touched-paths-include-index-and-worktree, the same rule check-base-moved.sh
 # already applies): the union of what HEAD carries since the merge base,
 # what is staged, and what is unstaged.
+#
+# The logic is the Go port in stats/internal/guard/panelcitationtrigger.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-PROG="check-panel-citation-trigger"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# GIT_BIN resolution (KAN-304 review round 6, F8/F11/F13), argument/worktree
-# /merge-base validation, and the COMMITTED/STAGED/UNSTAGED path collection
-# are shared with check-panel-docs-only.sh — see lib/panel-touched-paths.sh
-# for the full rationale, including why GIT_BIN is resolved to an absolute
-# path with `type -P` rather than invoked as a bare `git` word (KAN-312
-# review round 0, F1 on why this preamble is a sourced library rather than
-# two copies).
-source "$SCRIPT_DIR/lib/panel-touched-paths.sh"
-
-WORKTREE="${1:-}"
-MERGEBASE="${2:-}"
-
-GIT_BIN="$(panel_resolve_git "$PROG")" || exit 2
-panel_validate_worktree "$PROG" "$WORKTREE" "$MERGEBASE" "$GIT_BIN" || exit 2
-PATHS="$(panel_touched_paths "$PROG" "$WORKTREE" "$MERGEBASE" "$GIT_BIN")" || exit 2
-
-MATCH="$(printf '%s\n' "$PATHS" | awk 'NF && ($0 ~ /\.mdc?$/) { print; exit }')"
-
-if [ -n "$MATCH" ]; then
-  exit 0
-fi
-exit 1
+. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "check-panel-citation-trigger: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
+}
+flow_guard_exec check-panel-citation-trigger 2 "check-panel-citation-trigger:" "$@"

@@ -7,8 +7,8 @@ import (
 )
 
 // resolveFile is the Go twin of scripts/lib/resolve-file.sh, which stays the
-// source of truth while check-dev-stack-fresh.sh, check-plan-shape.sh,
-// check-workspace-isolation.sh and plan-dispatch-bundles.sh still source it;
+// source of truth while check-dev-stack-fresh.sh, check-plan-shape.sh
+// and plan-dispatch-bundles.sh still source it;
 // its header carries the reasoning (KAN-73's F1, F9, KAN-201's F16), and
 // TestResolveFileParity fails when the two print or return differently for
 // the same path.

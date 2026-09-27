@@ -134,7 +134,6 @@ func TestCheckPlanProvenance(t *testing.T) {
 	if Registry["check-plan-provenance"] == nil {
 		t.Fatal("check-plan-provenance is not registered")
 	}
-	ppShimCacheDir = t.TempDir()
 	var cases []ppCase
 	for _, part := range [][]ppCase{
 		ppCasesSyntaxToPass6(), ppCasesPass6To8(), ppCasesPass8To10(), ppCasesPass10To11(),
@@ -1492,11 +1491,6 @@ func ppCasesPass13() []ppCase {
 	}
 }
 
-// ppShimCacheDir is the flow-guard build cache the shim cases that build
-// share, so the binary is built once per run; TestCheckPlanProvenance sets
-// it before any case starts.
-var ppShimCacheDir string
-
 // ppCasesPass14 runs cases 146-183.
 func ppCasesPass14() []ppCase {
 	var cases []ppCase
@@ -1607,7 +1601,7 @@ func ppCasesPass14() []ppCase {
 		{"case 183", func(t *testing.T) {
 			root := ppFixture(t)
 			ppWrite(t, root, ppDemo+"tasks.md", "clean\n")
-			r := ppShim(t, "PATH="+os.Getenv("PATH"), "HOME="+os.Getenv("HOME"), "FLOW_GUARD_CACHE_DIR="+ppShimCacheDir, "CHECK_PLAN_PROVENANCE_ROOT="+root)
+			r := ppShim(t, "PATH="+os.Getenv("PATH"), "HOME="+os.Getenv("HOME"), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "CHECK_PLAN_PROVENANCE_ROOT="+root)
 			ok(t, "working go: unchanged, exit 0", r.rc == 0, r)
 		}},
 	}...)
@@ -2020,7 +2014,7 @@ func ppCasesShim() []ppCase {
 			ppSymlink(t, stats, filepath.Join(tree, "stats"))
 			ppWrite(t, tree, ppDemo+"tasks.md", "Baseline: 197 tests\n")
 			r := ppShimAt(t, filepath.Join(tree, "scripts/check-plan-provenance.sh"), t.TempDir(),
-				"PATH="+os.Getenv("PATH"), "HOME="+os.Getenv("HOME"), "FLOW_GUARD_CACHE_DIR="+ppShimCacheDir)
+				"PATH="+os.Getenv("PATH"), "HOME="+os.Getenv("HOME"), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 			ok(t, "unset CHECK_PLAN_PROVENANCE_ROOT: the shim scans its own checkout, from any working directory",
 				r.rc == 1 && has(r.out, "spectre/changes/demo-change/tasks.md:1: "+ppNoProv), r)
 		}},

@@ -28,7 +28,8 @@
 # UI paths were touched and no qualifying verifier dispatch is recorded;
 # the verdict line carries the answer — and exit 2 when it cannot answer at
 # all — a non-directory worktree, a change name outside the allowlist, an
-# empty merge-base, jq missing, or a store call that failed outright (never
+# empty merge-base, dispatch rows that are not one readable JSON array, or a
+# store call that failed outright (never
 # read as "no dispatches", exactly as check-panel-fix-single-dispatch.sh's
 # own header explains for the identical hazard: an outage that read as zero
 # rows would pass every round it was blind to).
@@ -77,7 +78,8 @@
 #
 # THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY — the
 # habit stats/internal/guard/unfinishedwork.go already carries, mirrored
-# here in bash. Once the dispatch check has reached one of its two
+# in stats/internal/guard/visualverifydispatched.go. Once the dispatch
+# check has reached one of its two
 # store-evidence verdicts (the OK above, or the MISSING below), the guard
 # records the line verbatim — `flow record verdict -change <name> -guard
 # check-visual-verify-dispatched -worktree <worktree> -verdict "<line>"
@@ -110,126 +112,19 @@
 # for why: the name arrives from a pull-request-editable state file and is
 # passed to `flow record dispatches -change`, so `../../../planted` and a
 # glob metacharacter are hazards here exactly as they are there.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
+# FLOW_GUARD_SELF (the path this script was invoked by) is exported so the Go
+# guard execs $SCRIPT_DIR/check-visual-trigger.sh from beside this script, as
+# the bash did.
 set -euo pipefail
-
-export LC_ALL=C
-
-WORKTREE="${1:-}"
-NAME="${2:-}"
-BASE_SHA="${3:-}"
-[[ -n "$WORKTREE" && -d "$WORKTREE" ]] || { echo "check-visual-verify-dispatched: not a directory: ${WORKTREE:-<missing>}" >&2; exit 2; }
-[[ -n "$NAME" ]] || { echo "check-visual-verify-dispatched: usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base>" >&2; exit 2; }
-[[ -n "$BASE_SHA" ]] || { echo "check-visual-verify-dispatched: a merge-base is required — pass the state file's recorded value for this worktree" >&2; exit 2; }
-
-case "$NAME" in
-  [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
-  | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
-    echo "check-visual-verify-dispatched: change name '$NAME' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'" >&2
-    exit 2
-    ;;
-esac
-
-WORKTREE="$(cd "$WORKTREE" && pwd -P)" || { echo "check-visual-verify-dispatched: worktree vanished: $WORKTREE" >&2; exit 2; }
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TRIGGER_GUARD="$SCRIPT_DIR/check-visual-trigger.sh"
-[ -x "$TRIGGER_GUARD" ] || { echo "check-visual-verify-dispatched: required sibling module not found or not executable: $TRIGGER_GUARD" >&2; exit 2; }
-
-command -v jq >/dev/null 2>&1 || { echo "check-visual-verify-dispatched: jq is required but was not found" >&2; exit 2; }
-
-# Every git invocation whose failure would otherwise be read as an answer is
-# captured and checked on its own line, never piped straight into the
-# trigger guard — the same discipline check-base-moved.sh's own comment
-# documents for the identical hazard.
-if ! CHANGED_PATHS="$(git -C "$WORKTREE" diff --no-renames --name-only "$BASE_SHA"..HEAD 2>&1)"; then
-  echo "check-visual-verify-dispatched: git diff failed against merge-base '$BASE_SHA' in $WORKTREE — cannot answer: $CHANGED_PATHS" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-visual-verify-dispatched: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
-fi
-
-TRIGGER_EXIT=0
-printf '%s\n' "$CHANGED_PATHS" | "$TRIGGER_GUARD" "$WORKTREE" >/dev/null 2>/tmp/check-visual-verify-dispatched.trigger.$$ || TRIGGER_EXIT=$?
-TRIGGER_STDERR="$(cat /tmp/check-visual-verify-dispatched.trigger.$$ 2>/dev/null || true)"
-rm -f /tmp/check-visual-verify-dispatched.trigger.$$
-
-case "$TRIGGER_EXIT" in
-  2)
-    echo "VISUAL-VERIFY-OK: not configured"
-    exit 0
-    ;;
-  1)
-    echo "VISUAL-VERIFY-OK: no UI paths touched"
-    exit 0
-    ;;
-  0)
-    ;;
-  *)
-    echo "check-visual-verify-dispatched: check-visual-trigger.sh exited $TRIGGER_EXIT, neither 0, 1 nor 2 — cannot answer: $TRIGGER_STDERR" >&2
-    exit 2
-    ;;
-esac
-
-# A store the call could not reach is "cannot answer", never "no rows" —
-# the identical posture check-panel-fix-single-dispatch.sh takes for the
-# same reason: an outage that read as zero dispatches would pass every
-# round it was blind to.
-if ! ROWS="$(flow record dispatches -change "$NAME" -C "$WORKTREE" 2>/dev/null)"; then
-  echo "check-visual-verify-dispatched: flow record dispatches failed for '$NAME' — cannot answer" >&2
-  exit 2
-fi
-
-if ! printf '%s' "$ROWS" | jq empty >/dev/null 2>&1; then
-  echo "check-visual-verify-dispatched: dispatch rows were not readable JSON — cannot answer" >&2
-  exit 2
-fi
-
-MATCH_COUNT="$(printf '%s' "$ROWS" | jq \
-  '[.[] | select(
-     (.role // "") == "verifier"
-     and ((.key // "") | startswith("visual-verify"))
-     and (
-       (.outcome // "") == "completed"
-       or ((.endedAt != null) and ((.outcome // "") == ""))
-     )
-   )] | length')"
-
-# record_verdict <line> -- one guard's verdict row, the habit
-# unfinishedwork.go carries. The write's result is discarded: a store
-# outage can neither move the verdict nor change the exit code, and a
-# store that refuses the row leaves the gate exactly as it printed it.
-record_verdict() {
-  flow record verdict \
-    -change "$NAME" \
-    -guard check-visual-verify-dispatched \
-    -worktree "$WORKTREE" \
-    -verdict "$1" \
-    -C "$WORKTREE" >/dev/null 2>&1 || true
 }
-
-# prior_false_positives_hint <verdicts-json> -- the advisory stderr hint
-# unfinishedwork.go prints, skipped on any failure or an empty array:
-# a gate that cannot fire without a store must never block on a hint.
-prior_false_positives_hint() {
-  vv_n=""
-  vv_n="$(printf '%s' "$1" | jq 'if type == "array" then length else empty end' 2>/dev/null)" || return 0
-  case "$vv_n" in
-    ''|*[!0-9]*) return 0 ;;
-  esac
-  [ "$vv_n" -ge 1 ] || return 0
-  vv_last="$(printf '%s' "$1" | jq -r '(.[0].falsePositiveReason // "") + " (" + (.[0].change // "") + ", " + ((.[0].flaggedAt // "") | tostring | .[0:10]) + ")"' 2>/dev/null)" || vv_last=""
-  printf 'check-visual-verify-dispatched: prior false positives for this guard on this project: %s — last: %s\n' "$vv_n" "$vv_last" >&2
-}
-
-if [ "$MATCH_COUNT" -ge 1 ]; then
-  VV_VERDICT="VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '$NAME'"
-  record_verdict "$VV_VERDICT"
-  echo "$VV_VERDICT"
-  exit 0
-fi
-
-VV_VERDICT="VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '$NAME' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
-record_verdict "$VV_VERDICT"
-if PRIOR="$(flow record verdicts -guard check-visual-verify-dispatched -false-positive -C "$WORKTREE" 2>/dev/null)"; then
-  prior_false_positives_hint "$PRIOR"
-fi
-echo "$VV_VERDICT"
-exit 1
+FLOW_GUARD_SELF="${BASH_SOURCE[0]}"
+export FLOW_GUARD_SELF
+flow_guard_exec check-visual-verify-dispatched 2 "check-visual-verify-dispatched:" "$@"

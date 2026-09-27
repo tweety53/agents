@@ -7,8 +7,8 @@
 # default base resolution runs), and task commits on top — and asserts the
 # guard's exit status and output per case.
 #
-# Same shape as scripts/test-plan-class.sh: FAILURES counter, fail()/pass()
-# helpers, an EXIT trap removing every fixture dir.
+# Shape: FAILURES counter, fail()/pass() helpers, an EXIT trap removing every
+# fixture dir.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

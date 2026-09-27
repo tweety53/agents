@@ -2,11 +2,11 @@ package guard
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -154,23 +154,25 @@ func TestCheckModelKeys(t *testing.T) {
 		}, []smcCheck{smcRC("a failed ask still falls back cleanly", 0),
 			once("the failed ask's diagnostic is emitted exactly once", 1)}},
 	}
-	for _, c := range cases {
-		// The fixtures belong to the parent test, so they outlive every
+	for i, c := range cases {
+		// The fixtures belong to the parent test, so they outlive the
 		// parallel subtest reading this case's one run.
 		env, args := c.run(t)
-		run := sync.OnceValues(func() (int, string) {
+		// One parallel subtest runs the case, its checks nested beneath it:
+		// a parallel subtest per check held a -parallel slot apiece while
+		// the one running the case worked and the rest waited on it.
+		t.Run(fmt.Sprint("run ", i), func(t *testing.T) {
+			t.Parallel()
 			var out bytes.Buffer
 			rc := checkModelKeys(args, env, &out, &out)
-			return rc, out.String()
+			for _, chk := range c.checks {
+				t.Run(chk.label, func(t *testing.T) {
+					if !chk.ok(rc, out.String(), "") {
+						t.Fatalf("rc=%d out=%s", rc, out.String())
+					}
+				})
+			}
 		})
-		for _, chk := range c.checks {
-			t.Run(chk.label, func(t *testing.T) {
-				t.Parallel()
-				if rc, out := run(); !chk.ok(rc, out, "") {
-					t.Fatalf("rc=%d out=%s", rc, out)
-				}
-			})
-		}
 	}
 
 	// Beyond the harness: the mechanisms the bash got implicitly from awk,
@@ -180,7 +182,7 @@ func TestCheckModelKeys(t *testing.T) {
 	// byte for byte.
 	tree := t.TempDir()
 	for _, rel := range []string{"scripts/check-model-keys.sh", "scripts/lib/project-section.sh", "scripts/lib/strip-bom.sh"} {
-		src, err := exec.Command("git", "-C", smcRepoRoot, "show", "d71a2327:"+rel).Output()
+		src, err := exec.Command(fixtureGit, "-C", smcRepoRoot, "show", "d71a2327:"+rel).Output()
 		if err != nil {
 			t.Fatal(err)
 		}

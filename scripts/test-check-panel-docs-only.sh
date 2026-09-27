@@ -2,7 +2,7 @@
 # Assertion harness for check-panel-docs-only.sh. Builds throwaway git
 # repositories under a sandboxed TMPDIR and asserts the guard's exit code
 # (and, where named, its stdout). Never touches the real repository tree.
-# Same shape as test-check-panel-citation-trigger.sh: an indexed REPOS
+# An indexed REPOS
 # array (bash 3.2 has no associative arrays), removed by an EXIT trap,
 # real git repositories rather than fixture trees.
 #

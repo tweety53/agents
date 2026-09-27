@@ -1077,7 +1077,7 @@ example
 	"108": bt(`- [ ] 1. Prose field naming a script
 
 **Files:** ¤alpha.txt¤
-**Tests:** covered by the existing guards — ¤check-references.sh¤ and ¤check-contract-budget.sh¤
+**Tests:** covered by the existing guards — ¤check-references.sh¤ and ¤check-vocabulary.sh¤
 **Commit:** add alpha
 **Build:** green
 `),
@@ -1333,7 +1333,7 @@ func tcfNewFixture(t *testing.T) *tcfFixture {
 // stdout without its trailing newline.
 func tcfGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
 	cmd.Env = append(os.Environ(), fixtureGitEnv...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
