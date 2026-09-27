@@ -84,7 +84,7 @@ Live verification: tasks 1 and 14 run the real suite on this machine and record 
 
 ---
 
-- [ ] 1. Live verification: before timings
+- [x] 1. Live verification: before timings
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -96,14 +96,14 @@ Live verification: tasks 1 and 14 run the real suite on this machine and record 
 
 **Decision:** suite-median-below-before
 
-  - [ ] **Step 1: Suite, before.** On this machine at `c5379c0a`, in a checkout without the main
+  - [x] **Step 1: Suite, before.** On this machine at `c5379c0a`, in a checkout without the main
     checkout's untracked `skills/flow/scripts/guard-autosquash.sh` (`design.md` **Context**):
     `sysctl -n vm.loadavg` then `FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p
     scripts/run-guard-tests.sh`, three times; record each run's real/user/sys, load, exit, harness
     count and the slowest five harnesses (`grep '(Ns)'` of each log, sorted descending).
-  - [ ] **Step 2: Go package, before.** `cd stats && /usr/bin/time -p go test
+  - [x] **Step 2: Go package, before.** `cd stats && /usr/bin/time -p go test
     ./internal/guard/... -count=1` three times; record real/user/sys and load.
-  - [ ] **Step 3: Record** a **Before** table under `design.md`'s **Measurements** → **Suite
+  - [x] **Step 3: Record** a **Before** table under `design.md`'s **Measurements** → **Suite
     before/after**, KAN-841's columns, each figure tagged `measured:` with the command and
     `@ c5379c0a`.
 
