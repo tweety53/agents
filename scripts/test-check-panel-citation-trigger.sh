@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Assertion harness for check-panel-citation-trigger.sh. Builds throwaway git
 # repositories under a sandboxed TMPDIR and asserts the guard's exit code.
-# Never touches the real repository tree. Same shape as
-# test-check-base-moved.sh: an indexed REPOS array (bash 3.2 has no
+# Never touches the real repository tree. An indexed REPOS array (bash 3.2 has no
 # associative arrays), removed by an EXIT trap, real git repositories rather
 # than fixture trees.
 #
@@ -50,7 +49,7 @@ run_guard() {
 # new_repo -> sets REPO, MERGEBASE
 # A repository on `main` with one commit carrying base.go and tracked.md —
 # the merge base every case starts from. tracked.md is tracked from the
-# start (mirroring test-check-base-moved.sh's shared.txt) so an
+# start so an
 # unstaged-only edit is a modification `git diff` detects without an
 # intervening `git add` — a brand-new untracked file would not appear in
 # either the staged or unstaged diff at all.

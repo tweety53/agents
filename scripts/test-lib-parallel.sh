@@ -16,8 +16,7 @@
 # those five exercises JOBS validation (bad value refused at exit 2, never
 # coerced) and the mktemp -d cleanup, including on SIGINT/SIGTERM.
 #
-# Bash 3.2 is the floor, as scripts/test-check-finish-preflight.sh's header
-# records: indexed arrays only, no associative arrays, no `wait -n`.
+# Bash 3.2 is the floor: indexed arrays only, no associative arrays, no `wait -n`.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

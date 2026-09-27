@@ -14,7 +14,7 @@
 # record/declare) — reject rather than guess, applied here to this
 # library's own arguments rather than to a grep call.
 #
-# Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
+# Bash 3.2 is the floor:
 # indexed arrays only, no associative arrays. Every array here — and every
 # array coverage.sh itself keeps — is walked by its indices
 # ("${!ARRAY[@]}"), never its values ("${ARRAY[@]}") directly: the latter is

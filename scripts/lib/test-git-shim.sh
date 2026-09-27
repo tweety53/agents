@@ -1,17 +1,18 @@
-# scripts/lib/test-git-shim.sh — shim_failing_git, shared by the
-# finish-preflight and base-moved test harnesses (test-check-finish-preflight.sh,
-# test-check-base-moved.sh) to build a `git` that fails one invocation and
+# scripts/lib/test-git-shim.sh — shim_failing_git, used by
+# test-check-panel-citation-trigger.sh (and once by test-check-finish-preflight.sh
+# and test-check-base-moved.sh, deleted with their Go ports, KAN-841) to
+# build a `git` that fails one invocation and
 # passes every other one through to the real git. KAN-88 fix round 2:
 # extracted after this exact block was copied three times (fix round 1's
 # panel-report-1-principles.md, case 8c vs. case 8b vs.
-# test-check-base-moved.sh's case 9b).
+# test-check-base-moved.sh's case 9b, at d71a2327).
 #
 # TEST-ONLY, DELIBERATELY IN scripts/lib/ (KAN-88 fix round 3, F10). Every
 # other file in this directory is production logic with a `check-*.sh`
 # consumer and `test-*.sh` files as secondary readers of that same logic;
-# this file inverts that — its only two consumers are
-# test-check-finish-preflight.sh and test-check-base-moved.sh, both test
-# harnesses. Considered moving it to a directory name that says so
+# this file inverts that — its consumers are
+# test-check-panel-citation-trigger.sh, a test harness, and its own test,
+# test-lib-test-git-shim.sh. Considered moving it to a directory name that says so
 # (`scripts/test-lib/`), but nothing else in this repository enumerates
 # `scripts/lib/`'s membership or its file count — not check-guard-symlinks.sh
 # (which validates skills/*/scripts/ symlink targets, never scripts/lib's own
@@ -60,7 +61,7 @@
 # a substring must not fire the shim, which is what keeps a match-arg like
 # "status" from also catching an unrelated argument such as
 # "some/status/path". See test-check-finish-preflight.sh's exact-match case
-# for the direct proof. Appends the directory to REPOS so the caller's EXIT
+# (at d71a2327) for the direct proof. Appends the directory to REPOS so the caller's EXIT
 # trap removes it, and sets SHIM_DIR to that directory so the caller can
 # prefix PATH with it (PATH="$SHIM_DIR:$PATH").
 shim_failing_git() {
@@ -84,7 +85,7 @@ shim_failing_git() {
 # assert_shim_fired <shim-dir> <label> — asserts that the shim built at
 # <shim-dir> (by shim_failing_git, or by a bespoke inline shim following the
 # same "touch .fired on the matching branch" convention — see
-# test-check-base-moved.sh's cases 9c and 9f) actually intercepted a call
+# test-check-base-moved.sh's cases 9c and 9f at d71a2327) actually intercepted a call
 # during the run just made. KAN-88 fix round 3 hardening: without this, a
 # shim whose match-arg no longer matches — a typo, or a guard whose argument
 # shape changed after the case was written — lets every call fall through to

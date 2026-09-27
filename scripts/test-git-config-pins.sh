@@ -40,7 +40,7 @@
 # the panel lib resolves git to, are scanned too: a call through either is a
 # git call.
 #
-# Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records.
+# Bash 3.2 is the floor.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,13 +1,11 @@
 package guard
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -16,7 +14,8 @@ import (
 // The port of scripts/gather-dispatch-context.sh, whose header is canonical
 // for the contract: arguments, VALIDATION, LEAF VALIDATION, the content
 // directory, the incidents and hazards sections, and SKIP-WHEN-UNCHANGED.
-// The helpers it sourced -- lib/resolve-file.sh, lib/project-section.sh and
+// The helpers it sourced -- lib/resolve-file.sh and lib/project-section.sh,
+// twinned in resolvefile.go and projectsection.go, and
 // the since-deleted lib/within-root.sh and lib/lexical-normalize.sh -- are
 // ported below as far as this guard uses them.
 //
@@ -313,8 +312,7 @@ func (b *gdcBundle) addFixedSource(path, label, root string) {
 // not the whole 20+ KB file, per design.md's
 // scoped-dispatch-bundle-not-full-project-md decision. Appended after the
 // principles file section, as the last "found" entry. projectSection is the
-// port of lib/project-section.sh's project_section, the one shared definition
-// check-model-keys.sh still sources.
+// port of lib/project-section.sh's project_section (projectsection.go).
 func (b *gdcBundle) addProjectCommands(worktree string) {
 	file := worktree + "/.flow/project.md"
 	if !isFile(file) {
@@ -524,35 +522,6 @@ var (
 // gdcSpace is awk's and tr's [:space:] less the newline lines never carry.
 const gdcSpace = " \t\v\f\r"
 
-// projectSection is lib/project-section.sh's project_section: the body of
-// "## <key>" up to the next "## " heading, a leading UTF-8 BOM dropped,
-// blank lines trimmed at both ends, trailing newlines stripped.
-func projectSection(file, key string) string {
-	content, _ := os.ReadFile(file)
-	content = bytes.TrimPrefix(content, []byte("\xef\xbb\xbf"))
-	var body []string
-	grab := false
-	for _, line := range lines(content) {
-		if line == "## "+key {
-			grab = true
-			continue
-		}
-		if strings.HasPrefix(line, "## ") && grab {
-			break
-		}
-		if grab {
-			body = append(body, line)
-		}
-	}
-	for len(body) > 0 && strings.Trim(body[0], gdcSpace) == "" {
-		body = body[1:]
-	}
-	for len(body) > 0 && strings.Trim(body[len(body)-1], gdcSpace) == "" {
-		body = body[:len(body)-1]
-	}
-	return strings.TrimRight(strings.Join(body, "\n"), "\n")
-}
-
 // gdcHasPartOf is `grep -qxF '## Part of'`.
 func gdcHasPartOf(file string) bool {
 	content, err := os.ReadFile(file)
@@ -626,48 +595,6 @@ func withinRoot(p, root string) bool {
 	return p == root || strings.HasPrefix(p, root+"/")
 }
 
-// resolveFile is lib/resolve-file.sh's resolve_file:
-// follow the leaf's symlinks (at most 40 hops), then resolve its directory
-// physically, as `cd -P`. false where the bash function returns non-zero.
-func resolveFile(p string) (string, bool) {
-	for p != "/" && strings.HasSuffix(p, "/") {
-		p = strings.TrimSuffix(p, "/")
-	}
-	for hops := 1; ; hops++ {
-		fi, err := os.Lstat(p)
-		if err != nil || fi.Mode()&os.ModeSymlink == 0 {
-			break
-		}
-		if hops > 40 {
-			return "", false
-		}
-		target, err := os.Readlink(p)
-		if err != nil {
-			return "", false
-		}
-		switch dir := gdcDirname(p); {
-		case strings.HasPrefix(target, "/"):
-			p = target
-		case dir == "/":
-			p = "/" + target
-		default:
-			p = dir + "/" + target
-		}
-	}
-	base := p[strings.LastIndex(p, "/")+1:]
-	if base == "." || base == ".." {
-		return gdcPhysicalDir(p)
-	}
-	dir, ok := gdcPhysicalDir(gdcDirname(p))
-	if !ok {
-		return "", false
-	}
-	if dir == "/" {
-		return "/" + base, true
-	}
-	return dir + "/" + base, true
-}
-
 // gdcDirname is dirname(1).
 func gdcDirname(p string) string {
 	if p != "" && strings.Trim(p, "/") == "" {
@@ -683,21 +610,4 @@ func gdcDirname(p string) string {
 		return "/"
 	}
 	return d
-}
-
-// gdcPhysicalDir is `cd -P -- dir && pwd -P`: always absolute, a relative
-// dir taken from the process's physical cwd, as the shell's.
-func gdcPhysicalDir(dir string) (string, bool) {
-	if !strings.HasPrefix(dir, "/") {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return "", false
-		}
-		dir = cwd + "/" + dir
-	}
-	real, err := filepath.EvalSymlinks(dir)
-	if err != nil || !isDir(real) {
-		return "", false
-	}
-	return real, true
 }

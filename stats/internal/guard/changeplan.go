@@ -66,11 +66,11 @@ func changePlanLinkPartOf(file string) (string, bool) {
 func gitOut(env Env, args ...string) (string, bool) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = env.Dir
-	out, err := cmd.Output()
-	if err != nil {
+	out, ok := capture(cmd)
+	if !ok {
 		return "", false
 	}
-	return strings.TrimRight(string(out), "\n"), true
+	return out, true
 }
 
 // changePlanMainCheckout is _change_plan_main_checkout: the main checkout

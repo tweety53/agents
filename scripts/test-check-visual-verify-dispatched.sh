@@ -10,7 +10,7 @@
 # real one on PATH that answers `record dispatches -change <name> -C <dir>`
 # with a canned JSON array, or exits non-zero / prints non-JSON to simulate
 # a store the guard cannot establish. The stub follows
-# test-check-panel-fix-single-dispatch.sh's own helper shape — the guard
+# test-check-panel-fix-single-dispatch.sh's own helper shape at d71a2327 — the guard
 # names that harness's posture as the one its store read duplicates.
 #
 # The cases pin the guard's three verdicts and its exit contract: not

@@ -20,8 +20,7 @@
 # check-workspace-isolation.sh failing on a malformed row — stops the script
 # before any export, non-zero exit.
 #
-# Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records for
-# this repository: indexed arrays only, no associative arrays, and this
+# Bash 3.2 is the floor: indexed arrays only, no associative arrays, and this
 # harness uses none.
 set -euo pipefail
 

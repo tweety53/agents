@@ -5,7 +5,7 @@
 # Never touches the real repository tree except in case 7, which by design
 # must run the guard bare (see that case's own comment for why).
 #
-# Modeled on test-check-stage-mark-calls.sh's fixture-driven pattern:
+# Fixture-driven:
 # fixtures live under mktemp -d, the guard is invoked via a thin run_guard
 # helper that captures RC/OUT, and every case ends with an explicit
 # pass/fail assertion.
@@ -302,9 +302,9 @@ esac
 # reports); a sandboxed fixture tree never contains one of those names, so
 # declaring them there would make every one of them a KAN-197 F3
 # "declared but never recorded" violation for a member simply not part of
-# that run's corpus — the same reasoning test-check-stage-mark-calls.sh's own
-# case 24 states for the identical shape. Gating declaration on "no CLI
-# args" (mirroring check-stage-mark-calls.sh) keeps that protection meaning
+# that run's corpus — the same reasoning stats/internal/guard/stagemarkcalls.go's
+# expected-zero declaration states for the identical shape. Gating declaration on "no CLI
+# args" (mirroring stagemarkcalls.go's gate) keeps that protection meaning
 # something, and this case proves the real, default invocation is clean.
 # ===========================================================================
 set +e

@@ -1,7 +1,10 @@
 # scripts/lib/resolve-file.sh — resolve_file, defined once.
 #
-# Sourced by scripts/check-guard-symlinks.sh, scripts/plan-dispatch-bundles.sh
-# and scripts/check-workspace-isolation.sh, which used to carry three
+# Sourced by scripts/check-dev-stack-fresh.sh, scripts/check-plan-shape.sh,
+# scripts/plan-dispatch-bundles.sh and scripts/check-workspace-isolation.sh,
+# as it was by scripts/check-guard-symlinks.sh until its Go port (KAN-841;
+# twin resolveFile, stats/internal/guard/resolvefile.go). check-guard-symlinks.sh,
+# plan-dispatch-bundles.sh and check-workspace-isolation.sh used to carry three
 # near-identical copies of this function (plus two more, left alone below).
 # The copies had already drifted before this file existed:
 # check-guard-symlinks.sh's copy put `--` before every `readlink`, `dirname`
@@ -59,7 +62,7 @@
 # an already-normalized path (no `.`, no trailing slash) itself, with that
 # obligation recorded only in the callers' own comments (gather-dispatch-context.sh's
 # own header) rather than enforced here, where a caller that forgot it —
-# check-guard-symlinks.sh:250 passes $entry, a path straight from a directory
+# check-guard-symlinks.sh:324 (at d71a2327) passed $entry, a path straight from a directory
 # scan, not a caller-normalized one — got silently wrong output instead of a
 # refusal. The dirname/basename split below assumes p's final path component
 # is a real leaf name; a trailing slash or a bare/buried `.` or `..`

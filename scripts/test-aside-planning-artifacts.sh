@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Assertion harness for aside-planning-artifacts.sh. Builds throwaway git
 # repositories under a sandboxed TMPDIR and asserts the helper's verdict and
-# exit status. Never touches the real repository tree. Same shape as
-# test-check-base-moved.sh: an indexed REPOS array (bash 3.2 has no
+# exit status. Never touches the real repository tree. An indexed REPOS array (bash 3.2 has no
 # associative arrays), removed by an EXIT trap, real git repositories rather
 # than fixture trees.
 #

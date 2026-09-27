@@ -78,7 +78,8 @@
 # established at all.
 #
 # THE CHANGE-NAME CONTAINMENT CASE IS DUPLICATED, on purpose, from
-# check-panel-fix-single-dispatch.sh's own copy (itself duplicated from
+# check-panel-fix-single-dispatch.sh's own copy at d71a2327 (now the
+# CONTAINMENT check in stats/internal/guard/panelfixsingledispatch.go; itself duplicated from
 # check-panel-findings-closed.sh) -- the change name arrives from a
 # pull-request-editable state file and is passed to `flow record
 # dispatches -change`, so `../../../planted` and a glob metacharacter are
@@ -108,7 +109,8 @@ TOKEN="${3:-}"
 [[ -n "$NAME" ]] || { echo "check-task-reviewer-single-dispatch: usage: check-task-reviewer-single-dispatch.sh <worktree> <change-name> <session-token>" >&2; exit 2; }
 [[ -n "$TOKEN" ]] || { echo "check-task-reviewer-single-dispatch: session token is required and must be this run's own literal token" >&2; exit 2; }
 
-# CONTAINMENT, identical to check-panel-fix-single-dispatch.sh's own copy --
+# CONTAINMENT, identical to check-panel-fix-single-dispatch.sh's own copy at
+# d71a2327 (now stats/internal/guard/panelfixsingledispatch.go's) --
 # see that script's header for why this six-line `case` block stays
 # duplicated rather than centralized.
 case "$NAME" in
@@ -168,7 +170,7 @@ fi
 # task_id -> group, a plain-indexed parallel-array map (bash 3.2 has no
 # associative arrays reliably usable under `set -u` with numeric-looking
 # keys -- same constraint check-panel-fix-single-dispatch.sh's own comment
-# names for its base_list arrays).
+# named for its base_list arrays at d71a2327).
 bundle_task_ids=()   # bundle_task_ids[i] = "id id id" for bundle i+1
 while IFS= read -r line; do
   [[ "$line" =~ ^bundle\ ([0-9]+):\ (.*)$ ]] || continue

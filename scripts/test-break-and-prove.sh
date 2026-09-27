@@ -3,7 +3,7 @@
 # repositories under a sandboxed TMPDIR, each carrying one committed
 # config.yaml and README.md, and asserts break-and-prove.sh's exit codes,
 # report blocks and restore behavior against them. Never touches the real
-# repository tree. Same shape as test-mutate-and-verify.sh: an indexed REPOS
+# repository tree. An indexed REPOS
 # array (bash 3.2 has no associative arrays), removed by an EXIT trap, real
 # git repositories rather than fixture trees.
 #

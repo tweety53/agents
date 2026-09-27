@@ -84,7 +84,7 @@ fi
 # configuration error, not a corpus member, and nothing in this scan set
 # legitimately enumerates to zero files today. Declared here, never
 # inferred — exactly like check-references.sh's and
-# check-guard-symlinks.sh's own lists — so if a target genuinely becomes
+# stats/internal/guard/guardsymlinks.go's own lists — so if a target genuinely becomes
 # empty later, its name is added here, not inferred from the tree.
 EXPECTED_ZERO_TARGETS=()
 EXPECTED_ZERO_REASON="enumerates to zero files under this guard's own find -L scan — declared here rather than treated as an error, for a target legitimately expected to sometimes carry none"

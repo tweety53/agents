@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Assertion harness for check-task-reviewer-single-dispatch.sh.
 #
-# Follows test-check-panel-fix-single-dispatch.sh's stub-`flow`-on-PATH
+# Uses a stub-`flow`-on-PATH
 # pattern for dispatch/decision rows, and test-plan-dispatch-groups.sh's
 # fixture-tasks.md `task` helper for group membership — this guard's own
 # group-membership check runs the REAL plan-dispatch-bundles.sh and
@@ -53,7 +53,7 @@ fixture_tasks_md() {
 }
 
 # dispatch_json <key> <role> <token> [...] -- verbatim from
-# test-check-panel-fix-single-dispatch.sh's own helper.
+# test-check-panel-fix-single-dispatch.sh's own helper at d71a2327.
 dispatch_json() {
   jq -nc '
     [$ARGS.positional as $a

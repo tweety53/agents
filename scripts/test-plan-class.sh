@@ -6,7 +6,7 @@
 # repository's own tasks.md files except the one read-only reproduction the
 # task's own worked check names.
 #
-# Same shape as scripts/test-check-base-moved.sh: FAILURES counter,
+# FAILURES counter,
 # fail()/pass() helpers, an EXIT trap removing every fixture dir.
 set -euo pipefail
 

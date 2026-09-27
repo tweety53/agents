@@ -158,8 +158,7 @@ OFFSET=$(( (16#$DIGEST % 400 + 1) * 10 ))
 # (`Resource`, `Variable`, `Default`, `In a workspace`) the loop below expects.
 ROWS="$(printf '%s\n' "$GUARD_OUT" | awk -F'\t' '$1 == "#ROW" { print $2 "\t" $3 "\t" $4 "\t" $5 }')"
 
-# Parallel indexed arrays — bash 3.2 is the floor here, as
-# test-check-finish-preflight.sh's header records for this repository, so no
+# Parallel indexed arrays — bash 3.2 is the floor here, so no
 # associative array carries the rows by name; a `<value:VARIABLE>` reference
 # resolves with a linear scan of VAR below instead.
 RES=()

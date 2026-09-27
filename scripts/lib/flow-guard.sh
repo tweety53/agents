@@ -42,7 +42,7 @@
 # SHA-256 tool, no cache location, no stats/ beside this file's checkout, no
 # `go` on PATH, a failed build — prints "<opening> <cause>" to stderr and exits
 # the calling guard's own cannot-answer code: 4 for run-reproducer (whose 2 is
-# "refused"), 2 for the other four. Never a verdict. `go build`'s own output
+# "refused") and mutate-and-verify, 2 for every other guard. Never a verdict. `go build`'s own output
 # goes to stderr too, so a guard's stdout carries only its verdict lines.
 #
 # Bash 3.2 is the floor (macOS /bin/bash). Not meant to be executed directly —

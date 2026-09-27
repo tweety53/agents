@@ -86,7 +86,7 @@ const cicAllowMarker = "citations-guard:allow"
 //
 // Each is declared ONLY when it is part of THIS run's corpus (which may be
 // a sandboxed CHECK_INSTALLED_CITATIONS_ROOT fixture, not this repository),
-// as check-guard-symlinks.sh's own declare_if_present does: declaring a
+// as guardsymlinks.go's declare_if_present port does: declaring a
 // name outside the current corpus would make it a KAN-197 F3 "declared but
 // never recorded" violation for every fixture that does not carry that file.
 var cicExpectedZero = [][2]string{
@@ -553,8 +553,8 @@ type cicCandidate struct {
 // own docstring records as the reason it is not a regular expression,
 // though far narrower in scope than that guard's fence/container parser:
 // this one only needs to know whether a line sits inside a fenced
-// bash/sh/zsh block, tracked the same way check-guard-symlinks.sh's own
-// RULE3_AWK/CITATION_AWK already do (a fence's opening backtick run sets
+// bash/sh/zsh block, tracked the same way guardsymlinks.go's gsScanMD
+// does (a fence's opening backtick run sets
 // its length and language; closing requires a run at least as long, with
 // nothing trailing). A line inside such a fence, if it is not a `#`
 // comment, is a shell argument and is excluded WHOLESALE, matching that

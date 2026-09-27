@@ -118,10 +118,10 @@
 # scan root is this repository's own root, resolved from this script's own
 # location, so no call site can narrow it. CHECK_DISPATCH_PARAGRAPHS_ROOT is
 # an explicit, opt-in override honored only when set (mirrors
-# CHECK_GUARD_SYMLINKS_ROOT), so the companion harness
-# (test-check-dispatch-paragraphs.sh) can point this guard at a sandboxed
-# fixture tree under TMPDIR without touching this repository — never set it
-# for a normal invocation.
+# CHECK_GUARD_SYMLINKS_ROOT), so the Go tests
+# (stats/internal/guard/check_dispatch_paragraphs_test.go) can point this
+# guard at a sandboxed fixture tree under TMPDIR without touching this
+# repository — never set it for a normal invocation.
 #
 # THE PARAGRAPH TABLE. Each entry is a label, its shared phrases (required
 # of every block carrying that label, held as short literals rather than a
@@ -306,7 +306,7 @@
 # label, the specific missing phrase, or the missing variant. Exit `0`
 # clean, `1` a required site missing its block or one of its phrases, `2` it
 # cannot answer at all: a scoped file missing, unreadable, a symlink, or a
-# grep failing for any reason other than "no match". A scoped path that
+# read failing for any reason. A scoped path that
 # exists as neither a file nor a directory is folded into the same hard `2`
 # ("not a regular file") — never a silent skip, per check-vocabulary.sh's
 # own header warning about a vacuous "✓ clean".
@@ -318,262 +318,23 @@
 # obeyed REPRODUCE, DON'T READ. A paraphrase that drops one of the listed
 # phrases fails loud; a paraphrase that keeps all of them while changing the
 # surrounding prose passes clean.
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-if [ -n "${CHECK_DISPATCH_PARAGRAPHS_ROOT:-}" ]; then
-  ROOT="$CHECK_DISPATCH_PARAGRAPHS_ROOT"
-elif [ "${CHECK_DISPATCH_PARAGRAPHS_ROOT+set}" = "set" ]; then
-  echo "check-dispatch-paragraphs: CHECK_DISPATCH_PARAGRAPHS_ROOT is set but empty" >&2
-  exit 2
-else
-  ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-fi
-
-if [ ! -d "$ROOT" ] || [ ! -r "$ROOT" ] || [ ! -x "$ROOT" ]; then
-  echo "check-dispatch-paragraphs: $ROOT is not a readable directory — cannot scan" >&2
-  exit 2
-fi
-
-# The unit separator, used to delimit phrases within one entry's
-# shared-phrase string — phrases themselves contain ordinary spaces.
-US=$'\x1f'
-
-declare -A ENTRY_LABEL=(
-  [reproduce]="**REPRODUCE, DON'T READ:**"
-  [verbatim]="**VERBATIM REPORT — THE FACT:**"
-  [foreground]="**FOREGROUND BUILDS:**"
-  [targeted]="**TARGETED TESTS:**"
-  [mutation]="**MUTATION PROOF:**"
-  [pixel]="**PIXEL PROBE:**"
-  [tools]="**TOOLS:**"
-  [handshake]="**MODEL HANDSHAKE:**"
-  [independent]="**INDEPENDENT PASSES:**"
-  [delegation]="**NO DELEGATION:**"
-  [prove]="**PROVE THE GUARD BITES:**"
-  [decide]="**REPORT, DON'T DECIDE:**"
-  [entry]="**ENTRY CONTEXT:**"
-  [findings]="**FINDINGS ARE INPUT:**"
-  [contextbundle]="**CONTEXT BUNDLE FAILURE:**"
-  [budget]="**OUTPUT BUDGET:**"
-  [readonly]="**READ-ONLY REVIEW:**"
-)
-
-declare -A ENTRY_SHARED_PHRASES=(
-  [reproduce]="crosses a boundary${US}the store, the filesystem, a guard, a real transcript${US}exercise the real thing"
-  [verbatim]="the reviewer's own report${US}never a source of fact${US}the report wins"
-  [foreground]="still executing in the background${US}Run it in the foreground${US}poll it to completion"
-  [targeted]="the build tool's own selector${US}once for RED, once for GREEN${US}module or repository suite mid-task"
-  [mutation]="mutation-proved before you end your turn${US}confirm an existing test fails, and restore${US}a surviving mutant${US}confirm the edit landed${US}a refusal, not a surviving mutant${US}never buys a test"
-  [pixel]="draw/geometry code${US}actual rendered pixels or geometry${US}rejected at the fix step"
-  [tools]="in your first turn${US}never a wildcard query${US}re-prices your whole context"
-  [handshake]="the first line of your first reply${US}and nothing else on that line${US}before any tool call"
-  [independent]="starts from \`final-review.diff\`${US}raise it again under this pass${US}before beginning the next pass"
-  [delegation]="Never call the \`Agent\` tool${US}never spawn a subagent${US}the leaf of this run"
-  [prove]="assert on configuration or file content${US}break the property the assertion protects${US}against the broken state"
-  [decide]="only the operator can settle${US}reported, never decided in code${US}carry the question in your REPORT FILE${US}report BLOCKED"
-  [entry]="your named entry context${US}not from a whole-tree exploration${US}the coverage trade"
-  [findings]="input, not orders${US}resolve the defect the finding names${US}records the deviation and justifies it${US}A silent deviation is an unfixed finding"
-  [contextbundle]="exited non-zero, or the bundle file is still${US}context bundle: build failed${US}dispatch every slot without the bundle${US}context bundle: dispatched without it — operator override${US}outcome stopped"
-  [budget]="re-reads your${US}by line range${US}never re-read a file already in your context${US}Never print a generated file"
-  [readonly]="never mutate it${US}no file edit outside your own report file${US}a claim nobody can check"
-)
-
-# Variant names per entry, space-separated; empty means the entry has no
-# variants — every block of that label is equivalent.
-declare -A ENTRY_VARIANTS=(
-  [reproduce]="reviewer implementer"
-  [verbatim]=""
-  [foreground]=""
-  [targeted]=""
-  [mutation]=""
-  [pixel]=""
-  [tools]=""
-  [handshake]=""
-  [independent]=""
-  [delegation]=""
-  [prove]=""
-  [decide]=""
-  [entry]=""
-  [findings]=""
-  [contextbundle]=""
-  [budget]=""
-  [readonly]=""
-)
-
-# Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
-declare -A VARIANT_PHRASE=(
-  [reproduce:reviewer]="worth less than one you did"
-  [reproduce:implementer]="a fake or a hand-built value"
-)
-
-# Sites: parallel arrays. Each site names the entry (paragraph) it
-# requires, the site's path relative to ROOT, its minimum block count, and
-# the variants it requires (space-separated; empty means none required
-# beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation prove decide entry findings contextbundle budget budget readonly)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/visual-verify.md" "skills/flow/implement.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1 1 1 1 1 1 1 1 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
-
-# report_line <path> <line> <message> -> prints one "path:line: message" row.
-report_line() {
-  printf '%s:%s: %s\n' "$1" "$2" "$3"
-}
-
-# die2 <path> <message> -> a hard "cannot answer at all" refusal. Printed in
-# the same file:line shape as every other finding this guard reports, then
-# exits 2 immediately: an access failure at one required site means the
-# whole run cannot answer, not that this one site failed.
-die2() {
-  report_line "$1" 0 "$2" >&2
-  exit 2
-}
-
-VIOLATIONS=()
-
-BLOCK_TEXT=""
-# extract_block_text <lines-array-name> <n> <start_line_1based> -> sets
-# BLOCK_TEXT to the label line's text, plus every immediately-following
-# blockquote-continuation line, joined with single spaces (matching how a
-# wrapped markdown paragraph reads as prose) so a phrase split across two
-# source lines by the wrap is still found as one substring.
 #
-# The continuation walk stops at the first line that ITSELF carries any
-# known label (from ENTRY_LABEL), even though that line still begins with
-# '>'. Without this, two required blocks glued together by a missing blank
-# line (a future edit's copy-paste slip) merge into one block, and a
-# paraphrase in the first that quietly drops a required phrase can pass by
-# absorbing the second block's own text — the exact failure class this
-# guard exists to catch, defeated by its own continuation rule.
-extract_block_text() {
-  local -n _lines="$1"
-  local n="$2" start="$3"
-  local idx=$((start - 1))
-  local first="${_lines[$idx]}"
-  local is_bq=0
-  case "$first" in
-    '>'*) is_bq=1 ;;
-  esac
-  local text="" j="$idx" cur stripped next lbl starts_new_label
-  while :; do
-    cur="${_lines[$j]}"
-    stripped="$cur"
-    case "$cur" in
-      '>'*) stripped="${cur#>}"; stripped="${stripped# }" ;;
-    esac
-    if [ -n "$text" ]; then text="$text $stripped"; else text="$stripped"; fi
-    j=$((j + 1))
-    [ "$is_bq" -eq 1 ] || break
-    [ "$j" -lt "$n" ] || break
-    next="${_lines[$j]}"
-    case "$next" in
-      '>'*) : ;;
-      *) break ;;
-    esac
-    starts_new_label=0
-    for lbl in "${ENTRY_LABEL[@]}"; do
-      case "$next" in
-        *"$lbl"*) starts_new_label=1; break ;;
-      esac
-    done
-    [ "$starts_new_label" -eq 0 ] || break
-  done
-  BLOCK_TEXT="$text"
+# Ported to Go (KAN-841): the paragraph table is dpEntries and dpSites, and
+# the body's reasoning for every step is in
+# stats/internal/guard/dispatchparagraphs.go. The binary does not live in
+# this checkout, so this shim exports FLOW_GUARD_REPO_ROOT — this script's
+# parent directory, derived as the bash guard derived its ROOT — as the root
+# scanned when CHECK_DISPATCH_PARAGRAPHS_ROOT is unset.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
+set -euo pipefail
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-dispatch-paragraphs: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
 }
-
-# Cache of scanned files, so a site sharing its path and label-hits with an
-# earlier site in the table (review-panel.md appears twice) does not scan
-# the file twice needlessly. Keyed by path; not required for correctness.
-declare -A FILE_ACCESS_CHECKED=()
-
-for site_idx in "${!SITE_PATHS[@]}"; do
-  entry="${SITE_ENTRY[$site_idx]}"
-  site_path="${SITE_PATHS[$site_idx]}"
-  min_blocks="${SITE_MIN_BLOCKS[$site_idx]}"
-  required_variants="${SITE_VARIANTS[$site_idx]}"
-  label="${ENTRY_LABEL[$entry]}"
-  IFS="$US" read -r -a shared_phrases <<<"${ENTRY_SHARED_PHRASES[$entry]}"
-  entry_variants="${ENTRY_VARIANTS[$entry]}"
-  full="$ROOT/$site_path"
-
-  if [ -L "$full" ]; then
-    die2 "$full" "is a symlink — a required dispatch-paragraph site must be a real file, never a symlink"
-  fi
-  if [ ! -e "$full" ]; then
-    die2 "$full" "does not exist — this is a required dispatch-paragraph site"
-  fi
-  if [ ! -f "$full" ]; then
-    die2 "$full" "exists but is not a regular file (neither file nor a symlink to check) — cannot scan"
-  fi
-  if [ ! -r "$full" ]; then
-    die2 "$full" "is not readable — cannot scan"
-  fi
-
-  set +e
-  label_hits="$(grep -anF -- "$label" "$full")"
-  grep_rc=$?
-  set -e
-  if [ "$grep_rc" -ge 2 ]; then
-    die2 "$full" "grep exited $grep_rc while scanning for the label \"$label\" — a failure to look, not an absence"
-  fi
-
-  mapfile -t LINES < "$full"
-  n="${#LINES[@]}"
-
-  block_count=0
-  declare -A site_has_variant=()
-  for v in $entry_variants; do site_has_variant[$v]=0; done
-
-  if [ "$grep_rc" -eq 0 ]; then
-    while IFS=: read -r lineno _rest; do
-      [ -n "$lineno" ] || continue
-      block_count=$((block_count + 1))
-
-      extract_block_text LINES "$n" "$lineno"
-      text="$BLOCK_TEXT"
-
-      missing_shared=()
-      for phrase in "${shared_phrases[@]}"; do
-        case "$text" in
-          *"$phrase"*) : ;;
-          *) missing_shared+=("$phrase") ;;
-        esac
-      done
-      for phrase in "${missing_shared[@]}"; do
-        VIOLATIONS+=("$(report_line "$full" "$lineno" "block carrying \"$label\" is missing the required phrase: \"$phrase\"")")
-      done
-
-      if [ "${#missing_shared[@]}" -eq 0 ]; then
-        for v in $entry_variants; do
-          vphrase="${VARIANT_PHRASE[$entry:$v]}"
-          case "$text" in
-            *"$vphrase"*) site_has_variant[$v]=1 ;;
-          esac
-        done
-      fi
-    done <<<"$label_hits"
-  fi
-
-  if [ "$block_count" -lt "$min_blocks" ]; then
-    VIOLATIONS+=("$(report_line "$full" 0 "requires at least $min_blocks block(s) carrying the label \"$label\", found $block_count")")
-  fi
-
-  for variant in $required_variants; do
-    if [ "${site_has_variant[$variant]:-0}" -ne 1 ]; then
-      vphrase="${VARIANT_PHRASE[$entry:$variant]}"
-      VIOLATIONS+=("$(report_line "$full" 0 "missing a block that satisfies the $variant variant (the label \"$label\" plus every shared phrase plus \"$vphrase\")")")
-    fi
-  done
-  unset site_has_variant
-done
-
-if [ "${#VIOLATIONS[@]}" -gt 0 ]; then
-  printf '%s\n' "${VIOLATIONS[@]}"
-  printf 'DISPATCH-PARAGRAPHS-INVALID: %s — %s violation(s)\n' "$ROOT" "${#VIOLATIONS[@]}"
-  exit 1
-fi
-
-printf 'DISPATCH-PARAGRAPHS-OK: %s — %s site(s) validated\n' "$ROOT" "${#SITE_PATHS[@]}"
-exit 0
+FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+export FLOW_GUARD_REPO_ROOT
+flow_guard_exec check-dispatch-paragraphs 2 "check-dispatch-paragraphs:" "$@"

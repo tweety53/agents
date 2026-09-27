@@ -4,7 +4,7 @@
 # status, stdout AND the state it leaves behind for every case. Never
 # touches the real repository tree.
 #
-# As with test-prepare-archive-branch.sh: every case checks the exit code,
+# Every case checks the exit code,
 # stdout, and — for the cases that move, ignore or report entries — the
 # actual resulting state of the worktree, the scratchpad and the
 # worktree-local exclude file. An exit code alone proves nothing here.

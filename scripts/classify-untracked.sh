@@ -94,7 +94,7 @@ $(git -C "$LANDING" ls-files --others --exclude-standard --directory)
 EOF
 
 # "${ENTRIES[@]}" is unset-expansion-unsafe under `set -u` on bash 3.2 when
-# empty — the same floor test-prepare-archive-branch.sh's cleanup notes.
+# empty.
 if [ "${#ENTRIES[@]}" -eq 0 ]; then
   echo "CLEAN"
   exit 0

@@ -16,8 +16,7 @@
 # the resolution lives here, in one implementation both sourced, per
 # design.md's shared-parallel-lib decision.
 #
-# BASH 3.2 IS THE FLOOR (macOS's own /bin/bash), per
-# test-check-finish-preflight.sh: indexed arrays only, no associative
+# BASH 3.2 IS THE FLOOR (macOS's own /bin/bash): indexed arrays only, no associative
 # arrays, and therefore no `wait -n` (bash 4.3+) — which is why this file is
 # built on `xargs -P`, the same mechanism proposal.md's 49.6s measurement
 # used, rather than a second mechanism nobody has timed. Every array below
