@@ -176,6 +176,17 @@ look through"; measured, `/usr/bin/find -L` skips a loop silently and exits 0. T
     `scripts/check-workspace-isolation.sh` on this tree exits with the code and output it printed
     at `c5379c0a`, directly and through a symlink to it in a temp directory.
 
+Correction (2026-09-27): Step 4's template `FLOW_GUARD_REPO_ROOT` resolves to `<repo>/skills/flow`
+when the shim runs through `skills/flow/scripts/check-workspace-isolation.sh`; the bash resolved its
+own symlink first (`resolve_file`, harness case 16), and only when no root argument was given (case
+17). Shipped: the shim exports `FLOW_GUARD_SELF="${BASH_SOURCE[0]}"` in place of the two
+`FLOW_GUARD_REPO_ROOT` lines (code 2), and the Go guard resolves it with `resolveFile` only when there
+are no arguments. Case 15a (the awk validator printing no `#SUMMARY`) has no Go analogue; its three
+labels now run the real shim in a tree with no `stats/` (exit 2, "cannot build flow-guard").
+Divergences left outside the parity fixtures, named in `workspaceisolation.go`: invalid UTF-8 under a
+UTF-8 locale is read where macOS awk aborted (exit 2); a heading whose space is U+00A0 is not the
+section (`ccHeading`); awk `-v` escape processing of a backslash in the root is not reproduced.
+
 - [ ] 4. Port check-task-reviewer-single-dispatch
 
 **Files:** `stats/internal/guard/taskreviewersingledispatch.go`, `stats/internal/guard/check_task_reviewer_single_dispatch_test.go`, `scripts/check-task-reviewer-single-dispatch.sh`, `scripts/test-check-task-reviewer-single-dispatch.sh`
