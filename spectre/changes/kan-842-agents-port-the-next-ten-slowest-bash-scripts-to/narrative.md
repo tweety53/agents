@@ -8,3 +8,14 @@
 - At the panel, origin/main had moved: KAN-809 had rewritten `check-visual-verify-dispatched.sh`. The operator chose to rebase and port. The branch merged origin/main instead of rebasing, because it was already pushed. `97c6f38b` ported KAN-809 to Go.
 - The operator removed the contract-budget guard mid-run (`e595f199`), together with task 10's port and task 2's `ownedcorpus.go` twin.
 - A hook blocks any Bash call whose cwd is the main checkout. After a shell cwd reset, calls had to `cd` into the worktree first.
+
+## 2026-09-28 — integrate run
+
+Preflight returned `RUN1` against `origin/main` (base resolved by `resolve-base-branch.sh`). The
+main checkout surfaced `STAGED-CLEAN` and `DRIFT-CLEAN`. The unfinished-work gate was `CLEAR` and
+the visual-verify guard `VISUAL-VERIFY-OK` (no UI paths touched), so no operator prompt was needed.
+`check-base-moved.sh` returned `CLEAR` — `origin/main` had not moved since the recorded merge base,
+so no rebase ran and no scoped re-verification was due. The landing route, `merge and push`, came
+from the project's configured default rather than an operator answer. One stumble: the first
+`flow state get` call put `-C` after the change name and was rejected by the CLI's usage check;
+re-issued with flags first.
