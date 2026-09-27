@@ -718,7 +718,7 @@ func TestPrepareArchiveBranch(t *testing.T) {
 			_ = cmd.Run()
 			rc := cmd.ProcessState.ExitCode()
 			gsCheck(t, "status failure stops the chain: exit 2, the shim's refusal echoed, the named line printed",
-				rc == 2 && has(errb.String(), "shim: status exploded", "could not read the status"), "rc=%d err=%s", rc, errb.String())
+				rc == 2 && has(errb.String(), "shim: status exploded", "cannot read the working tree state"), "rc=%d err=%s", rc, errb.String())
 			gsCheck(t, "status failure stops the chain: nothing checked out",
 				c.branch(l) == "main" && c.branch(c.wt) == "main", "landing on %q, main checkout on %q", c.branch(l), c.branch(c.wt))
 		}},
