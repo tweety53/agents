@@ -503,3 +503,25 @@ func TestRunReproducerSurvivorNamedWhenReapedAtKill(t *testing.T) {
 		t.Fatalf("survivors %v, want [%d]: a pid that outlived its SIGTERM grace went unnamed", got, pid)
 	}
 }
+
+// TestRunReproducerRenamedPremiseRefuses pins the composition KAN-839's
+// premise rule exists for: a script that asserts its premises (loud non-zero,
+// never exit 0) turns a fix renaming its target into an ambiguous re-run —
+// refused, never a vacuous pass. The runner itself is unchanged; this test
+// guards the seam against a future "fix" that mistakes the refusal for a bug.
+func TestRunReproducerRenamedPremiseRefuses(t *testing.T) {
+	t.Parallel()
+	wt := rrWorktree(t)
+	writeFile(t, filepath.Join(wt, "target.txt"), "line one\ndefect present here\n")
+	rrFixture(t, wt, "scripts/checks.sh", `[ -f target.txt ] || { echo "premise: missing target.txt" >&2; exit 7; }
+! grep -q "defect present here" target.txt`)
+	// Pre-fix: the premise holds, the check finds the defect — demonstrated.
+	got, out := rrRun(t, rrEnv(t), wt, "scripts/checks.sh")
+	rrExpect(t, got, out, 0, "defect demonstrated")
+	// The fix renames the target away; the re-run must refuse, never pass.
+	if err := os.Rename(filepath.Join(wt, "target.txt"), filepath.Join(wt, "renamed.txt")); err != nil {
+		t.Fatal(err)
+	}
+	got, out = rrRun(t, rrEnv(t), wt, "scripts/checks.sh", "--pre-fix-verdict", "demonstrated")
+	rrExpect(t, got, out, 2, "ambiguous")
+}

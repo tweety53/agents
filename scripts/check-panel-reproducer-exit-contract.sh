@@ -75,7 +75,13 @@
 # resolve is a violation and the reproducer is NOT run — the runner's
 # verdict would answer a question this audit has already settled, and a
 # "demonstrated" spent on an unresolvable instrument is exactly the green
-# flip this guard exists to deny. A mutation-declared reproducer is exempt
+# flip this guard exists to deny. The premise audit (KAN-839) rides the same
+# machinery: every `# premise: <path>:<line>:<content>` declaration in the
+# same first-10-lines window is resolved the same way, tolerantly — a
+# reproducer carrying no premise line violates nothing, so records predating
+# the premise rule are never re-bounced — while a declared-but-unresolvable
+# premise joins exit 1's violation classes exactly as a demonstrates miss
+# does. A mutation-declared reproducer is exempt
 # from the audit: the content it demonstrates is the mutated tree it builds
 # at run time, not a location on this tree, and its instrument is audited
 # by the KAN-568 sha-pin machinery — demanding resolution here would invert
@@ -91,7 +97,8 @@
 #      outside the worktree through a symlink), or failed the instrument
 #      audit — no `# demonstrates:` declaration within the first 10 lines,
 #      a malformed one, a citation outside the worktree, a file, line or
-#      content the tree does not carry, or a script that cannot be read to
+#      content the tree does not carry, a declared-but-unresolvable
+#      `# premise:` declaration (KAN-839), or a script that cannot be read to
 #      audit at all; each named on stderr
 #   2  cannot answer at all — usage, a worktree or change name that fails
 #      containment, the store unreachable, the change's state record absent

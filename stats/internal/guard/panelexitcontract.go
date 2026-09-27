@@ -35,12 +35,13 @@ func init() {
 }
 
 const (
-	pcPrefix    = "check-panel-reproducer-exit-contract: "
-	pcReadOK    = 0x4 // access(2)'s R_OK
-	pcDeclare   = "# demonstrates: "
-	pcJQFailed  = pcPrefix + "jq failed — cannot determine anything"
-	pcNotFound  = "flow: command not found"
-	pcNotFoundC = 127
+	pcPrefix         = "check-panel-reproducer-exit-contract: "
+	pcReadOK         = 0x4 // access(2)'s R_OK
+	pcDeclare        = "# demonstrates: "
+	pcPremiseDeclare = "# premise: "
+	pcJQFailed       = pcPrefix + "jq failed — cannot determine anything"
+	pcNotFound       = "flow: command not found"
+	pcNotFoundC      = 127
 )
 
 // pcFinding is one `flow record findings` object as jq -r reads it.
@@ -297,7 +298,10 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 			continue
 		}
 		if !declaresMutation(reproPath) {
-			audit := pcAudit(ref, tree, reproPath)
+			// KAN-839: the premise audit joins the demonstrates audit under
+			// the same mutation skip — a mutation-declared reproducer's
+			// instrument audit is the sha pin, never this tree's premises.
+			audit := append(pcAudit(ref, tree, reproPath), pcPremiseAudit(ref, tree, reproPath)...)
 			// The skip the audit promises: any violation this finding's
 			// declarations added means the runner is never invoked for it.
 			if len(audit) > 0 {
@@ -353,66 +357,91 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 
 // pcAudit is the KAN-606 instrument audit of one reproducer's
 // `# demonstrates: <path>:<line>:<content>` declarations against tree: the
-// violations it found, none when every citation resolves.
+// violations it found, none when every citation resolves. A reproducer
+// carrying no demonstrates declaration at all is itself a violation — what
+// the instrument reads and expects is unaudited.
 func pcAudit(ref, tree, reproPath string) []string {
-	var decls []string
+	var v []string
+	decls := 0
 	for _, l := range headLines(reproPath, 10) {
 		if strings.HasPrefix(l, pcDeclare) {
-			decls = append(decls, l)
+			decls++
+			v = append(v, pcResolveCitation(ref, tree, l, pcDeclare, "demonstrates")...)
 		}
 	}
-	if len(decls) == 0 {
+	if decls == 0 {
 		return []string{ref + "'s reproducer carries no '# demonstrates: <path>:<line>:<content>' declaration within its first 10 lines — what the instrument reads and expects is unaudited"}
 	}
+	return v
+}
+
+// pcPremiseAudit is KAN-839's premise audit of one reproducer's
+// `# premise: <path>:<line>:<content>` declarations: the same resolution
+// pcAudit applies to its demonstrates citations, but tolerant — a reproducer
+// carrying no premise line violates nothing, so panel records predating the
+// premise rule are never re-bounced by it. A declared-but-unresolvable
+// premise is a violation like any demonstrates miss: the premise names what
+// the reproducer's checks read, and checks running against nothing are the
+// vacuous pass this audit exists to deny.
+func pcPremiseAudit(ref, tree, reproPath string) []string {
 	var v []string
-	for _, decl := range decls {
-		rest := strings.TrimPrefix(decl, pcDeclare)
-		dpath, rest2, ok1 := strings.Cut(rest, ":")
-		dline, dcontent, ok2 := strings.Cut(rest2, ":")
-		if dpath == "" || !ok1 || !ok2 || dline == "" || strings.Trim(dline, "0123456789") != "" || dcontent == "" {
-			v = append(v, fmt.Sprintf("%s's reproducer carries a malformed demonstrates declaration ('%s') — the form is '# demonstrates: <path>:<line>:<content>'", ref, decl))
-			continue
-		}
-		if strings.HasPrefix(dpath, "/") || hasDotDotSegment(dpath) {
-			v = append(v, fmt.Sprintf("%s's reproducer demonstrates declaration cites '%s' — a citation names a path relative to and inside the worktree under review", ref, dpath))
-			continue
-		}
-		target := tree + "/" + dpath
-		if !isFile(target) {
-			v = append(v, fmt.Sprintf("%s's reproducer demonstrates declaration cites '%s' — the tree under review carries no such file", ref, dpath))
-			continue
-		}
-		// Resolved containment, the runner's own pattern: EvalSymlinks (the
-		// bash's `realpath`) follows `..`, `.` and symlinks in one step, so a
-		// citation whose declared path carries no lexical `..` segment but
-		// escapes through a symlink inside the worktree is caught here rather
-		// than read outside the tree (panel finding F4, kan-606 round 0). tree
-		// is the guard's own physical worktree or a recorded map path resolved
-		// the same way, the shape EvalSymlinks answers in.
-		resolved, err := filepath.EvalSymlinks(target)
-		if err != nil || !strings.HasPrefix(resolved, tree+"/") {
-			shown := resolved
-			if err != nil || shown == "" {
-				shown = "an unresolvable path"
-			}
-			v = append(v, fmt.Sprintf("%s's reproducer demonstrates declaration cites '%s' — it resolves to '%s', outside the worktree under review — a symlink escape", ref, dpath, shown))
-			continue
-		}
-		b, _ := os.ReadFile(resolved)
-		lines := strings.SplitAfter(string(b), "\n")
-		if lines[len(lines)-1] == "" {
-			lines = lines[:len(lines)-1]
-		}
-		n, err := strconv.Atoi(dline)
-		if err != nil || n < 1 || n > len(lines) {
-			v = append(v, fmt.Sprintf("%s's reproducer demonstrates declaration cites '%s':%s — past the end of the file", ref, dpath, dline))
-			continue
-		}
-		if !strings.Contains(strings.TrimSuffix(lines[n-1], "\n"), dcontent) {
-			v = append(v, fmt.Sprintf("%s's reproducer demonstrates declaration cites content absent from '%s':%s — the instrument's citation does not resolve on this tree", ref, dpath, dline))
+	for _, l := range headLines(reproPath, 10) {
+		if strings.HasPrefix(l, pcPremiseDeclare) {
+			v = append(v, pcResolveCitation(ref, tree, l, pcPremiseDeclare, "premise")...)
 		}
 	}
 	return v
+}
+
+// pcResolveCitation resolves one declaration line against tree — the checks
+// pcAudit has applied since KAN-606: the declaration's shape, the cited
+// path's lexical and resolved containment under tree, the file, the line and
+// the line's content — returning the violation it found, none when the
+// citation resolves. `noun` names the declaration kind in every message
+// ("demonstrates", "premise"), so the two audits share one resolution and
+// cannot drift.
+func pcResolveCitation(ref, tree, decl, prefix, noun string) []string {
+	rest := strings.TrimPrefix(decl, prefix)
+	dpath, rest2, ok1 := strings.Cut(rest, ":")
+	dline, dcontent, ok2 := strings.Cut(rest2, ":")
+	if dpath == "" || !ok1 || !ok2 || dline == "" || strings.Trim(dline, "0123456789") != "" || dcontent == "" {
+		return []string{fmt.Sprintf("%s's reproducer carries a malformed %s declaration ('%s') — the form is '%s<path>:<line>:<content>'", ref, noun, decl, prefix)}
+	}
+	if strings.HasPrefix(dpath, "/") || hasDotDotSegment(dpath) {
+		return []string{fmt.Sprintf("%s's reproducer %s declaration cites '%s' — a citation names a path relative to and inside the worktree under review", ref, noun, dpath)}
+	}
+	target := tree + "/" + dpath
+	if !isFile(target) {
+		return []string{fmt.Sprintf("%s's reproducer %s declaration cites '%s' — the tree under review carries no such file", ref, noun, dpath)}
+	}
+	// Resolved containment, the runner's own pattern: EvalSymlinks (the
+	// bash's `realpath`) follows `..`, `.` and symlinks in one step, so a
+	// citation whose declared path carries no lexical `..` segment but
+	// escapes through a symlink inside the worktree is caught here rather
+	// than read outside the tree (panel finding F4, kan-606 round 0). tree
+	// is the guard's own physical worktree or a recorded map path resolved
+	// the same way, the shape EvalSymlinks answers in.
+	resolved, err := filepath.EvalSymlinks(target)
+	if err != nil || !strings.HasPrefix(resolved, tree+"/") {
+		shown := resolved
+		if err != nil || shown == "" {
+			shown = "an unresolvable path"
+		}
+		return []string{fmt.Sprintf("%s's reproducer %s declaration cites '%s' — it resolves to '%s', outside the worktree under review — a symlink escape", ref, noun, dpath, shown)}
+	}
+	b, _ := os.ReadFile(resolved)
+	lines := strings.SplitAfter(string(b), "\n")
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	n, err := strconv.Atoi(dline)
+	if err != nil || n < 1 || n > len(lines) {
+		return []string{fmt.Sprintf("%s's reproducer %s declaration cites '%s':%s — past the end of the file", ref, noun, dpath, dline)}
+	}
+	if !strings.Contains(strings.TrimSuffix(lines[n-1], "\n"), dcontent) {
+		return []string{fmt.Sprintf("%s's reproducer %s declaration cites content absent from '%s':%s — the instrument's citation does not resolve on this tree", ref, noun, dpath, dline)}
+	}
+	return nil
 }
 
 // pcFlow runs the flow CLI from env's PATH in env.Dir: stdout (with stderr
