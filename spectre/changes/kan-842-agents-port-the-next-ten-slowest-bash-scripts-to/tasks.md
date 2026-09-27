@@ -272,7 +272,10 @@ three port subtests; the re-review found an absolute `<symlink>/..` resolved thr
 where `cd` removes the previous component lexically — fix commit `68826f86` cleans it, pinned by a
 port subtest; its re-review found that always-lexical resolution dropped `cd`'s physical
 fallback (the argument as given, when the cleaned path is not a searchable directory) — fix commit
-`7e9425d8` restores it, pinned by a port subtest. Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
+`7e9425d8` restores it, pinned by a port subtest. Its re-review found the port still skipped bash `cd`'s check that each prefix before a
+`..` is a directory, so a physically-absent path refused where the bash acted and one path acted on
+a different repository — `3f21700e` canonicalises as `cd` does (`rgiLexical`), pinned by two subtests.
+Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
 paths, so their `--apply` restore fails after the abort, in the bash and the port alike.
 
 - [x] 6. Port plan-class
@@ -455,11 +458,12 @@ extra `cd` error lines. Both shims use the `$SCRIPT_DIR` spelling. Task 10 keeps
 directly and from `/tmp` both print `BUDGET-OK: 95 owned Markdown file(s) within budget`, exit 0;
 through a symlink in a temp dir without `lib/`, bash (exit 1) and the shim (exit 2) both refuse.
 The gated review found task 9's trigger guard (like task 4's `plan-dispatch-*.sh` siblings)
-resolves at `$FLOW_GUARD_REPO_ROOT/scripts/`, not the invoked script's own directory — the Review
-Focus's prescribed mechanism, identical wherever the shim sits in a directory named `scripts` (every
-checkout and installed skill); a copy in a directory of any other name refuses where the bash ran.
-Accepted and recorded; `817c46fd` corrects the shim and Go comments that claimed "beside this
-script".
+resolved at `$FLOW_GUARD_REPO_ROOT/scripts/` — the Review Focus's prescribed mechanism — not the
+invoked script's own directory: a copy in a directory not named `scripts` refused where the bash
+ran, or ran `../scripts/`'s sibling and passed where the bash refused. `c491ccc7` (task 9) and `3a24e384`
+(task 4) replace it: each shim exports `FLOW_GUARD_SELF="${BASH_SOURCE[0]}"` (task 3's mechanism) and
+the Go guard execs its siblings from that path's directory, as the bash's `$SCRIPT_DIR` did; a port
+subtest pins the trigger lookup.
 
 - [x] 11. Port check-task-commit-planning-paths
 
@@ -516,7 +520,7 @@ script".
     `git show c5379c0a:scripts/check-panel-citation-trigger.sh` run with its libraries at
     `c5379c0a` exits for the same arguments on this branch.
 
-- [ ] 13. Repoint citations of the deleted files
+- [x] 13. Repoint citations of the deleted files
 
 **Files:** `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`, `stats/internal/records/*_test.go`
@@ -530,7 +534,7 @@ script".
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Find.** `grep -rlF -e test-check-workspace-isolation.sh -e
+  - [x] **Step 1: Find.** `grep -rlF -e test-check-workspace-isolation.sh -e
     test-check-task-reviewer-single-dispatch.sh -e test-recover-guard-incident.sh -e
     test-plan-class.sh -e test-check-installed-rules.sh -e test-resolve-base-branch.sh -e
     test-check-visual-verify-dispatched.sh -e test-check-contract-budget.sh -e
@@ -540,11 +544,11 @@ script".
     ported script's body comments and of its bash plumbing (`sources lib/…`).
     `unverified: the file set is known only after tasks 3–12 land; widen **Files:** by a
     correction if a hit falls outside the collateral globs`
-  - [ ] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites;
+  - [x] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites;
     a sentence describing bash plumbing that no longer exists is corrected, not repointed.
     `.flow/project.md`'s paragraph naming which guards are Go lists the ten new ones; library
     headers naming a ported script as a caller that sources them are corrected.
-  - [ ] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-842-*`,
+  - [x] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-842-*`,
     `docs/self-review/` and the Go ports' own history comments; every guard in
     `.flow/project.md`'s `## lint` exits 0.
 
