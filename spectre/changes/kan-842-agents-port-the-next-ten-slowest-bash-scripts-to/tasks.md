@@ -236,7 +236,7 @@ bash blocked; a failed `flow record decisions` call and output that is not JSON 
 names dispatches only) and execs `flow` on PATH through `pcFlow`; tests run with no `flow` on PATH,
 except the cases that put a stub `flow` there.
 
-- [ ] 5. Port recover-guard-incident
+- [x] 5. Port recover-guard-incident
 
 **Files:** `stats/internal/guard/recoverguardincident.go`, `stats/internal/guard/recover_guard_incident_test.go`, `scripts/recover-guard-incident.sh`, `scripts/test-recover-guard-incident.sh`
 **Tests:** `TestRecoverGuardIncident`
@@ -249,18 +249,18 @@ except the cases that put a stub `flow` there.
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-recover-guard-incident.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-recover-guard-incident.sh`,
     one subtest per `ok:` label, plus the Review Focus rows (every refusal leaves porcelain, HEAD
     and stash list unchanged; every abort precedes every restore). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `recover-guard-incident`; git runs as child processes with
+  - [x] **Step 2: Port**, registering `recover-guard-incident`; git runs as child processes with
     the arguments the bash passed; each restore writes `git show "stash@{0}^3:<f>"`'s bytes to
     the file, unstaged; preconditions checked in the header's order, the first failure naming its
     cause on stderr with stdout empty.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestRecoverGuardIncident$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestRecoverGuardIncident$' -count=1
     -race -v | grep -c -- '--- PASS: TestRecoverGuardIncident/'` — at least 67.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
     dropped; `git rm scripts/test-recover-guard-incident.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/recover-guard-incident.sh --bogus` exits 2 with the line it printed at `c5379c0a`.
 
 Correction (2026-09-27): the gated review found the repo-dir resolution looser than `cd "$1"`:
