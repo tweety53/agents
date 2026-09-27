@@ -23,7 +23,7 @@
 # caller resolved the base ref.
 #
 # Base-ref resolution is shared with check-finish-preflight.sh via
-# scripts/lib/resolve-remote-base.sh (design.md: base-moved-is-a-guard), so
+# stats/internal/guard/resolveremotebase.go (design.md: base-moved-is-a-guard), so
 # the two guards can never disagree about which ref answers a question about
 # the base.
 #
@@ -36,7 +36,8 @@
 # Every git invocation whose failure would otherwise be read as an answer is
 # captured into a variable and checked on its own line, never piped straight
 # into `sort`/`comm`/`wc` — the reasoning check-finish-preflight.sh's signal
-# (d) comment already records, cited rather than restated here. A failing
+# (d) comment recorded at d71a2327 (now stats/internal/guard/finishpreflight.go's (d)),
+# cited rather than restated here. A failing
 # invocation is exit 2 with a named message, never a CLEAR.
 #
 # HOW TO HAND-VERIFY A MOVED VERDICT (KAN-446). Recount the commits yourself
@@ -50,135 +51,15 @@
 # `git rev-list <recorded-merge-base>..<ref> ^HEAD` — zero means every commit
 # the base gained is already reachable from the branch, the benign cause
 # KAN-535 records.
+#
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-export LC_ALL=C
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/resolve-remote-base.sh
-. "$SCRIPT_DIR/lib/resolve-remote-base.sh"
-
-WORKTREE="${1:-}"
-BASE_REF="${2:-}"
-RECORDED="${3:-}"
-
-if [ -z "$WORKTREE" ] || [ -z "$BASE_REF" ] || [ -z "$RECORDED" ]; then
-  cat >&2 <<'EOF'
-usage: check-base-moved.sh <worktree> <base-ref> <recorded-merge-base|->
-  <base-ref>  the base branch name, bare (main) or remote-tracking
-              (origin/main). The guard prefers refs/remotes/origin/<base-ref>
-              when it resolves, so a bare name is never tested against a
-              stale local branch.
-EOF
-  exit 2
-fi
-
-if [ ! -d "$WORKTREE" ]; then
-  echo "check-base-moved: $WORKTREE is not a directory — cannot determine anything" >&2
-  exit 2
-fi
-
-if ! git -C "$WORKTREE" rev-parse --git-dir >/dev/null 2>&1; then
-  echo "check-base-moved: $WORKTREE is not a git worktree — cannot determine anything" >&2
-  exit 2
-fi
-
-# No recorded merge base: an honest unknown, never an inferred verdict.
-if [ "$RECORDED" = "-" ]; then
-  echo "REFUSE: no merge base recorded for $WORKTREE — cannot tell whether the base has moved"
-  exit 0
-fi
-
-# Every ref this script did not choose itself is passed after
-# --end-of-options, so a value beginning with `-` is read as a ref and
-# rejected rather than parsed as a git option.
-RECORDED_SHA="$(git -C "$WORKTREE" rev-parse --verify --end-of-options "${RECORDED}^{commit}" 2>/dev/null)" || {
-  echo "REFUSE: recorded merge base '$RECORDED' does not resolve in $WORKTREE"
-  exit 0
-}
-
-EFFECTIVE_REF="$(resolve_remote_base "$WORKTREE" "$BASE_REF")"
-
-if ! git -C "$WORKTREE" rev-parse --verify --end-of-options "${EFFECTIVE_REF}^{commit}" >/dev/null 2>&1; then
-  echo "REFUSE: base ref '$EFFECTIVE_REF' does not resolve in $WORKTREE — cannot tell whether the base has moved"
-  exit 0
-fi
-
-COUNT="$(git -C "$WORKTREE" rev-list --count --end-of-options "${RECORDED_SHA}..${EFFECTIVE_REF}" 2>/dev/null)" || {
-  echo "check-base-moved: cannot count commits between $RECORDED_SHA and $EFFECTIVE_REF in $WORKTREE" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-base-moved: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-if [ "$COUNT" = "0" ]; then
-  echo "CLEAR: $WORKTREE — $EFFECTIVE_REF has not moved since the recorded merge base"
-  exit 0
-fi
-
-# Movement entirely satisfied by commits this branch already carries
-# (KAN-535) — the same commit objects landed upstream by another route while
-# the change was in flight — needs no rebase: rebasing over it replays
-# nothing, so it reads as CLEAR even though the base moved. `^HEAD` rides
-# after --end-of-options as rev syntax (`^rev` is a rev, not an option), and
-# the capture is checked on its own line like every other git invocation
-# here: a failure is exit 2 with a named message, never a verdict.
-UNCARRIED="$(git -C "$WORKTREE" rev-list --count --end-of-options "${RECORDED_SHA}..${EFFECTIVE_REF}" "^HEAD" 2>/dev/null)" || {
-  echo "check-base-moved: cannot count uncarried commits between $RECORDED_SHA and $EFFECTIVE_REF in $WORKTREE" >&2
-  exit 2
-}
-
-if [ "$UNCARRIED" = "0" ]; then
-  echo "CLEAR: $WORKTREE — the $COUNT commits $EFFECTIVE_REF gained since the recorded merge base are all already carried by this branch — nothing to rebase"
-  exit 0
-fi
-
-MOVED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only --end-of-options "${RECORDED_SHA}..${EFFECTIVE_REF}" 2>/dev/null)" || {
-  echo "check-base-moved: cannot list paths changed on $EFFECTIVE_REF in $WORKTREE" >&2
-  exit 2
-}
-
-# The change's own paths (design.md: touched-paths-include-index-and-worktree):
-# the union of what HEAD carries since the recorded merge base, what is
-# staged, and what is unstaged. Three separate captures, each checked before
-# any is used, rather than one shell pipeline whose partial failure could
-# read as an empty — and therefore clean — set.
-COMMITTED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only --end-of-options "${RECORDED_SHA}..HEAD" 2>/dev/null)" || {
-  echo "check-base-moved: cannot list this change's committed paths in $WORKTREE" >&2
-  exit 2
-}
-
-STAGED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only --cached 2>/dev/null)" || {
-  echo "check-base-moved: cannot list this change's staged paths in $WORKTREE" >&2
-  exit 2
-}
-
-UNSTAGED_RAW="$(git -C "$WORKTREE" diff --no-renames --name-only 2>/dev/null)" || {
-  echo "check-base-moved: cannot list this change's unstaged paths in $WORKTREE" >&2
-  exit 2
-}
-
-MOVED_SORTED="$(printf '%s\n' "$MOVED_RAW" | sort -u)"
-CHANGE_SORTED="$(printf '%s\n%s\n%s\n' "$COMMITTED_RAW" "$STAGED_RAW" "$UNSTAGED_RAW" | sort -u)"
-
-# The intersection, computed only from the already-captured, already-checked
-# variables above — never by re-running git inside the pipe. `comm -12`
-# needs sorted input, which is what MOVED_SORTED and CHANGE_SORTED are.
-OVERLAP=()
-while IFS= read -r path; do
-  [ -n "$path" ] && OVERLAP+=("$path")
-done < <(comm -12 <(printf '%s\n' "$MOVED_SORTED") <(printf '%s\n' "$CHANGE_SORTED"))
-
-if [ "${#OVERLAP[@]}" -eq 0 ]; then
-  echo "MOVED: $WORKTREE — $COUNT commits on $EFFECTIVE_REF since the recorded merge base; no overlap with this change's paths"
-  exit 0
-fi
-
-TOTAL="${#OVERLAP[@]}"
-if [ "$TOTAL" -gt 10 ]; then
-  SHOWN="$(printf '%s, ' "${OVERLAP[@]:0:10}")"
-  SHOWN="${SHOWN%, } (+$((TOTAL - 10)) more)"
-else
-  SHOWN="$(printf '%s, ' "${OVERLAP[@]}")"
-  SHOWN="${SHOWN%, }"
-fi
-
-echo "MOVED: $WORKTREE — $COUNT commits on $EFFECTIVE_REF since the recorded merge base; overlaps: $SHOWN"
-exit 0
+flow_guard_exec check-base-moved 2 "check-base-moved:" "$@"

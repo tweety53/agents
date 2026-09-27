@@ -78,8 +78,8 @@
 # checked, which is the exact outcome the declaration exists to prevent (see
 # the ADDED "A guard checks every self-review report" requirement in this
 # change's spec). Declaration only runs on this guard's own default, bare
-# invocation (no CLI argument) — mirroring check-stage-mark-calls.sh's
-# `declare_expected_zeros`, gated the same way and for the same reason: the
+# invocation (no CLI argument) — mirroring the expected-zero declaration in
+# stats/internal/guard/stagemarkcalls.go, gated the same way and for the same reason: the
 # companion test harness always passes an explicit, sandboxed mktemp
 # fixture directory, a wholly different and smaller tree where none of these
 # seventeen real basenames exist, and declaring them there would make every

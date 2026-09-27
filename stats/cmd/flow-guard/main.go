@@ -47,9 +47,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 // cannotAnswer is guard name's "could not answer" exit code: 4 for
-// run-reproducer, whose 2 means "refused"; 2 for every other guard.
+// run-reproducer and mutate-and-verify, whose 2 means "refused"; 2 for every
+// other guard.
 func cannotAnswer(name string) int {
-	if name == "run-reproducer" {
+	if name == "run-reproducer" || name == "mutate-and-verify" {
 		return 4
 	}
 	return 2

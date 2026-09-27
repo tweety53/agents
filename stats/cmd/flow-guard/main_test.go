@@ -35,6 +35,7 @@ func TestCannotAnswerIsTheGuardsOwnCode(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string]int{
 		"run-reproducer":           4,
+		"mutate-and-verify":        4,
 		"check-task-commit-fields": 2,
 		"check-cleanup-complete":   2,
 	} {

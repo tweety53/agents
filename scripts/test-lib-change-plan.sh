@@ -23,7 +23,7 @@
 # change id — three sub-cases, since three distinct names are concatenated
 # into a path per the task's own header comment).
 #
-# Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
+# Bash 3.2 is the floor:
 # indexed arrays only, no associative arrays.
 set -euo pipefail
 

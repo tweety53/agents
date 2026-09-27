@@ -17,7 +17,7 @@
 # a clean run stays quiet, a failing run replays the failing harness's
 # captured output in full and names every failure.
 #
-# Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
+# Bash 3.2 is the floor:
 # indexed arrays only, no associative arrays, no `wait -n`.
 set -euo pipefail
 
@@ -471,8 +471,7 @@ rm -rf "$FIXTURE" "$WATCHED"
 # against a scratch copy of run-guard-tests.sh with the post-suite snapshot
 # deleted (the gate reading "clean" unconditionally) — 7a then passed where
 # it must fail and 7b was indistinguishable from it. Restoring the snapshot
-# made 7a fail and 7b pass again. This is the same manual-mutation-and-revert
-# method test-mutate-and-verify.sh's header records; it is not reproduced
+# made 7a fail and 7b pass again. This manual mutation-and-revert method is not reproduced
 # automatically on every run.
 
 # ---------------------------------------------------------------------------

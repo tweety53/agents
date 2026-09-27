@@ -40,7 +40,7 @@
 # The duplication is the cheaper of the two, and it is recorded here rather than
 # left unexplained.
 #
-# Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
+# Bash 3.2 is the floor:
 # indexed arrays only, no associative arrays.
 set -euo pipefail
 

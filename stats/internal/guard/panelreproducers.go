@@ -42,13 +42,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		return ""
 	}
 	worktreeArg, name := arg(0), arg(1)
-	abs := func(p string) string {
-		if !filepath.IsAbs(p) {
-			p = filepath.Join(env.Dir, p)
-		}
-		return filepath.Clean(p)
-	}
-	if worktreeArg == "" || !isDir(abs(worktreeArg)) {
+	if worktreeArg == "" || !isDir(pcAbs(env, worktreeArg)) {
 		shown := worktreeArg
 		if shown == "" {
 			shown = "<missing>"
@@ -90,7 +84,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	// that vanishes in the gap between them (a concurrent cleanup, a race
 	// with another /flow integrate or archive run) fails here after the
 	// directory check already passed -- reported at this guard's own exit 2.
-	worktree, err := filepath.EvalSymlinks(abs(worktreeArg))
+	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished before it could be resolved: %s\n", cprPrefix, worktreeArg)
 		return 2
@@ -361,4 +355,13 @@ func cprSeverities(b []byte) ([]string, bool) {
 // cprSpace is the C locale's [[:space:]].
 func cprSpace(c byte) bool {
 	return strings.IndexByte(" \t\n\v\f\r", c) >= 0
+}
+
+// pcAbs is a worktree argument as the panel guards read it: joined to the
+// working directory when relative, then cleaned.
+func pcAbs(env Env, p string) string {
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(env.Dir, p)
+	}
+	return filepath.Clean(p)
 }

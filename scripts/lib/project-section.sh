@@ -1,9 +1,9 @@
 # scripts/lib/project-section.sh — project_section, defined once.
 #
-# Sourced by scripts/project-get.sh and scripts/check-model-keys.sh, as it
-# was by scripts/gather-dispatch-context.sh until its Go port (KAN-760), which
-# carries its own copy (projectSection,
-# stats/internal/guard/gatherdispatch.go) — three inline copies of the identical
+# Sourced by scripts/project-get.sh, as it was by
+# scripts/gather-dispatch-context.sh and scripts/check-model-keys.sh until
+# their Go ports (KAN-760, KAN-841), which share its twin (projectSection,
+# stats/internal/guard/projectsection.go) — three inline copies of the identical
 # heading-to-next-heading awk used to live one in each, the same drift
 # hazard gather-dispatch-context.sh's and the retired self-review gather's
 # (kan-526) copies of within_root once carried. One definition, sourced by every caller that can safely
@@ -13,9 +13,10 @@
 # header for the criterion this file follows too: a guard that ships through
 # the skills/*/scripts/ symlink farm can assume a sibling `lib/` travels
 # with it; a guard reached only by hand-copying a single file into an
-# unrelated project's own tooling cannot. All three callers above ship
-# through the farm — each carries its own `lib` symlink into scripts/lib/
-# beside it — so each sources this file rather than carrying its own copy.
+# unrelated project's own tooling cannot. project-get.sh, the one bash
+# caller left, ships through the farm — it carries its own `lib` symlink into
+# scripts/lib/ beside it — so it sources this file rather than carrying its
+# own copy; the Go ports share the twin in projectsection.go.
 #
 # Not meant to be executed directly — a caller sources it and calls
 # project_section; it sets no `set -euo pipefail` of its own and relies on

@@ -69,13 +69,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		return ""
 	}
 	worktreeArg, name := arg(0), arg(1)
-	abs := func(p string) string {
-		if !filepath.IsAbs(p) {
-			p = filepath.Join(env.Dir, p)
-		}
-		return filepath.Clean(p)
-	}
-	if worktreeArg == "" || !isDir(abs(worktreeArg)) {
+	if worktreeArg == "" || !isDir(pcAbs(env, worktreeArg)) {
 		shown := worktreeArg
 		if shown == "" {
 			shown = "<missing>"
@@ -101,7 +95,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", pcPrefix, name)
 		return 2
 	}
-	worktree, err := filepath.EvalSymlinks(abs(worktreeArg))
+	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished before it could be resolved: %s\n", pcPrefix, worktreeArg)
 		return 2
@@ -272,7 +266,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		if !pcExists(worktree + "/" + token) {
 			var matches []string
 			for _, rw := range recorded {
-				if rw == "" || !isDir(abs(rw)) {
+				if rw == "" || !isDir(pcAbs(env, rw)) {
 					continue
 				}
 				// EvalSymlinks (the bash's `cd ... && pwd -P`) gives the
@@ -284,7 +278,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 				// symlinked prefix; counting the alias twice would refuse an
 				// unambiguous reproducer as ambiguous (panel finding F4,
 				// kan-658 round 0).
-				p, err := filepath.EvalSymlinks(abs(rw))
+				p, err := filepath.EvalSymlinks(pcAbs(env, rw))
 				if err != nil || slices.Contains(matches, p) || !pcExists(p+"/"+token) {
 					continue
 				}

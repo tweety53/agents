@@ -128,7 +128,8 @@ ORIG_PWD="$(pwd)"
 # a relative argument must keep meaning what the caller meant by it, not be
 # reinterpreted against a different directory. to_abs and the
 # usage_fail/cannot_answer/refuse trio above deliberately repeat
-# mutate-and-verify.sh's rather than moving into scripts/lib/: tiny,
+# mutate-and-verify.sh's at d71a2327 (now toAbs in
+# stats/internal/guard/mutateandverify.go) rather than moving into scripts/lib/: tiny,
 # program-name-parameterized helpers, and an extraction would be the wrong
 # abstraction for helpers this small.
 to_abs() {
