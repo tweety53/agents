@@ -58,11 +58,20 @@
 # canonical prefix was used; a malformed key is a different guard's job,
 # the same division check-panel-fix-single-dispatch.sh draws between "did
 # it happen" here and "did it happen the right number of times" there),
-# and its `outcome` is exactly `completed` — a row still open (no `end`
-# ever recorded), or one closed `aborted` or `fallback` with no completed
-# retry beside it, is not evidence the verifier's report was ever read; see
-# **The return** (skills/flow/implement.md) for why only `completed` closes
-# a dispatch's own story.
+# and it carries ONE OF TWO EVIDENCE SHAPES. The first is the ordinary
+# close: its `outcome` is exactly `completed`. The second is the
+# session-continuation signature (KAN-809): the row carries `endedAt` and
+# no `outcome` at all — the verifier demonstrably ran to an end, but the
+# closing `flow record dispatch end -outcome completed` call never landed
+# because the session exhausted its context before it could, so the
+# stage's completion is store-recoverable from the row's own end instant.
+# A row explicitly closed `aborted`, `fallback` or `blocked` is not
+# evidence in either shape — the end instant makes it no more evidence
+# than case 4's aborted row, because those outcomes say the verifier
+# never delivered a report that was read — and a still-open row (no
+# `endedAt`) is not evidence either: the guard cannot tell a running
+# verifier from a dead one. See **The return** (skills/flow/implement.md)
+# for why only `completed` closes a dispatch's own story.
 #
 # NO PROJECT NEEDS A ROW PER WORKTREE. A cross-repo change resolves more
 # than one worktree, and flow.visual-verify dispatches once per worktree in
@@ -149,12 +158,19 @@ if ! printf '%s' "$ROWS" | jq empty >/dev/null 2>&1; then
 fi
 
 MATCH_COUNT="$(printf '%s' "$ROWS" | jq \
-  '[.[] | select((.role // "") == "verifier" and ((.key // "") | startswith("visual-verify")) and (.outcome // "") == "completed")] | length')"
+  '[.[] | select(
+     (.role // "") == "verifier"
+     and ((.key // "") | startswith("visual-verify"))
+     and (
+       (.outcome // "") == "completed"
+       or ((.endedAt != null) and ((.outcome // "") == ""))
+     )
+   )] | length')"
 
 if [ "$MATCH_COUNT" -ge 1 ]; then
-  echo "VISUAL-VERIFY-OK: UI paths touched and a completed verifier dispatch is recorded for '$NAME'"
+  echo "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '$NAME'"
   exit 0
 fi
 
-echo "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed 'verifier' dispatch (key starting 'visual-verify') is recorded for '$NAME' — flow.visual-verify's stage marks were written with no verifier ever dispatched, or its report was never read to completion"
+echo "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '$NAME' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
 exit 1

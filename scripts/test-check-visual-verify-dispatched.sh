@@ -52,6 +52,29 @@ dispatch_json() {
   ' --args -- "$@"
 }
 
+# dispatch_json_ended <key> <role> <endedAt> -- one row that demonstrably
+# ended but whose closing outcome never landed: the session-continuation
+# signature KAN-809 records. `outcome` is absent, exactly as the wire
+# shape's omitempty leaves it.
+dispatch_json_ended() {
+  jq -nc '[{key: $k, role: $r, endedAt: $t}]' \
+    --arg k "$1" --arg r "$2" --arg t "$3"
+}
+
+# dispatch_json_closed <key> <role> <outcome> <endedAt> -- one row closed
+# with an explicit non-completed outcome AND an end instant: the guard
+# must keep reading it as not-evidence.
+dispatch_json_closed() {
+  jq -nc '[{key: $k, role: $r, outcome: $o, endedAt: $t}]' \
+    --arg k "$1" --arg r "$2" --arg o "$3" --arg t "$4"
+}
+
+# dispatch_json_open <key> <role> -- one still-open row: no outcome and
+# no end instant, the shape a dispatch end lost outright leaves behind.
+dispatch_json_open() {
+  jq -nc '[{key: $k, role: $r}]' --arg k "$1" --arg r "$2"
+}
+
 # make_wt <dispatches-json|UNREACHABLE|NOT-JSON> <declare-section|plain> --
 # a worktree-shaped sandbox: a git repo with .flow/project.md (declaring a
 # `## visual verification` section unless "plain"), and a stub `flow` on
@@ -180,6 +203,22 @@ case "$OUT" in
 esac
 
 # ---------------------------------------------------------------------------
+# 3b. A ui path touched and one verifier dispatch that ENDED but whose
+#     closing outcome never landed — endedAt present, outcome absent, the
+#     session-continuation signature KAN-809 records — VISUAL-VERIFY-OK,
+#     exit 0: the stage's completion is store-recoverable from the row.
+# ---------------------------------------------------------------------------
+make_wt "$(dispatch_json_ended visual-verify verifier 2026-09-20T10:00:00Z)" declare-section
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 0 ] && pass "case 3b: an ended row with no outcome exits 0" \
+  || fail "case 3b: rc=$RC out=$OUT"
+case "$OUT" in
+  VISUAL-VERIFY-OK:*) pass "case 3b: the verdict is VISUAL-VERIFY-OK" ;;
+  *) fail "case 3b: no OK verdict: out=$OUT" ;;
+esac
+
+# ---------------------------------------------------------------------------
 # 4. A ui path touched, a verifier row closed aborted — a non-completed
 #    outcome is not evidence the verifier's report was read: exit 1.
 # ---------------------------------------------------------------------------
@@ -191,6 +230,22 @@ run_guard
 case "$OUT" in
   VISUAL-VERIFY-MISSING:*) pass "case 4: the verdict is VISUAL-VERIFY-MISSING" ;;
   *) fail "case 4: no MISSING verdict: out=$OUT" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 4b. A verifier row closed `blocked` WITH an end instant — the end makes
+#     it no more evidence than case 4: the verifier reported it could not
+#     run, and an explicit non-completed outcome always speaks against
+#     the stage. Exit 1.
+# ---------------------------------------------------------------------------
+make_wt "$(dispatch_json_closed visual-verify verifier blocked 2026-09-20T10:00:00Z)" declare-section
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 4b: a blocked row with an end is not evidence, exit 1" \
+  || fail "case 4b: rc=$RC out=$OUT"
+case "$OUT" in
+  VISUAL-VERIFY-MISSING:*) pass "case 4b: the verdict is VISUAL-VERIFY-MISSING" ;;
+  *) fail "case 4b: no MISSING verdict: out=$OUT" ;;
 esac
 
 # ---------------------------------------------------------------------------
@@ -208,6 +263,21 @@ touch_paths "app/src/Widget.tsx"
 run_guard
 [ "$RC" -eq 1 ] && pass "case 6: an empty store is MISSING, exit 1" \
   || fail "case 6: rc=$RC out=$OUT"
+
+# ---------------------------------------------------------------------------
+# 6b. A still-open verifier row — no outcome and no end instant, the shape
+#     a dispatch end lost outright leaves behind — is not evidence either:
+#     the guard cannot tell a running verifier from a dead one. Exit 1.
+# ---------------------------------------------------------------------------
+make_wt "$(dispatch_json_open visual-verify verifier)" declare-section
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 6b: an open row is not evidence, exit 1" \
+  || fail "case 6b: rc=$RC out=$OUT"
+case "$OUT" in
+  VISUAL-VERIFY-MISSING:*) pass "case 6b: the verdict is VISUAL-VERIFY-MISSING" ;;
+  *) fail "case 6b: no MISSING verdict: out=$OUT" ;;
+esac
 
 make_wt "$(dispatch_json some-other-key verifier completed)" declare-section
 touch_paths "app/src/Widget.tsx"
