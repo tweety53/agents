@@ -308,6 +308,14 @@ wrong-argument-count refusal has no Go form (the function takes one root). `\b` 
     `CHECK_INSTALLED_RULES_HOME=$(mktemp -d) scripts/check-installed-rules.sh` exits with the code
     and line it printed at `c5379c0a`.
 
+Correction (2026-09-27): tasks 7 and 11 shims load `$SCRIPT_DIR/lib/flow-guard.sh` (task 8's
+correction). check-installed-rules orders its `*.mdc`/`*.md` globs through the exec'd `crSort` —
+bash's glob order measured equal to `sort`'s under en_US.UTF-8 and unlike byte order — so a missing
+`sort` on PATH is a new refusal (exit 1); an unset `FLOW_GUARD_REPO_ROOT` is refused (exit 1) as in
+the sibling ports. Untested edges differ: a directory as `CHECK_INSTALLED_RULES_SETUP_SH` gives a
+different refusal line (both exit 1), an unset `HOME` reads as empty where bash aborted, and glob
+characters in a `managed_files` element are not expanded.
+
 - [x] 8. Port resolve-base-branch
 
 **Files:** `stats/internal/guard/resolvebasebranch.go`, `stats/internal/guard/resolve_base_branch_test.go`, `scripts/resolve-base-branch.sh`, `scripts/test-resolve-base-branch.sh`, `skills/flow-status/scripts/lib`
