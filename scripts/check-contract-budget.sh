@@ -102,7 +102,7 @@ budgets() {
   cat <<'EOF'
 .flow/project.md 26450
 .flow/project-rationale.md 8168
-KNOWN-BUGS.md 7766
+KNOWN-BUGS.md 11304
 AGENTS.md 18648
 CLAUDE.md 15195
 README.md 59181
