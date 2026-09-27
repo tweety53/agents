@@ -212,9 +212,10 @@ Correction (2026-09-27): the script's header and body disagree on an unreadable 
 undocumented exit 5. The port first followed the header (exit 0, `big`); the gated review found
 `big` is the looser class for this guard (it tolerates one bundle per group, small/regular one per
 run), so that reading passed what the bash blocked, and a top-level JSON object read as `big` too.
-Fix commit `1b2cf11c` makes both a cannot-answer (exit 2, "decision rows were not readable JSON")
-— inside the 0/1/2 contract, failing closed as the bash did; a failed `flow record decisions` call
-still reads as `big`, as in the bash. The header's sentence is corrected to match. The `flow record decisions` read has no `Env` hook (`dispatches-via-env-hook`
+Fix commits `1b2cf11c`, `19c94536` and `d968f3da` make both a cannot-answer (exit 2, "decision
+output was JSON but not an array of decision rows") — inside the 0/1/2 contract, blocking where the
+bash blocked; a failed `flow record decisions` call and output that is not JSON at all (the bash's
+`jq empty` gate) still read as `big`, as in the bash. The header's sentences are corrected to match. The `flow record decisions` read has no `Env` hook (`dispatches-via-env-hook`
 names dispatches only) and execs `flow` on PATH through `pcFlow`; tests run with no `flow` on PATH,
 three cases with a stub.
 
