@@ -825,8 +825,7 @@ costs more time than its Minors are worth — with
 the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query
 rather than a hand-read. Nothing in that round is fixed, inline or otherwise, and no slot re-runs:
 proceed to **Deferred findings go to KNOWN-BUGS.md at round close**, below, and then to
-`check-panel-findings-closed.sh` and the stage close. An explicit decision the operator
-gives on a finding in this session wins over either default. A fixed finding that fails
+`check-panel-findings-closed.sh` and the stage close. A fixed finding that fails
 verification takes the handback below, and that loop re-runs no slot either.
 
 **A deferral's reason is one clause naming the mechanism — never a rationale essay, in the store
