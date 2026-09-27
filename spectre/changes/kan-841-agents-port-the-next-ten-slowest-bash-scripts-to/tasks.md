@@ -103,7 +103,7 @@ Live verification: tasks 1 and 14 run the real suite on this machine and record 
 
 This task commits nothing; its figures are committed with the change's artifacts.
 
-- [ ] 2. Go twins of resolve-file, project-section and post-mutation-check
+- [x] 2. Go twins of resolve-file, project-section and post-mutation-check
 
 **Files:** `stats/internal/guard/resolvefile.go`, `stats/internal/guard/projectsection.go`, `stats/internal/guard/postmutationcheck.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/gatherdispatch.go`
 **Tests:** `TestResolveFileParity`, `TestProjectSectionParity`, `TestPostMutationCheckParity`
@@ -118,7 +118,7 @@ differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
 
 **Decision:** shared-helper-go-twins
 
-  - [ ] **Step 1: Failing tests.** Read each library's header for its functions and contract. For
+  - [x] **Step 1: Failing tests.** Read each library's header for its functions and contract. For
     each, a table of inputs covering every branch of its body (resolve-file: plain file, symlink
     chain, relative symlink, dangling link, directory; project-section: present section, absent,
     empty body, fenced body, heading-level edge, trailing prose; post-mutation-check: clean tree,
@@ -127,9 +127,9 @@ differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
     `t.TempDir()` and the Go function in-process, comparing stdout, stderr and status byte for
     byte. Run `cd stats && go test ./internal/guard/ -run 'Parity$' -count=1` — expect a compile
     failure.
-  - [ ] **Step 2: Port** each library's functions into its Go file, its header citing the bash
+  - [x] **Step 2: Port** each library's functions into its Go file, its header citing the bash
     library as the source of truth it mirrors and the parity test that pins them.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
     ./internal/guard/ -run '^(TestResolveFileParity|TestProjectSectionParity|TestPostMutationCheckParity)$'
     -count=1 -race`.
 
@@ -167,7 +167,10 @@ caller checks existence first.
     `d71a2327`, directly and through a symlink to it in a temp directory.
 
 Correction (2026-09-27): the injected `Env.StageKeys` hook lives on `Env` in `guard.go`, which
-joins **Files:**.
+joins **Files:**. Step 5's "through a symlink to it in a temp directory" cannot hold: the bash at
+`d71a2327` exits 2 there too (it cannot find `lib/coverage.sh`), and the shim matches it. One
+documented divergence: under a UTF-8 locale macOS awk aborts on invalid UTF-8 and the bash counted
+that file as zero calls; the port checks it (the two agree under `LC_ALL=C`).
 
 - [ ] 4. Port check-guard-symlinks
 
@@ -203,7 +206,8 @@ joins **Files:**.
 Correction (2026-09-27): step 2's premise was false — at `d71a2327` rule 2 reads
 `scripts/<guard>`, which for a shimmed guard is the shim, not its Go source, and no KAN-760 commit
 changed that. The port keeps the bash behaviour (parity): a shimmed guard contributes no
-`$SCRIPT_DIR/` siblings.
+`$SCRIPT_DIR/` siblings. The task-4 review found the citation, rule 3 and delegation scans read past
+a NUL where the bash's awk ended the line; fixed to parity and pinned against the live bash.
 
 - [ ] 5. Port check-dispatch-paragraphs
 
@@ -238,7 +242,10 @@ Correction (2026-09-27): step 2 named a `CHECK_GUARD_SYMLINKS_ROOT` override; th
 `d71a2327` never reads it (its header cites it only as the precedent it mirrors), so only
 `CHECK_DISPATCH_PARAGRAPHS_ROOT` is kept. The old-vs-new diff matched 93 of 94 runs byte for
 byte; the one difference is bash's own `ignored null byte` warning on the NUL fixture, which a Go
-binary cannot emit.
+binary cannot emit. The task-5 review found a second, recorded in `dispatchparagraphs.go`: macOS BSD
+grep 2.6.0 in a UTF-8 locale finds no non-ASCII label in a file holding a NUL byte, so the bash
+reported the em-dash `**VERBATIM REPORT — THE FACT:**` label missing where the port — matching the
+header, GNU grep and `LC_ALL=C` — finds it.
 
 - [ ] 6. Port mutate-and-verify
 
