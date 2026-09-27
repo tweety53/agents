@@ -270,7 +270,9 @@ without search permission. Fix commit `d3810105` checks existence on the unclean
 permission, and refuses an empty argument, each with `not a directory: <arg>`, exit 2 — pinned by
 three port subtests; the re-review found an absolute `<symlink>/..` resolved through the link
 where `cd` removes the previous component lexically — fix commit `68826f86` cleans it, pinned by a
-port subtest. Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
+port subtest; its re-review found that always-lexical resolution dropped `cd`'s physical
+fallback (the argument as given, when the cleaned path is not a searchable directory) — fix commit
+`7e9425d8` restores it, pinned by a port subtest. Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
 paths, so their `--apply` restore fails after the abort, in the bash and the port alike.
 
 - [x] 6. Port plan-class
