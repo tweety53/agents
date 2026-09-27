@@ -184,4 +184,16 @@ it, filed at integrate per KAN-760's `follow-ups-at-integrate` — the operator'
 **Considered:** record only — no criterion to fail; slowest harness < 30s — a threshold nothing
 measured yet supports.
 
+### Deferred panel findings go to KNOWN-BUGS.md, unasked
+
+**ID:** deferred-findings-to-known-bugs
+**Status:** active
+**Chosen:** a review-panel round close that defers findings appends them to
+`<project>/KNOWN-BUGS.md` under `## Deferred review findings` (`skills/flow-contracts/known-bugs.md`
+canonical) and asks nothing; no Jira follow-up is filed at that close — the operator's instruction
+during this run, which deferred seven Minors (F6–F12).
+**Considered:** keeping the Jira filing prompt at round close — the operator declined it and asked
+for the prompt to go; a new per-change Markdown file — `KNOWN-BUGS.md` already carries the
+recorded-not-repaired entries a next change reads.
+
 ## Open questions
