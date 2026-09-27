@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -14,7 +15,10 @@ import (
 // positioned, one stdout line; 1 a named refusal; 2 cannot answer or post-run
 // drift; 3 the base cannot be reconciled with origin. Every git call runs in
 // the bash's order. The reasoning for each step, moved here from the bash body
-// it replaced (d71a2327), sits beside the code it explains.
+// it replaced (d71a2327), sits beside the code it explains. Since KAN-823 no
+// step that stops the chain fails silently: a failing git call's own stderr is
+// printed beneath the named line, and the landing directory is asserted to be
+// a git worktree of its own before any further git call runs in it.
 func init() {
 	Registry["prepare-archive-branch"] = prepareArchiveBranch
 }
@@ -59,6 +63,25 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 		return gitExec(env.Dir, stdout, stderr, a...)
 	}
 	fsPath := func(p string) string { return smcAbs(env, p) }
+	// gitLoud is git with the stderr captured and printed beneath the guard's
+	// prefix when the call fails: no step that stops the chain fails silently
+	// (KAN-823 — a landing-chain step whose output went to /dev/null let every
+	// later step act on the wrong tree). Steps whose failure is not this
+	// chain's failure stay on plain git: the bounded fetch is documented
+	// best-effort, and the dirty-file classification degrades to unclassified
+	// by its own contract.
+	gitLoud := func(a ...string) (string, int) {
+		var errBuf bytes.Buffer
+		out, rc := git(io.Discard, &errBuf, a...)
+		if rc != 0 {
+			for _, line := range strings.Split(strings.TrimRight(errBuf.String(), "\n"), "\n") {
+				if line != "" {
+					fmt.Fprintf(stderr, "prepare-archive-branch: git: %s\n", line)
+				}
+			}
+		}
+		return out, rc
+	}
 
 	// Step 2b: <landing-worktree> is created, from the main checkout, when it
 	// does not already exist. `--force` is required: the main checkout is
@@ -69,12 +92,12 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 		if pabBasename(parent) != ".worktrees" {
 			return say(1, "%s's parent is not a .worktrees directory — refusing to create it", landing)
 		}
-		top, rc := git(nil, io.Discard, "-C", gdcDirname(parent), "rev-parse", "--show-toplevel")
+		top, rc := gitLoud("-C", gdcDirname(parent), "rev-parse", "--show-toplevel")
 		if rc != 0 {
 			return say(2, "cannot resolve the main checkout above %s", landing)
 		}
 		mainCheckout := strings.TrimRight(top, "\n")
-		if _, rc := git(io.Discard, io.Discard, "-C", mainCheckout, "worktree", "add", "--force", "--quiet", "--", landing, base); rc != 0 {
+		if _, rc := gitLoud("-C", mainCheckout, "worktree", "add", "--force", "--quiet", "--", landing, base); rc != 0 {
 			return say(2, "could not create the landing worktree %s from '%s' in %s", landing, base, mainCheckout)
 		}
 	}
@@ -82,7 +105,15 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	if !isDir(fsPath(landing)) {
 		return say(2, "%s is not a directory", landing)
 	}
-	if _, rc := git(io.Discard, io.Discard, "-C", landing, "rev-parse", "--git-dir"); rc != 0 {
+	// KAN-823's post-positioning assertion: the landing must be a git worktree
+	// of its own before any further `git -C <landing>` runs. A plain directory
+	// merely sitting inside the parent repository — the incident: a
+	// `_landing-<name>` dir holding a daemon's output, after `git worktree
+	// remove` had deregistered the worktree — walks up to that parent instead,
+	// and every later git call would act on the wrong tree. `--show-prefix` is
+	// empty exactly at a toplevel.
+	prefix, rc := gitLoud("-C", landing, "rev-parse", "--show-prefix")
+	if rc != 0 {
 		return say(2, "%s is not a git worktree", landing)
 	}
 	// Step 2c: that resolution can come from walking UP out of the landing
@@ -90,10 +121,21 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	// inside the main checkout's tree resolves there, and every later
 	// `git -C <landing>` would act on the main checkout, whose index the run
 	// then found stale (KAN-823's incident, caught only by the downstream
-	// dirty-tree refusal). A worktree root carries its own .git entry;
-	// anything the resolution reached by walking up does not.
+	// dirty-tree refusal). `--show-prefix` is empty exactly at a toplevel, so
+	// a resolution that walked up carries a non-empty prefix and is refused
+	// here, naming where git resolved it.
+	if p := strings.TrimRight(prefix, "\n"); p != "" {
+		top, trc := gitLoud("-C", landing, "rev-parse", "--show-toplevel")
+		if trc == 0 {
+			return say(2, "%s is not itself a git worktree — git resolves it to %s", landing, strings.TrimRight(top, "\n"))
+		}
+		return say(2, "%s is not itself a git worktree — it resolves inside the repository above it", landing)
+	}
+	// A worktree root carries its own .git entry; anything the resolution
+	// reached by walking up does not — and a bare repository's directory
+	// carries none either.
 	if _, err := os.Stat(filepath.Join(fsPath(landing), ".git")); err != nil {
-		top, _ := git(nil, io.Discard, "-C", landing, "rev-parse", "--show-toplevel")
+		top, _ := gitLoud("-C", landing, "rev-parse", "--show-toplevel")
 		return say(2, "%s is not itself a git worktree — git resolves it to %s", landing, strings.TrimRight(top, "\n"))
 	}
 	// The landing worktree must belong to the repository it was cut from —
@@ -104,17 +146,17 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	// construction there is no repository to compare against, and none is
 	// guessed.
 	if pabBasename(gdcDirname(landing)) == ".worktrees" {
-		mainTop, rc := git(nil, io.Discard, "-C", gdcDirname(gdcDirname(landing)), "rev-parse", "--show-toplevel")
+		mainTop, rc := gitLoud("-C", gdcDirname(gdcDirname(landing)), "rev-parse", "--show-toplevel")
 		if rc != 0 {
 			return say(2, "cannot resolve the main checkout above %s", landing)
 		}
 		mainCheckout := strings.TrimRight(mainTop, "\n")
-		common, rc := git(nil, io.Discard, "-C", landing, "rev-parse", "--path-format=absolute", "--git-common-dir")
+		common, rc := gitLoud("-C", landing, "rev-parse", "--path-format=absolute", "--git-common-dir")
 		if rc != 0 {
 			return say(2, "cannot read the git common directory of %s", landing)
 		}
 		common = strings.TrimRight(common, "\n")
-		mainCommon, rc := git(nil, io.Discard, "-C", mainCheckout, "rev-parse", "--path-format=absolute", "--git-common-dir")
+		mainCommon, rc := gitLoud("-C", mainCheckout, "rev-parse", "--path-format=absolute", "--git-common-dir")
 		if rc != 0 {
 			return say(2, "cannot read the git common directory of %s", mainCheckout)
 		}
@@ -122,7 +164,7 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 			return say(2, "%s is a worktree of a different repository (%s, not %s) — refusing", landing, common, strings.TrimRight(mainCommon, "\n"))
 		}
 	}
-	if _, rc := git(io.Discard, io.Discard, "-C", landing, "remote", "get-url", "origin"); rc != 0 {
+	if _, rc := gitLoud("-C", landing, "remote", "get-url", "origin"); rc != 0 {
 		return say(3, "no 'origin' remote configured in %s — cannot resolve origin/%s", landing, base)
 	}
 
@@ -134,7 +176,7 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 
 	// Step 4: `branch --show-current` failing is a different fact from a
 	// detached HEAD, where it succeeds and prints nothing.
-	cur, rc := git(nil, io.Discard, "-C", landing, "branch", "--show-current")
+	cur, rc := gitLoud("-C", landing, "branch", "--show-current")
 	if rc != 0 {
 		return say(2, "could not read the current branch in %s", landing)
 	}
@@ -144,8 +186,10 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 
 	// Step 5: a dirty tree is refused wherever it is — on <base> the changes
 	// would otherwise ride onto the archive branch unremarked — naming every
-	// dirty entry, classified against the change's own branch.
-	dirty, rc := git(nil, io.Discard, "-C", landing, "-c", "core.quotePath=false", "status", "--porcelain", "--untracked-files=normal")
+	// dirty entry, classified against the change's own branch. A status call
+	// that fails stops the chain (KAN-823): a failed read is never a clean
+	// tree.
+	dirty, rc := gitLoud("-C", landing, "-c", "core.quotePath=false", "status", "--porcelain", "--untracked-files=normal")
 	if rc != 0 {
 		return say(2, "cannot read the working tree state of %s", landing)
 	}
@@ -168,17 +212,17 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 
 	if cur != base {
-		if _, rc := git(io.Discard, io.Discard, "-C", landing, "checkout", "-q", base); rc != 0 {
+		if _, rc := gitLoud("-C", landing, "checkout", "-q", base); rc != 0 {
 			return say(2, "could not check out '%s' in %s", base, landing)
 		}
 	}
 
 	// Step 6: fast-forward <base> — a no-op when local already contains
 	// origin's tip, a failure only on a genuine divergence.
-	if _, rc := git(io.Discard, io.Discard, "-C", landing, "rev-parse", "-q", "--verify", "refs/remotes/origin/"+base); rc != 0 {
+	if _, rc := gitLoud("-C", landing, "rev-parse", "-q", "--verify", "refs/remotes/origin/"+base); rc != 0 {
 		return say(3, "origin/%s does not exist — cannot fast-forward '%s'", base, base)
 	}
-	if _, rc := git(io.Discard, io.Discard, "-C", landing, "merge", "--ff-only", "-q", "origin/"+base); rc != 0 {
+	if _, rc := gitLoud("-C", landing, "merge", "--ff-only", "-q", "origin/"+base); rc != 0 {
 		return say(3, "'%s' cannot be fast-forwarded to origin/%s — it has diverged", base, base)
 	}
 
@@ -189,10 +233,10 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 		if _, rc := git(stdout, io.Discard, "-C", landing, "merge-base", "--is-ancestor", "origin/"+base, archive); rc != 0 {
 			return say(1, "'%s' already exists and is not descended from origin/%s — refusing", archive, base)
 		}
-		if _, rc := git(io.Discard, io.Discard, "-C", landing, "checkout", "-q", archive); rc != 0 {
+		if _, rc := gitLoud("-C", landing, "checkout", "-q", archive); rc != 0 {
 			return say(2, "could not check out existing '%s' in %s", archive, landing)
 		}
-	} else if _, rc := git(io.Discard, io.Discard, "-C", landing, "checkout", "-q", "-b", archive, base); rc != 0 {
+	} else if _, rc := gitLoud("-C", landing, "checkout", "-q", "-b", archive, base); rc != 0 {
 		return say(2, "could not create '%s' from '%s' in %s", archive, base, landing)
 	}
 

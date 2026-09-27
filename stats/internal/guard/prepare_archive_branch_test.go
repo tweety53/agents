@@ -541,38 +541,62 @@ func TestPrepareArchiveBranch(t *testing.T) {
 				return []string{c.wt, "main", pabArchive}, c.wt
 			})
 		}},
-		{"port: base diverged, reached off base", func(t *testing.T) {
-			pabParity(t, base, 3, func(c *pabCase) ([]string, string) {
-				writeFile(t, c.wt+"/local.txt", "local\n")
-				c.git(c.wt, "add", "local.txt")
-				c.git(c.wt, "commit", "-qm", "local")
-				writeFile(t, c.seed+"/remote.txt", "remote\n")
-				c.git(c.seed, "add", "remote.txt")
-				c.git(c.seed, "commit", "-qm", "remote")
-				c.git(c.seed, "push", "-q", "origin", "main")
-				c.git(c.wt, "checkout", "-q", "-b", "other")
-				return []string{c.wt, "main", pabArchive}, c.wt
-			})
-		}},
+		// The four `port:` cases below deliberately diverge from the bash at
+		// d71a2327 (KAN-823): each fails at a step whose git stderr the bash
+		// discarded and the port now prints beneath the named line, so each
+		// asserts its own output instead of the bash's.
 		{"port: base cannot be checked out", func(t *testing.T) {
-			pabParity(t, base, 2, func(c *pabCase) ([]string, string) {
-				c.git(c.wt, "checkout", "-q", "-b", "other")
-				return []string{c.wt, ".x", pabArchive}, c.wt
-			})
+			c := newCheckout(t)
+			c.git(c.wt, "checkout", "-q", "-b", "other")
+			c.snap(c.wt)
+			r := c.run(c.wt, ".x", pabArchive)
+			c.refused(r, "port: base cannot be checked out", 2, "could not check out '.x'")
+			gsCheck(t, "port: base cannot be checked out: git's own stderr is printed",
+				strings.Contains(r.err, "pathspec '.x' did not match"), "got %q", r.err)
+			c.unchanged("port: base cannot be checked out")
 		}},
 		{"port: existing archive branch checked out elsewhere", func(t *testing.T) {
-			pabParity(t, base, 2, func(c *pabCase) ([]string, string) {
-				c.git(c.wt, "branch", pabArchive, "main")
-				c.git(c.wt, "worktree", "add", "-q", c.root+"/elsewhere", pabArchive)
-				c.git(c.wt, "checkout", "-q", "-b", "other")
-				return []string{c.wt, "main", pabArchive}, c.wt
-			})
+			c := newCheckout(t)
+			c.git(c.wt, "branch", pabArchive, "main")
+			c.git(c.wt, "worktree", "add", "-q", c.root+"/elsewhere", pabArchive)
+			c.git(c.wt, "checkout", "-q", "-b", "other")
+			r := c.run(c.wt, "main", pabArchive)
+			c.refused(r, "port: existing archive branch checked out elsewhere", 2, "could not check out existing")
+			gsCheck(t, "port: existing archive branch checked out elsewhere: git's own stderr is printed",
+				strings.Contains(r.err, "already used by worktree at"), "got %q", r.err)
+			gsCheck(t, "port: existing archive branch checked out elsewhere: the base checkout succeeded before the refusal",
+				c.branch(c.wt) == "main", "on %q", c.branch(c.wt))
 		}},
 		{"port: archive branch cannot be created", func(t *testing.T) {
-			pabParity(t, base, 2, func(c *pabCase) ([]string, string) {
-				c.git(c.wt, "checkout", "-q", "-b", "other")
-				return []string{c.wt, "main", "a..b"}, c.wt
-			})
+			c := newCheckout(t)
+			c.git(c.wt, "checkout", "-q", "-b", "other")
+			r := c.run(c.wt, "main", "a..b")
+			c.refused(r, "port: archive branch cannot be created", 2, "could not create 'a..b'")
+			gsCheck(t, "port: archive branch cannot be created: git's own stderr is printed",
+				strings.Contains(r.err, "'a..b' is not a valid branch name"), "got %q", r.err)
+			gsCheck(t, "port: archive branch cannot be created: the base checkout succeeded before the refusal",
+				c.branch(c.wt) == "main", "on %q", c.branch(c.wt))
+		}},
+		{"port: base diverged, reached off base", func(t *testing.T) {
+			c := newCheckout(t)
+			writeFile(t, c.wt+"/local.txt", "local\n")
+			c.git(c.wt, "add", "local.txt")
+			c.git(c.wt, "commit", "-qm", "local")
+			local := c.git(c.wt, "rev-parse", "main")
+			writeFile(t, c.seed+"/remote.txt", "remote\n")
+			c.git(c.seed, "add", "remote.txt")
+			c.git(c.seed, "commit", "-qm", "remote")
+			c.git(c.seed, "push", "-q", "origin", "main")
+			c.git(c.wt, "checkout", "-q", "-b", "other")
+			c.snap(c.wt)
+			r := c.run(c.wt, "main", pabArchive)
+			c.refused(r, "port: base diverged, reached off base", 3, "fast-forwarded")
+			gsCheck(t, "port: base diverged, reached off base: git's own stderr is printed",
+				strings.Contains(r.err, "Not possible to fast-forward"), "got %q", r.err)
+			gsCheck(t, "port: base diverged, reached off base: the base checkout succeeded before the refusal",
+				c.branch(c.wt) == "main", "on %q", c.branch(c.wt))
+			gsCheck(t, "port: base diverged, reached off base: local base commit unchanged",
+				c.git(c.wt, "rev-parse", "main") == local, "moved")
 		}},
 		{"port: a rename is classified by its new path", func(t *testing.T) {
 			pabParity(t, base, 1, func(c *pabCase) ([]string, string) {
@@ -592,16 +616,20 @@ func TestPrepareArchiveBranch(t *testing.T) {
 		}},
 		// `lnk/..` is the symlink target's parent, as the kernel resolves
 		// it, not the directory holding lnk: here the landing exists only
-		// under the lexical reading.
+		// under the lexical reading, so the main checkout above it cannot be
+		// resolved. KAN-823 divergence: git's own chdir refusal is printed
+		// beneath the named line, where the bash discarded it.
 		{"port: a landing path through a symlink's .. resolves physically", func(t *testing.T) {
-			pabParity(t, base, 2, func(c *pabCase) ([]string, string) {
-				c.landing()
-				mkdir(t, c.root+"/deep/sub")
-				if err := os.Symlink(c.root+"/deep/sub", c.root+"/lnk"); err != nil {
-					t.Fatal(err)
-				}
-				return []string{"lnk/../wt/.worktrees/_landing-fixture", "main", pabArchive}, c.wt
-			})
+			c := newCheckout(t)
+			c.landing()
+			mkdir(t, c.root+"/deep/sub")
+			if err := os.Symlink(c.root+"/deep/sub", c.root+"/lnk"); err != nil {
+				t.Fatal(err)
+			}
+			r := c.run("lnk/../wt/.worktrees/_landing-fixture", "main", pabArchive)
+			c.refused(r, "port: a landing path through a symlink's .. resolves physically", 2, "cannot resolve the main checkout above")
+			gsCheck(t, "port: a landing path through a symlink's .. resolves physically: git's own stderr is printed",
+				strings.Contains(r.err, "cannot change to 'lnk/../wt'"), "got %q", r.err)
 		}},
 		{"port: a non-ASCII branch name is refused byte by byte", func(t *testing.T) {
 			pabParity(t, base, 1, func(c *pabCase) ([]string, string) {
@@ -636,7 +664,9 @@ func TestPrepareArchiveBranch(t *testing.T) {
 			writeFile(t, l+"/gradle-output.txt", "daemon residue\n")
 			c.snap(l)
 			r := c.run(l, "main", pabArchive)
-			c.refused(r, "plain-directory landing walks up to the main checkout", 2, "is not a git worktree of its own")
+			c.refused(r, "plain-directory landing walks up to the main checkout", 2, "not itself a git worktree")
+			gsCheck(t, "plain-directory landing walks up to the main checkout: names where git resolved it",
+				strings.Contains(r.err, c.wt), "got %q", r.err)
 			gsCheck(t, "plain-directory landing walks up to the main checkout: the main checkout's branch is untouched",
 				c.branch(c.wt) == "main", "on %q", c.branch(c.wt))
 			gsCheck(t, "plain-directory landing walks up to the main checkout: no archive branch created",
@@ -766,10 +796,13 @@ exec "$PAB_REAL" "$@"
 
 // pabPins is each fixture's whole result from the bash script at d71a2327,
 // captured by running scripts/prepare-archive-branch.sh over the same fixture.
+// Three pins deliberately diverge from that bash since KAN-823: cases 8, 10
+// and 11 fail at a step whose git stderr the bash discarded and the port now
+// prints beneath the named line, so their pins carry the port's own output.
 var pabPins = map[string]string{
 	"TestPrepareArchiveBranch/1_on-base-clean":                                          "main -> chore/archive-fixture\n--- stderr\n--- exit 0\n",
-	"TestPrepareArchiveBranch/10_base-diverged":                                         "--- stderr\nprepare-archive-branch: 'main' cannot be fast-forwarded to origin/main — it has diverged\n--- exit 3\n",
-	"TestPrepareArchiveBranch/11_no-origin":                                             "--- stderr\nprepare-archive-branch: no 'origin' remote configured in <root>/noorigin — cannot resolve origin/main\n--- exit 3\n",
+	"TestPrepareArchiveBranch/10_base-diverged":                                         "--- stderr\nprepare-archive-branch: git: hint: Diverging branches can't be fast-forwarded, you need to either:\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: \tgit merge --no-ff\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: or:\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: \tgit rebase\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: Disable this message with \"git config set advice.diverging false\"\nprepare-archive-branch: git: fatal: Not possible to fast-forward, aborting.\nprepare-archive-branch: 'main' cannot be fast-forwarded to origin/main — it has diverged\n--- exit 3\n",
+	"TestPrepareArchiveBranch/11_no-origin":                                             "--- stderr\nprepare-archive-branch: git: error: No such remote 'origin'\nprepare-archive-branch: no 'origin' remote configured in <root>/noorigin — cannot resolve origin/main\n--- exit 3\n",
 	"TestPrepareArchiveBranch/12_creates-landing-worktree":                              "main -> chore/archive-fixture\n--- stderr\n--- exit 0\n",
 	"TestPrepareArchiveBranch/13_dirty-landing-worktree":                                "--- stderr\nprepare-archive-branch: <root>/wt/.worktrees/_landing-fixture has a dirty working tree on 'main' — refusing\nprepare-archive-branch: dirty files:\nprepare-archive-branch:   (cannot classify -- no change worktree with a branch beside <root>/wt/.worktrees/_landing-fixture)\nprepare-archive-branch:    M file.txt\n--- exit 1\n",
 	"TestPrepareArchiveBranch/14_main-checkout-never-checked-out":                       "main -> chore/archive-fixture\n--- stderr\n--- exit 0\n",
@@ -787,7 +820,7 @@ var pabPins = map[string]string{
 	"TestPrepareArchiveBranch/5_detached-head":                                          "--- stderr\nprepare-archive-branch: HEAD is detached in <root>/wt\n--- exit 1\n",
 	"TestPrepareArchiveBranch/6_archive-branch-exists-descended":                        "main -> chore/archive-fixture\n--- stderr\n--- exit 0\n",
 	"TestPrepareArchiveBranch/7_archive-branch-exists-unrelated":                        "--- stderr\nprepare-archive-branch: 'chore/archive-fixture' already exists and is not descended from origin/main — refusing\n--- exit 1\n",
-	"TestPrepareArchiveBranch/8_not-a-worktree":                                         "--- stderr\nprepare-archive-branch: <root> is not a git worktree\n--- exit 2\n",
+	"TestPrepareArchiveBranch/8_not-a-worktree":                                         "--- stderr\nprepare-archive-branch: git: fatal: not a git repository (or any of the parent directories): .git\nprepare-archive-branch: <root> is not a git worktree\n--- exit 2\n",
 	"TestPrepareArchiveBranch/9_missing-checkout":                                       "--- stderr\nprepare-archive-branch: <root>/prepare-archive-branch-test-missing's parent is not a .worktrees directory — refusing to create it\n--- exit 1\n",
 	"TestPrepareArchiveBranch/invalid_branch_names":                                     "--- stderr\nprepare-archive-branch: base branch '-main' is not a valid branch name\n--- exit 1\n",
 	"TestPrepareArchiveBranch/landing_path_with_a_space":                                "main -> chore/archive-fixture\n--- stderr\n--- exit 0\n",
