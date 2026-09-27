@@ -24,7 +24,7 @@ separately, threading `cd` state (`cur`) across lines — bash treats a newline 
 separator, not a session reset.
 
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
-**Tests:** `26 multi-line cp cannot swallow a later line's target`, `27 multi-line second line judged on its own`
+**Tests:** `26 multi-line cp cannot swallow a later line's target`, `27 multi-line second line judged on its own`, `32 cd state threads across lines without a separator`
 **Regression:** revert drops the per-line split and both cases fail: 26 re-denies a legitimate
 multi-line `cp` (the mode-3 false positive KAN-798 observed), 27 misses a real `git reset` smuggled
 onto a later line
@@ -58,7 +58,7 @@ command's own assignments and expand them before resolution, keeping the let-thr
 still unknown.
 
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
-**Tests:** `28 assignment-set redirect into main resolves and denies`, `29 nested variable stays let-through`
+**Tests:** `28 assignment-set redirect into main resolves and denies`, `29 nested variable stays let-through`, `33 longest-name expansion wins the collision`, `34 braced expansion resolves the variable`, `36 unset near-name variable is not expanded greedily`, `37 use before set is not expanded`
 **Regression:** revert drops expansion and both cases fail: 28 stops denying a redirect that lands
 in the main checkout through `C`, 29 still passes but only by accident of the same hole
 **Baseline:** before=26 after=28
@@ -90,7 +90,7 @@ main checkout on `main`. When the nearest existing ancestor is a directory named
 path is future worktree content — outside the protected tree.
 
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
-**Tests:** `30 cp into a not-yet-existing worktree path`, `31 loose file directly in .worktrees`
+**Tests:** `30 cp into a not-yet-existing worktree path`, `31 loose file directly in .worktrees`, `35 rm of the .worktrees root itself stays denied`
 **Regression:** revert drops the rule and both cases fail: 30 re-denies the landing-worktree write
 (the mode-2 false positive KAN-798 observed), 31 denies a harmless write into the gitignored
 worktree root
