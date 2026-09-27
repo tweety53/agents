@@ -251,7 +251,7 @@ header, GNU grep and `LC_ALL=C` — finds it.
 
 - [ ] 6. Port mutate-and-verify
 
-**Files:** `stats/internal/guard/mutateandverify.go`, `stats/internal/guard/mutate_and_verify_test.go`, `scripts/mutate-and-verify.sh`, `scripts/test-mutate-and-verify.sh`, `stats/cmd/flow-guard/main.go`, `stats/cmd/flow-guard/main_test.go`
+**Files:** `stats/internal/guard/mutateandverify.go`, `stats/internal/guard/mutate_and_verify_test.go`, `scripts/mutate-and-verify.sh`, `scripts/test-mutate-and-verify.sh`, `stats/cmd/flow-guard/main.go`, `stats/cmd/flow-guard/main_test.go`, `stats/internal/guard/postmutationcheck.go`, `stats/internal/guard/provereproducer.go`
 **Tests:** `TestMutateAndVerify`
 **Regression:** fails if any of the harness's 44 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -286,7 +286,19 @@ it, pinned by a row in `TestCannotAnswerIsTheGuardsOwnCode`, so `stats/cmd/flow-
 `main_test.go` join **Files:**. Signals: the bash's EXIT trap restored the touched files and
 reported on SIGTERM/SIGHUP before dying of the signal; the port handles SIGHUP/SIGINT/SIGTERM the
 same way and re-raises (pinned through the real shim). On SIGINT it restores at once where
-`/bin/bash` 3.2 waited for the harness — a `ponytail:` comment names it.
+`/bin/bash` 3.2 waited for the harness — a `ponytail:` comment names it. The trap is shared with
+task 11 as `trapExitSignals` (`provereproducer.go`, which joins **Files:**) and also takes
+SIGPIPE: bash 3.2's trap restored on a closed stdout where bash 5.3 died leaving the mutation, and
+the port restores and exits 141 (the Go runtime cannot re-raise a SIGPIPE it did not raise); the
+patch is never applied once a signal is being handled. Other signals bash's trap caught (SIGUSR1,
+...) the Go runtime ignores, and a SIGTERM ignored at start is not seen as ignored — both accepted
+and named in the `ponytail:` comment. A harness with no `#!` line reads as unanswered (exit 4) where
+bash ran it as a script — accepted, every harness this runs has one. The mechanisms bash got from
+`$(...)` and `[ -le ]` are pinned against the bash at `d71a2327`: NUL bytes are dropped from
+harness output (bash 5's "ignored null byte" warning is not reproduced), a bare `FAIL: ` takes no
+part in the difference, and an out-of-range bound falls to FLAG (bash's own `integer expected`
+line is not reproduced). `mvGitRun` and task 2's `pmcGit` became one `gitExec` in
+`postmutationcheck.go`, which joins **Files:**.
 
 - [ ] 7. Port prepare-archive-branch
 
@@ -317,6 +329,15 @@ same way and re-raises (pinned through the real shim). On SIGINT it restores at 
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/prepare-archive-branch.sh` with no arguments exits 2 with the line it printed at
     `d71a2327`.
+
+Correction (2026-09-27): paths join the caller's directory uncleaned, so `lnk/..` resolves
+physically as the bash's `[ -e ]` and `git -C` did. The bash's `export LC_ALL=C` is not carried to
+git: parsed git output is locale-independent, and the git stderr passed through prints in the
+caller's locale — visible only with a localized git. Each refusal after HEAD has moved, the rename
+and directory-entry classification, and the byte-wise branch-name check are pinned against the
+bash at `d71a2327`, status and branch included. Two defects the bash had and the port keeps (a
+relative landing path given from outside the main checkout; porcelain-quoted paths never
+classified) are recorded in `KNOWN-BUGS.md`.
 
 - [ ] 8. Port check-base-moved
 
@@ -386,6 +407,8 @@ edge: malformed findings JSON on a chunked round exits 5 (or 1) in the body, 2 (
 in the header. The port follows the header's cannot-answer contract — exit 2, `findings rows were
 not readable JSON -- cannot answer` — surfaced to the operator at the handoff. Dispatch rows given
 as a JSON object (never printed by `flow`) are refused with exit 2 where jq walked its values.
+A non-string key prints as compact JSON where jq pretty-printed it, and bash 5's "ignored null
+byte" warning (3.2 prints none) is not reproduced — both accepted, the only bytes that differ.
 The mechanisms the bash got implicitly from jq and `$(...)` — a NUL in a key dropped, trailing
 newlines trimmed, a boolean `round` at round 0, an empty findings array, 64-bit wrap, a null row —
 are pinned by a `port:` subtest that runs the bash at `d71a2327` beside the port. A multi-value
@@ -429,7 +452,7 @@ named `check-model-keys.sh` as a caller, so both join **Files:** to drop it.
 
 - [ ] 11. Port prove-reproducer
 
-**Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`, `scripts/test-prove-reproducer.sh`, `scripts/lib/reproducer-path.sh`, `stats/internal/guard/guard.go`
+**Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`, `scripts/test-prove-reproducer.sh`, `scripts/lib/reproducer-path.sh`, `stats/internal/guard/guard.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`
 **Tests:** `TestProveReproducer`
 **Regression:** fails if any of the harness's 8 cases regress.
 **Baseline:** before=0 after=1
@@ -461,10 +484,15 @@ named `check-model-keys.sh` as a caller, so both join **Files:** to drop it.
 
 Correction (2026-09-27): signals are handled as the bash's trap did — on SIGINT/SIGTERM/SIGHUP
 the scratch worktree is removed at once and the signal re-raised (143 for SIGTERM), with signals
-ignored at entry left ignored; no per-step checkpoint. `guard.go` joins **Files:** only to drop the
+ignored at entry left ignored (Go sees an inherited ignore for SIGHUP and SIGINT only — a SIGTERM
+ignored at start is handled, accepted); no per-step checkpoint. A SIGINT sent to the guard's pid
+alone ends the run at once where bash waited for its leg — accepted, a Ctrl-C reaches the whole
+process group; the subtest sends it that way. `guard.go` joins **Files:** only to drop the
 `Env.Signals` hook an earlier revision added. `mkdir -p` and `cp -p` run as child processes so
-their stderr reaches the caller byte for byte. The exec-bit-loss exit the bash guarded is
-unreachable once `cp -p` succeeded, and is not ported.
+their stderr reaches the caller byte for byte, the directory taken by `dirname`, uncleaned
+(`a/./r.sh` creates `a/.`). The exec-bit check on the copy stays: it fails on a noexec TMPDIR. A
+comment fix to task 9's test rode this task's second fix commit, so
+`stats/internal/guard/check_panel_fix_single_dispatch_test.go` joins **Files:**.
 
 - [ ] 12. Port check-finish-preflight
 
