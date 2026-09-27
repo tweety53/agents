@@ -913,7 +913,12 @@ file. Record the bundle as one `dispatches` row (`-role reviewer`, `-key task-<n
 with the task ids `+`-joined in plan order, the same convention as `panel-<round>-<slot+slot>`;
 `-task <n>` only on a one-task bundle, omitted otherwise) and close it with **`-outcome clean`
 when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's own verdict is
-its report file's `## Verdict`, so per-task review yield stays measurable against the gate. **A
+its report file's `## Verdict`, so per-task review yield stays measurable against the gate.
+**A pass whose findings are all Minor is `clean`** — the Minor-deferral default of **Panel
+re-runs** (`skills/flow/review-panel.md`) applied per pass: no fix round and no re-review; before
+ticking the task the parent appends each such Minor to `<project>/KNOWN-BUGS.md` in the entry
+shape of **Deferred review findings** (`skills/flow-contracts/known-bugs.md`), `task-<n>` in place
+of `F<n>`. A `fix` pass sends its Minors to the same fix. **A
 mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
 closes the record, and every `fix` task takes the fix path below on its own sha, independently
 of its bundle-mates. **The parent applies the fix itself**, never resuming the group's
@@ -1004,7 +1009,9 @@ and, inside each **PASS task-`<n>`** section:
 > **REPORT FILE:** write this pass's report to
 > `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` before beginning the next pass,
 > the bundle's last one as your **last** act — a `## Verdict` section carrying exactly `clean` or
-> `fix`, and, on `fix`, each finding with its file and line. The dispatcher waits on every pass's
+> `fix`, and each finding with its file, line and severity — Critical, Important or Minor as
+> `skills/flow/primary-reviewer-prompt.md`'s `## Calibration` defines them. The verdict is `fix`
+> only when a Critical or Important finding stands; Minor-only findings are `clean`. The dispatcher waits on every pass's
 > file (`test -s` on each), and a fix round's re-review writes
 > `reviewer-report-task-<n>-fix-<k>.md`.
 
