@@ -417,7 +417,7 @@ both exit 1; its expectation is restated for a branch checkout above.
     `scripts/check-visual-verify-dispatched.sh` with no arguments exits 2 with the line it printed
     at `c5379c0a`.
 
-- [ ] 10. Port check-contract-budget
+- [x] 10. Port check-contract-budget
 
 **Files:** `stats/internal/guard/contractbudget.go`, `stats/internal/guard/check_contract_budget_test.go`, `scripts/check-contract-budget.sh`, `scripts/test-check-contract-budget.sh`
 **Tests:** `TestCheckContractBudget`
@@ -432,16 +432,16 @@ both exit 1; its expectation is restated for a branch checkout above.
 
 **Decision:** kan842-helper-twins
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-contract-budget.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-contract-budget.sh`, one
     subtest per `ok:` label. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-contract-budget`; the corpus through
+  - [x] **Step 2: Port**, registering `check-contract-budget`; the corpus through
     `ownedcorpus.go` (task 2); `CHECK_CONTRACT_BUDGET_ROOT` read as the bash reads it; the
     budget-row and word-count arithmetic reproduced exactly, including `wc`'s whitespace rules.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckContractBudget$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckContractBudget$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckContractBudget/'` — at least 39.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-check-contract-budget.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-contract-budget.sh` on this tree exits 0 with the output it printed at
     `c5379c0a`, directly and through a symlink to it in a temp directory.
 
@@ -454,6 +454,12 @@ extra `cd` error lines. Both shims use the `$SCRIPT_DIR` spelling. Task 10 keeps
 `contractbudget.go` (`ccbBudgets`); the shim header names the Go file. Task 10 step 5 measured:
 directly and from `/tmp` both print `BUDGET-OK: 95 owned Markdown file(s) within budget`, exit 0;
 through a symlink in a temp dir without `lib/`, bash (exit 1) and the shim (exit 2) both refuse.
+The gated review found task 9's trigger guard (like task 4's `plan-dispatch-*.sh` siblings)
+resolves at `$FLOW_GUARD_REPO_ROOT/scripts/`, not the invoked script's own directory — the Review
+Focus's prescribed mechanism, identical wherever the shim sits in a directory named `scripts` (every
+checkout and installed skill); a copy in a directory of any other name refuses where the bash ran.
+Accepted and recorded; `817c46fd` corrects the shim and Go comments that claimed "beside this
+script".
 
 - [x] 11. Port check-task-commit-planning-paths
 
