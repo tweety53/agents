@@ -35,6 +35,8 @@
 #            read it as an option.
 #   Exit 2   Cannot answer — an argument is missing, <landing-worktree> could
 #            not be created when absent, or — once positioned as a worktree —
+#   Exit 2   Cannot answer — an argument is missing, <landing-worktree> could
+#            not be created when absent, or — once positioned as a worktree —
 #            is unreadable or not a git worktree, is not ITSELF a git
 #            worktree (its directory carries no .git entry of its own, so
 #            the resolution walked up out of it — step 2c), is a worktree of
@@ -66,8 +68,18 @@
 #            and "diverged from origin" are both "the base cannot be
 #            reconciled with origin", not a worktree-readability problem.
 #
+# NO SILENT REDIRECTS IN THE LANDING CHAIN (KAN-823). Every git call whose
+# failure stops the chain — the creation in step 2b, the readability and
+# origin checks, the branch and status reads, every checkout and the
+# fast-forward — prints git's own stderr beneath the script's named line, so
+# a refusal or a cannot-answer names its cause and no step's output is
+# discarded into /dev/null. Three deliberate exceptions, each its own
+# contract: the bounded fetch in step 3 is best-effort (a stale origin/<base>
+# is still usable), the dirty-file classification degrades to unclassified
+# rather than guessed, and the post-run snapshot's contract is its own.
+#
 # THE STATE MACHINE, IN ORDER (this header is the authority the by-hand
-# fallback in the finish contract cites rather than restates):
+# fallback in the finish contract cites rather than restated):
 #   1. Validate the three arguments.
 #   2. Validate <base> and <archive-branch> against the same branch-name
 #      shape resolve-base-branch.sh applies: the first character is one of
@@ -90,19 +102,22 @@
 #      second one. When <landing-worktree> already exists, this step is
 #      skipped entirely and every check below runs against it unchanged,
 #      exactly as it always has against what used to be called
-#      <main-checkout>.
+#      <main-checkout>. A failed `worktree add` — like every chain-stopping
+#      step — prints git's own stderr beneath the named line (KAN-823).
 #   2c. Assert the landing directory is itself a git worktree of the right
 #      repository, before any further `git -C` run. `git -C <landing>`
 #      resolves by walking up: a `_landing-<name>` a daemon recreated as a
 #      plain directory inside the main checkout's tree resolves there, and
 #      every later step would act on the main checkout, whose stale tree the
 #      chain then found only through the dirty-tree refusal (KAN-823's
-#      incident). So the landing root must carry its own .git entry —
-#      anything the resolution reached by walking up does not — and, when
-#      its parent is `.worktrees` (the construction this script creates
-#      under), its common directory must be the main checkout's, resolved
-#      as in step 2b. Off that construction no repository is compared
-#      against and none is guessed.
+#      incident). `rev-parse --show-prefix` from inside the landing is empty
+#      exactly at a toplevel, so a resolution that walked up carries a
+#      non-empty prefix and is refused, naming where git resolved it; the
+#      landing root must also carry its own .git entry — a bare repository's
+#      directory carries none — and, when its parent is `.worktrees` (the
+#      construction this script creates under), its common directory must be
+#      the main checkout's, resolved as in step 2b. Off that construction no
+#      repository is compared against and none is guessed.
 #   3. Confirm 'origin' exists, then run the bounded, credential-free fetch
 #      (WHY THE FETCH IS WRAPPED, below).
 #   4. Read HEAD. Detached -> exit 1.
