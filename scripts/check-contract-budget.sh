@@ -102,7 +102,7 @@ budgets() {
   cat <<'EOF'
 .flow/project.md 26450
 .flow/project-rationale.md 8168
-KNOWN-BUGS.md 909
+KNOWN-BUGS.md 3765
 AGENTS.md 18648
 CLAUDE.md 15195
 README.md 59181
@@ -174,7 +174,7 @@ skills/flow-contracts/handoff-blocks.md 20240
 skills/flow-contracts/jira-followups.md 45385
 skills/flow-contracts/jira-integration-rationale.md 5043
 skills/flow-contracts/jira-integration.md 19932
-skills/flow-contracts/known-bugs.md 4060
+skills/flow-contracts/known-bugs.md 4696
 skills/flow-contracts/model-policy-rationale.md 7963
 skills/flow-contracts/model-policy.md 8010
 skills/flow-contracts/operator-prompts.md 5712

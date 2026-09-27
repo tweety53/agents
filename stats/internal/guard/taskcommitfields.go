@@ -1913,7 +1913,7 @@ func tcfCheckCommitScope(task tcfTask, change string) []string {
 // The evidence-rule tag shapes this guard refuses at task close — all four
 // tags' payloads, the same set the plan-provenance guard tests, so a tag
 // cannot pass one boundary and fail the other. The fence tag is anchored
-// like check-plan-provenance.py's FENCE_TAG_RE — start or whitespace before
+// like planprovenance.go's FENCE_TAG_RE — start or whitespace before
 // the colon word, so `preverified:` cannot satisfy it as a mere substring —
 // and is searched on the INFO STRING, the line after lib/plan_grammar.py's
 // fence run is stripped, never on the raw line: a language-less fence

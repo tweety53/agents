@@ -62,8 +62,8 @@ trap cleanup EXIT
 # the collating-range defect the LC_ALL=C fix and its mutation-proof both
 # depend on — pinning that one case to the system /bin/bash is what "bash
 # 3.2 is the floor" actually means here, matching
-# test-check-plan-provenance.sh's own precedent for forcing an interpreter
-# (case 182, `/bin/bash "$GUARD"`).
+# stats/internal/guard/check_plan_provenance_test.go's own precedent for
+# forcing an interpreter (case 182, `/bin/bash`).
 run_guard() {
   ERRFILE="$(mktemp "${TMPDIR:-/tmp}/resolve-base-branch-err.XXXXXX")"
   set +e

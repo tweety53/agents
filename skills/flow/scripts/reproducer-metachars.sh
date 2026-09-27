@@ -1,1 +1,0 @@
-../../../scripts/reproducer-metachars.sh

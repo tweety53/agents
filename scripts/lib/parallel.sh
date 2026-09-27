@@ -2,21 +2,21 @@
 # capture, deterministic replay and the aggregate exit code, defined once.
 #
 # KAN-362 exists because the guard test suite's 40 harnesses ran
-# sequentially at 119s, past the tool timeout. Two callers need the same
+# sequentially at 119s, past the tool timeout. Two callers needed the same
 # answer to "run N independent jobs concurrently, and when one fails, show
 # me exactly what it printed, in the order I listed the jobs, never the
 # order they happened to finish": scripts/run-guard-tests.sh (task 2, one
-# job per `test-*.sh` harness) and scripts/test-check-installed-citations.sh
-# (task 3, one job per fixture case). If those two carried separate copies
+# job per `test-*.sh` harness) and the check-installed-citations harness
+# (task 3, one job per fixture case; KAN-778 ported that harness to Go,
+# leaving run-guard-tests.sh the one caller). If those two carried separate copies
 # of the `xargs` spawn-and-capture logic, they could drift on exactly the
 # concern that matters most here — replay ORDER — the same five-copy
 # `resolve_file` drift scripts/lib/coverage.sh's own header records this
 # repository already suffered when a shared concern was not owned once. So
-# the resolution lives here, in one implementation both source, per
+# the resolution lives here, in one implementation both sourced, per
 # design.md's shared-parallel-lib decision.
 #
 # BASH 3.2 IS THE FLOOR (macOS's own /bin/bash), per
-# test-check-installed-citations.sh's own header, citing
 # test-check-finish-preflight.sh: indexed arrays only, no associative
 # arrays, and therefore no `wait -n` (bash 4.3+) — which is why this file is
 # built on `xargs -P`, the same mechanism proposal.md's 49.6s measurement
@@ -68,10 +68,9 @@
 # must install it before sourcing this file and chain to
 # `_parallel_cleanup` itself, or install it after sourcing and call
 # `_parallel_cleanup` from within it. scripts/run-guard-tests.sh installs no
-# competing trap of its own, so it needs none of this — but
-# scripts/test-check-installed-citations.sh does install its own EXIT/INT/TERM
-# trap (guarding its own fixture-repo SANDBOXES) and sources this file into
-# the same process, so it chains to `_parallel_cleanup` per the recipe above.
+# competing trap of its own, so it needs none of this; a
+# caller that installs its own EXIT/INT/TERM trap and sources this file into
+# the same process chains to `_parallel_cleanup` per the recipe above.
 #
 # Not meant to be executed directly for anything other than the internal
 # `__run_one` dispatch documented above — a caller sources it and calls

@@ -304,7 +304,7 @@ Exit codes:
      the task id does not exist in it, or git cannot resolve the commit
      range in the given worktree.
 
-Standard library only (see check-plan-provenance.py's module docstring for
+Standard library only (see stats/internal/guard/planprovenance.go's ported module docstring for
 why this repository restricts itself to that).
 """
 

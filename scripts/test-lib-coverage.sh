@@ -75,7 +75,7 @@ assert_zero_rc() {
 # run_verdict -> sets VERDICT (stdout) and RC. coverage_verdict is expected
 # to return non-zero on a violation, which must not abort this harness under
 # `set -e` — the same set +e/set -e bracket
-# test-check-panel-reproducers.sh's header describes for a command that is
+# the sibling harnesses use for a command that is
 # SUPPOSED to fail sometimes.
 run_verdict() {
   set +e

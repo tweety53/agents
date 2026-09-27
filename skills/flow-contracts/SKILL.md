@@ -28,7 +28,7 @@ flow's pipeline and its contract definitions.
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/flow`'s integrate run and the review panel's deferred-findings close** |
 | [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty, and what to do when a measurement contradicts the plan |
-| [plan-provenance-guard.md](plan-provenance-guard.md) | What check-plan-provenance.py enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
+| [plan-provenance-guard.md](plan-provenance-guard.md) | What check-plan-provenance.sh enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
 | [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, the planning commits, the guarded two-commit chain that enforces the split between implementation and planning artifacts, and the branch backup. **Loaded by `/flow`'s implement phase, bare `/flow` and `/flow-fast`** |

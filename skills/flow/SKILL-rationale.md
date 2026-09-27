@@ -448,6 +448,17 @@ demoted pair.
 the whole diff, so after the first one no path is unread and the trigger never fires; F14 sat in a
 file the round-2 pass had already read clean. This is a delete of the policy wearing a condition.
 
+**Superseded (2026-09-27) — Rerun policy `full`, the rerun cap and its demotion rule are
+retired.** The operator's instruction, verbatim: "get rid of FULL panel rereview. Do the diff
+review there too. Maybe neighboring code at most." `delta` is now every class's policy, and no
+pass after pass 1 re-reads the whole branch — each reads its fix diff, the sites of the findings
+it re-reviews, and at most the code neighbouring those hunks (**FIX-ROUND SCOPE**,
+`skills/flow/review-panel.md`). The `Panel:` line's `demoted:` and `rerun cap:` fields went with
+the mechanism they reported. The scoped-round rule's closing whole-branch pass went too, since
+that pass was **Rerun policy `full`**'s. **Rejected — keeping the whole-branch pass.** On KAN-778
+it re-read about 24k lines of branch diff and found only Minors; the catches recorded above
+(F10, F14) are the cost this trade accepts.
+
 ### review-panel.md — The fix round mutation-proves what it changed
 
 > The

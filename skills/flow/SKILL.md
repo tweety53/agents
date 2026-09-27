@@ -153,8 +153,8 @@ confirm every guard `/flow` can invoke — every `<name>.sh` a fenced command li
 `<skill-dir>/scripts/`. A complete set prints nothing; any absence prints that section's block once,
 and the run continues under each guard's own hand-run fallback.
 
-`check-unfinished-work.sh` and `check-task-commit-fields.sh` also require
-`<agents repo>/scripts/lib/change-plan.sh` as a `<agents repo>/scripts/lib/` sibling — the same
+`check-unfinished-work.sh` and `check-task-commit-fields.sh` are `flow-guard` shims: each also requires
+`<agents repo>/scripts/lib/flow-guard.sh` as a `<agents repo>/scripts/lib/` sibling — the same
 sibling-dependency rule `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already applies to
 every other guard above.
 

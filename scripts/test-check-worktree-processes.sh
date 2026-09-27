@@ -10,7 +10,8 @@
 # its requirement **Worktree cleanup verifies the stack actually stopped, before
 # removing anything**.
 # Never assert against observed output.
-# test-check-plan-provenance.sh's header records that suite encoding the guard's
+# stats/internal/guard/check_plan_provenance_test.go's header records the
+# retired plan-provenance harness encoding the guard's
 # own defects as its specification more than once, which then made each defect
 # look verified.
 #

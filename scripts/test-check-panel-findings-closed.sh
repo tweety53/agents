@@ -6,8 +6,8 @@
 # `record findings -change <name> [-C <dir>]` with a canned JSON array (the
 # shape `flow record findings` itself prints -- one object per finding with
 # at least `ref` and `status`), or exits non-zero to simulate a store the
-# guard could not reach. Follows test-check-panel-reproducers.sh's own shape
-# for these helpers.
+# guard could not reach. Follows the sibling
+# harnesses' shape for these helpers.
 #
 # `-e` as well as `-u`/`pipefail`, matching this repository's sibling
 # harnesses: without `-e`, a failed `mktemp` in make_worktree_json would

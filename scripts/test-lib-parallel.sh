@@ -2,7 +2,7 @@
 # test-lib-parallel.sh — assertion harness for scripts/lib/parallel.sh, the
 # shared bounded-concurrency spawn/capture/replay primitive KAN-362 task 1
 # adds. Sources the library directly rather than through either caller
-# (scripts/run-guard-tests.sh, scripts/test-check-installed-citations.sh),
+# (scripts/run-guard-tests.sh),
 # per this repository's own convention (see test-lib-coverage.sh's header):
 # the thing under test is the library's own contract, not any caller's use
 # of it.
@@ -69,8 +69,8 @@ assert_nonzero_rc() {
 
 # run_parallel <job...> -> sets RC (parallel_run's own return), REPLAY
 # (parallel_replay_failures' stdout). Must not abort this harness under
-# `set -e`, same set +e/set -e bracket test-check-panel-reproducers.sh's
-# header describes for a command that is SUPPOSED to fail sometimes.
+# `set -e`, same set +e/set -e bracket the sibling
+# harnesses use for a command that is SUPPOSED to fail sometimes.
 run_parallel() {
   set +e
   parallel_run "$@"
@@ -295,8 +295,8 @@ assert_eq "case 6 mutation: parallel_run itself refuses a bad JOBS with exit 2" 
 # Each case gives its own child a PRIVATE TMPDIR (its own mktemp -d,
 # distinct from the global $TMPDIR) rather than snapshotting the shared
 # namespace: scripts/run-guard-tests.sh runs 40+ harnesses concurrently via
-# scripts/lib/parallel.sh, and this file, scripts/test-run-guard-tests.sh
-# and scripts/test-check-installed-citations.sh all create parallel-lib.*
+# scripts/lib/parallel.sh, and this file and scripts/test-run-guard-tests.sh
+# both create parallel-lib.*
 # directories in that same shared $TMPDIR at the same time. A before/after
 # diff against the shared namespace can pick up a SIBLING's live directory
 # instead of this case's own child — proven by reproduction (competing
@@ -348,9 +348,8 @@ rm -rf "$PRIVATE_TMP_7"
 #    exit — sent to a real child process running a real long-lived job.
 #
 #    Started under `set -m` inside its own subshell, per
-#    scripts/test-check-installed-citations.sh's own trap-chain sub-case 2
-#    (see its comment on `set -m` there for the reasoning this recipe is
-#    copied from). Confirmed by reproduction, not assumed: a plain `cmd &`
+#    the trap-chain sub-case 2 of the retired check-installed-citations
+#    harness (KAN-778), whose `set -m` recipe this copies. Confirmed by reproduction, not assumed: a plain `cmd &`
 #    here — no job control — leaves CHILD8 in THIS HARNESS's own process
 #    group (`ps -o pid,pgid` on both prints the same pgid), and this harness
 #    itself runs as one job inside scripts/run-guard-tests.sh's own

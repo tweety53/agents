@@ -167,7 +167,7 @@ running one.
 
 A
 guard that resolves a neighbour from its own `$SCRIPT_DIR` at runtime — for example
-`check-panel-reproducers.sh` needing `<agents repo>/scripts/reproducer-metachars.sh`, or `prepare-workspace.sh`
+`prepare-workspace.sh`
 needing `check-workspace-isolation.sh` —
 fails at the moment it reaches for that neighbour if the neighbour alone is missing, so a missing
 sibling is exactly as reportable as a missing guard, and the block names it the same way.

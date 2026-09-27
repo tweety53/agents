@@ -27,7 +27,7 @@ THE BLOCK MODEL
 
 A file is walked line by line into a flat sequence of typed blocks —
 `frontmatter`, `fence`, `thematic_break`, `html_comment`, `table`,
-`heading`, `list_item`, `blockquote`, `paragraph` — following the shape `check-plan-provenance.py`'s
+`heading`, `list_item`, `blockquote`, `paragraph` — following the shape `stats/internal/guard/planprovenance.go`'s
 own classifier uses: a block ends at a blank line, at a line that opens a
 new block outright (a fence, a heading, a thematic break, a new list
 marker, a table header), or at EOF; content inside a fence is never
@@ -53,7 +53,7 @@ heading, a thematic break, a blockquote, a **new** list marker, or a table
 header confirmed by lookahead at the separator row beneath it) — the same
 distinction CommonMark's own "lazy continuation" rule draws.
 
-This is deliberately a coarser grammar than `check-plan-provenance.py`'s
+This is deliberately a coarser grammar than `stats/internal/guard/planprovenance.go`'s
 container-prefix stripper: that guard must resolve a fence nested behind
 blockquote and list markers because plan prose commonly nests that way;
 this guard's scope is skill and rule prose, where that nesting is rare, so

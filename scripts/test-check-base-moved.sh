@@ -17,7 +17,7 @@
 # naming "no overlap" into MOVED naming "overlaps: unrelated1.txt,
 # unrelated2.txt". Restoring the real intersection made case 2 pass again.
 # This is the same manual-mutation-and-revert method
-# test-check-unfinished-work.sh's case 8's header records; it is not
+# the retired check-unfinished-work harness's case 8 header recorded; it is not
 # reproduced automatically on every run.
 set -euo pipefail
 

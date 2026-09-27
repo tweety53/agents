@@ -5,7 +5,8 @@
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
 # contract in skills/flow-contracts/pipeline.md, never against observed
-# output. test-check-plan-provenance.sh's header records that suite encoding
+# output. stats/internal/guard/check_plan_provenance_test.go's header records
+# the retired plan-provenance harness encoding
 # the guard's own defects as its specification more than once, which then made
 # each defect look verified.
 set -euo pipefail
@@ -484,7 +485,7 @@ RESOLVED2="$(resolve_remote_base "$REPO" "-no-such-ref")"
 # 14. F9's mutant itself — dropping --end-of-options from line 35 of
 #     resolve-remote-base.sh — cannot be caught behaviorally (case 13's
 #     header explains why), so this asserts on the guard's own source, the
-#     same precedent test-check-panel-reproducers.sh's case 19 sets for a
+#     same precedent check_panel_reproducers_test.go's case 19 sets for a
 #     defensive pattern no external input can exercise.
 grep -qF -- 'rev-parse --verify --end-of-options' "$SCRIPT_DIR/lib/resolve-remote-base.sh" \
   && pass "F9: resolve-remote-base.sh's rev-parse call still carries --end-of-options" \

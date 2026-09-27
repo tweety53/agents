@@ -6,9 +6,9 @@ itself `red`.
 
 Rule (canonical definition: skills/flow-contracts/build-green.md — do not
 restate it here; a second copy is a Single Source of Truth violation, the
-same class of drift check-plan-provenance.py's own docstring warns against).
+same class of drift stats/internal/guard/planprovenance.go's ported docstring warns against).
 
-Scope is a single file per invocation (unlike check-plan-provenance.py's
+Scope is a single file per invocation (unlike check-plan-provenance's
 whole-repo scan): this script takes exactly one `tasks.md` path on argv and
 scans only that file. `check-task-build-green.sh` is the thin wrapper that
 resolves WHICH files to pass — every non-archived change's tasks.md when
@@ -139,7 +139,7 @@ A partner id named more than once in the same **Squash-with:** field
 the partner list is de-duplicated, order preserving, before validation, so a
 repeated id never produces duplicate violation lines for the same pair.
 
-Standard library only (see check-plan-provenance.py's module docstring for
+Standard library only (see stats/internal/guard/planprovenance.go's ported module docstring for
 why this repository restricts itself to that: no markdown/CommonMark
 package is installed anywhere on this machine and this repository has no
 dependency management).

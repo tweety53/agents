@@ -145,7 +145,7 @@ change, which the guard does not scan, so no scanned file loses an exemption tod
 
 The same measurement taken the other way round — how much the coarse rule costs over what a full
 CommonMark reader would exempt — needs a genuine §6.6 raw-HTML boundary detector to answer, which
-this repository does not have and could not pin (the same reason `check-plan-provenance.py`'s
+this repository does not have and could not pin (the same reason `<agents repo>/stats/internal/guard/planprovenance.go`'s
 `CLAIM_RE` comment gives for staying regex-based rather than reaching for a real parser). No number
 is stated here for that reason: the cost is real — a line that merely mentions a `<` unrelated to
 any actual delimiter loses its exemption regardless — but it is rare, and rewording the line is the

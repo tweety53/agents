@@ -4,7 +4,7 @@
 # where the plan below names one, the presence of the expected violation
 # message text. Never touches the real repository tree.
 #
-# Modeled on test-check-plan-provenance.sh's fixture-driven pattern: fixtures
+# Fixture-driven: fixtures
 # live under mktemp -d, the guard is invoked via a thin run_guard helper that
 # captures RC/OUT, and every case ends with an explicit pass/fail assertion —
 # never a bare "it didn't crash".
@@ -28,7 +28,7 @@ run_guard() {
 # run_guard_root <root> -> sets RC and OUT; invokes the guard with no
 # arguments (its aggregation/no-arg scan mode), pointed at <root> via
 # CHECK_TASK_BUILD_GREEN_ROOT rather than a real cwd, the same pattern
-# test-check-plan-provenance.sh uses via CHECK_PLAN_PROVENANCE_ROOT.
+# check-plan-provenance takes via CHECK_PLAN_PROVENANCE_ROOT.
 run_guard_root() {
   set +e
   OUT="$(CHECK_TASK_BUILD_GREEN_ROOT="$1" "$GUARD" 2>&1)"

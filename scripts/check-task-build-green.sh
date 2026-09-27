@@ -9,7 +9,7 @@
 # logic underneath gets a real language rather than a hand-rolled Bash ERE
 # allowlist.
 #
-# Unlike check-plan-provenance.py (which scans the whole repository tree in
+# Unlike check-plan-provenance (which scans the whole repository tree in
 # one call), check-task-build-green.py's scope is ONE file per invocation.
 # This wrapper is what resolves WHICH files that means:
 #
@@ -44,9 +44,10 @@ command -v python3 >/dev/null 2>&1 || {
   exit 2
 }
 
-# `command -v` proves the file exists, not that it runs (see
-# check-plan-provenance.sh's own comment for the macOS-stub-python3 case
-# this probe exists to catch). Probing with a trivial program is what tells
+# `command -v` proves the file exists, not that it runs: on macOS without
+# the Command Line Tools, /usr/bin/python3 is a stub that exits 1 with
+# "xcrun: error: invalid active developer path", which a caller would read
+# as "violations found". Probing with a trivial program is what tells
 # "python3 is a name on PATH" apart from "python3 is a working interpreter".
 if ! python3 -c 'import sys; sys.exit(0)'; then
   echo "check-task-build-green.sh: python3 is present but failed to run a trivial program (see above) — cannot run the guard" >&2
@@ -66,7 +67,7 @@ fi
 # derived from this script's own location so the scan works from any cwd,
 # the same convention check-plan-provenance.sh uses for its own root —
 # unless CHECK_TASK_BUILD_GREEN_ROOT is set, in which case it names the root
-# explicitly (the same opt-in override check-plan-provenance.py accepts as
+# explicitly (the same opt-in override check-plan-provenance accepts as
 # CHECK_PLAN_PROVENANCE_ROOT), so a test harness can point this wrapper at a
 # sandboxed fixture tree instead of this repository's own spectre/changes/.
 REPO_ROOT="${CHECK_TASK_BUILD_GREEN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"

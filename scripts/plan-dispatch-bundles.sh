@@ -8,7 +8,7 @@
 # site, keep working, while the block-parsing logic underneath gets a real
 # language rather than a hand-rolled Bash ERE allowlist.
 #
-# Unlike check-plan-provenance.py (which scans the whole repository tree in
+# Unlike check-plan-provenance (which scans the whole repository tree in
 # one call), plan-dispatch-bundles.py's scope is ONE file per invocation.
 # This wrapper is what resolves WHICH files that means:
 #

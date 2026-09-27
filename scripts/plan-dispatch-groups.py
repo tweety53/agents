@@ -42,7 +42,7 @@ computes on top of its output:
   2  invocation error — wrong argument count, the file cannot be read, or
      it cannot be decoded as text.
 
-Standard library only (see check-plan-provenance.py's module docstring
+Standard library only (see stats/internal/guard/planprovenance.go's ported module docstring
 for why this repository restricts itself to that).
 """
 

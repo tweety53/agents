@@ -27,7 +27,7 @@ func panelRun(change string, statuses ...string) records.Run {
 			// A bare path with plain arguments: check-panel-reproducers.sh
 			// refuses a reproducer carrying a shell metacharacter, and the
 			// renderer emits what the row holds rather than sanitising it.
-			Reproducer: "scripts/test-check-unfinished-work.sh",
+			Reproducer: "scripts/test-check-task-records.sh",
 		})
 	}
 	return r
