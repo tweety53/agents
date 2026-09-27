@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -84,6 +85,43 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	if _, rc := git(io.Discard, io.Discard, "-C", landing, "rev-parse", "--git-dir"); rc != 0 {
 		return say(2, "%s is not a git worktree", landing)
 	}
+	// Step 2c: that resolution can come from walking UP out of the landing
+	// directory — a `_landing-<name>` a daemon recreated as a plain directory
+	// inside the main checkout's tree resolves there, and every later
+	// `git -C <landing>` would act on the main checkout, whose index the run
+	// then found stale (KAN-823's incident, caught only by the downstream
+	// dirty-tree refusal). A worktree root carries its own .git entry;
+	// anything the resolution reached by walking up does not.
+	if _, err := os.Stat(filepath.Join(fsPath(landing), ".git")); err != nil {
+		top, _ := git(nil, io.Discard, "-C", landing, "rev-parse", "--show-toplevel")
+		return say(2, "%s is not itself a git worktree — git resolves it to %s", landing, strings.TrimRight(top, "\n"))
+	}
+	// The landing worktree must belong to the repository it was cut from —
+	// the main checkout above its .worktrees parent, the same resolution
+	// step 2b creates it from, compared through the common directory both
+	// sides print. A landing that is some other repository's worktree is
+	// refused here rather than acted on. Off the _landing-<name>
+	// construction there is no repository to compare against, and none is
+	// guessed.
+	if pabBasename(gdcDirname(landing)) == ".worktrees" {
+		mainTop, rc := git(nil, io.Discard, "-C", gdcDirname(gdcDirname(landing)), "rev-parse", "--show-toplevel")
+		if rc != 0 {
+			return say(2, "cannot resolve the main checkout above %s", landing)
+		}
+		mainCheckout := strings.TrimRight(mainTop, "\n")
+		common, rc := git(nil, io.Discard, "-C", landing, "rev-parse", "--path-format=absolute", "--git-common-dir")
+		if rc != 0 {
+			return say(2, "cannot read the git common directory of %s", landing)
+		}
+		common = strings.TrimRight(common, "\n")
+		mainCommon, rc := git(nil, io.Discard, "-C", mainCheckout, "rev-parse", "--path-format=absolute", "--git-common-dir")
+		if rc != 0 {
+			return say(2, "cannot read the git common directory of %s", mainCheckout)
+		}
+		if common != strings.TrimRight(mainCommon, "\n") {
+			return say(2, "%s is a worktree of a different repository (%s, not %s) — refusing", landing, common, strings.TrimRight(mainCommon, "\n"))
+		}
+	}
 	if _, rc := git(io.Discard, io.Discard, "-C", landing, "remote", "get-url", "origin"); rc != 0 {
 		return say(3, "no 'origin' remote configured in %s — cannot resolve origin/%s", landing, base)
 	}
@@ -107,7 +145,10 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	// Step 5: a dirty tree is refused wherever it is — on <base> the changes
 	// would otherwise ride onto the archive branch unremarked — naming every
 	// dirty entry, classified against the change's own branch.
-	dirty, _ := git(nil, io.Discard, "-C", landing, "-c", "core.quotePath=false", "status", "--porcelain", "--untracked-files=normal")
+	dirty, rc := git(nil, io.Discard, "-C", landing, "-c", "core.quotePath=false", "status", "--porcelain", "--untracked-files=normal")
+	if rc != 0 {
+		return say(2, "cannot read the working tree state of %s", landing)
+	}
 	if dirty = strings.TrimRight(dirty, "\n"); dirty != "" {
 		if cur == base {
 			say(1, "%s has a dirty working tree on '%s' — refusing", landing, base)
@@ -157,8 +198,13 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 
 	// Post-run self-check: any new stash entry or unexpected status line
 	// since the snapshot is residue this run left behind, named here rather
-	// than left for a conductor to retry blind (KAN-423's incident).
-	if drift, _ := checkTreeRestored(fsPath(landing), snapshot, stderr); len(drift) > 0 {
+	// than left for a conductor to retry blind (KAN-423's incident). The
+	// recompute itself failing is exit 2, never a silent no-drift.
+	drift, rc := checkTreeRestored(fsPath(landing), snapshot, stderr)
+	if rc == 2 {
+		return say(2, "cannot read the working tree state of %s after the branch moves", landing)
+	}
+	if len(drift) > 0 {
 		say(2, "post-run drift detected:")
 		for _, d := range drift {
 			fmt.Fprintln(stderr, d)

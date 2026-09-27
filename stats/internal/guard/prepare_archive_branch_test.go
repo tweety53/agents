@@ -618,6 +618,50 @@ func TestPrepareArchiveBranch(t *testing.T) {
 					"pabBasename(%q) = %q, basename(1) = %q", in, pabBasename(in), want)
 			}
 		}},
+		// KAN-823: a `_landing-<name>` a daemon recreated as a plain directory
+		// resolves by walking up to the main checkout, and every later
+		// `git -C <landing>` acts on the main checkout. Today the dirty-tree
+		// refusal is what catches the junk; the guard itself must refuse.
+		{"23 landing-directory-walks-up-to-the-main-checkout", func(t *testing.T) {
+			c := newCheckout(t)
+			l := c.wt + "/.worktrees/_landing-fixture"
+			mkdir(t, l)
+			writeFile(t, l+"/gradle-output.txt", "daemon residue\n")
+			mainBefore := c.branch(c.wt)
+			r := c.run(l, "main", pabArchive)
+			c.refused(r, "landing-directory-walks-up-to-the-main-checkout", 2, "not itself a git worktree")
+			gsCheck(t, "landing-directory-walks-up-to-the-main-checkout: names where git resolved it",
+				strings.Contains(r.err, c.wt), "got %q", r.err)
+			gsCheck(t, "landing-directory-walks-up-to-the-main-checkout: main checkout branch unchanged",
+				c.branch(c.wt) == mainBefore, "on %q", c.branch(c.wt))
+		}},
+		{"24 landing-is-another-repositorys-worktree", func(t *testing.T) {
+			c := newCheckout(t)
+			foreign := c.root + "/foreign"
+			gitRun(t, "", "init", "-q", "-b", "main", "--template=", foreign)
+			writeFile(t, foreign+"/file.txt", "base\n")
+			c.git(foreign, "add", "file.txt")
+			c.git(foreign, "commit", "-qm", "base")
+			l := c.wt + "/.worktrees/_landing-fixture"
+			c.git(foreign, "worktree", "add", "-q", l)
+			r := c.run(l, "main", pabArchive)
+			c.refused(r, "landing-is-another-repositorys-worktree", 2, "different repository")
+		}},
+		// A working-tree read that fails must stop the guard, not read as
+		// clean: today the empty output positions the archive branch on top
+		// of a tree nobody could see.
+		{"25 unreadable-working-tree-state", func(t *testing.T) {
+			c := newCheckout(t)
+			l := c.landing()
+			dotGit, err := os.ReadFile(l + "/.git")
+			if err != nil {
+				t.Fatal(err)
+			}
+			gitdir := strings.TrimSpace(strings.TrimPrefix(string(dotGit), "gitdir:"))
+			writeFile(t, gitdir+"/index", "not an index\n")
+			r := c.run(l, "main", pabArchive)
+			c.refused(r, "unreadable-working-tree-state", 2, "cannot read the working tree state")
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
