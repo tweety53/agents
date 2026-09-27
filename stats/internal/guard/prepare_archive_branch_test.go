@@ -608,6 +608,41 @@ func TestPrepareArchiveBranch(t *testing.T) {
 				return []string{c.wt, "é", pabArchive}, c.wt
 			})
 		}},
+		// KAN-823: a failed `worktree add --force` stops the chain loudly —
+		// the named line carries git's own refusal beneath it, never a
+		// silent /dev/null.
+		{"creation failure names git's refusal", func(t *testing.T) {
+			c := newCheckout(t)
+			l := c.wt + "/.worktrees/_landing-fixture"
+			r := c.run(l, "no-such-branch", pabArchive)
+			c.refused(r, "creation failure names git's refusal", 2, "could not create the landing worktree")
+			gsCheck(t, "creation failure names git's refusal: git's own stderr is printed",
+				strings.Contains(r.err, "invalid reference"), "got %q", r.err)
+			gsCheck(t, "creation failure names git's refusal: nothing created", !isDir(l), "created")
+		}},
+		// KAN-823's incident: after `git worktree remove`, the _landing-<name>
+		// directory reappeared as a plain directory holding a daemon's output.
+		// Every later `git -C <landing>` walked up to the main checkout — the
+		// guard read the main checkout's status, found the landing's own junk
+		// in it, and refused on the wrong tree. The landing must be a git
+		// worktree of its own before any further git call runs in it.
+		{"plain-directory landing walks up to the main checkout", func(t *testing.T) {
+			c := newCheckout(t)
+			l := c.landing()
+			c.git(c.wt, "worktree", "remove", "--force", l)
+			if err := os.MkdirAll(l, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, l+"/gradle-output.txt", "daemon residue\n")
+			c.snap(l)
+			r := c.run(l, "main", pabArchive)
+			c.refused(r, "plain-directory landing walks up to the main checkout", 2, "is not a git worktree of its own")
+			gsCheck(t, "plain-directory landing walks up to the main checkout: the main checkout's branch is untouched",
+				c.branch(c.wt) == "main", "on %q", c.branch(c.wt))
+			gsCheck(t, "plain-directory landing walks up to the main checkout: no archive branch created",
+				!c.ok(c.wt, "show-ref", "--verify", "--quiet", "refs/heads/"+pabArchive), "created")
+			c.unchanged("plain-directory landing walks up to the main checkout")
+		}},
 		{"basename(1) parity", func(t *testing.T) {
 			for _, in := range []string{"/", "//", "/a", "/a/", "a", "a/b", "a//b/", "/a/b", "_landing-x/"} {
 				want, err := exec.Command("basename", in).Output()
