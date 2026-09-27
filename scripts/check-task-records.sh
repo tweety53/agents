@@ -46,9 +46,10 @@ command -v python3 >/dev/null 2>&1 || {
   exit 2
 }
 
-# `command -v` proves the file exists, not that it runs (see
-# check-plan-provenance.sh's own comment for the macOS-stub-python3 case
-# this probe exists to catch).
+# `command -v` proves the file exists, not that it runs: on macOS without
+# the Command Line Tools, /usr/bin/python3 is a stub that exits 1 with
+# "xcrun: error: invalid active developer path", which a caller would read
+# as "violations found".
 if ! python3 -c 'import sys; sys.exit(0)'; then
   echo "check-task-records.sh: python3 is present but failed to run a trivial program (see above) — cannot run the guard" >&2
   exit 2

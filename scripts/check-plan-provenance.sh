@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # check-plan-provenance.sh — thin wrapper.
 #
-# All classification logic now lives in check-plan-provenance.py (Python 3,
-# standard library only). This file exists only so that
+# All classification logic now lives in stats/internal/guard/planprovenance.go,
+# the Go port (KAN-778) of the Python 3 guard this file used to exec. This file exists only so that
 # .flow/project.md's declared lint command, the flow harness
-# (test-check-plan-provenance.sh), and any operator's muscle memory
+# (TestCheckPlanProvenance), and any operator's muscle memory
 # invoking this exact filename keep working unchanged — the CLI contract
 # (exit codes, CHECK_PLAN_PROVENANCE_ROOT, argv, stdout/stderr shape) is
 # byte-identical to what this script implemented directly before the
@@ -13,11 +13,11 @@
 # WHY THE REWRITE: this guard's fence classifier was originally ~150 lines
 # of Bash ERE matching, in the style of this repository's other guards.
 # Five review panel passes and seven fix waves later it had shipped and
-# then fixed every defect class enumerated in check-plan-provenance.py's
-# module docstring — three of them found by
+# then fixed every defect class enumerated in the module docstring
+# planprovenance.go carries — three of them found by
 # pass 5 alone, on a settled tree, after four of seven reviewers had
 # already called it clean (full history and the canonical enumeration:
-# check-plan-provenance.py's own module docstring, and the kan-14
+# that module docstring, and the kan-14
 # plan-provenance design's "Post-review reshape" section — this comment does
 # not restate the count, since a copied number is exactly what let an
 # earlier, wrong count survive six review passes). The operator's call:
@@ -30,32 +30,27 @@
 # dependency management; the block parser is hand-written for the same
 # reason the original Bash version was, just in a language that can build
 # real structure instead of an allowlist of recognised prefixes.
-set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-command -v python3 >/dev/null 2>&1 || {
-  echo "check-plan-provenance.sh: python3 not found on PATH — cannot run the guard" >&2
+# Header corrected for the Go port (KAN-778): the python3 probes this file
+# ran before its exec are gone with the interpreter. flow-guard is built
+# from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
+# derives it, and exits 2 (this guard's environment code) with the cause
+# when it cannot — a missing go, or one present that fails, is exit 2,
+# never 1.
+#
+# The default root is resolved here. The Python guard took REPO_ROOT from
+# its own file's location; flow-guard runs from a build cache, so this shim
+# resolves the checkout from its own location instead and hands it over in
+# CHECK_PLAN_PROVENANCE_ROOT, only when that is unset — an explicit value,
+# empty included, reaches the guard untouched.
+set -euo pipefail
+root="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)" || {
+  echo "check-plan-provenance: cannot resolve the checkout beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-# Critical 4 (pass-14 fix wave): `command -v` proves the FILE exists; it
-# does not prove it RUNS. The realistic case is macOS without the Command
-# Line Tools installed, where /usr/bin/python3 is a stub that exits 1 with
-# "xcrun: error: invalid active developer path" and never reaches the
-# guard at all. Exit 1 is this contract's "violations found" — so a CI
-# gate on a machine with no toolchain reported violations that did not
-# exist, printed no findings to explain them, and there was no way for the
-# caller to tell that apart from a genuinely dirty plan.
-#
-# Probing with a trivial program is what distinguishes "python3 is a name
-# on PATH" from "python3 is a working interpreter". Failure is exit 2,
-# "cannot determine anything" — the same code an absent python3 already
-# produced, which is the honest answer in both cases. stderr from the
-# probe is passed through, because the operator's actual fix (`xcode-select
-# --install`) is in that message and nothing else here can name it.
-if ! python3 -c 'import sys; sys.exit(0)'; then
-  echo "check-plan-provenance.sh: python3 is present but failed to run a trivial program (see above) — cannot run the guard" >&2
+export CHECK_PLAN_PROVENANCE_ROOT="${CHECK_PLAN_PROVENANCE_ROOT-$root}"
+. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "check-plan-provenance: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
-fi
-
-exec python3 "$SCRIPT_DIR/check-plan-provenance.py" "$@"
+}
+flow_guard_exec check-plan-provenance 2 "check-plan-provenance:" "$@"

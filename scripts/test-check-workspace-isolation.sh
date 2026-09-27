@@ -11,7 +11,8 @@
 # `url` row may reference, and what it may not", and the two bullets under "An
 # isolation row resolves under the same rules this file applies to everything
 # else it consumes". Never assert against observed output.
-# test-check-plan-provenance.sh's header records that suite encoding the guard's
+# stats/internal/guard/check_plan_provenance_test.go's header records the
+# retired plan-provenance harness encoding the guard's
 # own defects as its specification more than once, which then made each defect
 # look verified.
 #

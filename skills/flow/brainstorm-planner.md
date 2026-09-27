@@ -481,7 +481,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 | micro | inline | — | none — defaults only | none — defaults only | — | — |
 | small | inline | — | primary; principles | primary; principles | delta | `primary+principles` |
 | regular | inline | — | primary; principles; mutation | primary; principles | delta | `primary+principles` · `mutation` |
-| big | sdd | chosen | primary; principles; mutation; bugbot; security | primary; principles | full | `primary+principles` · `mutation+bugbot+security` |
+| big | sdd | chosen | primary; principles; mutation; bugbot; security | primary; principles | delta | `primary+principles` · `mutation+bugbot+security` |
 
 **The micro row** records defaults, never choices: what it skips is every roster, model/effort and
 grouping choice, and every roll the script printed; what it never skips is the decision record
@@ -515,8 +515,8 @@ sorted, is the ordered set of candidates; the picked file is the one at index `e
 count` into that sorted list. `<name>` is its basename with `.md` dropped, and its own `prompt` /
 `description` fields for the roster entry are that file's path (`skills/flow/experimental/<name>.md`)
 and its line-1 `description:` value. An absent directory or one holding no `*.md` file (`count = 0`)
-records `experimental: none available` and adds nothing — never a division by zero. `delta`/`full`
-are **Panel re-runs**' own rerun policies (`skills/flow/review-panel.md`); the docs-only reduction
+records `experimental: none available` and adds nothing — never a division by zero. `delta`
+is **Panel re-runs**' own rerun policy (`skills/flow/review-panel.md`); the docs-only reduction
 there still applies and still only removes.
 
 Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — on a first creating
@@ -555,7 +555,7 @@ run's own output once the Decide step completes, filling every cell from what wa
 | execution mode     | class <class>    | <inline\|sdd> |
 | implementer model  | <reason>         | <"skipped — inline"\|model/effort> |
 | ↳ fixer            | <model> / <effort> — <reason> | <"skipped — inline"\|model/effort> |
-| review panel       | class <class>    | <"default"\|<compact\|full> · <delta\|full> rerun> |
+| review panel       | class <class>    | <"default"\|<compact\|full> · delta rerun> |
 | ↳ dispatch <n>     | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
 | ↳ rerun            | <model> / low — <reason> | every fix-round re-run, one role per dispatch |
 | ↳ grouping         | free             | <grouping_reason> |

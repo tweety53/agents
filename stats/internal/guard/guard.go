@@ -12,6 +12,9 @@ import (
 type Env struct {
 	Getenv func(string) string // os.Getenv in production
 	Dir    string              // working directory the bash guard would run in
+	// LookupEnv is os.LookupEnv in production: bash's `${NAME+set}`, for a
+	// guard whose contract tells a set-but-empty variable from an unset one.
+	LookupEnv func(string) (string, bool)
 	// Deadlines override the guards' integer-second env knobs in tests only;
 	// zero means "parse the env knob as the bash guard does".
 	ReproducerBound, ReproducerGrace, SurvivorsTimeout, SurvivorsKillGrace time.Duration

@@ -335,11 +335,10 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 // function's comment is canonical for why each hazard is in it — the `/` that
 // was blocked only by an accident of string concatenation, and the glob
 // metacharacter that once matched and overwrote a DIFFERENT change's
-// preserved record. The bash guards that still carry the rule
-// (check-unfinished-work.sh, check-workspace-isolation.sh) keep their own
-// copies because they are single-file by design and are copied into projects
-// one at a time; their harnesses and TestCheckCleanupComplete/12 assert the
-// same rejected shapes, which is what keeps the copies from drifting apart
+// preserved record. The bash guard that still carries the rule
+// (check-workspace-isolation.sh) keeps its own copy because it is
+// single-file by design and copied into projects one at a time; its harness
+// and TestCheckCleanupComplete/12 assert the same rejected shapes, which is what keeps the copies from drifting apart
 // silently.
 //
 // It also closes the symlink question at these paths: the file and directory

@@ -16,7 +16,7 @@
 # `scripts/lib/`'s membership or its file count — not check-guard-symlinks.sh
 # (which validates skills/*/scripts/ symlink targets, never scripts/lib's own
 # contents), not owned_corpus_files (scripts/lib/owned-corpus.sh, which scopes
-# `.md`/`.mdc` files only), not check-installed-citations.py's installed-set
+# `.md`/`.mdc` files only), not check-installed-citations's installed-set
 # classifier, not .flow/project.md's test-file list (which names
 # `scripts/test-*.sh`, never anything under scripts/lib/) — so a new directory
 # would be a bigger, unforced move for a Minor finding: a fresh path nothing

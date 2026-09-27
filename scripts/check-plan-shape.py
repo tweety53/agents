@@ -5,7 +5,7 @@ actually read it. Eleven findings, F1-F11 (F1-F6's canonical definitions,
 decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
 parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
 second copy is a Single Source of Truth violation, the same class of drift
-check-plan-provenance.py's own docstring warns against; F7-F11's canonical
+stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F11's canonical
 definitions are the rows in the Findings list below).
 
 This guard IMPORTS the real parsers rather than reimplementing their
@@ -137,7 +137,7 @@ duplicates by first occurrence, and `select_task`/`parse_task_fields`
 always resolve to that same first occurrence, so this guard checks each id
 once, consistently with what a later commit-fields check will read.
 
-Standard library only (see check-plan-provenance.py's module docstring for
+Standard library only (see stats/internal/guard/planprovenance.go's ported module docstring for
 why this repository restricts itself to that).
 """
 

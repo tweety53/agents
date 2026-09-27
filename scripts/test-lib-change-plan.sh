@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test-lib-change-plan.sh — assertion harness for scripts/lib/change-plan.sh,
 # the shared resolver KAN-363 task 7 adds. Sources the library directly
-# rather than through its caller (check-unfinished-work.sh, task 8;
-# check-task-commit-fields.sh, task 9, was the other until its Go port),
+# rather than through its callers (check-unfinished-work.sh, task 8, and
+# check-task-commit-fields.sh, task 9, until their Go ports),
 # per this repository's own
 # convention (see test-lib-coverage.sh's header): the thing under test is
 # the library's own contract, not any caller's use of it.

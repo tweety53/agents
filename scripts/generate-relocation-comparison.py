@@ -99,7 +99,7 @@ Algorithm
    A literal `|` in a Passage/Source/Destination cell is escaped as `\\|`
    so it cannot be misread as a column separator.
 
-Standard library only (see check-plan-provenance.py's module docstring for
+Standard library only (see stats/internal/guard/planprovenance.go's ported module docstring for
 why this repository restricts itself to that).
 """
 

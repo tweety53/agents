@@ -2,8 +2,8 @@
 # reproducer-metachars.sh
 #
 # The single source of truth for the shell-metacharacter set a reproducer
-# command line must never carry. check-panel-reproducers.sh and
-# run-reproducer.sh each ban this same set — one lexically, at
+# command line must never carry. check-panel-reproducers and
+# run-reproducer each ban this same set — one lexically, at
 # record-validation time, with no worktree to resolve against; the other at
 # run time, against a real worktree and a real file on disk — and the two
 # copies have already drifted twice inside this change: the backslash was
@@ -18,11 +18,11 @@
 # against a resolved file there); only the DATA the checks scan for has one
 # home.
 #
-# Since KAN-760 run-reproducer is Go and cannot source this file: its port
-# carries the set as reproducerMetachars (stats/internal/guard/metachars.go),
-# and TestMetacharsMatchBashSource fails the moment the two differ, so this
-# file stays the one place a character is added. check-panel-reproducers.sh
-# is the caller that still sources it.
+# Both callers are Go now (run-reproducer since KAN-760,
+# check-panel-reproducers since KAN-778) and neither sources this file: they
+# share reproducerMetachars (stats/internal/guard/metachars.go), and
+# TestMetacharsMatchBashSource fails the moment it and this file differ, so
+# this file stays the one place a character is added.
 #
 # Usage: `source "<dir of this file>/reproducer-metachars.sh"` binds
 # REPRODUCER_METACHARS in the caller's shell. Not executable on its own.

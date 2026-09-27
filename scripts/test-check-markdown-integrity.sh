@@ -5,7 +5,7 @@
 # `rules/`, writes one Markdown file into it, runs the guard against that
 # root, and asserts the exit code (and, where the case cares, that the
 # reported output names the signal it is about). Follows
-# test-check-panel-reproducers.sh's shape: a case per scenario, a helper
+# the sibling harnesses' shape: a case per scenario, a helper
 # that builds the sandbox, a counter, and a non-zero exit when any case
 # fails.
 #
@@ -22,8 +22,7 @@ GUARD="$SCRIPT_DIR/check-markdown-integrity.py"
 FAILED=0
 
 # Every case leaves one sandbox directory behind, removed on exit. An
-# indexed array, not a space-separated string, for the same reason
-# test-check-panel-reproducers.sh uses one: a mktemp path under TMPDIR may
+# indexed array, not a space-separated string, for this reason: a mktemp path under TMPDIR may
 # contain spaces, and word-splitting a string would leak a sandbox whose
 # path split and rm -rf the fragments.
 PROJECTS=()

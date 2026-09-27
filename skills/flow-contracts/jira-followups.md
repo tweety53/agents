@@ -3,9 +3,9 @@
 **This file is the canonical definition of follow-up issues.** Skills reference it by name; none of
 them restate the contract. If a rule below and a skill ever disagree, this file wins.
 
-`/flow`'s integrate run loads this file for its follow-up option, and the review panel's round
-close loads it when a round leaves findings deferred (**Deferred findings file their follow-up
-at round close**, `skills/flow/review-panel.md`) — two loading sites, one contract.
+`/flow`'s integrate run loads this file for its follow-up option — its one loading site. The
+review panel's deferred findings go to `<project>/KNOWN-BUGS.md` instead (**Deferred review findings**,
+`skills/flow-contracts/known-bugs.md`).
 
 ### Follow-up issues
 
@@ -20,10 +20,7 @@ A **follow-up** is an issue the pipeline files for work a run left outstanding. 
 
 **The outstanding items are the filing site's own.** At `/flow`'s integrate run they are that
 run's outstanding work (**Run 1 — the branch is not merged**,
-`skills/flow-contracts/finish-contract-run1.md`). At the review panel's round close they are
-the findings that round recorded `deferred`: one item per finding, in ref order, one line
-naming the `F<n>` ref, the severity, the recorded location and the deferral's reason clause.
-Every rule below — the join search, the append guard's per-item matching, the three writes,
+`skills/flow-contracts/finish-contract-run1.md`). Every rule below — the join search, the append guard's per-item matching, the three writes,
 the outcome rows — reads "this run's items" and "this run's `<m>` outstanding items" as that
 site's list.
 
@@ -294,11 +291,8 @@ which exists precisely because the write is an append the assertion above proved
 
 **The join is idempotent under retry, and each of its three writes is guarded on its own.** At
 `/flow`'s integrate run, run 1 is re-entered whenever the branch is not merged, so a run that
-filed or joined and then failed at a later step reaches this code again. The panel's round close
-has no such re-entry: its ask fires once per close, on the round's newly deferred findings, so a
-join left partial there is never re-attempted by a later close and is repaired by hand from the
-finding rows and the round's records, exactly as the window paragraph below treats a merge-closed
-window. Where this code does run again, the guard is therefore not one decision about whether to
+filed or joined and then failed at a later step reaches this code again. Where this code does run
+again, the guard is therefore not one decision about whether to
 write at all — it is one per write:
 
 1. **The append** is skipped when the description already carries **every one** of this change's
@@ -331,10 +325,7 @@ appended nothing this time.
 **That window closes at the merge, and the `⚠` does not cross it.** At `/flow`'s integrate run,
 `<agents repo>/scripts/check-finish-preflight.sh` routes there only while the branch
 is unmerged; once it returns `RUN2` no command reaches this code again, so a join still partial when
-the branch merged stays partial. The panel's round close has its own window, and it closes with the
-run: a close that declined the filing, or whose join failed part-way, is not re-asked at a later
-close — the ⚠ stays in that run's output, and the repair is the operator's, working from the
-finding rows. Nothing carries the warning across: no state-file field records a
+the branch merged stays partial. Nothing carries the warning across: no state-file field records a
 join outcome and this contract adds none, and run 2's only Jira write is the **Done** transition
 under **Transitions** (`jira-integration.md`), which reports that transition and nothing about
 a follow-up. Re-emitting the `⚠` is not what closes a partial join past that point — finding the

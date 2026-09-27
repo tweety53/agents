@@ -87,9 +87,8 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		fmt.Fprintln(stderr, "usage: check-panel-reproducer-exit-contract.sh <worktree> <change-name>")
 		return 2
 	}
-	// CONTAINMENT, the same allowlist check-panel-reproducers.sh and
-	// check-unfinished-work.sh carry — duplicated on purpose per those
-	// guards' own convention: the change name reaches this guard from state a
+	// CONTAINMENT, the same allowlist check-panel-reproducers and
+	// check-unfinished-work apply through plainChangeName: the change name reaches this guard from state a
 	// pull request can edit and is passed to `flow record findings -change`,
 	// so the same shapes are refused here, and
 	// TestCheckPanelReproducerExitContract asserts the same rejected list so
@@ -115,8 +114,8 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	// peer worktree's findings read below would answer `[]` at exit 0: a clean
 	// verdict on a change this invocation never actually saw. The record is
 	// read FIRST for exactly that reason, and this block is DUPLICATED, on
-	// purpose, in check-panel-reproducers.sh, whose store read has the same
-	// blind spot; that guard's harness and TestCheckPanelReproducerExitContract
+	// purpose, in panelreproducers.go, whose store read has the same blind
+	// spot; TestCheckPanelReproducers and TestCheckPanelReproducerExitContract
 	// assert the same refused shapes, which is what keeps the copies from
 	// drifting. `flow state get` reached-and-absent exits 1 — a fact about this
 	// project/change pair, and on a cross-repo change the signature of a guard
@@ -469,7 +468,11 @@ func pcWorktreeKeys(raw json.RawMessage) ([]string, bool) {
 }
 
 // pcParseFindings reads the findings array the way the bash guard's jq
-// filters read it; anything that is not an array of objects is jq failing.
+// filters read it. Anything that is not one array of objects -- a null
+// element, an object, empty output, two values -- is refused as jq failing,
+// though jq itself iterated some of these and passed them: the guards'
+// headers rule out a clean verdict on input they cannot read (decided
+// 2026-09-27, kan-778's task 3 Correction).
 func pcParseFindings(b []byte) ([]pcFinding, bool) {
 	var raw []map[string]json.RawMessage
 	if json.Unmarshal(b, &raw) != nil || raw == nil {

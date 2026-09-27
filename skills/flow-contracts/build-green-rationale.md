@@ -5,7 +5,7 @@ This file is the reasoning behind **Build green** (`skills/flow-contracts/build-
 
 ## build-green.md — The canonical statement
 
-`the guard script's own module docstring points here rather than restating the rule` — a second copy is the same Single Source of Truth violation `check-plan-provenance.py`'s docstring warns against.
+`the guard script's own module docstring points here rather than restating the rule` — a second copy is the same Single Source of Truth violation `<agents repo>/stats/internal/guard/planprovenance.go`'s docstring warns against.
 
 ## build-green.md — The build-green tag
 

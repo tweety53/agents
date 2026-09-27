@@ -1,6 +1,6 @@
 # Plan provenance — the guard
 
-**This file is canonical for what `<agents repo>/scripts/check-plan-provenance.py` enforces.** The tag
+**This file is canonical for what `<agents repo>/scripts/check-plan-provenance.sh` (its logic in `<agents repo>/stats/internal/guard/planprovenance.go`) enforces.** The tag
 vocabulary itself is canonical in **The four tags** (`skills/flow-contracts/plan-provenance.md`).
 
 ## The guard's scope, and why it is narrow

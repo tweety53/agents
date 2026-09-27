@@ -8,9 +8,9 @@ reads only `project.md`.
 
 This followed the
 review panel passes and fix waves that found defect class after defect class in the Bash
-version — canonical enumeration and full history in `check-plan-provenance.py`'s own module
-docstring (this file does not restate the count, since a copied number is exactly what let an
-earlier, wrong count survive six review passes). Every other guard in this repository remains Bash-only; adding Python here was a
+version — canonical enumeration and full history in the module docstring
+ported into `stats/internal/guard/planprovenance.go` (this file does not restate the count, since a copied number is exactly what let an
+earlier, wrong count survive six review passes). Adding Python here was a
 deliberate, recorded widening of the toolchain, not a drift.
 
 ## .flow/project.md — run

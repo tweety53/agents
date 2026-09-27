@@ -2,10 +2,10 @@
 # once.
 #
 # One owner for "where is this change's tasks.md, really" — KAN-363 task 7,
-# sourced by check-unfinished-work.sh (task 8) in place of composing
-# `<worktree>/<spec-root>/changes/<name>` directly, as check-task-commit-fields.sh
-# (task 9) did until its Go port (KAN-760): the Go guards carry one port of
-# this library, stats/internal/guard/changeplan.go. KAN-343 shipped a cross-repository change by hand: the second
+# sourced by check-unfinished-work.sh (task 8) and check-task-commit-fields.sh
+# (task 9) in place of composing `<worktree>/<spec-root>/changes/<name>`
+# directly, until their Go ports (KAN-778 and KAN-760): the Go guards carry
+# one port of this library, stats/internal/guard/changeplan.go. KAN-343 shipped a cross-repository change by hand: the second
 # repository's worktree carried no plan at all, and every guard that looked
 # for one there reported the absence as a verdict — `OUTSTANDING: no plan at
 # <path>`, or exit 2 with nothing further — because "no tasks.md" and "this
@@ -90,7 +90,7 @@
 # nothing enforcing it and a wrong order failing only at call time with
 # "spec_root_leaf: command not found". Sourcing its own dependency removes
 # that footgun; re-sourcing spec-root.sh a second time when a caller also
-# sources it directly (check-unfinished-work.sh does, for its own use) is
+# sources it directly is
 # harmless — the same functions are defined the same way each time.
 #
 # Not meant to be executed directly — a caller sources it and calls

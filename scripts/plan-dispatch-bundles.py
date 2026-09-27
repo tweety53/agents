@@ -86,7 +86,7 @@ Path comparison is on the literal extracted text: no filesystem resolution,
 no globbing, no normalization beyond the stripping described above. Two
 tasks agree on a path only when they wrote the identical remaining text.
 
-Standard library only (see check-plan-provenance.py's module docstring for
+Standard library only (see stats/internal/guard/planprovenance.go's ported module docstring for
 why this repository restricts itself to that).
 """
 

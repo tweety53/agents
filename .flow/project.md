@@ -11,13 +11,10 @@ halves live in the one repo and are covered below.
 
 | App | Repo root | Kind | URL | Notes |
 |-----|-----------|------|-----|-------|
-| flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
+| flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Bash + Python, not Bash-only.** `scripts/check-plan-provenance.sh` is a thin
-wrapper that execs `scripts/check-plan-provenance.py` (Python 3, standard library only —
-`/usr/bin/python3`, no third-party imports, no pip, no network) so its fence/container classifier
-can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist.
+**This repository is Bash + Python + Go, not Bash-only.** Several `scripts/*.py` guards (`check-task-build-green.py`, `check-plan-shape.py`, `check-task-commit-fields.py`, `check-markdown-integrity.py`, among others) run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work` and `check-panel-reproducers` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
 
 ### artifact tree
 
@@ -247,23 +244,23 @@ scripts/check-references.sh
 
 ## jira
 
-`KAN`
+KAN
 
 ## default landing route
 
-`merge and push`
+merge and push
 
 ## handoff
 
-`none`
+none
 
 ## self review
 
-`defer`
+defer
 
 ## self review model
 
-`fable`
+fable
 
 ## workspace isolation
 

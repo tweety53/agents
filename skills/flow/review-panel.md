@@ -733,7 +733,7 @@ label a finding's note or location happens to carry, on the way out only.
 
 ```
 reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
+finding-reproducer: F1 scripts/test-check-panel-findings-closed.sh
 ```
 
 A finding recorded with no reproducer renders the `none — <reason>` exemption form.
@@ -746,8 +746,7 @@ by the parent at the fix round's verification step below, never by the fix subag
 
 ## Panel re-runs
 
-**Every round this stage dispatches after pass 1 — each fix-round re-run and the `full` rerun
-policy's final pass — opens by running **Check base movement first** again: the same
+**Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same
 per-worktree `resolve-base-branch.sh` then `check-base-moved.sh` pair, with that section's
 verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED`
 with no overlap rebases unasked at a round boundary just as at entry.** **Continue** at a round
@@ -825,7 +824,7 @@ costs more time than its Minors are worth — with
 `flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>`,
 the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query
 rather than a hand-read. Nothing in that round is fixed, inline or otherwise, and no slot re-runs:
-proceed to **Deferred findings file their follow-up at round close**, below, and then to
+proceed to **Deferred findings go to KNOWN-BUGS.md at round close**, below, and then to
 `check-panel-findings-closed.sh` and the stage close. An explicit decision the operator
 gives on a finding in this session wins over either default. A fixed finding that fails
 verification takes the handback below, and that loop re-runs no slot either.
@@ -864,84 +863,32 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   findings, each opened at its recorded `file:line` in the current tree, and its prompt lists
   those `F<n>` rows verbatim, states that it is re-reviewing their fix, and names that diff path.
   Its verdict is per listed finding — fixed, or not fixed with the reproducer output — plus any
-  defect the fix diff itself introduces at those sites; it re-reads no other part of the branch.
+  defect the fix diff itself introduces at those sites.
   A role that raised nothing in the previous round does not re-run under the new-Critical clause
   above either — with no finding of its own to target it has nothing to re-review. Each
-  `-model`/`-effort` recorded is the rerun pair (**Bundled dispatch**). The final pass **Rerun
-  policy `full`** adds is pass-1 work and runs on `panel.dispatches` as pass 1 did.
+  `-model`/`-effort` recorded is the rerun pair (**Bundled dispatch**).
 
-**A fix-round re-run reviews the fix, never the branch.** Every re-running slot's dispatch prompt —
+**A fix-round re-run reviews the fix, never the branch** — and no pass after pass 1 re-reads the
+whole branch; the paragraph below is the one statement of a re-run's read scope. Every re-running slot's dispatch prompt —
 on every panel, Bugbot, Mutation and Security included — carries the FIX-ROUND SCOPE paragraph,
 with `<fix report>` the round's `panel-fix-report-<round>.md` (every chunk's file on a chunked
 round):
 
 > **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given
-> and the sites of the findings it fixes — nothing else on the branch. Run only the tests and
+> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the
+> enclosing function or section — and nothing else on the branch. Run only the tests and
 > specs that diff touches, never the module, repository or live-spec suite. The fix report at
 > `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,
 > and the failure with the fix reverted. Check that proof against the diff; reproduce it
 > yourself only where it is missing, does not match the diff, or does not show the failure it
 > claims — and say which of those it was.
 
-The final pass **Rerun policy `full`** adds is pass-1 work and carries no FIX-ROUND SCOPE
-paragraph.
-
 **From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
 reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
 each site opened at its recorded `file:line` in the current tree — in place of its held-sha
 delta; the re-run rule above is unchanged, and so is everything the round's own mutation-proof
 covers. The scoping exists because a round that re-reads a growing fix diff regress-checks by
-volume, not by site. A scoped round no longer reads
-the branch, so a run that reached one closes with the final whole-branch pass **Rerun policy
-`full`** adds — reserved for catching independent issues.
-
-**Rerun policy `full`** — the decision's `panel.rerun` on a `big` class — keeps every rule above for
-every fix round and adds one final pass after the last fix round closes clean: every slot in the
-roster re-reads the whole `final-review.diff` (Bugbot and Mutation in their pass-1 shape). A finding
-from that final pass opens an ordinary fix round under the rules above; the final pass then repeats
-once that round closes clean — one repeat, unasked; what runs past that is **The rerun cap** below.
-**Rerun policy `delta`** — `small` and `regular`, and every run on
-a `default` panel — is the section above as it stands: no added final pass, beyond
-the one the scoped-round rule above requires of a run that reached a third fix round.
-
-**The rerun cap.** The whole-roster re-reads this mechanism adds are capped at two unasked — the
-first final pass and its one repeat. When the second's fix round closes clean, no third is
-dispatched on the mechanism's own motion; the run resolves one prompt on its recommended **Close
-the panel**, per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`):
-
-> **The whole-branch pass has run twice; the fix round for its findings closed clean. A third
-> whole-branch read runs only by your choice — the cap holds by default.**
-> - **Close the panel** *(default, recommended)* — proceeds to the close guards below on the clean
->   delta re-runs
-> - **Run one more whole-branch pass** — the same roster re-reads the whole `final-review.diff`,
->   on whatever pair the budget rules then give it; its findings close through the ordinary
->   fix-round loop, and the panel closes when that round's delta re-run comes back clean. No
->   fourth whole-branch read is dispatched whatever it finds.
-
-The auto-taken close is recorded as that contract states, and the handoff's `Panel:` line carries
-the `rerun cap:` field's ⚠ marker naming that the default fired; a third pass runs only on an
-explicit operator instruction and is recorded with `flow record pass -round <round>`, naming the
-operator's words. The cap bounds how many whole-branch re-reads a run
-dispatches unasked — never what any dispatched pass reads, and never the targeted delta re-runs a
-fix round closes on, which stay uncapped. The scoped-round rule above adds its one whole-branch
-pass under the same cap.
-
-**From the third full-roster pass this policy adds onward, every dispatch in that pass runs on
-`DEFAULT_MODEL` at `low` effort**, regardless of what `panel.dispatches` or a session override
-would otherwise resolve for it. Pass 1 (dispatched before
-any fix round) and pass 2 (the first repeat `full` adds, after the first fix round closes clean)
-are unaffected and keep whatever the normal resolution above gives them — this restriction applies
-only from the *third* time the whole roster re-reads `final-review.diff` onward: the run has by
-then already paid for two full-strength passes and is looping to confirm convergence, which does
-not need more than `low` effort. Record the substituted model with `flow record pass -round <round>`
-alongside this pass's other entry-check notes, naming what the normal resolution would have given
-so the swap is visible in the pass log.
-
-**A demotion is part of the evidence a clean result carries, never a pass-log side note.** The
-record above is mandatory on every pass the restriction touches, and when the pass whose clean
-result closes the panel ran on the substituted pair, the handoff's `Panel:` line says so in its
-`demoted:` field — the pass number, the pair it ran, and the pair the normal resolution would have
-given: "clean on pass 8" and "clean on opus" are not the same evidence.
+volume, not by site.
 
 **The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
 worktree per **distinct** held sha among the diff-reading slots dispatched this round (two slots
@@ -1398,36 +1345,12 @@ whose findings was Minor, which re-runs no slot and closes beside them. A
 re-run that finds a fix incomplete opens the next fix round under the rules above, and the cycle repeats until a
 re-run comes back clean.
 
-### Deferred findings file their follow-up at round close
+### Deferred findings go to KNOWN-BUGS.md at round close
 
-**A round close that leaves findings newly recorded `deferred` does not end on the store rows
-alone.** That is the record a deferral leaves today — `finding-status:` lines on the panel
-record, archived with the change — and nothing durable follows it: no issue, no registry, no
-next-run pickup. So before the close guards below run, the parent loads **Follow-up issues**
-(`skills/flow-contracts/jira-followups.md`) — this close is that contract's second loading
-site, beside `/flow`'s integrate run — and runs its filing at this site; the round's newly
-deferred findings are the outstanding items **The filing site's outstanding items**
-(`skills/flow-contracts/jira-followups.md`) defines.
-
-**The filing asks once, at this close, and explains before it asks** — shape per **The
-shape** (`skills/flow-contracts/operator-prompts.md`), the message body carrying each item
-the filing would record: the defect the raising slot named, what it breaks, what fixing it
-would be. A Jira write, so it is asked even in a fix run, never auto-resolved (**What still
-stops**, the same file).
-
-> **`<n>` finding(s) this round deferred would otherwise live only on the archived panel
-> record — file their follow-up now?**
-> - **File the follow-up** *(recommended)*
-> - **Leave them unfiled this run**
-
-Anything short of an explicit **File the follow-up** files nothing — the run reports one
-`⚠ Jira: skipped — deferred findings follow-up not filed — <reason>` line and the close
-guards below run unchanged. A yes runs the contract's machinery exactly as `/flow`'s
-integrate run runs it — the join search, the join confirmation, the append guard, the three
-writes and their outcome rows, the follow-up titled for this change's linked issue per the
-naming that governs every site that files a follow-up — and every failure in it degrades per
-**Never blocking** (`skills/flow-contracts/jira-integration.md`) exactly as every other Jira
-write does.
+**A round close that leaves findings newly recorded `deferred` records them in
+`<project>/KNOWN-BUGS.md`, unasked, before the close guards below run** — **Deferred review
+findings** (`skills/flow-contracts/known-bugs.md`) is canonical for the entry and its commit. No
+Jira issue is filed and no prompt fires at this close.
 
 **Before closing the stage**, the parent runs both close guards:
 

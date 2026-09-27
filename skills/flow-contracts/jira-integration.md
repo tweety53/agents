@@ -246,5 +246,4 @@ into a different one, and it is never left unmentioned.
 
 Follow-up naming, the join search, and the append-only join write are governed by
 **Follow-up issues** (`skills/flow-contracts/jira-followups.md`), loaded by bare `/flow`
-run 1 and by the review panel's deferred-findings close (**Deferred findings file their
-follow-up at round close**, `skills/flow/review-panel.md`).
+run 1.

@@ -1,7 +1,7 @@
 # scripts/lib/spec-root.sh — spec_root_leaf, defined once.
 #
 # Sourced by every bash guard that has to locate a project's change directory:
-# check-unfinished-work.sh, commit-split.sh, the retired self-review gather
+# commit-split.sh, the retired self-review gather
 # (kan-526) and plan-dispatch-bundles.sh — plus
 # scripts/lib/change-plan.sh, which sources it in turn so a satellite
 # worktree's link.md is resolved against the same tree-name probe on
