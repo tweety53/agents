@@ -22,11 +22,11 @@ background, no labels, no scaling. Output file is
 With the geometry declared the layout is three panels — capture, cropped
 frame, difference — on the same gutter and background. Each frame is
 cropped to its content area: the status line and the border come from the
-declared values, and the bottom comes from the frame itself, as the first
-row below the status line every one of whose pixels between the side
-borders equals the page colour at (0, 0). That row is the page-coloured
-margin above the caption band, and it is detected rather than declared
-because content-hugging frames differ in height from one another. The
+declared values, and the bottom comes from the frame itself — at the
+page-coloured margin above the caption band, or, where the caption band
+starts directly below the frame, at the frame's own bottom border (both
+rules in `crop_box`). It is detected rather than declared because
+content-hugging frames differ in height from one another. The
 difference panel is white wherever any channel differs and black
 elsewhere, so a departure reads as shape rather than as a colour blend.
 The cropped frame itself is also written as `<out dir>/<screenshot name
@@ -130,16 +130,35 @@ def parse_geometry(arg):
     return values
 
 
+# The side border's run stops at the frame's rounded bottom corner, this many
+# logical rows at most above the bottom border's first row (1.5 on every real
+# frame; content rows mis-taken for the border sat 56+ logical rows away).
+BOTTOM_CORNER_ROWS = 4
+
+
 def crop_box(frame, geometry):
     """The frame's content area in PNG pixels, or None when the declared
     geometry leaves none.
 
     The sides and the top come from the declared values. The bottom is found
-    in the image: the page background is the pixel at (0, 0) — outside the
-    frame's rounded corner, so always the page and never the border — and the
-    first row below the top crop whose every pixel between the side borders
-    equals it is the margin above the caption band. No such row means the
-    frame runs to the last row."""
+    in the image, by two rules in turn:
+
+    1. The page background is the pixel at (0, 0) — outside the frame's
+       rounded corner, so always the page and never the border — and the
+       first row below the top crop whose every pixel between the side
+       borders equals it is the margin above the caption band; the bottom
+       border sits directly above it.
+    2. No such row — gymie's J/K floor frames draw their caption band on the
+       row directly below the bottom border, with no page-coloured margin —
+       and a border declared: the side border column (just left of the crop)
+       holds one colour from the top crop down to the bottom corner, and the
+       first row within the corner's height below that run (a few rows: 3 on
+       every real frame at 2x) whose middle pixel is that colour is the
+       bottom border's first row. A matching row further down is content in
+       the border colour under a side border that breaks mid-height (the
+       copy-session C1/C4/C7 frames), never the bottom border.
+
+    Neither rule finding a row means the frame runs to the last row."""
     s = geometry["scale"]
     left = geometry["border"] * s
     top = (geometry["border"] + geometry["status"]) * s
@@ -149,13 +168,24 @@ def crop_box(frame, geometry):
 
     page = frame.getpixel((0, 0))
     pixels = frame.load()
-    frame_bottom = frame.height
+    bottom = frame.height - geometry["border"] * s
     for y in range(top, frame.height):
         if all(pixels[x, y] == page for x in range(left, right)):
-            frame_bottom = y
+            bottom = y - geometry["border"] * s
             break
+    else:
+        if geometry["border"] > 0:
+            edge = pixels[left - 1, top]
+            y = top
+            while y + 1 < frame.height and pixels[left - 1, y + 1] == edge:
+                y += 1
+            mid = frame.width // 2
+            corner = BOTTOM_CORNER_ROWS * s
+            for yy in range(y + 1, min(y + 1 + corner, frame.height)):
+                if pixels[mid, yy] == edge:
+                    bottom = yy
+                    break
 
-    bottom = frame_bottom - geometry["border"] * s
     if bottom <= top:
         return None
     return (left, top, right, bottom)
