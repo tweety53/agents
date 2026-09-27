@@ -210,7 +210,8 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   defect before the fix and passes after it.
 - `check-panel-reproducers.sh`, `check-panel-reproducer-exit-contract.sh`: every finding has a
   reproducer, and each one uses the exit codes correctly.
-- `check-panel-findings-closed.sh`: no handoff while any finding is open, whatever its severity.
+- `check-panel-findings-closed.sh`: no handoff while any finding is open, whatever its severity,
+  or while a Minor is deferred in a round whose Critical or Important went to a fix.
 - `mutate-and-verify.sh` and `break-and-prove.sh`: break the code on purpose and show a test
   fails. The `mutation` reviewer uses them.
 

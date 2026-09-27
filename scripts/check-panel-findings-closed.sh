@@ -27,65 +27,25 @@
 # verdict; the existing handback is where the operator resolves it.
 #
 # Exit codes:
-#   0  no finding's status is open
-#   1  one or more are; each still-open ref is named on stderr
+#   0  no finding's status is open and no Minor is wrongly deferred
+#   1  one or more findings are open, or a Minor is recorded `deferred`
+#      in a round that raised a Critical or Important not recorded
+#      `withdrawn` (review-panel.md's **Panel re-runs** sends such a
+#      Minor to that round's fix); each still-open ref, and each wrongly
+#      deferred ref with its round, is named on stderr
 #   2  cannot answer at all — no worktree, no change name, a change name
 #      outside the allowlist, a worktree that is not a directory, the store
-#      unreachable, or jq failing
+#      unreachable, or its answer unreadable (empty output included)
+# Ported to Go: the body's reasoning for every branch is in
+# stats/internal/guard/panelfindingsclosed.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-export LC_ALL=C
-
-WORKTREE="${1:-}"
-NAME="${2:-}"
-[[ -n "$WORKTREE" && -d "$WORKTREE" ]] || { echo "check-panel-findings-closed: not a directory: ${WORKTREE:-<missing>}" >&2; exit 2; }
-[[ -n "$NAME" ]] || { echo "usage: check-panel-findings-closed.sh <worktree> <change-name>" >&2; exit 2; }
-
-# CONTAINMENT, identical to check-panel-reproducers.sh's own copy and its own
-# comment canonical for why the six-line `case` block stays duplicated
-# rather than centralized: the change name arrives from a pull-request-
-# editable state file and is passed to `flow record findings -change`, so
-# `../../../planted` and a glob metacharacter are hazards here exactly as
-# they are there.
-case "$NAME" in
-  [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
-  | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
-    echo "check-panel-findings-closed: change name '$NAME' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'" >&2
-    exit 2
-    ;;
-esac
-
-# Canonicalise before the worktree is ever passed to `flow` as `-C`, and
-# refuse rather than proceed if it vanished between the `-d` check above and
-# here — see check-panel-reproducers.sh's own comment on both hazards,
-# canonical for this exact sequence.
-WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-findings-closed: worktree vanished before it could be resolved: ${WORKTREE}" >&2; exit 2; }
-
-# STDOUT AND STDERR ARE CAPTURED SEPARATELY — never `2>&1`. See
-# check-unfinished-work.sh's own comment on this exact call, canonical for
-# why: `flow` prints diagnostics such as `flow: using FLOW_ADDR=...` to
-# stderr, and folding them into stdout puts a non-JSON line at the head of
-# what jq parses, breaking a run that actually succeeded.
-FINDINGS_ERR="$(mktemp)"
-if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$WORKTREE" 2>"$FINDINGS_ERR")"; then
-  echo "check-panel-findings-closed: cannot read findings for '$NAME' from the store — cannot determine anything: $(cat "$FINDINGS_ERR")" >&2
-  rm -f "$FINDINGS_ERR"
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-panel-findings-closed: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
-fi
-rm -f "$FINDINGS_ERR"
-
-# An open finding is any finding whose status is neither `fixed` nor a
-# `withdrawn <reason>` or `deferred <reason>` value — `startswith("withdrawn")`
-# and `startswith("deferred")` each cover their whole family, reason text
-# included, without comparing the reason itself.
-if ! OPEN_REFS="$(printf '%s' "$FINDINGS_JSON" | jq -r '[.[] | select((.status != "fixed") and (.status | startswith("withdrawn") | not) and (.status | startswith("deferred") | not)) | .ref] | join(" ")')"; then
-  echo "check-panel-findings-closed: jq failed — cannot determine anything" >&2
-  exit 2
-fi
-
-if [ -n "$OPEN_REFS" ]; then
-  echo "check-panel-findings-closed: finding(s) still open: $OPEN_REFS" >&2
-  exit 1
-fi
-
-echo "FINDINGS-CLOSED"
+}
+flow_guard_exec check-panel-findings-closed 2 "check-panel-findings-closed:" "$@"

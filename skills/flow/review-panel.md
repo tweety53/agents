@@ -733,7 +733,7 @@ label a finding's note or location happens to carry, on the way out only.
 
 ```
 reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-findings-closed.sh
+finding-reproducer: F1 scripts/test-check-plan-unchanged.sh
 ```
 
 A finding recorded with no reproducer renders the `none — <reason>` exemption form.
@@ -1358,8 +1358,10 @@ Jira issue is filed and no prompt fires at this close.
 check-panel-findings-closed.sh <worktree> <change>
 ```
 
-Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` in the store —
-return to the handback loop above for it. Exit 2 stops the run.
+Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` in the store,
+or a Minor reads `deferred` in a round that raised a Critical or Important not recorded
+`withdrawn` — the Minor-deferral default of **Panel re-runs** above, violated; the line names the
+refs and the round. Either way, return to the handback loop above for them. Exit 2 stops the run.
 
 Beside it, run
 
