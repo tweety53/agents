@@ -30,3 +30,9 @@
 - The operator asked whether moving guards from shell to Go is worth it. The suite wall time is now
   bounded by `test-setup.sh` (~34s), which is not a guard. The answer given: stop porting small
   guards, and target `test-setup.sh` instead of the planned next five-guard slice.
+
+## 2026-09-27 — integrate run
+
+- Preflight `RUN1`; unfinished-work `CLEAR`; visual-verify `OK` (no UI paths); main checkout `STAGED-CLEAN`/`DRIFT-CLEAN`.
+- `origin/main` had moved 4 commits with no path overlap; clean rebase of 42 commits onto `dfb0f6a0`, no conflicts, so no scoped re-verification ran.
+- `.flow/project.md`'s `## default landing route` body is `` `merge and push` `` — backtick-wrapped, so the byte-for-byte match dropped it and the landing question was asked; the operator chose merge and push. The backticks are the fix.
