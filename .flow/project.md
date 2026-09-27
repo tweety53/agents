@@ -16,6 +16,8 @@ halves live in the one repo and are covered below.
 
 **This repository is Bash + Python + Go, not Bash-only.** Several `scripts/*.py` guards (`check-task-build-green.py`, `check-plan-shape.py`, `check-task-commit-fields.py`, `check-markdown-integrity.py`, among others) run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `prepare-archive-branch`, `check-base-moved`, `check-panel-fix-single-dispatch`, `check-model-keys`, `prove-reproducer` and `check-finish-preflight` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
 
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash.
+
 ### artifact tree
 
 The pipeline's artifact tree is `spectre/`.
