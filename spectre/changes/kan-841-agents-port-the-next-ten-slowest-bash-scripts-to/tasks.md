@@ -551,7 +551,7 @@ Correction (2026-09-27): `scripts/lib/base-ref-usage.sh` loses its last caller w
 is removed by a fix commit, so it stays out of **Files:**, which records the task commit. The dirty-file count, the physical main-checkout path and the
 signal-killed child's `exited 143` wording are pinned against the bash at `d71a2327`.
 
-- [ ] 13. Repoint citations of the deleted files
+- [x] 13. Repoint citations of the deleted files
 
 **Files:** `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`, `stats/internal/records/*_test.go`
@@ -565,7 +565,7 @@ signal-killed child's `exited 143` wording are pinned against the bash at `d71a2
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Find.** `grep -rlF -e test-check-stage-mark-calls.sh -e
+  - [x] **Step 1: Find.** `grep -rlF -e test-check-stage-mark-calls.sh -e
     test-check-guard-symlinks.sh -e test-check-dispatch-paragraphs.sh -e test-mutate-and-verify.sh
     -e test-prepare-archive-branch.sh -e test-check-base-moved.sh -e
     test-check-panel-fix-single-dispatch.sh -e test-check-model-keys.sh -e
@@ -576,11 +576,11 @@ signal-killed child's `exited 143` wording are pinned against the bash at `d71a2
     and header-paragraph citations) and of its bash plumbing (`sources lib/…`).
     `unverified: the file set is known only after tasks 3–12 land; widen **Files:** by a
     correction if a hit falls outside the collateral globs`
-  - [ ] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites;
+  - [x] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites;
     a sentence describing bash plumbing that no longer exists is corrected, not repointed.
     `.flow/project.md`'s paragraph naming which guards are Go lists the ten new ones; library
     headers naming a ported script as a caller that sources them are corrected.
-  - [ ] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-841-*`,
+  - [x] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-841-*`,
     `docs/self-review/` and the Go ports' own history comments; every guard in
     `.flow/project.md`'s `## lint` exits 0.
 
