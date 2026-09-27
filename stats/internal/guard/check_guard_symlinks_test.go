@@ -538,6 +538,25 @@ bash check-other-typo.sh <worktree>
 			gsReports(t, r, "skills/flow-zed/SKILL.md:5: check-other-typo.sh", "3k: the flow-zed row names its own citing file")
 			gsPin(t, r, repo)
 		}},
+		// 3l. A subcommand word between the basename and its first
+		// <placeholder> — the shape skills/flow/implement.md and
+		// review-panel.md use for guard-autosquash.sh
+		// ('guard-autosquash.sh targets <worktree> <task-sha>'), opening a
+		// line with no Run/Invoke before it. The placeholder form used to
+		// demand the '<' right after the basename, so this citation fell out
+		// of the required set and the missing symlink read GUARD-SYMLINKS-OK.
+		{"3l", func(t *testing.T) {
+			repo := gsNew(t)
+			gsGuard(t, repo, "check-subcmd.sh", gsPlainGuard)
+			gsSkill(t, repo, "flow", gsMD(`# flow fixture
+
+'check-subcmd.sh targets <worktree> <task-sha>' asserts the target.
+`))
+			r := gsRun(t, repo)
+			gsInvalid(t, r, "a placeholder invocation with a subcommand word, symlink absent, is a rule 2 violation")
+			gsReports(t, r, "skills/flow/scripts/check-subcmd.sh", "rule 2 (3l): names the missing symlink")
+			gsPin(t, r, repo)
+		}},
 		// 4a. Rule 3: the repository-relative form inside a bash fence.
 		{"4a", func(t *testing.T) {
 			repo := gsNew(t)
@@ -1035,6 +1054,7 @@ var gsPins = map[string]string{
 	"TestCheckGuardSymlinks/3i":                    "<repo>/skills/flow-settings/SKILL.md:4: check-lead-typo.sh is invoked here, but no guard named check-lead-typo.sh exists in this repository's scripts/ — a typo'd guard basename silently drops out of the required set; fix the name or ship the guard (rule 2)\n<repo>/skills/flow-settings/SKILL.md:8: check-via-typo.sh is invoked here, but no guard named check-via-typo.sh exists in this repository's scripts/ — a typo'd guard basename silently drops out of the required set; fix the name or ship the guard (rule 2)\nGUARD-SYMLINKS-INVALID: <repo> — 2 violation(s)\n--- stderr\n--- exit 1\n",
 	"TestCheckGuardSymlinks/3j":                    "GUARD-SYMLINKS-OK: <repo> — 0 guard(s) across 1 skill(s) validated\n  flow-settings 0 (declared: invokes no guard — a standalone settings command that only calls the flow CLI, with no implementation or verification stage)\n--- stderr\n--- exit 0\n",
 	"TestCheckGuardSymlinks/3k":                    "<repo>/skills/flow-settings/SKILL.md:3: check-typo.sh is invoked here, but no guard named check-typo.sh exists in this repository's scripts/ — a typo'd guard basename silently drops out of the required set; fix the name or ship the guard (rule 2)\n<repo>/skills/flow-zed/SKILL.md:5: check-other-typo.sh is invoked here, but no guard named check-other-typo.sh exists in this repository's scripts/ — a typo'd guard basename silently drops out of the required set; fix the name or ship the guard (rule 2)\nGUARD-SYMLINKS-INVALID: <repo> — 2 violation(s)\n--- stderr\n--- exit 1\n",
+	"TestCheckGuardSymlinks/3l":                    "<repo>/skills/flow/SKILL.md:3: invokes check-subcmd.sh here, but skill \"flow\" carries no symlink at skills/flow/scripts/check-subcmd.sh (rule 2)\nGUARD-SYMLINKS-INVALID: <repo> — 1 violation(s)\n--- stderr\n--- exit 1\n",
 	"TestCheckGuardSymlinks/4a":                    "<repo>/skills/flow/SKILL.md:4: a repository-relative scripts/<name> path appears in an invoking position (a bash-fenced command, or an imperative Run/Invoke/Execute) — name the guard by basename instead, per the resolution rule in skills/flow-contracts/pipeline.md (rule 3)\nGUARD-SYMLINKS-INVALID: <repo> — 1 violation(s)\n--- stderr\n--- exit 1\n",
 	"TestCheckGuardSymlinks/4b":                    "GUARD-SYMLINKS-OK: <repo> — 1 guard(s) across 1 skill(s) validated\n  flow 1\n--- stderr\n--- exit 0\n",
 	"TestCheckGuardSymlinks/4c":                    "GUARD-SYMLINKS-OK: <repo> — 1 guard(s) across 1 skill(s) validated\n  flow 1\n--- stderr\n--- exit 0\n",

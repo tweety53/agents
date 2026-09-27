@@ -21,7 +21,8 @@
 #      ```bash/sh/zsh fenced command line (a leading word, a pipeline
 #      segment, an `&&` continuation or a command substitution), or a
 #      backtick-quoted basename a nearby "Run"/"Invoke"/"Execute"/"invocation"
-#      names, or one followed by a `<placeholder>` usage argument — has a
+#      names, or one followed by a `<placeholder>` usage argument, directly
+#      or after subcommand words (`name sub <arg>`) — has a
 #      symlink in that skill's own
 #      scripts/ directory. A guard's sibling dependency — read from the guard's
 #      OWN source rather than a hardcoded table, by grepping it for

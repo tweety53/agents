@@ -82,11 +82,15 @@ var (
 	// were never a declared member of the set this guard scans; "console" and
 	// "text" are deliberately still excluded, since every real invocation in
 	// this repository is written in a bash/sh/zsh fence and nowhere else.
-	gsShellFence   = regexp.MustCompile(`^(bash|sh|zsh)([ \t]|$)`)
-	gsRule3Fence   = regexp.MustCompile(`scripts/[A-Za-z0-9._/-]+`)
-	gsRule3Prose   = regexp.MustCompile("(Run|run|Invoke|invoke|Execute|execute)[ \t]+`scripts/[A-Za-z0-9._/-]+")
-	gsNameRun      = regexp.MustCompile(`[A-Za-z0-9._-]+`)
-	gsPlaceholder  = regexp.MustCompile(`^[ \t]+<`)
+	gsShellFence = regexp.MustCompile(`^(bash|sh|zsh)([ \t]|$)`)
+	gsRule3Fence = regexp.MustCompile(`scripts/[A-Za-z0-9._/-]+`)
+	gsRule3Prose = regexp.MustCompile("(Run|run|Invoke|invoke|Execute|execute)[ \t]+`scripts/[A-Za-z0-9._/-]+")
+	gsNameRun    = regexp.MustCompile(`[A-Za-z0-9._-]+`)
+	// Subcommand words may sit between the basename and its first
+	// <placeholder> (`guard-autosquash.sh targets <worktree> <task-sha>`);
+	// demanding the `<` right after the basename dropped that citation from
+	// the required set and its missing symlink read GUARD-SYMLINKS-OK.
+	gsPlaceholder  = regexp.MustCompile(`^([ \t]+[A-Za-z0-9._-]+)*[ \t]+<`)
 	gsBlanks       = regexp.MustCompile(`[ \t]+`)
 	gsInvokingWord = regexp.MustCompile(`(run|invoke|invocation|invoking|execute)`)
 	gsBlankLine    = regexp.MustCompile(`^[ \t]*$`)
@@ -506,7 +510,8 @@ func gsReadMD(md, rule string) ([]byte, error) {
 func gsCitations(b []byte, guards map[string]bool) (cited, unknown [][2]string) {
 	gsScanMD(b, func(raw string, n int) {
 		// A backtick span whose leading name-run is followed by a
-		// `<placeholder>` usage argument, or which a "run"/"invoke"/
+		// `<placeholder>` usage argument, directly or after subcommand
+		// words, or which a "run"/"invoke"/
 		// "invocation"/"invoking"/"execute" in the four words before it
 		// names, is an invocation.
 		pos := 0
