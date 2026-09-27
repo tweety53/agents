@@ -249,9 +249,9 @@ grep 2.6.0 in a UTF-8 locale finds no non-ASCII label in a file holding a NUL by
 reported the em-dash `**VERBATIM REPORT — THE FACT:**` label missing where the port — matching the
 header, GNU grep and `LC_ALL=C` — finds it.
 
-- [ ] 6. Port mutate-and-verify
+- [x] 6. Port mutate-and-verify
 
-**Files:** `stats/internal/guard/mutateandverify.go`, `stats/internal/guard/mutate_and_verify_test.go`, `scripts/mutate-and-verify.sh`, `scripts/test-mutate-and-verify.sh`, `stats/cmd/flow-guard/main.go`, `stats/cmd/flow-guard/main_test.go`, `stats/internal/guard/postmutationcheck.go`, `stats/internal/guard/provereproducer.go`, `stats/internal/guard/libtwins_test.go`
+**Files:** `stats/internal/guard/mutateandverify.go`, `stats/internal/guard/mutate_and_verify_test.go`, `scripts/mutate-and-verify.sh`, `scripts/test-mutate-and-verify.sh`, `stats/cmd/flow-guard/main.go`, `stats/cmd/flow-guard/main_test.go`
 **Tests:** `TestMutateAndVerify`
 **Regression:** fails if any of the harness's 44 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -264,20 +264,20 @@ header, GNU grep and `LC_ALL=C` — finds it.
 
 **Decision:** shared-helper-go-twins
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-mutate-and-verify.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-mutate-and-verify.sh`, one
     subtest per `ok:` label, plus the Review Focus rows (tree and HEAD unchanged after each
     refusal exit; a worktree path with a space; the real shim with no `go` on PATH exits 4).
     Run — expect failure.
-  - [ ] **Step 2: Port**, registering `mutate-and-verify`; exit codes 0/2/3/4 per the header;
+  - [x] **Step 2: Port**, registering `mutate-and-verify`; exit codes 0/2/3/4 per the header;
     `MUTATE_AND_VERIFY_MAX_NEW_FAILURES` kept with its parsing and default; the post-mutation
     drift check through `postmutationcheck.go` (task 2); harnesses are run as child processes
     exactly as the bash ran them (same argv, cwd, inherited environment).
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestMutateAndVerify$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestMutateAndVerify$' -count=1
     -race -v | grep -c -- '--- PASS: TestMutateAndVerify/'` — at least 44.
-  - [ ] **Step 4: Shim and delete** — shim template, code 4 (the loader's own failure exits 4
+  - [x] **Step 4: Shim and delete** — shim template, code 4 (the loader's own failure exits 4
     too); `FLOW_GUARD_REPO_ROOT` lines dropped (the script resolves its root from cwd with
     `git rev-parse`); `git rm scripts/test-mutate-and-verify.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/mutate-and-verify.sh`
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/mutate-and-verify.sh`
     with no arguments exits 4 with the usage line it printed at `d71a2327`.
 
 Correction (2026-09-27): `flow-guard`'s own failure path (`os.Getwd` failing) answered
@@ -287,7 +287,7 @@ it, pinned by a row in `TestCannotAnswerIsTheGuardsOwnCode`, so `stats/cmd/flow-
 reported on SIGTERM/SIGHUP before dying of the signal; the port handles SIGHUP/SIGINT/SIGTERM the
 same way and re-raises (pinned through the real shim). On SIGINT it restores at once where
 `/bin/bash` 3.2 waited for the harness — a `ponytail:` comment names it. The trap is shared with
-task 11 as `trapExitSignals` (`provereproducer.go`, which joins **Files:**) and also takes
+task 11 as `trapExitSignals` (`provereproducer.go`) and also takes
 SIGPIPE: bash 3.2's trap restored on a closed stdout where bash 5.3 died leaving the mutation, and
 the port restores and exits 141 at once (the Go runtime cannot re-raise a SIGPIPE it did not
 raise), and the main flow halts at the failed write, so no later harness starts (pinned with a
@@ -307,9 +307,10 @@ bash ran it as a script — accepted, every harness this runs has one. The mecha
 harness output (bash 5's "ignored null byte" warning is not reproduced), a bare `FAIL: ` takes no
 part in the difference, and an out-of-range bound falls to FLAG (bash's own `integer expected`
 line is not reproduced). `mvGitRun` and task 2's `pmcGit` became one `gitExec` in
-`postmutationcheck.go`, which joins **Files:**; the post-mutation-check twins keep running
+`postmutationcheck.go`; the post-mutation-check twins keep running
 `git -C <worktree>`, so a missing worktree prints git's own error and returns 128 as the bash did,
-pinned by a parity row in `libtwins_test.go`, which joins **Files:**.
+pinned by a parity row in `libtwins_test.go` (fix commits touch these three files, so
+they stay out of **Files:**, which records the task commit).
 
 - [x] 7. Port prepare-archive-branch
 
@@ -352,7 +353,7 @@ classified) are recorded in `KNOWN-BUGS.md`.
 
 - [x] 8. Port check-base-moved
 
-**Files:** `stats/internal/guard/basemoved.go`, `stats/internal/guard/resolveremotebase.go`, `stats/internal/guard/check_base_moved_test.go`, `scripts/check-base-moved.sh`, `scripts/test-check-base-moved.sh`, `stats/internal/guard/changeplan.go`
+**Files:** `stats/internal/guard/basemoved.go`, `stats/internal/guard/resolveremotebase.go`, `stats/internal/guard/check_base_moved_test.go`, `scripts/check-base-moved.sh`, `scripts/test-check-base-moved.sh`
 **Tests:** `TestCheckBaseMoved`
 **Regression:** fails if any of the harness's 63 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -379,19 +380,19 @@ classified) are recorded in `KNOWN-BUGS.md`.
     run against this worktree and `d71a2327` prints the same verdict as the bash at `d71a2327`.
 
 Correction (2026-09-27): the port's private `fromDir`/git-output helpers duplicated
-`changeplan.go`'s; they are folded into the existing `capture`, which `changeplan.go` now shares,
-so it joins **Files:**. The path lists carry `core.quotePath` octal escapes (`"\303\244.txt"`)
+`changeplan.go`'s; they are folded into the existing `capture`, which `changeplan.go` now shares
+(a fix commit touches it, so it stays out of **Files:**, which records the task commit). The path lists carry `core.quotePath` octal escapes (`"\303\244.txt"`)
 exactly as the bash printed them, pinned by a non-ASCII fixture, and the usage text cites
 `base_ref_usage_message` at `d71a2327` since task 12 deletes that lib.
 
 - [x] 9. Port check-panel-fix-single-dispatch
 
-**Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `scripts/test-check-panel-fix-single-dispatch.sh`, `stats/internal/guard/guard.go`, `stats/internal/guard/panelexitcontract.go`, `stats/internal/guard/panelreproducers.go`
+**Files:** `stats/internal/guard/panelfixsingledispatch.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`, `scripts/check-panel-fix-single-dispatch.sh`, `scripts/test-check-panel-fix-single-dispatch.sh`, `stats/internal/guard/guard.go`
 **Tests:** `TestCheckPanelFixSingleDispatch`
 **Regression:** fails if any of the harness's 20 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
 <!-- measured: cat stats/internal/guard/check_panel_fix_single_dispatch_test.go 2>/dev/null | grep -cE '^func Test' @ d71a2327 -->
-**After:** Task 1
+**After:** Task 1, 3
 **Commit:** `feat(stats): port check-panel-fix-single-dispatch to Go`
 **Build:** green
 
@@ -427,12 +428,13 @@ newlines trimmed, a boolean `round` at round 0, an empty findings array, 64-bit 
 are pinned by a `port:` subtest that runs the bash at `d71a2327` beside the port. A multi-value
 findings stream cannot answer (exit 2). A worktree without search permission is refused as
 vanished, as the bash's `cd` refused it; the helper `pcAbs` replaces the identical `abs` closures
-in `panelexitcontract.go` and `panelreproducers.go`, which join **Files:** — their own
+in `panelexitcontract.go` and `panelreproducers.go` (touched by a fix commit, so out
+of **Files:**, which records the task commit) — their own
 search-permission gap is out of scope and recorded in `KNOWN-BUGS.md`.
 
 - [x] 10. Port check-model-keys
 
-**Files:** `stats/internal/guard/modelkeys.go`, `stats/internal/guard/check_model_keys_test.go`, `scripts/check-model-keys.sh`, `scripts/test-check-model-keys.sh`, `scripts/lib/project-section.sh`, `stats/internal/guard/gatherdispatch.go`
+**Files:** `stats/internal/guard/modelkeys.go`, `stats/internal/guard/check_model_keys_test.go`, `scripts/check-model-keys.sh`, `scripts/test-check-model-keys.sh`
 **Tests:** `TestCheckModelKeys`
 **Regression:** fails if any of the harness's 30 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -461,16 +463,17 @@ search-permission gap is out of scope and recorded in `KNOWN-BUGS.md`.
 Correction (2026-09-27): the script's header says it checks "both keys"; its loop at `d71a2327`
 checks only `self review model`. The port follows the code, and the header question is surfaced to
 the operator at the handoff. `lib/project-section.sh`'s header and `gatherdispatch.go`'s comment
-named `check-model-keys.sh` as a caller, so both join **Files:** to drop it.
+named `check-model-keys.sh` as a caller; fix commits drop it from both, which stay out
+of **Files:**, since it records the task commit.
 
 - [x] 11. Port prove-reproducer
 
-**Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`, `scripts/test-prove-reproducer.sh`, `scripts/lib/reproducer-path.sh`, `stats/internal/guard/guard.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`
+**Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`, `scripts/test-prove-reproducer.sh`, `scripts/lib/reproducer-path.sh`, `stats/internal/guard/guard.go`
 **Tests:** `TestProveReproducer`
 **Regression:** fails if any of the harness's 8 cases regress.
 **Baseline:** before=0 after=1
 <!-- measured: cat stats/internal/guard/prove_reproducer_test.go 2>/dev/null | grep -cE '^func Test' @ d71a2327 -->
-**After:** Task 1
+**After:** Task 1, 3, 6, 9
 **Commit:** `feat(stats): port prove-reproducer to Go`
 **Build:** green
 
@@ -509,12 +512,11 @@ verdict write exits 141, as both bash versions did, and a sent SIGABRT, SIGFPE, 
 exits 128+n (the trap is task 6's, shared), as does a sent SIGSEGV, SIGBUS or SIGILL on linux; on
 darwin those crash the Go runtime, leaving the scratch — accepted, as recorded under task 6. The legs' run-reproducer temp files go under the scratch base, so
 the cleanup removes them on a signal too, as the bash's separate run-reproducer process did. A
-comment fix to task 9's test rode this task's second fix commit, so
-`stats/internal/guard/check_panel_fix_single_dispatch_test.go` joins **Files:**.
+comment fix to task 9's test rode this task's second fix commit.
 
 - [x] 12. Port check-finish-preflight
 
-**Files:** `stats/internal/guard/finishpreflight.go`, `stats/internal/guard/check_finish_preflight_test.go`, `scripts/check-finish-preflight.sh`, `scripts/test-check-finish-preflight.sh`, `scripts/lib/resolve-remote-base.sh`, `scripts/lib/base-ref-usage.sh`
+**Files:** `stats/internal/guard/finishpreflight.go`, `stats/internal/guard/check_finish_preflight_test.go`, `scripts/check-finish-preflight.sh`, `scripts/test-check-finish-preflight.sh`, `scripts/lib/resolve-remote-base.sh`
 **Tests:** `TestCheckFinishPreflight`
 **Regression:** fails if any of the harness's 58 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -546,7 +548,7 @@ comment fix to task 9's test rode this task's second fix commit, so
     printed at `d71a2327`, directly and through a symlink to it in a temp directory.
 
 Correction (2026-09-27): `scripts/lib/base-ref-usage.sh` loses its last caller with this port and
-is removed, so it joins **Files:**. The dirty-file count, the physical main-checkout path and the
+is removed by a fix commit, so it stays out of **Files:**, which records the task commit. The dirty-file count, the physical main-checkout path and the
 signal-killed child's `exited 143` wording are pinned against the bash at `d71a2327`.
 
 - [ ] 13. Repoint citations of the deleted files
