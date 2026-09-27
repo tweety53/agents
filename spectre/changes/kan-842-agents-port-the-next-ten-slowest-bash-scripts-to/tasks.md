@@ -391,7 +391,7 @@ rule 2), and `skills/flow-status/scripts/lib -> ../../../scripts/lib` is added �
 without it, 0 with it. Step 5 was measured in a detached wave worktree, where the bash and the shim
 both exit 1; its expectation is restated for a branch checkout above.
 
-- [ ] 9. Port check-visual-verify-dispatched
+- [x] 9. Port check-visual-verify-dispatched
 
 **Files:** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`, `scripts/test-check-visual-verify-dispatched.sh`
 **Tests:** `TestCheckVisualVerifyDispatched`
@@ -406,17 +406,17 @@ both exit 1; its expectation is restated for a branch checkout above.
 
 **Decision:** dispatches-via-env-hook
 
-  - [ ] **Step 1: Failing test.** Port every case of
+  - [x] **Step 1: Failing test.** Port every case of
     `scripts/test-check-visual-verify-dispatched.sh`, one subtest per `ok:` label; the stub `flow`
     becomes `Env.Dispatches`. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-visual-verify-dispatched`; `check-visual-trigger.sh`
+  - [x] **Step 2: Port**, registering `check-visual-verify-dispatched`; `check-visual-trigger.sh`
     exec'd beside the shim and its three exit codes read as-is, as the header states; the store
     read as `pfdRead` does it.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualVerifyDispatched$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualVerifyDispatched$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckVisualVerifyDispatched/'` — at least 18.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT` (the trigger guard
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT` (the trigger guard
     resolves from it), code 2; `git rm scripts/test-check-visual-verify-dispatched.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-visual-verify-dispatched.sh` with no arguments exits 2 with the line it printed
     at `c5379c0a`.
 
