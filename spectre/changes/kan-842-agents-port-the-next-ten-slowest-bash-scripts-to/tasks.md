@@ -109,6 +109,12 @@ Live verification: tasks 1 and 14 run the real suite on this machine and record 
 
 This task commits nothing; its figures are committed with the change's artifacts.
 
+Correction (2026-09-27): the plan's wave order would dispatch this task beside the first wave of
+port implementers; it runs instead after task 13 lands and immediately before task 14, still at
+`c5379c0a` in a detached checkout, so Before and After are both measured on an otherwise idle
+machine rather than Before under three concurrent `go test -race` runs — a Before inflated by
+that load would bias `suite-median-below-before` toward passing.
+
 - [ ] 2. Go twins of panel-touched-paths and owned-corpus
 
 **Files:** `stats/internal/guard/paneltouchedpaths.go`, `stats/internal/guard/ownedcorpus.go`, `stats/internal/guard/libtwins_test.go`
@@ -197,6 +203,13 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
     `scripts/check-task-reviewer-single-dispatch.sh` with no arguments exits 2 with the line it
     printed at `c5379c0a`.
 
+Correction (2026-09-27): the script's header and body disagree on an unreadable decision row
+(`[1]`): the header treats it as class `big`, the bash body died under `set -e` with an
+undocumented exit 5. The port follows the header (exit 0, `big`); exit 5 was outside the script's
+own 0/1/2 contract. The `flow record decisions` read has no `Env` hook (`dispatches-via-env-hook`
+names dispatches only) and execs `flow` on PATH through `pcFlow`; tests run with no `flow` on PATH,
+three cases with a stub.
+
 - [ ] 5. Port recover-guard-incident
 
 **Files:** `stats/internal/guard/recoverguardincident.go`, `stats/internal/guard/recover_guard_incident_test.go`, `scripts/recover-guard-incident.sh`, `scripts/test-recover-guard-incident.sh`
@@ -282,7 +295,7 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
 
 - [ ] 8. Port resolve-base-branch
 
-**Files:** `stats/internal/guard/resolvebasebranch.go`, `stats/internal/guard/resolve_base_branch_test.go`, `scripts/resolve-base-branch.sh`, `scripts/test-resolve-base-branch.sh`
+**Files:** `stats/internal/guard/resolvebasebranch.go`, `stats/internal/guard/resolve_base_branch_test.go`, `scripts/resolve-base-branch.sh`, `scripts/test-resolve-base-branch.sh`, `skills/flow-status/scripts/lib`
 **Tests:** `TestResolveBaseBranch`
 **Regression:** fails if any of the harness's 39 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -304,7 +317,17 @@ from `scripts/lib/panel-touched-paths.sh` or `scripts/lib/owned-corpus.sh` for t
   - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
     dropped; `git rm scripts/test-resolve-base-branch.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
-    `scripts/resolve-base-branch.sh "$PWD"` prints `main` and exits 0, as at `c5379c0a`.
+    `scripts/resolve-base-branch.sh <dir>` on a branch checkout whose origin/HEAD is main prints
+    `main` and exits 0, as at `c5379c0a` (a detached worktree exits 1 on both).
+
+Correction (2026-09-27): the template shim's `$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh`
+failed from `skills/flow-status/scripts/`, which carried only the `resolve-base-branch.sh` link and
+no `lib/` (exit 2, "cannot load lib/flow-guard.sh"); the bash worked there, and
+`check-guard-symlinks.sh` rule 2 cannot see the `$(dirname …)` spelling. Shipped instead: the shim
+loads `$SCRIPT_DIR/lib/flow-guard.sh` (the `check-panel-fix-single-dispatch.sh` spelling, visible to
+rule 2), and `skills/flow-status/scripts/lib -> ../../../scripts/lib` is added — rule 2 exits 1
+without it, 0 with it. Step 5 was measured in a detached wave worktree, where the bash and the shim
+both exit 1; its expectation is restated for a branch checkout above.
 
 - [ ] 9. Port check-visual-verify-dispatched
 
