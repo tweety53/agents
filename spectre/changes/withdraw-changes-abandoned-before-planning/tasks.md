@@ -52,3 +52,10 @@
 **Decision:** finished-withdrawn-boolean
 
 **Decision:** git-first-record-last
+
+Correction (2026-09-28): the plan declared modifying `scripts/check-contract-budget.sh` (raising
+`skills/flow/brainstorm.md`'s budget row) as task 3's Allowed-collateral, and steps 4–5 name the
+guard. The base's kan-842 port deleted that guard outright — no file on new `main` carries
+`budgets()` — so the rebase resolve dropped our modification (`git rm`) instead of re-homing it:
+the raise fed a guard that no longer exists. The task's remaining verify guards all ran green
+post-rebase; no replacement budget table exists on the base to raise.
