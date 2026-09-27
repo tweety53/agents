@@ -293,9 +293,13 @@ the port restores and exits 141 at once (the Go runtime cannot re-raise a SIGPIP
 raise), and the main flow halts at the failed write, so no later harness starts (pinned with a
 second harness). A sent SIGABRT, SIGFPE, SIGSYS or SIGTRAP, which the Go runtime answers with a
 stack dump and exit 2 (read as "refused, nothing was mutated"), is trapped the same way and exits
-128+n; SIGABRT is pinned. A sent SIGSEGV, SIGBUS or SIGILL, and darwin's SIGEMT, never reach
-`signal.Notify` on darwin — the runtime crashes with exit 2 and the mutation stays — accepted and
-named in the `ponytail:` comment, a trap in the shim being the upgrade path. The patch is never applied once a signal is being handled
+128+n; SIGABRT is pinned. A sent SIGSEGV, SIGBUS or SIGILL is trapped the same way on linux, but
+never reaches `signal.Notify` on darwin, nor does darwin's SIGEMT — the runtime crashes with exit 2
+and the mutation stays — accepted and named in the `ponytail:` comment, a trap in the shim being
+the upgrade path; so is a SIGPIPE ignored at start, which is trapped anyway (exit 141 after the
+restore) where bash ran on to its own exit. `git apply`'s output is written once git has exited,
+so a closed stdout neither hangs the restore nor hides an apply that ran (pinned with a `git`
+first on PATH that prints while applying). The patch is never applied once a signal is being handled
 (pinned on `mvRun.apply`). Other signals bash's trap caught (SIGUSR1, ...) the Go runtime ignores, and a SIGTERM ignored at start is not seen as ignored — both accepted
 and named in the `ponytail:` comment. A harness with no `#!` line reads as unanswered (exit 4) where
 bash ran it as a script — accepted, every harness this runs has one. The mechanisms bash got from
@@ -459,7 +463,7 @@ checks only `self review model`. The port follows the code, and the header quest
 the operator at the handoff. `lib/project-section.sh`'s header and `gatherdispatch.go`'s comment
 named `check-model-keys.sh` as a caller, so both join **Files:** to drop it.
 
-- [ ] 11. Port prove-reproducer
+- [x] 11. Port prove-reproducer
 
 **Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`, `scripts/test-prove-reproducer.sh`, `scripts/lib/reproducer-path.sh`, `stats/internal/guard/guard.go`, `stats/internal/guard/check_panel_fix_single_dispatch_test.go`
 **Tests:** `TestProveReproducer`
@@ -476,19 +480,19 @@ named `check-model-keys.sh` as a caller, so both join **Files:** to drop it.
 
 **Decision:** sole-user-helpers-move-into-go
 
-  - [ ] **Step 1: Failing test.** Port `case_1`…`case_8` of `scripts/test-prove-reproducer.sh`,
+  - [x] **Step 1: Failing test.** Port `case_1`…`case_8` of `scripts/test-prove-reproducer.sh`,
     one subtest per case named after the case's own comment, plus the Review Focus rows (tree
     and HEAD unchanged after a refused leg; a worktree path with a space). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `prove-reproducer`; both legs call the Go run-reproducer
+  - [x] **Step 2: Port**, registering `prove-reproducer`; both legs call the Go run-reproducer
     in-process (`runreproducer.go`) with the argv the bash passed to `run-reproducer.sh`, its
     returned code mapped to exactly the verdicts the bash read from the shim's exit; the scratch
     worktree created and removed as the bash did; `scripts/lib/reproducer-path.sh`'s check ported
     into `provereproducer.go` and the library `git rm`'d.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestProveReproducer$' -count=1 -race
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestProveReproducer$' -count=1 -race
     -v | grep -c -- '--- PASS: TestProveReproducer/'` — at least 8.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
     dropped; `git rm scripts/test-prove-reproducer.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/prove-reproducer.sh`
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/prove-reproducer.sh`
     with no arguments exits 2 with the usage line it printed at `d71a2327`.
 
 Correction (2026-09-27): signals are handled as the bash's trap did — on SIGINT/SIGTERM/SIGHUP
@@ -502,8 +506,8 @@ their stderr reaches the caller byte for byte, the directory taken by `dirname`,
 (`a/./r.sh` creates `a/.`). The exec-bit check on the copy stays: it fails on a noexec TMPDIR,
 and is pinned against the bash through a `cp` first on PATH that drops the mode. A SIGPIPE on the
 verdict write exits 141, as both bash versions did, and a sent SIGABRT, SIGFPE, SIGSYS or SIGTRAP
-exits 128+n (the trap is task 6's, shared); a sent SIGSEGV, SIGBUS or SIGILL crashes the Go
-runtime on darwin, leaving the scratch — accepted, as recorded under task 6. The legs' run-reproducer temp files go under the scratch base, so
+exits 128+n (the trap is task 6's, shared), as does a sent SIGSEGV, SIGBUS or SIGILL on linux; on
+darwin those crash the Go runtime, leaving the scratch — accepted, as recorded under task 6. The legs' run-reproducer temp files go under the scratch base, so
 the cleanup removes them on a signal too, as the bash's separate run-reproducer process did. A
 comment fix to task 9's test rode this task's second fix commit, so
 `stats/internal/guard/check_panel_fix_single_dispatch_test.go` joins **Files:**.
