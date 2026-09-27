@@ -24,7 +24,9 @@
 #   VISUAL-VERIFY-OK: <reason>          nothing outstanding
 #   VISUAL-VERIFY-MISSING: <reason>     UI paths touched, no verifier dispatch found
 #
-# Exit 0 whenever a verdict was reached; exit 2 when it cannot answer at
+# Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
+# UI paths were touched and no qualifying verifier dispatch is recorded;
+# the verdict line carries the answer — and exit 2 when it cannot answer at
 # all — a non-directory worktree, a change name outside the allowlist, an
 # empty merge-base, jq missing, or a store call that failed outright (never
 # read as "no dispatches", exactly as check-panel-fix-single-dispatch.sh's
@@ -230,5 +232,4 @@ if PRIOR="$(flow record verdicts -guard check-visual-verify-dispatched -false-po
   prior_false_positives_hint "$PRIOR"
 fi
 echo "$VV_VERDICT"
-exit 1
 exit 1

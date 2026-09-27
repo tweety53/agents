@@ -451,6 +451,35 @@ case "$OUT" in
 esac
 
 # ---------------------------------------------------------------------------
+# 11c. A verdicts read that FAILS outright suppresses the hint too — the
+#      advisory branch's skip-on-failure path, pinned as its own case: a
+#      gate that cannot fire without a store must never block on a hint.
+# ---------------------------------------------------------------------------
+make_wt "[]" declare-section
+cat > "$WT/bin/flow" <<STUB
+#!/usr/bin/env bash
+if [ "\${1:-}" = record ] && [ "\${2:-}" = dispatches ]; then
+  cat "$WT/bin/dispatches.json"
+  exit 0
+fi
+if [ "\${1:-}" = record ] && [ "\${2:-}" = verdicts ]; then
+  echo "stub flow: connection refused" >&2
+  exit 1
+fi
+echo "stub flow: unexpected invocation: \$*" >&2
+exit 2
+STUB
+chmod +x "$WT/bin/flow"
+touch_paths "app/src/Widget.tsx"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 11c: a failed verdicts read still reaches MISSING, exit 1" \
+  || fail "case 11c: rc=$RC out=$OUT"
+case "$OUT" in
+  *"prior false positives"*) fail "case 11c: hint printed on a failed verdicts read: out=$OUT" ;;
+  *) pass "case 11c: no hint on a failed verdicts read" ;;
+esac
+
+# ---------------------------------------------------------------------------
 # 12. A store that refuses the verdict write moves nothing: the verdict
 #     line and the exit code are exactly what the dispatch evidence
 #     decided (the write's result is discarded, never read).
