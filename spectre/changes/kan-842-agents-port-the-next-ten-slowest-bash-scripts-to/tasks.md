@@ -186,6 +186,9 @@ own symlink first (`resolve_file`, harness case 16), and only when no root argum
 `FLOW_GUARD_REPO_ROOT` lines (code 2), and the Go guard resolves it with `resolveFile` only when there
 are no arguments. Case 15a (the awk validator printing no `#SUMMARY`) has no Go analogue; its three
 labels now run the real shim in a tree with no `stats/` (exit 2, "cannot build flow-guard").
+The gated review found case 16 never ran the shim, so a mutated `FLOW_GUARD_SELF` line passed the
+suite; `17a9b3fc` adds a bare run of the real shim through the skills symlink (it fails under that
+mutation) and names the `#<U+00A0>other` section-end divergence in `workspaceisolation.go`.
 Divergences left outside the parity fixtures, named in `workspaceisolation.go`: invalid UTF-8 under a
 UTF-8 locale is read where macOS awk aborted (exit 2); a heading whose space is U+00A0 is not the
 section (`ccHeading`); awk `-v` escape processing of a backslash in the root is not reproduced.
@@ -437,6 +440,16 @@ both exit 1; its expectation is restated for a branch checkout above.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-contract-budget.sh` on this tree exits 0 with the output it printed at
     `c5379c0a`, directly and through a symlink to it in a temp directory.
+
+Correction (2026-09-27): task 9 follows its header's exit-2 cannot-answer on malformed store
+payloads (an empty answer, two JSON values, a non-object row, a verifier row with a numeric key, a
+top-level object) where the bash body exited 1, 5 or 0 — each the same or stricter, as in the
+`panelfixsingledispatch`/`taskreviewersingledispatch` ports; a `-x` worktree no longer prints bash's
+extra `cd` error lines. Both shims use the `$SCRIPT_DIR` spelling. Task 10 keeps its output line
+"add a row to budgets() in check-contract-budget.sh" byte for byte, though the table now lives in
+`contractbudget.go` (`ccbBudgets`); the shim header names the Go file. Task 10 step 5 measured:
+directly and from `/tmp` both print `BUDGET-OK: 95 owned Markdown file(s) within budget`, exit 0;
+through a symlink in a temp dir without `lib/`, bash (exit 1) and the shim (exit 2) both refuse.
 
 - [x] 11. Port check-task-commit-planning-paths
 
