@@ -10,7 +10,7 @@ service or persistent state.
 - [ ] 1. Premise audit in the exit-contract guard
 
 **Build:** green
-**Files:** stats/internal/guard/panelexitcontract.go, stats/internal/guard/check_panel_reproducer_exit_contract_test.go, skills/flow/scripts/check-panel-reproducer-exit-contract.sh
+**Files:** `stats/internal/guard/panelexitcontract.go` `stats/internal/guard/check_panel_reproducer_exit_contract_test.go` `scripts/check-panel-reproducer-exit-contract.sh`
 **Tests:** `TestPanelExitContractPremiseAudit`
 **Regression:** reverting loses the dispatch-time premise audit — a declared-but-unresolvable premise passes the guard silently again, the dispatch-time half of KAN-839.
 **Baseline:** before=3 after=4
@@ -108,10 +108,12 @@ git add stats/internal/guard/panelexitcontract.go stats/internal/guard/check_pan
 git commit -m "fix(guard): premise citations resolved by the exit-contract audit"
 ```
 
-- [ ] 2. Premise authoring rule in the panel contract
+Correction (2026-09-28): the plan declared the shim at `skills/flow/scripts/check-panel-reproducer-exit-contract.sh`; that path is a check-guard-symlinks rule-1 symlink whose relative target, `scripts/check-panel-reproducer-exit-contract.sh`, is the real tracked file any edit touches — the `**Files:**` field is corrected to the target path, and the commit stages that path.
+
+- [x] 2. Premise authoring rule in the panel contract
 
 **Build:** green
-**Files:** skills/flow/review-panel.md
+**Files:** `skills/flow/review-panel.md`
 **Tests:** none
 **Regression:** reverting silences the authoring contract about premises — slots stop declaring and asserting them, the task-1 audit audits nothing, and the re-run refusal path never arms.
 **Baseline:** before=0 after=0
@@ -123,7 +125,7 @@ git commit -m "fix(guard): premise citations resolved by the exit-contract audit
 
 **Commit:** docs(flow): premise assertions in the reproducer contract
 
-  - [ ] **Step 1: Authoring paragraph** — in the "Every slot must supply, per finding, a reproducer" block, directly after the `# demonstrates:` declaration sentences, insert:
+  - [x] **Step 1: Authoring paragraph** — in the "Every slot must supply, per finding, a reproducer" block, directly after the `# demonstrates:` declaration sentences, insert:
 
 ```markdown verified:authored in-tree for this change
 **A runnable reproducer also declares what its checks read**: one
@@ -137,7 +139,7 @@ it on stderr, exiting non-zero — never exit 0, the vacuous pass a rename must 
 (KAN-839). Carry the premise rule on every slot's dispatch prompt.
 ```
 
-  - [ ] **Step 2: Guard-invocation section** — in the exit-contract guard section, directly after the sentence ending "the content appears on that line", insert:
+  - [x] **Step 2: Guard-invocation section** — in the exit-contract guard section, directly after the sentence ending "the content appears on that line", insert:
 
 ```markdown verified:authored in-tree for this change
 The audit also resolves every `# premise:` declaration the same way, tolerantly: absence of
@@ -145,7 +147,7 @@ premise lines violates nothing, and a declared-but-unresolvable premise joins ex
 violation classes; mutation-declared reproducers skip it as they skip the demonstrates audit.
 ```
 
-  - [ ] **Step 3: Re-run section** — in the fix-verification re-run paragraphs, directly after the sha-pin re-author paragraph, insert:
+  - [x] **Step 3: Re-run section** — in the fix-verification re-run paragraphs, directly after the sha-pin re-author paragraph, insert:
 
 ```markdown verified:authored in-tree for this change
 A re-run whose script fails a premise assertion — the loud non-zero the authoring rule
@@ -154,7 +156,7 @@ ambiguous by design (KAN-839): the renamed premise voids the reproducer, and the
 routes it to re-authoring. That refusal is the fix working, never a runner bug.
 ```
 
-  - [ ] **Step 4: Verify and commit**
+  - [x] **Step 4: Verify and commit**
 
 ```bash verified:authored in-tree for this change
 scripts/check-vocabulary.sh && scripts/check-references.sh
@@ -162,10 +164,10 @@ git add skills/flow/review-panel.md
 git commit -m "docs(flow): premise assertions in the reproducer contract"
 ```
 
-- [ ] 3. Composition test: renamed premise refuses, never passes
+- [x] 3. Composition test: renamed premise refuses, never passes
 
 **Build:** green
-**Files:** stats/internal/guard/runreproducer_test.go
+**Files:** `stats/internal/guard/runreproducer_test.go`
 **Tests:** `TestRunReproducerRenamedPremiseRefuses`
 **Regression:** reverting un-pins the composition this change exists for — the kan-692 shape (a renamed premise passing vacuously) could return without a test noticing, the post-fix half of KAN-839.
 **Baseline:** before=5 after=6
@@ -176,7 +178,7 @@ git commit -m "docs(flow): premise assertions in the reproducer contract"
 
 **Commit:** test(guard): pin the renamed-premise refusal shape
 
-  - [ ] **Step 1: Write the pinning test** — append to `runreproducer_test.go`, using the file's own helpers (`rrWorktree`, `rrFixture`, `rrRun`, `rrEnv`, `rrExpect`; the runner is unchanged, so this test passes against it — it pins the seam):
+  - [x] **Step 1: Write the pinning test** — append to `runreproducer_test.go`, using the file's own helpers (`rrWorktree`, `rrFixture`, `rrRun`, `rrEnv`, `rrExpect`; the runner is unchanged, so this test passes against it — it pins the seam):
 
 ```go verified:authored in-tree for this change
 func TestRunReproducerRenamedPremiseRefuses(t *testing.T) {
@@ -192,12 +194,14 @@ func TestRunReproducerRenamedPremiseRefuses(t *testing.T) {
 	if err := os.Rename(filepath.Join(wt, "target.txt"), filepath.Join(wt, "renamed.txt")); err != nil {
 		t.Fatal(err)
 	}
-	got, out = rrRun(t, rrEnv(t), wt, "scripts/checks.sh --pre-fix-verdict demonstrated")
-	rrExpect(t, got, out, 2, "ambiguous")
+got, out = rrRun(t, rrEnv(t), wt, "scripts/checks.sh --pre-fix-verdict demonstrated")
+rrExpect(t, got, out, 2, "ambiguous")
 }
 ```
 
-  - [ ] **Step 2: Run it**
+Correction (2026-09-28): `rrRun` takes the runner's argv variadically, so the flags ride as separate arguments — the shipped test calls `rrRun(t, rrEnv(t), wt, "scripts/checks.sh", "--pre-fix-verdict", "demonstrated")`, not the plan snippet's flags-inside-the-command-line form, which the runner reads as reproducer arguments and never sees as `--pre-fix-verdict`. The first RED run captured exactly that: the re-run read demonstrated (exit 0) instead of refusing.
+
+  - [x] **Step 2: Run it**
 
 ```bash verified:authored in-tree for this change
 cd stats && go test ./internal/guard/ -run TestRunReproducerRenamedPremiseRefuses
@@ -205,7 +209,7 @@ cd stats && go test ./internal/guard/ -run TestRunReproducerRenamedPremiseRefuse
 
 Expected: PASS — the runner already refuses identical verdicts; the test pins that a premise-asserting script lands there instead of in a vacuous pass.
 
-  - [ ] **Step 3: Verify and commit**
+  - [x] **Step 3: Verify and commit**
 
 ```bash verified:authored in-tree for this change
 cd stats && go vet ./internal/guard/ && gofmt -l internal/guard
