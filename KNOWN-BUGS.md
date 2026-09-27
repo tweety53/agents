@@ -72,3 +72,21 @@
   "before") — deferred: cosmetic.
 - `stats/internal/guard/visualverifydispatched.go:211` — KAN-809 port, Minor, kan-842 — the false-positive hint renders a non-string `flaggedAt` with `pcRaw`, where the bash's jq prints `1E+2` for `1e2` and re-escapes strings nested in an array or object — breaks: nothing the store sends (RFC 3339 string or null) — fix: jq-compatible number/string rendering — deferred: edge case.
 - `stats/internal/reconcile/reconcile_test.go:744` — kan-842 full-suite run, Minor, kan-842 — `TestConcurrentAppendVersusRetirePreservesEveryEntry` failed once under load (598 of 600 entries — 2 lost to the append-vs-retire race), 5 reruns clean — breaks: the reconciler can lose an appended entry that races a retire — fix: close the append-vs-retire race at its source in `internal/reconcile` — deferred: pre-existing.
+- `stats/internal/guard/check_panel_reproducer_exit_contract_test.go:526` — task-1, Minor,
+  kan-839-flow-fix-reproducers-pass-vacuously-when-a-fix — the two premise-violation subtests
+  (missing file, malformed) do not pin `neverRan`, so a regression moving `pcPremiseAudit`
+  after the runner would still exit 1 — breaks: the audit-before-run ordering is unproven for
+  premise violations — fix: add `s.neverRan` subtests beside the two exits-1 premise cases, as
+  the demonstrates cases do — deferred: test-strength.
+- `stats/internal/guard/panelexitcontract.go:386` — F1, Minor, primary+principles,
+  kan-839-flow-fix-reproducers-pass-vacuously-when-a-fix — a declared-but-unasserted premise
+  escapes both enforcement points: `pcPremiseAudit` only checks declarations resolve, while the
+  body assertion is prose-only — breaks: a fix renaming the target still produces the vacuous
+  green when an author declares premises but never asserts them — fix: a cheap body-content
+  proxy in the audit, a mechanical pin, or widen design.md's accepted-residual wording —
+  deferred: out-of-scope.
+- `skills/flow/review-panel.md:977` — F2, Minor, primary,
+  kan-839-flow-fix-reproducers-pass-vacuously-when-a-fix — the exit-1 one-disposition-per-class
+  enumeration was not extended with the declared-but-unresolvable-premise class the same diff
+  adds — breaks: the parent reading exit 1 has no stated disposition for it — fix: one clause
+  in the enumeration naming the premise class and its bounce — deferred: doc-only.

@@ -501,3 +501,52 @@ func TestPanelExitContractNullFindingsCannotAnswer(t *testing.T) {
 		t.Fatalf("exit %d, want 2 and no OK line:\n%s", got, out)
 	}
 }
+
+// TestPanelExitContractPremiseAudit: KAN-839's premise audit — a declared
+// `# premise:` citation resolves by the same machinery as a demonstrates
+// citation, tolerantly (absence violates nothing) and never for a
+// mutation-declared reproducer, whose instrument audit is the sha pin.
+func TestPanelExitContractPremiseAudit(t *testing.T) {
+	t.Parallel()
+	decl := "# demonstrates: target.txt:2:defect present here\n"
+
+	t.Run("a declared premise that resolves violates nothing", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		s.repro(t, "repro.sh", decl+"# premise: target.txt:1:line one\nexit 9")
+		got, out := s.run(t, "premise-resolves")
+		rrExpect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
+	})
+
+	t.Run("a declared premise citing a missing file exits 1", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		s.repro(t, "repro.sh", decl+"# premise: absent.txt:1:no such line\nexit 9")
+		got, out := s.run(t, "premise-missing-file")
+		rrExpect(t, got, out, 1, "premise")
+	})
+
+	t.Run("a malformed premise line exits 1", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		s.repro(t, "repro.sh", decl+"# premise: target.txt\nexit 9")
+		got, out := s.run(t, "premise-malformed")
+		rrExpect(t, got, out, 1, "malformed premise")
+	})
+
+	t.Run("absence of premise lines violates nothing (tolerant)", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		s.repro(t, "repro.sh", decl+"exit 9")
+		got, out := s.run(t, "premise-tolerant")
+		rrExpect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
+	})
+
+	t.Run("a mutation-declared reproducer skips the premise audit", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		s.repro(t, "repro.sh", "# mutation-reproducer\n# premise: absent.txt:1:no such line\nexit 0")
+		got, out := s.run(t, "premise-mutation-exempt")
+		rrExpect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
+	})
+}

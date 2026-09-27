@@ -446,7 +446,15 @@ and the content must appear on that line. A citation that does not resolve joins
 class in that guard's exit 1 and is bounced like it — once, back to the raising slot. The
 mutation-reproducer convention is exempt from the declaration: what such a reproducer demonstrates
 is the mutated tree it builds at run time, and the `--reproducer-sha` pin below is its instrument
-audit. **The exemption form is available to Minor
+audit. **A runnable reproducer also declares what its checks read**: one
+`# premise: <path>:<line>:<content>` line per file, test/class name or `tasks.md` task id its
+checks read, in the same first-10-lines window — at least one for every runnable reproducer;
+mutation-declared ones are exempt, the sha pin being their instrument audit. A premise must
+resolve in every tree the script runs in, unlike the demonstrates citation, which names where
+the defect was and must resolve only against the defect-present tree. The script's body asserts
+every declared premise before its real checks run: a missing premise is a loud failure naming
+it on stderr, exiting non-zero — never exit 0, the vacuous pass a rename must never produce
+(KAN-839). Carry the premise rule on every slot's dispatch prompt. **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
 at Important. A demonstrating command needing a pipe, a
@@ -959,7 +967,10 @@ instrument itself: each runnable reproducer carries the `# demonstrates:
 stays inside the
 tree, the file exists, the line exists, the content appears on that line. A reproducer whose
 citation does not resolve, or whose script cannot be read to audit, is never run — a verdict spent
-on an unresolvable instrument is the green flip the audit exists to deny. Findings at any other
+on an unresolvable instrument is the green flip the audit exists to deny. The audit also resolves
+every `# premise:` declaration the same way, tolerantly: absence of premise lines violates
+nothing, and a declared-but-unresolvable premise joins exit 1's violation classes;
+mutation-declared reproducers skip it as they skip the demonstrates audit (KAN-839). Findings at any other
 status claim nothing about the current tree and are skipped, as are the exemption and bare-`none`
 forms the lexical guard above owns, and a mutation-declared reproducer skips the audit: what it
 demonstrates is the mutated tree it builds at run time, and the `--reproducer-sha` pin below is
@@ -1019,6 +1030,11 @@ parent's closed list**, `skills/flow/implement.md`). **The flip alone does not c
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
 change.** A fix that does not is not a fix: the finding stays open and goes through the handback
 below.
+
+A re-run whose script fails a premise assertion — the loud non-zero the authoring rule requires —
+reads *demonstrated*, identical to the dispatch-time verdict, and is refused as ambiguous by
+design (KAN-839): the renamed premise voids the reproducer, and the refusal routes it to
+re-authoring. That refusal is the fix working, never a runner bug.
 
 A finding meeting both conditions is recorded closed there and then — a Minor recorded
 `none — <reason>` has no reproducer to flip and closes on the path condition alone:
