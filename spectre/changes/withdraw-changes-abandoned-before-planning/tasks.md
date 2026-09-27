@@ -39,7 +39,7 @@
   - [ ] **Step 4: `skills/flow-contracts/handoff-blocks.md` (the withdrawn terminal block — names no next command), `skills/flow/SKILL.md` (the reading-the-state `FINISHED` bullet names withdrawn), `skills/flow-status/SKILL.md` (a withdrawn change is not open). If `check-contract-budget.sh` trips on an edited contract, raise that file's row in the `budgets()` table of `scripts/check-contract-budget.sh` — the declared reason, never a narrowed scope.**
   - [ ] **Step 5: Verify: `scripts/check-vocabulary.sh && scripts/check-references.sh && scripts/check-contract-budget.sh && scripts/check-markdown-integrity.py && scripts/check-plan-shape.sh spectre/changes/withdraw-changes-abandoned-before-planning/tasks.md`.**
 **Build:** green
-**Files:** `skills/flow-contracts/state-file.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/brainstorm.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow/SKILL.md`, `skills/flow-status/SKILL.md`
+**Files:** `skills/flow-contracts/state-file.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow/SKILL.md`, `skills/flow-status/SKILL.md`
 **Allowed-collateral:** `scripts/check-contract-budget.sh`
 **Tests:** **none**
 **Regression:** none — the task declares no tests
