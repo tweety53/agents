@@ -69,6 +69,62 @@ Slowest five harnesses (runner's per-harness `(Ns)`):
 
 <!-- measured: grep '(Ns)' of each run's log, sorted descending @ 3e48ecac -->
 
+#### After
+
+| Run | real (s) | user (s) | sys (s) | load (1/5/15) | exit | harnesses |
+|-----|---------:|---------:|--------:|---------------|-----:|-----------|
+| suite 1 | 53.95 | 114.94 | 161.15 | 2.97 4.13 3.71 | 0 | 79 (79 passed) |
+| suite 2 | 52.33 | 117.90 | 165.94 | 12.69 6.95 4.80 | 0 | 79 (79 passed) |
+| suite 3 | 52.29 | 119.09 | 167.97 | 14.08 8.49 5.52 | 0 | 79 (79 passed) |
+| go 1 | 11.83 | 16.84 | 33.29 | 14.78 9.78 6.20 | 0 | — |
+| go 2 | 12.01 | 16.67 | 30.46 | 15.05 9.99 6.31 | 0 | — |
+| go 3 | 10.69 | 16.77 | 31.07 | 14.62 10.12 6.42 | 0 | — |
+
+- Median real: suite **52.33s** (Before 110.68s); Go package **11.83s** (Before 14.08s).
+- Harness count fell 84 -> 79: the five ported harnesses were git rm'd.
+- Go exit: each run printed `ok … stats/internal/guard`; the 0 is read from that line.
+
+<!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p scripts/run-guard-tests.sh x3 @ spectre/kan-778-agents-port-the-next-five-slowest-guards-to-the -->
+<!-- measured: cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1 x3 @ spectre/kan-778-agents-port-the-next-five-slowest-guards-to-the -->
+
+Slowest five harnesses (runner's per-harness `(Ns)`):
+
+| Rank | Suite 1 | Suite 2 | Suite 3 |
+|-----:|---------|---------|---------|
+| 1 | test-setup.sh 39s | test-setup.sh 34s | test-setup.sh 32s |
+| 2 | test-compose-mockup-frames.sh 25s | test-compose-mockup-frames.sh 24s | test-compose-mockup-frames.sh 23s |
+| 3 | test-check-guard-symlinks.sh 24s | test-check-dispatch-paragraphs.sh 23s | test-generate-relocation-comparison.sh 22s |
+| 4 | test-check-dispatch-paragraphs.sh 24s | test-generate-relocation-comparison.sh 22s | test-check-stage-mark-calls.sh 22s |
+| 5 | test-mutate-and-verify.sh 23s | test-check-stage-mark-calls.sh 22s | test-check-guard-symlinks.sh 22s |
+
+<!-- measured: grep '(Ns)' of each run's log, sorted descending @ spectre/kan-778-agents-port-the-next-five-slowest-guards-to-the -->
+
+Parity against the floors above:
+
+| Port | `--- PASS` count | floor | result |
+|---|---:|---:|---|
+| TestCheckPanelReproducers | 66 | 55 | pass |
+| TestCheckUnfinishedWork | 122 | 102 | pass |
+| TestCheckReferences | 42 | 41 | pass |
+| TestCheckPlanProvenance | 1439 raw / 996 leaf | 665 | pass |
+| TestCheckInstalledCitations | 61 | 61 | pass |
+
+- Zero `--- FAIL` lines; `go test -v` exit 0.
+- TestCheckPlanProvenance leaf count: of the 1439 `--- PASS: TestCheckPlanProvenance/<path>` names, counted those with no other passed name prefixed by `<path>/` (i.e. not a case-group parent) = 996.
+
+<!-- measured: cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS: Test<Name>/' per port @ spectre/kan-778-agents-port-the-next-five-slowest-guards-to-the -->
+
+#### Judgement
+
+- Suite median 52.33s < Before 110.68s — met (−53%).
+- Go package median 11.83s ≤ 20s — met.
+- Every port ≥ its floor — met (installed-citations exactly at 61).
+- Every harness green — met (79/79, each run).
+- Slowest remaining harness: `test-setup.sh` (median 34s). Next slice, guards only: `check-dispatch-paragraphs`,
+  `check-guard-symlinks`, `check-stage-mark-calls` (22–23s each), then `check-panel-fix-single-dispatch` and
+  `mutate-and-verify` (21–23s); `setup.sh`, `compose-mockup-frames` and `generate-relocation-comparison`
+  are not guards — whether they are in a port's scope is the operator's call.
+
 ## Decisions
 
 ### Carry KAN-760's port decisions unchanged

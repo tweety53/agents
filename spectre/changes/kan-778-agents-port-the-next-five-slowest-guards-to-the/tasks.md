@@ -337,7 +337,7 @@ Correction (2026-09-27): Step 3 declared the grep returns only `spectre/changes/
 hits are intended. Beyond Step 1's grep, the sweep also corrected statements the grep cannot match:
 libraries and harness comments still naming a ported guard as a caller that sources them.
 
-- [ ] 9. Live verification: after timings and parity
+- [x] 9. Live verification: after timings and parity
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -350,14 +350,14 @@ libraries and harness comments still naming a ported guard as a caller that sour
 **Decision:** suite-median-below-before
 **Decision:** guard-package-under-20s
 
-  - [ ] **Step 1: Suite, after.** Task 1 step 1's command, three times, on the branch head;
+  - [x] **Step 1: Suite, after.** Task 1 step 1's command, three times, on the branch head;
     same fields recorded.
-  - [ ] **Step 2: Go package, after.** Task 1 step 2's command, three times.
-  - [ ] **Step 3: Parity.** `go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS:
+  - [x] **Step 2: Go package, after.** Task 1 step 2's command, three times.
+  - [x] **Step 3: Parity.** `go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS:
     Test<Name>/'` per port against its floor in `design.md`.
-  - [ ] **Step 4: Record** an **After** table beside **Before**, same columns, each figure tagged
+  - [x] **Step 4: Record** an **After** table beside **Before**, same columns, each figure tagged
     `measured:` with the command and `@ spectre/kan-778-agents-port-the-next-five-slowest-guards-to-the`;
     name the slowest remaining harness and the next slice's guards.
-  - [ ] **Step 5: Judge.** Failure looks like: suite median not below the Before median; any
+  - [x] **Step 5: Judge.** Failure looks like: suite median not below the Before median; any
     port's `--- PASS` count below its floor; the Go package median above 20s real; any harness
     red. Any of these is reported, not recorded as success.
