@@ -101,7 +101,7 @@ same inputs.
   - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
     ./internal/guard/ -run TestCoverageParity -count=1 -race`.
 
-- [ ] 3. Port check-panel-reproducers
+- [x] 3. Port check-panel-reproducers
 
 **Files:** `stats/internal/guard/panelreproducers.go`, `stats/internal/guard/check_panel_reproducers_test.go`, `scripts/check-panel-reproducers.sh`, `scripts/test-check-panel-reproducers.sh`, `skills/flow/scripts/reproducer-metachars.sh`, `stats/internal/guard/panelexitcontract.go`
 **Tests:** `TestCheckPanelReproducers`
@@ -114,17 +114,17 @@ same inputs.
 
 **Decision:** scope-five-next-guards
 
-  - [ ] **Step 1: Failing test.** Port every case, including the metacharacter loop, one subtest
+  - [x] **Step 1: Failing test.** Port every case, including the metacharacter loop, one subtest
     per `ok:` label; the banned set comes from `metachars.go` (already parity-tested against
     `scripts/reproducer-metachars.sh`). Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-panel-reproducers`. It calls the run-reproducer Go
+  - [x] **Step 2: Port**, registering `check-panel-reproducers`. It calls the run-reproducer Go
     function in-process instead of exec'ing `$SCRIPT_DIR/run-reproducer.sh`, as
     `panelexitcontract.go` does; findings via `Env.Findings`, nil → exec `flow record findings`.
-  - [ ] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
+  - [x] **Step 3: Green.** `cd stats && go test ./internal/guard/ -run
     '^TestCheckPanelReproducers$' -count=1 -race -v | grep -c -- '--- PASS:
     TestCheckPanelReproducers/'` — at least 55.
-  - [ ] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-panel-reproducers.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-guard-symlinks.sh`.
+  - [x] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-panel-reproducers.sh`.
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-guard-symlinks.sh`.
 
 Correction (2026-09-27): Step 2 declared the port calls the run-reproducer Go function in-process;
 the guard at `3e48ecac` never runs run-reproducer — it sources `reproducer-metachars.sh` and checks each
@@ -144,7 +144,7 @@ body's per-ref `select(.ref == $ref)` never matched one, so its reproducer went 
 toward `REPRODUCERS-OK`; the port refuses it with the same line. Case 20's label is kept for label parity; with the set compiled in, it asserts the set
 still binds (exit 1 on `;`), as its comment says.
 
-- [ ] 4. Port check-unfinished-work
+- [x] 4. Port check-unfinished-work
 
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `scripts/test-check-unfinished-work.sh`
 **Tests:** `TestCheckUnfinishedWork`
@@ -157,16 +157,16 @@ still binds (exit 1 on `;`), as its comment says.
 
 **Decision:** scope-five-next-guards
 
-  - [ ] **Step 1: Failing test.** Port every case, one subtest per `ok:` label; the stub `flow`
+  - [x] **Step 1: Failing test.** Port every case, one subtest per `ok:` label; the stub `flow`
     becomes `Env.Findings` (an error for the store-unreachable case, which must exit 2). Run —
     expect failure.
-  - [ ] **Step 2: Port**, registering `check-unfinished-work`; plan resolution through
+  - [x] **Step 2: Port**, registering `check-unfinished-work`; plan resolution through
     `changeplan.go` and `specroot.go`, never a second copy. The optional third argument
     (canonical worktree) and every verdict line kept.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckUnfinishedWork$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckUnfinishedWork$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckUnfinishedWork/'` — at least 102.
-  - [ ] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-unfinished-work.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-guard-symlinks.sh`.
+  - [x] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-unfinished-work.sh`.
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-guard-symlinks.sh`.
 
 Correction (2026-09-27): findings output that is not one array of objects — empty stdout at exit 0, an
 object, a null element, two values — is refused with exit 2 (`jq failed — cannot determine anything`),
@@ -254,10 +254,12 @@ default root). Every Python pattern using lookaround or Unicode `\s`/`\w` was re
 
 Correction (2026-09-27): the gated review found the Unicode classes of the rewritten matchers unpinned —
 20+ mutants (ASCII-only `\s`/`\w`, the `{0,20}` bound, `[A-Z]`, `str.strip()` sites) survived, one failing
-open. `ppCasesUnicodeMatchers` adds 88 rows whose exit codes and lines are the Python guard's at `3e48ecac`;
-19 of the 20 mutants now fail the suite. The survivor, `ppLeadingSpace` ASCII-only, is equivalent: the
-list-gap trial it gates is only used to find a list marker, and a remainder starting with whitespace is
-never one. `ppIsWord` reads Go's Unicode tables, so it differs from a newer host Python on characters later
+open. `ppCasesUnicodeMatchers` adds 94 rows whose exit codes and lines are the Python guard's at `3e48ecac`;
+every original mutant now fails the suite, as does `ppLeadingSpace` made ASCII-only whole or at its
+blockquote-closer call sites (`ppAdvanceOrNone`, `ppIsClosingLine`), which fail open — a first fix round
+claimed that survivor equivalent and its re-review disproved it. The one surviving mutant is
+`ppLeadingSpace` ASCII-only at the list-gap trial alone, which is equivalent: that trial only finds a list
+marker, and a remainder starting with whitespace is never one. `ppIsWord` reads Go's Unicode tables, so it differs from a newer host Python on characters later
 Unicode versions added — only ever by reporting a claim Python would not. `ppRepr` now escapes every
 character `str.isprintable()` rejects, pinned against python3's `repr()`.
 
