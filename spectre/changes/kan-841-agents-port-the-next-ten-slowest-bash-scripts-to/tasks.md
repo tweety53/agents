@@ -106,11 +106,11 @@ This task commits nothing; its figures are committed with the change's artifacts
 - [x] 2. Go twins of resolve-file, project-section and post-mutation-check
 
 **Files:** `stats/internal/guard/resolvefile.go`, `stats/internal/guard/projectsection.go`, `stats/internal/guard/postmutationcheck.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/gatherdispatch.go`
-**Tests:** `TestResolveFileParity`, `TestProjectSectionParity`, `TestPostMutationCheckParity`
+**Tests:** `TestResolveFileParity`, `TestProjectSectionParity`, `TestPostMutationCheckParity`, `TestGitExecSignalStatus`
 **Regression:** each parity test fails if its Go twin's output, return status or side effect
 differs from `scripts/lib/resolve-file.sh`, `scripts/lib/project-section.sh` or
 `scripts/lib/post-mutation-check.sh` for the same inputs.
-**Baseline:** before=0 after=3
+**Baseline:** before=0 after=4
 <!-- measured: cat stats/internal/guard/libtwins_test.go 2>/dev/null | grep -cE '^func Test' @ d71a2327 -->
 **After:** none
 **Commit:** `feat(stats): add Go twins of resolve-file, project-section and post-mutation-check`
@@ -175,9 +175,9 @@ that file as zero calls; the port checks it (the two agree under `LC_ALL=C`).
 - [x] 4. Port check-guard-symlinks
 
 **Files:** `stats/internal/guard/guardsymlinks.go`, `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/check-guard-symlinks.sh`, `scripts/test-check-guard-symlinks.sh`
-**Tests:** `TestCheckGuardSymlinks`
+**Tests:** `TestCheckGuardSymlinks`, `TestShimSiblingsDeclared`
 **Regression:** fails if any of the harness's 118 `ok:` behaviours regress.
-**Baseline:** before=0 after=1
+**Baseline:** before=0 after=2
 <!-- measured: cat stats/internal/guard/check_guard_symlinks_test.go 2>/dev/null | grep -cE '^func Test' @ d71a2327 -->
 **After:** Task 2
 **Commit:** `feat(stats): port check-guard-symlinks to Go`
