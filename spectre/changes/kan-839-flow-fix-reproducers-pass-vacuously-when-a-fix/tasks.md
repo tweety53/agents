@@ -7,7 +7,7 @@
 No live-verification task: this change touches guard code and contract prose, not a running
 service or persistent state.
 
-- [ ] 1. Premise audit in the exit-contract guard
+- [x] 1. Premise audit in the exit-contract guard
 
 **Build:** green
 **Files:** `stats/internal/guard/panelexitcontract.go` `stats/internal/guard/check_panel_reproducer_exit_contract_test.go` `scripts/check-panel-reproducer-exit-contract.sh`
@@ -23,7 +23,7 @@ service or persistent state.
 
 **Commit:** fix(guard): premise citations resolved by the exit-contract audit
 
-  - [ ] **Step 1: Write the failing test** — append to `check_panel_reproducer_exit_contract_test.go`, using the file's own fixture (`newPCSandbox`, `pcFindings`, `s.repro`, `s.run`, `expect`):
+  - [x] **Step 1: Write the failing test** — append to `check_panel_reproducer_exit_contract_test.go`, using the file's own fixture (`newPCSandbox`, `pcFindings`, `s.repro`, `s.run`, `rrExpect`):
 
 ```go verified:authored in-tree for this change
 func TestPanelExitContractPremiseAudit(t *testing.T) {
@@ -72,7 +72,7 @@ func TestPanelExitContractPremiseAudit(t *testing.T) {
 }
 ```
 
-  - [ ] **Step 2: Run it to see it fail**
+  - [x] **Step 2: Run it to see it fail**
 
 ```bash verified:authored in-tree for this change
 cd stats && go test ./internal/guard/ -run TestPanelExitContractPremiseAudit
@@ -80,7 +80,7 @@ cd stats && go test ./internal/guard/ -run TestPanelExitContractPremiseAudit
 
 Expected: FAIL — the unresolvable-premise and malformed subtests exit 0 today because `# premise:` lines are inert comments to `pcAudit`.
 
-  - [ ] **Step 3: Implement the premise audit** — in `panelexitcontract.go`:
+  - [x] **Step 3: Implement the premise audit** — in `panelexitcontract.go`:
 
 ```text verified:read in this worktree at merge-base 4a278320
 pcDeclare is "# demonstrates: " (line 40); the audit is pcAudit(ref, tree, reproPath)
@@ -89,7 +89,7 @@ pcDeclare is "# demonstrates: " (line 40); the audit is pcAudit(ref, tree, repro
 
 Extract pcAudit's per-citation checks — shape cut on the declare prefix, `/`-prefix and `..` lexical refusal, `filepath.EvalSymlinks` resolved containment under `tree`, `isFile`, line number, line content — into a shared helper `pcResolveCitation(ref, tree, decl, prefix, noun string) []string` whose violation messages name the declaration kind (`noun`). `pcAudit` keeps its zero-demonstrations violation and its message wording unchanged. Add `pcPremiseDeclare = "# premise: "` and `pcPremiseAudit(ref, tree, reproPath) []string` that resolves every premise line through `pcResolveCitation` and returns nothing when there are none — tolerant, never a zero-declaration violation. At the line-300 call site, append `pcPremiseAudit`'s result where `pcAudit`'s is appended, skipped exactly where the demonstrates audit is skipped for mutation-declared reproducers. Violation wording follows pcAudit's, with "premise declaration" in place of "demonstrates declaration" — the step-1 needles (`premise`, `malformed premise`) must match.
 
-  - [ ] **Step 4: Run the guard's tests**
+  - [x] **Step 4: Run the guard's tests**
 
 ```bash verified:authored in-tree for this change
 cd stats && go test ./internal/guard/ -run 'TestCheckPanelReproducerExitContract|TestPanelExitContract'
@@ -97,9 +97,9 @@ cd stats && go test ./internal/guard/ -run 'TestCheckPanelReproducerExitContract
 
 Expected: PASS — the existing demonstrates behavior unchanged, the new subtests green.
 
-  - [ ] **Step 5: Update the shim header** — in `skills/flow/scripts/check-panel-reproducer-exit-contract.sh`'s THE INSTRUMENT AUDIT (KAN-606) paragraph, add: the audit also resolves every `# premise: <path>:<line>:<content>` declaration by the same machinery, tolerantly — absence of premise lines violates nothing, a declared-but-unresolvable premise joins exit 1's violation classes, and mutation-declared reproducers skip it as they skip the demonstrates audit (KAN-839).
+  - [x] **Step 5: Update the shim header** — in `skills/flow/scripts/check-panel-reproducer-exit-contract.sh`'s THE INSTRUMENT AUDIT (KAN-606) paragraph, add: the audit also resolves every `# premise: <path>:<line>:<content>` declaration by the same machinery, tolerantly — absence of premise lines violates nothing, a declared-but-unresolvable premise joins exit 1's violation classes, and mutation-declared reproducers skip it as they skip the demonstrates audit (KAN-839).
 
-  - [ ] **Step 6: Verify and commit**
+  - [x] **Step 6: Verify and commit**
 
 ```bash verified:authored in-tree for this change
 cd stats && go vet ./internal/guard/ && gofmt -l internal/guard

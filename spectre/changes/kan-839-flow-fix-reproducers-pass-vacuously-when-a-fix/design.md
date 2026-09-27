@@ -40,7 +40,7 @@ premise lands in the KAN-524 ambiguity refusal instead of a green count. Why now
 
 - `skills/flow/review-panel.md` — authoring rule, dispatch-prompt carry, re-run note, the
   guard-invocation section's audit description.
-- `stats/internal/guard/panelexitcontract.go` + `panelexitcontract_test.go` — premise label in
+- `stats/internal/guard/panelexitcontract.go` + `check_panel_reproducer_exit_contract_test.go` — premise label in
   the audit, tolerant mode, tests; the shim `check-panel-reproducer-exit-contract.sh` header's
   instrument-audit paragraph.
 - Untouched: `runreproducer.go` (the runner), `prove-reproducer.sh`,
