@@ -250,6 +250,15 @@ lose their measured figure, and eight python3-interpreter cases become their mis
 `go` equivalents run through the real shim (KAN-760's case-56 precedent); one case is added (shim
 default root). Every Python pattern using lookaround or Unicode `\s`/`\w` was rewritten as code.
 
+Correction (2026-09-27): the gated review found the Unicode classes of the rewritten matchers unpinned —
+20+ mutants (ASCII-only `\s`/`\w`, the `{0,20}` bound, `[A-Z]`, `str.strip()` sites) survived, one failing
+open. `ppCasesUnicodeMatchers` adds 88 rows whose exit codes and lines are the Python guard's at `3e48ecac`;
+19 of the 20 mutants now fail the suite. The survivor, `ppLeadingSpace` ASCII-only, is equivalent: the
+list-gap trial it gates is only used to find a list marker, and a remainder starting with whitespace is
+never one. `ppIsWord` reads Go's Unicode tables, so it differs from a newer host Python on characters later
+Unicode versions added — only ever by reporting a claim Python would not. `ppRepr` now escapes every
+character `str.isprintable()` rejects, pinned against python3's `repr()`.
+
 - [x] 7. Port check-installed-citations
 
 **Files:** `stats/internal/guard/installedcitations.go`, `stats/internal/guard/check_installed_citations_test.go`, `scripts/check-installed-citations.sh`, `scripts/check-installed-citations.py`, `scripts/test-check-installed-citations.sh`
