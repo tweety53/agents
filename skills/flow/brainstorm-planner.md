@@ -70,6 +70,13 @@ never copied, because `check-task-commit-fields.sh` matches a declared path agai
 diff literally — and `tasks.md`'s H1 stays the exact `# <change-id>` literal `spectre validate`
 requires, never a title the note supplies.
 
+**The note is an immutable input, never a living copy of the plan.** The plan is canonical from
+the moment it is written, and mid-run corrections — file corrections, baseline re-measures — land
+in `tasks.md` alone; the note is never updated to match. A note carrying a plan copy of its own —
+the retired `<project>/docs/research/<stem>/` capture layout wrote one — holds a snapshot that
+goes stale by design: no stage propagates corrections to it, and no reader should expect it to
+track the plan.
+
 **The note's verification tags are evidence-checked at seeding.** A `verified:`/`measured:` tag
 the note carries is copied only when its evidence is in hand; a tag naming nothing is rewritten to
 the honest `unverified:`/`predicted:` tag, or dropped, never copied — per **Plan provenance**'s
