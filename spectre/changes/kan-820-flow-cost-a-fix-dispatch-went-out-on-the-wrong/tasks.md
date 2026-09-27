@@ -12,8 +12,9 @@ spec-edit task exists.
 
 - [ ] 1. Go model-key guard validates the `## model` key
 **Build:** green
-**Files:** stats/internal/guard/modelkeys.go, stats/internal/guard/check_model_keys_test.go
+**Files:** `stats/internal/guard/modelkeys.go`, `stats/internal/guard/check_model_keys_test.go`
 **Tests:** `TestCheckModelKeysDispatchKey`
+**Commit:** feat(guard): model-keys validates the ## model dispatch key
 **Regression:** `TestCheckModelKeysDispatchKey` — reverting it leaves `.flow/project.md`'s `## model` body unvalidated, so a typo'd policy silences into the run-time drop instead of failing lint
 **Baseline:** before=1 after=2
 <!-- measured: grep -c '^func Test' stats/internal/guard/check_model_keys_test.go @ merge-base 4a278320 (the count BEFORE this change) -->
@@ -33,10 +34,11 @@ cd stats && gofmt -w internal/guard && git reset -q -- spectre/changes/ openspec
 
 - [ ] 2. Model resolution resolves the project key; its guard asserts it
 **Build:** green
-**Files:** skills/flow/SKILL.md, scripts/check-model-resolution-shell.sh
-**Tests:** `project-model-wins` `project-model-invalid-drops` `store-down-project-wins` `store-null-falls-back` `test-check-model-resolution-shell.sh`
+**Files:** `skills/flow/SKILL.md`, `scripts/check-model-resolution-shell.sh`
+**Tests:** `project-model-wins` `project-model-invalid-drops` `store-down-project-wins` `store-null-falls-back`
+**Commit:** feat(scripts): model resolution reads the project key behind the store default
 **Regression:** the four new cases — reverting them loses the proof that the extracted SKILL.md block actually implements project-beats-store, drops an invalid body to the store, survives a store outage on the project key, and falls back to the literal when the store answers null
-**Baseline:** before=7 after=11
+**Baseline:** before=8 after=12
 <!-- measured: grep -c '^run_case' scripts/check-model-resolution-shell.sh @ merge-base 4a278320 (the count BEFORE this change) -->
 **After:** none
 
@@ -68,6 +70,13 @@ EXPECTED_DEFAULT=sonnet
 ```
 
   - [ ] **Step 2: Run the guard to verify the new cases fail.** Run: `scripts/check-model-resolution-shell.sh | tail -5`. Expected: exit 1 — `project-model-wins`, `store-down-project-wins` and `store-null-falls-back` resolve `sonnet`/wrong today because the block has no project-key arm.
+
+    Correction (2026-09-28): the plan's case block left `EXPECTED_DEFAULT=opus` set across case 9
+    (`project-model-invalid-drops`), whose expected default is the store's `sonnet` — the drop
+    must leave the store value standing. As implemented, `EXPECTED_DEFAULT` is set per case
+    (opus for `project-model-wins`, sonnet for the drop case, opus for the two fallback cases)
+    so each case asserts its own resolution; the plan's single leading assignment would have
+    failed the guard's green run.
   - [ ] **Step 3: GREEN — replace SKILL.md's Model resolution block** (the first ```bash fence under `## Model resolution`) with:
 
 ```bash unverified:scripts/check-model-resolution-shell.sh extracts and runs this block verbatim once this task's cases land
@@ -102,10 +111,11 @@ VERIFY_MODEL=opus
 git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow/SKILL.md scripts/check-model-resolution-shell.sh ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "feat(scripts): model resolution reads the project key behind the store default" -m "Task-Id: 2" -- skills/flow/SKILL.md scripts/check-model-resolution-shell.sh
 ```
 
-- [ ] 3. Contracts: the `## model` key row and the resolution order
+- [x] 3. Contracts: the `## model` key row and the resolution order
 **Build:** green
-**Files:** skills/flow-contracts/project-configuration.md, skills/flow-contracts/model-policy.md, scripts/check-model-keys.sh
+**Files:** `skills/flow-contracts/project-configuration.md`, `skills/flow-contracts/model-policy.md`, `scripts/check-model-keys.sh`
 **Tests:** none
+**Commit:** docs(contracts): the ## model key and the DEFAULT_MODEL resolution order
 **Regression:** none — prose and a shim header; the behavior is tasks 1–2's
 **Baseline:** before=0 after=0
 **After:** Task 1 2
@@ -116,84 +126,97 @@ git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add 
 **Decision:** enforcement-strength
 **Decision:** mapping-interplay
 
-  - [ ] **Step 1: project-configuration.md.** Add a `## model` row to the key table beside `## self review model`'s: optional, literal single-line body, one member of the store's `ValidModels`, matched byte-for-byte with leading/trailing whitespace trimmed and nothing else normalized, reported by name and dropped otherwise, absent → store default. Name its consumer: `DEFAULT_MODEL`'s resolution (**Model resolution**, `skills/flow/SKILL.md`), the governed roles per **Model policy**.
-  - [ ] **Step 2: model-policy.md.** Under **Model policy**, restate the resolution order — project `## model` → store `defaultModel` → literal `opus`, resolved per run — the governed role set (implementer, fixer, panel dispatches, rerun pair; `VERIFY_MODEL` fixed, `SELF_REVIEW_MODEL` separate), the surfacing duty (resolution names model + source; Decide preamble, run summary and `decision.json` `resolved` carry it — nothing blocks), and the mapping sentence: the key governs the pre-mapping value; on harness `zcode` the mapping still replaces the model at dispatch and the ledger records the model actually run. Never restate what project-configuration.md's row canonically says — cite it.
-  - [ ] **Step 3: check-model-keys.sh header.** Its header already reads "both keys are optional" — make it name them: `## self review model` and `## model`, citing project-configuration.md's rows.
-  - [ ] **Step 4: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-contract-budget.sh` and `scripts/check-model-keys.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 1: project-configuration.md.** Add a `## model` row to the key table beside `## self review model`'s: optional, literal single-line body, one member of the store's `ValidModels`, matched byte-for-byte with leading/trailing whitespace trimmed and nothing else normalized, reported by name and dropped otherwise, absent → store default. Name its consumer: `DEFAULT_MODEL`'s resolution (**Model resolution**, `skills/flow/SKILL.md`), the governed roles per **Model policy**.
+  - [x] **Step 2: model-policy.md.** Under **Model policy**, restate the resolution order — project `## model` → store `defaultModel` → literal `opus`, resolved per run — the governed role set (implementer, fixer, panel dispatches, rerun pair; `VERIFY_MODEL` fixed, `SELF_REVIEW_MODEL` separate), the surfacing duty (resolution names model + source; Decide preamble, run summary and `decision.json` `resolved` carry it — nothing blocks), and the mapping sentence: the key governs the pre-mapping value; on harness `zcode` the mapping still replaces the model at dispatch and the ledger records the model actually run. Never restate what project-configuration.md's row canonically says — cite it.
+  - [x] **Step 3: check-model-keys.sh header.** Its header already reads "both keys are optional" — make it name them: `## self review model` and `## model`, citing project-configuration.md's rows.
+  - [x] **Step 4: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-contract-budget.sh` and `scripts/check-model-keys.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
+  - [x] **Step 5: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
 git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow-contracts/project-configuration.md skills/flow-contracts/model-policy.md scripts/check-model-keys.sh ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "docs(contracts): the ## model key and the DEFAULT_MODEL resolution order" -m "Task-Id: 3" -- skills/flow-contracts/project-configuration.md skills/flow-contracts/model-policy.md scripts/check-model-keys.sh
 ```
 
-- [ ] 4. Decide records the resolution: preamble line and decision.json
+- [x] 4. Decide records the resolution: preamble line and decision.json
 **Build:** green
-**Files:** skills/flow/brainstorm-planner.md
+**Files:** `skills/flow/brainstorm-planner.md`
 **Tests:** none
+**Commit:** docs(flow): Decide names the resolved model source and records it
 **Regression:** none — the Decide section's own contract text; the record it mandates is written by runs, not tests
 **Baseline:** before=0 after=0
 **After:** Task 3
 
 **Decision:** enforcement-strength
 
-  - [ ] **Step 1: preamble line.** In the Decide section's two prepended lines, the `models:` line carries the source: `models:    default <DEFAULT_MODEL> (<MODEL_SOURCE>) · reviewers <REVIEWERS>`.
-  - [ ] **Step 2: decision.json field.** In the JSON shape paragraph, add `resolved` (an object `{model, source}`, `source` one of `project`/`store`/`fallback`, written every run that resolves, beside `rolls`). State that a session-instruction override leaves `resolved` as resolved and lands in `overrides` as today.
-  - [ ] **Step 3: `## Decision` block.** The block's `models:` preamble row renders the source beside the model, and the decision side's implementer/panel rule cells stay as-is (the pair's model column already prints `DEFAULT_MODEL`).
-  - [ ] **Step 4: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-stage-mark-calls.sh` and `scripts/check-dispatch-paragraphs.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 1: preamble line.** In the Decide section's two prepended lines, the `models:` line carries the source: `models:    default <DEFAULT_MODEL> (<MODEL_SOURCE>) · reviewers <REVIEWERS>`.
+  - [x] **Step 2: decision.json field.** In the JSON shape paragraph, add `resolved` (an object `{model, source}`, `source` one of `project`/`store`/`fallback`, written every run that resolves, beside `rolls`). State that a session-instruction override leaves `resolved` as resolved and lands in `overrides` as today.
+  - [x] **Step 3: `## Decision` block.** The block's `models:` preamble row renders the source beside the model, and the decision side's implementer/panel rule cells stay as-is (the pair's model column already prints `DEFAULT_MODEL`).
+  - [x] **Step 4: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-stage-mark-calls.sh` and `scripts/check-dispatch-paragraphs.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
+  - [x] **Step 5: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
 git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow/brainstorm-planner.md ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "docs(flow): Decide names the resolved model source and records it" -m "Task-Id: 4" -- skills/flow/brainstorm-planner.md
 ```
 
-- [ ] 5. Run summary names the resolved model and its source
+- [x] 5. Run summary names the resolved model and its source
 **Build:** green
-**Files:** skills/flow/verify-and-handoff.md
+**Files:** `skills/flow-contracts/pipeline.md`
 **Tests:** none
+**Commit:** docs(flow-contracts): run summary names the resolved model and source
 **Regression:** none — handoff prose contract
 **Baseline:** before=0 after=0
 **After:** Task 3
 
 **Decision:** enforcement-strength
 
-  - [ ] **Step 1: summary line.** In the summary's requirements, add one bullet: the live-stack/summary block names the run's resolved `DEFAULT_MODEL` and its source (`project`, `store` or `fallback`), so the operator reads the run's model policy off the handoff without opening the ledger.
-  - [ ] **Step 2: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-stage-mark-calls.sh` and `scripts/check-dispatch-paragraphs.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
-  - [ ] **Step 3: Commit.**
+Correction (2026-09-28): the plan declared `skills/flow/verify-and-handoff.md` as this task's
+file, but that file carries no summary section of its own — it produces the handoff's
+`Running:`/`Records:`/`Costs:`/`Deferred:` parts and cites the rest — and the run-summary content
+contract is canonical in `skills/flow-contracts/pipeline.md`'s **Summary and live-stack line,
+before every handoff**. The bullet landed there instead, and the commit scope names the module
+the task actually touched. The `check-task-commit-fields.sh` refusal on the record as it stood
+named exactly this path and subject, and the deviation was judged legitimate on that refusal
+before this transcription.
+
+  - [x] **Step 1: summary line.** In the summary's requirements, add one bullet: the live-stack/summary block names the run's resolved `DEFAULT_MODEL` and its source (`project`, `store` or `fallback`), so the operator reads the run's model policy off the handoff without opening the ledger.
+  - [x] **Step 2: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-stage-mark-calls.sh` and `scripts/check-dispatch-paragraphs.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
+  - [x] **Step 3: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
 git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow/verify-and-handoff.md ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "docs(flow): handoff summary names the resolved model and source" -m "Task-Id: 5" -- skills/flow/verify-and-handoff.md
 ```
 
-- [ ] 6. flow-plan resolves no model directly
+- [x] 6. flow-plan resolves no model directly
 **Build:** green
-**Files:** skills/flow-plan/SKILL.md
+**Files:** `skills/flow-plan/SKILL.md`
 **Tests:** none
+**Commit:** docs(flow-plan): DEFAULT_MODEL resolves via Model resolution
 **Regression:** none — citation repair; the direct `flow settings get` statement bypassed the project key
 **Baseline:** before=0 after=0
 **After:** Task 3
 
 **Decision:** resolution-precedence
 
-  - [ ] **Step 1: repoint the citation.** Line 186 area states `DEFAULT_MODEL` comes "from `flow settings get`" — restate it as resolving per **Model resolution** (`skills/flow/SKILL.md`), which reads the project key first. Quote no resolution order here — one source of truth.
-  - [ ] **Step 2: sweep for siblings.** Run: `grep -n 'settings get' skills/flow-plan/SKILL.md skills/flow-fast/SKILL.md skills/flow-settings/SKILL.md`. flow-fast already cites **Model resolution** (leave); flow-settings writes the store (leave — it is the store's own command); any other direct `flow settings get` → `DEFAULT_MODEL` statement in flow-plan gets the same repoint.
-  - [ ] **Step 3: Run the prose guards.** Run: `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` — expected exit 0.
-  - [ ] **Step 4: Commit.**
+  - [x] **Step 1: repoint the citation.** Line 186 area states `DEFAULT_MODEL` comes "from `flow settings get`" — restate it as resolving per **Model resolution** (`skills/flow/SKILL.md`), which reads the project key first. Quote no resolution order here — one source of truth.
+  - [x] **Step 2: sweep for siblings.** Run: `grep -n 'settings get' skills/flow-plan/SKILL.md skills/flow-fast/SKILL.md skills/flow-settings/SKILL.md`. flow-fast already cites **Model resolution** (leave); flow-settings writes the store (leave — it is the store's own command); any other direct `flow settings get` → `DEFAULT_MODEL` statement in flow-plan gets the same repoint.
+  - [x] **Step 3: Run the prose guards.** Run: `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` — expected exit 0.
+  - [x] **Step 4: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
 git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow-plan/SKILL.md ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "docs(flow-plan): DEFAULT_MODEL resolves via Model resolution" -m "Task-Id: 6" -- skills/flow-plan/SKILL.md
 ```
 
-- [ ] 7. This repository declares `## model opus`
+- [x] 7. This repository declares `## model opus`
 **Build:** green
-**Files:** .flow/project.md
+**Files:** `.flow/project.md`
 **Tests:** none
+**Commit:** chore(project-config): declare ## model opus
 **Regression:** none — a declaration; the store default here is already opus, so no run's model changes
 **Baseline:** before=0 after=0
 **After:** Task 1 3
 
 **Decision:** project-key-home
 
-  - [ ] **Step 1: declare the key.** Add to `.flow/project.md`, beside `## self review model`:
+  - [x] **Step 1: declare the key.** Add to `.flow/project.md`, beside `## self review model`:
 
 ```markdown verified:mirrors the store's DefaultModel const, stats/internal/store/settings.go:55
 ## model
@@ -201,8 +224,8 @@ git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add 
 opus
 ```
 
-  - [ ] **Step 2: Run the project-config guards.** Run: `scripts/check-model-keys.sh` (now validates both keys — expected exit 0), `scripts/check-workspace-isolation.sh` and `scripts/check-visual-verification.sh .` (both parse project.md — expected untripped by the new key).
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 2: Run the project-config guards.** Run: `scripts/check-model-keys.sh` (now validates both keys — expected exit 0), `scripts/check-workspace-isolation.sh` and `scripts/check-visual-verification.sh .` (both parse project.md — expected untripped by the new key).
+  - [x] **Step 3: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
 git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- .flow/project.md ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "chore(project-config): declare ## model opus" -m "Task-Id: 7" -- .flow/project.md
