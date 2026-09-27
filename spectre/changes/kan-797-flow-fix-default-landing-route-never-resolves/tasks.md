@@ -35,7 +35,7 @@ exercised by task 2's guard tests and task 1's own verified snippets.
 
 ---
 
-- [ ] 1. State the head-of-body rule in the prose that carries the match
+- [x] 1. State the head-of-body rule in the prose that carries the match
 
 `skills/flow-contracts/project-configuration.md` is canonical: reword its match paragraph
 (`## default landing route`'s byte-for-byte rule and the three siblings it binds) so that, for
@@ -82,15 +82,15 @@ on every run, the recorded kan-741/kan-577 failure mode.
 **Decision:** head-of-body-resolution
 **Decision:** four-literal-keys-family
 
-  - [ ] **Step 1: Reword the match paragraph and the four table rows in `skills/flow-contracts/project-configuration.md`** — capture the normative inventory first (`scripts/check-normative-inventory.sh > /tmp/norm-before.txt`).
-  - [ ] **Step 2: Reword the landing-route resolution in `skills/flow/integrate.md` and the `## self review` match sentence in `skills/flow/archive.md`** to the same head-first wording.
-  - [ ] **Step 3: Extend `skills/flow/archive.md`'s `## self review model` shell snippet** with the head-extraction pipeline from the verified block above.
-  - [ ] **Step 4: Diff the normative inventory** (`scripts/check-normative-inventory.sh > /tmp/norm-after.txt; diff /tmp/norm-before.txt /tmp/norm-after.txt`) — every hunk is this task's deliberate reword or a restored sentence.
-  - [ ] **Step 5: Run the task's lint set** — `scripts/check-contract-budget.sh`, `scripts/check-references.sh`, `scripts/check-vocabulary.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — and fix any hit by editing the offending line.
-  - [ ] **Step 6: Verify the rule reads correctly**: resolve a prose-bearing `## default landing route` body through the new sentence (the verified snippet's shape) and confirm the value is `merge and push`.
-  - [ ] **Step 7: Commit** — `git add skills/flow-contracts/project-configuration.md skills/flow/integrate.md skills/flow/archive.md && git commit -m "fix(flow-contracts): single-line-literal keys resolve the body's head"`
+  - [x] **Step 1: Reword the match paragraph and the four table rows in `skills/flow-contracts/project-configuration.md`** — capture the normative inventory first (`scripts/check-normative-inventory.sh > /tmp/norm-before.txt`).
+  - [x] **Step 2: Reword the landing-route resolution in `skills/flow/integrate.md` and the `## self review` match sentence in `skills/flow/archive.md`** to the same head-first wording.
+  - [x] **Step 3: Extend `skills/flow/archive.md`'s `## self review model` shell snippet** with the head-extraction pipeline from the verified block above.
+  - [x] **Step 4: Diff the normative inventory** (`scripts/check-normative-inventory.sh > /tmp/norm-after.txt; diff /tmp/norm-before.txt /tmp/norm-after.txt`) — every hunk is this task's deliberate reword or a restored sentence.
+  - [x] **Step 5: Run the task's lint set** — `scripts/check-contract-budget.sh`, `scripts/check-references.sh`, `scripts/check-vocabulary.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — and fix any hit by editing the offending line.
+  - [x] **Step 6: Verify the rule reads correctly**: resolve a prose-bearing `## default landing route` body through the new sentence (the verified snippet's shape) and confirm the value is `merge and push`.
+  - [x] **Step 7: Commit** — `git add skills/flow-contracts/project-configuration.md skills/flow/integrate.md skills/flow/archive.md && git commit -m "fix(flow-contracts): single-line-literal keys resolve the body's head"`
 
-- [ ] 2. check-model-keys reads the literal key's head
+- [x] 2. check-model-keys reads the literal key's head
 
 `stats/internal/guard/modelkeys.go`'s `## self review model` check stops failing a multi-line
 body whose head is a member: take the head — the first line of `mkSectionBody`'s output that is
@@ -140,10 +140,10 @@ the guard disagrees with the contract task 1 lands.
 
 **Decision:** guard-follows-head-rule
 
-  - [ ] **Step 1: Write the failing cases** in `check_model_keys_test.go`'s table — prose below a valid head passes; prose below an invalid head fails naming the head.
-  - [ ] **Step 2: Run them and confirm they fail** — `cd stats && go test ./internal/guard -run TestCheckModelKeys -count=1`.
-  - [ ] **Step 3: Implement the head extraction in `modelkeys.go`** per the block above, dropping the multi-line violation branch and rewriting its comment.
-  - [ ] **Step 4: Run the full `TestCheckModelKeys`** — move each parity body the head rule changed into an explicit KAN-797 divergence subtest pinned to the new expected output; leave agreeing bodies in the sweep.
-  - [ ] **Step 5: Reword `scripts/check-model-keys.sh`'s shim header** to the head rule.
-  - [ ] **Step 6: Auto-fix then check** — `cd stats && gofmt -w . && go vet ./internal/guard/ && gofmt -l internal/guard/ && go test ./internal/guard -run TestCheckModelKeys -count=1` — all clean.
-  - [ ] **Step 7: Commit** — `git add stats/internal/guard/modelkeys.go stats/internal/guard/check_model_keys_test.go scripts/check-model-keys.sh && git commit -m "fix(guard): model-keys reads the literal key's head"`
+  - [x] **Step 1: Write the failing cases** in `check_model_keys_test.go`'s table — prose below a valid head passes; prose below an invalid head fails naming the head.
+  - [x] **Step 2: Run them and confirm they fail** — `cd stats && go test ./internal/guard -run TestCheckModelKeys -count=1`.
+  - [x] **Step 3: Implement the head extraction in `modelkeys.go`** per the block above, dropping the multi-line violation branch and rewriting its comment.
+  - [x] **Step 4: Run the full `TestCheckModelKeys`** — move each parity body the head rule changed into an explicit KAN-797 divergence subtest pinned to the new expected output; leave agreeing bodies in the sweep.
+  - [x] **Step 5: Reword `scripts/check-model-keys.sh`'s shim header** to the head rule.
+  - [x] **Step 6: Auto-fix then check** — `cd stats && gofmt -w . && go vet ./internal/guard/ && gofmt -l internal/guard/ && go test ./internal/guard -run TestCheckModelKeys -count=1` — all clean.
+  - [x] **Step 7: Commit** — `git add stats/internal/guard/modelkeys.go stats/internal/guard/check_model_keys_test.go scripts/check-model-keys.sh && git commit -m "fix(guard): model-keys reads the literal key's head"`
