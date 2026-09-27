@@ -31,10 +31,7 @@ A pre-existing failure is **recorded, never repaired**:
    ```
 
    The entry is the durable record — what fails, why, and since when — and the next change's
-   known-failure baseline. Delete an entry only in the commit that actually fixes its bug. A
-   project whose lint carries `check-contract-budget.sh` adds a `budgets()` row for
-   `<project>/KNOWN-BUGS.md` the moment the sweep first creates the file — the ratchet refuses an owned
-   Markdown file with no declared budget.
+   known-failure baseline. Delete an entry only in the commit that actually fixes its bug.
 
 2. **Keep the defect out of the change's diff.** The sweep documents a failure; it never fixes,
    works around, skips or tolerance-widens one (**Fix determinism at the source, never by
@@ -68,8 +65,7 @@ and commits it on the change's own branch, asking nothing:
 
 The entry is the durable record the archived panel record alone is not: what is wrong, why it
 matters, and how to fix it, where the next change reads it. No Jira issue is filed for it. Delete
-an entry only in the commit that fixes its finding. The `budgets()` row rule of rule 1 above
-applies to a file this section creates.
+an entry only in the commit that fixes its finding.
 
 ## Where it runs
 

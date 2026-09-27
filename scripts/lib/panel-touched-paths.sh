@@ -1,14 +1,14 @@
 # scripts/lib/panel-touched-paths.sh — this change's own touched paths,
 # defined once.
 #
-# check-panel-docs-only.sh and check-panel-citation-trigger.sh both need the
-# same answer to "which paths did this change touch?": the union of
+# check-panel-docs-only.sh and check-panel-citation-trigger (Go since KAN-842;
+# twin stats/internal/guard/paneltouchedpaths.go) both need the same answer to "which paths did this change touch?": the union of
 # committed-since-merge-base, staged and unstaged paths, sorted and
 # de-duplicated. Before this file existed the two guards carried a
 # line-for-line copy of that preamble — GIT_BIN resolution through the
 # COMMITTED/STAGED/UNSTAGED collection — differing only in the program-name
 # string embedded in each error message (KAN-312 review round 0, F1
-# Principles). One definition, sourced by both, is what stops that copy
+# Principles). One definition, sourced by the bash guard and mirrored by the Go twin, is what stops that copy
 # from drifting the way resolve_file's five copies did (see
 # scripts/lib/resolve-file.sh) or check-unfinished-work.sh's and
 # check-panel-reproducers.sh's shared total-count pattern did before it was
@@ -46,12 +46,10 @@ panel_resolve_git() {
 #
 # Parameters are bound to the SAME uppercase local names
 # (WORKTREE/MERGEBASE/GIT_BIN) the two guards used before extraction —
-# not a style choice, a call-site contract: test-check-panel-citation-trigger.sh's
-# F8/F11/F13 and F2/F3/F9/F10 checks assert, by source-text grep and by
-# `bash -x` line-anchored trace, that every real git invocation literally
-# reads "$GIT_BIN" -C "$WORKTREE" and that the rev-parse/diff calls carry
-# this run's own $MERGEBASE. Renaming these to lowercase would silently
-# defeat those checks without breaking any functional case.
+# not a style choice, a call-site contract: every real git invocation
+# literally reads "$GIT_BIN" -C "$WORKTREE" and the rev-parse/diff calls carry
+# this run's own $MERGEBASE, and check-panel-docs-only.sh still calls them
+# that way.
 panel_validate_worktree() {
   local prog="$1" WORKTREE="$2" MERGEBASE="$3" GIT_BIN="$4"
   if [ -z "$WORKTREE" ] || [ -z "$MERGEBASE" ]; then
@@ -80,9 +78,7 @@ panel_validate_worktree() {
 # already applies). Prints nothing when the union is empty. Returns 2, with
 # a message on stderr naming which collection failed, when a `git diff`
 # invocation fails. Same uppercase-local-name contract as
-# panel_validate_worktree above — COMMITTED's assignment line and its
-# "$GIT_BIN" -C "$WORKTREE" call site are what the citation-trigger
-# harness's line-anchored trace locates.
+# panel_validate_worktree above.
 panel_touched_paths() {
   local prog="$1" WORKTREE="$2" MERGEBASE="$3" GIT_BIN="$4"
   local COMMITTED STAGED UNSTAGED

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -23,8 +22,7 @@ import (
 
 // fxGit builds fixtures under fixtureGitEnv with gitRun's fixed identity. The
 // first failure is kept and every later call skipped, so a fixture built
-// inside a sync.OnceValues reports to each subtest rather than calling
-// t.Fatal off a goroutine the once cannot recover from.
+// inside a case's run reports to each of its checks.
 type fxGit struct{ err error }
 
 func (g *fxGit) git(dir string, args ...string) string {
@@ -34,7 +32,7 @@ func (g *fxGit) git(dir string, args ...string) string {
 	if dir != "" {
 		args = append([]string{"-C", dir}, args...)
 	}
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(fixtureGit, args...)
 	cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
 		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
 		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")
@@ -78,10 +76,6 @@ func (g *fxGit) write(path, line string) {
 // already on PATH can never be the "real" git.
 func stubGit(t *testing.T, dir, cond, message string) {
 	t.Helper()
-	real, err := exec.LookPath("git")
-	if err != nil {
-		t.Fatal(err)
-	}
 	writeExec(t, dir+"/git", fmt.Sprintf(`#!/usr/bin/env bash
 has() { local m="$1" a; shift; for a in "$@"; do [ "$a" = "$m" ] && return 0; done; return 1; }
 if %s; then
@@ -90,7 +84,7 @@ if %s; then
   exit 128
 fi
 exec %q "$@"
-`, cond, message, real))
+`, cond, message, fixtureGit))
 }
 
 // guardResult is one in-process run: stdout, stderr, and the two merged in
@@ -452,8 +446,8 @@ func TestCheckBaseMoved(t *testing.T) {
 			}}}},
 	}
 
-	for _, c := range cases {
-		// The sandbox belongs to the parent test, so it outlives every
+	for i, c := range cases {
+		// The sandbox belongs to the parent test, so it outlives the
 		// parallel subtest reading this case's one run.
 		fx := &bmFx{dir: t.TempDir(), recorded: recorded}
 		if !c.fresh {
@@ -467,7 +461,7 @@ func TestCheckBaseMoved(t *testing.T) {
 		if c.prep != nil {
 			c.prep(t, fx)
 		}
-		run := sync.OnceValues(func() (guardResult, error) {
+		run := func() (guardResult, error) {
 			if c.setup != nil {
 				c.setup(fx)
 			}
@@ -486,18 +480,23 @@ func TestCheckBaseMoved(t *testing.T) {
 				env.Getenv = pathEnv(fx.stub)
 			}
 			return runGuard("check-base-moved", args, env), nil
-		})
-		for _, chk := range c.checks {
-			t.Run(chk.label, func(t *testing.T) {
-				t.Parallel()
-				r, err := run()
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !chk.ok(r, fx) {
-					t.Fatalf("rc=%d out=%s", r.rc, r.out)
-				}
-			})
 		}
+		// One parallel subtest runs the case, its checks nested beneath it:
+		// a parallel subtest per check held a -parallel slot apiece while
+		// the one running the case worked and the rest waited on it.
+		t.Run(fmt.Sprint("run ", i), func(t *testing.T) {
+			t.Parallel()
+			r, err := run()
+			for _, chk := range c.checks {
+				t.Run(chk.label, func(t *testing.T) {
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !chk.ok(r, fx) {
+						t.Fatalf("rc=%d out=%s", r.rc, r.out)
+					}
+				})
+			}
+		})
 	}
 }

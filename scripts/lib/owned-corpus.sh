@@ -1,15 +1,5 @@
 # scripts/lib/owned-corpus.sh — the Markdown this repository owns, defined once.
 #
-# Two guards need the same answer to "which Markdown files are this
-# repository's own content?": check-normative-inventory.sh, which inventories
-# the normative sentences in them, and check-contract-budget.sh, which will
-# measure them once its own widening task lands. If those two disagreed about
-# ownership, a file could be over budget in one guard's view and invisible to
-# the other's inventory — and the inventory is the only thing standing between a
-# corpus-wide prose trim and a silently deleted requirement. So the resolution
-# lives here, in one implementation both call, rather than in two copies that
-# drift the way resolve_file's five copies did (see scripts/lib/resolve-file.sh).
-#
 # THE CORPUS is every `.md` and `.mdc` file under these scope roots:
 #
 #   skills/  rules/  spectre/specs/  commands/  commands-claude/  .flow/
@@ -22,11 +12,11 @@
 # after its last, however faithfully the prose was preserved.
 #
 # NO PRE-SPECTRE TREE NAMES A SCOPE ROOT HERE. Only the live `spectre/`
-# tree is linted, budgeted or inventoried, and its `changes/archive/` is
+# tree is linted or inventoried, and its `changes/archive/` is
 # excluded below: an archived change is history, not something a `/flow*`
 # run edits again. Nothing needs to name a retired tree as an exclusion
-# for that to hold; it simply is not one of the roots above, and the two
-# callers this file serves only ever look under the roots they are given.
+# for that to hold; it simply is not one of the roots above, and the
+# caller this file serves only ever looks under the roots it is given.
 #
 # THE EXCLUSIONS are structural — a path component, or a path prefix, never a
 # list of filenames:
@@ -44,9 +34,9 @@
 #
 # SYMLINKS ARE NOT OWNED CONTENT. Enumeration uses `find -type f`, which neither
 # follows a symlinked directory nor reports a symlinked file, so a `.md` symlink
-# contributes nothing. That is the honest answer for both callers: a symlink has
-# no size of its own to ratchet and no sentences of its own to inventory — its
-# target has both, and is inventoried in its own right if this repository owns it.
+# contributes nothing. That is the honest answer: a symlink has no sentences of its
+# own to inventory — its target has them, and is inventoried in its own right if
+# this repository owns it.
 #
 # A SCOPE ROOT THAT IS A SYMLINK IS REFUSED, not resolved and not skipped. The
 # distinction matters because the two behaviours are indistinguishable on stdout
@@ -68,7 +58,7 @@
 # physical mode, so it walks past a symlinked subdirectory without descending
 # into it. Whatever the link points at is then absent from the corpus with no
 # error and no warning — invisible to the inventory a bulk prose trim is checked
-# against, and outside the ratchet a covered file is measured by.
+# against.
 #
 # The predicate is deliberately the coarse one: ANY reachable `.md` or `.mdc`,
 # not "any file the corpus does not already contain by another route". A link
@@ -87,7 +77,7 @@
 # skills/flow-status/scripts/lib, each pointing at ../../../scripts/lib so a
 # guard script is installed beside the skill that invokes it. They hold `.sh`
 # files and no Markdown, so not descending into them loses nothing, and refusing
-# them would fail every run of both guards against the real repository — a worse
+# them would fail every run of the inventory against the real repository — a worse
 # outcome than the bug, since a guard nobody can run green is a guard nobody
 # runs. Following a link is still not on the table: what is owned is decided by
 # where a file physically lives.
@@ -175,15 +165,13 @@ owned_corpus_files() {
     if owned_corpus_excluded "$rel"; then
       continue
     fi
-    # A symlink to a FILE is not this rule's subject: it hides nothing, since a
-    # link standing where a covered file could stand is already the budget
-    # guard's own violation. A DANGLING link is not a directory either, so it
-    # falls out here rather than being refused for a shape it does not have.
+    # A symlink to a FILE is not this rule's subject. A DANGLING link is not a
+    # directory either, so it falls out here rather than being refused for a shape it does not have.
     [ -d "$path" ] || continue
     # `-L` is what makes this see through the link; a non-zero status is a
-    # refusal rather than an empty answer, because an unreadable target and a
-    # symlink loop both land here and neither is "there is no Markdown under
-    # it". The result is captured rather than counted, so an empty capture is
+    # refusal rather than an empty answer, because an unreadable target lands
+    # here and is not "there is no Markdown under it". A symlink loop does
+    # not: measured, /usr/bin/find -L skips a loop silently and exits 0. The result is captured rather than counted, so an empty capture is
     # the whole test.
     if ! found="$(find -L "$path" -type f \( -name '*.md' -o -name '*.mdc' \) -print 2>/dev/null)"; then
       printf 'owned_corpus_files: cannot look through the symlinked directory: %s\n' \

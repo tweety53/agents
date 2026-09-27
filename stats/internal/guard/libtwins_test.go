@@ -29,8 +29,17 @@ type libRes struct {
 // process's own working directory, the one the Go twin resolves against.
 func bashLib(t *testing.T, lib, fn string, args ...string) libRes {
 	t.Helper()
+	return bashLibEnv(t, nil, lib, fn, args...)
+}
+
+// bashLibEnv is bashLib with env appended to the process environment.
+func bashLibEnv(t *testing.T, env []string, lib, fn string, args ...string) libRes {
+	t.Helper()
 	cmd := exec.Command("bash", append([]string{"-c",
 		`set -uo pipefail; . "$1" || exit 99; shift; "$@"`, "_", "../../../scripts/lib/" + lib, fn}, args...)...)
+	if env != nil {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	status := 0
@@ -277,5 +286,161 @@ func TestGitExecSignalStatus(t *testing.T) {
 	_, rc := gitExec(t.TempDir(), nil, io.Discard, "-c", "alias.die=!kill -TERM $PPID", "die")
 	if rc != 143 {
 		t.Fatalf("gitExec status for a SIGTERM'd git: got %d, want 143", rc)
+	}
+}
+
+// envWith is an Env over the test process's own environment and working
+// directory with over's NAME=value pairs laid on top, the same pairs
+// bashLibEnv hands the bash side.
+func envWith(t *testing.T, over []string) Env {
+	t.Helper()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := map[string]string{}
+	for _, kv := range over {
+		k, v, _ := strings.Cut(kv, "=")
+		m[k] = v
+	}
+	look := func(k string) (string, bool) {
+		if v, ok := m[k]; ok {
+			return v, true
+		}
+		return os.LookupEnv(k)
+	}
+	return Env{Dir: cwd, LookupEnv: look, Getenv: func(k string) string { v, _ := look(k); return v }}
+}
+
+// TestPanelTouchedPathsParity pins panelResolveGit, panelValidateWorktree and
+// panelTouchedPaths against lib/panel-touched-paths.sh's three functions.
+func TestPanelTouchedPathsParity(t *testing.T) {
+	t.Parallel()
+	d := t.TempDir()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	relTo := func(p string) string {
+		r, err := filepath.Rel(cwd, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+
+	// The change: a base commit, then a committed rename and additions,
+	// staged and unstaged edits, and an untracked file git diff never lists.
+	var g fxGit
+	repo := d + "/work tree"
+	g.git("", "init", "-q", "-b", "main", repo)
+	for _, f := range []string{"a.txt", "old.txt", "tracked.md", "sp ace.txt", "B.md"} {
+		g.write(repo+"/"+f, "base "+f)
+	}
+	g.git(repo, "add", ".")
+	g.git(repo, "commit", "-qm", "base")
+	mb := g.git(repo, "rev-parse", "HEAD")
+	g.git(repo, "mv", "old.txt", "new.txt")
+	for _, f := range []string{"with space.md", "a.md", "_u.txt", "Z.mdc"} {
+		g.write(repo+"/"+f, f)
+	}
+	g.appendLine(repo+"/B.md", "committed")
+	g.git(repo, "add", ".")
+	g.git(repo, "commit", "-qm", "change")
+	g.write(repo+"/staged.go", "package x")
+	g.appendLine(repo+"/a.txt", "staged")
+	g.git(repo, "add", "staged.go", "a.txt")
+	g.appendLine(repo+"/tracked.md", "unstaged")
+	g.appendLine(repo+"/sp ace.txt", "unstaged")
+	g.appendLine(repo+"/B.md", "unstaged")
+	g.write(repo+"/untracked.txt", "untracked")
+	clean := d + "/clean"
+	g.git("", "init", "-q", "-b", "main", clean)
+	g.write(clean+"/a.txt", "a")
+	g.git(clean, "add", "a.txt")
+	g.git(clean, "commit", "-qm", "base")
+	cleanMB := g.git(clean, "rev-parse", "HEAD")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	writeFile(t, d+"/file", "x\n")
+	mkdir(t, d+"/plain")
+	mkdir(t, d+"/nogit")
+	stubGit(t, d+"/override", "false", "never")
+	stubGit(t, d+"/committed", `has `+mb+`..HEAD "$@"`, "simulated committed failure")
+	stubGit(t, d+"/staged", `has --cached "$@"`, "simulated staged failure")
+	stubGit(t, d+"/unstaged", `[ "${!#}" = --name-only ]`, "simulated unstaged failure")
+	path := os.Getenv("PATH")
+
+	for _, tc := range []struct{ name, path string }{
+		{"resolve: git on PATH", path},
+		{"resolve: an override git first on PATH", d + "/override:" + path},
+		{"resolve: no git on PATH", d + "/nogit"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			over := []string{"PATH=" + tc.path}
+			var got libRes
+			var errb strings.Builder
+			if p, ok := panelResolveGit(envWith(t, over), "prog", &errb); ok {
+				got.stdout = p + "\n"
+			} else {
+				got.status = 2
+			}
+			got.stderr = errb.String()
+			assertParity(t, got, bashLibEnv(t, over, "panel-touched-paths.sh", "panel_resolve_git", "prog"))
+		})
+	}
+
+	for _, tc := range []struct{ name, wt, mb string }{
+		{"validate: missing worktree argument", "", mb},
+		{"validate: missing merge-base argument", repo, ""},
+		{"validate: worktree absent", d + "/absent", mb},
+		{"validate: worktree a regular file", d + "/file", mb},
+		{"validate: worktree not a git repository", d + "/plain", mb},
+		{"validate: unknown merge base", repo, "0000000000000000000000000000000000000000"},
+		{"validate: flag-shaped merge base", repo, "--evil"},
+		{"validate: valid worktree and merge base", repo, mb},
+		{"validate: relative worktree path", relTo(repo), mb},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got libRes
+			var errb strings.Builder
+			if !panelValidateWorktree(envWith(t, nil), "prog", tc.wt, tc.mb, fixtureGit, &errb) {
+				got.status = 2
+			}
+			got.stderr = errb.String()
+			assertParity(t, got, bashLib(t, "panel-touched-paths.sh", "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit))
+		})
+	}
+
+	for _, tc := range []struct {
+		name, wt, mb, git string
+		over              []string
+	}{
+		{"touched: committed, staged and unstaged, a rename and spaces, untracked left out", repo, mb, fixtureGit, nil},
+		{"touched: C collation", repo, mb, fixtureGit, []string{"LC_ALL=C"}},
+		{"touched: en_US.UTF-8 collation", repo, mb, fixtureGit, []string{"LC_ALL=en_US.UTF-8"}},
+		{"touched: relative worktree path", relTo(repo), mb, fixtureGit, nil},
+		{"touched: empty union", clean, cleanMB, fixtureGit, nil},
+		{"touched: committed-paths failure", repo, mb, d + "/committed/git", nil},
+		{"touched: staged-paths failure", repo, mb, d + "/staged/git", nil},
+		{"touched: unstaged-paths failure", repo, mb, d + "/unstaged/git", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got libRes
+			var errb strings.Builder
+			paths, ok := panelTouchedPaths(envWith(t, tc.over), "prog", tc.wt, tc.mb, tc.git, &errb)
+			for _, p := range paths {
+				got.stdout += p + "\n"
+			}
+			if !ok {
+				got.status = 2
+			}
+			got.stderr = errb.String()
+			assertParity(t, got, bashLibEnv(t, tc.over, "panel-touched-paths.sh", "panel_touched_paths", "prog", tc.wt, tc.mb, tc.git))
+		})
 	}
 }

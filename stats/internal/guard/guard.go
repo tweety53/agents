@@ -30,6 +30,12 @@ type Env struct {
 	// Dispatches returns `flow record dispatches -change <name>`'s JSON; nil
 	// means exec the `flow` CLI on PATH, as the bash guard does.
 	Dispatches func(change string) ([]byte, error)
+	// Verdict records `flow record verdict -change <name> -guard <guard>
+	// -worktree <worktree> -verdict <line>`; Verdicts returns `flow record
+	// verdicts -guard <guard> -false-positive`'s JSON. nil means exec the
+	// `flow` CLI on PATH, as the bash guard does.
+	Verdict  func(change, guard, worktree, verdict string) error
+	Verdicts func(guard string) ([]byte, error)
 	// StageKeys returns what `go run ./cmd/flow stage keys` prints from the
 	// repository root's stats module; nil means exec it, as the bash guard
 	// does.

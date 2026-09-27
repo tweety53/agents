@@ -226,7 +226,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 	// of task 5), each pinned by running the bash at d71a2327 on the same
 	// root and comparing stdout, stderr and exit byte for byte.
 	bash := filepath.Join(t.TempDir(), "check-dispatch-paragraphs.sh")
-	src, err := exec.Command("git", "-C", "../../..", "show", "d71a2327:scripts/check-dispatch-paragraphs.sh").Output()
+	src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "d71a2327:scripts/check-dispatch-paragraphs.sh").Output()
 	if err != nil {
 		t.Fatal(err)
 	}

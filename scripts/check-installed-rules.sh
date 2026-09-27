@@ -21,11 +21,11 @@
 # check-guard-symlinks.sh: the rule set is this repository's own `rules/`,
 # resolved from this script's own location, and the install root is the
 # invoking user's `$HOME`. CHECK_INSTALLED_RULES_HOME is an explicit, opt-in
-# override honored only when set, so the companion harness
-# (test-check-installed-rules.sh) can point this guard at a sandboxed fixture
+# override honored only when set, so its tests
+# (stats/internal/guard/check_installed_rules_test.go) can point this guard at a sandboxed fixture
 # under TMPDIR — never set it for a normal invocation.
 # CHECK_INSTALLED_RULES_SETUP_SH is the same convention for the installer
-# itself, defaulting to this checkout's setup.sh, so the harness can prove
+# itself, defaulting to this checkout's setup.sh, so the tests can prove
 # rule 4 follows the installer's declared targets without writing the real
 # one.
 #
@@ -50,7 +50,7 @@
 # The skip applies only when CHECK_INSTALLED_RULES_HOME is unset. That override
 # means a caller is deliberately pointing the guard at a fixture home, and wants
 # the real comparison run against it; short-circuiting there would make the
-# harness unable to test anything from inside a worktree, which is where it runs.
+# tests unable to test anything from inside a worktree, which is where they run.
 #
 # Four rules, each reported with the path and what to do:
 #
@@ -94,181 +94,21 @@
 #
 # Every violation has the same remedy, which is why the verdict names it once:
 # `./setup.sh global` from this checkout.
-set -uo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-RULES_SRC="$REPO_ROOT/rules"
-HOME_DIR="${CHECK_INSTALLED_RULES_HOME:-$HOME}"
-RULES_DIR="$HOME_DIR/.claude/rules"
-
-VIOLATIONS=0
-violation() {
-  echo "check-installed-rules: $*" >&2
-  VIOLATIONS=$((VIOLATIONS + 1))
+#
+# The guard runs as the Go port in stats/internal/guard/installedrules.go.
+# The binary does not live in this checkout, so this shim exports
+# FLOW_GUARD_REPO_ROOT — this script's parent directory, derived as the bash
+# guard derived its REPO_ROOT — as the checkout whose rules/ and setup.sh are
+# read. flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 1 (this guard's
+# cannot-answer code) with the cause when it cannot.
+set -euo pipefail
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-installed-rules: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 1
 }
-
-# always_on_rules — the same frontmatter test setup.sh's own always_on_rules()
-# applies, kept identical on purpose: a rule this guard calls always-on that
-# the installer does not would demand a link setup.sh never creates, and the
-# two would disagree forever with no way to satisfy both. The awk is a copy
-# because setup.sh is not sourceable — it runs an install on load.
-always_on_rules() {
-  local rule_file
-  for rule_file in "$RULES_SRC"/*.mdc; do
-    [ -f "$rule_file" ] || continue
-    if awk '
-      { sub(/\r$/, "") }
-      NR == 1 && $0 != "---"                             { exit }
-      NR > 1  && $0 == "---"                             { closed = 1; exit }
-      NR > 20                                            { exit }
-      NR > 1  && /^alwaysApply:[[:space:]]*true[[:space:]]*$/ { always = 1 }
-      END                                                { exit !(always && closed) }
-    ' "$rule_file"; then
-      basename "$rule_file"
-    fi
-  done
-}
-
-if [ ! -d "$RULES_SRC" ]; then
-  echo "check-installed-rules: $RULES_SRC does not exist — this is not an agents checkout" >&2
-  exit 1
-fi
-
-mapfile -t ALWAYS_ON < <(always_on_rules)
-if [ "${#ALWAYS_ON[@]}" -eq 0 ]; then
-  echo "check-installed-rules: $RULES_SRC declares no always-on rule — refusing to report an empty install as clean" >&2
-  exit 1
-fi
-
-if [ -z "${CHECK_INSTALLED_RULES_HOME:-}" ] && [ -f "$REPO_ROOT/.git" ]; then
-  printf 'INSTALLED-RULES-WORKTREE: %s is a linked worktree — the install tracks the main checkout, nothing to check here\n' "$REPO_ROOT"
-  exit 0
-fi
-
-if [ ! -d "$RULES_DIR" ]; then
-  printf 'INSTALLED-RULES-NONE: %s — no global install found, nothing to check\n' "$HOME_DIR"
-  exit 0
-fi
-
-# Rule 1 — every always-on rule is linked, resolves, and points back here.
-for rule_name in "${ALWAYS_ON[@]}"; do
-  installed="$RULES_DIR/${rule_name%.mdc}.md"
-  want="$RULES_SRC/$rule_name"
-  if [ ! -L "$installed" ]; then
-    if [ -e "$installed" ]; then
-      violation "$installed is not a symlink — a copy goes stale the next time the rule is edited"
-    else
-      violation "$installed is missing — rules/$rule_name is always-on but was never installed"
-    fi
-    continue
-  fi
-  if [ ! -e "$installed" ]; then
-    violation "$installed is a dangling symlink — it points at $(readlink "$installed"), which does not exist"
-    continue
-  fi
-  got="$(cd "$(dirname "$installed")" && cd "$(dirname "$(readlink "$installed")")" 2>/dev/null && pwd)/$(basename "$(readlink "$installed")")"
-  if [ "$got" != "$want" ]; then
-    violation "$installed points at $got, not this checkout's $want"
-  fi
-done
-
-# Rule 2 — nothing installed that is no longer an always-on rule.
-for installed in "$RULES_DIR"/*.md; do
-  [ -e "$installed" ] || [ -L "$installed" ] || continue
-  base="$(basename "$installed")"
-  [ "$base" = "agent-baseline.md" ] && continue
-  found=0
-  for rule_name in "${ALWAYS_ON[@]}"; do
-    [ "${rule_name%.mdc}.md" = "$base" ] && { found=1; break; }
-  done
-  if [ "$found" -eq 0 ]; then
-    violation "$installed is installed but rules/${base%.md}.mdc is not an always-on rule here — a stale link still reads as installed"
-  fi
-done
-
-# Rule 3 — the baseline every dispatched agent is told to read.
-baseline="$RULES_DIR/agent-baseline.md"
-if [ ! -e "$baseline" ]; then
-  violation "$baseline is missing or dangling — every subagent dispatch points at it"
-fi
-
-# Rule 4 — the managed block in each installed harness file renders each rule.
-# The file set is setup.sh's own `managed_files` declaration, parsed live
-# (kan-585) — see the rule 4 header above for why a hardcoded copy here was
-# already wrong once.
-SETUP_SH="${CHECK_INSTALLED_RULES_SETUP_SH:-$REPO_ROOT/setup.sh}"
-if [ ! -r "$SETUP_SH" ]; then
-  echo "check-installed-rules: $SETUP_SH is unreadable — cannot resolve the managed-block targets" >&2
-  exit 1
-fi
-# Anchored at line start (optional leading whitespace only): a commented-out
-# stale declaration must never serve (F2/F5, round 0). The trailing-`)` check
-# refuses a declaration this one-line parse cannot fully see — a multi-line
-# declaration would otherwise be silently truncated to its first line, the
-# guard scanning a subset and reporting green over an unscanned file's broken
-# block (F1/F4, round 0).
-MANAGED_DECL="$(grep -m1 '^[[:space:]]*local managed_files=(' "$SETUP_SH")"
-if [ -z "$MANAGED_DECL" ]; then
-  echo "check-installed-rules: no 'local managed_files=(' declaration in $SETUP_SH — cannot resolve the managed-block targets" >&2
-  exit 1
-fi
-case "$MANAGED_DECL" in
-  *')') ;;
-  *)
-    echo "check-installed-rules: the managed_files declaration in $SETUP_SH does not close on its own line — this guard parses a single-line declaration only, and a truncated set must be refused, never silently served" >&2
-    exit 1
-    ;;
-esac
-HARNESS_FILES=()
-for managed_element in ${MANAGED_DECL#*managed_files=(}; do
-  managed_element="${managed_element%)}"
-  # The bare `)` of an empty `managed_files=()` is not an element: skipping
-  # it lets the empty-declaration refusal below fire, where it names the
-  # real problem, instead of this loop misreporting it as unresolvable.
-  [ -n "$managed_element" ] || continue
-  managed_element="${managed_element%\"}"
-  managed_element="${managed_element#\"}"
-  case "$managed_element" in
-    '$home_dir'/*) HARNESS_FILES+=("${managed_element#'$home_dir'/}") ;;
-    *)
-      echo "check-installed-rules: cannot resolve managed_files element '$managed_element' in $SETUP_SH — expected a \"\$home_dir/-relative path" >&2
-      exit 1
-      ;;
-  esac
-done
-if [ "${#HARNESS_FILES[@]}" -eq 0 ]; then
-  echo "check-installed-rules: setup.sh's managed_files declaration is empty in $SETUP_SH — refusing to scan nothing and call it clean" >&2
-  exit 1
-fi
-for rel in "${HARNESS_FILES[@]}"; do
-  harness="$HOME_DIR/$rel"
-  if [ ! -f "$harness" ]; then
-    echo "check-installed-rules: $harness does not exist, not scanned" >&2
-    continue
-  fi
-  for rule_name in "${ALWAYS_ON[@]}"; do
-    if ! grep -qF "<!-- rule: $rule_name -->" "$harness"; then
-      violation "$harness carries no managed-block marker for $rule_name — no session reads that rule"
-    fi
-  done
-  while IFS= read -r marker; do
-    found=0
-    for rule_name in "${ALWAYS_ON[@]}"; do
-      [ "$marker" = "$rule_name" ] && { found=1; break; }
-    done
-    if [ "$found" -eq 0 ]; then
-      violation "$harness renders $marker, which is not an always-on rule here"
-    fi
-  done < <(grep -o '<!-- rule: [^ ]*\.mdc -->' "$harness" | sed -E 's/^<!-- rule: (.*) -->$/\1/' | sort -u)
-done
-
-if [ "$VIOLATIONS" -ne 0 ]; then
-  printf 'INSTALLED-RULES-STALE: %s — %d violation(s); re-run ./setup.sh global from %s\n' \
-    "$HOME_DIR" "$VIOLATIONS" "$REPO_ROOT"
-  exit 1
-fi
-
-printf 'INSTALLED-RULES-OK: %s — %d always-on rule(s) installed and rendered\n' \
-  "$HOME_DIR" "${#ALWAYS_ON[@]}"
-exit 0
+FLOW_GUARD_REPO_ROOT="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+export FLOW_GUARD_REPO_ROOT
+flow_guard_exec check-installed-rules 1 "check-installed-rules:" "$@"

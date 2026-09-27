@@ -75,15 +75,13 @@
 # which is correct, since a worked example is one of the things a trim may never
 # cut.
 #
-# The corpus is resolved by scripts/lib/owned-corpus.sh, which is also what
-# check-contract-budget.sh calls once its own widening lands — one implementation,
-# so the two guards cannot disagree about which files this repository owns.
+# The corpus is resolved by scripts/lib/owned-corpus.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # REPO_ROOT is resolved from this script's own location, exactly like
-# check-vocabulary.sh and check-contract-budget.sh. That is what makes the guard
+# check-vocabulary.sh. That is what makes the guard
 # argument-free and self-scoped from any cwd. This is repo lint, not a shipped
 # guard: it is symlinked into no skill's scripts/ directory, so
 # check-guard-symlinks.sh's rule 4 — which forbids a SHIPPED guard from deriving
@@ -271,9 +269,8 @@ fi
 
 # The counts go to STDERR, never stdout: stdout is the set the caller diffs, and
 # a verdict line in it would be a difference of its own every time a sentence was
-# legitimately added elsewhere. They are printed at all for the reason
-# check-contract-budget.sh prints its count — a silent run and a run that scanned
-# nothing look identical otherwise.
+# legitimately added elsewhere. They are printed at all because a silent run and a run that
+# scanned nothing look identical otherwise.
 if ! printf 'check-normative-inventory: %s normative sentence(s) from %s file(s) under %s\n' \
   "$count" "${#files[@]}" "$REPO_ROOT" >&2; then
   exit 2

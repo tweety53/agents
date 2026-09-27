@@ -19,12 +19,10 @@
 # hand-copying a single file into an unrelated project's own tooling cannot.
 # All three callers above ship through the farm — each carries its own
 # `lib` symlink into scripts/lib/ beside it — so each sources this file
-# rather than carrying its own copy. `check-workspace-isolation.sh` carries
-# its own, separate copy of this same function, as check-cleanup-complete's
-# Go port does (ccSanitize, stats/internal/guard/cleanupcomplete.go), and both are
-# deliberately left alone: KAN-73's guard-to-skill map
-# does not change what either of those two already does, and this task's
-# scope is the three visual guards, not a repository-wide consolidation.
+# rather than carrying its own copy. The Go ports of check-workspace-isolation
+# and check-cleanup-complete share one Go copy of this same function
+# (ccSanitize, stats/internal/guard/cleanupcomplete.go), which a bash caller
+# cannot source.
 #
 # Not meant to be executed directly — a caller sources it and calls
 # sanitize_display; it sets no `set -euo pipefail` of its own and relies on

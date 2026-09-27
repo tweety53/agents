@@ -84,14 +84,14 @@
 # why escaping and not stripping or refusing.
 #
 # THE PARSER'S split_cells/trimcell/foldcell TRIO IS A SOURCED HELPER —
-# scripts/lib/visual-table-cells.awk, not check-workspace-isolation.sh's own
-# (wider, four-column) copy of the same shape. Its hazards are the same
+# scripts/lib/visual-table-cells.awk, not check-workspace-isolation's own
+# (wider, four-column; stats/internal/guard/workspaceisolation.go) copy of the same shape. Its hazards are the same
 # because its input is: a `|` inside a cell, written `\|`, must not split
 # the row; a row may omit its trailing `|`; a file may arrive with CRLF line
 # endings. See that lib file's header for why this guard, reached only
 # through the skills/*/scripts/ symlink farm, may source a sibling instead
-# of carrying its own copy — check-workspace-isolation.sh's own copy stays
-# put, for the reason recorded there.
+# of carrying its own copy — check-workspace-isolation's own copy stays
+# put in its Go port, for the reason recorded there.
 #
 # A LEADING UTF-8 BOM IS STRIPPED BEFORE ANY OF THE ABOVE READS THE FILE, via
 # the sourced strip_bom_cat (scripts/lib/strip-bom.sh) — see that file's
@@ -143,7 +143,7 @@ source "$SCRIPT_DIR/lib/strip-bom.sh"
 source "$SCRIPT_DIR/lib/trim-glob-element.sh"
 
 # The file is optional. No `.flow/project.md` at all is a supported,
-# ordinary case, not an error — matching check-workspace-isolation.sh's own
+# ordinary case, not an error — matching check-workspace-isolation's own
 # treatment of the identical absence. `-L` catches a dangling symlink, which
 # is not "nothing here" either.
 if [ ! -e "$CFG" ] && [ ! -L "$CFG" ]; then
@@ -154,7 +154,7 @@ fi
 # A REGULAR FILE, TESTED BEFORE READABILITY, because `-r` answers about a
 # DIRECTORY too, and `grep` then fails with "Is a directory" while its exit
 # status is indistinguishable from "no match" — the false pass
-# check-workspace-isolation.sh's own comment documents at the same test.
+# check-workspace-isolation's bash body documented at the same test.
 if [ ! -f "$CFG" ]; then
   echo "check-visual-verification: $CFG is not a regular file — cannot validate what it declares" >&2
   exit 2
@@ -216,7 +216,7 @@ fi
 # AN APOSTROPHE MAY NOW APPEAR BELOW — the program is a heredoc with a
 # quoted terminator (`<<'AWK_PROG'`), not a single-quoted shell string, so an
 # apostrophe inside no longer ends it mid-word the way it would in
-# check-workspace-isolation.sh's own inline program. Kept quoted rather than
+# check-workspace-isolation's former bash inline program. Kept quoted rather than
 # unquoted regardless, so `$heading_re`-shaped text inside a comment is never
 # read as shell expansion.
 REPORT="$(awk -v cfg="$CFG" -v heading_re="$VV_HEADING" \
@@ -305,7 +305,7 @@ REPORT="$(awk -v cfg="$CFG" -v heading_re="$VV_HEADING" \
       if (is_delimiter(n, cells)) continue
 
       # A SECOND HEADER INSIDE ONE BLOCK IS TWO TABLES THAT MERGED — the same
-      # hazard check-workspace-isolation.sh flush_block guards against, and
+      # hazard check-workspace-isolation's flushBlock (stats/internal/guard/workspaceisolation.go) guards against, and
       # the same fix: abandon the block rather than read its later rows
       # against the wrong columns.
       other = ""
@@ -387,7 +387,7 @@ AWK_PROG
   ) <(strip_bom_cat "$CFG"))"
 
 # THE SENTINEL IS WHAT TELLS A CLEAN FILE FROM A VALIDATOR THAT NEVER RAN —
-# check-workspace-isolation.sh's identical rationale: awk stderr is
+# check-workspace-isolation's identical rationale (stats/internal/guard/workspaceisolation.go): awk stderr is
 # deliberately not captured, so whatever awk said about why is already in
 # front of the operator.
 case "$REPORT" in

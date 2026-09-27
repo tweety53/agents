@@ -14,7 +14,7 @@ halves live in the one repo and are covered below.
 | flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Bash + Python + Go, not Bash-only.** Several `scripts/*.py` guards (`check-task-build-green.py`, `check-plan-shape.py`, `check-task-commit-fields.py`, `check-markdown-integrity.py`, among others) run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `prepare-archive-branch`, `check-base-moved`, `check-panel-fix-single-dispatch`, `check-model-keys`, `prove-reproducer` and `check-finish-preflight` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
+**This repository is Bash + Python + Go, not Bash-only.** Several `scripts/*.py` guards (`check-task-build-green.py`, `check-plan-shape.py`, `check-task-commit-fields.py`, `check-markdown-integrity.py`, among others) run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `prepare-archive-branch`, `check-base-moved`, `check-panel-fix-single-dispatch`, `check-model-keys`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths` and `check-panel-citation-trigger` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
 
 **Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash.
 
@@ -122,7 +122,6 @@ printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .
 scripts/check-spec-reach.sh .
 scripts/resolve-visual-screenshots.sh . baseline.spec.ts
 scripts/check-uitest-overrides.sh
-scripts/check-contract-budget.sh
 scripts/check-markdown-integrity.py
 scripts/check-stage-mark-calls.sh
 scripts/check-guard-symlinks.sh
@@ -148,17 +147,6 @@ rule's "run the auto-fix command first" step. There is no equivalent for the SPA
 carries no lint or format script, only `tsc -b`'s type check, so a TypeScript violation is fixed by
 hand like a guard-script one.
 
-**`check-contract-budget.sh` is a ratchet, not a target.** It fails when an owned `.md` or `.mdc`
-file — every one under `skills/`, `rules/`, `spectre/specs/`, `commands/`, `commands-claude/`,
-`.flow/` and the repository root, resolved through `scripts/lib/owned-corpus.sh` — outgrows the
-budget declared for it in the guard's own `budgets()` table, or carries no budget at all. The table
-is keyed on the path relative to the repository root, not on the bare basename, because every skill
-directory has a file literally named `SKILL.md` and a basename key would collide across skills. Each
-budget is the size its file had when the change that added its row landed, plus 25% — so ordinary
-edits pass and a real section addition trips it, forcing a deliberate edit to the table rather than a
-silent regrowth of a file every `/flow*` command loads. Raising a budget is the correct response
-to a genuine addition; narrowing the guard's scope or deleting a row is not.
-
 **`check-normative-inventory.sh` reports a set rather than a verdict.** It prints every sentence in
 this repository's owned Markdown that carries `SHALL`, `SHALL NOT`, `MUST` or `MUST NOT` as a whole
 word — one per line, whitespace-normalised, sorted — and its exit codes are only `0` the inventory
@@ -168,8 +156,7 @@ and diffs the output after its last against it, and resolves any difference by r
 sentence rather than by accepting the new inventory. Unlike every other guard here it writes its
 payload to stdout (its file and sentence counts go to stderr), so a lint run sees roughly a
 thousand lines from it and no verdict line. It resolves the corpus through
-`scripts/lib/owned-corpus.sh`, which `check-contract-budget.sh` calls too, so the two guards
-cannot disagree about which files this repository owns.
+`scripts/lib/owned-corpus.sh`.
 
 **`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question

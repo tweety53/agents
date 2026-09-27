@@ -30,7 +30,7 @@ var prMaster = sync.OnceValues(func() ([2]string, error) {
 		return [2]string{}, err
 	}
 	git := func(args ...string) (string, error) {
-		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
 		cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
 			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@test",
 			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@test")
@@ -108,7 +108,7 @@ func prGitState(t *testing.T, repo string) string {
 	t.Helper()
 	var b strings.Builder
 	for _, args := range [][]string{{"status", "--porcelain"}, {"rev-parse", "HEAD"}, {"worktree", "list", "--porcelain"}} {
-		out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).Output()
+		out, err := exec.Command(fixtureGit, append([]string{"-C", repo}, args...)...).Output()
 		if err != nil {
 			t.Fatalf("git %v: %v", args, err)
 		}
@@ -312,7 +312,7 @@ func prBash(t *testing.T, env Env, args ...string) (int, string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	for _, rel := range []string{"prove-reproducer.sh", "lib/reproducer-path.sh"} {
-		src, err := exec.Command("git", "-C", "../../..", "show", "d71a2327:scripts/"+rel).Output()
+		src, err := exec.Command(fixtureGit, "-C", "../../..", "show", "d71a2327:scripts/"+rel).Output()
 		if err != nil {
 			t.Fatalf("git show d71a2327:scripts/%s: %v", rel, err)
 		}
@@ -342,7 +342,7 @@ func TestProveReproducerBashParity(t *testing.T) {
 	t.Parallel()
 	gitIn := func(t *testing.T, repo string, args ...string) string {
 		t.Helper()
-		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		cmd := exec.Command(fixtureGit, append([]string{"-C", repo}, args...)...)
 		cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
 			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@test",
 			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@test")
@@ -441,7 +441,7 @@ func TestProveReproducerExecBitCheck(t *testing.T) {
 	writeExec(t, stub+"/cp", "#!/bin/sh\n# cp -p <src> <dst>, the mode dropped\ncat \"$2\" > \"$3\"\n")
 	bashDir := bashAtBase(t, "prove-reproducer.sh", "lib/reproducer-path.sh")
 	writeFile(t, bashDir+"/run-reproducer.sh", "")
-	cache := t.TempDir()
+	cache := guardCache(t)
 	run := func(script string) (int, string, string) {
 		tmp := t.TempDir()
 		cmd := exec.Command("/bin/bash", script, repo, pre, prRel)
@@ -472,7 +472,7 @@ func TestProveReproducerSIGPIPE(t *testing.T) {
 	git0 := prGitState(t, repo)
 	tmp := t.TempDir()
 	cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/prove-reproducer.sh", repo, pre, prRel)
-	cmd.Env = append(os.Environ(), "TMPDIR="+tmp, "FLOW_GUARD_CACHE_DIR="+t.TempDir())
+	cmd.Env = append(os.Environ(), "TMPDIR="+tmp, "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -500,7 +500,7 @@ func TestProveReproducerSIGPIPE(t *testing.T) {
 // finishes, as a non-interactive bash could not trap it.
 func TestProveReproducerSignals(t *testing.T) {
 	t.Parallel()
-	cache := t.TempDir()
+	cache := guardCache(t)
 	for _, c := range []struct {
 		name   string
 		sig    syscall.Signal

@@ -433,10 +433,6 @@ func TestCheckCleanupComplete(t *testing.T) {
 				"the guard produced a verdict for a name outside the repository: %s", r.out)
 		}},
 		{"13", func(t *testing.T, f *ccFx) {
-			realGit, err := exec.LookPath("git")
-			if err != nil {
-				t.Fatal(err)
-			}
 			stub := f.base + "/gitstub"
 			writeExec(t, stub+"/git", fmt.Sprintf(`#!/usr/bin/env bash
 for arg in "$@"; do
@@ -446,7 +442,7 @@ for arg in "$@"; do
   fi
 done
 exec %q "$@"
-`, realGit))
+`, fixtureGit))
 			f.env["PATH"] = stub + ":" + f.env["PATH"]
 			ccNoVerdict(t, f.guard(t, "demo"), "a failed worktree listing")
 		}},

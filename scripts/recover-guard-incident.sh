@@ -38,95 +38,14 @@
 # pattern, so the diagnosis is visible at the point of decision, not only
 # in the mode that acts on it.
 #
-# Bash 3.2 is the floor: indexed arrays only, no associative arrays.
+# Ported to Go (KAN-842): the body's reasoning is in
+# stats/internal/guard/recoverguardincident.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this script's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-SELF="recover-guard-incident"
-
-die() { printf '%s: %s\n' "$SELF" "$1" >&2; exit "${2:-1}"; }
-
-usage() {
-  printf 'usage: %s [--apply] [repo-dir] [path...]\n' "$SELF"
-  printf '  --apply    execute; default is a dry-run plan\n'
-  printf '  repo-dir   git repository, default cwd\n'
-  printf '  path...    planning paths, repo-root-relative; default spectre/changes\n'
+. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "recover-guard-incident: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
 }
-
-APPLY=0
-if [ "${1:-}" = "--help" ]; then usage; exit 0; fi
-if [ "${1:-}" = "--apply" ]; then APPLY=1; shift; fi
-for a in "$@"; do
-  case "$a" in -*) die "unknown option: $a" 2 ;; esac
-done
-
-# F1 contract: repo-dir (or the cwd) resolves to the toplevel, so path...
-# is repo-root-relative however deep inside the repo the tool is invoked.
-if [ "$#" -gt 0 ]; then
-  DIR="$(cd "$1" 2>/dev/null && pwd -P)" || die "not a directory: $1" 2
-  shift
-else
-  DIR="$(pwd -P)"
-fi
-REPO="$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)" \
-  || die "not a git repository: $DIR" 2
-
-[ "$#" -gt 0 ] || set -- spectre/changes
-
-git -C "$REPO" rev-parse -q --verify REVERT_HEAD >/dev/null 2>&1 \
-  || die "no revert in progress in $REPO (REVERT_HEAD missing) — nothing to recover"
-
-if ! git -C "$REPO" rev-parse -q --verify "stash@{0}" >/dev/null 2>&1; then
-  die "no stash entry in $REPO — recovery restores stash@{0}^3, which needs a stash"
-fi
-if ! git -C "$REPO" rev-parse -q --verify "stash@{0}^3" >/dev/null 2>&1; then
-  die "stash@{0} has no untracked third parent — it was not created with 'git stash -u'; re-stash with -u before any abort"
-fi
-
-# The restore set: every file the stash's third parent holds under the given
-# paths, each checked against the working tree. Tracked anywhere (index or
-# HEAD) -> refuse the whole run; already present untracked -> restore over
-# it, named as an overwrite; absent -> a plain restore.
-FILES=""
-OVERWRITES=""
-for p in "$@"; do
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    if [ -n "$(git -C "$REPO" ls-files -- "$f")" ] \
-       || git -C "$REPO" cat-file -e "HEAD:$f" 2>/dev/null; then
-      die "refusing: $f is tracked in $REPO — recovery never clobbers tracked state" 1
-    fi
-    FILES="${FILES}${f}
-"
-    if [ -e "$REPO/$f" ]; then
-      OVERWRITES="${OVERWRITES}${f}
-"
-    fi
-  done < <(git -C "$REPO" ls-tree -r --name-only "stash@{0}^3" -- "$p")
-done
-[ -n "$FILES" ] || die "stash@{0}^3 holds no files under: $*"
-
-printf 'reflog diagnosis — the alternating reset pattern the incident showed:\n'
-git -C "$REPO" reflog -g HEAD -n 15 || true
-
-printf 'plan:\n'
-printf '  git -C %s revert --abort\n' "$REPO"
-while IFS= read -r f; do
-  [ -n "$f" ] || continue
-  case $'\n'"$OVERWRITES" in *$'\n'"$f"$'\n'*)
-    printf '  (overwrites an existing untracked file: %s)\n' "$f"
-    ;;
-  esac
-  printf '  mkdir -p %s/%s\n' "$REPO" "$(dirname "$f")"
-  printf '  git -C %s show "stash@{0}^3:%s" > %s/%s\n' "$REPO" "$f" "$REPO" "$f"
-done <<<"$FILES"
-
-if [ "$APPLY" -eq 1 ]; then
-  printf 'running: git -C %s revert --abort\n' "$REPO"
-  git -C "$REPO" revert --abort
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    printf 'running: git show "stash@{0}^3:%s" > %s/%s\n' "$f" "$REPO" "$f"
-    mkdir -p "$REPO/$(dirname "$f")"
-    git -C "$REPO" show "stash@{0}^3:$f" > "$REPO/$f"
-  done <<<"$FILES"
-fi
+flow_guard_exec recover-guard-incident 2 "recover-guard-incident:" "$@"

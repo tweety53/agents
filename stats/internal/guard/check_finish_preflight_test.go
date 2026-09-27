@@ -2,11 +2,11 @@ package guard
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -339,8 +339,8 @@ func TestCheckFinishPreflight(t *testing.T) {
 				}}}},
 	}
 
-	for _, c := range cases {
-		// The sandbox belongs to the parent test, so it outlives every
+	for i, c := range cases {
+		// The sandbox belongs to the parent test, so it outlives the
 		// parallel subtest reading this case's one run.
 		fx := &fpFx{bmFx: bmFx{dir: t.TempDir()}, root: fpRepoRoot}
 		if c.stub != "" {
@@ -350,7 +350,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 		if c.prep != nil {
 			c.prep(t, fx)
 		}
-		run := sync.OnceValues(func() (guardResult, error) {
+		run := func() (guardResult, error) {
 			if c.setup != nil {
 				c.setup(fx)
 			}
@@ -367,19 +367,24 @@ func TestCheckFinishPreflight(t *testing.T) {
 				return c.run(fx)
 			}
 			return runGuard("check-finish-preflight", args, fpEnv(fx.dir, fx.root, fx.stub)), nil
-		})
-		for _, chk := range c.checks {
-			t.Run(chk.label, func(t *testing.T) {
-				t.Parallel()
-				r, err := run()
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !chk.ok(r, &fx.bmFx) {
-					t.Fatalf("rc=%d out=%s", r.rc, r.out)
-				}
-			})
 		}
+		// One parallel subtest runs the case, its checks nested beneath it:
+		// a parallel subtest per check held a -parallel slot apiece while
+		// the one running the case worked and the rest waited on it.
+		t.Run(fmt.Sprint("run ", i), func(t *testing.T) {
+			t.Parallel()
+			r, err := run()
+			for _, chk := range c.checks {
+				t.Run(chk.label, func(t *testing.T) {
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !chk.ok(r, &fx.bmFx) {
+						t.Fatalf("rc=%d out=%s", r.rc, r.out)
+					}
+				})
+			}
+		})
 	}
 
 	// Beyond the harness (panel review of task 12): the dirty-entry count and
@@ -387,7 +392,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 	// so each is run against the bash at d71a2327 live on the same fixture.
 	bashDir := filepath.Join(t.TempDir(), "scripts")
 	for _, rel := range []string{"check-finish-preflight.sh", "check-worktree-location.sh", "lib/resolve-remote-base.sh"} {
-		src, err := exec.Command("git", "-C", fpRepoRoot, "show", "d71a2327:scripts/"+rel).Output()
+		src, err := exec.Command(fixtureGit, "-C", fpRepoRoot, "show", "d71a2327:scripts/"+rel).Output()
 		if err != nil {
 			t.Fatal(err)
 		}
