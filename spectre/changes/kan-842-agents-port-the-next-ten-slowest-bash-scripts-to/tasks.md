@@ -333,8 +333,9 @@ correction). check-installed-rules orders its `*.mdc`/`*.md` globs through the e
 bash's glob order measured equal to `sort`'s under en_US.UTF-8 and unlike byte order — so a missing
 `sort` on PATH is a new refusal (exit 1); an unset `FLOW_GUARD_REPO_ROOT` is refused (exit 1) as in
 the sibling ports. Untested edges differ: a directory as `CHECK_INSTALLED_RULES_SETUP_SH` gives a
-different refusal line (both exit 1), an unset `HOME` reads as empty where bash aborted, and glob
-characters in a `managed_files` element are not expanded.
+different refusal line (both exit 1), and glob characters in a `managed_files` element are not
+expanded. An unset `HOME` with no override first read as empty (a green verdict where the bash died
+under `set -u`, exit 1); fix commit `f5d76c2f` refuses it, exit 1, pinned by a port subtest.
 
 - [x] 8. Port resolve-base-branch
 
@@ -429,7 +430,7 @@ both exit 1; its expectation is restated for a branch checkout above.
     `scripts/check-contract-budget.sh` on this tree exits 0 with the output it printed at
     `c5379c0a`, directly and through a symlink to it in a temp directory.
 
-- [ ] 11. Port check-task-commit-planning-paths
+- [x] 11. Port check-task-commit-planning-paths
 
 **Files:** `stats/internal/guard/taskcommitplanningpaths.go`, `stats/internal/guard/check_task_commit_planning_paths_test.go`, `scripts/check-task-commit-planning-paths.sh`, `scripts/test-check-task-commit-planning-paths.sh`
 **Tests:** `TestCheckTaskCommitPlanningPaths`
@@ -442,16 +443,16 @@ both exit 1; its expectation is restated for a branch checkout above.
 
 **Decision:** scope-ten-next-scripts
 
-  - [ ] **Step 1: Failing test.** Port every case of
+  - [x] **Step 1: Failing test.** Port every case of
     `scripts/test-check-task-commit-planning-paths.sh`, one subtest per `ok:` label. Run — expect
     failure.
-  - [ ] **Step 2: Port**, registering `check-task-commit-planning-paths`; the spec root through
+  - [x] **Step 2: Port**, registering `check-task-commit-planning-paths`; the spec root through
     `specroot.go`; git as child processes with the bash's arguments.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckTaskCommitPlanningPaths$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckTaskCommitPlanningPaths$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckTaskCommitPlanningPaths/'` — at least 19.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines
     dropped; `git rm scripts/test-check-task-commit-planning-paths.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-task-commit-planning-paths.sh` with no arguments exits 2 with the line it
     printed at `c5379c0a`.
 
