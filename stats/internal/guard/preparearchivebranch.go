@@ -17,8 +17,9 @@ import (
 // the bash's order. The reasoning for each step, moved here from the bash body
 // it replaced (d71a2327), sits beside the code it explains. Since KAN-823 no
 // step that stops the chain fails silently: a failing git call's own stderr is
-// printed beneath the named line, and the landing directory is asserted to be
-// a git worktree of its own before any further git call runs in it.
+// printed with the guard's prefix before the named line, and the landing
+// directory is asserted to be a git worktree of its own before any further
+// git call runs in it.
 func init() {
 	Registry["prepare-archive-branch"] = prepareArchiveBranch
 }
@@ -230,7 +231,7 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	// origin/<base>, never recreate or reset it; refuse one that is not;
 	// otherwise create it from the fast-forwarded <base>.
 	if _, rc := git(stdout, stderr, "-C", landing, "show-ref", "--verify", "--quiet", "refs/heads/"+archive); rc == 0 {
-		if _, rc := git(stdout, io.Discard, "-C", landing, "merge-base", "--is-ancestor", "origin/"+base, archive); rc != 0 {
+		if _, rc := gitLoud("-C", landing, "merge-base", "--is-ancestor", "origin/"+base, archive); rc != 0 {
 			return say(1, "'%s' already exists and is not descended from origin/%s — refusing", archive, base)
 		}
 		if _, rc := gitLoud("-C", landing, "checkout", "-q", archive); rc != 0 {

@@ -35,8 +35,6 @@
 #            read it as an option.
 #   Exit 2   Cannot answer — an argument is missing, <landing-worktree> could
 #            not be created when absent, or — once positioned as a worktree —
-#   Exit 2   Cannot answer — an argument is missing, <landing-worktree> could
-#            not be created when absent, or — once positioned as a worktree —
 #            is unreadable or not a git worktree, is not ITSELF a git
 #            worktree (its directory carries no .git entry of its own, so
 #            the resolution walked up out of it — step 2c), is a worktree of
@@ -71,7 +69,8 @@
 # NO SILENT REDIRECTS IN THE LANDING CHAIN (KAN-823). Every git call whose
 # failure stops the chain — the creation in step 2b, the readability and
 # origin checks, the branch and status reads, every checkout and the
-# fast-forward — prints git's own stderr beneath the script's named line, so
+# fast-forward — prints git's own stderr, each line under the script's
+# prefix, before the script's named line, so
 # a refusal or a cannot-answer names its cause and no step's output is
 # discarded into /dev/null. Three deliberate exceptions, each its own
 # contract: the bounded fetch in step 3 is best-effort (a stale origin/<base>
@@ -79,7 +78,7 @@
 # rather than guessed, and the post-run snapshot's contract is its own.
 #
 # THE STATE MACHINE, IN ORDER (this header is the authority the by-hand
-# fallback in the finish contract cites rather than restated):
+# fallback in the finish contract cites rather than restates):
 #   1. Validate the three arguments.
 #   2. Validate <base> and <archive-branch> against the same branch-name
 #      shape resolve-base-branch.sh applies: the first character is one of
@@ -103,7 +102,7 @@
 #      skipped entirely and every check below runs against it unchanged,
 #      exactly as it always has against what used to be called
 #      <main-checkout>. A failed `worktree add` — like every chain-stopping
-#      step — prints git's own stderr beneath the named line (KAN-823).
+#      step — prints git's own stderr before the named line (KAN-823).
 #   2c. Assert the landing directory is itself a git worktree of the right
 #      repository, before any further `git -C` run. `git -C <landing>`
 #      resolves by walking up: a `_landing-<name>` a daemon recreated as a

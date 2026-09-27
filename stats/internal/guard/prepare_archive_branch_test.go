@@ -202,6 +202,10 @@ func (c *pabCase) refused(r pabRes, name string, rc int, sub string) {
 
 // pinned asserts the whole result against pabPins (keyed by subtest name).
 // The harness's $(...) had stripped trailing newlines; the pins keep them.
+// Every side is passed through pabPinNorm first: the guard's own lines stay
+// byte-pinned, while git's own echoed refusal text is environmental — it
+// varies across git builds — and must not pin the suite to one build
+// (KAN-823 panel F1).
 func (c *pabCase) pinned(rc int, out, errs string) {
 	c.t.Helper()
 	phys, err := filepath.EvalSymlinks(c.root)
@@ -209,9 +213,29 @@ func (c *pabCase) pinned(rc int, out, errs string) {
 		c.t.Fatal(err)
 	}
 	norm := strings.NewReplacer(phys, "<root>", c.root, "<root>")
-	got := norm.Replace(out) + "--- stderr\n" + norm.Replace(errs) + "--- exit " + string(rune('0'+rc)) + "\n"
-	want := pabPins[c.t.Name()]
+	got := pabPinNorm(norm.Replace(out) + "--- stderr\n" + pabPinNorm(norm.Replace(errs)) + "--- exit " + string(rune('0'+rc)) + "\n")
+	want := pabPinNorm(pabPins[c.t.Name()])
 	gsCheck(c.t, "output pinned", got == want, "got:\n%q\nwant:\n%q", got, want)
+}
+
+// pabPinNorm collapses each run of echoed git-stderr lines into one
+// placeholder line: git's blocks differ in line count across git builds and
+// across the failure they hit, so even a per-line placeholder would still pin
+// the suite to one git's shape.
+func pabPinNorm(s string) string {
+	lines := strings.Split(s, "\n")
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if strings.HasPrefix(l, "prepare-archive-branch: git: ") {
+			if n := len(out); n > 0 && out[n-1] == "prepare-archive-branch: git: <git stderr>" {
+				continue
+			}
+			out = append(out, "prepare-archive-branch: git: <git stderr>")
+			continue
+		}
+		out = append(out, l)
+	}
+	return strings.Join(out, "\n")
 }
 
 // runPinned is run plus pinned over the untrimmed streams.
@@ -673,6 +697,31 @@ func TestPrepareArchiveBranch(t *testing.T) {
 				!c.ok(c.wt, "show-ref", "--verify", "--quiet", "refs/heads/"+pabArchive), "created")
 			c.unchanged("plain-directory landing walks up to the main checkout")
 		}},
+		// KAN-823 panel F4: a status read that cannot be answered stops the
+		// chain loudly — exit 2, git's own refusal echoed. Only a PATH-shim
+		// git can fail `status`, so this case runs the real shim like
+		// case 15's.
+		{"status failure stops the chain", func(t *testing.T) {
+			c := newCheckout(t)
+			l := c.landing()
+			shim := t.TempDir()
+			realGit, err := exec.LookPath("git")
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeExec(t, shim+"/git", pabStatusFailShim)
+			cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/prepare-archive-branch.sh", l, "main", pabArchive)
+			cmd.Env = append(os.Environ(), "PAB_REAL="+realGit, "PATH="+shim+":"+os.Getenv("PATH"),
+				"FLOW_GUARD_CACHE_DIR="+shimCache)
+			var out, errb bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &out, &errb
+			_ = cmd.Run()
+			rc := cmd.ProcessState.ExitCode()
+			gsCheck(t, "status failure stops the chain: exit 2, the shim's refusal echoed, the named line printed",
+				rc == 2 && has(errb.String(), "shim: status exploded", "could not read the status"), "rc=%d err=%s", rc, errb.String())
+			gsCheck(t, "status failure stops the chain: nothing checked out",
+				c.branch(l) == "main" && c.branch(c.wt) == "main", "landing on %q, main checkout on %q", c.branch(l), c.branch(c.wt))
+		}},
 		{"basename(1) parity", func(t *testing.T) {
 			for _, in := range []string{"/", "//", "/a", "/a/", "a", "a/b", "a//b/", "/a/b", "_landing-x/"} {
 				want, err := exec.Command("basename", in).Output()
@@ -791,6 +840,19 @@ if [ "$is_stash_list" -eq 1 ]; then
     "$PAB_REAL" -C "$PAB_LANDING" stash push -q --include-untracked -m kan-448-injected
   fi
 fi
+exec "$PAB_REAL" "$@"
+`
+
+// pabStatusFailShim is the status-failure case's PATH-shim git: it forwards
+// every call to the real git except the guard's own status read, which it
+// fails, so a status read that cannot be answered is seen stopping the chain
+// loudly (KAN-823 panel F4). The guard's read is the one call carrying
+// `-c core.quotePath=false`; failing bare `status` too would take down the
+// shim-script build's own VCS stamping before the guard ever ran.
+const pabStatusFailShim = `#!/usr/bin/env bash
+for a in "$@"; do
+  [ "$a" = "core.quotePath=false" ] && { echo "shim: status exploded" >&2; exit 99; }
+done
 exec "$PAB_REAL" "$@"
 `
 
