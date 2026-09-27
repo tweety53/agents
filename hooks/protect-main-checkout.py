@@ -32,16 +32,22 @@ the call through. A guardrail on hygiene must never be the reason work stops.
 
 ponytail: Bash coverage is by token scan — a heredoc piped into python, a script that edits a
 file, or a `find -exec` still writes. Widen the verb and writer lists when a new shape shows up
-in a repo's reflog, rather than trying to model the shell.
+in a repo's reflog, rather than trying to model the shell. Variable expansion is the same
+approximation, one step further: `NAME=value` assignments collected positionally from the
+command text only, values kept literal, within-line use before an assignment left unexpanded —
+never environment state, which a one-shot hook process cannot know.
 """
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+
+ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 # git verbs that change the index, the worktree, a ref or the stash list.
 DENIED_GIT_VERBS = {
@@ -83,6 +89,14 @@ def protected(path):
     """(toplevel, branch) when path lies in a main checkout on its default branch, else None."""
     d = existing_dir(path)
     if d is None:
+        return None
+    if os.path.basename(d) == ".worktrees" and os.path.abspath(path) != d:
+        # the nearest existing ancestor is the sanctioned worktree root, so a
+        # missing component below it is a future worktree — never main-checkout
+        # content; a not-yet-existing landing worktree is where work goes. The
+        # `.worktrees/` root convention is owned by scripts/check-worktree-location.sh;
+        # this rule mirrors it for path resolution, and the root itself — path == d —
+        # stays protected like any other main-checkout directory.
         return None
     top = git(d, "rev-parse", "--show-toplevel")
     if not top:
@@ -131,71 +145,143 @@ def tokenize(command):
         return command.split()
 
 
+def logical_lines(command):
+    """The command split into logical lines: a newline outside quotes cuts, a
+    backslash-newline outside quotes joins, and a quoted newline stays inside
+    its line — bash's own line discipline, close enough for a token scan."""
+    lines = []
+    buf = []
+    quote = None  # None, "'" or '"' while inside that quote
+    i = 0
+    n = len(command)
+    while i < n:
+        ch = command[i]
+        if quote is None and ch == "\\" and i + 1 < n and command[i + 1] == "\n":
+            i += 2  # continuation: the two physical lines are one command
+            continue
+        if quote is None and ch == "\\" and i + 1 < n:
+            buf.append(ch)
+            buf.append(command[i + 1])
+            i += 2
+            continue
+        if quote == '"' and ch == "\\" and i + 1 < n and command[i + 1] in ('"', "\\", "$", "`"):
+            buf.append(ch)
+            buf.append(command[i + 1])
+            i += 2
+            continue
+        if quote is None and ch in ("'", '"'):
+            quote = ch
+        elif quote == ch:
+            quote = None
+        elif quote is None and ch == "\n":
+            lines.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    lines.append("".join(buf))
+    return lines
+
+
+VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def expand_vars(token, env):
+    """$NAME and ${NAME} replaced where NAME is set in env; the name match is
+    greedy, so `$Dy` looks up `Dy`, never `D` — an unset name is left for
+    resolve() to let through, never guessed at."""
+    if "$" not in token or not env:
+        return token
+
+    def sub(m):
+        name = m.group(1) or m.group(2)
+        return env.get(name, m.group(0))
+
+    return VAR_RE.sub(sub, token)
+
+
 def bash_hits(command, cwd):
-    """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`."""
-    tokens = tokenize(command)
+    """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
+
+    The command is scanned one logical line at a time — a newline ends an
+    argument scan the way `;` does, so a multi-line script's `cp` cannot
+    swallow a later line's arguments — while `cd` state carries across lines,
+    as it does in bash. Assignments the command text itself makes are expanded
+    before path resolution, positionally: a token sees the assignments that
+    came before it, in this line and earlier lines, never the ones after —
+    and an assignment's value is kept literal, unexpanded."""
     hits = []
     cur = cwd
-    i = 0
-    n = len(tokens)
-    while i < n:
-        tok = tokens[i]
-        if tok == "cd" and i + 1 < n:
-            cur = resolve(tokens[i + 1], cur)
-            i += 2
-            continue
-        if tok == "git":
-            target = cur
-            j = i + 1
-            while j < n and tokens[j].startswith("-"):
-                if tokens[j] == "-C" and j + 1 < n:
-                    target = resolve(tokens[j + 1], cur)
-                    j += 2
-                    continue
-                j += 1
-            if j < n and tokens[j] in DENIED_GIT_VERBS:
-                hits.append(target)
-            i = j + 1
-            continue
-        if tok == "sed" and any(t.startswith("-i") for t in tokens[i + 1 : i + 4]):
-            for t in tokens[i + 1 :]:
-                if t in ("&&", "||", ";", "|"):
-                    break
-                path = None if t.startswith("-") else resolve(t, cur)
-                if path and os.path.exists(path):
-                    hits.append(path)
+    env = {}
+    for line in logical_lines(command):
+        raw_tokens = tokenize(line)
+        tokens = []
+        for raw in raw_tokens:
+            if ASSIGNMENT_RE.match(raw):
+                name, _, value = raw.partition("=")
+                env[name] = value
+            tokens.append(expand_vars(raw, env))
+        i = 0
+        n = len(tokens)
+        while i < n:
+            tok = tokens[i]
+            if tok == "cd" and i + 1 < n:
+                cur = resolve(tokens[i + 1], cur)
+                i += 2
+                continue
+            if tok == "git":
+                target = cur
+                j = i + 1
+                while j < n and tokens[j].startswith("-"):
+                    if tokens[j] == "-C" and j + 1 < n:
+                        target = resolve(tokens[j + 1], cur)
+                        j += 2
+                        continue
+                    j += 1
+                if j < n and tokens[j] in DENIED_GIT_VERBS:
+                    hits.append(target)
+                i = j + 1
+                continue
+            if tok == "sed" and any(t.startswith("-i") for t in tokens[i + 1 : i + 4]):
+                for t in tokens[i + 1 :]:
+                    if t in ("&&", "||", ";", "|"):
+                        break
+                    path = None if t.startswith("-") else resolve(t, cur)
+                    if path and os.path.exists(path):
+                        hits.append(path)
+                i += 1
+                continue
+            if tok == "tee":
+                for t in tokens[i + 1 :]:
+                    if t in ("&&", "||", ";", "|"):
+                        break
+                    if not t.startswith("-"):
+                        hits.append(resolve(t, cur))
+                i += 1
+                continue
+            if tok in (">", ">>") and i + 1 < n:
+                hits.append(resolve(tokens[i + 1], cur))
+                i += 2
+                continue
+            if tok.startswith((">", ">>")) and len(tok) > 2 and tok.lstrip(">") not in ("&1", "&2"):
+                hits.append(resolve(tok.lstrip(">"), cur))
+                i += 1
+                continue
+            if tok in ("cp", "mv", "rm"):
+                args = []
+                for t in tokens[i + 1 :]:
+                    if t in ("&&", "||", ";", "|"):
+                        break
+                    if not t.startswith("-"):
+                        args.append(t)
+                if tok in ("rm", "mv"):
+                    hits.extend(resolve(a, cur) for a in args)  # mv removes its sources too
+                elif args:
+                    hits.append(resolve(args[-1], cur))
+                i += 1
+                continue
             i += 1
-            continue
-        if tok == "tee":
-            for t in tokens[i + 1 :]:
-                if t in ("&&", "||", ";", "|"):
-                    break
-                if not t.startswith("-"):
-                    hits.append(resolve(t, cur))
-            i += 1
-            continue
-        if tok in (">", ">>") and i + 1 < n:
-            hits.append(resolve(tokens[i + 1], cur))
-            i += 2
-            continue
-        if tok.startswith((">", ">>")) and len(tok) > 2 and tok.lstrip(">") not in ("&1", "&2"):
-            hits.append(resolve(tok.lstrip(">"), cur))
-            i += 1
-            continue
-        if tok in ("cp", "mv", "rm"):
-            args = []
-            for t in tokens[i + 1 :]:
-                if t in ("&&", "||", ";", "|"):
-                    break
-                if not t.startswith("-"):
-                    args.append(t)
-            if tok in ("rm", "mv"):
-                hits.extend(resolve(a, cur) for a in args)  # mv removes its sources too
-            elif args:
-                hits.append(resolve(args[-1], cur))
-            i += 1
-            continue
-        i += 1
     return [h for h in hits if h]
 
 

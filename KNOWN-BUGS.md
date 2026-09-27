@@ -90,3 +90,7 @@
   enumeration was not extended with the declared-but-unresolvable-premise class the same diff
   adds — breaks: the parent reading exit 1 has no stated disposition for it — fix: one clause
   in the enumeration naming the premise class and its bounce — deferred: doc-only.
+- `scripts/test-protect-main-checkout.sh` (header comment) — task-1, Minor,
+  kan-798-flow-fix-protect-main-checkout-py-false — the harness header lists cases only through
+  25 while the harness now runs 34 — breaks: a reader scanning the header misses the per-line,
+  expansion 

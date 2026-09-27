@@ -115,6 +115,35 @@ expect "24 cd worktree; redirect to an unexpanded var" allow \
   "$(run "$MAIN" Bash "{\"command\":$(q 'S=/tmp/x; cd '"$WT"'; npx playwright test a.spec.ts >$S/cap.log 2>&1; echo cap=$?')}")"
 expect "25 cd main;git reset with separators touching" deny \
   "$(run "$ROOT" Bash "{\"command\":$(q "cd $MAIN;git reset HEAD~1")}")"
+expect "26 multi-line cp cannot swallow a later line's target" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cp notes.md draft.md
+echo done
+git add $MAIN/README.md")}")"
+expect "27 multi-line second line judged on its own" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo start
+cd $MAIN && git reset HEAD~1")}")"
+expect "28 assignment-set redirect into main resolves and denies" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "C=$MAIN; echo x > \$C/f.txt")}")"
+expect "29 nested variable stays let-through" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "B=$MAIN; A=\$B; echo x > \$A/f.txt")}")"
+expect "30 cp into a not-yet-existing worktree path" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cp /tmp/a.md $MAIN/.worktrees/new-landing/spectre/foo.md")}")"
+expect "31 loose file directly in .worktrees" allow \
+  "$(run "$ROOT" Write "{\"file_path\":$(q "$MAIN/.worktrees/loose.txt"),\"content\":\"x\"}")"
+expect "32 cd state threads across lines without a separator" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cd $MAIN
+git reset HEAD~1")}")"
+expect "33 longest-name expansion wins the collision" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "CA=$MAIN; C=/tmp; echo x > \$CA/f.txt")}")"
+expect "34 braced expansion resolves the variable" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "C=$MAIN; echo x > \${C}/f.txt")}")"
+expect "35 rm of the .worktrees root itself stays denied" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "rm -rf $MAIN/.worktrees")}")"
+expect "36 unset near-name variable is not expanded greedily" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "D=$MAIN/docs; echo x > \$Dy/f.txt")}")"
+expect "37 use before set is not expanded" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo x > \$C/f.txt
+C=$MAIN")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
