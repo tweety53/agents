@@ -22,5 +22,5 @@ Reachability at base `4a278320`, reproduced 2026-09-28: the mode-2 denial (cp in
   tokens before path resolution; tokens still carrying `$` or a backtick stay let-through.
 - A path whose nearest existing ancestor is a `.worktrees` directory is future worktree content,
   outside the protected tree; a new file anywhere else in the main checkout still denies.
-- `scripts/test-protect-main-checkout.sh` gains nine cases pinning the three behaviors and their
-  review-hardened edges (26–34, plus the fix round's 35–37).
+- `scripts/test-protect-main-checkout.sh` gains twelve cases (25 → 37): nine pinning the three
+  behaviors and their review-hardened edges (26–34), three from the panel fix round (35–37).
