@@ -164,6 +164,13 @@ measured 27.16s at load 17–27 above, ran 63–91s interleaved with HEAD's runs
 four later commits, sets these figures; the budget needs a re-take on a quiet machine.
 `suite-median-below-before` was not re-taken (suite re-timing not required this round).
 
+At `e616e43d` under load 29–43 the Go package and its `9a6aa00a` control, interleaved, ran alike —
+head 85.47 / 85.66 / 44.31s, control 75.57 / 86.54 / 46.03s — so the post-`9a6aa00a` commits added
+no wall time; `guard-package-under-40s` rests on the 27.16s median `9a6aa00a` measured at load
+17–27, not re-confirmed at this load.
+
+<!-- measured: cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1, head and a 9a6aa00a detached checkout alternated x3, sysctl -n vm.loadavg before each @ branch spectre/kan-842-agents-port-the-next-ten-slowest-bash-scripts-to (e616e43d) -->
+
 Once every guard is in Go, a later slice drops the `scripts/<name>.sh` shims and calls
 `flow-guard <name>` directly: the build-on-demand `lib/flow-guard.sh` performs moves into the `flow`
 CLI or `setup.sh`, every caller in skills, contracts and `.flow/project.md` is repointed, and the
