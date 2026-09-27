@@ -187,7 +187,7 @@ Divergences left outside the parity fixtures, named in `workspaceisolation.go`: 
 UTF-8 locale is read where macOS awk aborted (exit 2); a heading whose space is U+00A0 is not the
 section (`ccHeading`); awk `-v` escape processing of a backslash in the root is not reproduced.
 
-- [ ] 4. Port check-task-reviewer-single-dispatch
+- [x] 4. Port check-task-reviewer-single-dispatch
 
 **Files:** `stats/internal/guard/taskreviewersingledispatch.go`, `stats/internal/guard/check_task_reviewer_single_dispatch_test.go`, `scripts/check-task-reviewer-single-dispatch.sh`, `scripts/test-check-task-reviewer-single-dispatch.sh`
 **Tests:** `TestCheckTaskReviewerSingleDispatch`
@@ -202,19 +202,19 @@ section (`ccHeading`); awk `-v` escape processing of a backslash in the root is 
 
 **Decision:** dispatches-via-env-hook
 
-  - [ ] **Step 1: Failing test.** Port every case of
+  - [x] **Step 1: Failing test.** Port every case of
     `scripts/test-check-task-reviewer-single-dispatch.sh`, one subtest per `ok:` label; the stub
     `flow` the harness puts on PATH becomes `Env.Dispatches`. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-task-reviewer-single-dispatch`; the store read as
+  - [x] **Step 2: Port**, registering `check-task-reviewer-single-dispatch`; the store read as
     `panelfixsingledispatch.go`'s `pfdRead` does it; `plan-dispatch-bundles.sh` and
     `plan-dispatch-groups.sh` exec'd beside the shim with stdout and stderr combined, as the bash's
     `2>&1` captured them; `jq` filters become `encoding/json` decoding of the same fields.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run
     '^TestCheckTaskReviewerSingleDispatch$' -count=1 -race -v | grep -c -- '--- PASS:
     TestCheckTaskReviewerSingleDispatch/'` — at least 11.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT` (siblings resolve
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT` (siblings resolve
     from it), code 2; `git rm scripts/test-check-task-reviewer-single-dispatch.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-task-reviewer-single-dispatch.sh` with no arguments exits 2 with the line it
     printed at `c5379c0a`.
 
@@ -228,7 +228,7 @@ output was JSON but not an array of decision rows") — inside the 0/1/2 contrac
 bash blocked; a failed `flow record decisions` call and output that is not JSON at all (the bash's
 `jq empty` gate) still read as `big`, as in the bash. The header's sentences are corrected to match. The `flow record decisions` read has no `Env` hook (`dispatches-via-env-hook`
 names dispatches only) and execs `flow` on PATH through `pcFlow`; tests run with no `flow` on PATH,
-three cases with a stub.
+except the cases that put a stub `flow` there.
 
 - [ ] 5. Port recover-guard-incident
 
@@ -256,6 +256,14 @@ three cases with a stub.
     dropped; `git rm scripts/test-recover-guard-incident.sh`.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/recover-guard-incident.sh --bogus` exits 2 with the line it printed at `c5379c0a`.
+
+Correction (2026-09-27): the gated review found the repo-dir resolution looser than `cd "$1"`:
+a lexical `filepath.Join` accepted an empty argument (bash 5: "null directory", exit 2; with
+`--apply` the port aborted the cwd's revert), a missing component before `..`, and a directory
+without search permission. Fix commit `d3810105` checks existence on the uncleaned path and search
+permission, and refuses an empty argument, each with `not a directory: <arg>`, exit 2 — pinned by
+three port subtests. Known and deferred to `KNOWN-BUGS.md`: `ls-tree` quotes non-ASCII planning
+paths, so their `--apply` restore fails after the abort, in the bash and the port alike.
 
 - [ ] 6. Port plan-class
 
