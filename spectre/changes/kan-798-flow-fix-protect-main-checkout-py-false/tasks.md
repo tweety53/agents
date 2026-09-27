@@ -15,7 +15,7 @@ persistent state — the harness run below against a scratch origin/clone is the
 
 ---
 
-- [ ] 1. Scan bash commands per logical line (mode 3)
+- [x] 1. Scan bash commands per logical line (mode 3)
 
 `bash_hits()` currently tokenizes the whole command at once; newlines are shlex whitespace, so the
 `sed`/`tee`/`cp`/`mv`/`rm` argument scans and the redirect targets run across line boundaries and
@@ -36,21 +36,21 @@ onto a later line
 
 **Decision:** newline-pre-split-lines
 
-  - [ ] **Step 1: Split.** Add a helper that splits the raw command into logical lines: walk the
+  - [x] **Step 1: Split.** Add a helper that splits the raw command into logical lines: walk the
     text tracking single/double quote state (backslash escapes honored inside double quotes),
     join a backslash-newline outside quotes into the current line, and cut on a newline outside
     quotes. A quoted newline stays inside its line.
-  - [ ] **Step 2: Scan per line.** In `bash_hits()`, tokenize each logical line with the existing
+  - [x] **Step 2: Scan per line.** In `bash_hits()`, tokenize each logical line with the existing
     `tokenize()` and run the same scan loop over it, carrying `cur` (the `cd` target) from one
     line into the next; accumulate hits across lines.
-  - [ ] **Step 3: Cases.** Add harness cases 26 and 27: 26 runs a multi-line command —
+  - [x] **Step 3: Cases.** Add harness cases 26 and 27: 26 runs a multi-line command —
     `cp notes.md draft.md`, `echo done`, `git add <MAIN>/README.md` on separate lines, cwd `$ROOT`
     — and expects allow; 27 runs `echo start` then `cd <MAIN> && git reset HEAD~1` on separate
     lines and expects deny.
-  - [ ] **Step 4: Verify.** `scripts/test-protect-main-checkout.sh` passes (all cases, old and
+  - [x] **Step 4: Verify.** `scripts/test-protect-main-checkout.sh` passes (all cases, old and
     new) and `scripts/check-python-suppressions.sh` is clean.
 
-- [ ] 2. Expand command-text assignments before path resolution (mode 1)
+- [x] 2. Expand command-text assignments before path resolution (mode 1)
 
 A redirect into the main checkout through a variable set in the same command
 (`C=<MAIN>; echo x > $C/f.txt`) sails past: `resolve()` lets every `$` path through. Collect the
@@ -69,17 +69,17 @@ in the main checkout through `C`, 29 still passes but only by accident of the sa
 
 **Decision:** expand-same-string-assignments
 
-  - [ ] **Step 1: Collect.** Before scanning, map every token of the form `NAME=value` (whole
+  - [x] **Step 1: Collect.** Before scanning, map every token of the form `NAME=value` (whole
     token, `[A-Za-z_][A-Za-z0-9_]*` name) into an env dict; values are taken literally, no nested
     expansion. Document the approximation in the module docstring beside the existing token-scan
     note.
-  - [ ] **Step 2: Expand.** Longest-name-first `$NAME` and `${NAME}` replacement over every token
+  - [x] **Step 2: Expand.** Longest-name-first `$NAME` and `${NAME}` replacement over every token
     before it is used as a path; a token still containing `$` or a backtick resolves exactly as
     today (let-through).
-  - [ ] **Step 3: Cases.** Add harness cases 28 and 29: 28 runs `C=<MAIN>; echo x > $C/f.txt`
+  - [x] **Step 3: Cases.** Add harness cases 28 and 29: 28 runs `C=<MAIN>; echo x > $C/f.txt`
     (cwd `$ROOT`) and expects deny; 29 runs `B=<MAIN>; A=$B; echo x > $A/f.txt` and expects allow.
     Case 24 (worktree var redirect) must still allow, unchanged.
-  - [ ] **Step 4: Verify.** `scripts/test-protect-main-checkout.sh` passes and
+  - [x] **Step 4: Verify.** `scripts/test-protect-main-checkout.sh` passes and
     `scripts/check-python-suppressions.sh` is clean.
 
 - [x] 3. Treat future `.worktrees` paths as outside the main checkout (mode 2)
