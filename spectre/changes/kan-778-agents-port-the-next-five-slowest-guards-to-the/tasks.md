@@ -139,7 +139,9 @@ finding: the body passed several at exit 0 (`REPRODUCERS-OK`), which the header'
 out. The operator decided: refuse every shape that is not one array of objects with exit 2 (`jq failed —
 cannot determine anything`), in this guard and check-unfinished-work alike; subtests pin each shape, and
 `pcParseFindings`' doc comment in `panelexitcontract.go` states it — hence that path is added to
-`**Files:**`. Case 20's label is kept for label parity; with the set compiled in, it asserts the set
+`**Files:**`. "Ref-less" means a `ref` that is not a JSON string — absent, null or a number: the bash
+body's per-ref `select(.ref == $ref)` never matched one, so its reproducer went unchecked while it counted
+toward `REPRODUCERS-OK`; the port refuses it with the same line. Case 20's label is kept for label parity; with the set compiled in, it asserts the set
 still binds (exit 1 on `;`), as its comment says.
 
 - [ ] 4. Port check-unfinished-work
@@ -173,7 +175,7 @@ findings (CLEAR), an object's values as findings, and two values as CLEAR. The j
 bash printed before its own refusal on four paths are not reproduced (KAN-760's `pcJQFailed` idiom);
 exit code, stdout and the guard's own lines match.
 
-- [ ] 5. Port check-references
+- [x] 5. Port check-references
 
 **Files:** `stats/internal/guard/references.go`, `stats/internal/guard/check_references_test.go`, `scripts/check-references.sh`, `scripts/test-check-references.sh`, `stats/internal/guard/guard.go`, `stats/cmd/flow-guard/main.go`
 **Tests:** `TestCheckReferences`
@@ -187,15 +189,15 @@ exit code, stdout and the guard's own lines match.
 **Decision:** scope-five-next-guards
 **Decision:** coverage-go-twin
 
-  - [ ] **Step 1: Failing test.** Port every case, one subtest per `ok` label; fixtures are
+  - [x] **Step 1: Failing test.** Port every case, one subtest per `ok` label; fixtures are
     small trees in `t.TempDir()`, never this repository's own tree. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-references`; per-member coverage through
+  - [x] **Step 2: Port**, registering `check-references`; per-member coverage through
     `coverage.go`; the association shapes (`is_associated`), the suppression marker and the
     `file:line` report kept byte for byte.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckReferences$' -count=1 -race
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckReferences$' -count=1 -race
     -v | grep -c -- '--- PASS: TestCheckReferences/'` — at least 41.
-  - [ ] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-references.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-references.sh`
+  - [x] **Step 4: Shim and delete** — shim template; `git rm scripts/test-check-references.sh`.
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-references.sh`
     on this tree exits 0 with the same member counts it printed at base.
 
 Correction (2026-09-27): the shim template declared `flow_guard_exec` alone after the loader; the
