@@ -213,7 +213,7 @@ redirect failing under `set -e`, with only bash's own error on stderr — an acc
 port refuses with 2, this guard's cannot-answer code, and names the file (`check-references: cannot read
 <file>: …`); a subtest pins it.
 
-- [ ] 6. Port check-plan-provenance
+- [x] 6. Port check-plan-provenance
 
 **Files:** `stats/internal/guard/planprovenance.go`, `stats/internal/guard/check_plan_provenance_test.go`, `scripts/check-plan-provenance.sh`, `scripts/check-plan-provenance.py`, `scripts/test-check-plan-provenance.sh`
 **Tests:** `TestCheckPlanProvenance`
@@ -226,20 +226,20 @@ port refuses with 2, this guard's cannot-answer code, and names the file (`check
 
 **Decision:** scope-five-next-guards
 
-  - [ ] **Step 1: Failing test.** Port every case, one subtest per `ok:` label; group them into
+  - [x] **Step 1: Failing test.** Port every case, one subtest per `ok:` label; group them into
     table-driven subtests by the harness's own sections so the file stays navigable. Run — expect
     failure.
-  - [ ] **Step 2: Port** `check-plan-provenance.py` into `planprovenance.go` (split into
+  - [x] **Step 2: Port** `check-plan-provenance.py` into `planprovenance.go` (split into
     `planprovenance_*.go` files by concern when one file grows hard to navigate), registering
     `check-plan-provenance`. `CHECK_PLAN_PROVENANCE_ROOT`, argv, the stdout/stderr shape and all
     exit codes (0, 1, 2 environment, 3 containment, 4 content-classification) kept. Python `re`
     patterns ported to Go `regexp` only where RE2 matches identically; any pattern using
     lookaround or backreferences is rewritten as code with a subtest pinning it.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPlanProvenance$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPlanProvenance$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckPlanProvenance/'` — at least 665.
-  - [ ] **Step 4: Shim and delete** — shim template (the python3 probe paragraphs in the header
+  - [x] **Step 4: Shim and delete** — shim template (the python3 probe paragraphs in the header
     go); `git rm scripts/check-plan-provenance.py scripts/test-check-plan-provenance.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-plan-provenance.sh` over this change's own `tasks.md` exits 0, as the Python
     guard did at base.
 
