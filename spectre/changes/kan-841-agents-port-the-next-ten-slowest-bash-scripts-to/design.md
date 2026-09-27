@@ -86,6 +86,50 @@ Slowest five harnesses (runner's per-harness `(Ns)`):
 
 <!-- measured: grep '(Ns)' of each task1-suiteN.log, sorted descending @ d71a2327 -->
 
+#### After
+
+| Run | real (s) | user (s) | sys (s) | load (1/5/15) | exit | harnesses |
+|-----|---------:|---------:|--------:|---------------|-----:|-----------|
+| suite 1 | 52.43 | 112.70 | 151.44 | 1.93 2.44 2.86 | 0 | 69 (69 passed) |
+| suite 2 | 49.48 | 107.76 | 149.37 | 9.77 4.63 3.65 | 0 | 69 (69 passed) |
+| suite 3 | 47.14 | 111.93 | 153.93 | 15.87 6.89 4.53 | 0 | 69 (69 passed) |
+| go 1 | 26.22 | 32.66 | 54.38 | 13.97 8.05 5.12 | 0 | — |
+| go 2 | 25.87 | 32.98 | 54.17 | 13.10 8.32 5.31 | 0 | — |
+| go 3 | 23.80 | 33.51 | 54.50 | 10.66 8.11 5.31 | 0 | — |
+
+- Median real: suite **49.48s** (Before 53.58s); Go package **25.87s** (Before 13.07s; ceiling
+  30s). Ten harnesses fewer (79 → 69).
+
+<!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p scripts/run-guard-tests.sh x3 @ branch spectre/kan-841-agents-port-the-next-ten-slowest-bash-scripts-to (455a0f2f) -->
+<!-- measured: cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1 x3 @ branch spectre/kan-841-agents-port-the-next-ten-slowest-bash-scripts-to (455a0f2f) -->
+
+Slowest five harnesses (runner's per-harness `(Ns)`):
+
+| Rank | Suite 1 | Suite 2 | Suite 3 |
+|-----:|---------|---------|---------|
+| 1 | test-go-guards.sh 52s | test-go-guards.sh 44s | test-setup.sh 44s |
+| 2 | test-setup.sh 47s | test-setup.sh 42s | test-go-guards.sh 42s |
+| 3 | test-check-plan-shape.sh 25s | test-check-plan-shape.sh 28s | test-compose-mockup-frames.sh 26s |
+| 4 | test-lib-flow-guard.sh 21s | test-lib-flow-guard.sh 23s | test-lib-flow-guard.sh 23s |
+| 5 | test-check-visual-verify-dispatched.sh 17s | test-check-task-reviewer-single-dispatch.sh 20s | test-check-plan-shape.sh 23s |
+
+<!-- measured: grep '(Ns)' of each suite run's log, sorted descending @ branch spectre/kan-841-agents-port-the-next-ten-slowest-bash-scripts-to (455a0f2f) -->
+
+Parity (`cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS: Test<Name>/'`,
+count / floor): CheckStageMarkCalls 77/74, CheckGuardSymlinks 223/118, CheckDispatchParagraphs
+194/183, MutateAndVerify 129/44, PrepareArchiveBranch 213/97, CheckBaseMoved 64/63,
+CheckPanelFixSingleDispatch 28/20, CheckModelKeys 45/30, ProveReproducer 11/8,
+CheckFinishPreflight 66/58 — every port at or above its floor; no `--- FAIL`.
+
+<!-- measured: cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS: Test<Name>/' per port @ branch spectre/kan-841-agents-port-the-next-ten-slowest-bash-scripts-to (455a0f2f) -->
+
+The slowest remaining harness is `test-go-guards.sh`, which runs the Go package itself and now
+bounds the suite's wall alongside `test-setup.sh` (excluded from porting). The next slice's bash
+candidates are `test-check-plan-shape.sh`, `test-compose-mockup-frames.sh`,
+`test-lib-flow-guard.sh`, `test-check-task-reviewer-single-dispatch.sh` and
+`test-check-visual-verify-dispatched.sh`; cutting the Go package's own time (its median doubled
+here, from process-spawning signal and bash-parity subtests) may pay more than another port slice.
+
 ## Decisions
 
 ### Carry KAN-760's and KAN-778's port decisions unchanged
