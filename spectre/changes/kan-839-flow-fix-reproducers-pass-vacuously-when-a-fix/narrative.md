@@ -37,3 +37,19 @@ verified. What the run actually hit, in order:
   it did not reproduce.
 - Main deleted `scripts/test-check-panel-findings-closed.sh` while this change was in flight
   (its coverage moved into Go), which is why the post-rebase guard harness count is 68, not 69.
+
+## 2026-09-28 — integrate run
+
+- Preflight `RUN1`; unfinished-work `CLEAR`; visual-verify `OK` (no UI paths).
+- The base-moved check ran against the state map's pre-rebase `4a278320` and reported `MOVED` —
+  35 commits, since main gained ~30 more while this change was in panel. The sync rebase onto
+  `origin/main` (now `b8faae9a`) hit exactly one conflict: `KNOWN-BUGS.md`, where main's own
+  kan-842 deferrals and this change's task-1 deferral appended at the same tail — resolved as a
+  union, both sides kept, `--continue` clean.
+- Per the resolution rule, the full lint and test lists ran on the rebased tree: the lint list
+  shrank by one on main (main deleted `check-contract-budget.sh` and its declaration — the
+  KNOWN-BUGS budget ratchet is gone), 58 guard harnesses pass (main's Go-port consolidation),
+  `go test ./... -race` 21/21 packages, SPA 170/170.
+- Scoped re-verification found no discoverable `scripts/test-<name>.sh` harness for any overlap
+  path — main moved that coverage into the Go suite, which the test list above already covers.
+- Route: `merge and push`, taken from the project's configured default, not asked.
