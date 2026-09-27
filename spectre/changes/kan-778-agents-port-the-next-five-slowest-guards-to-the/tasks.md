@@ -74,7 +74,7 @@ Live verification: tasks 1 and 9 run the real suite on this machine and record b
 
 This task commits nothing; its figures are committed with the change's artifacts.
 
-- [ ] 2. coverage.sh's Go twin
+- [x] 2. coverage.sh's Go twin
 
 **Files:** `stats/internal/guard/coverage.go`, `stats/internal/guard/coverage_test.go`
 **Tests:** `TestCoverageParity`
@@ -89,16 +89,16 @@ same inputs.
 
 **Decision:** coverage-go-twin
 
-  - [ ] **Step 1: Failing test.** `TestCoverageParity`: a table of member sets — none recorded,
+  - [x] **Step 1: Failing test.** `TestCoverageParity`: a table of member sets — none recorded,
     all non-zero, an undeclared zero, a declared zero, several members in and out of declaration
     order. Each row runs `bash -c '. scripts/lib/coverage.sh; coverage_declare …;
     coverage_record …; coverage_report; coverage_verdict …'` once and the Go functions in-process,
     and compares output and verdict byte for byte. Run `cd stats && go test ./internal/guard/ -run
     TestCoverageParity -count=1` — expect a compile failure.
-  - [ ] **Step 2: Port** `coverage_declare`/`coverage_record`/`coverage_report`/
+  - [x] **Step 2: Port** `coverage_declare`/`coverage_record`/`coverage_report`/
     `coverage_verdict` as a small `coverage` type in `coverage.go`, its header citing
     `scripts/lib/coverage.sh` as the source of truth it mirrors.
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test
     ./internal/guard/ -run TestCoverageParity -count=1 -race`.
 
 - [ ] 3. Port check-panel-reproducers
