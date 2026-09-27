@@ -52,26 +52,29 @@ Image.new("RGB", (w, h), (r, g, b)).save(path)
 PY
 }
 
-# make_frame_png <path> <width> <content height> [content r] [g] [b]
+# make_frame_png <path> <width> <content height> [content r] [g] [b] [margin]
 # A stand-in for a 2x HTML phone-frame export, with the geometry
 # `scale=2 status=26 border=1` describes: page background everywhere, a
 # 2px side border that stops short of the corners (the real frames' 4px
 # radius, which is why the pixel at (0, 0) is always the page and never the
 # border), a 52px status band, `content height` rows of content, a 2px
-# bottom border, a 2px page-coloured margin — the uniform row the caption
-# detection stops at — and a dark caption band beneath it.
+# bottom border, `margin` page-coloured rows (default 2) — the uniform row
+# the caption detection stops at — and a dark caption band beneath it.
+# `margin` 0 draws the caption band on the row directly below the bottom
+# border, as gymie's J/K floor frames do, so no page-coloured row exists.
 make_frame_png() {
-  python3 - "$1" "$2" "$3" "${4:-255}" "${5:-0}" "${6:-0}" <<'PY'
+  python3 - "$1" "$2" "$3" "${4:-255}" "${5:-0}" "${6:-0}" "${7:-2}" <<'PY'
 import sys
 from PIL import Image
 path, w, ch = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 content = (int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6]))
+margin = int(sys.argv[7])
 PAGE, BORDER, STATUS, CAPTION = (10, 10, 10), (90, 90, 90), (200, 200, 200), (42, 42, 42)
 top, bottom_border = 54, 54 + ch
-h = bottom_border + 2 + 2 + 30          # bottom border, page margin, caption band
+h = bottom_border + 2 + margin + 30     # bottom border, page margin, caption band
 im = Image.new("RGB", (w, h), PAGE)
 px = im.load()
-for y in range(2, bottom_border + 2):   # side borders, corners left as page
+for y in range(2, bottom_border - 2):   # side borders, corners left as page
     for x in (0, 1, w - 2, w - 1):
         px[x, y] = BORDER
 for y in range(2, top):                 # status band
@@ -83,7 +86,7 @@ for y in range(top, bottom_border):     # content
 for y in range(bottom_border, bottom_border + 2):   # bottom border
     for x in range(2, w - 2):
         px[x, y] = BORDER
-for y in range(bottom_border + 4, h):   # caption band
+for y in range(bottom_border + 2 + margin, h):   # caption band
     for x in range(w):
         px[x, y] = CAPTION
 im.save(path)
@@ -505,6 +508,60 @@ for BAD in "scale=2 status=26" "scale=0 status=26 border=1" "scale=2 status=-1 b
     fail "case 25: geometry \`$BAD\` rc=$RC err=$ERR"
   fi
 done
+
+# ===========================================================================
+# Case 26: a caption band on the row directly below the bottom border (no
+# page-coloured margin, as gymie's J/K floor frames draw it) — the bottom is
+# found at the frame's own bottom border, so the crop is the content area.
+# ===========================================================================
+new_root
+GEOM="scale=2 status=26 border=1"
+make_frame_png "$ROOT/C1.png" 100 60 255 0 0 0
+make_png "$CAPS/c1.png" 96 60 255 0 0
+printf 'c1.png C1\n' > "$MAP"
+run_guard "$CAPS/c1.png"
+[ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/c1.png diff=0.0000" ] && pass "case 26: a caption band directly below the border crops at the frame's own bottom border" || fail "case 26: rc=$RC out=$OUT_TEXT err=$ERR"
+FRAME_SIZE="$(python3 -c "from PIL import Image; i=Image.open('$OUT/c1.frame.png'); print(f'{i.size[0]}x{i.size[1]}')" 2>&1)"
+[ "$FRAME_SIZE" = "96x60" ] && pass "case 26: the cropped frame is the content area's size" || fail "case 26: frame size=$FRAME_SIZE"
+
+# ===========================================================================
+# Case 27: no page-coloured margin, a side border that breaks partway down
+# (gymie's copy-session C1/C4/C7 frames), and a content row drawn in the
+# border colour far below the break — that row is content, not the bottom
+# border, so the crop keeps the old default and runs to the last row above
+# the frame's bottom border.
+# ===========================================================================
+new_root
+GEOM="scale=2 status=26 border=1"
+python3 - "$ROOT/C1.png" <<'PY'
+import sys
+from PIL import Image
+PAGE, BORDER, STATUS, CONTENT = (10, 10, 10), (90, 90, 90), (200, 200, 200), (255, 0, 0)
+w, h = 100, 176
+im = Image.new("RGB", (w, h), PAGE)
+px = im.load()
+for y in range(2, 80):                  # side borders, broken at row 80
+    for x in (0, 1, w - 2, w - 1):
+        px[x, y] = BORDER
+for y in range(2, 54):                  # status band
+    for x in range(2, w - 2):
+        px[x, y] = STATUS
+for y in range(54, h - 2):              # content
+    for x in range(2, w - 2):
+        px[x, y] = CONTENT
+for x in range(2, w - 2):               # a content rule in the border colour
+    px[x, 120] = BORDER
+for y in range(h - 2, h):               # bottom border, last rows of the image
+    for x in range(2, w - 2):
+        px[x, y] = BORDER
+im.save(sys.argv[1])
+PY
+make_png "$CAPS/c1.png" 96 120 255 0 0
+printf 'c1.png C1\n' > "$MAP"
+run_guard "$CAPS/c1.png"
+[ "$RC" -eq 0 ] && pass "case 27: a border-coloured content row far below a broken side border is not taken for the bottom border" || fail "case 27: rc=$RC out=$OUT_TEXT err=$ERR"
+FRAME_SIZE="$(python3 -c "from PIL import Image; i=Image.open('$OUT/c1.frame.png'); print(f'{i.size[0]}x{i.size[1]}')" 2>&1)"
+[ "$FRAME_SIZE" = "96x120" ] && pass "case 27: the cropped frame runs to the last row above the bottom border" || fail "case 27: frame size=$FRAME_SIZE"
 
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]
