@@ -422,7 +422,8 @@ regenerated view of the same state.
 
 **The `Auto-resolved:` line names every prompt this run answered itself** on its recommended
 option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so the operator can
-overrule any of them with a fix run; it reads `none` when the run took none.
+overrule any of them with a fix run; it reads `none` when the run took none. Planning answers
+the `## decisions: recommended` mode took are named here the same way.
 
 **The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
 absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute

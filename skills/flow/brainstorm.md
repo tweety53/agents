@@ -152,6 +152,10 @@ The ask names exactly what will be deleted — the worktree's absolute path, the
 `spectre/<name>`, the remote branch `origin/spectre/<name>` — and that the record ends
 `FINISHED, withdrawn`. The explicit answer is the only consent any of those deletions get.
 
+Both offers stay asked under the `## decisions: recommended` mode (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`) — the explicit answer is consent to an irreversible
+deletion, and the mode never covers that.
+
 **Steps, in order — git first, record last**, so a crash leaves a re-runnable route rather than a
 terminal record over a live worktree. Every step tolerates the previous run's landed work — a
 worktree already gone, a branch already deleted, a remote delete already done — so the re-run

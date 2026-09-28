@@ -142,7 +142,10 @@ Make every judgment call yourself and name it in the summary;
 a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast
 <key>`, and asks nothing after it. Only with `## handoff` `required`, and only where two
 readings would lead to materially different work, ask once, batched, through
-**AskUserQuestion**. Pick the simplest implementation that meets the ask.
+**AskUserQuestion**; a question there whose options include a recommended one takes it under
+the `## decisions: recommended` mode (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`), recorded the way that section states, and a
+genuinely open one still asks. Pick the simplest implementation that meets the ask.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed <name>

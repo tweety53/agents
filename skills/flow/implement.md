@@ -363,7 +363,10 @@ operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) 
 > - **Append anyway** — the fix is appended exactly as this section otherwise states, and the
 >   count keeps growing
 
-Silence takes the recommended re-plan, and the ⚠ line names it. Either answer continues into the
+Silence takes the recommended re-plan, and the ⚠ line names it. Under the
+`## decisions: recommended` mode (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`) the ask is not made: **Re-plan** is taken and
+recorded the way the mode records a taken default. Either answer continues into the
 planning pass below — the answer names its brief: on **Append anyway** the pass runs as this
 section states it, its own where-should-it-go question included; on **Re-plan** the rewrite is the
 brief and that question does not arise.
@@ -382,6 +385,10 @@ Operator prompts (`skills/flow-contracts/operator-prompts.md`):
 > - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — nothing new is created
 > - **Create a linked `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that adds
 >   scope the parent change does not describe
+
+Under the mode the ask is not made: **Append to `proposal.md` and `tasks.md`** is taken and
+recorded the way the mode records a taken default (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`).
 
 The parent writes the append, or the sub-change's own proposal and plan. Whichever brief the
 budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks

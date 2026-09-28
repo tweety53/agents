@@ -113,6 +113,10 @@ names something opens another round. **Here the safe default and the recommended
 present is not "approve the design and move on," and defaults to another round rather than to the
 recommended choice. Print `⚠ another round — no explicit answer` when this default fires.
 
+Under the `## decisions: recommended` mode (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended
+**approve the design and move on** is taken, and the silence default above never fires.
+
 *Revise* is a round — it counts toward the third-round offer below exactly as *Another round*
 does — and differs only in what happens next: the changed design section(s),
 re-presented before the next confirm, in place of new questions.
@@ -137,6 +141,10 @@ backlog and, separately, what round `<n>` itself would ask — and offer the rou
 A decline records the **full still-open backlog** shown above. Silence, a stalled prompt, or any
 answer that is not one of the two options above defaults to **Yes**. Print `⚠ another round — no
 explicit answer` when this default fires.
+
+Under the mode the offer is not asked either: **Yes — run another round** is taken, and the
+silence default above never fires (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`).
 
 Rounds one and two open without asking. **There is no hard cap.** No round count ends the stage —
 see **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
@@ -627,6 +635,9 @@ take the operator's changes (a follow-up **AskUserQuestion** round when the opti
 revise `tasks.md`, re-run `check-plan-shape.sh` and the project's configured guards, re-run the
 Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second
 decision row — then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
+Under the `## decisions: recommended` mode the gate takes **Yes** without asking — the summary
+and the `## Decision` block still print, so the record of what was approved stays complete
+(**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
 
 What happens once this section's plan enrichment completes is stated in **Run brainstorming and
 planning directly** (`skills/flow/brainstorm.md`) — the run ends with a `/clear` handoff, and the
