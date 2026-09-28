@@ -3210,7 +3210,7 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 	if contacted {
 		t.Error("the store was contacted for an unrecognised effort -- it must be refused first")
 	}
-	for _, effort := range []string{"low", "medium", "high", "default"} {
+	for _, effort := range []string{"low", "medium", "high", "xhigh", "default"} {
 		if !strings.Contains(stderr.String(), effort) {
 			t.Errorf("stderr does not name the accepted effort %q:\n%s", effort, stderr.String())
 		}
@@ -3234,9 +3234,9 @@ func TestRecordDispatchBeginDefaultsEffortToDefault(t *testing.T) {
 }
 
 // TestRecordDispatchBeginAcceptsEffort pins -effort through to the request
-// body verbatim for each of the three accepted non-default words.
+// body verbatim for each of the four accepted non-default words.
 func TestRecordDispatchBeginAcceptsEffort(t *testing.T) {
-	for _, effort := range []string{"low", "medium", "high"} {
+	for _, effort := range []string{"low", "medium", "high", "xhigh"} {
 		t.Run(effort, func(t *testing.T) {
 			sent := dispatchBeginBody(t, "-effort", effort)
 

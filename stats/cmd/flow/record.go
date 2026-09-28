@@ -51,13 +51,13 @@ import (
 // place, and the store's rows are the only other copy.
 var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier"}
 
-// recordEfforts is the closed set `-effort` accepts: the three efforts the
-// harness exposes, plus `default` -- the literal that means no effort was
+// recordEfforts is the closed set `-effort` accepts: the four efforts a flow
+// dispatch can carry, plus `default` -- the literal that means no effort was
 // set for this dispatch. Checked before the store is ever contacted, for
 // the same reason recordRoles is: an unrecognised effort is a caller
 // mistake, and letting it fall through to the never-block fallback would
 // journal a write a replay could only ever be refused for a second time.
-var recordEfforts = []string{"low", "medium", "high", "default"}
+var recordEfforts = []string{"low", "medium", "high", "xhigh", "default"}
 
 // recordCauses is the closed set `-cause` accepts on a dispatch end closed
 // `-outcome blocked`: environment (a stack or tool the environment would
