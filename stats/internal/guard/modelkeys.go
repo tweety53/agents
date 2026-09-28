@@ -102,11 +102,22 @@ func checkModelKeys(args []string, env Env, stdout, stderr io.Writer) int {
 			return die("cannot read: %s", pf)
 		}
 		const key = "self review model"
-		// A multi-line body already fails: the contract is a single-line
-		// literal.
-		if body := mkSectionBody(abs+"/.flow/project.md", key, utf8); body != "" && (strings.Contains(body, "\n") || !mkMember(valid, body)) {
-			fmt.Fprintf(stdout, "%s: `## %s` value %s is not a ValidModels member\n", pf, key, smcQuote(body, utf8))
-			violations++
+		// The value is the body's head (KAN-797): mkSectionBody has already
+		// trimmed each line and stripped its surrounding backticks, so the
+		// head is the first line that is not empty after that — lines below
+		// it are documentation, never read.
+		if body := mkSectionBody(abs+"/.flow/project.md", key, utf8); body != "" {
+			head := ""
+			for _, line := range strings.Split(body, "\n") {
+				if line != "" {
+					head = line
+					break
+				}
+			}
+			if head != "" && !mkMember(valid, head) {
+				fmt.Fprintf(stdout, "%s: `## %s` value %s is not a ValidModels member\n", pf, key, smcQuote(head, utf8))
+				violations++
+			}
 		}
 		checked++
 	}

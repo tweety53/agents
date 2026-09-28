@@ -153,6 +153,16 @@ func TestCheckModelKeys(t *testing.T) {
 			return mkEnv(smcRepoRoot, mkStub(t, storeDown)+sysPath), []string{mkRoot(t, key("fable"))}
 		}, []smcCheck{smcRC("a failed ask still falls back cleanly", 0),
 			once("the failed ask's diagnostic is emitted exactly once", 1)}},
+		{func(t *testing.T) (Env, []string) {
+			prose := "## self review model\n\n`fable`\nCheapest of the valid set — the reasoning pass included.\n"
+			return mkEnv(smcRepoRoot, ""), []string{mkRoot(t, &prose)}
+		}, []smcCheck{smcRC("prose below a valid head passes (KAN-797)", 0)}},
+		{func(t *testing.T) (Env, []string) {
+			prose := "## self review model\n\n`bogus-model`\nBecause the operator said so.\n"
+			return mkEnv(smcRepoRoot, ""), []string{mkRoot(t, &prose)}
+		}, []smcCheck{smcRC("prose below an invalid head fails naming the head", 1),
+			smcHas("the named value is the head, never the prose", "value bogus-model is not a ValidModels member"),
+			smcLacks("the prose below the head is not quoted as the value", "Because the operator said so")}},
 	}
 	for i, c := range cases {
 		// The fixtures belong to the parent test, so they outlive the
@@ -208,15 +218,12 @@ func TestCheckModelKeys(t *testing.T) {
 		"`alpha`",          // valid
 		"  `alpha`\t\r",    // edge whitespace trimmed, CR included
 		"`alpha`\u00a0",    // NBSP: a space only under a UTF-8 locale
-		"\u00a0\n`alpha`",  // an NBSP-only line: blank only under UTF-8
 		"`alpha`\x00junk",  // NUL ends the line
 		"alpha",            // no backticks
 		"`c d`",            // an inner space
 		"``",               // empty code span: no body at all
 		"`",                // a lone backtick stays
 		"`alpha`\n``",      // a trailing span that empties is cut
-		"``\n`alpha`",      // a leading one is not
-		"`a`\n\n`b`",       // multi-line
 		"`bogus \"$x\" é`", // printf %q
 		"`tab\there`",      // printf %q ANSI-C
 		"`Gamma`",          // case-sensitive match
@@ -287,7 +294,7 @@ printf 'warn one\n\tsecond  \xc2\xa0 \n' >&2`)
 		{"no arguments checks the checkout", tree, agree, "en_US.UTF-8", nil},
 		{"a relative root", tree, agree, "en_US.UTF-8", []string{"scripts", "."}},
 		{"an empty root", tree, agree, "en_US.UTF-8", []string{""}},
-		{"a violation, then a root that is a file", tree, agree, "en_US.UTF-8", []string{roots[1], roots[11], notDir, roots[0]}},
+		{"a violation, then a root that is a file", tree, agree, "en_US.UTF-8", []string{roots[1], roots[12], notDir, roots[0]}},
 		{"project.md is a directory", tree, agree, "en_US.UTF-8", []string{roots[0], pfDir}},
 		{"a root that is not readable", tree, agree, "en_US.UTF-8", []string{noRead}},
 		{"project.md is unreadable", tree, agree, "en_US.UTF-8", []string{unreadable}},
@@ -318,6 +325,43 @@ printf 'warn one\n\tsecond  \xc2\xa0 \n' >&2`)
 			if grc != brc || gout.String() != bout.String() || gerr.String() != berr.String() {
 				t.Fatalf("port rc=%d stdout=\n%q\nstderr=\n%q\nbash rc=%d stdout=\n%q\nstderr=\n%q",
 					grc, gout.String(), gerr.String(), brc, bout.String(), berr.String())
+			}
+		})
+	}
+
+	// Two bodies deliberately diverge from the bash at d71a2327 (KAN-797):
+	// the value is the body's head, so a body whose head is a member passes
+	// where the whole-body bash failed it, and a multi-line violation names
+	// the head instead of quoting the whole body. Their roots left the sweep
+	// above; each is pinned here to the port's own expected output, with no
+	// settings.go beside the stub so the CLI's set governs.
+	kan797 := []struct {
+		name      string
+		body      string
+		locale    string
+		wantRC    int
+		wantPart  string
+		wantLacks string
+	}{
+		{"a body whose head is a member passes", "``\n`alpha`", "en_US.UTF-8", 0, "MODEL-KEYS-OK: 1 project(s) checked", ""},
+		{"a multi-line violation names the head", "`a`\n\n`b`", "en_US.UTF-8", 1, "value a is not a ValidModels member", ""},
+		// Under a UTF-8 locale the NBSP-only first line is blank, so the head
+		// is `alpha`; under C it is not blank, so the head is the NBSP line
+		// itself and the violation names it, never the whole body.
+		{"an NBSP-only head is named under C", "\u00a0\n`alpha`", "C", 1, "is not a ValidModels member", "alpha"},
+		{"an NBSP-only first line is blank under UTF-8", "\u00a0\n`alpha`", "en_US.UTF-8", 0, "MODEL-KEYS-OK: 1 project(s) checked", ""},
+	}
+	for _, kc := range kan797 {
+		t.Run("port (KAN-797 divergence): "+kc.name, func(t *testing.T) {
+			t.Parallel()
+			body := "# P\n\n## self review model\n\n" + kc.body + "\n\n## next\nx\n"
+			sbx := sandbox(t, nil)
+			env := crEnv(sbx, map[string]string{"FLOW_GUARD_REPO_ROOT": sbx, "PATH": agree + sysPath, "LC_ALL": kc.locale})
+			var out bytes.Buffer
+			rc := checkModelKeys([]string{mkRoot(t, &body)}, env, &out, &out)
+			if rc != kc.wantRC || !strings.Contains(out.String(), kc.wantPart) ||
+				(kc.wantLacks != "" && strings.Contains(out.String(), kc.wantLacks)) {
+				t.Fatalf("rc=%d out=%s", rc, out.String())
 			}
 		})
 	}

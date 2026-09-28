@@ -188,7 +188,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    SELF_REVIEW_MODEL="$(flow settings get | jq -r '.selfReviewModel // empty')"
    PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>&1)"; rc=$?
    case "$rc" in
-     0) PROJECT_SRM="$(printf '%s' "$PROJECT_SRM" | tr -d '`' | xargs)" ;;
+     0) PROJECT_SRM="$(printf '%s' "$PROJECT_SRM" | sed '/^[[:space:]]*$/d;q' | tr -d '`' | xargs)" ;;
      1) PROJECT_SRM="" ;;
      *) echo "⛔ flow: project-get.sh exited $rc: $PROJECT_SRM — stop the run" >&2; exit 2 ;;
    esac
@@ -206,9 +206,11 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    On harness `zcode` the dispatch runs on `glm-5.3-flash` / `high` regardless (**Harness
    mapping**, `skills/flow-contracts/model-policy.md`).
 
-   Run `project-get.sh <main-checkout> "self review"` (exit 1: absent) and match the body against
-   the three literals `run` / `skip` / `defer` byte-for-byte after trimming leading/trailing
-   whitespace; a body matching none is reported by name and dropped, resolving as absent. `skip`
+   Run `project-get.sh <main-checkout> "self review"` (exit 1: absent), take the body's first
+   non-blank line — trimmed, backticks removed — and match it against the three literals `run` /
+   `skip` / `defer` byte-for-byte per **Project configuration**
+   (`skills/flow-contracts/project-configuration.md`); lines below it are documentation. A head
+   matching none is reported by name and dropped, resolving as absent. `skip`
    ends step 9 here, the handoff's `Self-review` line reading `skipped — project default`. `run`
    proceeds to the reasoning pass below with no prompt. `defer` proceeds straight to the bundle
    write below, with no prompt and no reasoning pass.
