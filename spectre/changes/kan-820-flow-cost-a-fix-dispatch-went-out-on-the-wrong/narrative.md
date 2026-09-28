@@ -36,3 +36,11 @@
   resolution-needing rebase triggered the full lint and test lists, all green. No recorded
   baseline to recapture.
 - The landing route is this project's configured default (merge and push), taken without asking.
+
+- The second sync rebase (origin/main moved twice during the route) landed after the reshape, so
+  the post-rebase lint hit `check-task-records` structurally: the plan's per-task Commit subjects
+  are unreachable from HEAD because reshape-branch had already collapsed the seven task commits
+  into the one implementation commit, as run 1 requires. Hand-verified against the primary
+  records — seven of seven tasks ticked, every task's paths present in 8ee62ad3, no open
+  findings — and overridden as structural; the store's verdict record only covers
+  check-unfinished-work, so this line is the record.
