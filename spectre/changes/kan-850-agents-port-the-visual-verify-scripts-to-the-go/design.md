@@ -362,5 +362,9 @@ alone (Python 0 with help, port 2) and for non-ASCII digits (Python 0, port 2). 
 8, auto-resolved on the recommended option.
 **Considered:** other decoders, Pillow's messages and
 Unicode digits — no caller supplies them.
+**Correction (2026-09-28):** the U+FFFD echo is superseded (panel round 0): measure and compose now
+share one `ppRepr`, which renders a non-UTF-8 byte as the `\udcXX` surrogate Python's `repr()`
+printed, so a non-UTF-8 argument inside a repr (`unknown --props`, an OSError's path) matches the
+Python again; a path printed outside a repr prints raw, as compose's does.
 
 ## Open questions

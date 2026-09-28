@@ -427,6 +427,10 @@ counting.
   runs a lone copy of the shim (no `lib/flow-guard.sh` beside it). The subtests number 64: the
   harness's 59 less case 11's 2, plus 7; task 7's review fix added a one-level blue difference to
   the `any-channel` fixture (`diff=0.0010`) and a `stdin-nul` fixture, for 66.
+  Correction (2026-09-28): panel round 0's fixes widen `**Files:**` by `.gitattributes` (the
+  `map-not-utf8` fixture marked `-diff`, so `check-task-commit-fields.sh` reads this task's commit)
+  and add a stdin-captures-not-retained subtest, for 67.
+  <!-- measured: go test ./internal/guard/ -run '^TestComposeMockupFrames$' -count=1 -v | grep -c -- '--- PASS: TestComposeMockupFrames/' @ db641d42 -->
 
 - [x] 8. Port measure-visual-properties
 
@@ -502,6 +506,10 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
   Goldens: 52, a `modal-tie` fixture added when a last-seen tie mutant survived. Subtests: 78 (11
   harness, 52 goldens, 14 usage, 1 symlinked cwd). Testdata: 127 files, 155,253 bytes.
   <!-- measured: ls stats/internal/guard/testdata/measure-visual-properties/*.golden | wc -l; go test ./internal/guard/ -run '^TestMeasureVisualProperties$' -count=1 -v | grep -c -- '--- PASS: TestMeasureVisualProperties/'; find stats/internal/guard/testdata/measure-visual-properties -type f | wc -l; cat those files | wc -c @ branch spectre/kan-850-agents-port-the-visual-verify-scripts-to-the-go -->
+  Correction (2026-09-28): panel round 0's fixes widen `**Files:**` by `stats/internal/guard/planprovenance.go`
+  (`ppRepr` gains Python's `\udcXX` surrogate rendering, shared with compose) and add a non-UTF-8
+  repr parity subtest, for 79.
+  <!-- measured: go test ./internal/guard/ -run '^TestMeasureVisualProperties$' -count=1 -v | grep -c -- '--- PASS: TestMeasureVisualProperties/' @ db641d42 -->
 
 - [x] 9. Delete the sole-user helpers and repoint citations
 

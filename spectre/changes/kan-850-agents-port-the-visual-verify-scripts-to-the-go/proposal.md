@@ -20,9 +20,10 @@
 - The five scripts run as Go ports inside `flow-guard`; each `scripts/<name>.sh` becomes a
   `flow_guard_exec` shim keeping its header, and each harness is replaced by in-process Go tests.
 - CLI contracts unchanged — arguments, output lines, stdout/stderr split, side effects, exit codes
-  — with three stated departures: the compose diff mask counts any differing channel; 16-bit PNGs
-  convert by high byte (Pillow clips 16-bit grey to 255); `measure-visual-properties` accepts exact
-  option names only (argparse's prefix abbreviations are gone).
+  — with the departures `design.md` `## Decisions` records, among them: the compose diff mask
+  counts any differing channel; 16-bit PNGs convert by high byte (Pillow clips 16-bit grey to 255);
+  `measure-visual-properties` accepts exact option names only (argparse's prefix abbreviations are
+  gone).
 - `measure-visual-properties` prints the Python's JSON byte for byte; `compose-mockup-frames` writes
   the Python's pixels outside the diff panel. Python outputs on the fixtures are kept as Go test
   goldens.
