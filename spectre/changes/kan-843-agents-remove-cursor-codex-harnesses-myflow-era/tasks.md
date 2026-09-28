@@ -141,7 +141,7 @@ Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-ins
 
 - [ ] 4. Stats: drop Cursor and Codex from comments and fixtures
 
-**Files:** `stats/README.md`, `stats/cmd/flow/record.go`, `stats/internal/harvest/attribute.go`, `stats/internal/harvest/watcher.go`, `stats/internal/records/render.go`, `stats/internal/records/types.go`, `stats/internal/store/records.go`, `stats/internal/guard/installedcitations.go`
+**Files:** `stats/README.md`, `stats/cmd/flow/record.go`, `stats/internal/harvest/attribute.go`, `stats/internal/harvest/watcher.go`, `stats/internal/records/render.go`, `stats/internal/records/types.go`, `stats/internal/store/records.go`
 **Allowed-collateral:** `stats/cmd/flow/record_test.go`, `stats/internal/harvest/attribute_test.go`, `stats/internal/harvest/endtoend_test.go`, `stats/internal/records/render_test.go`, `stats/internal/store/records_test.go`, `stats/internal/store/aggregate_test.go`, `stats/internal/api/stages_test.go`
 **Tests:** none — comments and fixture values only
 **Regression:** none — no behaviour changes
@@ -152,6 +152,8 @@ Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-ins
 **Build:** green
 
 **Decision:** harnesses-claude-code-and-zcode
+
+Correction (2026-09-28): `installedcitations.go` left `**Files:**` — task 2 already removed its harness mentions. Fixtures use `no-transcript-harness`, not `zcode`: `api/stages.go` reads zcode transcripts, so `zcode` would change what those tests mean.
 
   - [ ] **Step 1: Trim.** Comments naming Cursor/Codex as harnesses that write no transcript are
     restated generically ("a harness that writes no transcript") or cut. Test fixtures using
@@ -183,7 +185,7 @@ Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-ins
     scripts/check-guard-symlinks.sh && scripts/test-lib-coverage.sh && cd stats && go test
     ./internal/guard/ -count=1 -race`.
 
-- [ ] 6. Self-review guard: no legacy labels, no exemptions
+- [x] 6. Self-review guard: no legacy labels, no exemptions
 
 **Files:** `scripts/check-self-review-report.sh`
 **Allowed-collateral:** `docs/self-review/**`, `scripts/test-check-self-review-report.sh`
@@ -199,16 +201,16 @@ Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-ins
 
 Correction (2026-09-28): 13 reports were relabelled, not 14 — `kan-197-require-mutation-test-for-every-guard-self-review.md` carried a `myflow-` label and was also one of the 17 deleted. The guard's OK line drops its "declared pre-rule" count.
 
-  - [ ] **Step 1: Reports.** `git rm` every file named in `DECLARED_REPORTS`; in every report
+  - [x] **Step 1: Reports.** `git rm` every file named in `DECLARED_REPORTS`; in every report
     `git grep -lE 'myflow-(fix|cost|improvement|automation)' docs/self-review` lists, rewrite each
     `myflow-<angle>` label to `flow-<angle>`.
     <!-- measured: git grep -lE 'myflow-(fix|cost|improvement|automation)' docs/self-review | wc -l → 14; DECLARED_REPORTS has 17 entries @ b8faae9a -->
-  - [ ] **Step 2: Guard.** Delete `LEGACY_ANGLE_LABELS`, its match branch, `DECLARED_REPORTS`,
+  - [x] **Step 2: Guard.** Delete `LEGACY_ANGLE_LABELS`, its match branch, `DECLARED_REPORTS`,
     `DECLARED_REASON`, `declare_pre_rule` and the header prose describing them; delete the harness
     cases that exercised them.
-  - [ ] **Step 3: Verify.** `scripts/check-self-review-report.sh && scripts/test-check-self-review-report.sh`.
+  - [x] **Step 3: Verify.** `scripts/check-self-review-report.sh && scripts/test-check-self-review-report.sh`.
 
-- [ ] 7. Remove myflow leftovers
+- [x] 7. Remove myflow leftovers
 
 **Files:** `skills/flow/brainstorm-planner.md`, `skills/flow-contracts/finish-contract-run2.md`, `scripts/plan-dispatch-bundles.py`, `skills/flow-contracts/workspace-isolation.md`, `.gitignore`
 **Allowed-collateral:** `scripts/test-prepare-workspace.sh`, `stats/cmd/flow/workspaceid_test.go`
@@ -220,16 +222,17 @@ Correction (2026-09-28): 13 reports were relabelled, not 14 — `kan-197-require
 **Commit:** `docs(skills): remove myflow leftovers`
 **Build:** green
 
-  - [ ] **Step 1: Prose.** Drop the "earlier `myflow-` spellings matched too" clauses in
+  - [x] **Step 1: Prose.** Drop the "earlier `myflow-` spellings matched too" clauses in
     `brainstorm-planner.md` and `finish-contract-run2.md`, the myflow wording in
     `plan-dispatch-bundles.py`'s header (the two `skills/*/scripts/` entries are symlinks to it)
     and `.gitignore`'s comment.
-  - [ ] **Step 2: Worked example.** Rename `kan-15-parallel-myflow-do-task-lanes` to
+  - [x] **Step 2: Worked example.** Rename `kan-15-parallel-myflow-do-task-lanes` to
     `kan-15-parallel-flow-task-lanes` in `workspace-isolation.md`, `test-prepare-workspace.sh` and
     `workspaceid_test.go`; recompute the expected id with `cd stats && go run ./cmd/flow
     workspace-id kan-15-parallel-flow-task-lanes` and update every place that quotes it.
-  - [ ] **Step 3: Verify.** `git grep -il myflow -- . ':!docs/' ':!spectre/changes/archive/'
-    ':!spectre/changes/kan-843-agents-remove-cursor-codex-harnesses-myflow-era/' ':!KNOWN-BUGS.md' ':!.idea/'` prints nothing; `scripts/test-prepare-workspace.sh && cd stats
+  - [x] **Step 3: Verify.** `git grep -il myflow -- . ':!docs/' ':!spectre/changes/archive/'
+    ':!spectre/changes/kan-843-agents-remove-cursor-codex-harnesses-myflow-era/' ':!KNOWN-BUGS.md' ':!.idea/'` prints nothing;
+    Correction (2026-09-28): it prints task 1's `synthetic.go`, `synthetic_test.go`, `legacyshapes_test.go` and `0031_drop_legacy_shapes.sql`, which must name the migrated `myflow` value; `scripts/test-prepare-workspace.sh && cd stats
     && go test ./cmd/flow/ -run '^TestWorkspaceID' -count=1`.
 
 - [x] 8. Drop ticket special cases
