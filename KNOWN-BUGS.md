@@ -132,3 +132,21 @@
 - `stats/internal/guard/measurevisualproperties.go:412` — task-8 review, Minor, kan-850 — five comparison boundaries are unpinned by tests (`isBg` `<=` at :412, `firstEdge` `>=` at :489, seam merge `<` at :901, rule row `>=` at :924, `ga < gb` at :1172): each flipped operator passes `TestMeasureVisualProperties`, and the first two change real output under `--noise 0` / `--edge 0` — breaks: a future edit flipping one ships unnoticed — fix: Python goldens with `--noise 0` and `--edge 0`, plus an exact-tie fixture for the other three — deferred: other.
 - `stats/internal/guard/taskcommitfields.go:138-143` — F1, Minor, kan-786-check-task-commit-fields-skipped-cross-repo — the commit map's malformed-entry and duplicate-worktree refusal branches have no test case (cases 151/152 cover the other two refusals) — breaks: a regression in either refusal ships untested — the guard exits 2 with the wrong message, or not at all, and nothing fails — fix: two table cases asserting both refusal messages, the way cases 151/152 assert theirs — deferred: coverage-gap.
 - `stats/internal/guard/check_task_commit_fields_test.go:1359` — F2, Minor, kan-786-check-task-commit-fields-skipped-cross-repo — tcfMapRepos deviates from the plan's stated fixture model (case 72's `fx.repo` + `link.md`): bare repos resolving via the absent-dir branch instead — breaks: the commit map over a link.md satellite (case 72's resolution route) has no map-form case, so a regression there ships untested — fix: one map-form case over a link.md satellite fixture — deferred: out-of-scope.
+- `stats/internal/guard/panelfindingsclosed.go:186` — F1, Minor, kan-770-flow-enforce-that-a-finding-s-fixed-status-is — a
+  `fixed` finding with no recorded slot passes as verified when the covering dispatch row also has
+  no slot: `strings.Split("", "+")` is `[""]` on both sides, so the empty component covers itself,
+  against `cfcParseDispatches`' own comment claiming an empty slot never qualifies — breaks: the
+  guard's fail-closed posture, an unwitnessed verification pronounced `FINDINGS-CLOSED` — fix:
+  skip empty components when building `required` and correct the comment to name role and outcome
+  only — deferred: coverage-gap.
+- `stats/internal/guard/panelfindingsclosed.go:89` — F2, Minor, kan-770-flow-enforce-that-a-finding-s-fixed-status-is — the
+  unconditional dispatches read precedes the violation predicates, so a dispatches-only read
+  failure converts an actionable exit 1 into a run-stopping exit 2 that names nothing — breaks:
+  the actionable verdict on an open change, lost to a run stop when only the second read fails —
+  fix: run the correlation after the predicates and let a failed dispatches read downgrade only a
+  would-be exit 0 — deferred: other.
+- `stats/internal/guard/check_panel_findings_closed_test.go:13` — F3, Minor, kan-770-flow-enforce-that-a-finding-s-fixed-status-is — the
+  provenance comment names `scripts/test-check-panel-findings-closed.sh`, absent at the merge base
+  (retired when the guard was ported to Go), and the diff extends the dangling pointer — breaks: a
+  reader cannot follow the cited harness — fix: reword the comment to the past tense the
+  neighboring sentence already uses — deferred: pre-existing.
