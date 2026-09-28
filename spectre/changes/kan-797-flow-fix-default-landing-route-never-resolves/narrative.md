@@ -30,3 +30,14 @@
   tool-allowlist-carried as the flow-<effort> family provides on Claude Code.
 - **Jira:** KAN-797 transitioned To Do → In Progress at kickoff. No description sync — the
   operator added no scope beyond the issue.
+
+## 2026-09-28 — integrate run
+
+- Preflight RUN1, foreign-staged and drift both clean, unfinished-work gate CLEAR,
+  visual-verify-dispatched OK (no UI paths touched).
+- **The base moved twice during landing.** The sync rebase conflicted on `KNOWN-BUGS.md` a second
+  time (main's newest 11 commits added another entry at the same tail). The in-place resolution
+  initially took `--theirs` wholesale, which dropped main's kan-798 entry; repaired immediately
+  after with `88c26cac` restoring the union — both sides' entries present, verified by grep. The
+  hand-merged hunk forced the full `## lint` + `## test` lists again per the finish contract.
+- Landing route: `merge and push` — this project's configured default, not asked.
