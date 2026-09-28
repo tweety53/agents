@@ -86,7 +86,7 @@ are the parent's own Bash calls, never a subagent's. Steps 4–11 and 13 are run
 surviving steps 1–3, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 parent applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture`,
-`fingerprint` and `start` commands and `screenshots` root, its resolved `mockups` root when
+`fingerprint`, `start` and `specs` commands and `screenshots` root, its resolved `mockups` root when
 declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths`
 matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 4–11
 and 13 below as written, committing and pushing nothing.
@@ -146,11 +146,20 @@ and 13 below as written, committing and pushing nothing.
    Exit 2 → report `fingerprint: not declared — <the guard's stderr reason>` and continue; the
    report makes the gap visible in every handoff, but this stage cannot prove what it was never
    told how to check.
-7. **Run `verify`.** A non-zero exit blocks — except a failing test **the sweep**
+7. **Run `verify`.** When `specs` is declared, run it first from the `regression checkout`, with
+   `<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base, and
+   substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs
+   replace the checked-in suite, never extend it. An absent `specs`, an empty output or a non-zero
+   exit substitutes nothing, and `verify` runs its whole suite. A `verify` with no `<specs>` runs as
+   declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
+   A non-zero `verify` exit blocks — except a failing test **the sweep**
    (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's
    known-failure course instead.
-8. **Capture** — author a spec covering the views this change touched, then run `capture` with
-   `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
+8. **Capture** — the capture spec is the touched views' existing spec from `specs`' output,
+   extended, when one covers the view; a new spec is authored only for a view none covers. Run
+   `capture` with `<spec>` substituted for the spec's path. **Every capture asserts the view is on
+   screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the
+   capture instead of becoming its baseline (KAN-747). `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration.md`; nothing here restates it. **Every screenshot
    this spec takes is the full page or viewport, never a clipped region.** A clip is the right tool
    for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
@@ -199,7 +208,8 @@ and 13 below as written, committing and pushing nothing.
    app's own routes or navigation and from every spec already in the checkout, never from this
    change's diff. Present → add a capture for every screen this change added and update the
    capture of every screen it changed or removed. Run `capture` with `<spec>` substituted for the
-   suite's path; a non-zero exit blocks as any `capture` failure does — except a failing test
+   suite's path and `-g '<titles>'` appended, naming only the tests this step added or updated —
+   never the whole suite; a non-zero exit blocks as any `capture` failure does — except a failing test
    **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes
    that contract's known-failure course instead. Then rebuild the zip from
    exactly what the suite just produced:

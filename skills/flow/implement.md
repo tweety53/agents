@@ -304,7 +304,11 @@ map by the read-merge-write at the top of this stage, and
 are declared apps, not peers — and each of them joins this run's resolved worktree set. **A
 worktree add that fails is a hard failure of this stage**, reported and stopping the run exactly
 like a refused link: a declared app left unresolved is the commit destination a later stage
-creates by hand, off the wrong base, unrecorded.
+creates by hand, off the wrong base, unrecorded. The worktree of the repository `## visual verification`'s `regression checkout` names,
+once created — or resumed without a `node_modules` — gets its own toolchain: that section's
+`setup` command runs from the worktree's root, in the foreground, and a non-zero exit is a hard
+failure of this stage like a failed worktree add. Never a symlink to the main checkout's
+`node_modules`.
 
 **Then make the merge-order record cover the whole set.** The canonical `link.md`'s
 `## Merge order` is what **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
