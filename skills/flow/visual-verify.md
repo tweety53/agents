@@ -10,7 +10,8 @@ this file.
 
 `flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
-parent dispatches nothing else in this file. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
+parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
+tooling analysis** below. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
 literal `opus`, never `DEFAULT_MODEL` and never a session override — mapped on harness `zcode` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
@@ -79,6 +80,81 @@ model the second handshake named>`** or **Stop the run**.
 A verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`
 and blocks this handoff exactly as a failed command would, naming the death.
 
+## A missed defect — the tooling analysis
+
+**A miss is a defect the fix instructions report in a view an earlier round of this stage
+passed** — a `verify-report-*.md` under `<changeRoot>` from that round exists and names no
+departure for it. The parent classifies each defect the fix instructions name, from those reports,
+before the verifier dispatch. A miss means the sweeps below cannot see that defect's class — the
+property, element kind or state no sweep read — and fixing the one instance leaves every other
+defect of the class in place. So on a fix run with at least one miss, **the parent dispatches one
+tooling analyst after step 3's pre-flight passes and before the verifier**, and this round's
+verifier runs the sweeps it writes. A fix run with no miss dispatches none.
+
+`subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model`
+parameter set to `DEFAULT_MODEL` (**Model resolution**, `skills/flow/SKILL.md`), mapped on harness
+`zcode` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt carries,
+verbatim:
+
+> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
+> Include this instruction verbatim in any prompt you write for another agent.
+
+**The prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+**The prompt also carries the NO DELEGATION paragraph**:
+
+> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
+> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.
+
+**The prompt also carries the MODEL HANDSHAKE paragraph**:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
+It also states: the absolute worktree path; each missed defect, verbatim from the fix
+instructions; the paths of the earlier round's `verify-report-*.md` and
+`<changeRoot>/visual-verification.md`, and the captures they cite; the path of this file; and
+this task, as written:
+
+> For each missed defect, name the sweep in steps 8–10 of `skills/flow/visual-verify.md` that
+> should have caught it and why it did not, then name the defect's class — the property, element
+> kind or state no sweep read. Write the sweeps that close each class to
+> `<changeRoot>/sweeps-<n>.md`: a new sweep, or a sharpened copy of an existing one under its own
+> name, each in step 10's sweep shape — what it reads from the capture, and from the frame where
+> one is composed, and what makes it fail. A sweep targets the class, never the instance: it must
+> be able to find another defect of the class in a view the fix instructions do not name. You fix
+> nothing, edit no source and run no capture. Your turn ends with a `## Report` block listing
+> each sweep by name with the miss it closes, and your last act before it is writing the same
+> block to `<abs-worktree>/.superpowers/sdd/tooling-analysis-<n>.md`.
+
+`<n>` is this fix run's ordinal, the one `flow.document-fix` recorded.
+
+**Recording.** The parent records the dispatch `-role planner`, `-task` omitted, `-model
+<DEFAULT_MODEL> -effort high`, `-key tooling-analysis-<n>`, suffixed `-<worktree basename>` under
+the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here,
+not restated. **Handshake** as **The verifier dispatch** above states it, compared against
+`DEFAULT_MODEL` instead of `opus`.
+
+**The re-run.** The verifier's prompt then carries `sweeps-<n>.md`'s path, and the verifier runs
+its sweeps in step 10 beside the sweeps listed there, on every view and frame the change touches
+— never only the view the miss was reported in — each where its own wording applies, as
+step 10's frame-gating note states for the others. A departure an added sweep finds is a defect
+the verifier reports, and blocks as one. The report carries one line per added sweep.
+
+An analyst that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`;
+the verifier is dispatched without added sweeps, and the handoff names `tooling analysis:
+aborted — verified without added sweeps`. A completed analysis puts `tooling analysis:
+<changeRoot>/sweeps-<n>.md — <k> sweeps` in the handoff, so the operator can fold the sweeps into
+step 10 for every later change.
+
 ## Steps 3–13
 
 Steps 1, 2, 3 and 12 are the parent's — those steps, `prepare-workspace.sh` and the ledger render
@@ -88,7 +164,8 @@ parent applies **Blocking** to its report. Its prompt states: the absolute workt
 `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture`,
 `fingerprint`, `start` and `specs` commands and `screenshots` root, its resolved `mockups` root when
 declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths`
-matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 4–11
+matched; the project's `## run` commands; the views touched; `<changeRoot>`; `sweeps-<n>.md`'s path
+when **A missed defect — the tooling analysis** above completed this round; and to run steps 4–11
 and 13 below as written, committing and pushing nothing.
 
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
@@ -667,6 +744,7 @@ and 13 below as written, committing and pushing nothing.
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's
   outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
+- added sweep <name> (sweeps-<n>.md): <done, or why not — every view and frame it read, and each departure it found>
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - visual-verification.md: written | not written — <reason>
