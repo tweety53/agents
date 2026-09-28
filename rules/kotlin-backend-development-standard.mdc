@@ -8,7 +8,7 @@ alwaysApply: false
 
 # Kotlin Backend Development Standard
 
-Follow [JetBrains Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html). `./gradlew ktlintCheck detekt` must pass with zero violations.
+Follow [JetBrains Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html). The lint commands this project declares in its `.flow/project.md` `## lint` section — rendered under **10. Before claiming work done** — must pass with zero violations.
 
 detekt 1.x's `>=`-compared `threshold` fields — the size and count ceilings a plan cites: `TooManyFunctions`' `thresholdInClasses`/`thresholdInFiles`, `LongMethod`, `LargeClass`, `LongParameterList`, `NestedBlockDepth`, `ComplexCondition`, `CyclomaticComplexMethod` — are **first-failing counts, not safe maxima**: the rule fires once the count reaches the threshold, so `TooManyFunctions` with `thresholdInClasses: 20` fails a class at exactly 20 functions and the largest compliant class holds 19. Two thresholds are the exceptions and already are safe maxima — `NamedArguments` and `NestedScopeFunctions` compare with strict `>` — and detekt 2.x renames the size fields to `allowed*` under that same strict comparison. A plan citing a first-failing ceiling must state the safe maximum — the configured threshold minus one, read off the project's `detekt.yml` — never the bare threshold, which fails the first file or class that reaches it.
 
@@ -137,6 +137,6 @@ Mirror `core/` and `infrastructure/` paths in test source sets. Layout is enforc
 
 ## 10. Before claiming work done
 
-`./gradlew ktlintCheck detekt :auth:test :app:test`
+{{lint-commands}}
 
 Reference: `README.md`, `src/app/auth/README.md`

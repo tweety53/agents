@@ -182,6 +182,14 @@ func TestRealKotlinStandardReachesProject(t *testing.T) {
 		// or `alwaysApply:` in the rendered body would feed rule-file frontmatter to every
 		// harness.
 		g.assertNotContains(label+" strips the rule's frontmatter", f, "alwaysApply: false")
+		// The standard's command examples are placeholders resolved from the project's own
+		// ## lint section: the rendered block carries the declared commands, never the
+		// hardcoded ./gradlew ktlintCheck detekt copies that drifted from every project
+		// that verifies differently, and never a raw placeholder.
+		g.assertContains(label+" renders the declared lint commands as a bash fence", f, "```bash\n./gradlew ktlintFormat")
+		g.assertContains(label+" renders the second declared command", f, "./gradlew verifyChange")
+		g.assertNotContains(label+" carries no stale hardcoded command", f, "./gradlew ktlintCheck detekt")
+		g.assertNotContains(label+" carries no raw placeholder", f, "{{lint-commands}}")
 	}
 }
 
