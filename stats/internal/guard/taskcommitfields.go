@@ -96,6 +96,10 @@ const tcfMeasuredTimeout = 600 * time.Second
 // tcfNotAVerdict is NOT_A_VERDICT, the opening of every exit-2 refusal.
 const tcfNotAVerdict = "check-task-commit-fields: COULD NOT JUDGE — not a commit verdict:"
 
+// tcfRepoCommit is one "<worktree>=<sha>" pair of the third argument's
+// per-repository commit map — or the single-commit form's one implicit pair.
+type tcfRepoCommit struct{ worktree, commit string }
+
 func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int {
 	// refuse is could_not_judge: the one printer for every exit-2 refusal, so
 	// the EXIT CODES opening stays identical at every site. The detail is the
@@ -105,10 +109,46 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		return 2
 	}
 	if len(args) < 3 || len(args) > 6 {
-		return refuse(fmt.Sprintf("usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name] — got %d argument(s)", len(args)))
+		return refuse(fmt.Sprintf("usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> [parent-sha] [canonical-worktree] [change-name] — got %d argument(s)", len(args)))
 	}
 	a := append(slices.Clone(args), "", "", "")
 	worktree, taskID, commit, parent, canonical, name := a[0], a[1], a[2], a[3], a[4], a[5]
+
+	// The third argument's two forms. A bare revision is the single-commit
+	// form this guard has always taken: one repository, one commit. A form
+	// containing "=" is the per-repository commit map (KAN-786) — comma-
+	// separated "<worktree>=<sha>" pairs, one per repository carrying any of
+	// the task's commits — and the verdict merges across the listed
+	// repositories: a task whose Files: span two repositories could never
+	// reach exit 0 through any single-repo invocation (the other repository's
+	// declared paths read as declared-but-untouched), which is the shape that
+	// sent cross-repo runs to the hand check. A real revision never contains
+	// "=", so the shape test is safe. Each pair's worktree must exist; the
+	// map derives each commit's parent in its own repository, so the fourth
+	// argument — one parent for one commit — has no meaning here and is
+	// refused rather than guessed at.
+	var repos []tcfRepoCommit
+	if strings.Contains(commit, "=") {
+		if parent != "" {
+			return refuse("the per-repository commit map derives each commit's parent itself — pass the fourth argument empty")
+		}
+		for _, entry := range strings.Split(commit, ",") {
+			entry = strings.TrimSpace(entry)
+			wt, sha, _ := strings.Cut(entry, "=")
+			if wt == "" || sha == "" || strings.Contains(sha, "=") {
+				return refuse(fmt.Sprintf("map entry is not <worktree>=<sha>: %q", entry))
+			}
+			if slices.ContainsFunc(repos, func(r tcfRepoCommit) bool { return r.worktree == wt }) {
+				return refuse("worktree named twice in the commit map: " + wt)
+			}
+			if !isDir(wt) {
+				return refuse("worktree not found: " + wt)
+			}
+			repos = append(repos, tcfRepoCommit{wt, sha})
+		}
+	} else {
+		repos = []tcfRepoCommit{{worktree, commit}}
+	}
 
 	// A task id is ONE flat integer — plan_grammar.py's TASK_ID, spectre's own
 	// task-line id. Anything else is a caller mistake, not a plan fact, and it
@@ -139,7 +179,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	// forwarded. Shared by all three resolution paths (named change, satellite
 	// link, glob-path) so the dispatch lives in exactly one place.
 	judge := func(tasksMD string) int {
-		violations, err := tcfCheckTaskCommit(env, tasksMD, taskID, worktree, commit, parent)
+		violations, err := tcfCheckTaskCommit(env, tasksMD, taskID, repos, parent)
 		var crash tcfCrash
 		switch {
 		case errors.As(err, &crash):
@@ -1270,8 +1310,26 @@ func tcfRunGit(env Env, worktree string, args ...string) (string, error) {
 // subject; `task` carries what this task itself declared, which is what
 // Tests: and the declared-scope check are about either way.
 //
+// KAN-786 splits the single (worktree, commit) pair this function used to
+// take into a tcfRepoCommit list — one pair per repository carrying any of
+// the task's commits — and merges the verdict across them: the union of
+// changed paths against Files:/Allowed-collateral:, the concatenated diffs
+// against Tests:, the summed @Test counts against Baseline:, the declared
+// Commit: subject required on every listed commit, and the tree check
+// satisfied by any listed tree. One pair behaves exactly as the
+// single-repository form always did.
+//
+// tcfRepoDiff is one repository's slice of that verdict: the pair the
+// commit map (or the single-commit form) named, its derived parent, and
+// what git reports about the range in that repository.
+type tcfRepoDiff struct {
+	worktree, commit, parent string
+	changed                  []string
+	diff, subject            string
+}
+
 // tcfCheckTaskCommit is check_task_commit.
-func tcfCheckTaskCommit(env Env, tasksMD, taskID, worktree, commit, parent string) ([]string, error) {
+func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, parent string) ([]string, error) {
 	raw, err := os.ReadFile(tasksMD)
 	if err != nil {
 		return nil, tcfOSError(tasksMD, err)
@@ -1295,31 +1353,51 @@ func tcfCheckTaskCommit(env Env, tasksMD, taskID, worktree, commit, parent strin
 		return squashViolations, nil
 	}
 
-	if parent == "" {
-		out, err := tcfRunGit(env, worktree, "rev-parse", commit+"^")
+	diffs := make([]tcfRepoDiff, 0, len(repos))
+	for _, repo := range repos {
+		d := tcfRepoDiff{worktree: repo.worktree, commit: repo.commit}
+		if parent != "" {
+			// The single-commit form's explicit fourth argument; the map form
+			// refused a non-empty one at the argument boundary.
+			d.parent = parent
+		} else {
+			out, err := tcfRunGit(env, repo.worktree, "rev-parse", repo.commit+"^")
+			if err != nil {
+				return nil, err
+			}
+			d.parent = tcfStrip(out)
+		}
+		names, err := tcfRunGit(env, repo.worktree, "diff", "--no-renames", "--name-only", d.parent+".."+d.commit)
 		if err != nil {
 			return nil, err
 		}
-		parent = tcfStrip(out)
+		for _, p := range tcfSplitLines(names) {
+			if p != "" {
+				d.changed = append(d.changed, p)
+			}
+		}
+		d.diff, err = tcfRunGit(env, repo.worktree, "diff", "--no-renames", d.parent+".."+d.commit)
+		if err != nil {
+			return nil, err
+		}
+		d.subject, err = tcfRunGit(env, repo.worktree, "log", "-1", "--format=%s", d.commit)
+		if err != nil {
+			return nil, err
+		}
+		diffs = append(diffs, d)
 	}
-	names, err := tcfRunGit(env, worktree, "diff", "--no-renames", "--name-only", parent+".."+commit)
-	if err != nil {
-		return nil, err
-	}
+
 	var changed []string
-	for _, p := range tcfSplitLines(names) {
-		if p != "" {
-			changed = append(changed, p)
+	var fullDiff strings.Builder
+	for _, d := range diffs {
+		fullDiff.WriteString(d.diff)
+		for _, p := range d.changed {
+			if !slices.Contains(changed, p) {
+				changed = append(changed, p)
+			}
 		}
 	}
-	diff, err := tcfRunGit(env, worktree, "diff", "--no-renames", parent+".."+commit)
-	if err != nil {
-		return nil, err
-	}
-	subject, err := tcfRunGit(env, worktree, "log", "-1", "--format=%s", commit)
-	if err != nil {
-		return nil, err
-	}
+	diff := fullDiff.String()
 
 	var v []string
 	// The evidence rule (KAN-676) is a plan-text check like the unclosed
@@ -1330,22 +1408,50 @@ func tcfCheckTaskCommit(env Env, tasksMD, taskID, worktree, commit, parent strin
 	v = append(v, tcfCheckFiles(folded, changed)...)
 	v = append(v, tcfCheckDeclaredFiles(folded, changed)...)
 	v = append(v, tcfCheckTests(task, diff)...)
-	counts, err := tcfCheckBaselineCounts(env, task, worktree, changed, parent, commit)
+	counts, err := tcfCheckBaselineCounts(env, task, diffs)
 	if err != nil {
 		return nil, err
 	}
 	v = append(v, counts...)
-	measured, err := tcfCheckBaselineMeasured(env, task, worktree, parent, commit, tcfMeasuredTimeout)
-	if err != nil {
-		return nil, err
+	if len(diffs) == 1 {
+		// The recorded measurement command addresses one repository; with
+		// more than one pair there is no single tree it measures, so the
+		// check skips — never a verdict (the kan-100 rule).
+		measured, err := tcfCheckBaselineMeasured(env, task, diffs[0].worktree, diffs[0].parent, diffs[0].commit, tcfMeasuredTimeout)
+		if err != nil {
+			return nil, err
+		}
+		v = append(v, measured...)
 	}
-	v = append(v, measured...)
-	inTree, err := tcfCheckTestsInTree(env, task, worktree, commit, tasksAbs)
-	if err != nil {
-		return nil, err
+	// The tree check runs per repository and a name must be found in at
+	// least one listed tree: a spanning task's test content lives wherever
+	// its commits put it. One pair keeps today's message byte for byte.
+	var missingAll []string
+	shas := make([]string, 0, len(diffs))
+	for i, d := range diffs {
+		missing, err := tcfMissingTreeNames(env, task, d.worktree, d.commit, tasksAbs)
+		if err != nil {
+			return nil, err
+		}
+		shas = append(shas, d.commit)
+		if i == 0 {
+			missingAll = missing
+			continue
+		}
+		var kept []string
+		for _, name := range missingAll {
+			if slices.Contains(missing, name) {
+				kept = append(kept, name)
+			}
+		}
+		missingAll = kept
 	}
-	v = append(v, inTree...)
-	v = append(v, tcfCheckCommitSubject(folded, tcfStrip(subject))...)
+	for _, name := range missingAll {
+		v = append(v, fmt.Sprintf("task %s: declared test %s not found in the tree at %s — %s", task.id, name, strings.Join(shas, ", "), tcfTestsParseRule))
+	}
+	for _, d := range diffs {
+		v = append(v, tcfCheckCommitSubject(folded, tcfStrip(d.subject))...)
+	}
 	v = append(v, tcfCheckCommitScope(task, changeName)...)
 	return v, nil
 }
@@ -1489,18 +1595,27 @@ func tcfCountTests(env Env, worktree, revision string, paths []string) (int, err
 // own source carries (docstrings included) fail a commit whose recorded
 // measurement agreed with the declaration.
 //
-// tcfCheckBaselineCounts is check_baseline_counts.
-func tcfCheckBaselineCounts(env Env, task tcfTask, worktree string, changed []string, parent, commit string) ([]string, error) {
+// tcfCheckBaselineCounts is check_baseline_counts, over one repository
+// slice per commit-map pair: the @Test counts are taken per repository over
+// that repository's changed files and summed, so a task whose tests spread
+// across two repositories measures its declared delta across both. One pair
+// is the sum of one term — the single-repository form, unchanged.
+func tcfCheckBaselineCounts(env Env, task tcfTask, diffs []tcfRepoDiff) ([]string, error) {
 	if task.baseline == nil {
 		return nil, nil
 	}
-	before, err := tcfCountTests(env, worktree, parent, changed)
-	if err != nil {
-		return nil, err
-	}
-	after, err := tcfCountTests(env, worktree, commit, changed)
-	if err != nil {
-		return nil, err
+	before, after := 0, 0
+	for _, d := range diffs {
+		b, err := tcfCountTests(env, d.worktree, d.parent, d.changed)
+		if err != nil {
+			return nil, err
+		}
+		a, err := tcfCountTests(env, d.worktree, d.commit, d.changed)
+		if err != nil {
+			return nil, err
+		}
+		before += b
+		after += a
 	}
 	if before == 0 && after == 0 || len(task.baselineMeasured) == 1 {
 		return nil, nil
@@ -1771,8 +1886,11 @@ func tcfFoldedTreeText(env Env, worktree, commit, excludeDir, excludePath string
 // PATH (panel F1) — a `Tests:` token naming a file the commit
 // carries, whose string appears nowhere as file content.
 //
-// tcfCheckTestsInTree is check_tests_in_tree.
-func tcfCheckTestsInTree(env Env, task tcfTask, worktree, commit, tasksAbs string) ([]string, error) {
+// tcfMissingTreeNames is check_tests_in_tree's search half (KAN-786 split
+// the message off so the merged verdict can intersect one repository's
+// misses with the next): the declared test names found neither in this
+// tree's content at the commit nor as a committed path in it.
+func tcfMissingTreeNames(env Env, task tcfTask, worktree, commit, tasksAbs string) ([]string, error) {
 	wtAbs, _ := filepath.Abs(worktree)
 	planRel, _ := filepath.Rel(wtAbs, tasksAbs)
 	if strings.HasPrefix(planRel, "../") {
@@ -1782,7 +1900,7 @@ func tcfCheckTestsInTree(env Env, task tcfTask, worktree, commit, tasksAbs strin
 	if err != nil {
 		return nil, err
 	}
-	var v []string
+	var missing []string
 	for _, name := range tcfTreeNames(task.testsValue) {
 		if bytes.Contains(tree, tcfFoldWS([]byte(name))) {
 			continue
@@ -1797,9 +1915,9 @@ func tcfCheckTestsInTree(env Env, task tcfTask, worktree, commit, tasksAbs strin
 		if code == 0 {
 			continue
 		}
-		v = append(v, fmt.Sprintf("task %s: declared test %s not found in the tree at %s — %s", task.id, name, commit, tcfTestsParseRule))
+		missing = append(missing, name)
 	}
-	return v, nil
+	return missing, nil
 }
 
 // tcfCheckCommitSubject is check_commit_subject.

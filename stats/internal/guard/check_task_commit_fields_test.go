@@ -1297,6 +1297,79 @@ After the change: 186 tests
 **Commit:** add alpha
 **Build:** green
 `),
+	"147": bt(`- [ ] 1. A task whose files span two repositories
+
+**Files:** ¤alpha.txt¤, ¤beta.txt¤
+**Tests:** ¤test_alpha¤
+**Commit:** add alpha for real
+**Build:** green
+`),
+	"148": bt(`- [ ] 1. One declared file no listed commit touches
+
+**Files:** ¤alpha.txt¤, ¤missing.txt¤
+**Allowed-collateral:** ¤beta*¤
+**Tests:** ¤test_alpha¤
+**Commit:** add alpha for real
+**Build:** green
+`),
+	"149": bt(`- [ ] 1. An undeclared file in the second repository's commit
+
+**Files:** ¤alpha.txt¤
+**Tests:** ¤test_alpha¤
+**Commit:** add alpha for real
+**Build:** green
+`),
+	"150": bt(`- [ ] 1. The second repository's commit carries another subject
+
+**Files:** ¤alpha.txt¤, ¤beta.txt¤
+**Tests:** ¤test_alpha¤
+**Commit:** add alpha for real
+**Build:** green
+`),
+	"153": bt(`- [ ] 1. A declared test only a removal hunk carries
+
+**Files:** ¤alpha.txt¤, ¤beta.txt¤
+**Tests:** ¤test_alpha¤, ¤test_removed¤
+**Commit:** add alpha for real
+**Build:** green
+`),
+	"154": bt(`- [ ] 1. Baseline counts summed across both repositories
+
+**Files:** ¤counter_a.txt¤, ¤counter_b.txt¤
+**Tests:** none — counters, not tests
+**Baseline:** before=1 after=3
+**Commit:** bump counter
+**Build:** green
+`),
+	"155": bt(`- [ ] 1. The summed counts miss the declared baseline
+
+**Files:** ¤counter_a.txt¤, ¤counter_b.txt¤
+**Tests:** none — counters, not tests
+**Baseline:** before=1 after=2
+**Commit:** bump counter
+**Build:** green
+`),
+}
+
+// tcfMapRepos is cases 147-155's cross-repo shape: two repositories carrying
+// one commit each, and a canonical directory holding the named plan only —
+// what a cross-repo change's task commits present to the guard. The cases
+// commit into the returned directories themselves and read each head with
+// tcfGit; the map argument they build is "<b1>=<sha1>,<b2>=<sha2>".
+func tcfMapRepos(t *testing.T, planKey string) (b1, b2, a string) {
+	t.Helper()
+	b1, b2, a = t.TempDir()+"/map-b1", t.TempDir()+"/map-b2", t.TempDir()+"/map-canon"
+	for _, dir := range []string{b1, b2} {
+		mkdir(t, dir)
+		tcfGit(t, dir, "init", "-q")
+		tcfGit(t, dir, "config", "user.email", "test@example.com")
+		tcfGit(t, dir, "config", "user.name", "Test")
+		writeFile(t, dir+"/root.txt", "root\n")
+		tcfGit(t, dir, "add", "root.txt")
+		tcfGit(t, dir, "commit", "-q", "-m", "root")
+	}
+	writeFile(t, a+"/spectre/changes/x-repo-change/tasks.md", tcfPlans[planKey])
+	return b1, b2, a
 }
 
 // tcfCounterPlan is the one-task counter.txt plan cases 112-122 share,
@@ -2742,6 +2815,126 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			sha := r.commit("add alpha", "alpha.txt", "# test_alpha covers alpha\n")
 			res := r.run("146", sha)
 			ok(t, "case 146: empty predicted comment fails", res.rc == 1, res)
+		}},
+		{"case 147", func(t *testing.T) {
+			b1, b2, a := tcfMapRepos(t, "147")
+			writeFile(t, b1+"/alpha.txt", "def test_alpha(): pass\n")
+			tcfGit(t, b1, "add", "alpha.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "add alpha for real")
+			writeFile(t, b2+"/beta.txt", "b\n")
+			tcfGit(t, b2, "add", "beta.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "add alpha for real")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 147: a spanning task passes under the commit map", res.rc == 0, res)
+			ok(t, "case 147: the merged tree check finds the test in the first repo's tree", !has(res.out, "not found in the tree"), res)
+		}},
+		{"case 148", func(t *testing.T) {
+			b1, b2, a := tcfMapRepos(t, "148")
+			writeFile(t, b1+"/alpha.txt", "def test_alpha(): pass\n")
+			tcfGit(t, b1, "add", "alpha.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "add alpha for real")
+			writeFile(t, b2+"/beta.txt", "b\n")
+			tcfGit(t, b2, "add", "beta.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "add alpha for real")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 148: a declared file no listed commit touches fails", res.rc == 1, res)
+			ok(t, "case 148: names the declared-but-untouched file", has(res.out, "missing.txt is declared in Files: but the commit does not touch it"), res)
+		}},
+		{"case 149", func(t *testing.T) {
+			b1, b2, a := tcfMapRepos(t, "149")
+			writeFile(t, b1+"/alpha.txt", "def test_alpha(): pass\n")
+			tcfGit(t, b1, "add", "alpha.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "add alpha for real")
+			writeFile(t, b2+"/stealth.txt", "s\n")
+			tcfGit(t, b2, "add", "stealth.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "add alpha for real")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 149: an undeclared file in the second repo's commit fails", res.rc == 1, res)
+			ok(t, "case 149: names the undeclared file", has(res.out, "stealth.txt is not declared in Files:"), res)
+		}},
+		{"case 150", func(t *testing.T) {
+			b1, b2, a := tcfMapRepos(t, "150")
+			writeFile(t, b1+"/alpha.txt", "def test_alpha(): pass\n")
+			tcfGit(t, b1, "add", "alpha.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "add alpha for real")
+			writeFile(t, b2+"/beta.txt", "b\n")
+			tcfGit(t, b2, "add", "beta.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "wrong subject here")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 150: the second commit carrying another subject fails", res.rc == 1, res)
+			ok(t, "case 150: names the mismatching subject", has(res.out, "commit subject 'wrong subject here' does not match declared Commit: 'add alpha for real'"), res)
+		}},
+		{"case 151", func(t *testing.T) {
+			b1, _, a := tcfMapRepos(t, "147")
+			sha1 := tcfGit(t, b1, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1, sha1, a, "x-repo-change")
+			ok(t, "case 151: the map form refuses a non-empty fourth argument", res.rc == 2, res)
+			ok(t, "case 151: it names the parent rule", has(res.out, "derives each commit's parent itself"), res)
+		}},
+		{"case 152", func(t *testing.T) {
+			b1, _, a := tcfMapRepos(t, "147")
+			sha1 := tcfGit(t, b1, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", t.TempDir()+"/nope="+sha1, "", a, "x-repo-change")
+			ok(t, "case 152: a pair naming a missing worktree refuses", res.rc == 2, res)
+			ok(t, "case 152: it names the missing worktree", has(res.out, "worktree not found:"), res)
+		}},
+		{"case 153", func(t *testing.T) {
+			b1, b2, a := tcfMapRepos(t, "153")
+			writeFile(t, b1+"/alpha.txt", "def test_alpha(): pass\n")
+			tcfGit(t, b1, "add", "alpha.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "add alpha for real")
+			writeFile(t, b2+"/beta.txt", "def test_removed(): pass\n")
+			tcfGit(t, b2, "add", "beta.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "seed beta")
+			writeFile(t, b2+"/beta.txt", "b\n")
+			tcfGit(t, b2, "add", "beta.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "add alpha for real")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 153: the diff check passes a test only a removal hunk carries", !has(res.out, "not found in the diff"), res)
+			ok(t, "case 153: the merged tree check catches it in no listed tree", res.rc == 1, res)
+			ok(t, "case 153: names the tree miss", has(res.out, "declared test test_removed not found in the tree at"), res)
+		}},
+		{"case 154", func(t *testing.T) {
+			b1, b2, a := tcfMapRepos(t, "154")
+			writeFile(t, b1+"/counter_a.txt", "@Test\n")
+			tcfGit(t, b1, "add", "counter_a.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "seed a")
+			writeFile(t, b1+"/counter_a.txt", "@Test\n@Test\n")
+			tcfGit(t, b1, "add", "counter_a.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "bump counter")
+			writeFile(t, b2+"/counter_b.txt", "none\n")
+			tcfGit(t, b2, "add", "counter_b.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "seed b")
+			writeFile(t, b2+"/counter_b.txt", "@Test\n")
+			tcfGit(t, b2, "add", "counter_b.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "bump counter")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 154: the summed @Test delta meets the declared baseline", res.rc == 0, res)
+		}},
+		{"case 155", func(t *testing.T) {
+			b1, b2, a := tcfMapRepos(t, "155")
+			writeFile(t, b1+"/counter_a.txt", "@Test\n")
+			tcfGit(t, b1, "add", "counter_a.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "seed a")
+			writeFile(t, b1+"/counter_a.txt", "@Test\n@Test\n")
+			tcfGit(t, b1, "add", "counter_a.txt")
+			tcfGit(t, b1, "commit", "-q", "-m", "bump counter")
+			writeFile(t, b2+"/counter_b.txt", "none\n")
+			tcfGit(t, b2, "add", "counter_b.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "seed b")
+			writeFile(t, b2+"/counter_b.txt", "@Test\n")
+			tcfGit(t, b2, "add", "counter_b.txt")
+			tcfGit(t, b2, "commit", "-q", "-m", "bump counter")
+			sha1, sha2 := tcfGit(t, b1, "rev-parse", "HEAD"), tcfGit(t, b2, "rev-parse", "HEAD")
+			res := fx.run(b1, "1", b1+"="+sha1+","+b2+"="+sha2, "", a, "x-repo-change")
+			ok(t, "case 155: the summed counts miss the declared baseline", res.rc == 1, res)
+			ok(t, "case 155: it reports the summed counts", has(res.out, "count @Test before=1 after=3"), res)
 		}},
 	}
 	for _, c := range cases {
