@@ -1,0 +1,175 @@
+["icon-blue.png"]
+0
+{
+  "a": {
+    "background": "#eae9e9",
+    "box": {
+      "left": 16,
+      "right": 63,
+      "top": 16,
+      "bottom": 63,
+      "width": 48,
+      "height": 48
+    },
+    "radius": {
+      "top_left": 0,
+      "top_right": 0,
+      "bottom_left": 0,
+      "bottom_right": 0
+    },
+    "fill": {
+      "colour": "#ffffff",
+      "share": 0.806
+    },
+    "border": {
+      "left": 0,
+      "right": 0,
+      "top": 0,
+      "bottom": 0,
+      "colour": null
+    },
+    "shadow": {
+      "left": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "right": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "top": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "bottom": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      }
+    },
+    "content": {
+      "width": 12,
+      "height": 12,
+      "colour": "#1e6fe0",
+      "ratio": {
+        "width": 0.25,
+        "height": 0.25
+      },
+      "padding": {
+        "left": 18,
+        "top": 18,
+        "right": 18,
+        "bottom": 18
+      }
+    },
+    "gap": {
+      "left": null,
+      "right": null,
+      "top": null,
+      "bottom": null
+    },
+    "ink": {
+      "left": 16,
+      "top": 16,
+      "width": 48,
+      "height": 48,
+      "colour": "#ffffff"
+    },
+    "runs": {
+      "row": [
+        {
+          "from": 0,
+          "to": 15,
+          "length": 16,
+          "colour": "#eae9e9"
+        },
+        {
+          "from": 16,
+          "to": 33,
+          "length": 18,
+          "colour": "#ffffff"
+        },
+        {
+          "from": 34,
+          "to": 45,
+          "length": 12,
+          "colour": "#1e6fe0"
+        },
+        {
+          "from": 46,
+          "to": 63,
+          "length": 18,
+          "colour": "#ffffff"
+        },
+        {
+          "from": 64,
+          "to": 79,
+          "length": 16,
+          "colour": "#eae9e9"
+        }
+      ],
+      "col": [
+        {
+          "from": 0,
+          "to": 15,
+          "length": 16,
+          "colour": "#eae9e9"
+        },
+        {
+          "from": 16,
+          "to": 33,
+          "length": 18,
+          "colour": "#ffffff"
+        },
+        {
+          "from": 34,
+          "to": 45,
+          "length": 12,
+          "colour": "#1e6fe0"
+        },
+        {
+          "from": 46,
+          "to": 63,
+          "length": 18,
+          "colour": "#ffffff"
+        },
+        {
+          "from": 64,
+          "to": 79,
+          "length": 16,
+          "colour": "#eae9e9"
+        }
+      ]
+    },
+    "bands": [
+      {
+        "top": 16,
+        "height": 48,
+        "gap_above": 16,
+        "edge": "#ffffff",
+        "colour": "#ffffff"
+      }
+    ],
+    "seams": [
+      {
+        "top": 16,
+        "height": 48,
+        "gap_above": 16,
+        "edge": "#ffffff",
+        "colour": "#ffffff",
+        "seams": [
+          {
+            "left": 16,
+            "width": 48,
+            "gap_left": 16,
+            "colour": "#ffffff"
+          }
+        ],
+        "cells": []
+      }
+    ]
+  }
+}

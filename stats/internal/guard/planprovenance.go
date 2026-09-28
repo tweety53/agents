@@ -2622,7 +2622,8 @@ func ppOSError(err error, path string) string {
 // character str.isprintable() rejects escaped as \xNN, \uNNNN or
 // \UNNNNNNNN. strconv.IsPrint is the same category test (letters, marks,
 // numbers, punctuation, symbols and the ASCII space), read against Go's
-// Unicode tables rather than the host Python's.
+// Unicode tables rather than the host Python's. A byte that is not UTF-8 is
+// the surrogate os.fsdecode made of it, \udcNN.
 func ppRepr(s string) string {
 	q := byte('\'')
 	if strings.Contains(s, "'") && !strings.Contains(s, "\"") {
@@ -2630,8 +2631,12 @@ func ppRepr(s string) string {
 	}
 	var b strings.Builder
 	b.WriteByte(q)
-	for _, r := range s {
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		i += size
 		switch {
+		case r == utf8.RuneError && size == 1:
+			fmt.Fprintf(&b, `\udc%02x`, s[i-1])
 		case r == '\\' || r == rune(q):
 			b.WriteByte('\\')
 			b.WriteRune(r)

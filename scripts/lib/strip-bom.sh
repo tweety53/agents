@@ -1,7 +1,13 @@
 # scripts/lib/strip-bom.sh — strip_bom_cat, defined once.
 #
-# Sourced by scripts/check-visual-verification.sh, scripts/check-visual-trigger.sh
-# and scripts/resolve-visual-screenshots.sh. Task 15 had already extracted
+# Sourced by scripts/check-spec-reach.sh, scripts/check-dev-stack-fresh.sh
+# and scripts/lib/project-section.sh.
+# The three visual guards that once sourced this file —
+# check-visual-verification, check-visual-trigger and
+# resolve-visual-screenshots — are Go ports now (KAN-850) and use its Go
+# twin, stripBOM in stats/internal/guard/visualsection.go.
+#
+# Task 15 had already extracted
 # this trio's other shared parsing helpers (split_cells/trimcell/foldcell in
 # visual-table-cells.awk, sanitize_display, git_clean) into this same
 # scripts/lib/ directory; task 16b's BOM fix arrived one commit later and
@@ -26,7 +32,7 @@
 # header for the criterion this file follows too: a guard that ships through
 # the skills/*/scripts/ symlink farm can assume a sibling `lib/` travels
 # with it; a guard reached only by hand-copying a single file into an
-# unrelated project's own tooling cannot. All three callers above ship
+# unrelated project's own tooling cannot. Every bash caller above ships
 # through the farm — each carries its own `lib` symlink into scripts/lib/
 # beside it — so each sources this file rather than carrying its own copy.
 #

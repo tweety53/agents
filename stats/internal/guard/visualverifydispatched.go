@@ -3,11 +3,8 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -16,8 +13,8 @@ import (
 // checkVisualVerifyDispatched is scripts/check-visual-verify-dispatched.sh:
 // that script's header comment is the contract -- one verdict line on
 // stdout, VISUAL-VERIFY-OK (exit 0) or VISUAL-VERIFY-MISSING (exit 1), or
-// exit 2 when it cannot answer. The trigger question is the sibling
-// check-visual-trigger.sh, exec'd from the shim's checkout; the dispatch read
+// exit 2 when it cannot answer. The trigger question is visualTrigger
+// (visualtrigger.go), evaluated in-process; the dispatch read
 // is Env.Dispatches when set, else `flow record dispatches`; the verdict
 // write and the prior-false-positive read are Env.Verdict and Env.Verdicts
 // the same way. The reasoning for each branch, moved here from the bash body
@@ -74,23 +71,11 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 
-	// The trigger guard is exec'd from beside the shim, as the bash exec'd
-	// it from $SCRIPT_DIR.
-	scriptDir, ok := guardSelfDir(env, stderr, vvdPrefix, "check-visual-verify-dispatched")
-	if !ok {
-		return 2
-	}
-	trigger := scriptDir + "/check-visual-trigger.sh"
-	if fi, err := os.Stat(trigger); err != nil || fi.IsDir() || syscall.Access(trigger, 1) != nil {
-		fmt.Fprintf(stderr, "%srequired sibling module not found or not executable: %s\n", vvdPrefix, trigger)
-		return 2
-	}
-
 	// Every git invocation whose failure would otherwise be read as an
 	// answer is captured and checked on its own, never piped straight into
-	// the trigger guard -- the same discipline check-base-moved's comment
-	// documents for the identical hazard. The bash exported LC_ALL=C, so
-	// git and the trigger guard run under it too.
+	// the trigger question -- the same discipline check-base-moved's comment
+	// documents for the identical hazard. The bash exported LC_ALL=C, so git
+	// runs under it too; visualTrigger's matching is C-locale already.
 	git := envGit(env, "LC_ALL=C")("-C", worktree, "diff", "--no-renames", "--name-only", base+"..HEAD")
 	combined, gitErr := git.CombinedOutput()
 	changed := strings.TrimRight(strings.ReplaceAll(string(combined), "\x00", ""), "\n")
@@ -99,27 +84,11 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 
-	// THE TRIGGER QUESTION IS DELEGATED, NOT RE-ASKED: the diff's paths go to
-	// check-visual-trigger.sh on stdin (`printf '%s\n'`, so an empty diff is
-	// one empty line), its stdout discarded, its three exit codes read as-is.
-	cmd := exec.Command(trigger, worktree)
-	cmd.Dir = env.Dir
-	cmd.Env = append(os.Environ(), "LC_ALL=C")
-	cmd.Stdin = strings.NewReader(changed + "\n")
-	var trigErr bytes.Buffer
-	cmd.Stderr = &trigErr
-	triggerExit := 0
-	if err := cmd.Run(); err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
-			triggerExit = rrExitCode(ee.ProcessState)
-		} else {
-			// Executable but not runnable: bash's 126, its error as the
-			// captured stderr.
-			triggerExit = 126
-			trigErr.WriteString(err.Error())
-		}
-	}
+	// THE TRIGGER QUESTION IS ASKED IN-PROCESS, NOT RE-IMPLEMENTED: the
+	// diff's paths go to visualTrigger (an empty diff is one empty line, as
+	// the bash's `printf '%s\n'` piped it), its stdout and stderr discarded,
+	// its three exit codes read as-is.
+	triggerExit := visualTrigger(env, worktree, func() ([]string, error) { return strings.Split(changed, "\n"), nil }, io.Discard, io.Discard)
 	switch triggerExit {
 	case 2:
 		// The project declares no `## visual verification` section at all.
@@ -129,11 +98,6 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		// Declared, but this diff touched none of its `ui paths`.
 		fmt.Fprintln(stdout, "VISUAL-VERIFY-OK: no UI paths touched")
 		return 0
-	case 0:
-	default:
-		msg := strings.TrimRight(strings.ReplaceAll(trigErr.String(), "\x00", ""), "\n")
-		fmt.Fprintf(stderr, "%scheck-visual-trigger.sh exited %d, neither 0, 1 nor 2 — cannot answer: %s\n", vvdPrefix, triggerExit, msg)
-		return 2
 	}
 
 	// A store the call could not reach is "cannot answer", never "no rows":

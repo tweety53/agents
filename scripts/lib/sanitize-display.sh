@@ -1,8 +1,13 @@
 # scripts/lib/sanitize-display.sh — sanitize_display, defined once.
 #
-# Sourced by scripts/check-visual-verification.sh, scripts/check-visual-trigger.sh
-# and scripts/resolve-visual-screenshots.sh, which used to carry three
-# byte-identical copies of this function. All three read `.flow/project.md`,
+# Sourced by scripts/check-spec-reach.sh.
+# The three visual guards that once sourced this file —
+# check-visual-verification, check-visual-trigger and
+# resolve-visual-screenshots — are Go ports now (KAN-850) and use its Go
+# twin, sanitizeDisplay in stats/internal/guard/visualsection.go.
+#
+# Those three guards used to carry three byte-identical copies of this
+# function. All three read `.flow/project.md`,
 # a file tracked in the repository and editable in any pull request, and
 # echo cells out of it back to the operator's terminal on a violation or a
 # cannot-answer exit — a copy that missed the next escape a terminal control
@@ -17,8 +22,8 @@
 # too: a guard that ships through the skills/*/scripts/ symlink farm can
 # assume a sibling `lib/` travels with it; a guard reached only by
 # hand-copying a single file into an unrelated project's own tooling cannot.
-# All three callers above ship through the farm — each carries its own
-# `lib` symlink into scripts/lib/ beside it — so each sources this file
+# Its bash caller ships through the farm — carrying its own `lib` symlink
+# into scripts/lib/ beside it — so it sources this file
 # rather than carrying its own copy. The Go ports of check-workspace-isolation
 # and check-cleanup-complete share one Go copy of this same function
 # (ccSanitize, stats/internal/guard/cleanupcomplete.go), which a bash caller

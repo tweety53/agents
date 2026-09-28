@@ -1,0 +1,237 @@
+["icon-blue.png", "icon-grey.png", "--scale", "nan", "--props", "content,shadow"]
+0
+{
+  "a": {
+    "background": "#eae9e9",
+    "shadow": {
+      "left": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "right": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "top": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "bottom": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      }
+    },
+    "content": {
+      "width": 12,
+      "height": 12,
+      "colour": "#1e6fe0",
+      "ratio": {
+        "width": 0.25,
+        "height": 0.25
+      },
+      "padding": {
+        "left": 18,
+        "top": 18,
+        "right": 18,
+        "bottom": 18
+      }
+    }
+  },
+  "b": {
+    "background": "#eae9e9",
+    "shadow": {
+      "left": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "right": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "top": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "bottom": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      }
+    },
+    "content": {
+      "width": 12,
+      "height": 12,
+      "colour": "#9e9e9e",
+      "ratio": {
+        "width": 0.25,
+        "height": 0.25
+      },
+      "padding": {
+        "left": 18,
+        "top": 18,
+        "right": 18,
+        "bottom": 18
+      }
+    }
+  },
+  "scale": NaN,
+  "delta": {
+    "background": {
+      "a": "#eae9e9",
+      "b": "#eae9e9",
+      "distance": 0.0
+    },
+    "shadow.left.width": {
+      "a": 0,
+      "a_scaled": NaN,
+      "b": 0,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "shadow.left.peak_delta": {
+      "a": 0,
+      "a_scaled": 0,
+      "b": 0,
+      "abs": 0,
+      "pct": null
+    },
+    "shadow.left.approx_opacity": {
+      "a": 0.0,
+      "a_scaled": 0.0,
+      "b": 0.0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "shadow.right.width": {
+      "a": 0,
+      "a_scaled": NaN,
+      "b": 0,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "shadow.right.peak_delta": {
+      "a": 0,
+      "a_scaled": 0,
+      "b": 0,
+      "abs": 0,
+      "pct": null
+    },
+    "shadow.right.approx_opacity": {
+      "a": 0.0,
+      "a_scaled": 0.0,
+      "b": 0.0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "shadow.top.width": {
+      "a": 0,
+      "a_scaled": NaN,
+      "b": 0,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "shadow.top.peak_delta": {
+      "a": 0,
+      "a_scaled": 0,
+      "b": 0,
+      "abs": 0,
+      "pct": null
+    },
+    "shadow.top.approx_opacity": {
+      "a": 0.0,
+      "a_scaled": 0.0,
+      "b": 0.0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "shadow.bottom.width": {
+      "a": 0,
+      "a_scaled": NaN,
+      "b": 0,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "shadow.bottom.peak_delta": {
+      "a": 0,
+      "a_scaled": 0,
+      "b": 0,
+      "abs": 0,
+      "pct": null
+    },
+    "shadow.bottom.approx_opacity": {
+      "a": 0.0,
+      "a_scaled": 0.0,
+      "b": 0.0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "content.width": {
+      "a": 12,
+      "a_scaled": NaN,
+      "b": 12,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "content.height": {
+      "a": 12,
+      "a_scaled": NaN,
+      "b": 12,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "content.colour": {
+      "a": "#1e6fe0",
+      "b": "#9e9e9e",
+      "distance": 151.5
+    },
+    "content.ratio.width": {
+      "a": 0.25,
+      "a_scaled": 0.25,
+      "b": 0.25,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "content.ratio.height": {
+      "a": 0.25,
+      "a_scaled": 0.25,
+      "b": 0.25,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "content.padding.left": {
+      "a": 18,
+      "a_scaled": NaN,
+      "b": 18,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "content.padding.top": {
+      "a": 18,
+      "a_scaled": NaN,
+      "b": 18,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "content.padding.right": {
+      "a": 18,
+      "a_scaled": NaN,
+      "b": 18,
+      "abs": NaN,
+      "pct": NaN
+    },
+    "content.padding.bottom": {
+      "a": 18,
+      "a_scaled": NaN,
+      "b": 18,
+      "abs": NaN,
+      "pct": NaN
+    }
+  }
+}

@@ -1,0 +1,15 @@
+["card-frame.png", "--region-a", " 20, 10 ,110,85", "--props", "box"]
+0
+{
+  "a": {
+    "background": "#f3f2f2",
+    "box": {
+      "left": 10,
+      "right": 89,
+      "top": 10,
+      "bottom": 69,
+      "width": 80,
+      "height": 60
+    }
+  }
+}

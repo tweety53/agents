@@ -481,11 +481,19 @@ func idleMaster() string {
 // Lives in execFixtures.dir, which TestMain removes after the run.
 func guardCache(t *testing.T) string {
 	t.Helper()
-	dir, err := guardCacheBuilt()
+	return filepath.Dir(filepath.Dir(guardBinary(t)))
+}
+
+// guardBinary is the one flow-guard guardCache built. A test that execs the
+// binary itself takes this path, never a glob of the cache: a no-LANG shim
+// sharing the cache adds a second key's binary beside it at any time.
+func guardBinary(t *testing.T) string {
+	t.Helper()
+	bin, err := guardCacheBuilt()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return dir
+	return bin
 }
 
 var guardCacheBuilt = sync.OnceValues(func() (string, error) {
@@ -499,10 +507,11 @@ var guardCacheBuilt = sync.OnceValues(func() (string, error) {
 	cmd := exec.Command("bash", "-c", `. "$1" && flow_guard_exec spec-root 2 guard-cache:`, "_", lib)
 	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+dir)
 	out, _ := cmd.CombinedOutput()
-	if bins, _ := filepath.Glob(dir + "/*/flow-guard"); len(bins) != 1 {
+	bins, _ := filepath.Glob(dir + "/*/flow-guard")
+	if len(bins) != 1 {
 		return "", fmt.Errorf("building the shared flow-guard cache left %d binaries in %s:\n%s", len(bins), dir, out)
 	}
-	return dir, nil
+	return bins[0], nil
 })
 
 // fixtureGit is the git binary every fixture runs, and every git stub a test

@@ -43,7 +43,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow-guard: cannot read the working directory: %v\n", err)
 		return cannotAnswer(args[0])
 	}
-	return fn(args[1:], guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd}, stdout, stderr)
+	return fn(args[1:], guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin}, stdout, stderr)
 }
 
 // cannotAnswer is guard name's "could not answer" exit code: 4 for

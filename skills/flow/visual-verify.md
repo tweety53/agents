@@ -328,7 +328,7 @@ and 13 below as written, committing and pushing nothing.
    departs from the frame. The ratio is information, never a threshold: a pair blocks on a
    departure you can name, not on a number. Exit 1 (a broken map — a screenshot no capture
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
-   frame) or 2 (cannot answer — a malformed `mockup frame` value, Pillow absent, included) blocks.
+   frame) or 2 (cannot answer — a malformed `mockup frame` value included) blocks.
 
    > **The `mockups` declaration gates the frame comparison, never the sweeps.** The compose
    > step, the band pairing, the seam pairing, the ink inventory (sweep 10), the bounded-row
@@ -651,7 +651,8 @@ and 13 below as written, committing and pushing nothing.
    its `length` the inset in px — the mockup's frame gives the same list to compare against.
    Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text
    included, and a fill covering half the box flips which colour counts as `fill` (both shown
-   on the incident's own geometry by `<agents repo>/scripts/test-measure-visual-properties.sh`). The same
+   on the incident's own geometry by `TestMeasureVisualProperties` in `<agents
+   repo>/stats/internal/guard/measure_visual_properties_test.go`). The same
    reading covers a highlight against the row it highlights and an icon against the circle
    drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
    before the `background()` or `clip()` it was meant to inset the content of, or on the parent

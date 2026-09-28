@@ -1,0 +1,133 @@
+["card-frame.png", "card-capture.png", "--region-a", "20,10,110,85", "--region-b", "20,10,110,85", "--scale", "1e20", "--props", "box,fill,gap"]
+0
+{
+  "a": {
+    "background": "#f3f2f2",
+    "box": {
+      "left": 10,
+      "right": 89,
+      "top": 10,
+      "bottom": 69,
+      "width": 80,
+      "height": 60
+    },
+    "fill": {
+      "colour": "#ffffff",
+      "share": 0.8
+    },
+    "gap": {
+      "left": null,
+      "right": 20,
+      "top": null,
+      "bottom": null
+    }
+  },
+  "b": {
+    "background": "#f3f2f2",
+    "box": {
+      "left": 10,
+      "right": 89,
+      "top": 10,
+      "bottom": 69,
+      "width": 80,
+      "height": 60
+    },
+    "fill": {
+      "colour": "#ffffff",
+      "share": 0.8
+    },
+    "gap": {
+      "left": null,
+      "right": 20,
+      "top": null,
+      "bottom": null
+    }
+  },
+  "scale": 1e+20,
+  "delta": {
+    "background": {
+      "a": "#f3f2f2",
+      "b": "#f3f2f2",
+      "distance": 0.0
+    },
+    "box.left": {
+      "a": 10,
+      "a_scaled": 1e+21,
+      "b": 10,
+      "abs": -1e+21,
+      "pct": -100.0
+    },
+    "box.right": {
+      "a": 89,
+      "a_scaled": 8.9e+21,
+      "b": 89,
+      "abs": -8.9e+21,
+      "pct": -100.0
+    },
+    "box.top": {
+      "a": 10,
+      "a_scaled": 1e+21,
+      "b": 10,
+      "abs": -1e+21,
+      "pct": -100.0
+    },
+    "box.bottom": {
+      "a": 69,
+      "a_scaled": 6.9e+21,
+      "b": 69,
+      "abs": -6.9e+21,
+      "pct": -100.0
+    },
+    "box.width": {
+      "a": 80,
+      "a_scaled": 8e+21,
+      "b": 80,
+      "abs": -8e+21,
+      "pct": -100.0
+    },
+    "box.height": {
+      "a": 60,
+      "a_scaled": 6e+21,
+      "b": 60,
+      "abs": -6e+21,
+      "pct": -100.0
+    },
+    "fill.colour": {
+      "a": "#ffffff",
+      "b": "#ffffff",
+      "distance": 0.0
+    },
+    "fill.share": {
+      "a": 0.8,
+      "a_scaled": 0.8,
+      "b": 0.8,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "gap.left": {
+      "a": null,
+      "b": null,
+      "abs": null,
+      "pct": null
+    },
+    "gap.right": {
+      "a": 20,
+      "a_scaled": 2e+21,
+      "b": 20,
+      "abs": -2e+21,
+      "pct": -100.0
+    },
+    "gap.top": {
+      "a": null,
+      "b": null,
+      "abs": null,
+      "pct": null
+    },
+    "gap.bottom": {
+      "a": null,
+      "b": null,
+      "abs": null,
+      "pct": null
+    }
+  }
+}

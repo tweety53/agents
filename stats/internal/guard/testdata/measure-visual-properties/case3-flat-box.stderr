@@ -1,0 +1,1 @@
+measure-visual-properties: image a: no edge on the centre scan line from the left (jump >= 24); the region's centre may lie outside the control, or lower --edge
