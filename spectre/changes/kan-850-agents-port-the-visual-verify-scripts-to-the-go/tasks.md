@@ -428,7 +428,7 @@ counting.
   harness's 59 less case 11's 2, plus 7; task 7's review fix added a one-level blue difference to
   the `any-channel` fixture (`diff=0.0010`) and a `stdin-nul` fixture, for 66.
 
-- [ ] 8. Port measure-visual-properties
+- [x] 8. Port measure-visual-properties
 
 **Files:** `stats/internal/guard/measurevisualproperties.go`, `stats/internal/guard/pyjson.go`, `stats/internal/guard/measure_visual_properties_test.go`, `scripts/measure-visual-properties.sh`, `scripts/measure-visual-properties.py`, `scripts/test-measure-visual-properties.sh`, `skills/flow/scripts/measure-visual-properties.py`
 **Allowed-collateral:** `stats/internal/guard/testdata/measure-visual-properties/**`
@@ -450,7 +450,7 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
 
 **Decision:** python-io-semantics
 
-  - [ ] **Step 1: Goldens, before any Go.** With the Python still in place: extract each fixture
+  - [x] **Step 1: Goldens, before any Go.** With the Python still in place: extract each fixture
     snippet of `scripts/test-measure-visual-properties.sh` into a scratch generator (not committed)
     writing its PNGs to `stats/internal/guard/testdata/measure-visual-properties/`; record every
     harness invocation's argv, stdout, stderr and exit code as `<case>.golden` (argv on line 1 as a
@@ -459,20 +459,20 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
     golden (default `--props` on a box fixture with `--scale 1` and `--scale 2`, `--ref-a/--ref-b`,
     `--region-a/--region-b`), plus the exit-1 (`Unresolved`) and exit-2 refusals in the docstring.
     Record the golden count in `design.md` **Measurements**.
-  - [ ] **Step 2: Failing tests.** `TestPyJSON`: `pyFloat` renders `3.0`, `0.1`, `1e-05`,
+  - [x] **Step 2: Failing tests.** `TestPyJSON`: `pyFloat` renders `3.0`, `0.1`, `1e-05`,
     `0.0001`, `1e+16`, `1.5e+16`, `-0.0`, `123456789012345.0`; `pyRound(x, n)` matches Python's
     `round` on `0.125→0.12`, `2.675→2.67`, `2.5→2` (ndigits omitted, int), `-0.04→-0.0`; an ordered
     object marshals keys in insertion order with `indent=2` layout, `[]`/`{}` for empty, `null` for
     nil. Expected strings copied from `python3 -c 'import json; print(json.dumps(…, indent=2))'`
     output, the command in a comment beside each. `TestMeasureVisualProperties`: every harness case
     as a subtest per `ok:` label, and every golden replayed byte for byte. Run — expect failure.
-  - [ ] **Step 3: pyjson.go.** `pyFloat float64` and `pyInt int` with `MarshalJSON` (float:
+  - [x] **Step 3: pyjson.go.** `pyFloat float64` and `pyInt int` with `MarshalJSON` (float:
     `strconv.FormatFloat(f, 'f', -1, 64)` plus `.0` when integral for `1e-4 ≤ |f| < 1e16`, else
     `'e', -1` — Python's `repr`); `pyRound(x float64, n int) pyFloat` via `FormatFloat(x, 'f', n)`
     then `ParseFloat`; `pyObj` (a slice of key/value pairs, `set` replacing in place) with
     `MarshalJSON`; one `pyDump(v any) string` emitting Python's `indent=2` layout. Values are
     `pyInt`/`pyFloat` so Python's int/float promotion is explicit at each arithmetic site.
-  - [ ] **Step 4: Port**, registering `measure-visual-properties`: the argparse surface under
+  - [x] **Step 4: Port**, registering `measure-visual-properties`: the argparse surface under
     `exact-option-names` (`--region-a`, `--region-b`, `--scale`, `--ref-a`, `--ref-b`, `--props`,
     `--edge`, `--noise`, each `--opt value` or `--opt=value`, last one wins, positionals anywhere,
     `-h`/`--help`), `parse_box` (ASCII digits only), every calibration refusal in the Python's
@@ -480,13 +480,13 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
     `leaves`. `Counter.most_common(1)` is a count map plus first-seen order, ties to the earliest;
     `dist` is `math.Sqrt` of the summed squares in channel order; `round` is `pyRound`. Uses
     `decodeRGB`.
-  - [ ] **Step 5: Green.** `go test ./internal/guard/ -run '^(TestMeasureVisualProperties|TestPyJSON)$'
+  - [x] **Step 5: Green.** `go test ./internal/guard/ -run '^(TestMeasureVisualProperties|TestPyJSON)$'
     -count=1 -race -v | grep -c -- '--- PASS: TestMeasureVisualProperties/'` — at least 11, and
     every golden passing.
-  - [ ] **Step 6: Shim and delete** — `scripts/measure-visual-properties.sh` becomes the shim with
+  - [x] **Step 6: Shim and delete** — `scripts/measure-visual-properties.sh` becomes the shim with
     the docstring-derived header; `git rm scripts/measure-visual-properties.py
     scripts/test-measure-visual-properties.sh`.
-  - [ ] **Step 7: Verify.** `gofmt -l`, `go vet ./internal/guard/`; the shim, through a symlink in
+  - [x] **Step 7: Verify.** `gofmt -l`, `go vet ./internal/guard/`; the shim, through a symlink in
     a temp directory, reproduces one golden's stdout byte for byte (`cmp`).
 
   Correction (2026-09-28): `**Files:**` widened by `skills/flow/scripts/measure-visual-properties.py`,
@@ -501,8 +501,9 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
   @ 3915fbc0. Reuses `pyStrip` (`installedcitations.go`), `ppRepr`/`ppOSError` (`planprovenance.go`).
   Goldens: 52, a `modal-tie` fixture added when a last-seen tie mutant survived. Subtests: 78 (11
   harness, 52 goldens, 14 usage, 1 symlinked cwd). Testdata: 127 files, 155,253 bytes.
+  <!-- measured: ls stats/internal/guard/testdata/measure-visual-properties/*.golden | wc -l; go test ./internal/guard/ -run '^TestMeasureVisualProperties$' -count=1 -v | grep -c -- '--- PASS: TestMeasureVisualProperties/'; find stats/internal/guard/testdata/measure-visual-properties -type f | wc -l; cat those files | wc -c @ branch spectre/kan-850-agents-port-the-visual-verify-scripts-to-the-go -->
 
-- [ ] 9. Delete the sole-user helpers and repoint citations
+- [x] 9. Delete the sole-user helpers and repoint citations
 
 **Files:** `scripts/lib/trim-glob-element.sh`, `scripts/lib/git-clean.sh`, `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/lib/*.awk`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`
@@ -518,9 +519,9 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Delete.** `grep -rn 'trim-glob-element\|git-clean' scripts stats skills .flow`
+  - [x] **Step 1: Delete.** `grep -rn 'trim-glob-element\|git-clean' scripts stats skills .flow`
     must name only comments; then `git rm scripts/lib/trim-glob-element.sh scripts/lib/git-clean.sh`.
-  - [ ] **Step 2: Find.** `grep -rlF -e test-check-visual-trigger.sh -e
+  - [x] **Step 2: Find.** `grep -rlF -e test-check-visual-trigger.sh -e
     test-check-visual-verification.sh -e test-resolve-visual-screenshots.sh -e
     test-compose-mockup-frames.sh -e test-measure-visual-properties.sh -e compose-mockup-frames.py
     -e measure-visual-properties.py -e trim-glob-element -e git-clean.sh -e Pillow
@@ -528,7 +529,7 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
     --exclude-dir=self-review .`; then the same tree for citations of the ported scripts' bash
     plumbing (`sources lib/…`, "thin wrapper", "python3 probe").
     `unverified: the file set is known only after tasks 2–8 land; widen **Files:** by a correction if a hit falls outside the collateral globs`
-  - [ ] **Step 3: Repoint** each citation to the Go file or test that now holds what it cites; a
+  - [x] **Step 3: Repoint** each citation to the Go file or test that now holds what it cites; a
     sentence describing plumbing that no longer exists is corrected, not repointed. Known at plan
     time: `skills/flow/visual-verify.md` (line 331's "Pillow absent" exit-2 cause, line 654's
     `test-measure-visual-properties.sh`), `skills/flow-contracts/project-configuration.md`
@@ -536,7 +537,7 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
     Python list is checked for them, and the headers of `lib/strip-bom.sh`,
     `lib/sanitize-display.sh`, `lib/visual-table-cells.awk` stop naming the ported scripts as
     sourcing callers and name their Go twins.
-  - [ ] **Step 4: Verify.** Step 2's grep returns only `spectre/changes/kan-850-*`,
+  - [x] **Step 4: Verify.** Step 2's grep returns only `spectre/changes/kan-850-*`,
     `docs/self-review/` and the Go ports' own history comments; every guard in `.flow/project.md`'s
     `## lint` exits 0.
 

@@ -306,8 +306,9 @@ naming the screenshot `.png` composes `out/.png` and exits 0 where the Python's 
 **Chosen:** the port measures PNG only (`png-rgb-decode`; another format exits 2 `cannot identify image
 file`); a corrupt PNG's message is Go's decoder error; `parse_box` and float options take ASCII digits
 only, and an integer past Go's `int` range is `invalid parse_box value`; `-h` prints argparse's
-80-column uncoloured help; with abbreviations gone `-hx -h` prints help; a non-UTF-8 argument echoes
-as U+FFFD where Python printed `\udcXX`. Exit codes match in every case but `-hx -h`. Raised at task
+80-column uncoloured help; with abbreviations gone `-hx` alone is an unrecognized argument; a
+non-UTF-8 argument echoes as U+FFFD where Python printed `\udcXX`. Exit codes differ only for `-hx`
+alone (Python 0 with help, port 2) and for non-ASCII digits (Python 0, port 2). Raised at task
 8, auto-resolved on the recommended option.
 **Considered:** other decoders, Pillow's messages and
 Unicode digits — no caller supplies them.
