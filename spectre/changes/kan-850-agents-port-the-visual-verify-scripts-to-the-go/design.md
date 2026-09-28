@@ -224,4 +224,15 @@ collation. Both consumers (`zip -@`, `compose-mockup-frames`' stdin) are order-i
 **Considered:** exec'ing `sort` to keep the collation, as KAN-778 task 5 did for a guard whose
 output order was read — nothing reads this order.
 
+### The table and heading twins pin C-locale semantics
+
+**ID:** c-locale-table-semantics
+**Status:** active
+**Chosen:** the Go twins of `lib/visual-table-cells.awk` and the `VV_HEADING` match fold and trim
+ASCII only, as the awk and `grep -i` do under `LC_ALL=C`. The bash callers set no locale, so under
+a UTF-8 locale they folded non-ASCII capitals (`Ä`→`ä`) and trimmed NBSP; the ports do neither.
+Auto-resolved at task 1 on the recommended option; the parity tests run the awk under `LC_ALL=C`.
+**Considered:** following the ambient locale — Go has none, and a test whose verdict depends on who
+runs it is not a parity test.
+
 ## Open questions

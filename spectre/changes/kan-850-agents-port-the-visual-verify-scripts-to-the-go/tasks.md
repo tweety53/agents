@@ -134,7 +134,15 @@ changes.
     `sub(/^[ \t`]+/,""); sub(/[ \t`]+$/,"")`, LC_ALL=C). Each library header's reasoning moves into
     the Go comment above its twin. `[[:space:]]` in the awk is the C locale's set (space, `\t`,
     `\n`, `\v`, `\f`, `\r`); `tolower` is ASCII-only under the libraries' callers.
-    `unverified: confirm the callers run the awk under LC_ALL=C or a UTF-8 locale where [[:space:]] and tolower differ — pin whichever the parity test observes`
+    `measured: the callers set no LC_ALL/LANG, so awk/grep inherit the invoker's locale; under en_US.UTF-8 (this machine's LANG) tolower folds non-ASCII (Ä→ä) and [[:space:]] matches NBSP, under C neither — the parity test pins LC_ALL=C (the plan's stated semantics), and a non-ASCII row fails it under en_US.UTF-8: grep -n 'LC_ALL\|LANG' scripts/check-visual-{trigger,verification}.sh scripts/resolve-visual-screenshots.sh; printf 'Ä\xc2\xa0x\n' | LC_ALL=en_US.UTF-8 awk '{s=tolower($0); gsub(/[[:space:]]+/,"_",s); print s}' @ 3915fbc0`
+  Correction (2026-09-28): the plan declared `ccSanitize` as the sanitize twin if it passed parity; it
+  failed (the one-true-awk ends a record at NUL, so `a\x00b` prints `a`), so `sanitizeDisplay`
+  (truncate at NUL, then `ccSanitize`, then `\n`) was added to `visualsection.go` and `ccSanitize` left
+  unchanged. Step 3's "`tolower` is ASCII-only under the libraries' callers" holds only under a C
+  locale: the bash callers inherited the invoker's locale; the twins pin C-locale semantics
+  (**Decision:** c-locale-table-semantics). The heading match lowercases byte-wise (`gsASCIILower`)
+  instead of `(?i)`, whose Unicode folding accepts `ſ`/Kelvin.
+
   - [ ] **Step 4: Section reader, test first.** `TestVisualSection` in `visual_section_test.go`,
     then in `visualsection.go`: `vvHeadingCount(text string) int` — lines matching
     `(?i)^##[[:space:]]+visual verification[[:space:]]*$` after `stripBOM`; and
