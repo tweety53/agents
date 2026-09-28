@@ -29,7 +29,9 @@ import (
 // design.md's own `implementer · reviewer · panel-fix · red-partner ·
 // planner · conductor · verifier`, planner being the subagent `/flow`
 // dispatches for sections B-D of skills/flow/brainstorm.md and for
-// flow.document-fix (design.md's planner-role), conductor being the
+// flow.document-fix (design.md's planner-role) -- and the tooling analyst
+// skills/flow/visual-verify.md dispatches when a fix run reports a missed
+// defect (KAN-550) -- conductor being the
 // subagent `/flow` dispatches to run skills/flow/implement.md,
 // review-panel.md and verify-and-handoff.md
 // (design.md's conductor-runs-implementation-half), and verifier being the
