@@ -157,7 +157,7 @@ changes.
     ./internal/guard/ -run 'Parity$|^TestVisualSection$' -count=1 -race` and `go test
     ./cmd/flow-guard/ -count=1`.
 
-- [ ] 2. Port check-visual-trigger
+- [x] 2. Port check-visual-trigger
 
 **Files:** `stats/internal/guard/visualtrigger.go`, `stats/internal/guard/check_visual_trigger_test.go`, `scripts/check-visual-trigger.sh`, `scripts/test-check-visual-trigger.sh`
 **Tests:** `TestCheckVisualTrigger`
@@ -172,11 +172,11 @@ changes.
 
 **Decision:** env-stdin
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-visual-trigger.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-visual-trigger.sh`, one
     subtest per `ok:` label, stdin through `Env.Stdin`. Add one subtest run with `Env.Dir` reached
     through a symlink and a relative root, pinning that the verdict line prints `$ROOT` as given.
     Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-visual-trigger`, exported for task 5 as
+  - [x] **Step 2: Port**, registering `check-visual-trigger`, exported for task 5 as
     `visualTrigger(env Env, root string, changed []string, stdout, stderr io.Writer) int` (a relative root resolved against `env.Dir`) beside the
     registered wrapper (which reads `Env.Stdin` line by line, a final line without `\n` included,
     as `read -r … || [ -n … ]` does). Uses task 1's `vvHeadingCount`, `vvSectionLines`,
@@ -184,11 +184,11 @@ changes.
     translation is the bash `glob_to_ere`: `**` → `.*`, `*` → `[^/]*`, `?` → `[^/]`, the listed
     metacharacters escaped, anchored `^…$`; a leading `./` stripped from both sides and a leading
     `/` from the glob; each `MATCH:` line goes through the sanitize twin.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualTrigger$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualTrigger$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckVisualTrigger/'` — at least 51.
-  - [ ] **Step 4: Shim and delete** — shim template, no `FLOW_GUARD_REPO_ROOT`; `git rm
+  - [x] **Step 4: Shim and delete** — shim template, no `FLOW_GUARD_REPO_ROOT`; `git rm
     scripts/test-check-visual-trigger.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `printf
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `printf
     'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .` prints the line it printed at
     `3915fbc0` and exits 0; the same through a symlink to `scripts/check-visual-trigger.sh` in a
     temp directory.
@@ -360,7 +360,7 @@ stops being bytewise.
 
 - [ ] 7. Port compose-mockup-frames
 
-**Files:** `stats/internal/guard/composemockupframes.go`, `stats/internal/guard/compose_mockup_frames_test.go`, `scripts/compose-mockup-frames.sh`, `scripts/compose-mockup-frames.py`, `scripts/test-compose-mockup-frames.sh`
+**Files:** `stats/internal/guard/composemockupframes.go`, `stats/internal/guard/compose_mockup_frames_test.go`, `scripts/compose-mockup-frames.sh`, `scripts/compose-mockup-frames.py`, `scripts/test-compose-mockup-frames.sh`, `skills/flow/scripts/compose-mockup-frames.py`
 **Allowed-collateral:** `stats/internal/guard/testdata/compose-mockup-frames/**`
 **Tests:** `TestComposeMockupFrames`
 **Regression:** fails if any of the harness's 59 `ok:` behaviours regress (case 11's Pillow-absent
@@ -390,7 +390,7 @@ counting.
     compute in the generator whether Pillow's luma mask equals an any-channel mask of the same
     pair, and list the cases where it does not in `design.md` **Measurements** (expected: none;
     a hit means that case's diff panel is compared against the any-channel mask in step 2).
-    `unverified: confirm no harness fixture carries a sub-luma difference`
+    `measured: no harness fixture carries a sub-luma difference — ImageChops.difference(cap, frame).convert("L") mask equals the any-channel mask on all 8 harness three-panel composites (case-20, 21×2, 22, 23a, 23b, 26, 27), Pillow 12.3.0 @ 3915fbc0`
   - [ ] **Step 2: Failing test.** Port every case, one subtest per `ok:` label, reading the
     committed fixtures; each composed case additionally compares every written PNG with its golden
     pixel by pixel (via `decodeRGB`) and stdout lines with the golden's, output paths compared
@@ -415,6 +415,17 @@ counting.
     scripts/compose-mockup-frames.py scripts/test-compose-mockup-frames.sh`.
   - [ ] **Step 6: Verify.** `gofmt -l`, `go vet ./internal/guard/`; the shim, through a symlink in
     a temp directory, composes one committed fixture pair and prints the golden's line.
+
+  Correction (2026-09-28): `**Files:**` widened by `skills/flow/scripts/compose-mockup-frames.py`,
+  the installed symlink the `.py`'s deletion left dangling (`check-guard-symlinks.sh` rule 1). Step 3's
+  stdin "same rules" is wrong: CPython's `sys.stdin` is `newline="\n"` on POSIX, so stdin splits on
+  `\n` only and a lone `\r` stays inside a path, while the map file splits with universal newlines —
+  measured: `printf 'a.png\rb.png\r\nc.png\n' | python3 -c 'import sys; print([l for l in
+  sys.stdin])'` gives `['a.png\rb.png\r\n', 'c.png\n']`, Python 3.14.6 @ 3915fbc0; Step 2's lone-`\r`
+  subtest pins it as one path (exit 2, `unreadable PNG on stdin`). The physical cwd is
+  `filepath.EvalSymlinks(env.Dir)` rather than `syscall.Getwd`, the guard running in-process. Case 12
+  runs a lone copy of the shim (no `lib/flow-guard.sh` beside it). The subtests number 64: the
+  harness's 59 less case 11's 2, plus 7. Testdata: 246 files, 68,609 bytes.
 
 - [ ] 8. Port measure-visual-properties
 

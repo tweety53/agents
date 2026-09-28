@@ -75,6 +75,10 @@
 
 Each Go test carries at least its harness's floor in cases (`parity-by-case-count`).
 
+- Compose luma vs any-channel mask: equal on all 8 harness three-panel composites; only task 7's
+  new one-pixel `(255,0,0)`/`(254,0,0)` fixture differs (Python `diff=0.0000`, port `diff=0.0005`).
+  <!-- measured: task 7's scratch generator comparing ImageChops.difference(...).convert("L") with an any-channel mask per golden composite, Pillow 12.3.0 @ 3915fbc0 -->
+
 ### Suite before/after
 
 The live-verification task records **Before** (a detached checkout at `3915fbc0`) and **After**
@@ -214,6 +218,10 @@ set (which adds `\x1c`–`\x1f` and `\x85` to ASCII whitespace), and every absol
 e.g. a map file that is not UTF-8 — exits 2 with one `<script>: …` line instead.
 **Considered:** Go's `strings.Fields`/`bufio.Scanner`/`os.Getwd` — each differs on those inputs
 (**Context**); keeping the traceback's exit 1 — it reads as a finding, and a crash is not one.
+**Correction (2026-09-28):** measured at task 7 — only the map file is read with universal
+newlines; stdin splits on `\n` alone (CPython's `sys.stdin` is `newline="\n"` on POSIX). Python's
+whitespace set is `str.isspace`: Go's `unicode.IsSpace` plus `\x1c`–`\x1f`, NBSP and the other
+Unicode spaces included.
 
 ### resolve-visual-screenshots sorts bytewise
 
@@ -270,5 +278,18 @@ matches its own bytes under both. Raised by task 2's review, auto-resolved on th
 option; the shim header says so.
 **Considered:** character-wise matching — Go has no locale to
 follow, the same reason as `c-locale-table-semantics`.
+
+### compose-mockup-frames reads ASCII geometry and PNG only, with Go-worded decode errors
+
+**ID:** compose-ascii-png-only
+**Status:** active
+**Chosen:** geometry values accept ASCII digits only (the Python's `isdigit()`/`int()` took any
+Unicode decimal digit, `scale=٣` as 3); stdin captures and frames decode as PNG only
+(`png-rgb-decode`), where Pillow opened any format; a corrupt PNG's message after `<path>: ` is Go's
+`image/png` error; non-UTF-8 map/stdin and an unwritable output PNG exit 2 with the port's own line.
+OSError text and Pillow's `cannot identify image file` are reproduced. Raised at task 7,
+auto-resolved on the recommended option.
+**Considered:** Unicode digits and Pillow's wording —
+no caller writes either, and matching Pillow's per-decoder messages means embedding them.
 
 ## Open questions
