@@ -91,7 +91,7 @@ service or persistent state is touched — the ports are CLI tools over files.
 
 ---
 
-- [ ] 1. Env.Stdin, the visual section reader and the Go twins of strip-bom, sanitize-display and visual-table-cells
+- [x] 1. Env.Stdin, the visual section reader and the Go twins of strip-bom, sanitize-display and visual-table-cells
 
 **Files:** `stats/internal/guard/guard.go`, `stats/cmd/flow-guard/main.go`, `stats/internal/guard/visualsection.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/visual_section_test.go`
 **Tests:** `TestStripBOMParity`, `TestSanitizeDisplayParity`, `TestVisualTableCellsParity`, `TestVisualSection`
@@ -109,10 +109,10 @@ changes.
 
 **Decision:** env-stdin
 
-  - [ ] **Step 1: Env.Stdin.** Add `Stdin io.Reader // os.Stdin in production` to `guard.Env`
+  - [x] **Step 1: Env.Stdin.** Add `Stdin io.Reader // os.Stdin in production` to `guard.Env`
     (`stats/internal/guard/guard.go`) and pass `Stdin: os.Stdin` in
     `stats/cmd/flow-guard/main.go`'s `guard.Env{…}` literal. A nil `Stdin` reads as empty input.
-  - [ ] **Step 2: Failing parity tests** in `libtwins_test.go`, reusing its `bashLib`/`assertParity`
+  - [x] **Step 2: Failing parity tests** in `libtwins_test.go`, reusing its `bashLib`/`assertParity`
     helpers (the `.awk` library runs as `awk -f scripts/lib/visual-table-cells.awk -f <driver>`
     with a driver that prints each function's result per input line):
     - `TestStripBOMParity` — a file with a leading UTF-8 BOM, one with a BOM not at byte 0, one
@@ -128,7 +128,7 @@ changes.
       with `|`, an empty trailing cell, mixed case.
     Run `cd stats && go test ./internal/guard/ -run 'Parity$' -count=1` — expect compile failure
     (twins undefined).
-  - [ ] **Step 3: Twins.** In `visualsection.go`: `stripBOM(b []byte) []byte`,
+  - [x] **Step 3: Twins.** In `visualsection.go`: `stripBOM(b []byte) []byte`,
     `vtSplitCells(line string) []string`, `vtTrimCell(c string) string`, `vtFoldCell(c string)
     string`, and `trimGlobElement(s string) string` (`scripts/lib/trim-glob-element.sh`'s
     `sub(/^[ \t`]+/,""); sub(/[ \t`]+$/,"")`, LC_ALL=C). Each library header's reasoning moves into
@@ -143,7 +143,7 @@ changes.
   (**Decision:** c-locale-table-semantics). The heading match lowercases byte-wise (`gsASCIILower`)
   instead of `(?i)`, whose Unicode folding accepts `ſ`/Kelvin.
 
-  - [ ] **Step 4: Section reader, test first.** `TestVisualSection` in `visual_section_test.go`,
+  - [x] **Step 4: Section reader, test first.** `TestVisualSection` in `visual_section_test.go`,
     then in `visualsection.go`: `vvHeadingCount(text string) int` — lines matching
     `(?i)^##[[:space:]]+visual verification[[:space:]]*$` after `stripBOM`; and
     `vvSectionLines(text string) []vvLine` (`vvLine{No int; Text string}`, `No` 1-based) — the
@@ -153,7 +153,7 @@ changes.
     inside it, `# top` closing it, heading case and trailing spaces, CRLF, BOM, two sections (count
     2), no section. `trimGlobElement`: backticks and spaces on both sides, an interior space kept,
     all-backtick input to empty.
-  - [ ] **Step 5: Green and lint.** `cd stats && gofmt -l . && go vet ./... && go test
+  - [x] **Step 5: Green and lint.** `cd stats && gofmt -l . && go vet ./... && go test
     ./internal/guard/ -run 'Parity$|^TestVisualSection$' -count=1 -race` and `go test
     ./cmd/flow-guard/ -count=1`.
 
@@ -193,6 +193,13 @@ changes.
     `3915fbc0` and exits 0; the same through a symlink to `scripts/check-visual-trigger.sh` in a
     temp directory.
 
+  Correction (2026-09-28): Step 5's "through a symlink in a temp directory" is a temp directory
+  holding a symlink to `scripts/check-visual-trigger.sh` beside a `lib` symlink to `scripts/lib` —
+  the shape `skills/flow/scripts/` installs; a lone script symlink exits 2 at base and in the shim
+  alike. The ported subtests number 71: the harness's 51 labels plus 20 for behaviour it never
+  reached. A read failure of `.flow/project.md` after the access check (a race) prints the "grep
+  exited 2" refusal where the bash said "declares no section"; both exit 2.
+
 - [ ] 3. Port check-visual-verification
 
 **Files:** `stats/internal/guard/visualverification.go`, `stats/internal/guard/check_visual_verification_test.go`, `scripts/check-visual-verification.sh`, `scripts/test-check-visual-verification.sh`
@@ -229,6 +236,12 @@ changes.
     `scripts/check-visual-verification.sh .` prints the `VISUAL-OK` line it printed at `3915fbc0`
     and exits 0; the same through a symlink in a temp directory.
 
+  Correction (2026-09-28): `envGit` does not strip `GIT_*`; `vvGitClean` builds the command through
+  `envGit` and drops every `GIT_*` variable. A PATH stub through `pathEnv` stubs git in-process.
+  Fixtures are built per subtest in `t.TempDir()` rather than one `sync.Once` tree; case 22 runs the
+  built `flow-guard` as a subprocess with `GIT_DIR` set, since `t.Setenv` cannot combine with
+  `t.Parallel()`. Step 5's symlink run uses the installed shape (a `lib` symlink beside the shim).
+
 - [ ] 4. Port resolve-visual-screenshots
 
 **Files:** `stats/internal/guard/resolvevisualscreenshots.go`, `stats/internal/guard/resolve_visual_screenshots_test.go`, `scripts/resolve-visual-screenshots.sh`, `scripts/test-resolve-visual-screenshots.sh`
@@ -263,6 +276,14 @@ stops being bytewise.
   - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/resolve-visual-screenshots.sh . baseline.spec.ts` prints and exits as it did at
     `3915fbc0`; the same through a symlink in a temp directory.
+
+  Correction (2026-09-28): Step 5's symlink run uses a temp directory holding symlinks to the shim
+  and to `scripts/lib`, the shape `skills/flow/scripts/` installs. On an unreadable subdirectory the
+  port prints `resolve-visual-screenshots: open <dir>: permission denied` where `find` printed
+  `find: <dir>: Permission denied`; exit code and stdout match (**Decision:**
+  prefixed-walk-errors). A path containing a newline is matched and printed whole, where the bash
+  split it. Case 17 uses a second project repository. The subtests number 41: the harness's 38 plus
+  byte order, a symlinked cwd and unfollowed symlinks.
 
 - [ ] 5. Evaluate the trigger in-process in check-visual-verify-dispatched
 
@@ -299,7 +320,13 @@ stops being bytewise.
     `scripts/check-visual-verify-dispatched.sh` with no arguments exits 2 with the line it printed
     at `3915fbc0`; `scripts/check-guard-symlinks.sh` exits 0.
 
-- [ ] 6. PNG-to-RGB decode
+  Correction (2026-09-28): Step 2's call is `visualTrigger(env, worktree, strings.Split(changed,
+  "\n"), io.Discard, io.Discard)` — the "exited N" branch was `trigErr`'s only reader. Step 1
+  also deleted "the trigger reads the diff's paths on stdin and the worktree as its argument", a
+  case that tested only the exec'd stub. `guardSelfDir` stays (`taskreviewersingledispatch.go`
+  reads it); the shim dropped `FLOW_GUARD_SELF` and `SCRIPT_DIR`.
+
+- [x] 6. PNG-to-RGB decode
 
 **Files:** `stats/internal/guard/pngrgb.go`, `stats/internal/guard/png_rgb_test.go`
 **Tests:** `TestDecodeRGB`
@@ -313,22 +340,22 @@ stops being bytewise.
 
 **Decision:** png-rgb-decode
 
-  - [ ] **Step 1: Failing test.** `TestDecodeRGB`, table-driven, each row a PNG encoded in the test
+  - [x] **Step 1: Failing test.** `TestDecodeRGB`, table-driven, each row a PNG encoded in the test
     with `image/png` from a Go image of one type, decoded, compared pixel by pixel with the
     expected RGB: `image.NRGBA` with alpha 0 and 128 (colour kept, never premultiplied),
     `image.RGBA` opaque, `image.Gray`, `image.Gray16` (high byte), `image.NRGBA64` (high bytes),
     `image.Paletted` with an opaque palette and with a translucent `color.NRGBA` entry (entry's
     RGB), and a 1-bit grey PNG (0/255) built from raw bytes. Plus: a truncated file and a non-PNG
     file return an error. Run — expect failure.
-  - [ ] **Step 2: Decode.** `type rgbImage struct{ W, H int; Pix []byte }` (3 bytes per pixel,
+  - [x] **Step 2: Decode.** `type rgbImage struct{ W, H int; Pix []byte }` (3 bytes per pixel,
     row-major) with `at(x, y int) [3]byte`; `decodeRGB(path string) (*rgbImage, error)` —
     `png.Decode`, then per concrete type read the stored channels (`*image.NRGBA`/`*image.RGBA`
     Pix directly; `*image.Gray`; `*image.Gray16`/`*image.NRGBA64`/`*image.RGBA64` high byte;
     `*image.Paletted` via `color.NRGBAModel` of each entry), falling back to
     `color.NRGBAModel.Convert` per pixel for any other type; `encodeRGB(path string, im
     *rgbImage) error` writing an `*image.RGBA` with alpha 255.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestDecodeRGB$' -count=1 -race`.
-  - [ ] **Step 4: Verify.** `gofmt -l`, `go vet ./internal/guard/`.
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestDecodeRGB$' -count=1 -race`.
+  - [x] **Step 4: Verify.** `gofmt -l`, `go vet ./internal/guard/`.
 
 - [ ] 7. Port compose-mockup-frames
 

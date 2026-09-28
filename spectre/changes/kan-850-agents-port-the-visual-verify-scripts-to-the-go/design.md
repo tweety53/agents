@@ -235,4 +235,15 @@ Auto-resolved at task 1 on the recommended option; the parity tests run the awk 
 **Considered:** following the ambient locale — Go has none, and a test whose verdict depends on who
 runs it is not a parity test.
 
+### Walk errors print under the guard's own prefix
+
+**ID:** prefixed-walk-errors
+**Status:** active
+**Chosen:** `resolve-visual-screenshots` reports an unreadable directory under the screenshots root
+as `resolve-visual-screenshots: open <dir>: permission denied` on stderr, where `find` printed
+`find: <dir>: Permission denied`; exit code and stdout are unchanged. Auto-resolved at task 4 on
+the recommended option.
+**Considered:** copying `find`'s line byte for byte — it names a tool the
+port no longer runs.
+
 ## Open questions
