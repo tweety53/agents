@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"io"
@@ -1900,6 +1902,22 @@ func TestRiderVerbsRegisterTheRunAddress(t *testing.T) {
 
 // --- state dir: the one resolvable place for the state directory ---
 
+// contractProjectKey derives the project key from the state-file contract's
+// own formula -- basename of the main checkout plus the first 8 hex of its
+// sha1 -- computed here from first principles, never by calling
+// fallback.ProjectKey, the function under test: a derivation that drifts
+// from the contract (the hash width, the basename join) fails the tests
+// instead of defining its own expectation.
+func contractProjectKey(t *testing.T, mainCheckout string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(mainCheckout)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%s): %v", mainCheckout, err)
+	}
+	sum := sha1.Sum([]byte(resolved))
+	return filepath.Base(resolved) + "-" + hex.EncodeToString(sum[:])[:8]
+}
+
 // TestStateDirPrintsProjectDirectory: the whole point of the command --
 // stdout is exactly <StateRoot>/<project-key> for the -C target, one line,
 // exit 0, with no store contact anywhere on the path.
@@ -1915,11 +1933,30 @@ func TestStateDirPrintsProjectDirectory(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
-	key, _, err := fallback.ProjectKey(repo)
-	if err != nil {
-		t.Fatalf("ProjectKey: %v", err)
+	if want := filepath.Join(root, contractProjectKey(t, repo)) + "\n"; stdout.String() != want {
+		t.Errorf("stdout = %q, want %q", stdout.String(), want)
 	}
-	if want := filepath.Join(root, key) + "\n"; stdout.String() != want {
+}
+
+// TestStateDirNeverContactsTheStore: with a store address pointed at a
+// dead port -- FLOW_ADDR set, nothing listening -- the command still
+// answers correctly and exits 0. The store-contact-free property the usage
+// text and state-file.md claim is exercised here, not only asserted: any
+// attempt to reach the address would fail this command.
+func TestStateDirNeverContactsTheStore(t *testing.T) {
+	repo := gitRepo(t)
+	root := isolatedStateRoot(t)
+	t.Setenv("FLOW_ADDR", deadPortAddr(t))
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "dir", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 with the store down; stderr:\n%s", code, stderr.String())
+	}
+	if want := filepath.Join(root, contractProjectKey(t, repo)) + "\n"; stdout.String() != want {
 		t.Errorf("stdout = %q, want %q", stdout.String(), want)
 	}
 }
@@ -1948,11 +1985,7 @@ func TestStateDirResolvesWorktreeToMainCheckoutKey(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
-	mainKey, _, err := fallback.ProjectKey(repo)
-	if err != nil {
-		t.Fatalf("ProjectKey(main): %v", err)
-	}
-	if want := filepath.Join(root, mainKey) + "\n"; stdout.String() != want {
+	if want := filepath.Join(root, contractProjectKey(t, repo)) + "\n"; stdout.String() != want {
 		t.Errorf("stdout = %q, want the main checkout's directory %q", stdout.String(), want)
 	}
 }
@@ -1969,12 +2002,19 @@ func TestStateDirTakesNoPositionalArguments(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
 	}
+	if !strings.Contains(stderr.String(), "flow state dir     [-C dir]") {
+		t.Errorf("stderr = %q, want state dir's own usage line on it", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty", stdout.String())
+	}
 }
 
 // TestStateDirRejectsNonRepository: a -C target ProjectKey cannot resolve
-// is a resolution failure -- one flow: line on stderr, nothing on stdout,
-// non-zero exit, the same course runStateResolve takes. A path that cannot
-// be resolved never prints a directory that only looks resolved.
+// is a resolution failure -- exactly one flow: line on stderr, nothing on
+// stdout, non-zero exit, the same course runStateResolve takes. A path
+// that cannot be resolved never prints a directory that only looks
+// resolved.
 func TestStateDirRejectsNonRepository(t *testing.T) {
 	isolatedStateRoot(t)
 	dir := t.TempDir()
@@ -1990,7 +2030,7 @@ func TestStateDirRejectsNonRepository(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty", stdout.String())
 	}
-	if stderr.Len() == 0 {
-		t.Errorf("stderr empty, want one flow: line naming the resolution failure")
+	if got := countLines(stderr.String()); got != 1 {
+		t.Errorf("stderr line count = %d, want exactly 1:\n%s", got, stderr.String())
 	}
 }

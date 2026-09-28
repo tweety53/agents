@@ -198,6 +198,30 @@ func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 	}
 }
 
+// dirFlagUsage is the -C flag's help string, written once: every state verb
+// that resolves a project key registers the same flag with the same words,
+// and a wording fix lands once instead of once per parser.
+const dirFlagUsage = "resolve the project key as if run from this directory (default: cwd)"
+
+// registerDirFlag registers the -C flag every state verb that resolves a
+// project key carries, onto dir.
+func registerDirFlag(fset *flag.FlagSet, dir *string) {
+	fset.StringVar(dir, "C", "", dirFlagUsage)
+}
+
+// resolveFlagDir applies what -C's help promises: an unset -C resolves
+// through the process's working directory.
+func resolveFlagDir(dir string) (string, error) {
+	if dir != "" {
+		return dir, nil
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("resolve working directory: %w", err)
+	}
+	return wd, nil
+}
+
 // stateFlags is the flag.FlagSet common to `state get` and `state set`, and
 // the working directory and identity it resolves. dir is where git is
 // asked to resolve the project key from -- exposed as -C, mirroring git's
@@ -215,7 +239,7 @@ func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (state
 	f := stateFlags{}
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
-	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
+	registerDirFlag(fset, &f.dir)
 	if err := fset.Parse(args); err != nil {
 		return stateFlags{}, err
 	}
@@ -224,13 +248,11 @@ func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (state
 		return stateFlags{}, fmt.Errorf("expected exactly one argument, the change name")
 	}
 	f.name = fset.Arg(0)
-	if f.dir == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return stateFlags{}, fmt.Errorf("resolve working directory: %w", err)
-		}
-		f.dir = wd
+	dir, err := resolveFlagDir(f.dir)
+	if err != nil {
+		return stateFlags{}, err
 	}
+	f.dir = dir
 	return f, nil
 }
 
@@ -432,7 +454,7 @@ func parseStateListFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (s
 	f := stateListFlags{}
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
-	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
+	registerDirFlag(fset, &f.dir)
 	if err := fset.Parse(args); err != nil {
 		return stateListFlags{}, err
 	}
@@ -440,13 +462,11 @@ func parseStateListFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (s
 	if fset.NArg() != 0 {
 		return stateListFlags{}, fmt.Errorf("state list takes no positional arguments")
 	}
-	if f.dir == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return stateListFlags{}, fmt.Errorf("resolve working directory: %w", err)
-		}
-		f.dir = wd
+	dir, err := resolveFlagDir(f.dir)
+	if err != nil {
+		return stateListFlags{}, err
 	}
+	f.dir = dir
 	return f, nil
 }
 
@@ -579,7 +599,7 @@ func parseStateFindFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (s
 	f := stateListFlags{}
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
-	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
+	registerDirFlag(fset, &f.dir)
 	if err := fset.Parse(args); err != nil {
 		return stateListFlags{}, "", err
 	}
@@ -587,13 +607,11 @@ func parseStateFindFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (s
 	if fset.NArg() != 1 {
 		return stateListFlags{}, "", fmt.Errorf("state find takes exactly one argument, the change name")
 	}
-	if f.dir == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return stateListFlags{}, "", fmt.Errorf("resolve working directory: %w", err)
-		}
-		f.dir = wd
+	dir, err := resolveFlagDir(f.dir)
+	if err != nil {
+		return stateListFlags{}, "", err
 	}
+	f.dir = dir
 	return f, fset.Arg(0), nil
 }
 
@@ -1213,15 +1231,18 @@ func withMainCheckoutPath(body []byte, mainCheckout string) ([]byte, error) {
 // line to stdout, and contacts no store: the whole point of the command
 // is to be the one resolvable place for a path every caller would
 // otherwise guess (skills/flow-contracts/state-file.md). A flag or
-// argument problem is a usage error, exit 2; a resolution failure (not a
-// git repository, git missing) is one `flow:` line on stderr and exit 1,
-// the same course runStateResolve takes for its own ProjectKey call --
-// an unresolvable directory never prints a path that only looks
-// resolved.
+// argument problem is a usage error, exit 2 -- the working-directory
+// resolution included, the same course the sibling verbs' parsers take
+// for the same failure -- while a resolution failure of the -C target
+// itself (not a git repository, git missing) is one `flow:` line on
+// stderr and exit 1, the same course runStateResolve takes for its own
+// ProjectKey call -- an unresolvable directory never prints a path that
+// only looks resolved.
 func runStateDir(args []string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state dir", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	dir := fset.String("C", "", "resolve the project key as if run from this directory (default: cwd)")
+	var dir string
+	registerDirFlag(fset, &dir)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -1235,14 +1256,11 @@ func runStateDir(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, stateUsage)
 		return 2
 	}
-	where := *dir
-	if where == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(stderr, "flow: resolve working directory: %v\n", err)
-			return 1
-		}
-		where = wd
+	where, err := resolveFlagDir(dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stateUsage)
+		return 2
 	}
 	projectKey, _, err := fallback.ProjectKey(where)
 	if err != nil {
