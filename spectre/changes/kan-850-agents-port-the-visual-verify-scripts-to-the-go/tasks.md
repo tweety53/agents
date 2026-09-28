@@ -425,7 +425,8 @@ counting.
   subtest pins it as one path (exit 2, `unreadable PNG on stdin`). The physical cwd is
   `filepath.EvalSymlinks(env.Dir)` rather than `syscall.Getwd`, the guard running in-process. Case 12
   runs a lone copy of the shim (no `lib/flow-guard.sh` beside it). The subtests number 64: the
-  harness's 59 less case 11's 2, plus 7. Testdata: 246 files, 68,609 bytes.
+  harness's 59 less case 11's 2, plus 7; task 7's review fix added a one-level blue difference to
+  the `any-channel` fixture (`diff=0.0010`) and a `stdin-nul` fixture, for 66.
 
 - [ ] 8. Port measure-visual-properties
 

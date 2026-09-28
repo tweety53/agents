@@ -291,5 +291,9 @@ OSError text and Pillow's `cannot identify image file` are reproduced. Raised at
 auto-resolved on the recommended option.
 **Considered:** Unicode digits and Pillow's wording —
 no caller writes either, and matching Pillow's per-decoder messages means embedding them.
+**Correction (2026-09-28):** task 7's review added two more, auto-resolved the same way: a map line
+naming the screenshot `.png` composes `out/.png` and exits 0 where the Python's `save` raised
+(traceback, exit 1); a non-UTF-8 path argument prints raw in stderr lines where the Python's
+`backslashreplace` stderr printed `\udcXX` (APFS refuses such names, so only error lines reach it).
 
 ## Open questions
