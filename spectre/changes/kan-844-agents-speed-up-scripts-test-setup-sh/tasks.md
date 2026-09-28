@@ -1026,7 +1026,7 @@ General-purpose flow role at xhigh effort; the dispatch prompt carries every ins
     `scripts/test-setup-agents.sh`; `scripts/check-installed-citations.sh`;
     `scripts/check-references.sh` — all exit 0.
 
-- [ ] 7. Live verification: timings, parity, containment
+- [x] 7. Live verification: timings, parity, containment
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -1040,22 +1040,22 @@ General-purpose flow role at xhigh effort; the dispatch prompt carries every ins
 
 **Decision:** setuptest-leak-detection
 
-  - [ ] **Step 1: Baseline checkout.** `git -C /Users/tweety53/Projects/agents worktree add --detach
+  - [x] **Step 1: Baseline checkout.** `git -C /Users/tweety53/Projects/agents worktree add --detach
     /Users/tweety53/Projects/agents/.worktrees/kan-844-baseline 75410c1c`.
-  - [ ] **Step 2: Interleaved runs.** One warm-up each, then five pairs, recording each run's
+  - [x] **Step 2: Interleaved runs.** One warm-up each, then five pairs, recording each run's
     `/usr/bin/time -p` real/user/sys and `uptime`'s load averages:
     `A = /Users/tweety53/Projects/agents/.worktrees/kan-844-baseline/scripts/test-setup.sh`,
     `B = /Users/tweety53/Projects/agents/.worktrees/kan-844-agents-speed-up-scripts-test-setup-sh/scripts/test-setup.sh`, run A, B, A, B, … Every run must exit 0.
-  - [ ] **Step 3: Parity, once more on the head.** The preamble's parity check with every title
+  - [x] **Step 3: Parity, once more on the head.** The preamble's parity check with every title
     (task 5 step 3's `TITLES`, `RUN='.'`) — empty diff; `✓ leak detection: ` count 5.
-  - [ ] **Step 4: Record** in `design.md` `## Measurements`: a table of the ten timed runs
+  - [x] **Step 4: Record** in `design.md` `## Measurements`: a table of the ten timed runs
     (harness, real, user+sys, load average), both medians and median(A)/median(B), each figure
     tagged `measured:` with the command and `@ branch
     spectre/kan-844-agents-speed-up-scripts-test-setup-sh` (A: `@ 75410c1c`).
-  - [ ] **Step 5: Full suite.** Every command in `.flow/project.md`'s `## lint`;
+  - [x] **Step 5: Full suite.** Every command in `.flow/project.md`'s `## lint`;
     `scripts/run-guard-tests.sh`; `cd stats && go test ./... -race -count=1`; `cd stats/web &&
     npm test` — all exit 0.
-  - [ ] **Step 6: Judge, then clean up.** Failure looks like: median(A)/median(B) < 2; any parity
+  - [x] **Step 6: Judge, then clean up.** Failure looks like: median(A)/median(B) < 2; any parity
     line missing or extra; a leak-detection count other than 5; any run or suite red. Any of these
     is reported, not recorded as success. Then `git -C /Users/tweety53/Projects/agents worktree remove
     /Users/tweety53/Projects/agents/.worktrees/kan-844-baseline`.

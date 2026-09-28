@@ -95,5 +95,29 @@ pair — not asked for.
 
 ## Measurements
 
-Task 7 records the Before/After table here: five interleaved runs each, real / user+sys / load
-average, medians, and the ratio.
+2026-09-28, this machine. A = bash harness at `75410c1c` (detached worktree), B = the Go shim on the
+branch; one warm-up each (A 12.58 s, B 3.53 s, not counted), then A, B interleaved. Every run exited 0.
+
+| Run | Harness | real (s) | user+sys (s) | load average (1/5/15 min) |
+|-----|---------|---------:|-------------:|---------------------------|
+| 1 | A | 11.60 | 9.36 | 3.13 3.16 4.69 |
+| 1 | B | 3.35 | 15.38 | 2.95 3.12 4.66 |
+| 2 | A | 11.50 | 9.35 | 3.20 3.17 4.66 |
+| 2 | B | 3.41 | 14.79 | 3.17 3.17 4.64 |
+| 3 | A | 11.61 | 9.38 | 3.31 3.20 4.65 |
+| 3 | B | 3.59 | 15.01 | 3.27 3.19 4.63 |
+| 4 | A | 11.74 | 9.56 | 3.97 3.34 4.67 |
+| 4 | B | 3.87 | 15.74 | 3.81 3.32 4.65 |
+| 5 | A | 11.90 | 9.63 | 4.55 3.48 4.70 |
+| 5 | B | 3.54 | 15.32 | 4.38 3.48 4.68 |
+
+- median(A) = 11.61 s; median(B) = 3.54 s; median(A) / median(B) = **3.28** — target ≥ 2 met.
+- B spends more CPU (≈ 15.3 s vs ≈ 9.4 s user+sys, compile included) to finish in under a third of
+  the wall time — the parallel groups trade CPU for wall, as **Decision:** setuptest-no-shared-installs
+  expected.
+- Load was 3–4.5 throughout, against 16–17 in the `## Context` runs, so A's 11.6 s here is the quiet
+  figure; the ratio is measured on the same load, run for run.
+- Parity on the head: 580 assertions, empty diff against `setup-harness-baseline.tsv`; `✓ leak
+  detection: ` lines = 5.
+<!-- measured: /usr/bin/time -p <A|B> and uptime per run, interleaved A,B ×5 after one warm-up each @ branch spectre/kan-844-agents-speed-up-scripts-test-setup-sh (A: @ 75410c1c) -->
+<!-- measured: the tasks.md parity check with every group title, RUN='.'; grep -c '✓ leak detection: ' @ branch spectre/kan-844-agents-speed-up-scripts-test-setup-sh -->
