@@ -125,6 +125,7 @@ const stateUsage = `usage: flow state get     [-addr url] [-timeout dur] [-C dir
        flow state list    [-addr url] [-timeout dur] [-C dir]
        flow state find    [-addr url] [-timeout dur] [-C dir] <name>
        flow state resolve [-addr url] [-timeout dur] [-C dir]
+       flow state dir     [-C dir]
 
 state get resolves <name> as an exact change name first; when the store holds no
 change under that exact name, it retries against the resolved project's
@@ -163,6 +164,12 @@ record's name and every directory directly under
 archived under spectre/changes/archive/<name>/. It carries the same
 "source"/"complete" fields as state list, plus "candidates" and
 "unreadable" (both always arrays, never null).
+state dir prints the resolved project's state directory as one line --
+the same project key state get/state set resolve (-C dir, default: cwd),
+with no store contact anywhere on the path. It is the one resolvable
+place for that path: a caller passes what it prints to guards and
+scripts rather than deriving the location by hand
+(skills/flow-contracts/state-file.md).
 `
 
 func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -182,6 +189,8 @@ func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStateFind(ctx, args[1:], stdout, stderr)
 	case "resolve":
 		return runStateResolve(ctx, args[1:], stdout, stderr)
+	case "dir":
+		return runStateDir(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown state command %q\n", args[0])
 		fmt.Fprint(stderr, stateUsage)
@@ -1196,4 +1205,50 @@ func withMainCheckoutPath(body []byte, mainCheckout string) ([]byte, error) {
 		return nil, fmt.Errorf("encode request body: %w", err)
 	}
 	return out, nil
+}
+
+// runStateDir implements `flow state dir`. It prints the resolved
+// project's state directory -- fallback.StateRoot joined with the project
+// key fallback.ProjectKey derives from -C dir (default: cwd) -- as one
+// line to stdout, and contacts no store: the whole point of the command
+// is to be the one resolvable place for a path every caller would
+// otherwise guess (skills/flow-contracts/state-file.md). A flag or
+// argument problem is a usage error, exit 2; a resolution failure (not a
+// git repository, git missing) is one `flow:` line on stderr and exit 1,
+// the same course runStateResolve takes for its own ProjectKey call --
+// an unresolvable directory never prints a path that only looks
+// resolved.
+func runStateDir(args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow state dir", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	dir := fset.String("C", "", "resolve the project key as if run from this directory (default: cwd)")
+	if err := fset.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stateUsage)
+		return 2
+	}
+	if fset.NArg() != 0 {
+		fmt.Fprintf(stderr, "flow: state dir takes no positional arguments\n")
+		fmt.Fprint(stderr, stateUsage)
+		return 2
+	}
+	where := *dir
+	if where == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: resolve working directory: %v\n", err)
+			return 1
+		}
+		where = wd
+	}
+	projectKey, _, err := fallback.ProjectKey(where)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, filepath.Join(fallback.StateRoot(), projectKey))
+	return 0
 }

@@ -26,6 +26,7 @@ commands:
   state set <name>    write the change's whole state, reading it from stdin
   state list          enumerate every change the store holds for this project
   state resolve       print the change-name candidate set: source, complete, candidates, unreadable
+  state dir           print the resolved project's state directory (one line, no store contact)
   stage begin <name>  record the start of one documented pipeline stage
   stage end <name>    record the end, outcome and metrics of a stage
   stage wrap <name>   mark begin, run the work named after --, mark end

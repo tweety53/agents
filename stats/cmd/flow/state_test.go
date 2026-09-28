@@ -1897,3 +1897,100 @@ func TestRiderVerbsRegisterTheRunAddress(t *testing.T) {
 		t.Fatalf("rider -addr default = %q, want the run address %q", f.addr, "http://127.0.0.1:4299")
 	}
 }
+
+// --- state dir: the one resolvable place for the state directory ---
+
+// TestStateDirPrintsProjectDirectory: the whole point of the command --
+// stdout is exactly <StateRoot>/<project-key> for the -C target, one line,
+// exit 0, with no store contact anywhere on the path.
+func TestStateDirPrintsProjectDirectory(t *testing.T) {
+	repo := gitRepo(t)
+	root := isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "dir", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	key, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	if want := filepath.Join(root, key) + "\n"; stdout.String() != want {
+		t.Errorf("stdout = %q, want %q", stdout.String(), want)
+	}
+}
+
+// TestStateDirResolvesWorktreeToMainCheckoutKey: run against a linked
+// worktree (-C), the printed directory is still the MAIN checkout's state
+// directory -- the --git-common-dir resolution state-file.md calls
+// load-bearing, the one record a worktree and its main checkout share.
+func TestStateDirResolvesWorktreeToMainCheckoutKey(t *testing.T) {
+	repo := gitRepo(t)
+	root := isolatedStateRoot(t)
+
+	worktreeParent := t.TempDir()
+	worktreeDir := filepath.Join(worktreeParent, "wt")
+	cmd := exec.Command("git", "worktree", "add", "-q", worktreeDir)
+	cmd.Dir = repo
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %v\n%s", err, out)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "dir", "-C", worktreeDir},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	mainKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey(main): %v", err)
+	}
+	if want := filepath.Join(root, mainKey) + "\n"; stdout.String() != want {
+		t.Errorf("stdout = %q, want the main checkout's directory %q", stdout.String(), want)
+	}
+}
+
+func TestStateDirTakesNoPositionalArguments(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "dir", "-C", repo, "unexpected-arg"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (usage error)", code)
+	}
+}
+
+// TestStateDirRejectsNonRepository: a -C target ProjectKey cannot resolve
+// is a resolution failure -- one flow: line on stderr, nothing on stdout,
+// non-zero exit, the same course runStateResolve takes. A path that cannot
+// be resolved never prints a directory that only looks resolved.
+func TestStateDirRejectsNonRepository(t *testing.T) {
+	isolatedStateRoot(t)
+	dir := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "dir", "-C", dir},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatalf("exit code = 0, want non-zero for a non-repository -C target")
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty", stdout.String())
+	}
+	if stderr.Len() == 0 {
+		t.Errorf("stderr empty, want one flow: line naming the resolution failure")
+	}
+}
