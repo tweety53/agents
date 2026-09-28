@@ -80,7 +80,7 @@ Correction (2026-09-28): the plan declared `names.go`, `cmd/flow/state.go`, `sta
   - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/store/
     ./internal/stages/ ./internal/api/ ./cmd/flow/ -count=1 -race`.
 
-- [ ] 2. setup.sh: install for Claude Code and zcode only
+- [x] 2. setup.sh: install for Claude Code and zcode only
 
 **Files:** `setup.sh`, `scripts/test-setup.sh`, `commands/flow.md`, `commands/flow-fast.md`, `commands/flow-plan.md`, `commands/flow-self-review.md`, `commands/flow-settings.md`, `commands/flow-status.md`, `scripts/lib/owned-corpus.sh`, `scripts/test-check-normative-inventory.sh`, `skills/flow-contracts/pipeline-rationale.md`, `stats/internal/guard/check_installed_rules_test.go`, `stats/internal/guard/references.go`, `stats/internal/guard/installedcitations.go`
 **Allowed-collateral:** `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/check_references_test.go`, `stats/internal/guard/check_installed_citations_test.go`
@@ -95,26 +95,26 @@ if `setup.sh cursor|codex|all` is still accepted.
 
 **Decision:** harnesses-claude-code-and-zcode
 
-Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-installed-rules.sh` mention neither harness nor `commands/`, so they left `**Files:**`; `ownedcorpus.go` does not exist (no Go twin). `pipeline-rationale.md` joined: its `commands/` citation failed `check-installed-citations.sh` once `commands/` was deleted. With `all` gone, `check-installed-citations.sh` runs `setup.sh` three times (`global`, `claude-code`, `zcode`); `.flow/project.md` says so. The principles reviewer no longer auto-detects `.cursor/rules/*.mdc`. The stage-mark port-parity subtest rewrites the old harness clause of the bash pinned at d71a2327 before its byte comparison.
+Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-installed-rules.sh` mention neither harness nor `commands/`, so they left `**Files:**`; `ownedcorpus.go` does not exist (no Go twin). `pipeline-rationale.md` joined: its `commands/` citation failed `check-installed-citations.sh` once `commands/` was deleted.
 
-  - [ ] **Step 1: Failing case.** In `scripts/test-setup.sh`, add a case labelled `global install
+  - [x] **Step 1: Failing case.** In `scripts/test-setup.sh`, add a case labelled `global install
     writes nothing under .cursor or .codex` (fresh HOME, `run_setup … global`, `assert_absent` on
     both directories) and a case asserting `setup.sh cursor`, `codex` and `all` each exit non-zero
     with the usage line. Run `scripts/test-setup.sh` — expect those failures.
-  - [ ] **Step 2: Installer.** Delete `install_cursor`, `install_codex`, `install_rules_cursor`,
+  - [x] **Step 2: Installer.** Delete `install_cursor`, `install_codex`, `install_rules_cursor`,
     `COMMANDS_CURSOR_SRC`, the `cursor`/`codex`/`all` modes and usage text, the `.cursor`/`.codex`
     lines of `install_global` and the `~/.codex/AGENTS.md` managed file; `git rm -r commands/`.
-  - [ ] **Step 3: Harness and dependants.** Remove every Cursor/Codex case, assert and loop entry
+  - [x] **Step 3: Harness and dependants.** Remove every Cursor/Codex case, assert and loop entry
     from `scripts/test-setup.sh` (the mode loops, `real_home_fingerprint`'s harness list,
     `source_tree_fingerprint`'s `commands/`), and `commands/` / `.cursor` / `.codex` from
     `owned-corpus.sh` (and its Go twin if it lists them), `installer-sandbox-diff.sh` and its
     harness, `check-installed-rules.sh`, `test-check-normative-inventory.sh`, and the Go guards
     `references.go` and `installedcitations.go` with their tests.
-  - [ ] **Step 4: Verify.** `scripts/test-setup.sh && scripts/test-installer-sandbox-diff.sh &&
+  - [x] **Step 4: Verify.** `scripts/test-setup.sh && scripts/test-installer-sandbox-diff.sh &&
     scripts/check-references.sh && scripts/check-installed-citations.sh && cd stats && go test
     ./internal/guard/ -count=1 -race`.
 
-- [ ] 3. Docs, rules and skills: drop Cursor and Codex
+- [x] 3. Docs, rules and skills: drop Cursor and Codex
 
 **Files:** `AGENTS.md`, `README.md`, `rules/agent-baseline.md`, `rules/flow-manual-review.mdc`, `skills/README.md`, `skills/flow-contracts/pipeline.md`, `skills/flow-contracts/pipeline-rationale.md`, `skills/flow-contracts/model-policy.md`, `skills/flow-contracts/project-configuration-authoring.md`, `skills/flow-contracts/project-configuration-rationale.md`, `skills/flow/principles-reviewer-prompt.md`, `scripts/check-stage-mark-calls.sh`, `stats/internal/guard/stagemarkcalls.go`, `.flow/project.md`
 **Allowed-collateral:** `stats/internal/guard/check_stage_mark_calls_test.go`
@@ -128,18 +128,20 @@ Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-ins
 
 **Decision:** harnesses-claude-code-and-zcode
 
-  - [ ] **Step 1: Trim.** Remove or restate every Cursor/Codex mention in the listed files. The
+Correction (2026-09-28): with `all` gone, `check-installed-citations.sh` runs `setup.sh` three times (`global`, `claude-code`, `zcode`); `.flow/project.md` says so. The principles reviewer no longer auto-detects `.cursor/rules/*.mdc` — a behaviour change despite **Regression:** none; no project under `~/Projects` carries `.cursor/rules/`. The stage-mark port-parity subtest rewrites the old harness clause of the bash pinned at d71a2327 before its byte comparison.
+
+  - [x] **Step 1: Trim.** Remove or restate every Cursor/Codex mention in the listed files. The
     `-harness` placeholder rule stays in `pipeline.md`, `check-stage-mark-calls.sh` and
     `stagemarkcalls.go`: the values become `claude-code` or `zcode`, the reason "one skill source
     installs into `~/.claude/skills/` and `~/.zcode/skills/`". `AGENTS.md` keeps its zcode role;
     its "Where a Codex session gets its rules" text is restated for zcode or cut. `.cursor/rules`
     example paths in the project-configuration files become `.claude/rules` or are cut.
-  - [ ] **Step 2: Verify.** `git grep -niE '(^|[^a-z])(cursor|codex)([^a-z]|$)' -- <the listed
+  - [x] **Step 2: Verify.** `git grep -niE '(^|[^a-z])(cursor|codex)([^a-z]|$)' -- <the listed
     files>` prints nothing but ordinary-word hits; `scripts/check-references.sh &&
     scripts/check-stage-mark-calls.sh && cd stats && go test ./internal/guard/ -run
     '^TestCheckStageMarkCalls' -count=1`.
 
-- [ ] 4. Stats: drop Cursor and Codex from comments and fixtures
+- [x] 4. Stats: drop Cursor and Codex from comments and fixtures
 
 **Files:** `stats/README.md`, `stats/cmd/flow/record.go`, `stats/internal/harvest/attribute.go`, `stats/internal/harvest/watcher.go`, `stats/internal/records/render.go`, `stats/internal/records/types.go`, `stats/internal/store/records.go`
 **Allowed-collateral:** `stats/cmd/flow/record_test.go`, `stats/internal/harvest/attribute_test.go`, `stats/internal/harvest/endtoend_test.go`, `stats/internal/records/render_test.go`, `stats/internal/store/records_test.go`, `stats/internal/store/aggregate_test.go`, `stats/internal/api/stages_test.go`
@@ -155,14 +157,14 @@ Correction (2026-09-28): `installer-sandbox-diff.sh`, its harness and `check-ins
 
 Correction (2026-09-28): `installedcitations.go` left `**Files:**` — task 2 already removed its harness mentions. Fixtures use `no-transcript-harness`, not `zcode`: `api/stages.go` reads zcode transcripts, so `zcode` would change what those tests mean.
 
-  - [ ] **Step 1: Trim.** Comments naming Cursor/Codex as harnesses that write no transcript are
+  - [x] **Step 1: Trim.** Comments naming Cursor/Codex as harnesses that write no transcript are
     restated generically ("a harness that writes no transcript") or cut. Test fixtures using
     `codex`/`cursor` as a harness value switch to `zcode` or an obviously synthetic
     `no-transcript-harness`, keeping each test's meaning (a harness with no transcript stays one).
-  - [ ] **Step 2: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/...
+  - [x] **Step 2: Verify.** `cd stats && gofmt -l . && go vet ./... && go test ./internal/...
     ./cmd/... -count=1 -race`.
 
-- [ ] 5. Delete the vocabulary guard
+- [x] 5. Delete the vocabulary guard
 
 **Files:** `scripts/check-vocabulary.sh`, `CLAUDE.md`, `AGENTS.md`, `.flow/project.md`, `README.md`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-normative-inventory.sh`, `scripts/check-python-suppressions.sh`, `scripts/check-references.sh`, `scripts/check-visual-verification.sh`, `scripts/lib/coverage.sh`, `skills/flow-contracts/project-configuration-rationale.md`, `stats/internal/guard/dispatchparagraphs.go`, `stats/internal/guard/guardsymlinks.go`
 **Allowed-collateral:** `scripts/test-check-vocabulary.sh`, `scripts/test-check-python-suppressions.sh`, `scripts/test-lib-coverage.sh`, `scripts/test-project-get.sh`, `scripts/test-setup.sh`, `stats/internal/guard/check_guard_symlinks_test.go`, `stats/internal/guard/check_installed_citations_test.go`, `stats/internal/guard/check_task_commit_fields_test.go`
@@ -176,11 +178,11 @@ Correction (2026-09-28): `installedcitations.go` left `**Files:**` — task 2 al
 
 **Decision:** delete-vocabulary-guard
 
-  - [ ] **Step 1: Delete.** `git rm scripts/check-vocabulary.sh scripts/test-check-vocabulary.sh`;
+  - [x] **Step 1: Delete.** `git rm scripts/check-vocabulary.sh scripts/test-check-vocabulary.sh`;
     remove every reference in the listed files (lint command lists, sibling-guard comments,
     exemption lists, coverage tables, Go guard lists and their test fixtures). A fixture that used
     the file only as an example path switches to another existing guard.
-  - [ ] **Step 2: Verify.** `git grep -n 'check-vocabulary\|vocab-guard' -- . ':!docs/'
+  - [x] **Step 2: Verify.** `git grep -n 'check-vocabulary\|vocab-guard' -- . ':!docs/'
     ':!spectre/changes/archive/'` prints nothing; `scripts/check-references.sh &&
     scripts/check-guard-symlinks.sh && scripts/test-lib-coverage.sh && cd stats && go test
     ./internal/guard/ -count=1 -race`.
