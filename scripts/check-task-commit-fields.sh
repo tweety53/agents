@@ -18,6 +18,25 @@
 #
 #   check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name]
 #
+# THE COMMIT MAP (KAN-786). When the task's work spans more than one
+# repository, the third argument is a per-repository commit map instead of
+# one sha:
+#
+#   check-task-commit-fields.sh <worktree> <task-id> <worktree>=<sha>[,<worktree>=<sha>…] "" <canonical-worktree> <change-name>
+#
+# one `<worktree>=<sha>` pair per repository carrying any of the task's
+# commits, the fourth argument empty — the map derives each commit's parent
+# in its own repository, so a parent for one commit has no meaning here and
+# is refused. The verdict merges across the listed repositories: the union
+# of changed paths against `Files:`/`Allowed-collateral:`, the concatenated
+# diffs against `Tests:`, the summed `@Test` counts against `Baseline:`,
+# the declared `Commit:` subject required on every listed commit, and the
+# tree check satisfied by any listed tree. `**Baseline:**`'s one recorded
+# measurement command addresses a single repository, so with more than one
+# pair that check skips — never a verdict (the kan-100 rule). One pair
+# behaves exactly as the single-sha form; a real revision never contains
+# "=", which is what tells the two forms apart.
+#
 # This wrapper's own job is resolving WHICH tasks.md the named task lives
 # in, among the non-archived ones under
 # <worktree>/spectre/changes/*/tasks.md. Zero matches there is not
