@@ -67,7 +67,7 @@ drives; it measures both harnesses on this machine and proves the containment ch
 
 ---
 
-- [ ] 1. setuptest: harness infrastructure, fingerprints, leak detection
+- [x] 1. setuptest: harness infrastructure, fingerprints, leak detection
 
 **Files:** `stats/internal/setuptest/main_test.go`, `stats/internal/setuptest/helpers_test.go`, `stats/internal/setuptest/fingerprint_test.go`
 **Tests:** `TestPycacheChurnLeavesFingerprintUnchanged`, `TestContainmentChecksDetectLeaks`
@@ -86,7 +86,7 @@ fails if either fingerprint stops moving when a sampled path is written.
 
 **Decision:** setuptest-in-stats-go
 
-  - [ ] **Step 1: `main_test.go`.** Package doc = the bash header's WHY THIS EXISTS and WHAT THIS
+  - [x] **Step 1: `main_test.go`.** Package doc = the bash header's WHY THIS EXISTS and WHAT THIS
     CAN AND CANNOT PROVE paragraphs and the two-source-trees note, reworded only where they name
     bash (the portability-helper notes on BSD/GNU `stat` and a missing SHA tool are dropped: Go's
     standard library has neither problem). Then:
@@ -217,7 +217,7 @@ func readLiteral(setupSh, name string) string {
     `setup.sh` with mode `0755`; write each fixture file with `os.WriteFile`; the bad rule's body
     carries `begin`). It returns an error rather than calling `t.Fatal`, because `TestMain` calls
     it before any `*testing.T` exists.
-  - [ ] **Step 2: `helpers_test.go`.** The per-test state and the ported plumbing:
+  - [x] **Step 2: `helpers_test.go`.** The per-test state and the ported plumbing:
 
 ```go unverified:go vet ./internal/setuptest/ compiles it
 package setuptest
@@ -577,7 +577,7 @@ func findFollow(root, name string) []string {
 
     Any further helper a later task finds it needs (a cheaper form of one above, a shared seed)
     is added in that task's own file, never here, so tasks 2–5 stay file-disjoint.
-  - [ ] **Step 3: `fingerprint_test.go`.** The two containment fingerprints, parameterised by root,
+  - [x] **Step 3: `fingerprint_test.go`.** The two containment fingerprints, parameterised by root,
     carrying the bash comments that explain what is sampled and why:
 
 ```go unverified:go vet ./internal/setuptest/ compiles it
@@ -735,16 +735,16 @@ func appendTo(t *testing.T, p, s string) {
 }
 ```
 
-  - [ ] **Step 4: Run, expect green.** `cd stats && gofmt -l internal/setuptest && go vet
+  - [x] **Step 4: Run, expect green.** `cd stats && gofmt -l internal/setuptest && go vet
     ./internal/setuptest/ && go test ./internal/setuptest/ -count=1 -v 2>&1 | grep -E '✓|✗|^(ok|FAIL|---)'`
     — both tests PASS, the three close-out lines print `✓`, `gofmt -l` prints nothing.
-  - [ ] **Step 5: Prove the leak group can fail.** Temporarily make `realHomeFingerprint` return
+  - [x] **Step 5: Prove the leak group can fail.** Temporarily make `realHomeFingerprint` return
     a constant; re-run `-run '^TestContainmentChecksDetectLeaks$'` — expect three `✗` lines;
     restore it. Temporarily delete the `__pycache__` `SkipDir` branch; re-run
     `-run '^TestPycacheChurnLeavesFingerprintUnchanged$'` — expect its first assertion to fail;
     restore it. Commit only the restored files.
 
-- [ ] 2. setuptest: delimiter, convergence and all-or-nothing groups
+- [x] 2. setuptest: delimiter, convergence and all-or-nothing groups
 
 **Files:** `stats/internal/setuptest/delimiters_test.go`
 **Tests:** `TestMalformedDelimitersAbortByteIdentical`, `TestThreeGlobalRunsConverge`, `TestHandWrittenContentAndModeSurvive`, `TestDelimiterRuleInstallsNothing`
@@ -759,7 +759,7 @@ line or file mode lost, or a delimiter-carrying rule installing anything.
 
 **Decision:** setup-harness-go-parallel
 
-  - [ ] **Step 1: Port**, one test per bash group, each opening `g := newGroup(t)`, each case
+  - [x] **Step 1: Port**, one test per bash group, each opening `g := newGroup(t)`, each case
     opening `home := g.newHome()`, every `run_setup "$FIXTURE" …` a `g.runSetup(fixture, home,
     "global", "")`, every `cp -p` a `copyFile` into `g.dir`, every `$SANDBOX/<name>` a
     `filepath.Join(g.dir, "<name>")`:
@@ -797,13 +797,13 @@ func TestThreeGlobalRunsConverge(t *testing.T) {
       `appendTo`).
     - `TestDelimiterRuleInstallsNothing` ← `group "A rule carrying a delimiter installs nothing at
       all"`, on its own `makeFixtureRepo(filepath.Join(g.dir, "fixture-repo-bad-rule"), true)`.
-  - [ ] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
+  - [x] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
     ./internal/setuptest/`; then the preamble's parity check with
     `TITLES='Malformed delimiters abort with the target byte-identical|Three consecutive global runs converge|Hand-written content and file mode survive every run|A rule carrying a delimiter installs nothing at all'`
     and `RUN='^(TestMalformedDelimitersAbortByteIdentical|TestThreeGlobalRunsConverge|TestHandWrittenContentAndModeSurvive|TestDelimiterRuleInstallsNothing)$'`
     — `go test rc=0`, empty diff.
 
-- [ ] 3. setuptest: global containment groups
+- [x] 3. setuptest: global containment groups
 
 **Files:** `stats/internal/setuptest/containment_test.go`
 **Tests:** `TestOnlyAlwaysApplyRulesInstall`, `TestCoreExcerptsLinksAndBaseline`, `TestKotlinRuleInstalledByNoMode`, `TestGlobalInstallPopulatesSkillDirs`, `TestGuardsReachInstallAndRunFromIt`, `TestPreexistingSkillDirMovedOut`
@@ -819,7 +819,7 @@ stale skill copy left reachable.
 
 **Decision:** setup-harness-go-parallel
 
-  - [ ] **Step 1: Port**, conventions as task 2 step 1:
+  - [x] **Step 1: Port**, conventions as task 2 step 1:
     - `TestOnlyAlwaysApplyRulesInstall` ← `group "Only rules declaring alwaysApply: true
       install"` (the rule count: every `os.ReadDir` entry of `.claude/rules` but
       `agent-baseline.md`; `assertEq(…, 2, n)`).
@@ -846,13 +846,13 @@ stale skill copy left reachable.
       the scanned tree"` (victim = the first non-dot directory entry of `repoRoot/skills`;
       both hit counts = the files `findFollow(root, "SKILL.md")` returns that contain
       `SENTINEL-PREEXISTING-SKILL`).
-  - [ ] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
+  - [x] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
     ./internal/setuptest/`; then the parity check with
     `TITLES="Only rules declaring alwaysApply: true install|Core excerpts, full-text links and the agent baseline|The opt-in Kotlin rule is installed by no mode|A global install populates both skill directories with live links|Every guard in a command skill's scripts/ directory reaches the install|check-panel-reproducers.sh runs through the installed path and finds its dependencies|A pre-existing skill directory is moved outside the scanned tree"`
     and `RUN='^(TestOnlyAlwaysApplyRulesInstall|TestCoreExcerptsLinksAndBaseline|TestKotlinRuleInstalledByNoMode|TestGlobalInstallPopulatesSkillDirs|TestGuardsReachInstallAndRunFromIt|TestPreexistingSkillDirMovedOut)$'`
     — `go test rc=0`, empty diff.
 
-- [ ] 4. setuptest: project rendering groups
+- [x] 4. setuptest: project rendering groups
 
 **Files:** `stats/internal/setuptest/project_test.go`
 **Tests:** `TestProjectOptInRuleRendered`, `TestProjectRenderingIdempotent`, `TestModesRenderingProjectStandards`, `TestProjectWithNothingToRenderLeftAlone`, `TestMissingNamedRuleReportedAndSkipped`, `TestProjectDelimiterGuardsFire`, `TestRealKotlinStandardReachesProject`
@@ -868,7 +868,7 @@ pair not refused, the real Kotlin standard not reaching a project.
 
 **Decision:** setup-harness-go-parallel
 
-  - [ ] **Step 1: Port**, conventions as task 2 step 1, every `seed_project_md` a
+  - [x] **Step 1: Port**, conventions as task 2 step 1, every `seed_project_md` a
     `g.seedProjectMD`, every project dir `filepath.Join(g.dir, fmt.Sprintf("project-<kind>-%d",
     g.seq))` right after the case's `newHome`:
     - `TestProjectOptInRuleRendered` ← `group "A project's opted-in shared rule is rendered into
@@ -884,13 +884,13 @@ pair not refused, the real Kotlin standard not reaching a project.
       exactly as on a global one"`.
     - `TestRealKotlinStandardReachesProject` ← `group "The real Kotlin standard reaches a project
       that opts into it"` (`kotlinRule` from task 1).
-  - [ ] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
+  - [x] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
     ./internal/setuptest/`; then the parity check with
     `TITLES="A project's opted-in shared rule is rendered into both its instruction files|Project rendering is idempotent and preserves hand-written content|Which modes render project standards|A project with nothing to render is left alone, silently|A named rule that does not exist is reported and skipped|The delimiter guards fire on a project file exactly as on a global one|The real Kotlin standard reaches a project that opts into it"`
     and `RUN='^(TestProjectOptInRuleRendered|TestProjectRenderingIdempotent|TestModesRenderingProjectStandards|TestProjectWithNothingToRenderLeftAlone|TestMissingNamedRuleReportedAndSkipped|TestProjectDelimiterGuardsFire|TestRealKotlinStandardReachesProject)$'`
     — `go test rc=0`, empty diff.
 
-- [ ] 5. setuptest: prune, retired-harness and zcode groups; test-setup.sh runs the Go harness
+- [x] 5. setuptest: prune, retired-harness and zcode groups; test-setup.sh runs the Go harness
 
 **Files:** `stats/internal/setuptest/harnesses_test.go`, `scripts/test-setup.sh`, `stats/internal/guard/installedcitations.go`
 **Tests:** `TestReinstallPrunesDeletedSourceLinks`, `TestGlobalWritesNothingUnderCursorCodex`, `TestRetiredModesRefused`, `TestZcodeGlobalSelfContained`, `TestZcodeProjectModeProjectPathsOnly`, `TestZcodeCompactWindowEnvBlock`
@@ -907,7 +907,7 @@ which still passes.
 
 **Decision:** setup-harness-go-parallel
 
-  - [ ] **Step 1: Port**, conventions as task 2 step 1:
+  - [x] **Step 1: Port**, conventions as task 2 step 1:
     - `TestReinstallPrunesDeletedSourceLinks` ← `group "A re-install prunes links whose source
       was deleted"`, on its own `makeFixtureRepo(filepath.Join(g.dir, "fixture-repo-prune"),
       false)`; the user's broken link targets `filepath.Join(g.dir,
@@ -926,17 +926,17 @@ which still passes.
       paths only"`.
     - `TestZcodeCompactWindowEnvBlock` ← `group "ZCode: the compact-window env block in the shell
       rc"`.
-  - [ ] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
+  - [x] **Step 2: Verify.** `cd stats && gofmt -l internal/setuptest && go vet
     ./internal/setuptest/`; then the parity check with
     `TITLES='A re-install prunes links whose source was deleted|global install writes nothing under .cursor or .codex|The retired cursor, codex and all modes are refused|ZCode: global installs a self-contained ~/.zcode layer|ZCode: the per-project mode writes project paths only|ZCode: the compact-window env block in the shell rc'`
     and `RUN='^(TestReinstallPrunesDeletedSourceLinks|TestGlobalWritesNothingUnderCursorCodex|TestRetiredModesRefused|TestZcodeGlobalSelfContained|TestZcodeProjectModeProjectPathsOnly|TestZcodeCompactWindowEnvBlock)$'`
     — `go test rc=0`, empty diff.
-  - [ ] **Step 3: Full parity, before the swap.** The preamble's parity check with every group
+  - [x] **Step 3: Full parity, before the swap.** The preamble's parity check with every group
     title: `TITLES="$(cut -f1 spectre/changes/kan-844-agents-speed-up-scripts-test-setup-sh/setup-harness-baseline.tsv | sort -u | paste -sd'|' -)"`
     and `RUN='.'` — `go test rc=0`, empty diff, `parity: 580 assertions`; and
     `grep -c '✓ leak detection: ' "$T/go.log"` prints 5.
     <!-- predicted: 580 = the baseline's line count, less any /scripts/__pycache__ line present in neither; 5 = four TestContainmentChecksDetectLeaks lines plus the close-out's fixture line -->
-  - [ ] **Step 4: Shim.** Replace `scripts/test-setup.sh` whole:
+  - [x] **Step 4: Shim.** Replace `scripts/test-setup.sh` whole:
 
 ```bash verified:scripts/test-go-guards.sh @ branch spectre/kan-844-agents-speed-up-scripts-test-setup-sh is the same shape
 #!/usr/bin/env bash
@@ -957,18 +957,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/../stats" && exec go test ./internal/setuptest/ -count=1
 ```
 
-  - [ ] **Step 5: Repoint the one citation of the bash internals.**
+  - [x] **Step 5: Repoint the one citation of the bash internals.**
     `stats/internal/guard/installedcitations.go`'s comment "adopting scripts/test-setup.sh's own
     refusal" names a refusal that now lives in `stats/internal/setuptest/helpers_test.go`'s
     `runSetup`; repoint it there. The other prose mentions of `test-setup.sh`
     (`scripts/check-model-resolution-shell.sh`, `scripts/test-check-model-resolution-shell.sh`)
     name its containment case, which the shim still runs — unchanged.
-  - [ ] **Step 6: Verify.** `scripts/test-setup.sh; echo rc=$?` — `rc=0`; `KEEP_SANDBOX=1
+  - [x] **Step 6: Verify.** `scripts/test-setup.sh; echo rc=$?` — `rc=0`; `KEEP_SANDBOX=1
     scripts/test-setup.sh` leaves one `/tmp/flow-test-setup.*` directory (remove it after
     looking); `scripts/check-references.sh`; `scripts/check-installed-citations.sh`; `cd stats &&
     gofmt -l . && go vet ./internal/guard/`.
 
-- [ ] 6. flow: xhigh implementer effort
+- [x] 6. flow: xhigh implementer effort
 
 **Files:** `agents/flow-xhigh.md`, `stats/internal/guard/installedcitations.go`, `scripts/test-setup-agents.sh`, `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/internal/records/types.go`, `skills/flow/brainstorm-planner.md`, `skills/flow/implement.md`, `README.md`
 **Tests:** `TestRecordDispatchBeginAcceptsEffort` — extended, not added: its table gains an `xhigh`
@@ -985,14 +985,14 @@ fails `scripts/check-installed-citations.sh`.
 
 **Decision:** xhigh-implementers-only
 
-  - [ ] **Step 1: Failing tests.** In `stats/cmd/flow/record_test.go`, add `"xhigh"` to
+  - [x] **Step 1: Failing tests.** In `stats/cmd/flow/record_test.go`, add `"xhigh"` to
     TestRecordDispatchBeginAcceptsEffort's word list (and its doc comment: four accepted
     non-default words) and to TestRunRecordDispatchBeginRejectsUnknownEffort's accepted-word loop.
     In `scripts/test-setup-agents.sh`, `EFFORTS="low medium high xhigh"`, both counts 3 → 4, the
     `three` wording → `four`. Run `cd stats && go test ./cmd/flow/ -run
     '^(TestRecordDispatchBeginAcceptsEffort|TestRunRecordDispatchBeginRejectsUnknownEffort)$'
     -count=1` and `scripts/test-setup-agents.sh` — expect both to fail.
-  - [ ] **Step 2: The agent definition.** `agents/flow-xhigh.md`:
+  - [x] **Step 2: The agent definition.** `agents/flow-xhigh.md`:
 
 ```markdown verified:agents/flow-high.md @ branch spectre/kan-844-agents-speed-up-scripts-test-setup-sh with effort xhigh; Claude Code sub-agents docs list xhigh as a frontmatter effort
 ---
@@ -1008,18 +1008,18 @@ General-purpose flow role at xhigh effort; the dispatch prompt carries every ins
     `agents/flow-high.md`'s: `{"agents/flow-xhigh.md", "generic dispatch-target agent definition
     — cites no .md/.mdc path at all"},`. Without the entry the guard exits 1.
     <!-- measured: scripts/check-installed-citations.sh with a copy of flow-high.md as agents/flow-xhigh.md, no allowlist entry → rc=1 "agents/flow-xhigh.md:0: 0 checked, and not declared expected-zero" @ branch spectre/kan-844-agents-speed-up-scripts-test-setup-sh -->
-  - [ ] **Step 3: The CLI.** `recordEfforts = []string{"low", "medium", "high", "xhigh",
+  - [x] **Step 3: The CLI.** `recordEfforts = []string{"low", "medium", "high", "xhigh",
     "default"}`, its comment "the four efforts a flow dispatch can carry"; the `Dispatch.Effort`
     doc comment in `stats/internal/records/types.go` lists `xhigh`. No migration:
     `dispatches.effort` is unconstrained `TEXT`.
-  - [ ] **Step 4: The prose.** `skills/flow/brainstorm-planner.md` **Model and effort**: the
+  - [x] **Step 4: The prose.** `skills/flow/brainstorm-planner.md` **Model and effort**: the
     sentence "every other `effort` is the planner's own choice, one of `low`/`medium`/`high`"
     becomes "…one of `low`/`medium`/`high` — and, for the implementer pair and an implementer group
     alone, `xhigh` —"; the fixer, panel dispatches and rerun pair keep the three. `skills/flow/implement.md`'s
     `flow-<effort>` family paragraph names `agents/flow-xhigh.md` and "four definitions, one per
     effort, `xhigh` dispatched for implementer groups alone". `README.md`'s class table `big` row:
     `` `low`/`medium`/`high`/`xhigh` per group ``.
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./cmd/flow/ ./internal/guard/
+  - [x] **Step 5: Verify.** `cd stats && gofmt -l . && go vet ./cmd/flow/ ./internal/guard/
     ./internal/records/ && go test ./cmd/flow/ -run
     '^(TestRecordDispatchBeginAcceptsEffort|TestRunRecordDispatchBeginRejectsUnknownEffort)$'
     -count=1 && go test ./internal/guard/ -run '^TestCheckInstalledCitations$' -count=1`;
