@@ -1,9 +1,15 @@
 # scripts/lib/visual-table-cells.awk — split_cells, trimcell and foldcell,
 # defined once.
 #
-# Sourced (via `awk -f`) by scripts/check-visual-verification.sh,
-# scripts/check-visual-trigger.sh and scripts/resolve-visual-screenshots.sh,
-# which used to carry three byte-identical copies of this trio. All three
+# Sourced (via `awk -f`) by scripts/check-spec-reach.sh and
+# scripts/check-dev-stack-fresh.sh.
+# The three visual guards that once sourced this file —
+# check-visual-verification, check-visual-trigger and
+# resolve-visual-screenshots — are Go ports now (KAN-850) and use its Go
+# twin, vtSplitCells, vtTrimCell and vtFoldCell in stats/internal/guard/visualsection.go.
+#
+# Those three guards used to carry three byte-identical copies of this
+# trio. All three
 # parse the same `| Setting | Value |` / `| Command | Runs |` table shape
 # out of `.flow/project.md`, a file tracked in the repository and editable
 # in any pull request — the identical drift hazard
@@ -17,7 +23,7 @@
 # too: a guard that ships through the skills/*/scripts/ symlink farm can
 # assume a sibling `lib/` travels with it; a guard reached only by
 # hand-copying a single file into an unrelated project's own tooling cannot.
-# All three callers above ship through the farm — each carries its own
+# Both bash callers above ship through the farm — each carries its own
 # `lib` symlink into scripts/lib/ beside it — so each sources this file
 # rather than carrying its own copy.
 #
@@ -47,8 +53,9 @@
 # The original version of this function built each cell with `cur = cur ch`,
 # one character at a time, and every one of those reassigns `cur` to a
 # freshly copied string — quadratic in cell length. This is the SAME defect
-# class `scripts/lib/trim-glob-element.sh` already fixed once (see that
-# file's own header): a hostile `.flow/project.md` — tracked and editable in
+# class the since-deleted `scripts/lib/trim-glob-element.sh` already fixed
+# once (its Go port, trimGlobElement in stats/internal/guard/visualsection.go,
+# carries the history): a hostile `.flow/project.md` — tracked and editable in
 # any pull request, the same fact that file's header records — pads an
 # interior cell and the per-character loop pays for every byte of padding
 # again on every subsequent byte. This function ALONE, isolated from the

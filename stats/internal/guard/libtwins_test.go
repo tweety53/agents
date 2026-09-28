@@ -35,11 +35,18 @@ func bashLib(t *testing.T, lib, fn string, args ...string) libRes {
 // bashLibEnv is bashLib with env appended to the process environment.
 func bashLibEnv(t *testing.T, env []string, lib, fn string, args ...string) libRes {
 	t.Helper()
+	return bashLibIO(t, env, nil, lib, fn, args...)
+}
+
+// bashLibIO is bashLibEnv with stdin fed to fn (nil: no stdin).
+func bashLibIO(t *testing.T, env []string, stdin io.Reader, lib, fn string, args ...string) libRes {
+	t.Helper()
 	cmd := exec.Command("bash", append([]string{"-c",
 		`set -uo pipefail; . "$1" || exit 99; shift; "$@"`, "_", "../../../scripts/lib/" + lib, fn}, args...)...)
 	if env != nil {
 		cmd.Env = append(os.Environ(), env...)
 	}
+	cmd.Stdin = stdin
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	status := 0
@@ -441,6 +448,134 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 			}
 			got.stderr = errb.String()
 			assertParity(t, got, bashLibEnv(t, tc.over, "panel-touched-paths.sh", "panel_touched_paths", "prog", tc.wt, tc.mb, tc.git))
+		})
+	}
+}
+
+// TestStripBOMParity pins stripBOM against lib/strip-bom.sh's strip_bom_cat.
+func TestStripBOMParity(t *testing.T) {
+	t.Parallel()
+	d := t.TempDir()
+	for i, tc := range []struct{ name, body string }{
+		{"leading BOM", "\xef\xbb\xbf## visual verification\n"},
+		{"BOM not at byte 0", "x\xef\xbb\xbfy\n"},
+		{"two BOM bytes only", "\xef\xbb"},
+		{"two BOMs", "\xef\xbb\xbf\xef\xbb\xbfz"},
+		{"empty file", ""},
+		{"missing file", ""},
+	} {
+		file := d + "/f" + strconv.Itoa(i)
+		if tc.name != "missing file" {
+			writeFile(t, file, tc.body)
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			bashRes := bashLib(t, "strip-bom.sh", "strip_bom_cat", file)
+			b, err := os.ReadFile(file)
+			if err != nil {
+				// The twin takes bytes; a missing file is its caller's read
+				// error. The bash prints nothing on stdout and fails.
+				if bashRes.stdout != "" || bashRes.status == 0 {
+					t.Errorf("missing file: bash printed %q, status %d", bashRes.stdout, bashRes.status)
+				}
+				return
+			}
+			assertParity(t, libRes{stdout: string(stripBOM(b))}, bashRes)
+		})
+	}
+}
+
+// TestSanitizeDisplayParity pins sanitizeDisplay against
+// lib/sanitize-display.sh's sanitize_display, one line per input as every
+// caller's `printf '...\n' | sanitize_display` feeds it.
+func TestSanitizeDisplayParity(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"DEL":                   "a\x7fb",
+		"backslash":             `a\b\\c`,
+		"multi-byte UTF-8 run":  "héllo — ✓ 日本",
+		"CR at end":             "line\r",
+		"NUL mid-line":          "a\x00b\\c\x1b",
+		"NUL first":             "\x00abc",
+		"invalid UTF-8":         "\xff\xfe\xc3",
+		"escape sequence":       "\x1b[31mred\x1b[0m",
+		"empty line":            "",
+		"interior newline kept": "a\x01\nb\x02",
+	}
+	for c := 0; c < 0x20; c++ {
+		cases["byte "+strconv.Itoa(c)] = "x" + string(rune(c)) + "y"
+	}
+	for name, in := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			bashRes := bashLibIO(t, nil, strings.NewReader(in+"\n"), "sanitize-display.sh", "sanitize_display")
+			assertParity(t, libRes{stdout: sanitizeDisplay(in + "\n")}, bashRes)
+		})
+	}
+}
+
+// vtDriver prints, per input line, split_cells' count and every cell raw,
+// trimmed and folded, then trimcell and foldcell of the whole line — fields
+// separated by \x1e (\036 to awk, whose \x escape would swallow a
+// following hex letter), which no input carries.
+const vtDriver = `{
+  n = split_cells($0, cells)
+  printf "%d", n
+  for (i = 1; i <= n; i++) printf "\036%s\036%s\036%s", cells[i], trimcell(cells[i]), foldcell(cells[i])
+  printf "\036T%s\036F%s\n", trimcell($0), foldcell($0)
+}
+`
+
+func vtGoDriver(line string) string {
+	cells := vtSplitCells(line)
+	var b strings.Builder
+	b.WriteString(strconv.Itoa(len(cells)))
+	for _, c := range cells {
+		b.WriteString("\x1e" + c + "\x1e" + vtTrimCell(c) + "\x1e" + vtFoldCell(c))
+	}
+	b.WriteString("\x1eT" + vtTrimCell(line) + "\x1eF" + vtFoldCell(line) + "\n")
+	return b.String()
+}
+
+// TestVisualTableCellsParity pins vtSplitCells, vtTrimCell and vtFoldCell
+// against lib/visual-table-cells.awk, run the way its callers run it — as a
+// second -f beside the caller's program — under LC_ALL=C: the C locale's
+// [[:space:]] and an ASCII-only tolower (the non-ASCII rows pin that).
+func TestVisualTableCellsParity(t *testing.T) {
+	t.Parallel()
+	d := t.TempDir()
+	driver := d + "/driver.awk"
+	writeFile(t, driver, vtDriver)
+	for i, line := range []string{
+		"| Setting | Value |",
+		"| Setting | Value",
+		`| a \| b | c \\ d |`,
+		`| a \x b | c\ |`,
+		`| trailing backslash \`,
+		"| UI Paths | `a/**`, `b/**` |\r",
+		"  \t| ` spaced ` |  `x`  |  ",
+		"| Ui \t  Paths |   many   \t spaces |",
+		"not a row | x |",
+		"| a | |",
+		"| a ||",
+		"|",
+		"||",
+		"",
+		"| MiXeD CaSe | VaLuE |",
+		"| \v\fvt\v | \x85x\xc2\xa0 |",
+		"| ÄRGER | \xc2\xa0nbsp\xc2\xa0 |",
+		"| `` | ` |",
+	} {
+		t.Run(strconv.Itoa(i)+" "+strconv.Quote(line), func(t *testing.T) {
+			t.Parallel()
+			cmd := exec.Command("awk", "-f", "../../../scripts/lib/visual-table-cells.awk", "-f", driver)
+			cmd.Env = append(os.Environ(), "LC_ALL=C")
+			cmd.Stdin = strings.NewReader(line + "\n")
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("awk: %v", err)
+			}
+			assertParity(t, libRes{stdout: vtGoDriver(line)}, libRes{stdout: string(out)})
 		})
 	}
 }

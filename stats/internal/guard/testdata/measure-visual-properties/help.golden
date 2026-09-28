@@ -1,0 +1,23 @@
+["-h"]
+0
+usage: measure-visual-properties.sh [-h] [--region-a REGION_A]
+                                    [--region-b REGION_B] [--scale SCALE]
+                                    [--ref-a REF_A] [--ref-b REF_B]
+                                    [--props PROPS] [--edge EDGE]
+                                    [--noise NOISE]
+                                    image_a [image_b]
+
+positional arguments:
+  image_a
+  image_b
+
+options:
+  -h, --help           show this help message and exit
+  --region-a REGION_A
+  --region-b REGION_B
+  --scale SCALE
+  --ref-a REF_A
+  --ref-b REF_B
+  --props PROPS
+  --edge EDGE
+  --noise NOISE

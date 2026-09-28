@@ -1,0 +1,15 @@
+["flat.png", "--props", "box", "--edge", "-1e3"]
+0
+{
+  "a": {
+    "background": "#eae9e9",
+    "box": {
+      "left": 1,
+      "right": 58,
+      "top": 1,
+      "bottom": 58,
+      "width": 58,
+      "height": 58
+    }
+  }
+}

@@ -1,0 +1,1 @@
+compose-mockup-frames: unreadable PNG on stdin: caps/p1.pngcaps/p2.png: [Errno 2] No such file or directory: 'caps/p1.png\rcaps/p2.png'

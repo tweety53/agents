@@ -1,0 +1,79 @@
+["flush.png", "--region-a", "10,10,420,120", "--props", "runs"]
+0
+{
+  "a": {
+    "background": "#eae9e9",
+    "runs": {
+      "row": [
+        {
+          "from": 0,
+          "to": 9,
+          "length": 10,
+          "colour": "#eae9e9"
+        },
+        {
+          "from": 10,
+          "to": 10,
+          "length": 1,
+          "colour": "#d7d3d3"
+        },
+        {
+          "from": 11,
+          "to": 398,
+          "length": 388,
+          "colour": "#eae9e9"
+        },
+        {
+          "from": 399,
+          "to": 399,
+          "length": 1,
+          "colour": "#d7d3d3"
+        },
+        {
+          "from": 400,
+          "to": 419,
+          "length": 20,
+          "colour": "#eae9e9"
+        }
+      ],
+      "col": [
+        {
+          "from": 0,
+          "to": 9,
+          "length": 10,
+          "colour": "#eae9e9"
+        },
+        {
+          "from": 10,
+          "to": 10,
+          "length": 1,
+          "colour": "#d7d3d3"
+        },
+        {
+          "from": 11,
+          "to": 54,
+          "length": 44,
+          "colour": "#e9f8ff"
+        },
+        {
+          "from": 55,
+          "to": 108,
+          "length": 54,
+          "colour": "#eae9e9"
+        },
+        {
+          "from": 109,
+          "to": 109,
+          "length": 1,
+          "colour": "#d7d3d3"
+        },
+        {
+          "from": 110,
+          "to": 119,
+          "length": 10,
+          "colour": "#eae9e9"
+        }
+      ]
+    }
+  }
+}

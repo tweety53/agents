@@ -1,0 +1,76 @@
+["icon-blue.png", "icon-grey.png", "--scale", " 1_0 ", "--noise", "+8", "--edge", "2.4e1", "--props", "box"]
+0
+{
+  "a": {
+    "background": "#eae9e9",
+    "box": {
+      "left": 16,
+      "right": 63,
+      "top": 16,
+      "bottom": 63,
+      "width": 48,
+      "height": 48
+    }
+  },
+  "b": {
+    "background": "#eae9e9",
+    "box": {
+      "left": 16,
+      "right": 63,
+      "top": 16,
+      "bottom": 63,
+      "width": 48,
+      "height": 48
+    }
+  },
+  "scale": 10.0,
+  "delta": {
+    "background": {
+      "a": "#eae9e9",
+      "b": "#eae9e9",
+      "distance": 0.0
+    },
+    "box.left": {
+      "a": 16,
+      "a_scaled": 160.0,
+      "b": 16,
+      "abs": -144.0,
+      "pct": -90.0
+    },
+    "box.right": {
+      "a": 63,
+      "a_scaled": 630.0,
+      "b": 63,
+      "abs": -567.0,
+      "pct": -90.0
+    },
+    "box.top": {
+      "a": 16,
+      "a_scaled": 160.0,
+      "b": 16,
+      "abs": -144.0,
+      "pct": -90.0
+    },
+    "box.bottom": {
+      "a": 63,
+      "a_scaled": 630.0,
+      "b": 63,
+      "abs": -567.0,
+      "pct": -90.0
+    },
+    "box.width": {
+      "a": 48,
+      "a_scaled": 480.0,
+      "b": 48,
+      "abs": -432.0,
+      "pct": -90.0
+    },
+    "box.height": {
+      "a": 48,
+      "a_scaled": 480.0,
+      "b": 48,
+      "abs": -432.0,
+      "pct": -90.0
+    }
+  }
+}

@@ -12,6 +12,7 @@ import (
 type Env struct {
 	Getenv func(string) string // os.Getenv in production
 	Dir    string              // working directory the bash guard would run in
+	Stdin  io.Reader           // os.Stdin in production; nil reads as empty input
 	// LookupEnv is os.LookupEnv in production: bash's `${NAME+set}`, for a
 	// guard whose contract tells a set-but-empty variable from an unset one.
 	LookupEnv func(string) (string, bool)

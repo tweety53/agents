@@ -40,8 +40,9 @@
 # ANYTHING — a `screenshots` root wide enough to sweep in a `node_modules`
 # tree still filters correctly, because "some path segment starts with the
 # spec basename" is exactly as narrow as the stage's own step 9 says it is.
-# Pinned rather than assumed: task 10's harness plants a decoy PNG inside
-# `node_modules` whose name deliberately DOES start with the spec basename
+# Pinned rather than assumed: TestResolveVisualScreenshots
+# (stats/internal/guard/resolve_visual_screenshots_test.go) plants a decoy
+# PNG inside `node_modules` whose name deliberately DOES start with the spec basename
 # and confirms it is found — the filter is not a `node_modules` carve-out
 # that could hide a real match sitting there too (a project genuinely
 # emitting PNGs into a vendored path is not this guard's problem to solve).
@@ -65,198 +66,26 @@
 # THE INPUT IS ATTACKER-INFLUENCED, exactly as check-visual-verification.sh's
 # own header states: `.flow/project.md` is tracked and editable in any pull
 # request. Every interpolated cell that reaches an exit-2 message passes
-# through sanitize_display first, for the identical forged-verdict reason
-# that file's own copy of the function documents. The PNG paths this guard
+# through sanitizeDisplay first (stats/internal/guard/visualsection.go), for
+# the identical forged-verdict reason that function's comment documents. The PNG paths this guard
 # prints on success are filesystem paths this guard discovered by walking a
 # real directory, never text lifted out of the config file, so they carry no
 # such risk and are printed unescaped.
 #
 # THE HEADING SCAN AND TABLE PARSER ARE check-visual-verification.sh's OWN
-# CONVENTIONS, reused rather than reinvented — see check-visual-trigger.sh's
-# identical header note for why the parser's split_cells/trimcell/foldcell
-# trio is a sourced helper here rather than a copy.
+# CONVENTIONS, reused rather than reinvented — the Go twins in
+# stats/internal/guard/visualsection.go that every visual guard shares.
 #
 # A LEADING UTF-8 BOM IS STRIPPED BEFORE EITHER HEADING READ OR THE TABLE
-# PARSE, via the sourced strip_bom_cat (scripts/lib/strip-bom.sh) — see that
-# file's header for why a BOM would otherwise make this guard read a present
+# PARSE, via stripBOM (stats/internal/guard/visualsection.go) — see its
+# comment for why a BOM would otherwise make this guard read a present
 # `## visual verification` heading as absent and exit 2.
+#
+# The body is Go: stats/internal/guard/resolvevisualscreenshots.go. Matches
+# print in byte order, whatever the caller's locale.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-if [ "$#" -ne 2 ]; then
-  echo "resolve-visual-screenshots: usage: resolve-visual-screenshots.sh <project root> <capture spec basename>" >&2
+. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "resolve-visual-screenshots: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
-fi
-ROOT="$1"
-SPEC_BASENAME="$2"
-
-if [ -z "$SPEC_BASENAME" ]; then
-  echo "resolve-visual-screenshots: the capture spec basename argument is empty" >&2
-  exit 2
-fi
-
-if [ ! -d "$ROOT" ]; then
-  echo "resolve-visual-screenshots: $ROOT is not a directory — cannot resolve what it declares" >&2
-  exit 2
-fi
-ROOT_ABS="$(cd "$ROOT" && pwd)"
-
-CFG="$ROOT_ABS/.flow/project.md"
-
-# sanitize_display — sourced from lib/sanitize-display.sh; see that file's
-# header for why this guard, unlike a hand-copied one, may source a sibling
-# instead of carrying its own copy.
-source "$SCRIPT_DIR/lib/sanitize-display.sh"
-
-# strip_bom_cat — sourced from lib/strip-bom.sh; see that file's header for
-# why a leading UTF-8 BOM would otherwise make a present `## visual
-# verification` heading read as absent, and why this guard, unlike a
-# hand-copied one, may source a sibling instead of carrying its own copy.
-source "$SCRIPT_DIR/lib/strip-bom.sh"
-
-if [ ! -e "$CFG" ] && [ ! -L "$CFG" ]; then
-  echo "resolve-visual-screenshots: $ROOT_ABS has no .flow/project.md — cannot resolve where screenshots live" >&2
-  exit 2
-fi
-if [ ! -f "$CFG" ]; then
-  echo "resolve-visual-screenshots: $CFG is not a regular file — cannot resolve what it declares" >&2
-  exit 2
-fi
-if [ ! -r "$CFG" ]; then
-  echo "resolve-visual-screenshots: $CFG exists but is not readable — cannot resolve what it declares" >&2
-  exit 2
-fi
-
-VV_HEADING='^##[[:space:]]+visual verification[[:space:]]*$'
-
-set +e
-grep -qiE "$VV_HEADING" <(strip_bom_cat "$CFG")
-VV_GREP_RC=$?
-set -e
-if [ "$VV_GREP_RC" -ge 2 ]; then
-  echo "resolve-visual-screenshots: grep exited $VV_GREP_RC while looking for the '## visual verification' heading in $CFG — that is a failure to look, not an absence" >&2
-  exit 2
-fi
-if [ "$VV_GREP_RC" -ne 0 ]; then
-  echo "resolve-visual-screenshots: $CFG declares no '## visual verification' section — cannot resolve where screenshots live" >&2
-  exit 2
-fi
-
-set +e
-VV_COUNT="$(grep -ciE "$VV_HEADING" <(strip_bom_cat "$CFG"))"
-VV_COUNT_RC=$?
-set -e
-case "$VV_COUNT_RC:$VV_COUNT" in
-  0:[0-9]*) ;;
-  *)
-    echo "resolve-visual-screenshots: could not count the '## visual verification' headings in $CFG (grep exited $VV_COUNT_RC)" >&2
-    exit 2
-    ;;
-esac
-if [ "$VV_COUNT" -gt 1 ]; then
-  echo "resolve-visual-screenshots: $CFG declares $VV_COUNT '## visual verification' sections — a second declaration is ambiguous, so neither was read" >&2
-  exit 2
-fi
-
-# Extracts `screenshots` and `regression checkout` (whichever are present) in
-# one pass. NO APOSTROPHE MAY APPEAR ANYWHERE BELOW, comments included —
-# check-visual-verification.sh's own header records the same trap.
-SECTION_REPORT="$(awk -v heading_re="$VV_HEADING" \
-  -f "$SCRIPT_DIR/lib/visual-table-cells.awk" \
-  -f <(cat <<'AWK_PROG'
-  BEGIN { in_sec = 0; SEC_LEVEL = 2 }
-
-  /^#+[[:space:]]/ {
-    match($0, /^#+/)
-    hlevel = RLENGTH
-    is_own = (tolower($0) ~ heading_re)
-    if (in_sec && !is_own && hlevel > SEC_LEVEL) { next }
-    in_sec = is_own
-    next
-  }
-
-  !in_sec { next }
-
-  {
-    n = split_cells($0, cells)
-    if (n != 2) next
-    key = foldcell(cells[1])
-    if (key == "screenshots" && !("screenshots" in seen)) {
-      seen["screenshots"] = 1
-      printf "SCREENSHOTS\t%s\n", trimcell(cells[2])
-    }
-    if (key == "regression checkout" && !("checkout" in seen)) {
-      seen["checkout"] = 1
-      printf "CHECKOUT\t%s\n", trimcell(cells[2])
-    }
-  }
-AWK_PROG
-  ) <(strip_bom_cat "$CFG"))"
-
-SCREENSHOTS_VAL=""
-CHECKOUT_VAL=""
-CHECKOUT_FOUND=0
-while IFS=$'\t' read -r tag val; do
-  [ "$tag" = "SCREENSHOTS" ] && SCREENSHOTS_VAL="$val"
-  if [ "$tag" = "CHECKOUT" ]; then
-    CHECKOUT_VAL="$val"
-    CHECKOUT_FOUND=1
-  fi
-done <<< "$SECTION_REPORT"
-
-if [ -z "$SCREENSHOTS_VAL" ]; then
-  printf 'resolve-visual-screenshots: `screenshots` is absent or empty in %s — cannot resolve where captures land\n' "$CFG" | sanitize_display >&2
-  exit 2
-fi
-
-BASE="$ROOT_ABS"
-if [ "$CHECKOUT_FOUND" -eq 1 ]; then
-  if [ ! -d "$CHECKOUT_VAL" ]; then
-    printf 'resolve-visual-screenshots: `regression checkout` names `%s`, which is not an existing directory — cannot resolve `screenshots` relative to it\n' "$CHECKOUT_VAL" | sanitize_display >&2
-    exit 2
-  fi
-  BASE="$(cd "$CHECKOUT_VAL" && pwd)"
-  # The declared checkout is a main checkout (project-configuration.md, "Roots in `## apps` are
-  # main checkouts"): while a worktree of it sits on the project root's own branch, that worktree
-  # holds the change's captures, and the main checkout holds only what already landed.
-  BRANCH="$(git -C "$ROOT_ABS" branch --show-current 2>/dev/null || true)"
-  if [ -n "$BRANCH" ]; then
-    CHANGE_WT="$(git -C "$BASE" worktree list --porcelain 2>/dev/null \
-      | awk -v b="branch refs/heads/$BRANCH" '/^worktree /{w=substr($0,10)} $0==b{print w; exit}')"
-    [ -n "$CHANGE_WT" ] && BASE="$CHANGE_WT"
-  fi
-fi
-
-SEARCH_ROOT="$BASE/$SCREENSHOTS_VAL"
-
-MATCHES_FILE="$(mktemp "${TMPDIR:-/tmp}/resolve-visual-screenshots.XXXXXX")"
-trap 'rm -f "$MATCHES_FILE"' EXIT
-: > "$MATCHES_FILE"
-
-if [ -d "$SEARCH_ROOT" ]; then
-  SEARCH_ROOT_ABS="$(cd "$SEARCH_ROOT" && pwd)"
-  while IFS= read -r -d '' png; do
-    IFS='/' read -r -a png_segments <<< "$png"
-    for seg in "${png_segments[@]}"; do
-      case "$seg" in
-        "$SPEC_BASENAME"*)
-          printf '%s\n' "$png" >> "$MATCHES_FILE"
-          break
-          ;;
-      esac
-    done
-  # `.worktrees/` holds other changes' checkouts of the same files: sweeping them in returns one
-  # PNG name per checkout, and a zip built from the list refuses the repeats.
-  done < <(find "$SEARCH_ROOT_ABS" -type d -name .worktrees -prune -o -type f -name '*.png' -print0)
-fi
-
-sort -o "$MATCHES_FILE" "$MATCHES_FILE"
-
-if [ ! -s "$MATCHES_FILE" ]; then
-  echo "resolve-visual-screenshots: zero PNGs under $SEARCH_ROOT matched \`$SPEC_BASENAME\`" >&2
-  exit 1
-fi
-
-cat "$MATCHES_FILE"
-exit 0
+}
+flow_guard_exec resolve-visual-screenshots 2 "resolve-visual-screenshots:" "$@"

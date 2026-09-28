@@ -1,0 +1,80 @@
+["captioned-frame.png", "captioned-capture.png", "--scale", "1", "--props", "seams"]
+0
+{
+  "a": {
+    "background": "#f3f2f2",
+    "seams": [
+      {
+        "top": 40,
+        "height": 48,
+        "gap_above": 12,
+        "edge": "#d7d3d3",
+        "colour": "#d7d3d3",
+        "seams": [
+          {
+            "left": 20,
+            "width": 1,
+            "gap_left": 20,
+            "colour": "#d7d3d3"
+          },
+          {
+            "left": 170,
+            "width": 1,
+            "gap_left": 149,
+            "colour": "#d7d3d3"
+          },
+          {
+            "left": 319,
+            "width": 1,
+            "gap_left": 148,
+            "colour": "#d7d3d3"
+          }
+        ],
+        "cells": [
+          {
+            "left": 21,
+            "width": 149,
+            "lines": []
+          },
+          {
+            "left": 171,
+            "width": 148,
+            "lines": []
+          }
+        ]
+      }
+    ]
+  },
+  "b": {
+    "background": "#f3f2f2",
+    "seams": []
+  },
+  "scale": 1.0,
+  "delta": {
+    "seams": [
+      {
+        "status": "missing",
+        "a": {
+          "top": 40,
+          "height": 48
+        },
+        "b": null
+      }
+    ],
+    "seams_summary": {
+      "paired": 0,
+      "missing": 0,
+      "extra": 0,
+      "bands_unpaired": 1,
+      "lines": {
+        "paired": 0,
+        "unpaired": 0
+      }
+    },
+    "background": {
+      "a": "#f3f2f2",
+      "b": "#f3f2f2",
+      "distance": 0.0
+    }
+  }
+}

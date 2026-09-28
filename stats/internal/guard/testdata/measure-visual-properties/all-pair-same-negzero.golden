@@ -1,0 +1,295 @@
+["card-frame.png", "card-frame.png", "--region-a", "20,10,110,85", "--region-b", "20,10,110,85", "--scale", "1.0001", "--props", "box,shadow,content"]
+0
+{
+  "a": {
+    "background": "#f3f2f2",
+    "box": {
+      "left": 10,
+      "right": 89,
+      "top": 10,
+      "bottom": 69,
+      "width": 80,
+      "height": 60
+    },
+    "shadow": {
+      "left": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "right": {
+        "width": 3,
+        "peak_delta": 56.0,
+        "approx_opacity": 0.13
+      },
+      "top": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "bottom": {
+        "width": 3,
+        "peak_delta": 56.0,
+        "approx_opacity": 0.13
+      }
+    },
+    "content": {
+      "width": 30,
+      "height": 8,
+      "colour": "#1e6fe0",
+      "ratio": {
+        "width": 0.375,
+        "height": 0.133
+      },
+      "padding": {
+        "left": 25,
+        "top": 25,
+        "right": 25,
+        "bottom": 27
+      }
+    }
+  },
+  "b": {
+    "background": "#f3f2f2",
+    "box": {
+      "left": 10,
+      "right": 89,
+      "top": 10,
+      "bottom": 69,
+      "width": 80,
+      "height": 60
+    },
+    "shadow": {
+      "left": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "right": {
+        "width": 3,
+        "peak_delta": 56.0,
+        "approx_opacity": 0.13
+      },
+      "top": {
+        "width": 0,
+        "peak_delta": 0,
+        "approx_opacity": 0.0
+      },
+      "bottom": {
+        "width": 3,
+        "peak_delta": 56.0,
+        "approx_opacity": 0.13
+      }
+    },
+    "content": {
+      "width": 30,
+      "height": 8,
+      "colour": "#1e6fe0",
+      "ratio": {
+        "width": 0.375,
+        "height": 0.133
+      },
+      "padding": {
+        "left": 25,
+        "top": 25,
+        "right": 25,
+        "bottom": 27
+      }
+    }
+  },
+  "scale": 1.0001,
+  "delta": {
+    "background": {
+      "a": "#f3f2f2",
+      "b": "#f3f2f2",
+      "distance": 0.0
+    },
+    "box.left": {
+      "a": 10,
+      "a_scaled": 10.0,
+      "b": 10,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "box.right": {
+      "a": 89,
+      "a_scaled": 89.01,
+      "b": 89,
+      "abs": -0.01,
+      "pct": -0.0
+    },
+    "box.top": {
+      "a": 10,
+      "a_scaled": 10.0,
+      "b": 10,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "box.bottom": {
+      "a": 69,
+      "a_scaled": 69.01,
+      "b": 69,
+      "abs": -0.01,
+      "pct": -0.0
+    },
+    "box.width": {
+      "a": 80,
+      "a_scaled": 80.01,
+      "b": 80,
+      "abs": -0.01,
+      "pct": -0.0
+    },
+    "box.height": {
+      "a": 60,
+      "a_scaled": 60.01,
+      "b": 60,
+      "abs": -0.01,
+      "pct": -0.0
+    },
+    "shadow.left.width": {
+      "a": 0,
+      "a_scaled": 0.0,
+      "b": 0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "shadow.left.peak_delta": {
+      "a": 0,
+      "a_scaled": 0,
+      "b": 0,
+      "abs": 0,
+      "pct": null
+    },
+    "shadow.left.approx_opacity": {
+      "a": 0.0,
+      "a_scaled": 0.0,
+      "b": 0.0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "shadow.right.width": {
+      "a": 3,
+      "a_scaled": 3.0,
+      "b": 3,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "shadow.right.peak_delta": {
+      "a": 56.0,
+      "a_scaled": 56.0,
+      "b": 56.0,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "shadow.right.approx_opacity": {
+      "a": 0.13,
+      "a_scaled": 0.13,
+      "b": 0.13,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "shadow.top.width": {
+      "a": 0,
+      "a_scaled": 0.0,
+      "b": 0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "shadow.top.peak_delta": {
+      "a": 0,
+      "a_scaled": 0,
+      "b": 0,
+      "abs": 0,
+      "pct": null
+    },
+    "shadow.top.approx_opacity": {
+      "a": 0.0,
+      "a_scaled": 0.0,
+      "b": 0.0,
+      "abs": 0.0,
+      "pct": null
+    },
+    "shadow.bottom.width": {
+      "a": 3,
+      "a_scaled": 3.0,
+      "b": 3,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "shadow.bottom.peak_delta": {
+      "a": 56.0,
+      "a_scaled": 56.0,
+      "b": 56.0,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "shadow.bottom.approx_opacity": {
+      "a": 0.13,
+      "a_scaled": 0.13,
+      "b": 0.13,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "content.width": {
+      "a": 30,
+      "a_scaled": 30.0,
+      "b": 30,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "content.height": {
+      "a": 8,
+      "a_scaled": 8.0,
+      "b": 8,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "content.colour": {
+      "a": "#1e6fe0",
+      "b": "#1e6fe0",
+      "distance": 0.0
+    },
+    "content.ratio.width": {
+      "a": 0.375,
+      "a_scaled": 0.38,
+      "b": 0.375,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "content.ratio.height": {
+      "a": 0.133,
+      "a_scaled": 0.13,
+      "b": 0.133,
+      "abs": 0.0,
+      "pct": 0.0
+    },
+    "content.padding.left": {
+      "a": 25,
+      "a_scaled": 25.0,
+      "b": 25,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "content.padding.top": {
+      "a": 25,
+      "a_scaled": 25.0,
+      "b": 25,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "content.padding.right": {
+      "a": 25,
+      "a_scaled": 25.0,
+      "b": 25,
+      "abs": -0.0,
+      "pct": -0.0
+    },
+    "content.padding.bottom": {
+      "a": 27,
+      "a_scaled": 27.0,
+      "b": 27,
+      "abs": -0.0,
+      "pct": -0.0
+    }
+  }
+}

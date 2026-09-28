@@ -34,17 +34,18 @@
 # own header explains for the identical hazard: an outage that read as zero
 # rows would pass every round it was blind to).
 #
-# THE TRIGGER QUESTION IS DELEGATED, NOT RE-ASKED. Whether this change's
-# diff touched a declared `ui paths` glob is exactly
+# THE TRIGGER QUESTION IS ASKED IN-PROCESS, NOT RE-IMPLEMENTED. Whether
+# this change's diff touched a declared `ui paths` glob is exactly
 # check-visual-trigger.sh's own job (flow.visual-verify step 2's own guard);
-# this script pipes the same `git diff --name-only <merge-base>..HEAD`
-# through it and reads its three exit codes as-is:
+# the Go guard hands the same `git diff --name-only <merge-base>..HEAD` to
+# that guard's Go function (stats/internal/guard/visualtrigger.go) and reads
+# its three exit codes as-is:
 #   2  the project declares no `## visual verification` section at all —
 #      VISUAL-VERIFY-OK: not configured. Nothing here to require.
 #   1  the section is declared but this diff touched none of its `ui
 #      paths` — VISUAL-VERIFY-OK: no UI paths touched.
 #   0  at least one touched path matched — continue to the dispatch check
-#      below. check-visual-trigger.sh reads `.flow/project.md` from the
+#      below. The trigger reads `.flow/project.md` from the
 #      worktree itself, matching flow.visual-verify's own per-worktree
 #      resolution; this guard is called once per worktree in the run's
 #      resolved set, exactly as that stage is.
@@ -115,16 +116,9 @@
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
 # cannot-answer code) with the cause when it cannot.
-# FLOW_GUARD_SELF (the path this script was invoked by) is exported so the Go
-# guard execs $SCRIPT_DIR/check-visual-trigger.sh from beside this script, as
-# the bash did.
 set -euo pipefail
-# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
-SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
   echo "check-visual-verify-dispatched: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-FLOW_GUARD_SELF="${BASH_SOURCE[0]}"
-export FLOW_GUARD_SELF
 flow_guard_exec check-visual-verify-dispatched 2 "check-visual-verify-dispatched:" "$@"

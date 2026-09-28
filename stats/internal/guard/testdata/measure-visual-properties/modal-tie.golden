@@ -1,0 +1,24 @@
+["tie.png", "--props", "ink,bands,seams"]
+0
+{
+  "a": {
+    "background": "#f3f2f2",
+    "ink": {
+      "left": 10,
+      "top": 5,
+      "width": 30,
+      "height": 15,
+      "colour": "#201e1d"
+    },
+    "bands": [
+      {
+        "top": 5,
+        "height": 15,
+        "gap_above": 5,
+        "edge": "#201e1d",
+        "colour": "#201e1d"
+      }
+    ],
+    "seams": []
+  }
+}

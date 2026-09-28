@@ -1,0 +1,76 @@
+["icon-blue.png", "icon-grey.png", "--scale=inf", "--props", "box"]
+0
+{
+  "a": {
+    "background": "#eae9e9",
+    "box": {
+      "left": 16,
+      "right": 63,
+      "top": 16,
+      "bottom": 63,
+      "width": 48,
+      "height": 48
+    }
+  },
+  "b": {
+    "background": "#eae9e9",
+    "box": {
+      "left": 16,
+      "right": 63,
+      "top": 16,
+      "bottom": 63,
+      "width": 48,
+      "height": 48
+    }
+  },
+  "scale": Infinity,
+  "delta": {
+    "background": {
+      "a": "#eae9e9",
+      "b": "#eae9e9",
+      "distance": 0.0
+    },
+    "box.left": {
+      "a": 16,
+      "a_scaled": Infinity,
+      "b": 16,
+      "abs": -Infinity,
+      "pct": NaN
+    },
+    "box.right": {
+      "a": 63,
+      "a_scaled": Infinity,
+      "b": 63,
+      "abs": -Infinity,
+      "pct": NaN
+    },
+    "box.top": {
+      "a": 16,
+      "a_scaled": Infinity,
+      "b": 16,
+      "abs": -Infinity,
+      "pct": NaN
+    },
+    "box.bottom": {
+      "a": 63,
+      "a_scaled": Infinity,
+      "b": 63,
+      "abs": -Infinity,
+      "pct": NaN
+    },
+    "box.width": {
+      "a": 48,
+      "a_scaled": Infinity,
+      "b": 48,
+      "abs": -Infinity,
+      "pct": NaN
+    },
+    "box.height": {
+      "a": 48,
+      "a_scaled": Infinity,
+      "b": 48,
+      "abs": -Infinity,
+      "pct": NaN
+    }
+  }
+}

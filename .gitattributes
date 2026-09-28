@@ -1,0 +1,4 @@
+# Not UTF-8 by design (TestComposeMockupFrames "map not UTF-8"): marked
+# non-diffable so a text diff of it never reaches a strict UTF-8 decoder
+# (check-task-commit-fields.sh on the commit that adds it).
+stats/internal/guard/testdata/compose-mockup-frames/map-not-utf8/map.mockups -diff

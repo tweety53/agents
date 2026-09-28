@@ -1,0 +1,1 @@
+measure-visual-properties: two images need a calibration — --scale <B px per A px>, or --ref-a and --ref-b boxes already known correct in both images

@@ -21,9 +21,9 @@ import (
 // here those are Env.Dispatches, Env.Verdict and Env.Verdicts, each logging
 // the argv the CLI would have received, and the cases named "real flow" put
 // a stub `flow` on Env's PATH instead, so the exec boundary is run too.
-// The trigger question runs this checkout's REAL check-visual-trigger.sh
-// against a real git repository, as the harness did, except where a case
-// names a stub trigger.
+// The trigger question is visualTrigger, evaluated in-process against a real
+// git repository's .flow/project.md, where the harness exec'd the real
+// check-visual-trigger.sh.
 
 const (
 	vvdNotConfig = "VISUAL-VERIFY-OK: not configured\n"
@@ -137,13 +137,11 @@ type vvdCase struct {
 	repo       string // vvdMasters key copied into the case's worktree
 	dispatches []byte
 	dErr       error
-	flags      []byte                    // Env.Verdicts' answer; nil is "[]\n", the harness's flags.json
-	fErr       error                     // Env.Verdicts fails
-	vErr       error                     // Env.Verdict refuses the row
-	flowStub   string                    // non-empty: every store hook nil, this `flow` on PATH answers them
-	trigger    string                    // non-empty: FLOW_GUARD_REPO_ROOT is a temp root with this check-visual-trigger.sh
-	root       *string                   // non-nil: the shim's checkout is this, verbatim ("" leaves FLOW_GUARD_SELF unset)
-	self       func(t *testing.T) string // non-nil: FLOW_GUARD_SELF is this
+	flags      []byte // Env.Verdicts' answer; nil is "[]\n", the harness's flags.json
+	fErr       error  // Env.Verdicts fails
+	vErr       error  // Env.Verdict refuses the row
+	flowStub   string // non-empty: every store hook nil, this `flow` on PATH answers them
+	self       string // non-empty: FLOW_GUARD_SELF is this
 	args       func(wt, base string) []string
 	dir        func(t *testing.T) string // non-nil: the working directory
 	relative   bool                      // the worktree passed relative to its parent, the working directory
@@ -152,7 +150,7 @@ type vvdCase struct {
 type vvdResult struct {
 	code             int
 	out, err, wt, bn string
-	base, root, cwd  string
+	base, cwd        string
 	calls            string // every store call's argv, one line each: the hooks' log, or a real-flow stub's args file
 }
 
@@ -182,22 +180,6 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 	if c.flowStub != "" {
 		writeExec(t, bin+"/flow", c.flowStub)
 	}
-	root := fpRepoRoot
-	switch {
-	case c.root != nil:
-		root = *c.root
-	case c.trigger != "":
-		root = t.TempDir()
-		writeExec(t, root+"/scripts/check-visual-trigger.sh", c.trigger)
-	}
-	self := ""
-	switch {
-	case c.self != nil:
-		self = c.self(t)
-		root = self // the result's root carries the self path for wantErr
-	case root != "":
-		self = root + "/scripts/check-visual-verify-dispatched.sh"
-	}
 	cwd := t.TempDir()
 	if c.dir != nil {
 		cwd = c.dir(t)
@@ -207,7 +189,7 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 		case "PATH":
 			return bin // no real `flow` is ever reachable from a test
 		case "FLOW_GUARD_SELF":
-			return self
+			return c.self
 		}
 		return os.Getenv(k)
 	}}
@@ -243,7 +225,7 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 		b, _ := os.ReadFile(bin + "/args")
 		calls.Write(b)
 	}
-	return vvdResult{code, out.String(), errb.String(), wt, bin, m.base, root, cwd, calls.String()}
+	return vvdResult{code, out.String(), errb.String(), wt, bin, m.base, cwd, calls.String()}
 }
 
 // vvdCalls is the store calls a run through to a verdict makes, in order:
@@ -274,7 +256,6 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 	const v, done = "verifier", "completed"
 	p := vvdPrefix
 	bad := vvdPrefix + "dispatch rows were not readable JSON — cannot answer\n"
-	ptrS := func(s string) *string { return &s }
 	const (
 		ended   = `[{"key":"visual-verify","role":"verifier","endedAt":"2026-09-20T10:00:00Z"}]`
 		blocked = `[{"key":"visual-verify","role":"verifier","outcome":"blocked","endedAt":"2026-09-20T10:00:00Z"}]`
@@ -398,38 +379,11 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 			vvdCase{args: func(_, base string) []string { return []string{"-x", "demo", base} },
 				dir: func(t *testing.T) string { d := t.TempDir(); mkdir(t, d+"/-x"); return d }}, 2, "",
 			func(vvdResult) string { return p + "worktree vanished: \n" }, nil},
-		{"FLOW_GUARD_SELF unset is cannot-answer", vvdCase{root: ptrS("")}, 2, "",
-			func(vvdResult) string {
-				return p + "FLOW_GUARD_SELF is unset — run scripts/check-visual-verify-dispatched.sh, which sets it\n"
-			}, nil},
-		// The bash exec'd $SCRIPT_DIR/check-visual-trigger.sh: a copy in a
-		// directory not named scripts never reaches ../scripts/'s trigger.
-		{"port: the trigger is looked up beside the invoked script, never in ../scripts/",
-			vvdCase{self: func(t *testing.T) string {
-				d := t.TempDir()
-				writeExec(t, d+"/scripts/check-visual-trigger.sh", "#!/bin/sh\nexit 0\n")
-				mkdir(t, d+"/tools")
-				return d + "/tools/check-visual-verify-dispatched.sh"
-			}}, 2, "",
-			func(r vvdResult) string {
-				return p + "required sibling module not found or not executable: " + filepath.Dir(r.root) + "/check-visual-trigger.sh\n"
-			}, nil},
-		{"a missing trigger guard is cannot-answer", vvdCase{root: ptrS("/nonexistent-root")}, 2, "",
-			func(vvdResult) string {
-				return p + "required sibling module not found or not executable: /nonexistent-root/scripts/check-visual-trigger.sh\n"
-			}, nil},
 		{"a merge-base that does not resolve is cannot-answer",
 			vvdCase{args: func(wt, _ string) []string { return []string{wt, "demo", "nope"} }}, 2, "",
 			func(r vvdResult) string {
 				return p + "git diff failed against merge-base 'nope' in " + r.wt + " — cannot answer: fatal: ambiguous argument 'nope..HEAD': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n"
 			}, nil},
-		{"a trigger exit outside 0-2 is cannot-answer, carrying its stderr",
-			vvdCase{trigger: "#!/usr/bin/env bash\necho out\necho boom >&2\necho bang >&2\nexit 3\n"}, 2, "",
-			func(vvdResult) string {
-				return p + "check-visual-trigger.sh exited 3, neither 0, 1 nor 2 — cannot answer: boom\nbang\n"
-			}, nil},
-		{"the trigger reads the diff's paths on stdin and the worktree as its argument",
-			vvdCase{trigger: "#!/usr/bin/env bash\ncat > \"$(dirname -- \"$0\")/stdin\"\nprintf '%s\\n' \"$*\" > \"$(dirname -- \"$0\")/args\"\nexit 1\n"}, 0, vvdNoUI, nil, none},
 		{"a UI file renamed away still touches its UI path (--no-renames)", vvdCase{repo: "rename", dispatches: []byte("[]")}, 1, vvdMissing, nil, nil},
 		{"a completed verifier row among others is found", vvdCase{dispatches: vvdRows("visual-verify", v, "aborted", "task-1-reviewer", "reviewer", done, "visual-verify-retry", v, done)}, 0, vvdOK, nil, nil},
 		{"the outcome must be exactly completed", vvdCase{dispatches: vvdRows("visual-verify", v, "Completed")}, 1, vvdMissing, nil, nil},
@@ -467,16 +421,33 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 					t.Fatalf("store calls\n%q\nwant\n%q", r.calls, want)
 				}
 			}
-			if strings.HasPrefix(tc.label, "the trigger reads") {
-				for f, want := range map[string]string{"stdin": "app/src/Widget.tsx\n", "args": r.wt + "\n"} {
-					b, err := os.ReadFile(r.root + "/scripts/" + f)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if string(b) != want {
-						t.Fatalf("trigger %s %q, want %q", f, b, want)
-					}
-				}
+		})
+	}
+}
+
+// TestCheckVisualVerifyDispatchedInProcessTrigger: the trigger question is
+// answered in-process, so a shim whose checkout carries no
+// scripts/check-visual-trigger.sh (FLOW_GUARD_SELF pointing into it) still
+// reaches all three trigger outcomes -- fails if the guard execs a sibling
+// again.
+func TestCheckVisualVerifyDispatchedInProcessTrigger(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		label, repo string
+		dispatches  []byte
+		out         string
+	}{
+		{"not configured", "plain-docs", []byte("[]"), vvdNotConfig},
+		{"no UI paths touched", "declared-docs", []byte("[]"), vvdNoUI},
+		{"a dispatch verdict", "declared-ui", vvdRows("visual-verify", "verifier", "completed"), vvdOK},
+	} {
+		t.Run(tc.label, func(t *testing.T) {
+			t.Parallel()
+			checkout := t.TempDir()
+			mkdir(t, checkout+"/scripts")
+			r := vvdRun(t, vvdCase{repo: tc.repo, dispatches: tc.dispatches, self: checkout + "/scripts/check-visual-verify-dispatched.sh"})
+			if r.code != 0 || r.out != tc.out || r.err != "" {
+				t.Fatalf("got exit %d stdout %q stderr %q, want 0 %q", r.code, r.out, r.err, tc.out)
 			}
 		})
 	}
