@@ -172,6 +172,59 @@ func TestCheckHandNotesInStep(t *testing.T) {
 		}
 	})
 
+	t.Run("unreadable_single: an installed file that cannot be read is a violation", func(t *testing.T) {
+		t.Parallel()
+		if os.Geteuid() == 0 {
+			t.Skip("root reads every file; permissions cannot exercise the refusal here")
+		}
+		home := hnhFixtureHome(t)
+		claude := home + "/.claude/CLAUDE.md"
+		if err := os.Chmod(claude, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		code, stdout, stderr := run(t, home, "", root)
+		if code != 1 {
+			t.Fatalf("code = %d, want 1", code)
+		}
+		if !strings.Contains(stderr, p+claude+" exists but cannot be read — ") {
+			t.Fatalf("stderr = %q, want the unreadable-file violation", stderr)
+		}
+		if !strings.Contains(stdout, "HAND-NOTES-DRIFT: "+home) {
+			t.Fatalf("stdout = %q, want the DRIFT verdict", stdout)
+		}
+		if strings.Contains(stdout, "HAND-NOTES-SINGLE") || strings.Contains(stdout, "HAND-NOTES-NONE") {
+			t.Fatalf("stdout = %q, an unreadable file is neither a solo install nor no install", stdout)
+		}
+	})
+
+	t.Run("unreadable_both: two unreadable files are not a no-install", func(t *testing.T) {
+		t.Parallel()
+		if os.Geteuid() == 0 {
+			t.Skip("root reads every file; permissions cannot exercise the refusal here")
+		}
+		home := hnhFixtureHome(t)
+		if err := os.Chmod(home+"/.claude/CLAUDE.md", 0o000); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(home+"/.zcode/AGENTS.md", 0o000); err != nil {
+			t.Fatal(err)
+		}
+		code, stdout, stderr := run(t, home, "", root)
+		if code != 1 {
+			t.Fatalf("code = %d, want 1", code)
+		}
+		if strings.Contains(stdout, "HAND-NOTES-NONE") {
+			t.Fatalf("stdout = %q, two damaged installs are not no install", stdout)
+		}
+		if !strings.Contains(stdout, "HAND-NOTES-DRIFT: "+home+" — 2 violation(s)") {
+			t.Fatalf("stdout = %q, want the DRIFT verdict naming both violations", stdout)
+		}
+		if !strings.Contains(stderr, home+"/.claude/CLAUDE.md exists but cannot be read") ||
+			!strings.Contains(stderr, home+"/.zcode/AGENTS.md exists but cannot be read") {
+			t.Fatalf("stderr = %q, want a violation per unreadable file", stderr)
+		}
+	})
+
 	t.Run("no_declaration: a setup.sh without the declaration refuses", func(t *testing.T) {
 		t.Parallel()
 		home := hnhFixtureHome(t)

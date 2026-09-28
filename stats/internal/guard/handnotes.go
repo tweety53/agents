@@ -1,8 +1,10 @@
 package guard
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
@@ -76,6 +78,15 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 		path := homeDir + "/" + rel
 		b, err := os.ReadFile(path)
 		if err != nil {
+			// Absent is not stale — the no-install verdict exists for
+			// it. An installed file that cannot be read is a damaged
+			// install, never an absent one, and reading the error as
+			// absence would report a green verdict over a file nobody
+			// compared.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			violation("%s exists but cannot be read — %v", path, err)
 			continue
 		}
 		hand, terminated := hnhHandContent(string(b))
@@ -86,8 +97,12 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	if len(existing) == 0 {
-		fmt.Fprintf(stdout, "HAND-NOTES-NONE: %s — no global install found, nothing to check\n", homeDir)
-		return 0
+		if violations == 0 {
+			fmt.Fprintf(stdout, "HAND-NOTES-NONE: %s — no global install found, nothing to check\n", homeDir)
+			return 0
+		}
+		fmt.Fprintf(stdout, "HAND-NOTES-DRIFT: %s — %d violation(s); make every harness file's hand-maintained sections identical\n", homeDir, violations)
+		return 1
 	}
 	if len(existing) == 1 && violations == 0 {
 		fmt.Fprintf(stdout, "HAND-NOTES-SINGLE: %s — one harness file present, no pair to compare\n", homeDir)
@@ -107,10 +122,10 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return lines[i]
 	}
+	base := strings.SplitAfter(existing[0].hand, "\n")
 	for _, f := range existing[1:] {
-		base := strings.SplitAfter(existing[0].hand, "\n")
 		this := strings.SplitAfter(f.hand, "\n")
-		for i := 0; i <= max(len(base), len(this)); i++ {
+		for i := 0; i < max(len(base), len(this)); i++ {
 			if baseLine, thisLine := lineAt(base, i), lineAt(this, i); baseLine != thisLine {
 				violation("%s differs from %s at hand-section line %d: %s vs %s",
 					f.path, existing[0].path, i+1, strconv.Quote(thisLine), strconv.Quote(baseLine))
