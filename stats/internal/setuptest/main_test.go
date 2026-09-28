@@ -266,7 +266,7 @@ func makeFixtureRepo(d string, badRule bool) error {
 		{"rules/opt-in-false.mdc", "---\ndescription: fixture opt-in rule\nalwaysApply: false\n---\n\n# OptIn\nBODY-OPT-IN\n", 0o644},
 		// Opt-in rule carrying the lint-commands placeholder: the project render must replace
 		// it with the commands declared in the project's own ## lint section.
-		{"rules/lint-placeholder.mdc", "---\ndescription: fixture rule carrying the lint placeholder\nalwaysApply: false\n---\n\n# LintPlaceholder\nBODY-LINT-PLACEHOLDER\n\n{{lint-commands}}\n", 0o644},
+		{"rules/lint-placeholder.mdc", "---\ndescription: fixture rule carrying the lint placeholder\nalwaysApply: false\n---\n\n# LintPlaceholder\nBODY-LINT-PLACEHOLDER\n\n```bash\n{{lint-commands}}\n```\n", 0o644},
 		// Frontmatter that never closes: the `alwaysApply: true` below is prose, not a declaration.
 		{"rules/unterminated.mdc", "---\ndescription: fixture unterminated frontmatter\nalwaysApply: true\n\n# Unterminated\nBODY-UNTERMINATED\n", 0o644},
 		// A value that merely starts with `true` must not be read as `true`.

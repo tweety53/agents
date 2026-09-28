@@ -891,21 +891,23 @@ project_standards_entries() {
 
 # project_lint_commands_block <project-dir> <rule-name>
 #
-# The fenced ```bash block carrying the project's declared lint commands, read from
-# `.flow/project.md`'s ## lint section through scripts/project-get.sh — the same reader
-# every /flow phase uses, so the rendered block and the commands the pipeline runs can
-# never drift apart. Dies when the section is absent (exit 1), ambiguous (exit 2), or
-# carries no command lines inside a fence: a placeholder that cannot resolve must stop
-# the install, never render an empty or invented block.
+# The project's declared lint commands, one per line, read from `.flow/project.md`'s
+# ## lint section through scripts/project-get.sh — the same reader every /flow phase
+# uses, so the rendered block and the commands the pipeline runs can never drift apart.
+# The rule supplies its own fence around the placeholder, so the commands land inside a
+# ```bash block the rule file's own markdown shape already carries. Dies when the
+# section is absent (exit 1), ambiguous (exit 2), or carries no command lines inside a
+# fence: a placeholder that cannot resolve must stop the install, never render an empty
+# or invented block.
 project_lint_commands_block() {
   local project_dir="$1" rule_name="$2" body rc commands
   rc=0
   body="$("$SCRIPT_DIR/scripts/project-get.sh" "$project_dir" lint)" || rc=$?
   if (( rc == 1 )); then
-    die "the project opts into $rule_name, whose body carries $LINT_COMMANDS_PLACEHOLDER, but
-  $project_dir/.flow/project.md declares no ## lint section for it to render from.
-  Declare the project's lint commands under ## lint, or drop the rule from ## standards,
-  then re-run."
+    die "the project's resolved .flow/project.md carries no ## lint section for the placeholder
+  in $rule_name to render from. project-get.sh resolves HEAD's copy when the project
+  sits in a git work tree, so a section that exists only uncommitted does not count:
+  commit the ## lint section, or drop the rule from ## standards, then re-run."
   fi
   if (( rc != 0 )); then
     die "cannot read the project's ## lint section (project-get.sh exit $rc): the placeholder
@@ -924,7 +926,7 @@ project_lint_commands_block() {
     }')"
   [[ -n "$commands" ]] || die "the project's ## lint section carries no command lines inside a
   fenced block, so $LINT_COMMANDS_PLACEHOLDER in $rule_name has nothing to render."
-  printf '```bash\n%s\n```\n' "$commands"
+  printf '%s\n' "$commands"
 }
 
 # install_project_standards <project-dir>

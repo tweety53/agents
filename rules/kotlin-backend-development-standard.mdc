@@ -137,6 +137,8 @@ Mirror `core/` and `infrastructure/` paths in test source sets. Layout is enforc
 
 ## 10. Before claiming work done
 
+```bash
 {{lint-commands}}
+```
 
 Reference: `README.md`, `src/app/auth/README.md`

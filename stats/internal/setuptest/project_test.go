@@ -227,3 +227,21 @@ func TestLintCommandsRefusedWithoutProjectLint(t *testing.T) {
 	g.assertContains("the abort names the missing section", g.log, "## lint")
 	g.assertNotContains("nothing was rendered into CLAUDE.md", filepath.Join(proj, "CLAUDE.md"), "BODY-LINT-PLACEHOLDER")
 }
+
+// The placeholder must never reach a render with no project context: an always-on rule
+// carrying it aborts the global render itself, the one render no ## lint exists for.
+func TestLintCommandsRefusedOnGlobalRender(t *testing.T) {
+	g := newGroup(t)
+	home := g.newHome()
+	repo := filepath.Join(g.dir, "lint-always-repo")
+	if err := makeFixtureRepo(repo, false); err != nil {
+		g.t.Fatalf("cannot build the private fixture repo: %v", err)
+	}
+	g.seedFile(filepath.Join(repo, "rules", "lint-always.mdc"), 0o644,
+		"---\ndescription: always-on rule carrying the lint placeholder\nalwaysApply: true\n---\n\n# LintAlways\nBODY-LINT-ALWAYS\n\n```bash\n{{lint-commands}}\n```\n")
+	proj := g.projectDir("lintglobal")
+	// `global` is the mode that renders the always-on set; the project modes never do.
+	g.runSetup(repo, home, "global", proj)
+	g.assertRCNonzero("an always-on placeholder rule aborts the global render", g.rc)
+	g.assertContains("the abort names the unresolvable placeholder", g.log, "must not carry it")
+}
