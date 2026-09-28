@@ -822,8 +822,8 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    (the map derives each commit's parent in its own repository) — so every task's
    `**Commit:**`/`**Files:**`/`**Tests:**`/`**Baseline:**` fields are guard-checked regardless
    of how many repositories the change spans. The verdict merges across the listed
-   repositories; the guard's own header (`scripts/check-task-commit-fields.sh`, THE COMMIT MAP)
-   is canonical for the form. A task that landed in one repository passes that repository's
+   repositories; the guard's own header (`<agents repo>/scripts/check-task-commit-fields.sh`,
+   THE COMMIT MAP) is canonical for the form. A task that landed in one repository passes that repository's
    pair alone, which is the single-sha form; skipping the guard on a cross-repo change and
    checking fields by hand is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
