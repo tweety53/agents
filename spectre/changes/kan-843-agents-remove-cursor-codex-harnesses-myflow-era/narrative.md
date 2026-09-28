@@ -16,3 +16,22 @@
 - `origin/main` had moved 19 commits (the withdraw-changes change among them), overlapping `AGENTS.md`, `KNOWN-BUGS.md`, `rules/flow-manual-review.mdc`, `skills/flow-contracts/pipeline.md` and `skills/flow/brainstorm-planner.md`. Rebased without a prompt; only `KNOWN-BUGS.md` conflicted, twice — task-1's defer commit appended beside upstream's kan-797 entries (kept both), and the pricing fix commit removed its own now-fixed entry (kept upstream's entries, dropped that one line). The other four overlaps merged cleanly.
 - Resolution triggered the full `## lint` and `## test` lists: every guard, `go vet`, `gofmt`, `tsc`, 57 guard harnesses, Go tests and SPA tests passed, except `check-task-records.sh`, which fails identically on `main` at `db691488` — the unarchived `withdraw-changes-abandoned-before-planning` change's ticked tasks name per-task commit subjects its squash-merged landing does not carry. Not introduced here; left to that change's archive.
 - Landing route `merge and push` taken from the project's configured default, not asked.
+
+## 2026-09-28 — integrate run
+
+Preflight clean: no foreign staged work or drift on the main checkout, `RUN1`. The unfinished-work
+gate reported `CLEAR` and `VISUAL-VERIFY-OK` (no UI paths touched).
+
+`origin/main` had moved 31 commits since the recorded merge base, overlapping 35 paths. The rebase
+onto `b6e19e5f` stopped once, on `KNOWN-BUGS.md`: main appended kan-820's deferred Minors and this
+change appended its own deferred Minors at the same spot. Resolved by keeping both sets of entries,
+main's first. Nothing was set aside — the worktree had no uncommitted planning artifacts.
+
+Because the rebase needed resolution, the whole `## lint` and `## test` lists ran. Every test suite
+passed (57/57 guard harnesses, `go test -race`, 170 SPA tests) and every lint step exited clean
+except `check-task-records.sh`, which also fails on `main` itself: it flags ticked tasks whose
+per-task commits a previous integrate collapsed (kan-820, withdraw-changes-abandoned-before-planning,
+and this change). A structural false positive of squashed history, not something the rebase
+introduced. The re-run of `check-base-moved.sh` against the rebased tip reported `CLEAR`.
+
+Landing route: merge and push, from the project's configured default, not asked.
