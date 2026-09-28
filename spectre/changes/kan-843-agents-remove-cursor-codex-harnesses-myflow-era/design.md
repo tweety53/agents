@@ -73,3 +73,22 @@ exemption list, `test-setup.sh`'s "KAN-369" group (renamed by behaviour), the ka
 **Considered:** stripping all ~3,000 inline `(KAN-NNN)` citations — the operator kept them.
 
 ## Open questions
+
+## Measurements
+
+Task 9, at the branch tip (2026-09-28):
+
+- **Installer:** `HOME=<sandbox> ./setup.sh global` → exit 0; the sandbox holds `.claude`, `.zcode` (and `.zshrc`), no `.cursor`, no `.codex`. With a pre-existing `.cursor/x` and `.codex/y`, both are byte-identical afterwards and nothing new appears under either.
+- **0031 on a copy of the dev store** (`flow_kan843_verify`, applied through the real migrator, then dropped):
+
+  | Measure | Before | After |
+  |---|---|---|
+  | `changes` updated by `myflow stage begin (synthetic)` | 205 | 0 |
+  | decisions with a bare-array `panel.dispatches` element | 16 | 0 |
+  | decisions with a bare-array `groups` element | 4 | 0 |
+  | flat pricing rows with a null 1h rate | 1 | 0 |
+  | total `changes` / `decisions` / `pricing` | 441 / 78 / 9 | 441 / 78 / 9 |
+
+  `cache_write_per_mtok` is gone; `glm-5.3-flash`'s 1h rate went NULL → 0 (= its 5m rate). Re-pricing all 553 glm stage runs: 545 byte-identical; the other 8 were never priced in the live store and price the same under main's code (4bb54bd5); run 4114 fails identically on both (`<synthetic>` model has no pricing).
+- **Full suite:** every `## lint` command, `scripts/run-guard-tests.sh` (57/57, 147s), `stats/web` `npm test` and `tsc -b` pass. `go test ./... -race -count=1` passes except `internal/reconcile`'s `TestConcurrentAppendVersusRetirePreservesEveryEntry` — the pre-existing race already in `KNOWN-BUGS.md` (kan-842); the package is untouched here and 5 reruns pass.
+- **`scripts/test-setup.sh` wall time:** 25s (KAN-844's post-change baseline).

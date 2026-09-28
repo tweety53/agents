@@ -259,7 +259,7 @@ Correction (2026-09-28): 13 reports were relabelled, not 14 — `kan-197-require
   - [x] **Step 2: Verify.** `scripts/test-setup.sh && scripts/test-check-model-resolution-shell.sh
     && cd stats && go build ./...`.
 
-- [ ] 9. Live verification
+- [x] 9. Live verification
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -269,10 +269,10 @@ Correction (2026-09-28): 13 reports were relabelled, not 14 — `kan-197-require
 **After:** Task 1, 2, 3, 4, 5, 6, 7, 8
 **Build:** green
 
-  - [ ] **Step 1: Installer.** `SANDBOX=$(mktemp -d); HOME=$SANDBOX ./setup.sh global`; record the
+  - [x] **Step 1: Installer.** `SANDBOX=$(mktemp -d); HOME=$SANDBOX ./setup.sh global`; record the
     exit code and `ls -a $SANDBOX` — `.claude` and `.zcode` present, no `.cursor`, no `.codex`.
     Failure looks like either directory existing.
-  - [ ] **Step 2: Migration against real data.** Inside `flow-postgres`, `pg_dump` the `flow`
+  - [x] **Step 2: Migration against real data.** Inside `flow-postgres`, `pg_dump` the `flow`
     database into a new scratch database `flow_kan843_verify` (the dev `flow` database is read,
     never written), record the Context counts there (205 / 16 / 4 / 1), start the worktree's
     `flowd` build against it on a spare port only long enough to run migrations (or apply `0031`
@@ -280,7 +280,7 @@ Correction (2026-09-28): 13 reports were relabelled, not 14 — `kan-197-require
     `cache_write_per_mtok` gone — then drop `flow_kan843_verify`. Failure looks like any legacy
     count above zero or a total that moved. Never stop, restart or migrate the dev `flowd` or its
     `flow` database.
-  - [ ] **Step 3: Full suite.** Every `## lint` command in `.flow/project.md`,
+  - [x] **Step 3: Full suite.** Every `## lint` command in `.flow/project.md`,
     `scripts/run-guard-tests.sh`, `cd stats && go vet ./... && gofmt -l . && go test ./... -race
     -count=1`, `cd stats/web && npx tsc -b && npm test`; record pass/fail and
     `scripts/test-setup.sh`'s wall time (KAN-844's post-change baseline) in `design.md` under a
