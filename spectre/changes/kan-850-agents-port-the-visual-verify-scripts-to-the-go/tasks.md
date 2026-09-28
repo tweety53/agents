@@ -200,7 +200,7 @@ changes.
   reached. A read failure of `.flow/project.md` after the access check (a race) prints the "grep
   exited 2" refusal where the bash said "declares no section"; both exit 2.
 
-- [ ] 3. Port check-visual-verification
+- [x] 3. Port check-visual-verification
 
 **Files:** `stats/internal/guard/visualverification.go`, `stats/internal/guard/check_visual_verification_test.go`, `scripts/check-visual-verification.sh`, `scripts/test-check-visual-verification.sh`
 **Tests:** `TestCheckVisualVerification`
@@ -215,24 +215,24 @@ changes.
 
 **Decision:** kan850-helper-twins
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-visual-verification.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-visual-verification.sh`,
     one subtest per `ok:` label. The harness's stubbed `git` (the `git remote get-url origin`
     failure that is not "no such remote") becomes a stub on `PATH` for that case only, or the
     package's injected git hook if one exists.
     `unverified: check whether the guard package's git helper can be stubbed in-process; a PATH stub is the fallback, as KAN-842's cases did before dispatches-via-env-hook`
     Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-visual-verification`: the settings and commands table
+  - [x] **Step 2: Port**, registering `check-visual-verification`: the settings and commands table
     checks, closed vocabularies, the `regression checkout`/`regression repo` identity assertion, the
     `file:line: <message>` violation lines through the sanitize twin, the `VISUAL-OK`/
     `VISUAL-INVALID` verdicts. `lib/git-clean.sh`'s `git_clean` (unset every `GIT_*` variable before
     `git`) is ported here, its header's reasoning with it — through the package's existing git
     helper if it already strips `GIT_*`.
     `unverified: read envGit in the guard package to see whether it strips GIT_* already`
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualVerification$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualVerification$'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckVisualVerification/'` — at least 111.
-  - [ ] **Step 4: Shim and delete** — shim template, no `FLOW_GUARD_REPO_ROOT`; `git rm
+  - [x] **Step 4: Shim and delete** — shim template, no `FLOW_GUARD_REPO_ROOT`; `git rm
     scripts/test-check-visual-verification.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-visual-verification.sh .` prints the `VISUAL-OK` line it printed at `3915fbc0`
     and exits 0; the same through a symlink in a temp directory.
 
@@ -242,7 +242,7 @@ changes.
   built `flow-guard` as a subprocess with `GIT_DIR` set, since `t.Setenv` cannot combine with
   `t.Parallel()`. Step 5's symlink run uses the installed shape (a `lib` symlink beside the shim).
 
-- [ ] 4. Port resolve-visual-screenshots
+- [x] 4. Port resolve-visual-screenshots
 
 **Files:** `stats/internal/guard/resolvevisualscreenshots.go`, `stats/internal/guard/resolve_visual_screenshots_test.go`, `scripts/resolve-visual-screenshots.sh`, `scripts/test-resolve-visual-screenshots.sh`
 **Tests:** `TestResolveVisualScreenshots`
@@ -258,22 +258,22 @@ stops being bytewise.
 
 **Decision:** bytewise-screenshot-sort
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-resolve-visual-screenshots.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-resolve-visual-screenshots.sh`,
     one subtest per `ok:` label, plus: matches named `B.png`, `a.png`, `_x.png`, `A-1.png` print in
     byte order; a relative root from a cwd reached through a symlink prints the logical
     (`$PWD`-joined) prefix `cd … && pwd` printed. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `resolve-visual-screenshots`: the `screenshots` and
+  - [x] **Step 2: Port**, registering `resolve-visual-screenshots`: the `screenshots` and
     `regression checkout` rows (first of each), the regression checkout's `git worktree list
     --porcelain` lookup of this root's branch, then a walk of `<base>/<screenshots>` that prunes
     every directory named `.worktrees`, keeps regular `*.png` files only (symlinks neither
     followed nor matched, as `find -type f` without `-L`), and keeps a path when any `/`-separated
     segment of it starts with the spec basename; sorted bytewise; exit 1 with the "zero PNGs"
     line when none.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestResolveVisualScreenshots$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestResolveVisualScreenshots$'
     -count=1 -race -v | grep -c -- '--- PASS: TestResolveVisualScreenshots/'` — at least 38.
-  - [ ] **Step 4: Shim and delete** — shim template, no `FLOW_GUARD_REPO_ROOT`; `git rm
+  - [x] **Step 4: Shim and delete** — shim template, no `FLOW_GUARD_REPO_ROOT`; `git rm
     scripts/test-resolve-visual-screenshots.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/resolve-visual-screenshots.sh . baseline.spec.ts` prints and exits as it did at
     `3915fbc0`; the same through a symlink in a temp directory.
 
@@ -285,7 +285,7 @@ stops being bytewise.
   split it. Case 17 uses a second project repository. The subtests number 41: the harness's 38 plus
   byte order, a symlinked cwd and unfollowed symlinks.
 
-- [ ] 5. Evaluate the trigger in-process in check-visual-verify-dispatched
+- [x] 5. Evaluate the trigger in-process in check-visual-verify-dispatched
 
 **Files:** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`
 **Tests:** `TestCheckVisualVerifyDispatchedInProcessTrigger`
@@ -300,28 +300,29 @@ stops being bytewise.
 
 **Decision:** trigger-in-process
 
-  - [ ] **Step 1: Test first.** In `check_visual_verify_dispatched_test.go`, delete the
+  - [x] **Step 1: Test first.** In `check_visual_verify_dispatched_test.go`, delete the
     `TestCheckVisualVerifyDispatched` cases that exist only for the exec — "required sibling module
     not found or not executable" (both), "exited 3, neither 0, 1 nor 2", and "FLOW_GUARD_SELF unset"
     if `FLOW_GUARD_SELF` has no other reader — and add `TestCheckVisualVerifyDispatchedInProcessTrigger`:
     a checkout with no `scripts/check-visual-trigger.sh` still answers `not configured`, `no UI paths
     touched` and a dispatch verdict, one subtest each. Run — expect failure.
-  - [ ] **Step 2: Port.** Replace the `exec.Command(trigger, worktree)` block with
+  - [x] **Step 2: Port.** Replace the `exec.Command(trigger, worktree)` block with
     `visualTrigger(env, worktree, strings.Split(changed, "\n"), io.Discard, &trigErr)` (the diff's paths,
     an empty diff one empty line as before); drop `guardSelfDir` here if nothing else in the guard
     needs it. The header paragraph "THE TRIGGER QUESTION IS DELEGATED" and the Go comments are
     corrected to say it is evaluated in-process.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualVerifyDispatched'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckVisualVerifyDispatched'
     -count=1 -race -v | grep -c -- '--- PASS: TestCheckVisualVerifyDispatched/'` — at least 18
     (its KAN-842 floor); record the count.
-  - [ ] **Step 4: Shim.** Drop `FLOW_GUARD_SELF` and its `$SCRIPT_DIR` sibling comment from
+  - [x] **Step 4: Shim.** Drop `FLOW_GUARD_SELF` and its `$SCRIPT_DIR` sibling comment from
     `scripts/check-visual-verify-dispatched.sh` when the Go no longer reads it; correct the header.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-visual-verify-dispatched.sh` with no arguments exits 2 with the line it printed
     at `3915fbc0`; `scripts/check-guard-symlinks.sh` exits 0.
 
-  Correction (2026-09-28): Step 2's call is `visualTrigger(env, worktree, strings.Split(changed,
-  "\n"), io.Discard, io.Discard)` — the "exited N" branch was `trigErr`'s only reader. Step 1
+  Correction (2026-09-28): Step 2's call is `visualTrigger(env, worktree, func() []string { return
+  strings.Split(changed, "\n") }, io.Discard, io.Discard)` — `changed` a func since task 2's fix, so the
+  shim reads stdin only after every refusal — the "exited N" branch was `trigErr`'s only reader. Step 1
   also deleted "the trigger reads the diff's paths on stdin and the worktree as its argument", a
   case that tested only the exec'd stub. `guardSelfDir` stays (`taskreviewersingledispatch.go`
   reads it); the shim dropped `FLOW_GUARD_SELF` and `SCRIPT_DIR`.

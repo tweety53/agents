@@ -259,4 +259,16 @@ auto-resolved on the recommended option.
 **Considered:** reproducing 128 — an undocumented code a
 caller cannot tell from a signal death.
 
+### The trigger's globs match bytes
+
+**ID:** byte-wise-trigger-globs
+**Status:** active
+**Chosen:** `check-visual-trigger`'s `?` matches one byte and `*`/`**` count bytes, whatever the
+caller's locale — the bash's behaviour under `LC_ALL=C`. Under a UTF-8 locale the bash's `?`
+matched one character (`c?d` matched `céd`); the port does not. A non-ASCII literal in a glob
+matches its own bytes under both. Raised by task 2's review, auto-resolved on the recommended
+option; the shim header says so.
+**Considered:** character-wise matching — Go has no locale to
+follow, the same reason as `c-locale-table-semantics`.
+
 ## Open questions
