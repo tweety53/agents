@@ -171,13 +171,17 @@ about the text of `.flow/project.md` — so it runs against a bare tree like eve
 `check-cleanup-complete.sh` reads the same section and is excluded below for the opposite reason: it
 needs a change in flight.
 
-**`check-installed-rules.sh` is the one guard in this list that reads outside the repository.**
-It compares the always-on rules this checkout declares against what `setup.sh global` last installed
+**`check-installed-rules.sh` and `check-hand-notes-in-step.sh` are the guards in this list that read
+outside the repository.** The first compares the always-on rules this checkout declares against what
+`setup.sh global` last installed
 under `$HOME` — the symlinks in `~/.claude/rules/` and the per-rule markers in the two managed
-blocks — because a rule can merge and stay unreadable by every session. It still runs against a bare tree and takes no
-change-in-flight state, so it belongs here for `check-installed-citations.sh`'s reason. A machine
-with no global install is not a failure: it reports `INSTALLED-RULES-NONE` and exits 0, which is what
-keeps it runnable in CI and a fresh clone. A partial install is a failure.
+blocks — because a rule can merge and stay unreadable by every session. The second diffs the
+hand-maintained sections of those same two installed harness files against each other, so a
+one-sided edit fails loudly instead of drifting silently (KAN-808). Both still run against a bare tree and take no
+change-in-flight state, so they belong here for `check-installed-citations.sh`'s reason. A machine
+with no global install is not a failure: the first reports `INSTALLED-RULES-NONE` and exits 0, and
+the second reports `HAND-NOTES-NONE` the same way, which is what
+keeps them runnable in CI and a fresh clone. A partial install is a failure.
 
 **Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
 `ISOLATION-OK` and validates this repository's own declared section; its own header carries its
