@@ -23,7 +23,9 @@ worktree was created from): state the finding's defect as a claim the tree can a
 the cheapest thing that answers it — the guard the finding names, the contract section it says is
 missing, the behaviour it reports. A finding the base already delivers — the guard passes, the
 line is already there — ends the run: report the evidence, the command run or the line quoted,
-and stop before convergence; nothing is planned, and the issue is the operator's to close. A
+and stop before convergence; nothing is planned, and the issue is the operator's to close. The
+end then offers the withdrawal route (**The withdrawal route**, `skills/flow/brainstorm.md`) —
+the evidence already showed the change has nothing to plan. A
 finding that still reproduces plans as normal, its evidence carried into proposal.md's `## Why`
 when **C** writes it.
 

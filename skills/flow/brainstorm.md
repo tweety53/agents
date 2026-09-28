@@ -117,7 +117,9 @@ by reading, not by assuming:
   the `STARTED` write and that step: run steps 1–5 now, then continue below. `<changeRoot>` is
   always `<project>/.worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
 - `spectre list --json`'s entry for this change's `done`/`total`, run in the worktree —
-  `total == 0` means no plan exists yet: resume at **B** in
+  `total == 0` means no plan exists yet: the run first opens with the withdrawal route's resume
+  ask (**The withdrawal route**, below) — resume brainstorming, the default, or withdraw — and a
+  resume answer continues at **B** in
   `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
 - The change root's own `tasks.md` — a scaffold with no enriched steps means writing-plans has not
   run: resume at **D** in `skills/flow/brainstorm-planner.md`. A plan meeting writing-plans <!-- refs-guard:allow -->
@@ -126,6 +128,64 @@ by reading, not by assuming:
 
 State the resumption point plainly before continuing:
 "resuming `<name>` at `<point>`."
+
+### The withdrawal route
+
+A change abandoned before planning — nothing implemented, nothing merged — ends `FINISHED` with
+its record's `withdrawn` field set (`skills/flow-contracts/state-file.md`), its worktree deleted
+and its branches gone, instead of littering every later candidate resolution and `/flow-status`
+report with a `STARTED` record nothing can retire. The route runs inside the creating run —
+inside the already-open `flow.brainstorm` stage, which closes with the withdrawal as its work —
+and no command exists for it.
+
+**Two offer points, both explicit asks:**
+
+- **The reachability check's end** — after the evidence report, the run asks **Withdraw this
+  change?** — **Yes — withdraw** *(recommended)* / **No — leave it at `STARTED`**. Yes is
+  recommended because the run just proved nothing should be planned.
+- **A resume of a planless `STARTED` change** — the `total == 0` case above — opens with
+  **Resume brainstorming, or withdraw?** — **Resume brainstorming** *(default, recommended)* /
+  **Withdraw this change**. Resume is the default because the operator invoked `/flow <name>` to
+  continue.
+
+The ask names exactly what will be deleted — the worktree's absolute path, the local branch
+`spectre/<name>`, the remote branch `origin/spectre/<name>` — and that the record ends
+`FINISHED, withdrawn`. The explicit answer is the only consent any of those deletions get.
+
+**Steps, in order — git first, record last**, so a crash leaves a re-runnable route rather than a
+terminal record over a live worktree. Every step tolerates the previous run's landed work — a
+worktree already gone, a branch already deleted, a remote delete already done — so the re-run
+reaches the same end from any crash point:
+
+1. Per worktree of the resolved set (**Resolving a change's worktrees**,
+   `skills/flow-contracts/worktree-resolution.md`): `git status --porcelain` must be empty —
+   anything else stops the route with the output shown, before any deletion. A worktree already
+   gone — a previous run's remove landed and a later step failed — is skipped, not a stop: the
+   route re-runs to the same end.
+2. `git -C <main-checkout> worktree remove --force <path> && git -C <main-checkout> worktree
+   prune` — both from the worktree's own main checkout, never `-C <worktree>`: the remove deletes
+   that directory, and a prune pointed inside it fails `fatal: cannot change to '<path>'` on
+   every run. A worktree the previous run already removed reports `fatal: ... is not a working
+   tree`: that is the previous run's landed work — run the prune regardless and continue.
+3. `git branch -D spectre/<name>` in the repository — an already-deleted branch reports
+   `error: branch not found`: the previous run's deletion landed, and the route continues, exactly
+   as step 4 tolerates a failed remote delete.
+4. `git push origin --delete spectre/<name>`. A failure here is one reported line and the route
+   continues — a remote branch that would not delete never blocks the record.
+5. One state write, read-merge-write like every write (**State file**,
+   `skills/flow-contracts/state-file.md`): `state` `FINISHED`, `withdrawn` `true`, `worktrees`
+   `{}`. The write needs a daemon that knows the `withdrawn` field: an older daemon refuses the
+   payload as an unknown field, the write falls back to the journal, the entry is retired as
+   definitively invalid, one ⚠ line names it — the record unchanged, the route re-run once the
+   daemon is current.
+
+The handoff is terminal and names no next command (**Handoff output**,
+`skills/flow-contracts/pipeline.md`).
+
+**Scope.** `STARTED` only: an `IN_PROGRESS` change lands through integrate even when the work
+disappoints. No Jira action — closing the linked issue, if any, is the operator's own act. The
+route marks nothing of its own: the stage it runs inside carries the marks, as any other stage's
+work does.
 
 ## Run brainstorming and planning directly
 
