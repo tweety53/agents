@@ -125,6 +125,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 
 ```text
 /flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff and run the apps
+/flow  (reachability end)  → FINISHED (withdrawn)     nothing to plan — the operator may withdraw
 /flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```

@@ -32,7 +32,9 @@ var ErrMonotonicViolation = errors.New("store: refused: write would move state b
 var ErrChangeNotFound = errors.New("store: change not found")
 
 // ErrInvalidState is returned by PutChange when c.State is not one of the
-// three canonical pipeline states. It is distinct from
+// three canonical pipeline states, or when a record carries Withdrawn with
+// a State other than StateFinished (the withdrawn marker pairs with
+// FINISHED and nothing else). It is distinct from
 // ErrMonotonicViolation: an invalid state is malformed input, never a
 // correct refusal of a backwards move, and callers must be able to tell the
 // two apart.
@@ -94,6 +96,12 @@ type Change struct {
 
 	Name  string
 	State State
+
+	// Withdrawn marks a record the withdrawal route terminated: a change
+	// abandoned before planning, closed FINISHED rather than archived.
+	// Refused on any write whose State is not StateFinished — see
+	// PutChange's invariant beside ErrInvalidState.
+	Withdrawn bool
 
 	Branch            *string
 	Worktrees         json.RawMessage
@@ -180,6 +188,14 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 	if !c.State.IsValid() {
 		return fmt.Errorf("%w: %q", ErrInvalidState, c.State)
 	}
+	// The withdrawal marker pairs with FINISHED and nothing else: the only
+	// writer is the withdrawal route, whose single write moves the record
+	// to FINISHED with the flag set. Same refusal class as an invalid
+	// state — malformed input, definitive on replay — so it reuses the
+	// sentinel rather than minting a third one.
+	if c.Withdrawn && c.State != StateFinished {
+		return fmt.Errorf("%w: withdrawn requires state %q, got %q", ErrInvalidState, StateFinished, c.State)
+	}
 
 	// Before the transaction opens, so a refusal cannot leave a partial
 	// write behind to be rolled back. c.Repos already arrives sorted by
@@ -216,14 +232,15 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 	var id int64
 	err = tx.QueryRow(ctx, `
 		INSERT INTO changes (
-			project_key, name, state, branch, worktrees, artifact_url,
+			project_key, name, state, withdrawn, branch, worktrees, artifact_url,
 			jira_issue, planning_effort, models, review_panel_roster,
 			pr_url, updated_at, updated_by
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		)
 		ON CONFLICT (project_key, name) DO UPDATE SET
 			state               = EXCLUDED.state,
+			withdrawn           = EXCLUDED.withdrawn,
 			branch              = EXCLUDED.branch,
 			worktrees           = EXCLUDED.worktrees,
 			artifact_url        = EXCLUDED.artifact_url,
@@ -239,7 +256,7 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 		       AND EXCLUDED.updated_at > changes.updated_at)
 		RETURNING id
 	`,
-		c.ProjectKey, c.Name, string(c.State), c.Branch, worktrees, c.ArtifactURL,
+		c.ProjectKey, c.Name, string(c.State), c.Withdrawn, c.Branch, worktrees, c.ArtifactURL,
 		c.JiraIssue, c.PlanningEffort, c.Models, c.ReviewPanelRoster,
 		c.PRURL, c.UpdatedAt, c.UpdatedBy,
 	).Scan(&id)
@@ -282,7 +299,7 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 // populated from change_repos exactly as PutChange wrote it.
 func (s *Store) GetChange(ctx context.Context, projectKey, name string) (Change, error) {
 	c, err := scanChange(s.pool.QueryRow(ctx, `
-		SELECT project_key, name, state, branch, worktrees, artifact_url,
+		SELECT project_key, name, state, withdrawn, branch, worktrees, artifact_url,
 		       jira_issue, planning_effort, models, review_panel_roster,
 		       pr_url, updated_at, updated_by
 		FROM changes
@@ -464,7 +481,7 @@ func (s *Store) QueryChanges(ctx context.Context, q Query) ([]Change, int, error
 	}
 
 	sqlText := fmt.Sprintf(`
-		SELECT c.project_key, c.name, c.state, c.branch, c.worktrees, c.artifact_url,
+		SELECT c.project_key, c.name, c.state, c.withdrawn, c.branch, c.worktrees, c.artifact_url,
 		       c.jira_issue, c.planning_effort, c.models, c.review_panel_roster,
 		       c.pr_url, c.updated_at, c.updated_by
 		FROM changes c
@@ -528,7 +545,7 @@ func scanChange(row rowScanner) (Change, error) {
 		models    []byte
 	)
 	if err := row.Scan(
-		&c.ProjectKey, &c.Name, &state, &c.Branch, &worktrees, &c.ArtifactURL,
+		&c.ProjectKey, &c.Name, &state, &c.Withdrawn, &c.Branch, &worktrees, &c.ArtifactURL,
 		&c.JiraIssue, &c.PlanningEffort, &models, &c.ReviewPanelRoster,
 		&c.PRURL, &c.UpdatedAt, &c.UpdatedBy,
 	); err != nil {

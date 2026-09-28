@@ -45,7 +45,7 @@ be nothing for one to write.
 |-------|-------|-----------|
 | `STARTED` | The proposal exists and is published | you — read the artifact |
 | `IN_PROGRESS` | The implementation is staged and the stack is running | you — review the diff — the stack is running |
-| `FINISHED` | Archived, pushed, worktrees removed | — |
+| `FINISHED` | Archived, pushed, worktrees removed — or withdrawn: a change abandoned before planning, its worktree and branches deleted and its record's `withdrawn` field set (`state-file.md`) | — |
 
 **Reviewing and testing are one gate.** A creating or fix run of `/flow` produces both surfaces in
 the same run, so the human does both at one sitting. There is no state between implementation and
@@ -77,8 +77,8 @@ ignored word is indistinguishable from a flag that stopped working.
 
 | Command | Accepts | Ends at |
 |---------|---------|---------|
-| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`) |
-| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready) |
+| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/brainstorm.md`) |
 | `/flow` | `IN_PROGRESS`, with an argument | fix run; state unchanged |
 | *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) |
 | `/flow` | `IN_PROGRESS`, bare | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
@@ -138,7 +138,7 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 **Change:** <name>
 **Current state:** <actual> (set by <updatedBy>, <updatedAt>)
 **This command expects:** <expected>
-**Suggested instead:** <what to do instead, e.g. "nothing — the change is archived">
+**Suggested instead:** <what to do instead, e.g. "nothing — the change is archived (or withdrawn, per the record's `withdrawn` field)">
 ```
 
 ## Progress visibility
@@ -244,8 +244,10 @@ Next:
   command stays the last line.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
-  **completed** archive is terminal and names nothing — a run that stopped on a cleanup leftover
-  names itself too, for the same reason: the operator clears what remains and runs it again.
+  **completed** archive — or completed a withdrawal (**The withdrawal route**,
+  `skills/flow/brainstorm.md`) — is terminal and names nothing; a run that stopped on a cleanup
+  leftover names itself too, for the same reason: the operator clears what remains and runs it
+  again.
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
   steps, or repeat content available at a path you just gave.
 - **Link, never paste.** Diffs and plans are given as absolute paths.

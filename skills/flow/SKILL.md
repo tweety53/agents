@@ -119,7 +119,9 @@ flow state get <name-or-best-guess> -C <repo-root>
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument** — an integrate run. See
   **Deciding which run this is** (`skills/flow/integrate.md`).
 - **Exit 0, `"state": "FINISHED"`** — emit the wrong-state handoff from **Wrong state for this
-  command** (`skills/flow-contracts/pipeline.md`): the change is archived. Proceed only on an
+  command** (`skills/flow-contracts/pipeline.md`): the change is archived — or withdrawn, when
+  the record's `withdrawn` field is true (`skills/flow-contracts/state-file.md`); the handoff
+  names which. Proceed only on an
   explicit override.
 
 ### A plain message at IN_PROGRESS

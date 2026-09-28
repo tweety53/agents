@@ -109,6 +109,57 @@ func TestPutChangeRoundTripsEveryField(t *testing.T) {
 	}
 }
 
+func TestPutChangeWithdrawnRoundTrip(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	want := baseChange("agents", "withdraw-rt")
+	want.State = store.StateFinished
+	want.Withdrawn = true
+	if err := st.PutChange(ctx, want); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+
+	got, err := st.GetChange(ctx, want.ProjectKey, want.Name)
+	if err != nil {
+		t.Fatalf("GetChange: %v", err)
+	}
+	if !got.Withdrawn {
+		t.Errorf("Withdrawn = false, want true")
+	}
+
+	plain := baseChange("agents", "withdraw-rt-plain")
+	plain.State = store.StateFinished
+	if err := st.PutChange(ctx, plain); err != nil {
+		t.Fatalf("PutChange plain: %v", err)
+	}
+	gotPlain, err := st.GetChange(ctx, plain.ProjectKey, plain.Name)
+	if err != nil {
+		t.Fatalf("GetChange plain: %v", err)
+	}
+	if gotPlain.Withdrawn {
+		t.Errorf("Withdrawn = true, want false")
+	}
+}
+
+func TestPutChangeRefusesWithdrawnOutsideFinished(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	c := baseChange("agents", "withdraw-refused")
+	c.Withdrawn = true
+	err := st.PutChange(ctx, c)
+	if !errors.Is(err, store.ErrInvalidState) {
+		t.Fatalf("PutChange STARTED+withdrawn err = %v, want ErrInvalidState", err)
+	}
+	if !strings.Contains(err.Error(), "STARTED") {
+		t.Errorf("refusal message %q does not name the actual state", err)
+	}
+	if _, getErr := st.GetChange(ctx, c.ProjectKey, c.Name); !errors.Is(getErr, store.ErrChangeNotFound) {
+		t.Fatalf("GetChange after refusal err = %v, want ErrChangeNotFound", getErr)
+	}
+}
+
 func TestPutChangeRefusesMonotonicViolation(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()

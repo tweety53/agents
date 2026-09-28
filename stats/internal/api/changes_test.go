@@ -589,6 +589,76 @@ func TestGetChangeOmitsReviewPanelRoster(t *testing.T) {
 	}
 }
 
+// TestDecodeChangeBodyWithdrawnRoundTrip asserts the withdrawal marker
+// crosses the PUT path — whose handler runs DecodeChangeBody, the one
+// decode live writes and journal replay share — into the stored Change,
+// and that GET serves it back; a body without the field decodes false and
+// the wire shape omits it entirely (omitempty), so every pre-withdrawal
+// record reads exactly as it did before the field existed.
+func TestDecodeChangeBodyWithdrawnRoundTrip(t *testing.T) {
+	fs := newFakeStore()
+	ts := newTestServer(t, fs)
+
+	status, resp := doPut(t, ts, "/api/v1/changes/proj/wd",
+		[]byte(`{"state":"FINISHED","withdrawn":true,"worktrees":{},"updatedAt":"2026-08-13T00:00:00Z","updatedBy":"tester"}`))
+	if status != http.StatusOK {
+		t.Fatalf("withdrawn PUT: got status %d, want 200, body %s", status, resp)
+	}
+	stored := fs.changes[changeKey("proj", "wd")]
+	if !stored.Withdrawn {
+		t.Error("stored Change.Withdrawn = false, want true")
+	}
+
+	status, resp = doPut(t, ts, "/api/v1/changes/proj/plain",
+		[]byte(`{"state":"STARTED","worktrees":{},"updatedAt":"2026-08-13T00:00:00Z","updatedBy":"tester"}`))
+	if status != http.StatusOK {
+		t.Fatalf("plain PUT: got status %d, want 200, body %s", status, resp)
+	}
+	if plain := fs.changes[changeKey("proj", "plain")]; plain.Withdrawn {
+		t.Error("stored Change.Withdrawn = true, want false for a body without the field")
+	}
+}
+
+// TestGetChangeServesWithdrawn is the read side over the served endpoint:
+// a stored withdrawn record surfaces "withdrawn": true, a plain record
+// carries no key at all — the wire a flow state get prints.
+func TestGetChangeServesWithdrawn(t *testing.T) {
+	fs := newFakeStore()
+	ts := newTestServer(t, fs)
+
+	fs.changes[changeKey("proj", "wd")] = store.Change{
+		ProjectKey: "proj", Name: "wd", State: store.StateFinished, Withdrawn: true,
+		UpdatedAt: time.Now(), UpdatedBy: "tester",
+	}
+	status, body := doGet(t, ts, "/api/v1/changes/proj/wd")
+	if status != http.StatusOK {
+		t.Fatalf("withdrawn change: got status %d, want 200, body %s", status, body)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(body), &raw); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if v, present := raw["withdrawn"]; !present || v != true {
+		t.Errorf("served withdrawn = %v (present: %v), want true", v, present)
+	}
+
+	fs.changes[changeKey("proj", "plain")] = store.Change{
+		ProjectKey: "proj", Name: "plain", State: store.StateStarted,
+		UpdatedAt: time.Now(), UpdatedBy: "tester",
+	}
+	status, body = doGet(t, ts, "/api/v1/changes/proj/plain")
+	if status != http.StatusOK {
+		t.Fatalf("plain change: got status %d, want 200, body %s", status, body)
+	}
+	var raw2 map[string]any
+	if err := json.Unmarshal([]byte(body), &raw2); err != nil {
+		t.Fatalf("decode plain response: %v", err)
+	}
+	if _, present := raw2["withdrawn"]; present {
+		t.Fatalf("plain response must omit withdrawn, got %q", body)
+	}
+}
+
 // TestPutChangeRejectsMalformedJSON asserts a body that is not valid JSON
 // at all is refused with 400 and a JSON-syntax-specific message -- "invalid
 // character", what encoding/json's own SyntaxError says -- rather than the

@@ -179,6 +179,16 @@ field is how it gets erased.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`
   that a fix must be committed and pushed rather than merely staged.
+- `withdrawn` — the withdrawal marker: `true` on a record the withdrawal route terminated — a
+  change abandoned before planning, closed `FINISHED` without an archive (**The withdrawal
+  route**, `skills/flow/brainstorm.md`). Absent or `false` on every record any other route wrote,
+  and refused by the store paired with any state other than `FINISHED`
+  (`store.ErrInvalidState`). The CLI carries the field byte-transparently — `state set` validates
+  the object and the worktree values and forwards the body — so no CLI change writes it; `state
+  get` prints it as stored. The route's state write needs a daemon that knows the field: an older
+  one refuses the payload as an unknown field, the write falls back to the journal, the entry is
+  retired as definitively invalid, and one ⚠ line names it — the record unchanged, the route
+  re-run once the daemon is current.
 - `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `flow state set`
   stamps it on every write from its own clock, at full precision, overwriting whatever value the
   payload carried. The stamped instant is the one the store row, the on-disk fallback file and the

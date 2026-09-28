@@ -33,6 +33,7 @@ type changeDTO struct {
 	ProjectKey     string          `json:"projectKey"`
 	Name           string          `json:"name"`
 	State          string          `json:"state"`
+	Withdrawn      bool            `json:"withdrawn,omitempty"`
 	Branch         *string         `json:"branch,omitempty"`
 	Worktrees      json.RawMessage `json:"worktrees,omitempty"`
 	ArtifactURL    *string         `json:"artifactUrl,omitempty"`
@@ -65,6 +66,7 @@ func toDTO(c store.Change) changeDTO {
 		ProjectKey:     c.ProjectKey,
 		Name:           c.Name,
 		State:          string(c.State),
+		Withdrawn:      c.Withdrawn,
 		Branch:         c.Branch,
 		Worktrees:      c.Worktrees,
 		ArtifactURL:    c.ArtifactURL,
@@ -102,6 +104,7 @@ func (dto changeDTO) toChange(projectKey, name string) (store.Change, error) {
 		MainCheckoutPath: dto.MainCheckoutPath,
 		Name:             name,
 		State:            store.State(dto.State),
+		Withdrawn:        dto.Withdrawn,
 		Branch:           dto.Branch,
 		Worktrees:        dto.Worktrees,
 		ArtifactURL:      dto.ArtifactURL,
