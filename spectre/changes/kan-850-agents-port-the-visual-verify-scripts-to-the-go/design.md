@@ -246,4 +246,17 @@ the recommended option.
 **Considered:** copying `find`'s line byte for byte — it names a tool the
 port no longer runs.
 
+### Exit codes follow the headers' contracts
+
+**ID:** header-exit-codes
+**Status:** active
+**Chosen:** where a bash script's `set -e`/`pipefail` let a failing command's own status escape
+outside the exit codes its header documents, the port answers within the header's contract. Known
+case: `resolve-visual-screenshots` with a `regression checkout` that is a directory but not a git
+repository exited 128 at `3915fbc0` (its `git worktree list` pipeline failed); the port finds no
+worktree on the branch and exits 0 over the declared checkout. Raised by task 4's review,
+auto-resolved on the recommended option.
+**Considered:** reproducing 128 — an undocumented code a
+caller cannot tell from a signal death.
+
 ## Open questions
