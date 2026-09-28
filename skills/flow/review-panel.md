@@ -1069,7 +1069,13 @@ flow record status -change <name> -ref F<n> -status fixed
 **The parent records it, never the fix subagent.** **Record every verdict this turn reached in one call,
 never deferred to the round's end** — the reproducer re-runs and the fix diff are read in one
 call, each finding judged, then every `status fixed` recorded together, so an aborted round
-still leaves every already-verified finding closed. **A finding failing
+still leaves every already-verified finding closed. **A finding is recorded `fixed` only after
+the re-run that verifies it — never in the same Bash call as that re-run.** The call that runs
+the re-runs prints each exit and is read; a separate later call records `status fixed` for
+exactly the findings it verified, and no others. A `fixed` recorded in the same call as its
+re-run stands verified before that exit is known — the ordering KAN-582's F1 rode in on, luck
+rather than discipline — which is the defect the close guard's fixed-without-clean-rerun class
+below exists to catch. **A finding failing
 the match and all three shapes is left untouched** on `open`, for the handback below. This walk follows
 **Read discipline** (`skills/flow/implement.md`): the specific hunks a finding names, never the <!-- refs-guard:allow -->
 whole fix diff.
@@ -1398,8 +1404,10 @@ check-panel-findings-closed.sh <worktree> <change>
 
 Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` in the store,
 or a Minor reads `deferred` in a round that raised a Critical or Important not recorded
-`withdrawn` — the Minor-deferral default of **Panel re-runs** above, violated; the line names the
-refs and the round. Either way, return to the handback loop above for them. Exit 2 stops the run.
+`withdrawn` — the Minor-deferral default of **Panel re-runs** above, violated; the line names the refs and the round. It also
+fires on the class **Recording findings**' ordering above added: a finding recorded `fixed`
+whose slot has no clean re-run dispatch of it in any later round. Either way, return to the
+handback loop above for them. Exit 2 stops the run.
 
 Beside it, run
 
