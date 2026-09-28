@@ -156,16 +156,16 @@ and the verifier is dispatched without added sweeps. Either outcome is reported 
 
 ## Steps 3–13
 
-Steps 1, 2, 3 and 12 are the parent's — those steps, `prepare-workspace.sh` and the ledger render
-are the parent's own Bash calls, never a subagent's. Steps 4–11 and 13 are run by one verifier per worktree
+Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's — those steps, `prepare-workspace.sh` and the ledger render
+are the parent's own Bash calls, never a subagent's. Steps 4 and 7–11 are run by one verifier per worktree
 surviving steps 1–3, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 parent applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
-`KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture`,
-`fingerprint`, `start` and `specs` commands and `screenshots` root, its resolved `mockups` root when
+`KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture` and
+`specs` commands and `screenshots` root, its resolved `mockups` root when
 declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths`
 matched; the project's `## run` commands; the views touched; `<changeRoot>`; `sweeps-<n>.md`'s path
-when **A missed defect — the tooling analysis** above completed this round; and to run steps 4–11
-and 13 below as written, committing and pushing nothing.
+when **A missed defect — the tooling analysis** above completed this round; and to run steps 4 and 7–11 below as written against the stack steps 5 and 6 left serving the
+worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
 
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
    cannot repair an environment that cannot pass. With the parent's own Bash calls, before the dispatch below, check the environment
@@ -208,7 +208,8 @@ and 13 below as written, committing and pushing nothing.
    has proven cannot pass.
 
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
-5. **Probe before starting anything.** Probe the URL of each app `ui paths` matched, resolved for
+5. **Probe before starting anything** — with the parent's own Bash calls, after step 3 and before the
+   dispatch, as step 6 is. Probe the URL of each app `ui paths` matched, resolved for
    this worktree per **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) —
    never the project's declared default. If nothing answers, start the stack from `start` when
    declared, else `## run`, and record that this stage started it — needed at step 13.
@@ -217,8 +218,10 @@ and 13 below as written, committing and pushing nothing.
    serving a build older than the worktree. Run `check-dev-stack-fresh.sh <worktree>` — it reads the row and
    runs it, so the stage never parses the table by hand; its header is canonical for its three
    exits. Exit 0 → the served bundle is the worktree's build; continue. Exit 1 → stop the stack,
-   start it from `start` when declared, else `## run`, record that this stage started it (step 13
-   stops it), and run the guard once more. A second exit 1 blocks, carrying the guard's output.
+   start it from `start` when declared, else `## run` — never a restart command that drops the
+   isolation flags `start` carries — record that this stage started it (step 13 stops it), and run
+   the guard once more. A second exit 1 blocks, carrying the guard's output, and ends the stage as
+   a step-3 failure does: no verifier is dispatched.
    Exit 2 → report `fingerprint: not declared — <the guard's stderr reason>` and continue; the
    report makes the gap visible in every handoff, but this stage cannot prove what it was never
    told how to check.
@@ -719,7 +722,7 @@ and 13 below as written, committing and pushing nothing.
     **The full app suite rides the same commit**: `full-app-suite.spec.ts`, its PNGs and
     `full-app-suite.zip` (step 8) join the pathspec above, in the same checkout the capture spec
     lands in.
-13. **Stop the stack only if step 5 or step 6 started it.** A stack the operator already had running is left
+13. **Stop the stack only if step 5 or step 6 started it** — the parent, once the verifier's report is in. A stack the operator already had running is left
     alone.
 
 ```text verified:design.md section 3 of this change
@@ -769,5 +772,6 @@ verifier reports in a captured screenshot — even when every assertion passed.*
 flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
 ```
 
-**A step-3 pre-flight failure closes this mark `-outcome stopped` instead of `completed`**, per
-that step — the one outcome variant this stage's end mark carries.
+**A step-3 pre-flight failure, or a step-6 fingerprint still failing after its restart, closes this
+mark `-outcome stopped` instead of `completed`**, per those steps — the one outcome variant this
+stage's end mark carries.

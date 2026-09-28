@@ -190,6 +190,7 @@ text after it is the passage, verbatim.
 ### visual-verify.md — Visual verification, step 6 (fingerprint)
 
 - *…a stack step 5 found already running may be serving a build older than the worktree* — gymie KAN-29's last fix round captured, and nearly accepted, the bug the fix had removed.
+- *Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's* — gymie KAN-845: the verifier's step-6 restart was refused by the auto-mode permission classifier, so the dispatch closed `blocked` on a stale bundle one approved restart fixed, and integrate stopped on `VISUAL-VERIFY-MISSING`; the operator's own `devRestart` then dropped `-PisolateOAuthPorts` and rebound the stack to the shared 3000/8080.
 
 ### visual-verify.md — Visual verification, step 10 (sidecar)
 
