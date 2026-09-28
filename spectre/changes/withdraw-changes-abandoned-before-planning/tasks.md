@@ -39,7 +39,7 @@
   - [x] **Step 4: `skills/flow-contracts/handoff-blocks.md` (the withdrawn terminal block — names no next command), `skills/flow/SKILL.md` (the reading-the-state `FINISHED` bullet names withdrawn), `skills/flow-status/SKILL.md` (a withdrawn change is not open). If `check-contract-budget.sh` trips on an edited contract, raise that file's row in the `budgets()` table of `scripts/check-contract-budget.sh` — the declared reason, never a narrowed scope.**
   - [x] **Step 5: Verify: `scripts/check-vocabulary.sh && scripts/check-references.sh && scripts/check-contract-budget.sh && scripts/check-markdown-integrity.py && scripts/check-plan-shape.sh spectre/changes/withdraw-changes-abandoned-before-planning/tasks.md`.**
 **Build:** green
-**Files:** `skills/flow-contracts/state-file.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow/SKILL.md`, `skills/flow-status/SKILL.md`
+**Files:** `skills/flow-contracts/state-file.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow/SKILL.md`, `skills/flow-status/SKILL.md`, `AGENTS.md`, `rules/flow-manual-review.mdc`, `KNOWN-BUGS.md`
 **Allowed-collateral:** `scripts/check-contract-budget.sh`
 **Tests:** **none**
 **Regression:** none — the task declares no tests
@@ -52,6 +52,21 @@
 **Decision:** finished-withdrawn-boolean
 
 **Decision:** git-first-record-last
+
+Correction (2026-09-28): the plan declared modifying `scripts/check-contract-budget.sh` (raising
+`skills/flow/brainstorm.md`'s budget row) as task 3's Allowed-collateral, and steps 4–5 name the
+guard. The base's kan-842 port deleted that guard outright — no file on new `main` carries
+`budgets()` — so the rebase resolve dropped our modification (`git rm`) instead of re-homing it:
+the raise fed a guard that no longer exists. The task's remaining verify guards all ran green
+post-rebase; no replacement budget table exists on the base to raise.
+
+Correction (2026-09-28, panel fix round 1): the panel's round-0 findings widened this task's
+surface — `AGENTS.md` and `rules/flow-manual-review.mdc` (the sanctioned digest copies gained the
+reachability-ended `FINISHED (withdrawn)` line, F1), `KNOWN-BUGS.md` (a line-ref fix and the
+round's deferrals, F2/F3/F7), and `stats/internal/store/changes.go` + `changes_test.go` (the
+`ErrInvalidState` doc comment now names the withdrawn refusal, F4, and its message carries the
+actual state, F6) — the Go hunks ride task 1's declared surface; the digest, deferral and route
+hunks (brainstorm.md's step 2/3 gone-tolerance clauses, F5) are this task's.
 
 Correction (2026-09-28): the plan declared modifying `scripts/check-contract-budget.sh` (raising
 `skills/flow/brainstorm.md`'s budget row) as task 3's Allowed-collateral, and steps 4–5 name the
