@@ -630,7 +630,8 @@ the operator can judge the logic without opening the plan. No per-task rows, no 
 commit fields. Then the `## Decision` block, verbatim, under it.
 
 Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s is **Proceed to
-implementation?** — with exactly two options: **Yes** and **No (plan needs updates)**. On **No**,
+implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
+updates)**. On **No**,
 take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none),
 revise `tasks.md`, re-run `check-plan-shape.sh` and the project's configured guards, re-run the
 Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second

@@ -53,13 +53,12 @@ and take that option.
 **The `## decisions: recommended` mode widens the scope to planning.** When the project's
 `## decisions` key resolves to `recommended` (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`), the paragraph above holds for the whole run:
-the brainstorm and design questions, the convergence-and-approval confirm, the third-round offer,
-the plan review gate, every `/flow-plan` prompt, and a fix run's re-plan-budget and
-where-the-fix-goes prompts are auto-resolved exactly as the implementation phases are. The key
-absent, or a head that resolves to nothing, leaves the scope exactly as the paragraph above states
-it. The remaining **What still stops** bullets are the mode's limits: a prompt with no recommended
-option, nothing to choose, anything outward-facing or irreversible, and every prompt outside the
-run's own phases are asked under the mode exactly as off it.
+the planning asks the Planning bullet of **What still stops** below names — its pivot excepted —
+are auto-resolved exactly as the implementation phases are. The key absent, or a head that
+resolves to nothing, leaves the scope exactly as the paragraph above states it. The remaining
+**What still stops** bullets are the mode's limits: a prompt with no recommended option, nothing
+to choose, anything outward-facing or irreversible, and every prompt outside the run's own phases
+are asked under the mode exactly as off it.
 
 Every auto-resolution:
 
@@ -77,7 +76,8 @@ Every auto-resolution:
 
 These are asked, or stop with `## Question`, exactly as their call sites state:
 
-- **Planning.** Brainstorm and design questions, the convergence-and-approval confirm, the plan
+- **Planning.** Brainstorm and design questions, the convergence-and-approval confirm, the
+  third-round offer, the plan
   review gate, every `/flow-plan` prompt, a fix run's own planning pass (the re-plan-budget and
   where-the-fix-goes prompts in `skills/flow/implement.md`), and a pivot, which alters scope the
   operator approved. The operator scoped auto-resolution to implementation and fix options, not
