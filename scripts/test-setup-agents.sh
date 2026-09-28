@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# test-setup-agents.sh — asserts setup.sh installs the three
+# test-setup-agents.sh — asserts setup.sh installs the four
 # flow-<effort> agent definitions on `./setup.sh global`.
 #
 # Runs `setup.sh global` against a sandboxed $HOME (mktemp -d), so it never
-# touches the real ~/.claude. Asserts three symlinks exist under
-# $HOME/.claude/agents/ and each resolves; the three `flow-<effort>`
+# touches the real ~/.claude. Asserts four symlinks exist under
+# $HOME/.claude/agents/ and each resolves; the four `flow-<effort>`
 # frontmatters each carry their own `effort:` line and no `model:` line — the
 # Agent tool's dispatch-time `model` parameter overrides a definition's
 # `model`, so the model axis needs no definition of its own while the effort
@@ -34,7 +34,7 @@ RC=$?
 
 AGENTS_DIR="$SANDBOX_HOME/.claude/agents"
 
-EFFORTS="low medium high"
+EFFORTS="low medium high xhigh"
 
 count=0
 for effort in $EFFORTS; do
@@ -60,11 +60,11 @@ for effort in $EFFORTS; do
     fail "$link 'tools:' allowlist grants Agent or Task — a dispatched role must not fork"
   fi
 done
-[ "$count" -eq 3 ] || fail "expected to check 3 efforts, checked $count"
+[ "$count" -eq 4 ] || fail "expected to check 4 efforts, checked $count"
 
 actual_count=$(find "$AGENTS_DIR" -maxdepth 1 -name 'flow-*.md' 2>/dev/null | wc -l | tr -d ' ')
-[ "$actual_count" -eq 3 ] && pass "three symlinks present under $AGENTS_DIR" \
-  || fail "expected 3 symlinks under $AGENTS_DIR, found $actual_count"
+[ "$actual_count" -eq 4 ] && pass "four symlinks present under $AGENTS_DIR" \
+  || fail "expected 4 symlinks under $AGENTS_DIR, found $actual_count"
 
 if [ "$FAILURES" -eq 0 ]; then
   echo "test-setup-agents.sh: all checks passed"

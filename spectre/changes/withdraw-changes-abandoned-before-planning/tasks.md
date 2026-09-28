@@ -4,6 +4,11 @@
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
 
+Correction (2026-09-28, recorded on kan-844's branch): the change landed on main as one squash commit,
+`a0cc01e7` "feat(flow): withdraw changes abandoned before planning", so no per-task subject is
+reachable from HEAD. Every task's **Commit:** now names that subject, and task 3 declares the two
+files the squash touched that no task listed as **Allowed-collateral:**.
+
 - [x] 1. Store: the `withdrawn` column, its invariant, migration 0031
   - [x] **Step 1: Add `stats/internal/store/migrations/0031_withdrawn.sql` with `ALTER TABLE changes ADD COLUMN withdrawn BOOLEAN NOT NULL DEFAULT FALSE;` and add the `Withdrawn bool` field to `store.Change` in `stats/internal/store/changes.go`.**
   - [x] **Step 2: Persist and scan the column in `PutChange` and the change reads. Refuse `Withdrawn == true` paired with `State != StateFinished` by returning `ErrInvalidState` (extend its wrapped message; keep the sentinel so `errors.Is` and `IsDefinitiveChangeOutcome` behave unchanged).**
@@ -13,7 +18,7 @@
 **Tests:** `TestPutChangeWithdrawnRoundTrip`, `TestPutChangeRefusesWithdrawnOutsideFinished`
 **Regression:** reverting the commit drops the column and the invariant: `TestPutChangeWithdrawnRoundTrip` fails (the field no longer round-trips) and `TestPutChangeRefusesWithdrawnOutsideFinished` fails (a non-FINISHED record can carry the marker).
 **Baseline:** before=23 after=25
-**Commit:** feat(store): withdrawn marker on finished changes
+**Commit:** feat(flow): withdraw changes abandoned before planning
 **After:** none
 
 **Decision:** finished-withdrawn-boolean
@@ -27,7 +32,7 @@
 **Tests:** `TestDecodeChangeBodyWithdrawnRoundTrip`, `TestGetChangeServesWithdrawn`
 **Baseline:** before=21 after=23
 **Regression:** reverting the commit closes the schema again: every `state set` carrying `withdrawn` is refused as a malformed body (`DisallowUnknownFields`), so the withdrawal route's state write falls to the journal and is retired — both declared tests fail.
-**Commit:** feat(api): accept and serve withdrawn on changes
+**Commit:** feat(flow): withdraw changes abandoned before planning
 **After:** Task 1
 
 **Decision:** finished-withdrawn-boolean
@@ -40,10 +45,11 @@
   - [x] **Step 5: Verify: `scripts/check-vocabulary.sh && scripts/check-references.sh && scripts/check-markdown-integrity.py && scripts/check-plan-shape.sh spectre/changes/withdraw-changes-abandoned-before-planning/tasks.md`.**
 **Build:** green
 **Files:** `skills/flow-contracts/state-file.md`, `skills/flow-contracts/pipeline.md`, `skills/flow/brainstorm.md`, `skills/flow/brainstorm-planner.md`, `skills/flow-contracts/handoff-blocks.md`, `skills/flow/SKILL.md`, `skills/flow-status/SKILL.md`
+**Allowed-collateral:** `AGENTS.md`, `rules/flow-manual-review.mdc`
 **Tests:** **none**
 **Regression:** none — the task declares no tests
 **Baseline:** before=0 after=0
-**Commit:** docs(flow): the withdrawal route
+**Commit:** feat(flow): withdraw changes abandoned before planning
 **After:** none
 
 **Decision:** both-preplan-ends

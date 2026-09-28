@@ -501,7 +501,8 @@ pair, each implementer group — takes `model` `DEFAULT_MODEL` (**Model resoluti
 `skills/flow/SKILL.md`), never another model; the decision varies the effort only. Pairs may
 repeat — two dispatches, or a pass-1 dispatch and the rerun pair, on the same model and effort is
 not a defect. The rerun pair's effort is fixed at `low` (step 3); every other `effort` is the
-planner's own choice, one of `low`/`medium`/`high`, decided from what that dispatch will actually
+planner's own choice, one of `low`/`medium`/`high` — and, for the implementer pair and an
+implementer group alone, `xhigh` — decided from what that dispatch will actually
 do: the complexity of its tasks, the time and space
 complexity of the code it writes or reviews, and the scalability the change has to hold up under.
 A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency

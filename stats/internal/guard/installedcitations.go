@@ -105,6 +105,7 @@ var cicExpectedZero = [][2]string{
 	{"agents/flow-low.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
 	{"agents/flow-medium.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
 	{"agents/flow-high.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
+	{"agents/flow-xhigh.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
 }
 
 func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int {
@@ -222,10 +223,11 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 // `setup.sh global`, `setup.sh claude-code <sandbox>/proj` and `setup.sh
 // zcode <sandbox>/proj` into it (refusing first unless both the HOME and the
 // project directory it is about to hand the installer lie inside that
-// sandbox — cicRunSetup/cicWithinSandbox, adopting scripts/test-setup.sh's
-// own refusal rather than restating it), and reads back what appeared
-// (cicDeriveSources). Both project modes run because between them they copy
-// CLAUDE.md and AGENTS.md into the project. A re-implementation of
+// sandbox — cicRunSetup/cicWithinSandbox, adopting the refusal in
+// stats/internal/setuptest/helpers_test.go's runSetup rather than restating
+// it), and reads back what appeared (cicDeriveSources). Both project modes
+// run because between them they copy CLAUDE.md and AGENTS.md into the
+// project. A re-implementation of
 // the installer's globs drifts the moment an install path changes;
 // deriving from a real run cannot. A non-zero code is the guard's exit.
 func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]bool, int) {
