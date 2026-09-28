@@ -825,7 +825,8 @@ below, and the working code stands.
 **Every Critical and Important goes to the fix; whether a Minor does follows from the rest of the
 round, and a Minor never causes a fix round of its own.** Every Critical and Important the round
 raised goes to the fix subagent below, closed by the verification that follows it — the reproducer
-re-run exits 0 *and* the fix diff touches a path the finding named. **A round that raised a
+re-run exits 0 *and* the fix diff touches a path the finding named, or one of the path condition's
+accepted alternatives below closes the finding. **A round that raised a
 Critical or Important sends every Minor it raised to that same fix**, closed by the same
 verification. **A round that raised no Critical and no Important defers every Minor** — a fix round
 costs more time than its Minors are worth — with
@@ -1038,7 +1039,17 @@ Bash calls** (**Dispatch sites — the
 parent's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
 change.** A fix that does not is not a fix: the finding stays open and goes through the handback
-below.
+below. **Beside that match, three shapes close on their own evidence, each judged from the same
+fix diff or repaired history the match reads, never from the fix subagent's report alone:**
+(a) **a test-only fix** — every non-context change in the diff is in a test file — closes on the
+flip the re-run already required, when the finding's pinned reproducer flipped demonstrated → not
+demonstrated: the defect was a missing or weakened test, and the diff that adds or strengthens it
+is the fix; (b) **a comment-only diff closes a comment-only finding** — the finding's defect is a
+stale or wrong comment and the diff's change to the named path is comment-only, a repair that can
+never carry the non-comment change the match demands; (c) **a history repair closes a finding
+located in a commit record** — the defect lives in a commit rather than in a file, and the fix
+amends, fixup-folds or rewrites the named commit under the rewrite rules above, closing on the
+commit as it now stands, read post-repair: no diff-path evidence exists for a defect in history.
 
 A re-run whose script fails a premise assertion — the loud non-zero the authoring rule requires —
 reads *demonstrated*, identical to the dispatch-time verdict, and is refused as ambiguous by
@@ -1046,7 +1057,8 @@ design (KAN-839): the renamed premise voids the reproducer, and the refusal rout
 re-authoring. That refusal is the fix working, never a runner bug.
 
 A finding meeting both conditions is recorded closed there and then — a Minor recorded
-`none — <reason>` has no reproducer to flip and closes on the path condition alone:
+`none — <reason>` has no reproducer to flip and closes on the path condition alone, or on its
+comment-only alternative when the finding's defect is a comment and the fix repairs it in place:
 
 ```bash
 flow record status -change <name> -ref F<n> -status fixed
