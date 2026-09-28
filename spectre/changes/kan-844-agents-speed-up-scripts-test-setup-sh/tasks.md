@@ -86,6 +86,18 @@ fails if either fingerprint stops moving when a sampled path is written.
 
 **Decision:** setuptest-in-stats-go
 
+Correction (2026-09-28): panel round 0 fix commits `1ac33883`, `a2e74e9d` and `49f9d8e0`, on top of this
+task's commit. The plan declared three files and two tests. What shipped adds `selfcheck_test.go`
+with five tests that pin the harness's own safety logic: the `setupRefusal`/`seedRefusal`
+refusals, `sandboxRemovable`, `closeOut`/`exitCode` and `countLinesMatching`, each extracted
+so it can be tested. It also widens `TestContainmentChecksDetectLeaks` from a sample of the
+locations to every sampled location, moves `appendTo` into `helpers_test.go`, bounds every installer
+run by the test deadline in its own process group, and cleans the sandbox up on SIGINT/SIGTERM.
+The installed guard run now gets a sandboxed `FLOW_GUARD_CACHE_DIR`, and `TestGuardsReachInstallAndRunFromIt`
+asserts the guard built its binary there. Findings F1–F3, F5–F10 and
+F12–F18. These fields still describe this task's own commit; the fix commits carry no `Task-Id:`.
+<!-- measured: go test ./internal/setuptest/ -run '^TestContainmentChecksDetectLeaks$' -v | grep -c '✓ leak detection' → 27 (26 + the close-out line); five Test funcs in selfcheck_test.go @ branch spectre/kan-844-agents-speed-up-scripts-test-setup-sh -->
+
   - [x] **Step 1: `main_test.go`.** Package doc = the bash header's WHY THIS EXISTS and WHAT THIS
     CAN AND CANNOT PROVE paragraphs and the two-source-trees note, reworded only where they name
     bash (the portability-helper notes on BSD/GNU `stat` and a missing SHA tool are dropped: Go's
@@ -758,6 +770,13 @@ line or file mode lost, or a delimiter-carrying rule installing anything.
 **Build:** green
 
 **Decision:** setup-harness-go-parallel
+
+Correction (2026-09-28): panel round 0 fix commit `1ac33883`, on top of this task's commit,
+adds `TestUnbalancedDelimitersAbortByteIdentical`, covering a lone begin and a lone end. The bash
+harness never seeded that shape, so the package doc's defect 2 could come back undetected (F11).
+Its six assertions are the only Go-side lines the parity check reports beyond the baseline.
+<!-- measured: the tasks.md parity check with every group title, RUN='.' → diff of 6 added lines, all `lone begin:`/`lone end:` @ branch spectre/kan-844-agents-speed-up-scripts-test-setup-sh -->
+It also corrects the 640-mode rationale comment (F19).
 
   - [x] **Step 1: Port**, one test per bash group, each opening `g := newGroup(t)`, each case
     opening `home := g.newHome()`, every `run_setup "$FIXTURE" …` a `g.runSetup(fixture, home,

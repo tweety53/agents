@@ -86,7 +86,9 @@ needs scheduling nobody asked for.
 **Status:** active
 **Chosen:** `agents/flow-xhigh.md` (`effort: xhigh`, the same `tools:` allowlist without `Agent`);
 the implementer pair and each implementer group choose from `low`/`medium`/`high`/`xhigh`; the
-fixer, panel dispatches and rerun pair are unchanged; `recordEfforts` gains `xhigh`, which also
+fixer, panel dispatches and rerun pair are unchanged; a `big` plan's gated per-task reviewer, which
+otherwise takes its group's pair, runs at `high` for an `xhigh` group (operator, 2026-09-28, panel
+round 0 F4); `recordEfforts` gains `xhigh`, which also
 lets an inline row record an `xhigh` parent. zcode's mapping stays `high`.
 **Considered:** adding the fixer (implementer work per model policy) — not asked for; every chosen
 pair — not asked for.
