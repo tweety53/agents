@@ -84,7 +84,7 @@ Correction (2026-09-28): the plan declared `names.go`, `cmd/flow/state.go`, `sta
 
 **Files:** `setup.sh`, `scripts/test-setup.sh`, `commands/flow.md`, `commands/flow-fast.md`, `commands/flow-plan.md`, `commands/flow-self-review.md`, `commands/flow-settings.md`, `commands/flow-status.md`, `scripts/lib/owned-corpus.sh`, `scripts/test-check-normative-inventory.sh`, `skills/flow-contracts/pipeline-rationale.md`, `stats/internal/guard/check_installed_rules_test.go`, `stats/internal/guard/references.go`, `stats/internal/guard/installedcitations.go`
 **Allowed-collateral:** `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/check_references_test.go`, `stats/internal/guard/check_installed_citations_test.go`
-**Tests:** `global install writes nothing under .cursor or .codex`
+**Tests:** `global install writes nothing under .cursor or .codex`, `no AGENTS.md is created for a project with no config`, `no AGENTS.md is created for a project naming no shared rule`
 **Regression:** fails if a `global` run creates `~/.cursor` or `~/.codex` in the sandbox HOME, or
 if `setup.sh cursor|codex|all` is still accepted.
 **Baseline:** before=0 after=1
