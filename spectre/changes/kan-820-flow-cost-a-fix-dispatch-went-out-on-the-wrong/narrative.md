@@ -28,3 +28,11 @@
   the operator's re-invocation. The panel then raised 3 Important + 2 Minor; both Importants
   were real defects in the resolution block (body normalization, outage prose), fixed in one
   round, re-run clean, one new Minor deferred.
+## 2026-09-28 — integrate run
+
+- Preflight RUN1; unfinished-work gate CLEAR; the sync rebase onto origin/main met 55 new
+  upstream commits and one real conflict — KNOWN-BUGS.md, where another change's deferred entries
+  and this change's landed at the same anchor. Resolved in place keeping both sides; the
+  resolution-needing rebase triggered the full lint and test lists, all green. No recorded
+  baseline to recapture.
+- The landing route is this project's configured default (merge and push), taken without asking.
