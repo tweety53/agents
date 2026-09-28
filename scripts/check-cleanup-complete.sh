@@ -3,6 +3,8 @@
 # should be gone after /flow's archive run actually is.
 #
 # Usage: check-cleanup-complete.sh <repo> <change-name> <state-dir>
+#        (<state-dir> is the path `flow state dir` prints — resolve it with
+#        that command, never by guessing the location)
 #
 # Prints ONE verdict line to stdout:
 #   COMPLETE: <reason>    every registry row whose lifetime ends at run 2 is gone

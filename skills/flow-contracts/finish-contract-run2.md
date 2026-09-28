@@ -152,7 +152,10 @@ bare `/flow` is the only command that loads this file.
    nothing to remove, and says so.
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
-   behind.
+   behind. `<state-dir>` is the path `flow state dir` prints for this repository — the same
+   resolution serving step 6's removal, and the one resolvable place for the state directory
+   (`skills/flow-contracts/state-file.md`); a run that has not recently resolved it guesses, and
+   a guessed path is how this guard answers exit 2 with no verdict at all.
 
    | Verdict | What run 2 does |
    |---------|-----------------|

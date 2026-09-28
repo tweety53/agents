@@ -24,6 +24,12 @@ not be reached, and no command reads it while the store answers normally.
 /Users/tweety53/Agents/flow/state/<project-key>/<name>.journal
 ```
 
+**The directory those paths live under is resolvable, never guessed: `flow state dir [-C dir]`
+prints it as one line** — the same project-key resolution `flow state get`/`set` perform, with no
+store contact anywhere on the path. A step that passes the state directory to a guard or a script
+cites what that command printed rather than deriving the location by hand; run 2 step 7's
+`<state-dir>` argument (`finish-contract-run2.md`) is the worked case.
+
 `<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `myrepo-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous. It is the same key `flow state get`/`set` send the daemon, so the store, the fallback file and the journal all address one record under one key.
 
 **Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and review (in the main checkout) two different keys for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `<project>/.git` from anywhere, including inside a worktree:
