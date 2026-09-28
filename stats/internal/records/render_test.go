@@ -159,7 +159,7 @@ func TestRenderLedgerNamesEachDispatchModelVerbatim(t *testing.T) {
 // bag have any bytes". `{}` is what internal/store's insertDispatch writes
 // for a dispatch recorded with no metrics, so it is the shape of every
 // dispatch between `flow record dispatch` and the harvester running, and
-// the permanent shape of every dispatch on Cursor and Codex, which write no
+// the permanent shape of every dispatch on a harness that writes no
 // transcript at all. It unmarshals silently into a zero-valued struct, and
 // a byte-length test therefore reports a measured zero for the majority of
 // real rows.
@@ -291,7 +291,7 @@ func TestLedgerSaysSessionTokenMatchedManySessions(t *testing.T) {
 }
 
 // TestLedgerStillSaysNotMeasured covers task 7 step 3: an empty bag --
-// the permanent shape on Cursor and Codex, and the shape of every
+// the permanent shape on a harness with no transcript, and the shape of every
 // dispatch between `flow record dispatch` and the harvester running --
 // still renders `not measured`, restated here so task 8 cannot widen the
 // new wording over it.

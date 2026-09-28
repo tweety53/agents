@@ -1443,8 +1443,8 @@ func TestEndDispatchRecordsCause(t *testing.T) {
 // The distinction is the whole point of the test. insertDispatch defaults
 // an empty Metrics to the JSON object `{}` on the way in, so the shape a
 // dispatch actually has between `flow record dispatch` and the harvester
-// running -- and the PERMANENT shape of every dispatch on Cursor and
-// Codex, which write no transcript at all -- is two bytes, never
+// running -- and the PERMANENT shape of every dispatch on a harness
+// that writes no transcript at all -- is two bytes, never
 // zero-length and never SQL NULL. A renderer that decided "nothing was
 // measured" by the bag's byte length agreed with every hand-built
 // `records.Dispatch{}` in internal/records' own tests while reporting

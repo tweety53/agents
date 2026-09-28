@@ -6,35 +6,35 @@
 path, the rescue, the MISSING outcome, artifact brevity — was clean at review pass 1 and never moved
 after it. Everything since was the operator-approved guard-gap scope addition.
 
-## Problems encountered, and what pipeline change would avoid them — `myflow-fix`
+## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[myflow-fix]** Planning artifacts staged in the main checkout blocked an unrelated change's merge and archive; resolving it required an operator decision about another change's uncommitted work — filed: KAN-56
-- **[myflow-fix]** `git commit --fixup` commits the whole index and the pipeline never warns fix subagents; it swept a wrong task's file and then a planning path into task commits, both needing history surgery — filed: KAN-273
-- **[myflow-fix]** A `Tests:` field's backticked tokens are read as declared test names, so prose in that field fails the guard — filed: KAN-274
-- **[myflow-fix]** `Baseline:` is skipped-not-verified here, so it went stale three times across eleven fix rounds while claiming 113 against a real 170 — filed: KAN-275
+- **[flow-fix]** Planning artifacts staged in the main checkout blocked an unrelated change's merge and archive; resolving it required an operator decision about another change's uncommitted work — filed: KAN-56
+- **[flow-fix]** `git commit --fixup` commits the whole index and the pipeline never warns fix subagents; it swept a wrong task's file and then a planning path into task commits, both needing history surgery — filed: KAN-273
+- **[flow-fix]** A `Tests:` field's backticked tokens are read as declared test names, so prose in that field fails the guard — filed: KAN-274
+- **[flow-fix]** `Baseline:` is skipped-not-verified here, so it went stale three times across eleven fix rounds while claiming 113 against a real 170 — filed: KAN-275
 
-## Token/time cost, and what would reduce it without quality loss — `myflow-cost`
+## Token/time cost, and what would reduce it without quality loss — `flow-cost`
 
-- **[myflow-cost]** Six instances of one root cause were found one per round until a sweep was dispatched; findings per round did not decline, and the sweep then found three more in a single pass — filed: KAN-276
-- **[myflow-cost]** The panel re-read the whole branch diff eight times — 3,793 lines against an 886-line actual delta — with the scoped diff built by hand from round 7 — filed: KAN-277
+- **[flow-cost]** Six instances of one root cause were found one per round until a sweep was dispatched; findings per round did not decline, and the sweep then found three more in a single pass — filed: KAN-276
+- **[flow-cost]** The panel re-read the whole branch diff eight times — 3,793 lines against an 886-line actual delta — with the scoped diff built by hand from round 7 — filed: KAN-277
 
-## What went well, and how to reproduce it — `myflow-improvement`
+## What went well, and how to reproduce it — `flow-improvement`
 
-- **[myflow-improvement]** Asking a fix subagent "is anything left that two files must agree about with nothing enforcing it?" found a defect no review round had, and triggered the sweep that found three more — declined
-- **[myflow-improvement]** Cross-harness pinning replaced a comment that had been wrong three times; mutating the shared module now fails both guards' suites, which the comment never did — declined
-- **[myflow-improvement]** Telling reviewers that a clean report is a meaningful signal preceded Code-review's one genuinely clean round, after it had found a real defect every previous round — declined
-- **[myflow-improvement]** `openspec archive` refused and caught four scenarios about to be silently deleted, three of them security containment scenarios — declined
+- **[flow-improvement]** Asking a fix subagent "is anything left that two files must agree about with nothing enforcing it?" found a defect no review round had, and triggered the sweep that found three more — declined
+- **[flow-improvement]** Cross-harness pinning replaced a comment that had been wrong three times; mutating the shared module now fails both guards' suites, which the comment never did — declined
+- **[flow-improvement]** Telling reviewers that a clean report is a meaningful signal preceded Code-review's one genuinely clean round, after it had found a real defect every previous round — declined
+- **[flow-improvement]** `openspec archive` refused and caught four scenarios about to be silently deleted, three of them security containment scenarios — declined
 
-## What could be automated or moved to a script — `myflow-automation`
+## What could be automated or moved to a script — `flow-automation`
 
-- **[myflow-automation]** Nothing checks a MODIFIED block against the current spec until archive time; `openspec validate --strict` passed all nineteen rounds and the abort came at the final irreversible step — filed: KAN-278
-- **[myflow-automation]** Mutation-proving is entirely hand-run — roughly forty mutations, one of which was blunt enough to prove nothing — filed: KAN-279
-- **[myflow-automation]** Commit messages quoting assertion counts go stale every fix round; this one went stale twice, once still asserting a parity claim the code no longer had — filed: KAN-280
+- **[flow-automation]** Nothing checks a MODIFIED block against the current spec until archive time; `openspec validate --strict` passed all nineteen rounds and the abort came at the final irreversible step — filed: KAN-278
+- **[flow-automation]** Mutation-proving is entirely hand-run — roughly forty mutations, one of which was blunt enough to prove nothing — filed: KAN-279
+- **[flow-automation]** Commit messages quoting assertion counts go stale every fix round; this one went stale twice, once still asserting a parity claim the code no longer had — filed: KAN-280
 
-## What could move to the Go app or its persistent storage — `myflow-stats-app`
+## What could move to the Go app or its persistent storage — `flow-stats-app`
 
-- **[myflow-stats-app]** This run is the store-native argument lived: 23 findings, ~40 mutations and 19 rounds recorded in one markdown file, at a path this very change had to fix — filed: KAN-258
-- **[myflow-stats-app]** Nothing reconciles the stage-mark journal after a store outage, so this run's stage timings are permanently partial — declined
+- **[flow-stats-app]** This run is the store-native argument lived: 23 findings, ~40 mutations and 19 rounds recorded in one markdown file, at a path this very change had to fix — filed: KAN-258
+- **[flow-stats-app]** Nothing reconciles the stage-mark journal after a store outage, so this run's stage timings are permanently partial — declined
 
 ## Orchestrator errors, all caught and corrected
 

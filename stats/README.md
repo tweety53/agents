@@ -206,8 +206,8 @@ curl -s 'http://127.0.0.1:4173/api/v1/stage-runs?id=<id>' | jq '.stageRuns[0] | 
 
 Expect `sessionId` to be a real session id, not `null`, and `metrics` to
 carry a non-empty `tokens` object and a `cost_usd` — not `{}`. A stage
-still short of its first flushed turn, or run on a harness with no
-transcript (Cursor, Codex), stays `sessionId: null` with empty `metrics`
+still short of its first flushed turn, or run on a harness that writes no
+transcript, stays `sessionId: null` with empty `metrics`
 honestly — that is the *recorded, not measured* state (see "Pricing"
 above and this repository's `run-telemetry` capability), not a
 symptom by itself. What is a symptom: every stage run staying unbound

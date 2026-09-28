@@ -89,10 +89,12 @@ invocation is answered by those recorded figures, not by a number pasted here. R
 line and never changes the suite's own exit code.
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
-list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for
-`all` — to derive the installed set it classifies citations against, rather than only reading
-files already on disk. A single invocation measures about 0.84s — worth naming here since it is the one guard in this repository paying for a subprocess
-rather than a plain file scan.
+list: it shells out to a sandboxed `setup.sh` three times per invocation** — once for `global`, then
+`claude-code` and `zcode` into a sandboxed project — to derive the installed set it classifies
+citations against, rather than only reading files already on disk. A single invocation measured
+about 0.84s when it made two of those runs (`global` and the since-removed `all`) — worth naming
+here since it is the one guard in this repository paying for a subprocess rather than a plain file
+scan.
 <!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch kan-102-citations-resolve-to-installed-paths -->
 
 ## worktree setup
@@ -109,7 +111,6 @@ fails until the SPA is built once. `make web-build` is `npm ci && npm run build`
 ## lint
 
 ```bash
-scripts/check-vocabulary.sh
 scripts/check-references.sh
 scripts/check-python-suppressions.sh
 scripts/check-plan-provenance.sh

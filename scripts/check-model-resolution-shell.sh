@@ -97,7 +97,7 @@ echo "$ARCHIVE_BLOCK" | grep -q 'SELF_REVIEW_MODEL' || die "extracted archive bl
 echo "$SKILL_BLOCK" | grep -q 'SELF_REVIEW_MODEL' && die "SKILL.md's block still mentions SELF_REVIEW_MODEL — it resolves in archive.md now, this guard's own drift check"
 echo "$SKILL_BLOCK" | grep -q 'DEFAULT_MODEL' || die "extracted block does not mention DEFAULT_MODEL — heading or fence shape changed"
 echo "$SKILL_BLOCK" | grep -q '_TOGGLE' && die "SKILL.md's block still resolves a toggle — the decision is always the planner's, this guard's own drift check"
-echo "$SKILL_BLOCK" | grep -q 'PLANNING_MODEL' && die "extracted block still mentions PLANNING_MODEL — kan-488 removed it end to end, this guard's own drift check"
+echo "$SKILL_BLOCK" | grep -q 'PLANNING_MODEL' && die "extracted block still mentions PLANNING_MODEL — it is no longer resolved anywhere, this guard's own drift check"
 
 # Run order matches the run's own: Model resolution first, then archive step 9.
 BLOCK="$SKILL_BLOCK

@@ -31,8 +31,8 @@ import (
 
 // cicSetup is write_fixture_setup_sh's minimal installer: `global` symlinks
 // every skills/<name>/ and every always-on rules/*.mdc into
-// $HOME/.claude/{skills,rules} (and docs/ when present); `all <proj>` copies
-// CLAUDE.md into <proj>. Every fixture links one inode (writeExec).
+// $HOME/.claude/{skills,rules} (and docs/ when present); `claude-code <proj>`
+// and `zcode <proj>` copy CLAUDE.md into <proj>. Every fixture links one inode (writeExec).
 const cicSetup = `#!/usr/bin/env bash
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,7 +56,7 @@ case "$MODE" in
       ln -sfn "$SCRIPT_DIR/docs" "$HOME/.claude/docs"
     fi
     ;;
-  all)
+  claude-code|zcode)
     mkdir -p "$PROJ"
     if [ -f "$SCRIPT_DIR/CLAUDE.md" ] && [ ! -f "$PROJ/CLAUDE.md" ]; then
       cp "$SCRIPT_DIR/CLAUDE.md" "$PROJ/CLAUDE.md"
@@ -131,7 +131,7 @@ func TestCheckInstalledCitations(t *testing.T) {
 		{"agents-repo-prefix", flow, "# flow fixture\n`<agents repo>/README.md`\n", false},
 		{"project-prefix", flow, "# flow fixture\n`<project>/.flow/project.md`\n", false},
 		{"unrooted-directory", flow, "# flow fixture\n`.flow/project.md`\n", true},
-		{"unrooted-script", flow, "# flow fixture\n`scripts/check-vocabulary.sh`\n", true},
+		{"unrooted-script", flow, "# flow fixture\n`scripts/check-references.sh`\n", true},
 		{"fenced-command", flow, "# flow fixture\n\n```bash\ngit -C <abs-worktree> reset -- spectre/\n```\n", false},
 		{"fenced-comment", flow, "# flow fixture\n\n```bash\n# see spectre/\n```\n", true},
 		{"fenced-comment-agents-repo-prefix", flow, "# flow fixture\n\n```bash\n# see <agents repo>/README.md for details\n```\n", false},
@@ -153,7 +153,7 @@ func TestCheckInstalledCitations(t *testing.T) {
 		{"origin-directory-is-a-citation", flow, "# flow fixture\n`origin/rules/`\n", true},
 		{"second-word-in-backtick-span-is-seen", flow, "# flow fixture\n`see .flow/project.md`\n", true},
 		{"shell-example-second-word-not-path-shaped", flow, "# flow fixture\n`skills/other/SKILL.md verbose`\n", false},
-		{"skill-dir-rooted", flow, "# flow fixture\n`<skill-dir>/scripts/check-vocabulary.sh`\n", false},
+		{"skill-dir-rooted", flow, "# flow fixture\n`<skill-dir>/scripts/check-references.sh`\n", false},
 		{"spectre-branch-with-change-name-is-not-a-citation", flow, "# flow fixture\n`spectre/<change-name>`\n", false},
 		{"spectre-shape-with-real-path-is-still-reported", flow, "# flow fixture\n`spectre/specs/x.md`\n", true},
 		{"spectre-shape-with-trailing-path-is-still-reported", flow, "# flow fixture\n`spectre/changes/<name>/`\n", true},
@@ -281,7 +281,7 @@ func TestCheckInstalledCitations(t *testing.T) {
 	t.Run("a fixture with two violations: exit 1, two path:line lines, a verdict naming 2", func(t *testing.T) {
 		t.Parallel()
 		root := cicFixture(t)
-		writeFile(t, root+"/"+flow, "# flow fixture\n`.flow/project.md`\n`scripts/check-vocabulary.sh`\n")
+		writeFile(t, root+"/"+flow, "# flow fixture\n`.flow/project.md`\n`scripts/check-references.sh`\n")
 		r := cicRun(t, root, nil)
 		if r.rc != 1 || strings.Count("\n"+r.out, "\n"+flow+":") != 2 || !strings.Contains(r.out, "2 violation(s)") {
 			t.Fatalf("rc=%d out=%q err=%q", r.rc, r.out, r.errOut)
@@ -331,8 +331,9 @@ func TestCheckInstalledCitations(t *testing.T) {
 			t.Fatal(err)
 		}
 		lines := strings.Split(strings.TrimSuffix(string(got), "\n"), "\n")
-		if len(lines) != 2 || !strings.HasPrefix(lines[0], "global ") || !strings.HasPrefix(lines[1], "all ") {
-			t.Fatalf("setup.sh runs = %q, want global then all", lines)
+		if len(lines) != 3 || !strings.HasPrefix(lines[0], "global ") || !strings.HasPrefix(lines[1], "claude-code ") ||
+			!strings.HasPrefix(lines[2], "zcode ") {
+			t.Fatalf("setup.sh runs = %q, want global, then claude-code, then zcode", lines)
 		}
 		tmpPhys, _ := filepath.EvalSymlinks(tmp)
 		for _, l := range lines {

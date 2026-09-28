@@ -356,7 +356,7 @@ type tokenBucket struct {
 // the JSON object `{}` on the way in -- never zero-length, never SQL NULL
 // -- so `{}` is the shape of every dispatch between `flow record
 // dispatch` and the harvester running, and the PERMANENT shape of every
-// dispatch on Cursor and Codex, which write no transcript at all. It
+// dispatch on a harness that writes no transcript at all. It
 // unmarshals silently into a zero-valued struct, so a `len(raw) == 0` test
 // would report `input 0, output 0, ...` for the majority of real rows
 // while agreeing with every hand-built Dispatch{} in a test. Hence the

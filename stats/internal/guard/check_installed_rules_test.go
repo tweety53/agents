@@ -18,8 +18,8 @@ import (
 //
 // Like the harness, every case runs against this repository's own rules/
 // and, unless a case overrides it, this checkout's own setup.sh — whose
-// managed_files declaration names ~/.zcode/AGENTS.md, which no fixture home
-// carries, hence the "not scanned" note on every scanning case. No case
+// managed_files declaration names ~/.claude/CLAUDE.md and ~/.zcode/AGENTS.md,
+// both of which every fixture home carries. No case
 // reads or writes the operator's real $HOME: CHECK_INSTALLED_RULES_HOME (or,
 // for the worktree case, HOME itself) names a t.TempDir().
 
@@ -56,13 +56,13 @@ func cirHome(t *testing.T, root string, rules []string) string {
 	t.Helper()
 	home := t.TempDir()
 	mkdir(t, home+"/.claude/rules")
-	mkdir(t, home+"/.codex")
+	mkdir(t, home+"/.zcode")
 	for _, r := range rules {
 		cirLink(t, root+"/rules/"+r, home+"/.claude/rules/"+strings.TrimSuffix(r, ".mdc")+".md")
 	}
 	cirLink(t, root+"/rules/agent-baseline.md", home+"/.claude/rules/agent-baseline.md")
 	cirBlock(t, home+"/.claude/CLAUDE.md", rules)
-	cirBlock(t, home+"/.codex/AGENTS.md", rules)
+	cirBlock(t, home+"/.zcode/AGENTS.md", rules)
 	return home
 }
 
@@ -118,7 +118,6 @@ func TestCheckInstalledRules(t *testing.T) {
 	n := strconv.Itoa(len(rules))
 
 	const p = "check-installed-rules: "
-	zcode := func(home string) string { return p + home + "/.zcode/AGENTS.md does not exist, not scanned\n" }
 	stale := func(home string, v int) string {
 		return "INSTALLED-RULES-STALE: " + home + " — " + strconv.Itoa(v) + " violation(s); re-run ./setup.sh global from " + root + "\n"
 	}
@@ -144,7 +143,7 @@ func TestCheckInstalledRules(t *testing.T) {
 		{"clean: a complete install passes", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
 			return fixture{root: root, home: h}, result{0,
-				"INSTALLED-RULES-OK: " + h + " — " + n + " always-on rule(s) installed and rendered\n", zcode(h)}
+				"INSTALLED-RULES-OK: " + h + " — " + n + " always-on rule(s) installed and rendered\n", ""}
 		}},
 		{"missing_link: an always-on rule that was never installed", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
@@ -153,10 +152,10 @@ func TestCheckInstalledRules(t *testing.T) {
 				t.Fatal(err)
 			}
 			cirDropMarker(t, h+"/.claude/CLAUDE.md", first)
-			cirDropMarker(t, h+"/.codex/AGENTS.md", first)
+			cirDropMarker(t, h+"/.zcode/AGENTS.md", first)
 			return fixture{root: root, home: h}, result{1, stale(h, 3),
 				p + installed + " is missing — rules/" + first + " is always-on but was never installed\n" +
-					unrendered(h+"/.claude/CLAUDE.md", first) + unrendered(h+"/.codex/AGENTS.md", first) + zcode(h)}
+					unrendered(h+"/.claude/CLAUDE.md", first) + unrendered(h+"/.zcode/AGENTS.md", first)}
 		}},
 		{"copy_not_link: a copied rule file", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
@@ -170,7 +169,7 @@ func TestCheckInstalledRules(t *testing.T) {
 			}
 			writeFile(t, installed, string(b))
 			return fixture{root: root, home: h}, result{1, stale(h, 1),
-				p + installed + " is not a symlink — a copy goes stale the next time the rule is edited\n" + zcode(h)}
+				p + installed + " is not a symlink — a copy goes stale the next time the rule is edited\n"}
 		}},
 		{"dangling: a link whose target is gone", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
@@ -180,7 +179,7 @@ func TestCheckInstalledRules(t *testing.T) {
 			}
 			cirLink(t, root+"/rules/no-such-rule.mdc", installed)
 			return fixture{root: root, home: h}, result{1, stale(h, 1),
-				p + installed + " is a dangling symlink — it points at " + root + "/rules/no-such-rule.mdc, which does not exist\n" + zcode(h)}
+				p + installed + " is a dangling symlink — it points at " + root + "/rules/no-such-rule.mdc, which does not exist\n"}
 		}},
 		{"foreign_checkout: a link resolving into another tree", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
@@ -196,13 +195,13 @@ func TestCheckInstalledRules(t *testing.T) {
 			}
 			cirLink(t, other+"/rules/"+first, installed)
 			return fixture{root: root, home: h}, result{1, stale(h, 1),
-				p + installed + " points at " + other + "/rules/" + first + ", not this checkout's " + root + "/rules/" + first + "\n" + zcode(h)}
+				p + installed + " points at " + other + "/rules/" + first + ", not this checkout's " + root + "/rules/" + first + "\n"}
 		}},
 		{"retired: a link for a rule this checkout no longer has", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
 			cirLink(t, root+"/rules/"+first, h+"/.claude/rules/retired-rule.md")
 			return fixture{root: root, home: h}, result{1, stale(h, 1),
-				p + h + "/.claude/rules/retired-rule.md is installed but rules/retired-rule.mdc is not an always-on rule here — a stale link still reads as installed\n" + zcode(h)}
+				p + h + "/.claude/rules/retired-rule.md is installed but rules/retired-rule.mdc is not an always-on rule here — a stale link still reads as installed\n"}
 		}},
 		{"no_baseline: the agent baseline is not installed", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
@@ -210,17 +209,26 @@ func TestCheckInstalledRules(t *testing.T) {
 				t.Fatal(err)
 			}
 			return fixture{root: root, home: h}, result{1, stale(h, 1),
-				p + h + "/.claude/rules/agent-baseline.md is missing or dangling — every subagent dispatch points at it\n" + zcode(h)}
+				p + h + "/.claude/rules/agent-baseline.md is missing or dangling — every subagent dispatch points at it\n"}
 		}},
 		{"unrendered_claude: linked but absent from CLAUDE.md", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
 			cirDropMarker(t, h+"/.claude/CLAUDE.md", first)
-			return fixture{root: root, home: h}, result{1, stale(h, 1), unrendered(h+"/.claude/CLAUDE.md", first) + zcode(h)}
+			return fixture{root: root, home: h}, result{1, stale(h, 1), unrendered(h+"/.claude/CLAUDE.md", first)}
 		}},
-		{"unrendered_codex: linked but absent from AGENTS.md", func(t *testing.T) (fixture, result) {
+		{"unrendered_zcode: linked but absent from AGENTS.md", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
-			cirDropMarker(t, h+"/.codex/AGENTS.md", first)
-			return fixture{root: root, home: h}, result{1, stale(h, 1), unrendered(h+"/.codex/AGENTS.md", first) + zcode(h)}
+			cirDropMarker(t, h+"/.zcode/AGENTS.md", first)
+			return fixture{root: root, home: h}, result{1, stale(h, 1), unrendered(h+"/.zcode/AGENTS.md", first)}
+		}},
+		{"absent_managed_file: a declared file that does not exist is noted, not scanned", func(t *testing.T) (fixture, result) {
+			h := cirHome(t, root, rules)
+			if err := os.Remove(h + "/.zcode/AGENTS.md"); err != nil {
+				t.Fatal(err)
+			}
+			return fixture{root: root, home: h}, result{0,
+				"INSTALLED-RULES-OK: " + h + " — " + n + " always-on rule(s) installed and rendered\n",
+				p + h + "/.zcode/AGENTS.md does not exist, not scanned\n"}
 		}},
 		{"stale_marker: a rendered rule this checkout does not have", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
@@ -228,7 +236,7 @@ func TestCheckInstalledRules(t *testing.T) {
 			b, _ := os.ReadFile(f)
 			writeFile(t, f, string(b)+"\n<!-- rule: retired-rule.mdc -->\n\nbody\n")
 			return fixture{root: root, home: h}, result{1, stale(h, 1),
-				p + f + " renders retired-rule.mdc, which is not an always-on rule here\n" + zcode(h)}
+				p + f + " renders retired-rule.mdc, which is not an always-on rule here\n"}
 		}},
 		{"worktree: a linked worktree is skipped, not failed", func(t *testing.T) (fixture, result) {
 			h := cirHome(t, root, rules)
@@ -268,14 +276,14 @@ func TestCheckInstalledRules(t *testing.T) {
 				t.Fatal(err)
 			}
 			return fixture{root: root, home: h}, result{1, stale(h, 1),
-				p + installed + " is missing — rules/" + first + " is always-on but was never installed\n" + zcode(h)}
+				p + installed + " is missing — rules/" + first + " is always-on but was never installed\n"}
 		}},
 		{"served_managed_files: a file the installer added is scanned", func(t *testing.T) (fixture, result) {
 			setup := t.TempDir() + "/setup.sh"
 			writeFile(t, setup, `install_global() {
   # The managed-block targets, declared once so the preflight below and the
   # install below can never scan a different set than they write.
-  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md" "$home_dir/.warp/AGENTS.md")
+  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.zcode/AGENTS.md" "$home_dir/.warp/AGENTS.md")
 }
 `)
 			h := cirHome(t, root, rules)
@@ -299,7 +307,7 @@ func TestCheckInstalledRules(t *testing.T) {
 		}},
 		{"multiline_declaration: a multi-line declaration is refused, never truncated", func(t *testing.T) (fixture, result) {
 			setup := t.TempDir() + "/setup.sh"
-			writeFile(t, setup, `  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md"
+			writeFile(t, setup, `  local managed_files=("$home_dir/.claude/CLAUDE.md"
     "$home_dir/.zcode/AGENTS.md")
 `)
 			h := cirHome(t, root, rules)
@@ -335,7 +343,7 @@ func TestCheckInstalledRules(t *testing.T) {
 			writeFile(t, f, string(b)+"<!-- rule: Zeta.mdc -->\n<!-- rule: alpha.mdc --> <!-- rule: alpha.mdc -->\n")
 			return fixture{root: root, home: h, vars: map[string]string{"LC_ALL": "en_US.UTF-8"}}, result{1, stale(h, 2),
 				p + f + " renders alpha.mdc, which is not an always-on rule here\n" +
-					p + f + " renders Zeta.mdc, which is not an always-on rule here\n" + zcode(h)}
+					p + f + " renders Zeta.mdc, which is not an always-on rule here\n"}
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

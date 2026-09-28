@@ -44,8 +44,7 @@ trap 'chmod -R u+rwX "$FIX" 2>/dev/null || true; rm -rf "$FIX"' EXIT
 # A root missing one of them is an exit-2 case, exercised deliberately below;
 # every other case starts from a complete root so it tests what it says it does.
 mkroot() {
-  mkdir -p "$1/skills" "$1/rules" "$1/spectre/specs" "$1/commands" \
-    "$1/commands-claude" "$1/.flow"
+  mkdir -p "$1/skills" "$1/rules" "$1/spectre/specs" "$1/commands-claude" "$1/.flow"
 }
 
 # inv <root> — the inventory for <root>. A non-zero exit here is a harness
@@ -314,7 +313,7 @@ fi
 # scanned — or one that swallows its neighbour — fails here.
 
 mkroot "$FIX/shapes"
-cat > "$FIX/shapes/commands/a.md" <<'EOF'
+cat > "$FIX/shapes/commands-claude/a.md" <<'EOF'
 ## A heading that SHALL be its own block
 
 - A bullet that MUST stand alone.

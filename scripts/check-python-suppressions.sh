@@ -23,8 +23,7 @@
 # fix for the finding a marker hides is the code, never the marker.
 #
 # WHAT A GREEN RUN DOES NOT PROVE — read before trusting it. This is a
-# regression guard for a fixed list of markers, exactly like
-# check-vocabulary.sh's own header states for retired vocabulary. It does not
+# regression guard for a fixed list of markers. It does not
 # prove the Python is lint-clean: no linter runs over this repository's
 # Python, and a suppression form outside the list (`# ruff:
 # per-file-ignores` in a config file, a decorator no entry names) passes

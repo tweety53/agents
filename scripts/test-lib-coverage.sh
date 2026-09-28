@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Assertion harness for scripts/lib/coverage.sh — the shared per-member
-# coverage library tasks 2-5 (check-guard-symlinks.sh, check-references.sh,
-# check-vocabulary.sh, check-stage-mark-calls.sh) each source. Sources the
+# coverage library check-guard-symlinks.sh, check-references.sh and
+# check-stage-mark-calls.sh each source. Sources the
 # library directly rather than through any guard, per kan-197's task 1: the
 # thing under test is the library's own contract, not any guard's use of it.
 #

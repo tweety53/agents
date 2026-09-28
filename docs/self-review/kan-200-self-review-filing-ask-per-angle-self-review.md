@@ -7,35 +7,35 @@
 **This is the first report written under the five-angle rule this change introduced**, and the first
 subject `scripts/check-self-review-report.sh` will check.
 
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** The plan's `Tests:` field named guard scripts inside a parenthetical, and the commit-fields guard parsed them as declared tests (commented on KAN-193) — declined
-- **[myflow-fix]** The review panel record was hand-written without its required marker block, and nothing caught it until the unfinished-work gate at integration — filed: KAN-205
-- **[myflow-fix]** The delta spec refused to archive after the change had already merged, because its MODIFIED blocks renamed scenarios — filed: KAN-206
-- **[myflow-fix]** A requirement in the same capability still said "the four-angle report", where no review slot could see it — filed: KAN-207
+- **[flow-fix]** The plan's `Tests:` field named guard scripts inside a parenthetical, and the commit-fields guard parsed them as declared tests (commented on KAN-193) — declined
+- **[flow-fix]** The review panel record was hand-written without its required marker block, and nothing caught it until the unfinished-work gate at integration — filed: KAN-205
+- **[flow-fix]** The delta spec refused to archive after the change had already merged, because its MODIFIED blocks renamed scenarios — filed: KAN-206
+- **[flow-fix]** A requirement in the same capability still said "the four-angle report", where no review slot could see it — filed: KAN-207
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-cost]** The review loop consumed 67% of the change — ~1.79M of ~2.67M tokens (commented on KAN-201) — declined
-- **[myflow-cost]** Full escalation fired on every round because "the fix altered a guard's behaviour" cannot discriminate on a change whose deliverable is a guard — filed: KAN-208
+- **[flow-cost]** The review loop consumed 67% of the change — ~1.79M of ~2.67M tokens (commented on KAN-201) — declined
+- **[flow-cost]** Full escalation fired on every round because "the fix altered a guard's behaviour" cannot discriminate on a change whose deliverable is a guard — filed: KAN-208
 
-## What went well — `myflow-improvement`
+## What went well — `flow-improvement`
 
-- **[myflow-improvement]** Mutation testing became the panel's standard and the panel enforced it recursively, catching a fix round that had not applied it to itself — filed: KAN-209
-- **[myflow-improvement]** Reviewers corrected the parent twice on method rather than on code — a mutation that would have passed by cross-contamination, and a verification that cannot verify — filed: KAN-210
-- **[myflow-improvement]** Three prior follow-ups were exercised and all three worked (commented on KAN-192, KAN-195 and KAN-202) — declined
+- **[flow-improvement]** Mutation testing became the panel's standard and the panel enforced it recursively, catching a fix round that had not applied it to itself — filed: KAN-209
+- **[flow-improvement]** Reviewers corrected the parent twice on method rather than on code — a mutation that would have passed by cross-contamination, and a verification that cannot verify — filed: KAN-210
+- **[flow-improvement]** Three prior follow-ups were exercised and all three worked (commented on KAN-192, KAN-195 and KAN-202) — declined
 
-## Automation candidates — `myflow-automation`
+## Automation candidates — `flow-automation`
 
-- **[myflow-automation]** Emit or validate the panel record's marker block at panel close rather than two stages downstream — filed: KAN-205
-- **[myflow-automation]** Run the archive's own check while the delta is still editable, before the PR — filed: KAN-206
-- **[myflow-automation]** Collapse the guard's awk-to-bash boundary, which produced three of this change's findings one manifestation at a time — filed: KAN-211
+- **[flow-automation]** Emit or validate the panel record's marker block at panel close rather than two stages downstream — filed: KAN-205
+- **[flow-automation]** Run the archive's own check while the delta is still editable, before the PR — filed: KAN-206
+- **[flow-automation]** Collapse the guard's awk-to-bash boundary, which produced three of this change's findings one manifestation at a time — filed: KAN-211
 
-## Stats app and storage — `myflow-stats-app`
+## Stats app and storage — `flow-stats-app`
 
-- **[myflow-stats-app]** Per-slot, per-round findings are structured data that dies with the panel record (commented on KAN-198) — declined
-- **[myflow-stats-app]** Per-dispatch cost is recorded nowhere durable; every figure in this report was scraped from a session transcript — filed: KAN-212
-- **[myflow-stats-app]** The guard's declared pre-rule list only shrinks, and nothing observes whether it does — filed: KAN-213
+- **[flow-stats-app]** Per-slot, per-round findings are structured data that dies with the panel record (commented on KAN-198) — declined
+- **[flow-stats-app]** Per-dispatch cost is recorded nowhere durable; every figure in this report was scraped from a session transcript — filed: KAN-212
+- **[flow-stats-app]** The guard's declared pre-rule list only shrinks, and nothing observes whether it does — filed: KAN-213
 
 ## Notes on this run
 
@@ -61,7 +61,7 @@ de-duplicating overlaps between slots, not 10. A marker block written as finding
 drift that way, which is part of KAN-205's argument.
 
 **A wrinkle in the rule this change just landed:** the contract says a filed issue inherits *every*
-label on the linked issue. KAN-200 itself carries `myflow-fix`, so inheriting literally would stamp
-`myflow-fix` onto cost and stats-app tickets and corrupt the query the labels exist for. These
+label on the linked issue. KAN-200 itself carries `flow-fix`, so inheriting literally would stamp
+`flow-fix` onto cost and stats-app tickets and corrupt the query the labels exist for. These
 filings inherited the non-angle labels only, plus the filing's own angle label. The rule needs that
 exception stated.

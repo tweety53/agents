@@ -100,11 +100,6 @@ neither the write into the store nor the render out of it invents a model slug. 
   dispatches each name their model explicitly, and the ledger line for that dispatch is what
   records that they did. Planning has no dispatch to name a model for — it runs on the session's
   own model.
-- **Cursor**: no per-command model frontmatter, so no model is enforceable from a command file —
-  each `.cursor/commands/flow*.md` carries an explicit note; switch models manually in the
-  composer/chat picker.
-- **Codex**: no per-command/skill model override mechanism either — model is a session or profile
-  level setting; switch manually before starting a new proposal.
 - **ZCode**: one model, see **Harness mapping** below.
 
 ## Harness mapping

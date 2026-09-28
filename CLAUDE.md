@@ -19,8 +19,8 @@ section — named here so this file states them rather than leaving a placeholde
 ```bash
 cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
                                                           # this repository has an auto-fix command
-scripts/check-vocabulary.sh                              # plus every other scripts/check-*.sh guard
-scripts/check-references.sh                               # named in .flow/project.md's `## lint`
+scripts/check-references.sh                               # plus every other scripts/check-*.sh guard
+                                                          # named in <project>/.flow/project.md's `## lint`
 cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
 cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
 ```

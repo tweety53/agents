@@ -426,7 +426,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 // something, not zero-as-if-measured, but honestly absent, exactly the
 // third arm task 5 gave the interface (design.md, "the third arm of the
 // absence distinction"). This is the honest-degradation path a harness
-// with no transcript at all (Cursor, Codex) takes on every mark, and the
+// with no transcript at all takes on every mark, and the
 // half most likely to rot unnoticed since it produces no error anywhere.
 func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 	st := newEndToEndStore(t)
@@ -451,7 +451,7 @@ func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 	run, err := st.BeginStage(ctx, store.BeginStageInput{
 		ProjectKey:   projectKey,
 		ChangeName:   changeName,
-		Harness:      "codex",
+		Harness:      "no-transcript-harness",
 		SessionToken: &sessionToken,
 		Command:      "/flow",
 		Stage:        "do.tests",
@@ -462,8 +462,8 @@ func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 	}
 
 	// No transcript is ever written: the "harness produces no transcript
-	// at all" case design.md's rejected-alternatives section calls out
-	// for Cursor and Codex. An empty directory is enough to prove the
+	// at all" case design.md's rejected-alternatives section calls out.
+	// An empty directory is enough to prove the
 	// watcher does not invent a session for it.
 	dir := t.TempDir()
 	windows := e2eWindowSource{st}

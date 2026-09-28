@@ -30,12 +30,9 @@ const tokensPerMillion = 1_000_000.0
 // one model, in effect from effectiveFrom onward until superseded by a
 // later row for the same model.
 //
-// CacheWritePerMTok is the original, single cache-write rate (0003
-// _stage_runs.sql) -- kept because the column still exists (0007
-// _pricing_rate_shape.sql leaves it in place) but no longer read by Price,
-// which now charges CacheWrite5mPerMTok and CacheWrite1hPerMTok
-// separately: the two rates Anthropic actually charges (task 23), which a
-// single collapsed rate cannot represent correctly. CacheWrite1hPerMTok,
+// Price charges CacheWrite5mPerMTok and CacheWrite1hPerMTok separately:
+// the two rates Anthropic actually charges (task 23), which a single
+// collapsed rate cannot represent correctly. CacheWrite1hPerMTok,
 // FastInputPerMTok and FastOutputPerMTok are nullable, matching their
 // nullable columns: a nil here means no rate was ever published for that
 // component (a model with no fast-mode rate at all, or a pre-0007 row
@@ -47,7 +44,6 @@ type PricingRate struct {
 	EffectiveFrom       time.Time
 	InputPerMTok        float64
 	OutputPerMTok       float64
-	CacheWritePerMTok   float64
 	CacheWrite5mPerMTok float64
 	CacheWrite1hPerMTok *float64
 	CacheReadPerMTok    float64
@@ -61,20 +57,19 @@ func (s *Store) PutPricing(ctx context.Context, r PricingRate) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO pricing (
 			model, effective_from, input_per_mtok, output_per_mtok,
-			cache_write_per_mtok, cache_write_5m_per_mtok, cache_write_1h_per_mtok,
+			cache_write_5m_per_mtok, cache_write_1h_per_mtok,
 			cache_read_per_mtok, fast_input_per_mtok, fast_output_per_mtok
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (model, effective_from) DO UPDATE SET
 			input_per_mtok          = EXCLUDED.input_per_mtok,
 			output_per_mtok         = EXCLUDED.output_per_mtok,
-			cache_write_per_mtok    = EXCLUDED.cache_write_per_mtok,
 			cache_write_5m_per_mtok = EXCLUDED.cache_write_5m_per_mtok,
 			cache_write_1h_per_mtok = EXCLUDED.cache_write_1h_per_mtok,
 			cache_read_per_mtok     = EXCLUDED.cache_read_per_mtok,
 			fast_input_per_mtok     = EXCLUDED.fast_input_per_mtok,
 			fast_output_per_mtok    = EXCLUDED.fast_output_per_mtok
 	`, r.Model, r.EffectiveFrom, r.InputPerMTok, r.OutputPerMTok,
-		r.CacheWritePerMTok, r.CacheWrite5mPerMTok, r.CacheWrite1hPerMTok,
+		r.CacheWrite5mPerMTok, r.CacheWrite1hPerMTok,
 		r.CacheReadPerMTok, r.FastInputPerMTok, r.FastOutputPerMTok)
 	if err != nil {
 		return fmt.Errorf("store: put pricing for %s @ %s: %w", r.Model, r.EffectiveFrom, err)
@@ -129,17 +124,13 @@ func (t chargeableTokens) hasCharge() bool {
 //     but understates the true cost by exactly the unpriced amount -- the
 //     same "partial sum looks like a correct one" failure Price's own
 //     top-level cost_usd rule already guards against, one level down.
-//     Where the row's cache-write columns AGREE on one value -- a 1h rate
-//     equal to the 5m rate, or a nil 1h rate with the collapsed legacy
-//     column equal to the 5m rate (the row was published flat) -- the
-//     unknown split is priced at that one value, which is exact rather
-//     than a guess (kan-479): ZCode reports a single collapsed
+//     Where the row's 1h rate equals its 5m rate (the row was published
+//     flat) the unknown split is priced at that one value, which is exact
+//     rather than a guess (kan-479): ZCode reports a single collapsed
 //     cacheWriteTokens with no 5m/1h split, and a model with one flat
 //     cache-write rate charges that same rate whichever TTL the provider
 //     picked internally. A row whose columns disagree (the seeded Claude
-//     rows, where 5m and 1h genuinely differ) or whose split was never
-//     filled in at all (a pre-0007 row carrying only the collapsed
-//     column, where the zero 5m rate is an unset, not a published free)
+//     rows, where 5m and 1h genuinely differ) or carries no 1h rate at all
 //     still refuses.
 //   - t carries CacheCreation1h but rate has no CacheWrite1hPerMTok (a
 //     pre-0007 pricing row, or one nobody has published a 1-hour rate
@@ -151,9 +142,7 @@ func (t chargeableTokens) hasCharge() bool {
 //     standard rate.
 func (t chargeableTokens) cost(rate PricingRate, fast bool) (cost float64, ok bool) {
 	if t.CacheCreationUnknown != nil {
-		oneRateInEffect := (rate.CacheWrite1hPerMTok != nil && *rate.CacheWrite1hPerMTok == rate.CacheWrite5mPerMTok) ||
-			(rate.CacheWrite1hPerMTok == nil && rate.CacheWritePerMTok == rate.CacheWrite5mPerMTok)
-		if !oneRateInEffect {
+		if rate.CacheWrite1hPerMTok == nil || *rate.CacheWrite1hPerMTok != rate.CacheWrite5mPerMTok {
 			return 0, false
 		}
 	}
@@ -611,7 +600,7 @@ func (s *Store) pricingRateInEffect(ctx context.Context, model string, at time.T
 	var r PricingRate
 	err := s.pool.QueryRow(ctx, `
 		SELECT model, effective_from, input_per_mtok, output_per_mtok,
-		       cache_write_per_mtok, cache_write_5m_per_mtok, cache_write_1h_per_mtok,
+		       cache_write_5m_per_mtok, cache_write_1h_per_mtok,
 		       cache_read_per_mtok, fast_input_per_mtok, fast_output_per_mtok
 		FROM pricing
 		WHERE model = $1 AND effective_from <= $2
@@ -619,7 +608,7 @@ func (s *Store) pricingRateInEffect(ctx context.Context, model string, at time.T
 		LIMIT 1
 	`, model, at).Scan(
 		&r.Model, &r.EffectiveFrom, &r.InputPerMTok, &r.OutputPerMTok,
-		&r.CacheWritePerMTok, &r.CacheWrite5mPerMTok, &r.CacheWrite1hPerMTok,
+		&r.CacheWrite5mPerMTok, &r.CacheWrite1hPerMTok,
 		&r.CacheReadPerMTok, &r.FastInputPerMTok, &r.FastOutputPerMTok,
 	)
 	if err != nil {

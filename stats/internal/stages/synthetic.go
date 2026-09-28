@@ -16,4 +16,7 @@ package stages
 // (see the package doc in names.go) is for -- keeping it here means the
 // daemon's writer and the CLI's reader can never drift onto two copies of
 // the same literal.
-const SyntheticChangeUpdatedBy = "myflow stage begin (synthetic)"
+//
+// Rows written under the earlier "myflow stage begin (synthetic)" value were
+// rewritten to this one by migration 0031_drop_legacy_shapes.sql.
+const SyntheticChangeUpdatedBy = "flow stage begin (synthetic)"

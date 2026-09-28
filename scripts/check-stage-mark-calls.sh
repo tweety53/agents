@@ -55,13 +55,11 @@
 # at all, so there is nothing on them for these rules to say.
 #
 # `-harness` FAILS THE OPPOSITE WAY: a value that IS a literal is the defect.
-# These skill files are one source installed into `~/.claude/skills/`,
-# `~/.cursor/skills/` and `~/.codex/skills/` alike (CLAUDE.md's "installed
-# alongside the skills in every harness"), so a hardcoded `-harness
-# claude-code` in the shared source mislabels every Cursor and Codex run as
-# Claude Code — masking the very thing the harness field exists to record:
-# that Cursor and Codex write no transcript, so their runs are *explicitly
-# unavailable* rather than zero. The skill source must instead carry a
+# These skill files are one source installed into `~/.claude/skills/` and
+# `~/.zcode/skills/` alike (CLAUDE.md's "installed alongside the skills in
+# every harness"), so a hardcoded `-harness claude-code` in the shared source
+# mislabels every ZCode run as Claude Code — masking the very thing the
+# harness field exists to record: which harness ran the stage. The skill source must instead carry a
 # placeholder the agent fills in at call time, exactly as `-session-token`'s literal
 # token is filled in at call time — this guard requires the `-harness` value
 # to be written as a bracketed placeholder (`<harness>`) and rejects any bare

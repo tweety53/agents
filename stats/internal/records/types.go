@@ -54,8 +54,8 @@ import (
 // alone cannot say which of them a record inside the overlap belongs to.
 //
 // It is optional, and its absence is ordinary rather than degraded:
-// Cursor and Codex expose no such identifier at all, so on two of the
-// three supported harnesses every dispatch is recorded without one and
+// a harness that exposes no such identifier records every dispatch
+// without one, and
 // attribution falls back to the interval rule, which remains correct for
 // dispatches that do not overlap. An absent value is "" and means "not
 // reported"; it never matches another absent value.

@@ -27,7 +27,7 @@ any project.
 |------|------------|
 | `rules/` | Rules. Whether one is always-on is declared by `alwaysApply` in its own frontmatter; opt-in rules (e.g. the Kotlin backend standard) reach only projects that name them. `agent-baseline.md` is not a rule — it is the file every dispatched subagent is told to read |
 | `skills/` | The `/flow*` skills; `skills/flow-contracts/` holds the on-demand contracts, with `pipeline.md` canonical for the state machine. Command map: `skills/README.md` |
-| `commands/`, `commands-claude/` | Thin slash-command wrappers for Cursor and for Claude Code/ZCode |
+| `commands-claude/` | Thin slash-command wrappers for Claude Code and ZCode |
 | `agents/` | Subagent definitions (`flow-low`, `flow-medium`, `flow-high`) |
 | `hooks/` | `enforce-agent-baseline.py` (denies a dispatch missing the baseline pointer), `protect-main-checkout.py` (denies edits on a main checkout's default branch), `flow-active-change.py` (turns a plain problem report into a fix run) |
 | `scripts/` | The guards `/flow` runs, each with its `test-*.sh` harness |
@@ -226,7 +226,6 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
 
 **This repository's own lint.** It runs in `/flow`'s verify stage here:
 - `check-references.sh`: every ``**Section** (`file`)`` citation must point at a heading that exists.
-- `check-vocabulary.sh`: retired pipeline terms may not come back.
 - `check-stage-mark-calls.sh`: skills may mark only stage keys `flowd` knows.
 - `check-installed-rules.sh`: the rules installed on this machine must match `rules/`.
 
@@ -284,10 +283,10 @@ Never stop the live daemon or drop the `flow` database: every project's runs wri
 ./setup.sh global
 ```
 
-Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/`, `~/.cursor/` and
-`~/.zcode/`, and writes a managed block of always-on rules into `~/.claude/CLAUDE.md`,
-`~/.codex/AGENTS.md` and `~/.zcode/AGENTS.md`. It also exports `Z_COMPACT_WINDOW` from
-`~/.zshrc` (and `~/.bashrc` when present) for the `zcode` wrapper.
+Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/` and `~/.zcode/`, and
+writes a managed block of always-on rules into `~/.claude/CLAUDE.md` and `~/.zcode/AGENTS.md`. It
+also exports `Z_COMPACT_WINDOW` from `~/.zshrc` (and `~/.bashrc` when present) for the `zcode`
+wrapper.
 
 - **Edits to existing skills, commands and hooks are live** — they are symlinks. Re-run only when
   a file is added or removed.
@@ -303,10 +302,10 @@ Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/`, 
 
 ```bash
 cd /path/to/project
-/path/to/agents/setup.sh <cursor|claude-code|codex|zcode|all>
+/path/to/agents/setup.sh <claude-code|zcode>
 ```
 
-Links skills and commands into the project's `.cursor/`, `.claude/`, `.codex/` or `.zcode/`. It is
+Links skills and commands into the project's `.claude/` or `.zcode/`. It is
 also the **only** way an opt-in rule reaches a project: it reads the `## standards` section of
 `<project>/.flow/project.md`, keeps bare `*.mdc` names from `rules/` that are not already
 always-on, and renders them into a managed block in both `<project>/CLAUDE.md` and `AGENTS.md`.
@@ -318,19 +317,6 @@ Install Superpowers with `/plugin install prime-radiant-inc/superpowers`. Withou
 wrappers in `commands-claude/`, typing `/flow` fails with "Unknown command" — Claude Code finds
 skills by name, not by slash alias.
 
-### Codex
-
-Install the Superpowers Codex plugin per its README, then enable subagents:
-
-```toml
-# ~/.codex/config.toml
-[features]
-multi_agent = true
-```
-
-Codex picks the model per session, not per command: switch to a stronger one before a creating
-`/flow` run.
-
 ### ZCode
 
 ZCode has no Superpowers plugin channel; copy the skills once:
@@ -339,5 +325,6 @@ ZCode has no Superpowers plugin channel; copy the skills once:
 cp -R ~/.claude/plugins/cache/claude-plugins-official/superpowers/<version>/skills/* ~/.zcode/skills/
 ```
 
-Everything ZCode uses lives under `~/.zcode/`, with rule pointers rewritten from `~/.claude/`. Like
-Codex, it picks the model per session.
+Everything ZCode uses lives under `~/.zcode/`, with rule pointers rewritten from `~/.claude/`. It
+picks the model per session, not per command: switch to a stronger one before a creating `/flow`
+run.

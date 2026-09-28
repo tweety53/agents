@@ -1,42 +1,24 @@
-# Agent Instructions (Codex)
+# Agent Instructions (ZCode)
 
-This file is the active instruction set for Codex sessions in this project.
+This file is the active instruction set for ZCode sessions in this project.
 It contains mandatory rules and an index of project-specific skills.
 
 ---
 
-## Where a Codex session gets its rules
+## Where a ZCode session gets its rules
 
-Codex reads `<project>/AGENTS.md` — the project's own, plus `~/.codex/AGENTS.md` globally. It does
-not read `~/.claude/CLAUDE.md` or `~/.cursor/rules/`.
+ZCode reads `<project>/AGENTS.md` — the project's own, plus `~/.zcode/AGENTS.md` globally.
 
-`<agents repo>/setup.sh global` writes the always-on rules into a managed block in `~/.codex/AGENTS.md`,
+`<agents repo>/setup.sh global` writes the always-on rules into a managed block in `~/.zcode/AGENTS.md`,
 delimited by `<!-- flow:begin -->` / `<!-- flow:end -->`, using the same ordering check
-and self-poisoning guard as the Claude Code block. So a Codex session gets
+and self-poisoning guard as the Claude Code block, with its `~/.claude/` pointers rewritten to the
+`~/.zcode/` copies. So a ZCode session gets
 `flow-manual-review.mdc` and `lint-fix-priority.mdc` globally, and opt-in rules (such as
 the Kotlin backend standard) are deliberately excluded — a project activates those by
 naming them in `<project>/.flow/project.md`'s `## standards` section.
 
-Project-mode `<agents repo>/setup.sh codex` installs skills and this file but no rules, symmetrically
-with `claude-code`. Run `<agents repo>/setup.sh global` for the rule layer.
-
-### Codex has no slash-command layer
-
-`<agents repo>/setup.sh global` installs rules (the managed block in `~/.codex/AGENTS.md`) and
-skills (`~/.codex/skills/`, symlinked into this checkout) for Codex, but no commands — there is no
-`~/.codex/commands/` layer, so `/flow` does not resolve in a Codex session even though the skill it
-delegates to is installed. Invoke the skill directly instead:
-
-```
-Read file: ~/.codex/skills/flow/SKILL.md
-(then follow the instructions in that file)
-```
-
-Each file in `commands-claude/` is a thin wrapper naming one skill plus its accepted states, so
-reading the skill directly loses only the shorthand. Do not install a per-project
-`<agents repo>/setup.sh codex` copy to compensate: installs are additive, so a project-local copy shadows the
-global one and keeps a stale symlink for every entry later deleted from this checkout — which is
-what `link_into` and `prune_stale_links` exist to prevent.
+Project-mode `<agents repo>/setup.sh zcode` installs skills, commands and this file but no rules,
+symmetrically with `claude-code`. Run `<agents repo>/setup.sh global` for the rule layer.
 
 ---
 
@@ -45,7 +27,7 @@ what `link_into` and `prune_stale_links` exist to prevent.
 ### Lint Fix Priority
 
 The fix-first lint policy is a **global rule**, installed into the managed block in
-`~/.codex/AGENTS.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
+`~/.zcode/AGENTS.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
 source of truth, so the policy cannot drift between the global copy and this file.
 
 What is project-specific is which commands it means. Full list in `<project>/.flow/project.md`'s `## lint`
@@ -54,8 +36,8 @@ section — named here so this file states them rather than leaving a placeholde
 ```bash
 cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
                                                           # this repository has an auto-fix command
-scripts/check-vocabulary.sh                              # plus every other scripts/check-*.sh guard
-scripts/check-references.sh                               # named in .flow/project.md's `## lint`
+scripts/check-references.sh                               # plus every other scripts/check-*.sh guard
+                                                          # named in <project>/.flow/project.md's `## lint`
 cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
 cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
 ```
@@ -101,7 +83,7 @@ restated here. Stopping the dev stack is an operator action; the commands live i
 
 ## Project Skills (spectre / /flow workflow)
 
-These skills live in `skills/` next to this file (or in `<project>/.codex/skills/` if installed there).
+These skills live in `skills/` next to this file (or in `<project>/.zcode/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
 Every skill below but `flow-plan` and `flow-contracts` requires the `spectre` CLI to be
@@ -131,7 +113,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 ```
 
 **That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
-Codex loads this file into every session in this project, before `/flow` runs and
+ZCode loads this file into every session in this project, before `/flow` runs and
 before anything loads `skills/flow-contracts/pipeline.md` — being present without that load is the
 whole job of the block, which is why the always-on rule `rules/flow-manual-review.mdc` carries the
 same three lines. **What the copy reproduces is the states and the transitions, not the wording**,
@@ -182,7 +164,7 @@ Read file: skills/flow/SKILL.md
 The Superpowers plugin provides general-purpose workflow skills (brainstorming, TDD,
 subagent-driven-development, etc.). These are referenced by the `/flow` skill above.
 
-Install it per `<agents repo>/README.md`'s Codex section.
+Install it per `<agents repo>/README.md`'s ZCode section.
 
 After install, general skills auto-trigger from their descriptions. Project-specific `/flow`
 skills are loaded on demand by reading their `SKILL.md` as described above.

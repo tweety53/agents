@@ -4,7 +4,7 @@
 # Usage: scripts/test-setup.sh
 #
 # Takes no arguments. Every case runs against a throwaway HOME created under /tmp, and the
-# real ~/.claude, ~/.cursor and ~/.codex are fingerprinted before the first case and again
+# real ~/.claude and ~/.zcode are fingerprinted before the first case and again
 # after the last one — a mismatch fails the run. Nothing here writes outside the sandbox.
 #
 # WHY THIS EXISTS. `setup.sh` writes into the user's home directory, and two data-loss
@@ -30,15 +30,13 @@
 #
 #   It does NOT prove the installed content is correct or current — that a rule says the
 #   right thing, that a skill's prose is coherent, or that an agent reading the managed
-#   block behaves as intended. `check-vocabulary.sh` covers a slice of the prose question;
-#   agent behaviour is covered by neither and is a human job.
+#   block behaves as intended. Agent behaviour is a human job.
 #
-#   It does not cover `check-vocabulary.sh` (that script exercises itself), nor any harness
-#   the installer does not write, nor the per-project modes beyond what the containment
-#   cases need.
+#   It does not cover any harness the installer does not write, nor the per-project modes
+#   beyond what the containment cases need.
 #
 #   A green run means "the shapes listed below still behave as listed". Any shape nobody
-#   thought to list passes clean, exactly as with the vocabulary guard.
+#   thought to list passes clean.
 #
 # Two source trees are used, deliberately:
 #
@@ -298,13 +296,12 @@ EOF
 # frontmatter, and those are exactly the inputs two of the guarantees are about.
 make_fixture_repo() {
   local d="$1" bad="${2:-}"
-  mkdir -p "$d/rules" "$d/commands" "$d/commands-claude" "$d/skills/demo-skill"
+  mkdir -p "$d/rules" "$d/commands-claude" "$d/skills/demo-skill"
   cp "$REPO_ROOT/setup.sh" "$d/setup.sh" || die "cannot copy setup.sh into the fixture repo"
   chmod +x "$d/setup.sh"
   printf '# demo skill\n' >"$d/skills/demo-skill/SKILL.md"
   printf '# fixture CLAUDE.md\n' >"$d/CLAUDE.md"
   printf '# fixture AGENTS.md\n' >"$d/AGENTS.md"
-  printf '# demo command\n' >"$d/commands/demo.md"
   printf '# demo command\n' >"$d/commands-claude/demo.md"
 
   # Always-on: the one rule that must install.
@@ -353,7 +350,7 @@ make_fixture_repo() {
 # ---------------------------------------------------------------------------
 # Real-home fingerprint. Taken before the first case and compared after the last.
 #
-# Only the paths setup.sh can write are sampled — the four harness directories, their
+# Only the paths setup.sh can write are sampled — the two harness directories, their
 # skills/commands/rules subtrees one level down, the two managed instruction files, and any
 # .flow.bak beside them. A full recursive listing of ~/.claude would be dominated by
 # session state that changes on its own while this runs, which would make the check noisy
@@ -363,7 +360,7 @@ make_fixture_repo() {
 
 real_home_fingerprint() {
   local d p entry
-  for d in .claude .cursor .codex .zcode; do
+  for d in .claude .zcode; do
     for p in "$REAL_HOME/$d" "$REAL_HOME/$d/skills" "$REAL_HOME/$d/commands" "$REAL_HOME/$d/rules"; do
       if [[ -d "$p" ]]; then
         printf 'dir %s\n' "$p"
@@ -395,7 +392,7 @@ real_home_fingerprint() {
 # tree_fingerprint <path>... — stat-lines every regular file found under the given paths,
 # skipping any directory named __pycache__: a generated, .gitignore'd Python bytecode cache is
 # not source, the same reason .git itself is never walked. Shared between
-# source_tree_fingerprint() below and this harness's own KAN-369 regression case, so the case
+# source_tree_fingerprint() below and this harness's own __pycache__-churn case, so the case
 # can never drift from what production actually runs.
 tree_fingerprint() {
   local f
@@ -406,10 +403,10 @@ tree_fingerprint() {
 
 source_tree_fingerprint() {
   # scripts/ and README.md are included deliberately: without them the harness cannot
-  # detect damage to ITSELF or to the vocabulary guard, which is the one blind spot a
-  # write-through incident would exploit twice.
+  # detect damage to ITSELF, which is the one blind spot a write-through incident would
+  # exploit twice.
   tree_fingerprint \
-    "$REPO_ROOT/skills" "$REPO_ROOT/rules" "$REPO_ROOT/commands" "$REPO_ROOT/commands-claude" \
+    "$REPO_ROOT/skills" "$REPO_ROOT/rules" "$REPO_ROOT/commands-claude" \
     "$REPO_ROOT/scripts" \
     "$REPO_ROOT/setup.sh" "$REPO_ROOT/CLAUDE.md" "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/README.md"
 }
@@ -456,10 +453,10 @@ assert_contains "the abort names the delimiter shape" "$RUN_LOG" "not one begin 
 assert_identical "reversed: CLAUDE.md is byte-identical afterwards" "$target" "$SANDBOX/reversed-expected.md"
 assert_absent "reversed: no .flow.bak was written" "$target.flow.bak"
 
-# --- duplicated: two begins and two ends, seeded in the CODEX target so the second
+# --- duplicated: two begins and two ends, seeded in the ZCODE target so the second
 # managed file is exercised too (the first one is written before this is reached).
 new_home; home="$HOME_DIR"
-target="$home/.codex/AGENTS.md"
+target="$home/.zcode/AGENTS.md"
 seed_file "$target" 644 <<EOF
 # My own notes
 
@@ -506,22 +503,22 @@ group "Three consecutive global runs converge"
 
 new_home; home="$HOME_DIR"
 claude_md="$home/.claude/CLAUDE.md"
-codex_md="$home/.codex/AGENTS.md"
+zcode_md="$home/.zcode/AGENTS.md"
 
 for run in 1 2 3; do
   run_setup "$FIXTURE" "$home" global
   assert_rc_zero "run $run succeeds" "$RUN_RC" "$RUN_LOG"
   assert_eq "run $run: exactly one begin in CLAUDE.md" 1 "$(count_lines_matching "$claude_md" "$BEGIN")"
   assert_eq "run $run: exactly one end in CLAUDE.md" 1 "$(count_lines_matching "$claude_md" "$END")"
-  assert_eq "run $run: exactly one begin in AGENTS.md" 1 "$(count_lines_matching "$codex_md" "$BEGIN")"
-  assert_eq "run $run: exactly one end in AGENTS.md" 1 "$(count_lines_matching "$codex_md" "$END")"
+  assert_eq "run $run: exactly one begin in AGENTS.md" 1 "$(count_lines_matching "$zcode_md" "$BEGIN")"
+  assert_eq "run $run: exactly one end in AGENTS.md" 1 "$(count_lines_matching "$zcode_md" "$END")"
   if [[ "$run" == 2 ]]; then
     cp -p "$claude_md" "$SANDBOX/converge-claude-run2.md"
-    cp -p "$codex_md" "$SANDBOX/converge-codex-run2.md"
+    cp -p "$zcode_md" "$SANDBOX/converge-zcode-run2.md"
   fi
 done
 assert_identical "run 3 leaves CLAUDE.md byte-identical to run 2" "$claude_md" "$SANDBOX/converge-claude-run2.md"
-assert_identical "run 3 leaves AGENTS.md byte-identical to run 2" "$codex_md" "$SANDBOX/converge-codex-run2.md"
+assert_identical "run 3 leaves AGENTS.md byte-identical to run 2" "$zcode_md" "$SANDBOX/converge-zcode-run2.md"
 
 group "Hand-written content and file mode survive every run"
 
@@ -570,8 +567,8 @@ assert_identical "run 3 leaves the hand-written file byte-identical to run 2" \
 # Group 3 — all-or-nothing preflight.
 #
 # A rule the renderer must refuse has to be refused BEFORE anything is installed. A partial
-# install is the worst outcome available: Cursor picks up rules that Claude Code and Codex
-# never receive, and every later run reproduces the split identically.
+# install is the worst outcome available: one harness picks up rules the other never
+# receives, and every later run reproduces the split identically.
 # ===========================================================================
 
 group "A rule carrying a delimiter installs nothing at all"
@@ -583,9 +580,9 @@ run_setup "$BAD_FIXTURE" "$home" global
 assert_rc_nonzero "a rule body carrying a delimiter aborts the run" "$RUN_RC"
 assert_contains "the abort names the offending rule" "$RUN_LOG" "bad-delimiter.mdc"
 for leftover in \
-  "$home/.claude/skills" "$home/.cursor/skills" "$home/.codex/skills" \
-  "$home/.claude/commands" "$home/.cursor/commands" "$home/.cursor/rules" \
-  "$home/.claude/CLAUDE.md" "$home/.codex/AGENTS.md"; do
+  "$home/.claude/skills" "$home/.zcode/skills" \
+  "$home/.claude/commands" "$home/.zcode/commands" "$home/.claude/rules" "$home/.zcode/rules" \
+  "$home/.claude/CLAUDE.md" "$home/.zcode/AGENTS.md"; do
   assert_absent "nothing installed: ${leftover#"$home"/}" "$leftover"
 done
 
@@ -600,13 +597,17 @@ group "Only rules declaring alwaysApply: true install"
 new_home; home="$HOME_DIR"
 run_setup "$FIXTURE" "$home" global
 assert_rc_zero "the fixture install succeeds" "$RUN_RC" "$RUN_LOG"
-assert_exists "the always-on rule is installed" "$home/.cursor/rules/good-always.mdc"
-assert_absent "alwaysApply: false is not installed" "$home/.cursor/rules/opt-in-false.mdc"
-assert_absent "an unterminated frontmatter is not installed" "$home/.cursor/rules/unterminated.mdc"
-assert_absent "alwaysApply: true_for_kotlin_only is not installed" "$home/.cursor/rules/tricky-prefix.mdc"
+assert_exists "the always-on rule is installed" "$home/.claude/rules/good-always.md"
+assert_absent "alwaysApply: false is not installed" "$home/.claude/rules/opt-in-false.md"
+assert_absent "an unterminated frontmatter is not installed" "$home/.claude/rules/unterminated.md"
+assert_absent "alwaysApply: true_for_kotlin_only is not installed" "$home/.claude/rules/tricky-prefix.md"
 rule_count=0
-for f in "$home/.cursor/rules"/*; do [[ -e "$f" || -L "$f" ]] && rule_count=$((rule_count + 1)); done
-# Two, and exactly two: good-always.mdc and cored.mdc are the fixture's always-on rules.
+for f in "$home/.claude/rules"/*; do
+  [[ "${f##*/}" != agent-baseline.md ]] || continue
+  [[ -e "$f" || -L "$f" ]] && rule_count=$((rule_count + 1))
+done
+# Two, and exactly two: good-always and cored are the fixture's always-on rules (the agent
+# baseline linked beside them is not a rule).
 # The count is the assertion that catches an opt-in rule sneaking in under a new code path,
 # so it is stated as a number rather than derived from the fixture.
 assert_eq "exactly the two always-on rules are installed" 2 "$rule_count"
@@ -630,8 +631,8 @@ assert_not_contains "the block stops at the closing marker" "$home/.claude/CLAUD
 assert_not_contains "no core marker survives into the block" "$home/.claude/CLAUDE.md" "<!-- core -->"
 assert_contains "the block points at the installed full rule" "$home/.claude/CLAUDE.md" \
   'Full rule: `~/.claude/rules/cored.md`.'
-# Codex reads the same rendered text, so its block must carry the same core and pointer.
-assert_contains "AGENTS.md carries the core too" "$home/.codex/AGENTS.md" "BODY-CORE-EXCERPT"
+# ZCode reads the same rendered text, so its block must carry the same core.
+assert_contains "AGENTS.md carries the core too" "$home/.zcode/AGENTS.md" "BODY-CORE-EXCERPT"
 
 assert_exists "the full text is linked into ~/.claude/rules" "$home/.claude/rules/cored.md"
 assert_exists "an unmarked rule is linked there as well" "$home/.claude/rules/good-always.md"
@@ -678,18 +679,18 @@ KOTLIN_RULE="kotlin-backend-development-standard.mdc"
 if [[ ! -f "$REPO_ROOT/rules/$KOTLIN_RULE" ]]; then
   fail "the opt-in Kotlin rule is present to be tested" "$REPO_ROOT/rules/$KOTLIN_RULE is missing"
 else
-  for mode in global cursor claude-code codex all; do
+  for mode in global claude-code zcode; do
     new_home; home="$HOME_DIR"
     proj="$SANDBOX/project-$CASE_SEQ"
     run_setup "$REPO_ROOT" "$home" "$mode" "$proj"
     assert_rc_zero "mode $mode installs cleanly" "$RUN_RC" "$RUN_LOG"
     hits="$(find "$home" "$proj" -name "$KOTLIN_RULE" 2>/dev/null)"
     assert_eq "mode $mode installs no $KOTLIN_RULE" "" "$hits"
-    # Only `global` writes a managed block. For the other four modes the files do not
+    # Only `global` writes a managed block. For the other two modes the files do not
     # exist, and assert_not_contains passes on a missing file — so asserting "no Kotlin
     # rule inlined" there proves nothing. Assert the real property per mode instead:
     # global must have the block WITHOUT the opt-in rule; the rest must have no block.
-    for managed in "$home/.claude/CLAUDE.md" "$home/.codex/AGENTS.md"; do
+    for managed in "$home/.claude/CLAUDE.md" "$home/.zcode/AGENTS.md"; do
       if [[ "$mode" == "global" ]]; then
         assert_file_exists "mode $mode: ${managed#"$home"/} exists" "$managed"
         assert_not_contains "mode $mode: ${managed#"$home"/} has no inlined Kotlin rule" \
@@ -701,7 +702,7 @@ else
   done
 fi
 
-group "A global install populates all three skill directories with live links"
+group "A global install populates both skill directories with live links"
 
 new_home; home="$HOME_DIR"
 run_setup "$REPO_ROOT" "$home" global
@@ -712,7 +713,7 @@ for d in "$REPO_ROOT/skills"/*/; do [[ -d "$d" ]] && expected_skills=$((expected
 if (( expected_skills == 0 )); then
   fail "the repo has skills to install" "$REPO_ROOT/skills contains no directories"
 fi
-for skills_dir in "$home/.claude/skills" "$home/.cursor/skills" "$home/.codex/skills"; do
+for skills_dir in "$home/.claude/skills" "$home/.zcode/skills"; do
   installed=0
   linked=0
   for entry in "$skills_dir"/*; do
@@ -731,13 +732,12 @@ assert_eq "a global install leaves zero dangling symlinks" "" "$dangling"
 # inlined into the managed block — that is the whole point of extracting it from the always-on
 # rule.
 assert_exists "flow-contracts installs into .claude/skills" "$home/.claude/skills/flow-contracts/SKILL.md"
-assert_exists "flow-contracts installs into .cursor/skills" "$home/.cursor/skills/flow-contracts/SKILL.md"
-assert_exists "flow-contracts installs into .codex/skills" "$home/.codex/skills/flow-contracts/SKILL.md"
+assert_exists "flow-contracts installs into .zcode/skills" "$home/.zcode/skills/flow-contracts/SKILL.md"
 assert_exists "flow-contracts installs state-file.md" "$home/.claude/skills/flow-contracts/state-file.md"
 assert_not_contains "the managed CLAUDE.md does not inline the state-file write template" \
   "$home/.claude/CLAUDE.md" 'PROJECT_KEY="$(basename'
 assert_not_contains "the managed AGENTS.md does not inline the state-file write template" \
-  "$home/.codex/AGENTS.md" 'PROJECT_KEY="$(basename'
+  "$home/.zcode/AGENTS.md" 'PROJECT_KEY="$(basename'
 
 # The commit-scope-is-the-module rule is an always-on rule like any other: its core excerpt
 # renders into the managed block with a pointer to the installed full text, and the full text
@@ -755,8 +755,8 @@ group "Every guard in a command skill's scripts/ directory reaches the install"
 # KAN-73's task 5 guard (check-guard-symlinks.sh) checks the REPOSITORY: that every
 # skills/*/scripts/ entry is a symlink that resolves. This group checks the INSTALL —
 # the only assertion that would have caught the original bug, because the symlinks
-# could be perfect in the repo and still not reach ~/.claude/skills/, ~/.cursor/skills/
-# or ~/.codex/skills/ if install_skills() ever stopped carrying them.
+# could be perfect in the repo and still not reach ~/.claude/skills/ or ~/.zcode/skills/
+# if install_skills() ever stopped carrying them.
 #
 # The expected guard list is read from the repository tree itself
 # (skills/<skill>/scripts/*) rather than hardcoded here — a hardcoded copy goes stale
@@ -774,7 +774,7 @@ for _gs in "$REPO_ROOT"/skills/*/scripts; do
   GUARD_SKILLS+=("$(basename "$(dirname "$_gs")")")
 done
 [[ ${#GUARD_SKILLS[@]} -gt 0 ]] || fail "at least one skill carries a scripts/ directory" "none found under $REPO_ROOT/skills/*/scripts"
-GUARD_HARNESSES=(.claude .cursor .codex)
+GUARD_HARNESSES=(.claude .zcode)
 
 for skill in "${GUARD_SKILLS[@]}"; do
   skill_scripts="$REPO_ROOT/skills/$skill/scripts"
@@ -864,10 +864,10 @@ group "A project's opted-in shared rule is rendered into both its instruction fi
 new_home; home="$HOME_DIR"
 proj="$SANDBOX/project-optin-$CASE_SEQ"
 seed_project_md "$proj" "CLAUDE.md" "opt-in-false.mdc" "good-always.mdc"
-# `cursor` on purpose: it copies neither CLAUDE.md nor AGENTS.md into the project, so both
-# files exist below only because the standards rendering created them. Under `claude-code`
-# the CLAUDE.md existence assertion could not fail whatever this feature did.
-run_setup "$FIXTURE" "$home" cursor "$proj"
+# `claude-code` copies CLAUDE.md in but never AGENTS.md, so AGENTS.md exists below only
+# because the standards rendering created it; CLAUDE.md's rule-body assertions are what
+# prove the rendering reached it.
+run_setup "$FIXTURE" "$home" claude-code "$proj"
 assert_rc_zero "the project install succeeds" "$RUN_RC" "$RUN_LOG"
 for f in "$proj/CLAUDE.md" "$proj/AGENTS.md"; do
   label="${f#"$proj"/}"
@@ -896,7 +896,7 @@ PROJECT-HANDWRITTEN — this line predates the managed block.
 EOF
 cp -p "$proj/CLAUDE.md" "$SANDBOX/project-handwritten-original.md"
 for run in 1 2 3; do
-  run_setup "$FIXTURE" "$home" all "$proj"
+  run_setup "$FIXTURE" "$home" claude-code "$proj"
   assert_rc_zero "project run $run succeeds" "$RUN_RC" "$RUN_LOG"
   assert_contains "project run $run keeps the hand-written line" "$proj/CLAUDE.md" "PROJECT-HANDWRITTEN"
   assert_eq "project run $run: exactly one begin in CLAUDE.md" 1 "$(count_lines_matching "$proj/CLAUDE.md" "$BEGIN")"
@@ -916,7 +916,7 @@ assert_identical "the project's pre-install copy is the file as the user wrote i
 
 group "Which modes render project standards"
 
-for mode in cursor claude-code codex all; do
+for mode in claude-code zcode; do
   new_home; home="$HOME_DIR"
   proj="$SANDBOX/project-mode-$CASE_SEQ"
   seed_project_md "$proj" "opt-in-false.mdc"
@@ -938,22 +938,33 @@ assert_absent "global writes no project AGENTS.md" "$proj/AGENTS.md"
 
 group "A project with nothing to render is left alone, silently"
 
+# CLAUDE.md is seeded as the user wrote it, so claude-code's own copy step skips it and any
+# change afterwards is the standards rendering's doing. AGENTS.md is left unseeded: claude-code
+# never copies it, so its absence afterwards proves the rendering created none.
+seed_instruction_files() { # <project-dir>
+  seed_file "$1/CLAUDE.md" 644 <<<'# hand-written CLAUDE.md'
+  cp -p "$1/CLAUDE.md" "$SANDBOX/noblock-claude-expected.md"
+}
+
 # No .flow/project.md at all.
 new_home; home="$HOME_DIR"
 proj="$SANDBOX/project-noconfig-$CASE_SEQ"
-mkdir -p "$proj"
-run_setup "$FIXTURE" "$home" cursor "$proj"
+seed_instruction_files "$proj"
+run_setup "$FIXTURE" "$home" claude-code "$proj"
 assert_rc_zero "a project with no .flow/project.md installs cleanly" "$RUN_RC" "$RUN_LOG"
-assert_absent "no CLAUDE.md is created for a project with no config" "$proj/CLAUDE.md"
+assert_identical "CLAUDE.md is untouched for a project with no config" "$proj/CLAUDE.md" "$SANDBOX/noblock-claude-expected.md"
 assert_absent "no AGENTS.md is created for a project with no config" "$proj/AGENTS.md"
 
 # A project.md that names only its own files — no shared rule to render, so no block.
 new_home; home="$HOME_DIR"
 proj="$SANDBOX/project-noshared-$CASE_SEQ"
 seed_project_md "$proj" "CLAUDE.md" "CONTRIBUTING.md" "docs/standards/api.mdc"
-run_setup "$FIXTURE" "$home" cursor "$proj"
+seed_instruction_files "$proj"
+run_setup "$FIXTURE" "$home" claude-code "$proj"
 assert_rc_zero "a project naming no shared rule installs cleanly" "$RUN_RC" "$RUN_LOG"
-assert_absent "no block is written when no entry resolves to the shared library" "$proj/CLAUDE.md"
+assert_identical "no block is written when no entry resolves to the shared library" \
+  "$proj/CLAUDE.md" "$SANDBOX/noblock-claude-expected.md"
+assert_absent "no AGENTS.md is created for a project naming no shared rule" "$proj/AGENTS.md"
 # `docs/standards/api.mdc` contains a `/`, so it is a project path — form 3, never the
 # shared library. Resolving it there would be the containment bypass.
 assert_not_contains "a slashed .mdc entry is not looked up in the shared library" "$RUN_LOG" "docs/standards/api.mdc"
@@ -1007,7 +1018,7 @@ for f in "$proj/CLAUDE.md" "$proj/AGENTS.md"; do
   assert_contains "$label inlines the Kotlin standard" "$f" "<!-- rule: $KOTLIN_RULE -->"
   assert_contains "$label carries the Kotlin standard's text" "$f" "Kotlin Backend Development Standard"
   # The frontmatter is stripped exactly as it is for the global block; leaving `globs:` or
-  # `alwaysApply:` in the rendered body would feed a Cursor-only header to every harness.
+  # `alwaysApply:` in the rendered body would feed rule-file frontmatter to every harness.
   assert_not_contains "$label strips the rule's frontmatter" "$f" "alwaysApply: false"
 done
 
@@ -1052,9 +1063,44 @@ assert_symlink "a still-live skill link survives the prune" "$home/.claude/skill
 assert_symlink "a still-live command link survives the prune" "$home/.claude/commands/demo.md"
 
 # ===========================================================================
+# Group — Claude Code and zcode are the only harnesses. A global run writes nothing under
+# ~/.cursor or ~/.codex, leaves an earlier install's directories there exactly as it found
+# them, and the retired modes are refused with the usage line rather than half-run.
+# ===========================================================================
+
+group "global install writes nothing under .cursor or .codex"
+
+new_home; home="$HOME_DIR"
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "global succeeds" "$RUN_RC" "$RUN_LOG"
+assert_absent "no ~/.cursor is created" "$home/.cursor"
+assert_absent "no ~/.codex is created" "$home/.codex"
+
+# --- an earlier install's ~/.cursor and ~/.codex are left alone: not deleted, not written.
+new_home; home="$HOME_DIR"
+seed_file "$home/.cursor/rules/old.mdc" 644 <<<'old cursor rule'
+seed_file "$home/.codex/AGENTS.md" 644 <<<'old codex block'
+old_harness_fp() { { find "$home/.cursor" "$home/.codex" | sort; tree_fingerprint "$home/.cursor" "$home/.codex"; } | hash_stdin; }
+old_harness_before="$(old_harness_fp)"
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "global over an earlier cursor/codex install succeeds" "$RUN_RC" "$RUN_LOG"
+assert_eq "~/.cursor and ~/.codex are byte-identical after the run" \
+  "$old_harness_before" "$(old_harness_fp)"
+
+group "The retired cursor, codex and all modes are refused"
+
+for mode in cursor codex all; do
+  new_home; home="$HOME_DIR"
+  run_setup "$FIXTURE" "$home" "$mode" "$SANDBOX/retired-$mode"
+  assert_rc_nonzero "setup.sh $mode exits non-zero" "$RUN_RC"
+  assert_contains "setup.sh $mode prints the usage line" "$RUN_LOG" "Choose: claude-code | zcode | global"
+  assert_eq "setup.sh $mode writes nothing into the project" "" "$(ls -A "$SANDBOX/retired-$mode")"
+done
+
+# ===========================================================================
 # Group — the ZCode layer. Its contract is isolation in both directions: a global
 # install gives ZCode a self-contained copy under ~/.zcode (nothing installed there
-# may point at another harness's paths, and the claude/codex blocks must not see the
+# may point at another harness's paths, and the claude block must not see the
 # rewrite), and the per-project zcode mode writes project paths only — never
 # user-level state, never another harness's directories.
 # ===========================================================================
@@ -1136,11 +1182,11 @@ assert_contains "the skip is explained in the log" "$RUN_LOG" "outside the manag
 group "Nothing outside the sandbox was touched"
 
 REAL_HOME_AFTER="$(real_home_fingerprint | hash_stdin)"
-assert_eq "~/.claude, ~/.cursor, ~/.codex and ~/.zcode are unchanged" "$REAL_HOME_BEFORE" "$REAL_HOME_AFTER"
+assert_eq "~/.claude and ~/.zcode are unchanged" "$REAL_HOME_BEFORE" "$REAL_HOME_AFTER"
 SOURCE_TREE_AFTER="$(source_tree_fingerprint | hash_stdin)"
 assert_eq "the repo's own skills, rules and commands are unchanged" "$SOURCE_TREE_BEFORE" "$SOURCE_TREE_AFTER"
 
-group "KAN-369: __pycache__ churn does not flake the source-tree fingerprint"
+group "__pycache__ churn leaves the source fingerprint unchanged"
 
 PYCACHE_FIXTURE="$SANDBOX/pycache-fixture"
 mkdir -p "$PYCACHE_FIXTURE/scripts/__pycache__" "$PYCACHE_FIXTURE/skills"

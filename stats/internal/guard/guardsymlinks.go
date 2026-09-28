@@ -37,14 +37,13 @@ func init() {
 	Registry["check-guard-symlinks"] = checkGuardSymlinks
 }
 
-// gsExempt is rule 3's EXEMPT set: the five project-configured guards named in
+// gsExempt is rule 3's EXEMPT set: the project-configured guards named in
 // design.md, "Two families of guard, and only one of them ships": these are
 // resolved through a project's own .flow/project.md, never invoked by a
 // command directly, so prose naming them keeps its repository-relative form
 // legitimately — rule 3 governs INVOKED guards only.
 var gsExempt = []string{
 	"check-references.sh",
-	"check-vocabulary.sh",
 	"check-plan-provenance.sh",
 	"check-task-build-green.sh",
 	"check-stage-mark-calls.sh",

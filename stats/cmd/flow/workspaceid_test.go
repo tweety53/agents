@@ -16,7 +16,7 @@ func TestDeriveWorkspaceID(t *testing.T) {
 		name string
 		want string
 	}{
-		{"kan-15-parallel-myflow-do-task-lanes", "kan-15-55a6"},
+		{"kan-15-parallel-flow-task-lanes", "kan-15-fb13"},
 		{"Demo_X", "demo-x-5197"},
 		{"KAN-99-Fix.Thing", "kan-99-fix-feef"},
 		{"İstanbul-test", "--stanbul-6b8a"},
@@ -46,12 +46,12 @@ func TestDeriveWorkspaceID(t *testing.T) {
 
 func TestWorkspaceIDCommandPrintsID(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id", "kan-15-parallel-myflow-do-task-lanes"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id", "kan-15-parallel-flow-task-lanes"}, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
-	if stdout.String() != "kan-15-55a6\n" {
-		t.Errorf("stdout = %q, want %q", stdout.String(), "kan-15-55a6\n")
+	if stdout.String() != "kan-15-fb13\n" {
+		t.Errorf("stdout = %q, want %q", stdout.String(), "kan-15-fb13\n")
 	}
 }
 

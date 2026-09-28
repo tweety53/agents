@@ -20,18 +20,19 @@ import "testing"
 // that let KAN-289's original four defects through: a fixture and the code it
 // covers renamed together, green, and both wrong about the world.
 //
-// Measured, not assumed: this constant WAS once changed to
-// "flow stage begin (synthetic)", and the entire suite -- go vet,
-// gofmt and `go test ./... -race` across all sixteen packages -- passed with
-// the mutant in place. The change was caught only by querying the live
-// database. This test is what makes the next attempt fail loudly instead.
+// Measured, not assumed: this constant was once changed without migrating
+// the stored rows, and the entire suite -- go vet, gofmt and
+// `go test ./... -race` across all sixteen packages -- passed with the mutant
+// in place. The change was caught only by querying the live database. This
+// test is what makes the next attempt fail loudly instead.
 //
 // If a future change genuinely intends to move this value, it must migrate
-// `changes.updated_by` in the same change and update the literal here. Editing
-// this literal alone to make a build pass reintroduces the defect it exists to
-// prevent.
+// `changes.updated_by` in the same change and update the literal here, as
+// 0031_drop_legacy_shapes.sql did when the value lost its "myflow" prefix.
+// Editing this literal alone to make a build pass reintroduces the defect it
+// exists to prevent.
 func TestSyntheticChangeUpdatedByIsPinnedToTheStoredLiteral(t *testing.T) {
-	const storedLiteral = "myflow stage begin (synthetic)"
+	const storedLiteral = "flow stage begin (synthetic)"
 
 	if SyntheticChangeUpdatedBy != storedLiteral {
 		t.Fatalf(

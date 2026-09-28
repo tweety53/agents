@@ -27,10 +27,6 @@
 # token neither satisfies nor fails a path), so the guard's power comes from
 # recognising the reference shapes, not from blanket coverage.
 #
-# This is the companion guard to check-vocabulary.sh. That one greps for
-# known-retired literals; this one catches a section that MOVED, which no
-# literal list can know about in advance.
-#
 # Takes no arguments: the scan set lives in one place (crTargets in
 # stats/internal/guard/references.go), so no call site can narrow it. Lines
 # carrying `refs-guard:allow` are skipped — use it for a line whose bold text

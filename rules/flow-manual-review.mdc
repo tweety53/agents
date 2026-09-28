@@ -69,5 +69,5 @@ ordering is what it is, what was rejected, what was measured — and exist for w
 contract. They are deliberately absent from the table above, because that table is what a command
 reads. Nothing enforces this.
 
-These files are installed alongside the skills in every harness — `~/.claude/skills/`,
-`~/.cursor/skills/` and `~/.codex/skills/` — so the paths above resolve wherever this rule is read.
+These files are installed alongside the skills in every harness — `~/.claude/skills/` and
+`~/.zcode/skills/` — so the paths above resolve wherever this rule is read.

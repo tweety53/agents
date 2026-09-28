@@ -90,7 +90,7 @@ var agentIDPlaceholders = []string{
 }
 
 // validateAgentID applies the one shape rule the dispatcher-typed paths
-// enforce: an absent agent id is ordinary (Codex and Cursor expose none,
+// enforce: an absent agent id is ordinary (a harness may expose none,
 // and `inline` names a same-session dispatch), but a present one is
 // either a placeholder word or a plausible harness identifier, never
 // anything else. The plausible-id test is a charset, not a pattern: every

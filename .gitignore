@@ -4,7 +4,7 @@
 # Serena MCP server workspace metadata — tool artifact, not project source
 .serena/
 
-# myflow apply worktrees — created by /myflow-do, removed by /myflow-finish run 2
+# flow worktrees — created by /flow, removed by its archive run
 .worktrees/
 
 # Python bytecode from the guard wrappers (check-task-*.py)
