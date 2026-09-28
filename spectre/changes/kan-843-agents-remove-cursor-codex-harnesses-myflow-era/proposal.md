@@ -19,7 +19,8 @@ is used now (KAN-843).
   pre-shape reports are deleted, 14 reports relabelled `myflow-<angle>` → `flow-<angle>`), myflow
   prose, and the `kan-15-…myflow…` worked example.
 - The stats store migrates its legacy rows (synthetic `updated_by`, bare-array decision groups,
-  the collapsed pricing column) and the code that read the old shapes is removed.
+  the collapsed pricing column, dropped without a backfill) and the code that read the old shapes
+  is removed.
 - Code that special-cases a KAN ticket is removed or named by behaviour.
 
 Out of scope: renaming `rules/*.mdc`, `.idea/`, `KNOWN-BUGS.md`, historical `docs/self-review/`

@@ -47,7 +47,7 @@ this option.
 ### Stats: migrate legacy rows, then remove the readers
 
 **ID:** stats-legacy-migrate-then-remove
-**Status:** active
+**Status:** superseded by stats-legacy-migrate-no-pricing-backfill
 **Chosen:** one data migration and the code removal together:
 - `changes.updated_by` `'myflow stage begin (synthetic)'` → `'flow stage begin (synthetic)'`;
   `stages.SyntheticChangeUpdatedBy` follows.
@@ -62,6 +62,24 @@ this option.
 The migration reaches the dev store when the operator next starts `flowd` on the new binary; no
 agent restarts it. Earlier migration files are never edited.
 **Considered:** leaving the compat readers — the operator chose migrate-and-remove.
+**Superseded because:** the panel (F1) showed the pricing backfill's `collapsed = 5m` test matches
+every pre-0007 row, since 0007 copied the collapsed column into the 5m rate on all of them, so it
+would invent a 1h rate and under-price 1h cache writes there. "Every row prices exactly as before"
+cannot hold for that shape either way: the old schema meant "flat for an unknown split, refuse an
+explicit 1h", which one column cannot express.
+
+### Stats: migrate legacy rows without a pricing backfill
+
+**ID:** stats-legacy-migrate-no-pricing-backfill
+**Status:** active
+**Chosen:** as `stats-legacy-migrate-then-remove`, except that 0031 does not backfill any 1h rate;
+it only drops `cache_write_per_mtok`. The pricing seed is the single writer of
+`glm-5.3-flash`'s 1h rate (0, set by the startup upsert that runs right after migrations). A
+pre-0007 row the seed does not cover keeps a null 1h rate and so refuses an unknown-split cache
+write rather than pricing it at the 5m rate: cost is never understated. The dev store has no such
+row (task 9 measured it).
+**Considered:** narrowing the backfill to `glm-5.3-flash` — rejected, it duplicates the seed;
+keeping the backfill as designed — rejected, it understates 1h cache writes on pre-0007 rows.
 
 ### Ticket special cases
 
