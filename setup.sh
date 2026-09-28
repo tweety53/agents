@@ -24,6 +24,13 @@ PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 CLAUDE_MD_BEGIN='<!-- flow:begin -->'
 CLAUDE_MD_END='<!-- flow:end -->'
 
+# LINT_COMMANDS_PLACEHOLDER — what an opt-in rule carries where the project's declared lint
+# commands must appear. install_project_standards resolves it from the project's own
+# .flow/project.md ## lint section before rendering; render_managed_block substitutes every
+# occurrence and refuses a placeholder it cannot resolve, so a managed block can never name
+# a command the project does not declare.
+LINT_COMMANDS_PLACEHOLDER='{{lint-commands}}'
+
 # ZCODE_COMPACT_WINDOW — the auto-compact window the zcode wrapper is expected to run
 # with, written into the user's shell rc inside a managed block (see install_zcode_env).
 # The wrapper (/usr/local/bin/zcode) reads Z_COMPACT_WINDOW at launch and defaults it to
@@ -616,6 +623,19 @@ render_managed_block() {
       fm && $0=="---"    { fm=0; next }
       !fm                { print }
     ' "$rule_file")"
+    # {{lint-commands}} resolves from the project's ## lint before anything else reads the
+    # body, so the substituted commands meet the same delimiter guard the rule's own text
+    # does. An unresolved placeholder here means a rule carrying it reached a render with
+    # no project context — only the global render can do that — and refusing beats
+    # inlining a literal template into every session.
+    if printf '%s\n' "$body" | grep -qF -- "$LINT_COMMANDS_PLACEHOLDER"; then
+      if [[ -z "${RENDER_LINT_COMMANDS:-}" ]]; then
+        die "rule $rule_name carries $LINT_COMMANDS_PLACEHOLDER but is being rendered without a
+  project's ## lint commands. The placeholder resolves only for a project's opted-in
+  standards; an always-on rule must not carry it. Fix the rule, then re-run."
+      fi
+      body="${body//"$LINT_COMMANDS_PLACEHOLDER"/$RENDER_LINT_COMMANDS}"
+    fi
     if printf '%s\n' "$body" | grep -qFx -e "$CLAUDE_MD_BEGIN" -e "$CLAUDE_MD_END"; then
       die "rule $rule_name contains a flow block delimiter on a line of its own.
   Inlining it would put a second delimiter inside the managed block and make every
@@ -869,6 +889,44 @@ project_standards_entries() {
   ' "$1"
 }
 
+# project_lint_commands_block <project-dir> <rule-name>
+#
+# The fenced ```bash block carrying the project's declared lint commands, read from
+# `.flow/project.md`'s ## lint section through scripts/project-get.sh — the same reader
+# every /flow phase uses, so the rendered block and the commands the pipeline runs can
+# never drift apart. Dies when the section is absent (exit 1), ambiguous (exit 2), or
+# carries no command lines inside a fence: a placeholder that cannot resolve must stop
+# the install, never render an empty or invented block.
+project_lint_commands_block() {
+  local project_dir="$1" rule_name="$2" body rc commands
+  rc=0
+  body="$("$SCRIPT_DIR/scripts/project-get.sh" "$project_dir" lint)" || rc=$?
+  if (( rc == 1 )); then
+    die "the project opts into $rule_name, whose body carries $LINT_COMMANDS_PLACEHOLDER, but
+  $project_dir/.flow/project.md declares no ## lint section for it to render from.
+  Declare the project's lint commands under ## lint, or drop the rule from ## standards,
+  then re-run."
+  fi
+  if (( rc != 0 )); then
+    die "cannot read the project's ## lint section (project-get.sh exit $rc): the placeholder
+  in $rule_name has nothing safe to render from."
+  fi
+  commands="$(printf '%s\n' "$body" | awk '
+    /^```/ { if (fence) exit; fence = 1; next }
+    fence   { print }
+  ' | awk '
+    { lines[++n] = $0 }
+    END {
+      s = 1; e = n
+      while (s <= e && lines[s] ~ /^[[:space:]]*$/) s++
+      while (e >= s && lines[e] ~ /^[[:space:]]*$/) e--
+      for (i = s; i <= e; i++) print lines[i]
+    }')"
+  [[ -n "$commands" ]] || die "the project's ## lint section carries no command lines inside a
+  fenced block, so $LINT_COMMANDS_PLACEHOLDER in $rule_name has nothing to render."
+  printf '```bash\n%s\n```\n' "$commands"
+}
+
 # install_project_standards <project-dir>
 # Render the shared rules this project opted into — its `.flow/project.md` `## standards`
 # entries — into a managed block in BOTH <project>/CLAUDE.md and <project>/AGENTS.md.
@@ -946,6 +1004,18 @@ install_project_standards() {
   # rule body and stat every target before the first write, so a refusal cannot leave
   # CLAUDE.md rendered and AGENTS.md not — two harnesses reading the same project under
   # different rules.
+  # Compute the lint-commands payload once, before the all-or-nothing preflight below: a
+  # rule carrying {{lint-commands}} renders from this project's own ## lint section, and a
+  # project opting into such a rule without declaring ## lint is refused here — before any
+  # target is touched — rather than rendered with an empty or invented block.
+  RENDER_LINT_COMMANDS=""
+  for rule_name in "${selected[@]}"; do
+    if grep -qF -- "$LINT_COMMANDS_PLACEHOLDER" "$RULES_SRC/$rule_name"; then
+      RENDER_LINT_COMMANDS="$(project_lint_commands_block "$project_dir" "$rule_name")"
+      break
+    fi
+  done
+
   render_managed_block "${selected[@]}" >/dev/null
   for target in "$project_dir/CLAUDE.md" "$project_dir/AGENTS.md"; do
     preflight_managed_block "$target"

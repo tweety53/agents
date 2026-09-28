@@ -174,6 +174,7 @@ func (g *group) seedProjectMD(proj string, entries ...string) {
 	}
 	g.seedFile(filepath.Join(proj, ".flow/project.md"), 0o644,
 		"# flow project configuration — fixture project\n\n## test\n\n```bash\n./gradlew test\n```\n\n"+
+			"## lint\n\n```bash\n./gradlew ktlintFormat                # auto-fix formatting first\n./gradlew verifyChange                # verify — ktlintCheck + detekt across every project, one invocation\n```\n\n"+
 			"## standards\n\nFiles the principles reviewer receives, and the rules this project opts into.\n\n"+
 			bullets.String()+"\nA bullet inside a fenced block is illustration, not an entry:\n\n"+
 			"```text\n- fenced-not-an-entry.mdc\n```\n\n## jira\n\nnone\n")

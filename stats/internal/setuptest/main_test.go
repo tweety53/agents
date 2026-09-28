@@ -224,6 +224,33 @@ func makeFixtureRepo(d string, badRule bool) error {
 	if err != nil {
 		return fmt.Errorf("cannot copy setup.sh into the fixture repo: %w", err)
 	}
+	// setup.sh resolves {{lint-commands}} through scripts/project-get.sh, which sources
+	// scripts/lib/project-section.sh, which sources scripts/lib/strip-bom.sh — all
+	// resolved relative to the fixture's own layout, so the fixture carries the same
+	// files verbatim that the real tree does.
+	for _, c := range []struct {
+		rel  string
+		mode os.FileMode
+	}{
+		{"scripts/project-get.sh", 0o755},
+		{"scripts/lib/project-section.sh", 0o644},
+		{"scripts/lib/strip-bom.sh", 0o644},
+	} {
+		b, err := os.ReadFile(filepath.Join(repoRoot, c.rel))
+		if err != nil {
+			return fmt.Errorf("cannot copy %s into the fixture repo: %w", c.rel, err)
+		}
+		p := filepath.Join(d, c.rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(p, b, c.mode); err != nil {
+			return err
+		}
+		if err := os.Chmod(p, c.mode); err != nil {
+			return err
+		}
+	}
 	files := []struct {
 		path, body string
 		mode       os.FileMode
@@ -237,6 +264,9 @@ func makeFixtureRepo(d string, badRule bool) error {
 		{"rules/good-always.mdc", "---\ndescription: fixture always-on rule\nalwaysApply: true\n---\n\n# Good\nBODY-GOOD-ALWAYS\n", 0o644},
 		// Opt-in: declares false, must never install.
 		{"rules/opt-in-false.mdc", "---\ndescription: fixture opt-in rule\nalwaysApply: false\n---\n\n# OptIn\nBODY-OPT-IN\n", 0o644},
+		// Opt-in rule carrying the lint-commands placeholder: the project render must replace
+		// it with the commands declared in the project's own ## lint section.
+		{"rules/lint-placeholder.mdc", "---\ndescription: fixture rule carrying the lint placeholder\nalwaysApply: false\n---\n\n# LintPlaceholder\nBODY-LINT-PLACEHOLDER\n\n{{lint-commands}}\n", 0o644},
 		// Frontmatter that never closes: the `alwaysApply: true` below is prose, not a declaration.
 		{"rules/unterminated.mdc", "---\ndescription: fixture unterminated frontmatter\nalwaysApply: true\n\n# Unterminated\nBODY-UNTERMINATED\n", 0o644},
 		// A value that merely starts with `true` must not be read as `true`.

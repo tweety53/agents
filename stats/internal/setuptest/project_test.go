@@ -184,3 +184,38 @@ func TestRealKotlinStandardReachesProject(t *testing.T) {
 		g.assertNotContains(label+" strips the rule's frontmatter", f, "alwaysApply: false")
 	}
 }
+
+// Lint-command substitution: an opt-in rule body may carry {{lint-commands}}, which the
+// project render replaces with the commands declared in the project's own
+// `.flow/project.md ## lint` section — so a managed block can never name a command the
+// project does not declare.
+func TestLintCommandsSubstitutedFromProjectLint(t *testing.T) {
+	g := newGroup(t)
+	home := g.newHome()
+	proj := g.projectDir("lintsub")
+	g.seedProjectMD(proj, "lint-placeholder.mdc")
+	g.runSetup(fixture, home, "claude-code", proj)
+	g.assertRCZero("the project install succeeds", g.rc, g.log)
+	for _, label := range []string{"CLAUDE.md", "AGENTS.md"} {
+		f := filepath.Join(proj, label)
+		g.assertContains(label+" renders the rule body", f, "BODY-LINT-PLACEHOLDER")
+		g.assertContains(label+" renders the declared lint commands as a bash fence", f, "```bash\n./gradlew ktlintFormat")
+		g.assertContains(label+" renders the second declared command", f, "./gradlew verifyChange")
+		g.assertNotContains(label+" renders no raw placeholder", f, "{{lint-commands}}")
+	}
+}
+
+// A project opting into a placeholder rule without declaring ## lint must abort the run
+// before any target is touched, naming the missing section — never render an empty or
+// invented command block.
+func TestLintCommandsRefusedWithoutProjectLint(t *testing.T) {
+	g := newGroup(t)
+	home := g.newHome()
+	proj := g.projectDir("lintnolint")
+	g.seedFile(filepath.Join(proj, ".flow/project.md"), 0o644,
+		"# flow project configuration — fixture project\n\n## standards\n\n- `lint-placeholder.mdc` — seeded by the harness\n")
+	g.runSetup(fixture, home, "claude-code", proj)
+	g.assertRCNonzero("a placeholder rule with no ## lint to render from aborts the run", g.rc)
+	g.assertContains("the abort names the missing section", g.log, "## lint")
+	g.assertNotContains("nothing was rendered into CLAUDE.md", filepath.Join(proj, "CLAUDE.md"), "BODY-LINT-PLACEHOLDER")
+}
