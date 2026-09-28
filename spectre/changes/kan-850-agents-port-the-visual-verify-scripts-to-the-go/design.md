@@ -87,6 +87,56 @@ Each Go test carries at least its harness's floor in cases (`parity-by-case-coun
 The live-verification task records **Before** (a detached checkout at `3915fbc0`) and **After**
 (the branch head), interleaved on the same machine, KAN-842's columns.
 
+- First run (head `ece517c8`, load 14–26): the Go package went red in 2 of 3 head rounds —
+  `TestCheckVisualVerification/case_22` globbed the shared flow-guard cache, which a no-LANG shim
+  (check-plan-provenance case 183) fills with a second key's binary, and one 10-minute
+  `TestMutateAndVerify/SIGPIPE_mid-run` hang in an unchanged test; suite median 45.34s after vs
+  44.49s before. Case 22 fixed at the source in `a990af5c` (it execs the binary `guardCacheBuilt`
+  recorded; reproduced 3/3 red before, 3/3 green after with
+  `go test ./internal/guard/ -run 'TestCheckPlanProvenance/case_183|TestCheckVisualVerification/case_22' -count=1 -parallel 1`).
+  Re-measured below; the hang did not recur.
+  <!-- measured: .superpowers/sdd/implementer-report-10.md's commands, 3 interleaved rounds @ ece517c8 and @ 3915fbc0 -->
+
+#### Before — `@ 3915fbc0`
+
+| Run | load (1/5/15) | suite real/user/sys | exit | harnesses | slowest five | Go pkg load | Go pkg real/user/sys |
+|---|---|---|--:|--:|---|---|---|
+| 1 | 8.82 4.93 3.20 | 64.95 / 93.64 / 128.66 | 0 | 57 | go-guards 64s, lib-flow-guard 41s, check-plan-shape 37s, prepare-workspace 23s, setup 21s | 18.80 14.21 7.94 | 27.18 / 41.54 / 70.40 (exit 0) |
+| 2 | 14.62 8.05 4.61 | 45.69 / 103.96 / 144.64 | 0 | 57 | go-guards 45s, check-plan-shape 28s, lib-flow-guard 22s, compose-mockup-frames 19s, generate-relocation-comparison 15s | 14.32 13.81 8.19 | 28.95 / 40.62 / 69.34 (exit 0) |
+| 3 | 18.98 11.49 6.29 | 42.91 / 104.14 / 143.15 | 0 | 57 | go-guards 42s, compose-mockup-frames 32s, check-plan-shape 22s, generate-relocation-comparison 19s, lib-flow-guard 18s | 12.41 13.31 8.35 | 30.30 / 41.49 / 72.48 (exit 0) |
+| **median** | | **45.69** (57 harnesses, all exit 0) | | | | | **28.95** |
+
+<!-- measured: sysctl -n vm.loadavg; FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p scripts/run-guard-tests.sh x3; sysctl -n vm.loadavg; cd stats && /usr/bin/time -p go test ./internal/guard/... -count=1 x3; interleaved with After @ 3915fbc0 -->
+
+#### After — `@ a990af5c`
+
+| Run | load (1/5/15) | suite real/user/sys | exit | harnesses | slowest five | Go pkg load | Go pkg real/user/sys |
+|---|---|---|--:|--:|---|---|---|
+| 1 | 11.84 6.45 3.88 | 43.13 / 91.36 / 136.04 | 0 | 52 | go-guards 42s, check-plan-shape 26s, lib-flow-guard 24s, generate-relocation-comparison 19s, check-model-resolution-shell 13s | 17.03 14.21 8.12 | 29.66 / 40.45 / 64.83 (exit 0) |
+| 2 | 19.29 10.19 5.57 | 43.98 / 91.13 / 138.35 | 0 | 52 | go-guards 43s, check-plan-shape 29s, lib-flow-guard 24s, generate-relocation-comparison 16s, prepare-workspace 13s | 12.15 13.33 8.21 | 28.45 / 40.68 / 71.64 (exit 0) |
+| 3 | 22.99 13.49 7.27 | 44.62 / 91.21 / 139.25 | 0 | 52 | go-guards 44s, check-plan-shape 25s, lib-flow-guard 20s, generate-relocation-comparison 18s, setup 10s | 10.65 12.76 8.35 | 29.83 / 42.51 / 75.48 (exit 0) |
+| **median** | | **43.98** (52 harnesses, all exit 0) | | | | | **29.66** (3/3 green) |
+
+<!-- measured: the same commands x3 @ branch spectre/kan-850-agents-port-the-visual-verify-scripts-to-the-go, sha a990af5c -->
+
+Note: base round 1 (64.95s) ran at the lowest load but was the slowest run. Its harnesses were all slow together (go-guards 64s), which points to cold caches after the checkout rather than load. The median is unaffected.
+
+#### Parity at `a990af5c`
+
+| Test | `--- PASS` | floor |
+|---|--:|--:|
+| TestCheckVisualTrigger | 73 | 51 |
+| TestCheckVisualVerification | 113 | 111 |
+| TestResolveVisualScreenshots | 43 | 38 |
+| TestComposeMockupFrames | 66 | 59 |
+| TestMeasureVisualProperties | 78 | 11 |
+| `--- FAIL` | 0 | 0 |
+
+<!-- measured: cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS: Test<Name>/' per port; grep -c -- '--- FAIL' @ branch spectre/kan-850-agents-port-the-visual-verify-scripts-to-the-go, sha a990af5c -->
+
+- Slowest remaining harness: `test-go-guards.sh` (42–44s after, 42–64s before);
+  `compose-mockup-frames` and `measure-visual-properties` left the slowest five.
+
 ## Decisions
 
 ### Carry the prior slices' port decisions unchanged

@@ -541,7 +541,7 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
     `docs/self-review/` and the Go ports' own history comments; every guard in `.flow/project.md`'s
     `## lint` exits 0.
 
-- [ ] 10. Live verification: before/after timings and parity
+- [x] 10. Live verification: before/after timings and parity
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -555,21 +555,21 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Base checkout.** `git worktree add --detach <scratch>/kan850-base 3915fbc0`
+  - [x] **Step 1: Base checkout.** `git worktree add --detach <scratch>/kan850-base 3915fbc0`
     (removed at the end of this task).
-  - [ ] **Step 2: Suite, interleaved.** Three rounds, each: `sysctl -n vm.loadavg`, then
+  - [x] **Step 2: Suite, interleaved.** Three rounds, each: `sysctl -n vm.loadavg`, then
     `FLOW_GUARD_CACHE_DIR=$(mktemp -d) /usr/bin/time -p scripts/run-guard-tests.sh` in the base
     checkout, then the same on the branch head; record real/user/sys, load, exit, harness count
     and the slowest five harnesses (`grep '(Ns)'`, sorted descending) of each.
-  - [ ] **Step 3: Go package, interleaved.** Three rounds of `cd stats && /usr/bin/time -p go test
+  - [x] **Step 3: Go package, interleaved.** Three rounds of `cd stats && /usr/bin/time -p go test
     ./internal/guard/... -count=1`, base then head, load before each.
-  - [ ] **Step 4: Parity.** `cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '---
+  - [x] **Step 4: Parity.** `cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '---
     PASS: Test<Name>/'` per port against its floor in `design.md`, plus `--- FAIL` count 0.
-  - [ ] **Step 5: Record** **Before** and **After** tables under `design.md`'s **Suite
+  - [x] **Step 5: Record** **Before** and **After** tables under `design.md`'s **Suite
     before/after**, KAN-842's columns, each figure tagged `measured:` with the command and `@
     3915fbc0` or `@ branch spectre/kan-850-agents-port-the-visual-verify-scripts-to-the-go`; name
     the slowest remaining harness.
-  - [ ] **Step 6: Judge.** Failure looks like: after suite median not below before; any port's
+  - [x] **Step 6: Judge.** Failure looks like: after suite median not below before; any port's
     `--- PASS` count below its floor; the Go package median above 40s real
     (`guard-package-under-40s`, carried); any harness red; any `python3`/`PIL` left in
     `scripts/check-visual-*.sh`, `scripts/resolve-visual-screenshots.sh`,
