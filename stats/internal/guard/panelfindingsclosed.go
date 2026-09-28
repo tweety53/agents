@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,7 +14,8 @@ import (
 // checkPanelFindingsClosed is scripts/check-panel-findings-closed.sh: that
 // script's header comment is the contract -- exit 0 FINDINGS-CLOSED, 1 a
 // violation (each named on stderr), 2 cannot answer. The findings read is
-// Env.Findings when set, else `flow record findings`.
+// Env.Findings when set, else `flow record findings`; the dispatches read is
+// Env.Dispatches when set, else `flow record dispatches`.
 func init() {
 	Registry["check-panel-findings-closed"] = checkPanelFindingsClosed
 }
@@ -84,6 +86,34 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		return 2
 	}
 
+	// THE DISPATCHES READ CARRIES THE FINDINGS READ'S POSTURE, unchanged:
+	// read unconditionally -- a store that cannot answer the correlation
+	// below cannot pronounce FINDINGS-CLOSED, the same blindness rule the
+	// findings read's exit 2 exists for -- and a failed or unreadable read
+	// is exit 2, never "no rows". Env.Dispatches is the hook
+	// check-panel-fix-single-dispatch shares, nil meaning the CLI on PATH.
+	var dispatchesJSON []byte
+	if env.Dispatches != nil {
+		dispatchesJSON, err = env.Dispatches(name)
+		if err != nil {
+			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %v\n", cfcPrefix, name, err)
+			return 2
+		}
+	} else {
+		var errOut []byte
+		var rc int
+		dispatchesJSON, errOut, rc = pcFlow(env, false, "record", "dispatches", "-change", name, "-C", worktree)
+		if rc != 0 {
+			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
+			return 2
+		}
+	}
+	dispatches, ok := cfcParseDispatches(dispatchesJSON)
+	if !ok {
+		fmt.Fprintln(stderr, cfcJQFailed)
+		return 2
+	}
+
 	// An open finding is any finding whose status is neither `fixed` nor a
 	// `withdrawn <reason>` or `deferred <reason>` value -- each prefix covers
 	// its whole family, reason text included.
@@ -126,6 +156,54 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		fmt.Fprintf(stderr, "%sround %d raised a Critical or Important, so its Minor finding(s) go to that same fix, never deferred: %s\n", cfcPrefix, r, strings.Join(misdeferred[r], " "))
 		violated = true
 	}
+
+	// A FINDING IS RECORDED `fixed` ONLY AFTER THE RE-RUN THAT VERIFIES IT
+	// (review-panel.md's **Recording findings**, KAN-770), and the store's
+	// only witness of that re-run is the raising slot's own dispatch row at
+	// a later round, ended `completed`. A `fixed` finding whose slot has
+	// none stands verified before its verification existed, which is the
+	// defect this class exists to catch: the ordering was luck, not
+	// discipline. A slot's re-run qualifies when its row carries role
+	// `reviewer`, a key of the shape panel-<round>-... (a handshake retry's
+	// trailing -retry tolerated; a panel-fix or task key never matches), a
+	// round strictly greater than the finding's, an outcome exactly
+	// `completed` -- a timed-out or never-ended dispatch is not a clean
+	// re-run -- and a slot whose `+`-components cover every component of the
+	// finding's: a bundled re-run covers its members, a solo re-run of one
+	// member does not cover a joined finding. Withdrawn and deferred
+	// findings claim no verification and check nothing here.
+	var unverified []string
+	for _, f := range findings {
+		if f.status != "fixed" {
+			continue
+		}
+		required := strings.Split(f.slot, "+")
+		covered := false
+		for _, d := range dispatches {
+			if d.role != "reviewer" || d.outcome != "completed" || d.round <= f.round {
+				continue
+			}
+			provides := strings.Split(d.slot, "+")
+			all := true
+			for _, r := range required {
+				if !slices.Contains(provides, r) {
+					all = false
+					break
+				}
+			}
+			if all {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			unverified = append(unverified, f.ref+" ("+f.slot+")")
+		}
+	}
+	if len(unverified) > 0 {
+		fmt.Fprintf(stderr, "%sfinding(s) recorded fixed with no clean re-run dispatch of their slot in any later round: %s\n", cfcPrefix, strings.Join(unverified, " "))
+		violated = true
+	}
 	if violated {
 		return 1
 	}
@@ -136,7 +214,24 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 type cfcFindingRow struct {
 	ref, status, severity string
 	round                 int
+	slot                  string
 }
+
+// cfcDispatchRow is one row of `flow record dispatches`' array, reduced to
+// what the fixed-without-clean-rerun correlation reads. round is parsed from
+// the key -- the table carries no round column; the panel keys its slot
+// dispatches panel-<round>-<slot> -- and -1 marks a key of another shape, so
+// such a row can never satisfy a later-round requirement.
+type cfcDispatchRow struct {
+	key, role, slot, outcome string
+	round                    int
+}
+
+// cfcPanelRoundRE is the dispatch-key shape the correlation reads. A
+// handshake retry's key carries a trailing -retry after the slot, which this
+// regexp's prefix match tolerates; panel-fix-<round> and task keys never
+// match, panel- not being followed by digits in them.
+var cfcPanelRoundRE = regexp.MustCompile(`^panel-([0-9]+)-`)
 
 // cfcParse decodes `flow record findings`' array. It refuses, where the
 // bash guard's jq failed: a non-array, a non-object row, a non-string
@@ -172,7 +267,45 @@ func cfcParse(b []byte) ([]cfcFindingRow, bool) {
 		if n, err := strconv.Atoi(strings.TrimSpace(string(o["round"]))); err == nil {
 			f.round = n
 		}
+		if pcIsString(o["slot"]) {
+			_ = json.Unmarshal(o["slot"], &f.slot)
+		}
 		out = append(out, f)
+	}
+	return out, true
+}
+
+// cfcParseDispatches decodes `flow record dispatches`' array with the same
+// posture cfcParse carries: a non-array or a non-object row is jq failing
+// (exit 2, cannot answer), and absent or non-string fields read as the empty
+// string, the shape a row legitimately carries when its verb's flag was
+// omitted -- an empty role, slot or outcome simply never qualifies below.
+func cfcParseDispatches(b []byte) ([]cfcDispatchRow, bool) {
+	var raw []map[string]json.RawMessage
+	if json.Unmarshal(b, &raw) != nil || raw == nil {
+		return nil, false
+	}
+	out := make([]cfcDispatchRow, 0, len(raw))
+	for _, o := range raw {
+		if o == nil {
+			return nil, false
+		}
+		var d cfcDispatchRow
+		for _, pair := range []struct {
+			field string
+			dest  *string
+		}{{"key", &d.key}, {"role", &d.role}, {"slot", &d.slot}, {"outcome", &d.outcome}} {
+			if pcIsString(o[pair.field]) {
+				_ = json.Unmarshal(o[pair.field], pair.dest)
+			}
+		}
+		d.round = -1
+		if m := cfcPanelRoundRE.FindStringSubmatch(d.key); m != nil {
+			if n, err := strconv.Atoi(m[1]); err == nil {
+				d.round = n
+			}
+		}
+		out = append(out, d)
 	}
 	return out, true
 }
