@@ -648,13 +648,12 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 // false, "", "") stand in for "default" rather than an error, since a
 // default-panel run recorded no per-slot detail to report. Grouping is
 // "panel.grouping" when panel is an object, else the literal "default".
-// Dispatches renders "panel.dispatches" -- one to two entries, each either
-// an object {slots, model, effort} or (legacy rows) a bare array of slot
-// ids -- as each entry's ids '+'-joined and the entries themselves
-// ' · '-joined, in roster order; empty when panel carries no dispatches to
-// show. ImplementerGroups renders the decision's own top-level "groups" the
-// same way over bundle ids ({bundles, model, effort} objects or legacy bare
-// arrays); empty when "groups" is JSON null (inline execution) or absent.
+// Dispatches renders "panel.dispatches" -- one to two {slots, model,
+// effort} objects -- as each entry's slot ids '+'-joined and the entries
+// themselves ' · '-joined, in roster order; empty when panel carries no
+// dispatches to show. ImplementerGroups renders the decision's own
+// top-level "groups" the same way over {bundles, model, effort} objects;
+// empty when "groups" is JSON null (inline execution) or absent.
 type DecisionRow struct {
 	Project    string
 	Change     string
@@ -728,7 +727,7 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 		),
 		group_sources AS (
 			-- One row per (decision, array) pair worth flattening -- "panel.dispatches"
-			-- and top-level "groups" are both an array of string-arrays, so both feed
+			-- and top-level "groups" are both an array of id-carrying objects, so both feed
 			-- the same flattening logic below rather than each carrying its own copy.
 			SELECT sd.id AS decision_id, src.label, src.arr
 			FROM scoped_decisions sd
@@ -744,18 +743,14 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			-- groups, in array order -- the one shape both "dispatches" and
 			-- "groups" render into. A group is an object carrying its ids under
 			-- "slots" (dispatches) or "bundles" (groups) beside its own model and
-			-- effort, or -- on rows recorded before model/effort moved onto the
-			-- group -- the bare id array itself.
+			-- effort.
 			SELECT gs.decision_id, gs.label,
 				(SELECT string_agg(joined, ' · ' ORDER BY grp.ord)
 					FROM jsonb_array_elements(gs.arr) WITH ORDINALITY AS grp(val, ord)
 					CROSS JOIN LATERAL (
 						SELECT string_agg(e.elem, '+' ORDER BY e.eord) AS joined
-						FROM jsonb_array_elements_text(
-							CASE WHEN jsonb_typeof(grp.val) = 'object'
-								THEN COALESCE(grp.val->'slots', grp.val->'bundles')
-								ELSE grp.val END
-						) WITH ORDINALITY AS e(elem, eord)
+						FROM jsonb_array_elements_text(COALESCE(grp.val->'slots', grp.val->'bundles'))
+							WITH ORDINALITY AS e(elem, eord)
 					) roles
 				) AS flattened
 			FROM group_sources gs

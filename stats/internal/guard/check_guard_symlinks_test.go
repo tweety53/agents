@@ -600,7 +600,7 @@ check-qux.sh <worktree>
 			gsLink(t, repo, "flow", "check-references.sh")
 			gsSkill(t, repo, "flow", gsMD(`# flow fixture
 
-Run 'scripts/check-vocabulary.sh' before committing.
+Run 'scripts/check-plan-provenance.sh' before committing.
 
 '''bash
 scripts/check-references.sh

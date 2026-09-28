@@ -172,9 +172,9 @@ func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int 
 
 // dpReadSite reads one required site's lines, or names why it cannot: a
 // symlink, a missing path, a non-regular file and an unreadable one are each
-// refused -- never a silent skip, per check-vocabulary.sh's own header
-// warning about a vacuous "✓ clean". A path that exists as neither a file nor
-// a directory folds into "not a regular file".
+// refused -- never a silent skip, which would be a vacuous "✓ clean". A
+// path that exists as neither a file nor a directory folds into "not a
+// regular file".
 func dpReadSite(p, label string) ([]string, string) {
 	if fi, err := os.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
 		return nil, "is a symlink — a required dispatch-paragraph site must be a real file, never a symlink"

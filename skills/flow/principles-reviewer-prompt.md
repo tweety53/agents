@@ -157,7 +157,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
   running skill directory, i.e. this file's own directory + `/engineering-principles.md`.
   Under the global install that is
   `~/.claude/skills/flow/engineering-principles.md`; under a
-  project-local install it is `<project>/.claude/skills/…` or `<project>/.cursor/skills/…`.
+  project-local install it is `<project>/.claude/skills/…` or `<project>/.zcode/skills/…`.
   Resolve it from where this template was actually read — never hardcode a repo-relative
   `skills/…` path: the subagent's working directory is the project worktree, which has no
   `skills/` tree, so a relative path fails to open and the reviewer loses its principle
@@ -169,9 +169,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
      containment rule. Entries are not paths to use as-is: a bare `*.mdc` filename means
      the shared agents rule library, any other bare filename means the project's own file,
      and a path that escapes the project root is dropped;
-  2. otherwise auto-detect: `<project>/CLAUDE.md`, `<project>/AGENTS.md`, `CONTRIBUTING.md`, and any
-     `.cursor/rules/*.mdc` that is `alwaysApply: true` or whose `globs:` match a file in
-     the diff.
+  2. otherwise auto-detect: `<project>/CLAUDE.md`, `<project>/AGENTS.md` and `CONTRIBUTING.md`.
   Pass the resolved absolute paths; report and drop any entry that resolves to no existing
   file or that fails containment. Pass an empty value when none resolve, which empties the
   Hard Invariants section by design.

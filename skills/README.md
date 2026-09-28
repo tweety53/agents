@@ -12,7 +12,7 @@ three-line digest is the layer that is loaded into a session before anything rea
 always-on rule, and a project's own `CLAUDE.md` / `AGENTS.md`.
 
 See also: `flow-manual-review.mdc` — authored at `rules/flow-manual-review.mdc` in this repo,
-installed by `setup.sh global` to `~/.cursor/rules/` and inlined into the managed block in
+installed by `setup.sh global` to `~/.claude/rules/` and inlined into the managed block in
 `~/.claude/CLAUDE.md`. It is a **stub**: the pipeline itself lives in
 `skills/flow-contracts/pipeline.md`, loaded on demand by `/flow`.
 

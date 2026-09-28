@@ -1409,7 +1409,7 @@ func TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule(t *testing.T) {
 
 // TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule is the mirror,
 // and the defect a naive `record.AgentID == window.AgentID` comparison
-// produces. Cursor and Codex expose no subagent identifier at all, so a
+// produces. A harness may expose no subagent identifier at all, so a
 // dispatch recorded without one is ordinary rather than degraded, and an
 // absent id is "" meaning "not reported" -- never a value that matches
 // another absent one.
@@ -1688,7 +1688,7 @@ func TestDispatchSameAgentIDOutsideBothApportions(t *testing.T) {
 // TestDispatchNonOverlappingIntervalStillAttributes is the guard against
 // over-correcting: the interval rule is the fallback, not a legacy path. A
 // single containing window with no agent id on either side still attributes
-// -- it is the only rule available on Cursor and Codex, and it is exactly
+// -- it is the only rule available on a harness with no agent id, and it is exactly
 // correct wherever windows do not overlap.
 func TestDispatchNonOverlappingIntervalStillAttributes(t *testing.T) {
 	windows := []harvest.DispatchWindow{

@@ -672,7 +672,7 @@ func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 
 // TestRecordDispatchSendsAgentIDOnlyWhenGiven pins the -agent-id flag in
 // its three states: an explicit value is carried verbatim as recorded
-// intent; Cursor and Codex expose no identifier at all and the caller may
+// intent; a harness that exposes no identifier lets the caller
 // pass the literal "none", recorded as no id; and a begin that omits the
 // flag is accepted (KAN-322) -- the daemon now stamps the id onto the row
 // from the parent transcript's launch result, so the hand-typed call

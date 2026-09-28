@@ -30,9 +30,8 @@ bare `/flow`), derived from the current state, or fixed at the single sensible d
 
 ### A fix never moves the state
 
-Moved verbatim from the contract, where it followed **This table is authoritative.**: Every command
-file — in **both** command trees (`commands/` and `commands-claude/`) — must state exactly the
-states its row lists, and must agree with the skill it delegates to. When a command and its skill
+Moved from the contract, where it followed **This table is authoritative.**: Every command file in
+`commands-claude/` must state exactly the states its row lists, and must agree with the skill it delegates to. When a command and its skill
 disagree, whichever the agent reads first wins, which is non-determinism in the one layer that must
 be deterministic.
 
@@ -45,8 +44,8 @@ at dispatch and resolved at completion would survive a crashed run as a permanen
 task, in a file two guards parse. The in-progress count comes from the harness's task list alone,
 which no run persists.
 
-**Stated against the mechanism, never against one harness's tool.** flow runs in Claude Code,
-Cursor and Codex, and a rule written against one harness's API is unimplementable in the other two.
+**Stated against the mechanism, never against one harness's tool.** flow runs in Claude Code
+and ZCode, and a rule written against one harness's API is unimplementable in the other.
 Where a harness offers no task-list mechanism, the command prints the equivalent block in its output
 instead: a count line naming how many steps are done, in progress and open, followed by one line per
 step marked done or not done. The rule is satisfied by whichever mechanism the harness provides, and

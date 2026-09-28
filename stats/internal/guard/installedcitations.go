@@ -46,7 +46,7 @@ import (
 // three FORMS of root are recognised (canonical definition: the kan-239
 // citation-roots spec — do not restate the rule here):
 //
-//   - an installed root's own bare form (`skills/…`, `rules/…`, `commands/…`,
+//   - an installed root's own bare form (`skills/…`, `rules/…`,
 //     `commands-claude/…`, `hooks/…`, wherever the harness placed it)
 //   - a placeholder root — a CLOSED set, see cicPlaceholderRoots for the set
 //     itself and why membership rather than bracket shape is what a
@@ -98,11 +98,8 @@ var cicExpectedZero = [][2]string{
 	{"rules/fix-determinism-at-the-source.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/never-touch-production.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"skills/flow/engineering-principles.md", "reviewer-prompt file, deliberately self-contained — cites principles-reviewer-prompt.md only via a Markdown link, a shape this guard's classifier does not scan"},
-	{"commands/flow-plan.md", "command-dispatch stub — delegates to the flow-plan skill by name, not by path; cites no .md/.mdc path at all"},
 	{"commands-claude/flow-plan.md", "command-dispatch stub — delegates to the flow-plan skill by name, not by path; cites no .md/.mdc path at all"},
-	{"commands/flow-settings.md", "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"},
 	{"commands-claude/flow-settings.md", "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"},
-	{"commands/flow-self-review.md", "command-dispatch stub — delegates to the flow-self-review skill by name, not by path; cites no .md/.mdc path at all"},
 	{"commands-claude/flow-self-review.md", "command-dispatch stub — delegates to the flow-self-review skill by name, not by path; cites no .md/.mdc path at all"},
 	{"skills/flow-contracts/plan-provenance.md", "the guard-facing sections moved to plan-provenance-guard.md — cites no .md/.mdc path at all"},
 	{"agents/flow-low.md", "generic dispatch-target agent definition — cites no .md/.mdc path at all"},
@@ -222,11 +219,13 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 
 // HOW "INSTALLED" IS DERIVED — never re-implemented, never a written list.
 // cicInstalledSources creates its own throwaway sandbox, runs the real
-// `setup.sh global` and `setup.sh all <sandbox>/proj` into it (refusing
-// first unless both the HOME and the project directory it is about to hand
-// the installer lie inside that sandbox — cicRunSetup/cicWithinSandbox,
-// adopting scripts/test-setup.sh's own refusal rather than restating it),
-// and reads back what appeared (cicDeriveSources). A re-implementation of
+// `setup.sh global`, `setup.sh claude-code <sandbox>/proj` and `setup.sh
+// zcode <sandbox>/proj` into it (refusing first unless both the HOME and the
+// project directory it is about to hand the installer lie inside that
+// sandbox — cicRunSetup/cicWithinSandbox, adopting scripts/test-setup.sh's
+// own refusal rather than restating it), and reads back what appeared
+// (cicDeriveSources). Both project modes run because between them they copy
+// CLAUDE.md and AGENTS.md into the project. A re-implementation of
 // the installer's globs drifts the moment an install path changes;
 // deriving from a real run cannot. A non-zero code is the guard's exit.
 func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]bool, int) {
@@ -263,7 +262,7 @@ func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]boo
 		fmt.Fprintf(stderr, "%s: cannot create %s — %v\n", cicName, proj, err)
 		return nil, 2
 	}
-	for _, run := range []struct{ mode, proj string }{{"global", ""}, {"all", proj}} {
+	for _, run := range []struct{ mode, proj string }{{"global", ""}, {"claude-code", proj}, {"zcode", proj}} {
 		res, err := cicRunSetup(ctx, repo, sandbox, sandbox, run.proj, run.mode)
 		if ctx.Err() != nil {
 			return nil, 2 // interrupted: the deferred cleanup ends the process
@@ -842,7 +841,7 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 // table; it is not something this guard does by pattern-matching brackets.
 //
 // `<skill-dir>` resolves at runtime to the INSTALLED skills root
-// (`~/.claude/skills/<skill>/`, `.cursor/skills/<skill>/`, …) — neither
+// (`~/.claude/skills/<skill>/`, `~/.zcode/skills/<skill>/`, …) — neither
 // this checkout nor the target project, the same criterion that earned
 // `<abs-worktree>`, `<changeRoot>` and `<state-dir>` their places. It
 // collapses three corpus wordings of the same concept ("the running

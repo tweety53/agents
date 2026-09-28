@@ -80,13 +80,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# REPO_ROOT is resolved from this script's own location, exactly like
-# check-vocabulary.sh. That is what makes the guard
+# REPO_ROOT is resolved from this script's own location. That is what makes the guard
 # argument-free and self-scoped from any cwd. This is repo lint, not a shipped
 # guard: it is symlinked into no skill's scripts/ directory, so
 # check-guard-symlinks.sh's rule 4 — which forbids a SHIPPED guard from deriving
-# a root as $SCRIPT_DIR/.. — does not reach it, by the same reading that leaves
-# check-vocabulary.sh alone.
+# a root as $SCRIPT_DIR/.. — does not reach it.
 #
 # CHECK_NORMATIVE_INVENTORY_ROOT is an explicit, opt-in override honored only
 # when set. It exists solely so the companion harness can point the guard at a

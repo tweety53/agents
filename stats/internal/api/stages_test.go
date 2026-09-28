@@ -750,7 +750,7 @@ func TestNonClaudeHarnessMarksTokensUnavailable(t *testing.T) {
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
 
-	beginThenEnd(t, srv, "cursor")
+	beginThenEnd(t, srv, "no-transcript-harness")
 
 	if len(fs.stageRuns) != 1 {
 		t.Fatalf("len(stageRuns) = %d, want 1", len(fs.stageRuns))
@@ -816,7 +816,7 @@ func TestUnavailableIsNeverWrittenAsZero(t *testing.T) {
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
 
-	beginThenEnd(t, srv, "codex")
+	beginThenEnd(t, srv, "no-transcript-harness")
 
 	if len(fs.stageRuns) != 1 {
 		t.Fatalf("len(stageRuns) = %d, want 1", len(fs.stageRuns))
@@ -859,7 +859,7 @@ func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
 		if _, err := api.ApplyBeginStageMark(ctx, fs, logger, api.BeginStageMark{
 			ProjectKey:   "proj",
 			ChangeName:   "chg",
-			Harness:      "cursor",
+			Harness:      "no-transcript-harness",
 			SessionToken: "mf-session-token-null-metrics",
 			Command:      "/flow",
 			Stage:        "flow.sdd-tdd",
@@ -894,7 +894,7 @@ func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
 // harnesses whose transcripts internal/harvest does NOT read. zcode joins
 // claude-code in the harvested set -- its rollout transcripts are a second
 // source the harvester reads -- while a harness with no transcript at all
-// (cursor) keeps the honest stamp.
+// (no-transcript-harness) keeps the honest stamp.
 func TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses(t *testing.T) {
 	t.Run("zcode is harvested and gets no stamp", func(t *testing.T) {
 		fs := newFakeStore()
@@ -934,13 +934,13 @@ func TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses(t *testing.T)
 		}
 	})
 
-	t.Run("cursor still gets the stamp", func(t *testing.T) {
+	t.Run("no-transcript harness still gets the stamp", func(t *testing.T) {
 		fs := newFakeStore()
 		fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 		srv := newStageTestServer(t, fs)
 		defer srv.Close()
 
-		beginThenEnd(t, srv, "cursor")
+		beginThenEnd(t, srv, "no-transcript-harness")
 
 		var metrics map[string]any
 		if err := json.Unmarshal(fs.stageRuns[0].run.Metrics, &metrics); err != nil {
@@ -948,7 +948,7 @@ func TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses(t *testing.T)
 		}
 		available, present := metrics["tokens_available"]
 		if !present {
-			t.Fatalf("metrics carried no tokens_available for a cursor run: %s", fs.stageRuns[0].run.Metrics)
+			t.Fatalf("metrics carried no tokens_available for a no-transcript-harness run: %s", fs.stageRuns[0].run.Metrics)
 		}
 		if b, isBool := available.(bool); !isBool || b != false {
 			t.Errorf("metrics.tokens_available = %#v, want the JSON boolean false", available)

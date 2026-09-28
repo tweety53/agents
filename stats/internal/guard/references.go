@@ -25,7 +25,7 @@ func init() {
 
 // crTargets is DEFAULT_TARGETS: the scan set lives here, in one place, so no
 // call site can narrow it.
-var crTargets = []string{"rules", "skills", "commands", "commands-claude", "README.md", "AGENTS.md", "CLAUDE.md"}
+var crTargets = []string{"rules", "skills", "commands-claude", "README.md", "AGENTS.md", "CLAUDE.md"}
 
 // EXPECTED-ZERO FILES — established by running this guard's own association
 // and resolution logic against the real tree (2026-08-18, at df9d5dd), never
@@ -77,10 +77,6 @@ var crExpectedZero = []struct {
 			"commands-claude/flow-settings.md",
 			"commands-claude/flow-status.md",
 			"commands-claude/flow.md",
-			"commands/flow-plan.md",
-			"commands/flow-self-review.md",
-			"commands/flow-settings.md",
-			"commands/flow-status.md",
 		}},
 	{"rule file — its own path citations (where present) sit in a Markdown table cell or plain prose, separated from any bold text by more than the adjacency window this guard's is_associated allows, or cite no path in a bold-adjacent shape at all",
 		[]string{

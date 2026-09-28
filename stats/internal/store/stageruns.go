@@ -97,7 +97,7 @@ type SupersededRun struct {
 // value cannot collide with migrationsLockKey, or with any other
 // single-bigint key this database ever takes, regardless of what either
 // value is (fix round 5, finding F17).
-const stageRunSupersedeLockNamespace = 185_004 // KAN-185, task 4
+const stageRunSupersedeLockNamespace = 185_004
 
 // StageRun is one recorded attempt at one stage of one command, for one
 // change. A nil RepoRoot means the stage belongs to the change as a whole,

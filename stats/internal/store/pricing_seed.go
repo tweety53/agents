@@ -39,8 +39,8 @@ func fastRate(v float64) *float64 { return &v }
 // memory -- and a model or rate this table does not name (claude-sonnet-5,
 // claude-haiku-4-5 and claude-fable-5-1 have no fast-mode rate at all,
 // per the source table's own "—" cells; glm-5.3-flash has no fast rate
-// either, and no separate 1-hour cache rate, which is what lets the
-// pricer price ZCode's unknown-split cache writes exactly --
+// either, and its 1-hour cache rate equals its 5-minute one, which is what
+// lets the pricer price ZCode's unknown-split cache writes exactly --
 // chargeableTokens.cost's flat-rate rule) is priced as unavailable by
 // Store.Price rather than at an invented rate: see PricingRate's own doc
 // comment, and chargeableTokens.cost, for how a nil rate here is treated
@@ -52,19 +52,19 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        0.075,
 			OutputPerMTok:       0.25,
-			CacheWritePerMTok:   0,
 			CacheWrite5mPerMTok: 0,
+			// CacheWrite1hPerMTok equal to the 5m rate: Z.ai publishes one
+			// cache-write rate (limited-time free) whichever TTL applies.
+			CacheWrite1hPerMTok: fastRate(0),
 			CacheReadPerMTok:    0.015,
-			// CacheWrite1hPerMTok nil: Z.ai publishes one cache-write rate
-			// (limited-time free), and no fast-mode rate is published for
-			// this model -- both left nil deliberately.
+			// No fast-mode rate is published for this model -- left nil
+			// deliberately.
 		},
 		{
 			Model:               "claude-fable-5-1",
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        10,
 			OutputPerMTok:       50,
-			CacheWritePerMTok:   12.50, // legacy column; superseded by the 5m/1h split below.
 			CacheWrite5mPerMTok: 12.50,
 			CacheWrite1hPerMTok: fastRate(20),
 			CacheReadPerMTok:    0.25, // 0.025x input on this model, not the 0.1x every other row uses.
@@ -75,7 +75,6 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        10,
 			OutputPerMTok:       50,
-			CacheWritePerMTok:   12.50,
 			CacheWrite5mPerMTok: 12.50,
 			CacheWrite1hPerMTok: fastRate(20),
 			CacheReadPerMTok:    1,
@@ -86,7 +85,6 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        4,
 			OutputPerMTok:       20,
-			CacheWritePerMTok:   5,
 			CacheWrite5mPerMTok: 5,
 			CacheWrite1hPerMTok: fastRate(8),
 			CacheReadPerMTok:    0.20, // 0.05x input on this model.
@@ -98,7 +96,6 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        5,
 			OutputPerMTok:       25,
-			CacheWritePerMTok:   6.25, // legacy column; superseded by the 5m/1h split below.
 			CacheWrite5mPerMTok: 6.25,
 			CacheWrite1hPerMTok: fastRate(10),
 			CacheReadPerMTok:    0.50,
@@ -110,7 +107,6 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        5,
 			OutputPerMTok:       25,
-			CacheWritePerMTok:   6.25,
 			CacheWrite5mPerMTok: 6.25,
 			CacheWrite1hPerMTok: fastRate(10),
 			CacheReadPerMTok:    0.50,
@@ -122,7 +118,6 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        2,
 			OutputPerMTok:       10,
-			CacheWritePerMTok:   2.50,
 			CacheWrite5mPerMTok: 2.50,
 			CacheWrite1hPerMTok: fastRate(4),
 			CacheReadPerMTok:    0.20,
@@ -134,7 +129,6 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        1,
 			OutputPerMTok:       5,
-			CacheWritePerMTok:   1.25,
 			CacheWrite5mPerMTok: 1.25,
 			CacheWrite1hPerMTok: fastRate(2),
 			CacheReadPerMTok:    0.10,
@@ -145,7 +139,6 @@ func SeedPricingRates() []PricingRate {
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        1,
 			OutputPerMTok:       5,
-			CacheWritePerMTok:   1.25,
 			CacheWrite5mPerMTok: 1.25,
 			CacheWrite1hPerMTok: fastRate(2),
 			CacheReadPerMTok:    0.10,

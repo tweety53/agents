@@ -4,8 +4,7 @@
 # where the case names one, the presence of the expected hit text. Never
 # touches the real repository tree.
 #
-# Modeled on test-check-vocabulary.sh's fixture-driven pattern: fixtures live
-# under mktemp -d, the guard is invoked via a thin run_guard helper that
+# Fixture-driven: fixtures live under mktemp -d, the guard is invoked via a thin run_guard helper that
 # captures RC/OUT, and every case ends with an explicit pass/fail assertion —
 # never a bare "it didn't crash".
 #
@@ -19,7 +18,7 @@ GUARD="$SCRIPT_DIR/check-python-suppressions.sh"
 FAILURES=0
 
 # Every fixture directory is registered here and removed by a single EXIT
-# trap, matching test-check-vocabulary.sh's own hygiene: a harness that
+# trap: a harness that
 # leaks its fixtures litters the machine it proves things on.
 FIXTURES=()
 cleanup_fixtures() { [ "${#FIXTURES[@]}" -eq 0 ] || rm -rf "${FIXTURES[@]}"; }

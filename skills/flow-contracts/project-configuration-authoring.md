@@ -5,7 +5,7 @@ configuration** (`skills/flow-contracts/project-configuration.md`) is canonical 
 resolves; nothing here is consulted by any run.
 
 **The `.mdc` extension is what selects the shared library, and nothing else.** A project-local
-`.mdc` is still nameable — write it as a path (`<project>/.cursor/rules/api.mdc`), which form 3 takes as-is.
+`.mdc` is still nameable — write it as a path (`<project>/.claude/rules/api.mdc`), which form 3 takes as-is.
 See **The `.mdc` routing rule** (`skills/flow-contracts/project-configuration-rationale.md`)
 for why.
 

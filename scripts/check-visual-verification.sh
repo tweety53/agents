@@ -25,8 +25,7 @@
 # failed to look, or `git remote get-url origin` against a declared
 # `regression checkout` failed for a reason other than "no such remote" (that
 # one IS a finding — see below). A `2` is never a silent skip: a guard
-# pointed at a moved file that reports `VISUAL-OK` is the vacuous pass
-# scripts/check-vocabulary.sh's own header warns about.
+# pointed at a moved file that reports `VISUAL-OK` is a vacuous pass.
 #
 # THE TWO ON-DISK TABLES, AND WHERE THEIR SHAPE COMES FROM. design.md's "The
 # contract" section documents the settings and commands as

@@ -253,12 +253,6 @@ bare `/flow` is the only command that loads this file.
    | 4 | What could be automated or moved to a script | `flow-automation` |
    | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
 
-   **Issues filed before these labels took their current names carry the earlier `myflow-`
-   spelling, and a label-based search has to match either form** — nothing relabels them, because
-   that is an outward-facing bulk write over a board this pipeline does not own. The self-review
-   reports under `<project>/docs/self-review/` written before then are immutable records carrying
-   the same earlier spelling, so `check-self-review-report.sh` recognises both, positionally aligned.
-
    Angle 5's remit covers the records the pipeline writes to files today and the derivation work
    now done in Bash or by the agent — **not** what the SPA should display.
 

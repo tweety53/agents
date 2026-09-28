@@ -25,7 +25,7 @@
 #   ------------------------------------------ -------------------------
 #   post-loop `read_rc` check                  24
 #   `##`-heading label match                   1, 2, 3, 4, 5, 6, 7, 13,
-#                                              14, 16, 17, 18, 19, 20, 21
+#                                              14, 16, 18, 19, 20, 21
 #   other-heading reset (any `#+` level)       12
 #   none-marker comparison                     1, 16, 18
 #   FINDING_LINE_RE acceptance                 1, 4, 5, 6, 7, 16, 18, 19
@@ -38,15 +38,13 @@
 #   orphan branch                              12, 15
 #   duplicate-section check                    14
 #   out-of-order check                         13
-#   missing-section check                      2, 17
+#   missing-section check                      2
 #   neither-marker-nor-finding check           3, 20, 21
 #   both-marker-and-finding check              16
 #   canonical-table label parse (kan-585)      26, 27, 28, 29, 30
 #   canonical-table `-r` die (kan-585)         29 (message assertion only)
 #   canonical-table no-labels die (kan-585)    30
 #   per-report reset walked from the table     28
-#     (kan-585)
-#   legacy-twin `:-` on the heading match      28
 #     (kan-585)
 #
 # Case 7 appears in several rows because it alone runs the guard bare over
@@ -123,14 +121,6 @@ case "$OUT" in
   *"SELF-REVIEW-REPORT-OK"*) pass "case 1: verdict line carries SELF-REVIEW-REPORT-OK" ;;
   *) fail "case 1: expected SELF-REVIEW-REPORT-OK in output, out=$OUT" ;;
 esac
-
-# Case 1b: the same report under the earlier `myflow-*` angle labels still
-# passes — reports under docs/self-review/ are immutable records, so the guard
-# keeps recognising the spelling they were written with.
-new_fixture
-compliant_report | sed 's/flow-/myflow-/g' >"$FIXTURE/fixture-self-review.md"
-run_guard "$FIXTURE"
-[ "$RC" -eq 0 ] && pass "case 1b: legacy-labelled report exits 0" || fail "case 1b: rc=$RC out=$OUT"
 
 # ===========================================================================
 # Case 2: the angle-5 section is missing entirely -> named, with the missing
@@ -296,16 +286,9 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 7 (declared pre-rule reports): must run the guard BARE, against the
-# real repository docs/self-review/ it ships in. This guard's declared list
-# is a hardcoded set of THIS REPOSITORY's own basenames (real, pre-KAN-200
-# reports); a sandboxed fixture tree never contains one of those names, so
-# declaring them there would make every one of them a KAN-197 F3
-# "declared but never recorded" violation for a member simply not part of
-# that run's corpus — the same reasoning stats/internal/guard/stagemarkcalls.go's
-# expected-zero declaration states for the identical shape. Gating declaration on "no CLI
-# args" (mirroring stagemarkcalls.go's gate) keeps that protection meaning
-# something, and this case proves the real, default invocation is clean.
+# Case 7 (the real corpus): runs the guard BARE, against the real
+# repository docs/self-review/ it ships in, proving the default invocation
+# is clean.
 # ===========================================================================
 set +e
 REAL_OUT="$("$GUARD" 2>&1)"
@@ -317,12 +300,6 @@ case "$REAL_OUT" in
   *"SELF-REVIEW-REPORT-OK"*) pass "case 7: verdict line carries SELF-REVIEW-REPORT-OK" ;;
   *) fail "case 7: expected SELF-REVIEW-REPORT-OK in output, out=$REAL_OUT" ;;
 esac
-case "$REAL_OUT" in
-  *"docs/self-review/kan-100-myflow-get-rid-of-staging-use-commits-self-review.md 0 (declared: predates the five-angle report shape (KAN-200))"*) \
-    pass "case 7: a declared pre-rule report is reported as declared, with its reason" ;;
-  *) fail "case 7: expected a declared pre-rule report named with its reason, out=$REAL_OUT" ;;
-esac
-
 # ===========================================================================
 # Case 8 (KAN-197 regression shape): a report present in the corpus, absent
 # from the declared list, for which the guard performed zero section checks
@@ -582,42 +559,6 @@ case "$OUT" in
   *"carries both the none-marker and"*"finding line"*) \
     pass "case 16: finding names the none-marker-plus-finding conflict" ;;
   *) fail "case 16: expected a both-marker-and-finding finding, out=$OUT" ;;
-esac
-
-# ===========================================================================
-# Case 17 (F8 regression): a file whose BASENAME matches one of the
-# seventeen hardcoded declared pre-rule names, scanned via an EXPLICIT
-# directory argument (not this guard's bare, default invocation) — the one
-# mode where declare_pre_rule never runs. The declared-basename fast path
-# must not apply here: content is missing its fifth section, and that
-# SPECIFIC violation must still be named, proving the guard actually scanned
-# the file rather than waving it through on basename alone.
-# ===========================================================================
-new_fixture
-cat >"$FIXTURE/kan-73-install-guard-scripts-alongside-skills-self-review.md" <<'EOF'
-## Problems and fixes — `flow-fix`
-
-- **[flow-fix]** Preflight compares against a stale local base ref — declined
-
-## Cost — `flow-cost`
-
-- **[flow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
-
-## What went well — `flow-improvement`
-
-_none — this angle produced no findings._
-
-## Automation — `flow-automation`
-
-_none — this angle produced no findings._
-EOF
-run_guard "$FIXTURE"
-[ "$RC" -eq 1 ] && pass "case 17: a declared basename is still content-checked outside bare mode" \
-  || fail "case 17: rc=$RC out=$OUT"
-case "$OUT" in
-  *"missing section"*"flow-stats-app"*) \
-    pass "case 17: the missing-section finding fired, proving the file was actually scanned" ;;
-  *) fail "case 17: expected a missing-section finding despite the matching basename, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -959,9 +900,7 @@ unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
 # Case 28: a sixth angle added to the canonical table is demanded of every
 # report — the count is the table's, never a constant. The report also
 # carries one unrecognized `##` heading, so the heading matcher walks every
-# index including the one past LEGACY_ANGLE_LABELS' end — the read its `:-`
-# guards (a table longer than the legacy era dies there without it, not
-# matching a heading first).
+# index of the parsed table.
 new_contract fixture_contract_renamed
 printf '   | 6 | Docs that taught the operator something new | `flow-docs` |\n' >>"$CONTRACT_DIR/contract.md"
 new_fixture

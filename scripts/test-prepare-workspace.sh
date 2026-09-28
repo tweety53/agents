@@ -108,14 +108,14 @@ run_script "$REPO"
 # ===========================================================================
 # Case 2: A section declared — variables exported and printed correctly.
 #
-# The change name is kan-15-parallel-myflow-do-task-lanes, the exact worked
+# The change name is kan-15-parallel-flow-task-lanes, the exact worked
 # example under "The workspace id" (skills/flow-contracts/workspace-
-# isolation.md): id kan-15-55a6, id_underscored kan_15_55a6, digest 55a6, and
-# offset 3270 (the file's own worked value for that digest) — so every
+# isolation.md): id kan-15-fb13, id_underscored kan_15_fb13, digest fb13, and
+# offset 2760 (the file's own worked value for that digest) — so every
 # expected value below is asserted against that canonical worked example
 # rather than against this script's own arithmetic.
 # ===========================================================================
-new_repo "kan-15-parallel-myflow-do-task-lanes"
+new_repo "kan-15-parallel-flow-task-lanes"
 write_config "## workspace isolation
 
 | Resource | Variable | Default | In a workspace |
@@ -138,23 +138,23 @@ run_script "$REPO"
   || fail "2: expected exit 0, got rc=$RC out=$OUT err=$ERR"
 
 case "$OUT" in
-  *"DB_URL=jdbc:postgresql://localhost:5432/appdb_kan_15_55a6"*) pass "2: database row substitutes <id_underscored>" ;;
+  *"DB_URL=jdbc:postgresql://localhost:5432/appdb_kan_15_fb13"*) pass "2: database row substitutes <id_underscored>" ;;
   *) fail "2: DB_URL not resolved as expected, got: $OUT" ;;
 esac
 case "$OUT" in
-  *"MEDIA_BUCKET=appdb-media-kan-15-55a6"*) pass "2: bucket row substitutes <id>" ;;
+  *"MEDIA_BUCKET=appdb-media-kan-15-fb13"*) pass "2: bucket row substitutes <id>" ;;
   *) fail "2: MEDIA_BUCKET not resolved as expected, got: $OUT" ;;
 esac
 case "$OUT" in
-  *"API_PORT=11350"*) pass "2: port row adds the offset (8080 + 3270)" ;;
+  *"API_PORT=10840"*) pass "2: port row adds the offset (8080 + 2760)" ;;
   *) fail "2: API_PORT not resolved as expected, got: $OUT" ;;
 esac
 case "$OUT" in
-  *"MEDIA_BASE_URL=http://localhost:9000/appdb-media-kan-15-55a6"*) pass "2: url row resolves <value:MEDIA_BUCKET>" ;;
+  *"MEDIA_BASE_URL=http://localhost:9000/appdb-media-kan-15-fb13"*) pass "2: url row resolves <value:MEDIA_BUCKET>" ;;
   *) fail "2: MEDIA_BASE_URL not resolved as expected, got: $OUT" ;;
 esac
 case "$OUT" in
-  *"WEB_URL=http://localhost:11350"*) pass "2: url row resolves <value:API_PORT>" ;;
+  *"WEB_URL=http://localhost:10840"*) pass "2: url row resolves <value:API_PORT>" ;;
   *) fail "2: WEB_URL not resolved as expected, got: $OUT" ;;
 esac
 LINES="$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')"

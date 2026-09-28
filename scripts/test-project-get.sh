@@ -132,7 +132,7 @@ new_root
 write_cfg "## lint
 
 \`\`\`bash
-scripts/check-vocabulary.sh
+scripts/check-references.sh
 \`\`\`
 
 ### note
@@ -147,7 +147,7 @@ run_get "$ROOT" lint
 assert_rc "case 5" 0
 EXPECTED_CASE5="$(cat <<'EOF'
 ```bash
-scripts/check-vocabulary.sh
+scripts/check-references.sh
 ```
 
 ### note
@@ -182,10 +182,10 @@ assert_rc "case 6" 2
 new_root
 write_cfg_bom "## lint
 
-scripts/check-vocabulary.sh"
+scripts/check-references.sh"
 run_get "$ROOT" lint
 assert_rc "case 7" 0
-assert_out_contains "case 7" "scripts/check-vocabulary.sh"
+assert_out_contains "case 7" "scripts/check-references.sh"
 
 # ===========================================================================
 # Case 8: a key whose body is empty prints nothing and exits 0.

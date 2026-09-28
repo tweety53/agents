@@ -125,7 +125,7 @@ func TestCheckStageMarkCalls(t *testing.T) {
 		{files: map[string]string{"SKILL.md": block("flow stage begin -command '/flow' -stage flow.review-panel -harness claude-code -session-token mf-abc123 <name>\n")},
 			checks: []smcCheck{smcRC("case 7b: hardcoded harness literal is caught", 1),
 				smcHas("case 7b: finding names the hardcoded literal", "hardcoded literal")}},
-		{files: map[string]string{"SKILL.md": block("flow stage begin -command '/flow' -stage flow.review-panel -harness cursor -session-token mf-abc123 <name>\n")},
+		{files: map[string]string{"SKILL.md": block("flow stage begin -command '/flow' -stage flow.review-panel -harness zcode -session-token mf-abc123 <name>\n")},
 			checks: []smcCheck{smcRC("case 7c: any hardcoded harness literal is caught, not just claude-code", 1)}},
 		{files: map[string]string{"SKILL.md": block("flow stage begin -command '/flow-fast' \\\n",
 			"  -stage flow.review-panel \\\n", "  -harness <harness> \\\n", "  -session-token mf-continued-001 <name>\n")},
@@ -383,9 +383,16 @@ func TestCheckStageMarkCalls(t *testing.T) {
 			}
 			brc = ee.ExitCode()
 		}
-		if grc != brc || gout.String() != bout.String() || gerr.String() != berr.String() {
+		// The hardcoded-harness message was restated after d71a2327, when the
+		// Cursor and Codex installs were removed; the pinned bash still names
+		// them, so its output is brought to the current wording before the
+		// byte comparison. Everything else is compared as the bash printed it.
+		bash := strings.ReplaceAll(bout.String(),
+			"`~/.claude/skills/`, `~/.cursor/skills/` and `~/.codex/skills/` alike",
+			"`~/.claude/skills/` and `~/.zcode/skills/` alike")
+		if grc != brc || gout.String() != bash || gerr.String() != berr.String() {
 			t.Fatalf("port rc=%d stdout=\n%s\nstderr=\n%s\nbash rc=%d stdout=\n%s\nstderr=\n%s",
-				grc, gout.String(), gerr.String(), brc, bout.String(), berr.String())
+				grc, gout.String(), gerr.String(), brc, bash, berr.String())
 		}
 	})
 }

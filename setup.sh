@@ -3,20 +3,18 @@
 #
 # Usage: ./setup.sh <harness> [project-dir]
 #
-# Harnesses: cursor | claude-code | codex | zcode | all | global
+# Harnesses: claude-code | zcode | global
 #
 # Examples:
 #   ./setup.sh claude-code                    # current directory
-#   ./setup.sh cursor /path/to/other-project
-#   ./setup.sh all /path/to/gymie
-#   ./setup.sh global                         # user-level install (~/.claude, ~/.cursor, ~/.zcode)
+#   ./setup.sh zcode /path/to/other-project
+#   ./setup.sh global                         # user-level install (~/.claude, ~/.zcode)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$SCRIPT_DIR/skills"
 RULES_SRC="$SCRIPT_DIR/rules"
-COMMANDS_CURSOR_SRC="$SCRIPT_DIR/commands"
 COMMANDS_CLAUDE_SRC="$SCRIPT_DIR/commands-claude"
 AGENTS_SRC="$SCRIPT_DIR/agents"
 HARNESS="${1:-}"
@@ -60,7 +58,7 @@ TMP_FILES=()
 cleanup_tmp() { [[ ${#TMP_FILES[@]} -eq 0 ]] || rm -f "${TMP_FILES[@]}"; }
 trap cleanup_tmp EXIT
 
-[[ -n "$HARNESS" ]] || die "Usage: $0 <cursor|claude-code|codex|zcode|all|global> [project-dir]"
+[[ -n "$HARNESS" ]] || die "Usage: $0 <claude-code|zcode|global> [project-dir]"
 [[ -d "$SKILLS_SRC" ]] || die "skills/ directory not found at $SKILLS_SRC"
 
 # Count of items that could not be linked. A skip must never be reportable as a
@@ -108,8 +106,8 @@ link_into() {
 
 # finish_banner <label> <skipped-baseline>
 # Closes an install mode. A run that skipped an item is not a complete install and
-# must not look like one — the count is taken since the baseline so that `all`
-# reports each mode's own skips rather than the running total.
+# must not look like one — the count is taken since the baseline so that each mode reports
+# its own skips rather than the running total.
 finish_banner() {
   local label="$1" n=$((SKIPPED - $2))
   if (( n > 0 )); then
@@ -134,8 +132,8 @@ always_on_rules() {
     #
     # Three things this awk is careful about:
     #   - `sub(/\r$/, "")` first: in a CRLF checkout line 1 is `---\r`, which fails the
-    #     `$0 != "---"` test, so an always-on rule would be silently dropped from BOTH
-    #     ~/.cursor/rules and the managed block — an install that looks successful and
+    #     `$0 != "---"` test, so an always-on rule would be silently dropped from the
+    #     managed blocks and the full-text links — an install that looks successful and
     #     ships none of the mandatory rules.
     #   - The value is anchored at the tail, so `alwaysApply: true_for_kotlin_only`
     #     (or any other `true…` prefix) is no longer read as `true`.
@@ -227,31 +225,12 @@ install_claude_code() {
   echo "   Next: in a Claude Code session, run /plugin install prime-radiant-inc/superpowers"
 }
 
-install_codex() {
-  local skipped_before=$SKIPPED
-  info "Setting up for Codex in $PROJECT_DIR"
-  install_skills "$PROJECT_DIR/.codex/skills"
-  if [[ ! -f "$PROJECT_DIR/AGENTS.md" ]]; then
-    cp "$SCRIPT_DIR/AGENTS.md" "$PROJECT_DIR/AGENTS.md"
-    info "Copied AGENTS.md to project root"
-  else
-    info "AGENTS.md already exists — skipping copy (diff manually if needed)"
-  fi
-  echo ""
-  finish_banner "Codex" "$skipped_before"
-  echo "   Always-on rules are NOT installed per project — run './setup.sh global' for those;"
-  echo "   it writes the managed block into ~/.codex/AGENTS.md, which every Codex session reads."
-  echo "   This project's OPT-IN rules are a separate matter — see the project standards step below."
-  echo "   Next: install Superpowers for Codex from its fork repo."
-  echo "   Enable: [features] multi_agent = true  in ~/.codex/config.toml"
-}
-
 install_zcode() {
   local skipped_before=$SKIPPED
   info "Setting up for ZCode in $PROJECT_DIR"
   install_skills "$PROJECT_DIR/.zcode/skills"
   # ZCode's command format is the same .md-plus-frontmatter form Claude Code reads,
-  # so the claude command set is the right source here, not the Cursor one.
+  # so the claude command set is the right source here.
   install_commands "$COMMANDS_CLAUDE_SRC" "$PROJECT_DIR/.zcode/commands"
   if [[ ! -f "$PROJECT_DIR/AGENTS.md" ]]; then
     cp "$SCRIPT_DIR/AGENTS.md" "$PROJECT_DIR/AGENTS.md"
@@ -267,26 +246,6 @@ install_zcode() {
   echo "   Superpowers is not vendored by this repo for any harness. For ZCode, copy its"
   echo "   skills/ directories into ~/.zcode/skills/ — they are plain skills with no plugin"
   echo "   machinery of their own."
-}
-
-# install_rules_cursor <target-dir>
-# Installs the always-on rules, and only those — globally and per project alike.
-# An opt-in rule (e.g. the Kotlin backend standard, whose globs would otherwise
-# match a Compose Multiplatform or IDE-plugin repo) is never installed by path:
-# whether a rule is always-on is decided by the rule, not by the caller. Opt-in rules
-# reach a project through install_project_standards instead — as inlined text in the
-# project's own managed block, never as a `.cursor/rules/` entry that Cursor would
-# apply by glob to every file in the repo.
-install_rules_cursor() {
-  local target_dir="$1" rule_name rule_file
-  [[ -d "$RULES_SRC" ]] || return 0
-  info "Installing flow rules into $target_dir"
-  mkdir -p "$target_dir"
-  while IFS= read -r rule_name; do
-    rule_file="$RULES_SRC/$rule_name"
-    [[ -f "$rule_file" ]] || continue
-    link_into "$rule_file" "$target_dir/$rule_name" "$rule_name"
-  done < <(always_on_rules)
 }
 
 # install_rules_claude <target-dir>
@@ -603,17 +562,6 @@ install_agents() {
   done
 }
 
-install_cursor() {
-  local skipped_before=$SKIPPED
-  info "Setting up for Cursor in $PROJECT_DIR"
-  install_skills "$PROJECT_DIR/.cursor/skills"
-  install_rules_cursor "$PROJECT_DIR/.cursor/rules"
-  install_commands "$COMMANDS_CURSOR_SRC" "$PROJECT_DIR/.cursor/commands"
-  echo ""
-  finish_banner "Cursor" "$skipped_before"
-  echo "   Skills → .cursor/skills/  Rules → .cursor/rules/  Commands → .cursor/commands/"
-}
-
 # render_managed_block [rule-name…]
 #
 # Render rule bodies as the content of the managed block. With no arguments the set is the
@@ -624,8 +572,8 @@ install_cursor() {
 # stripping, and the `<!-- rule: … -->` labelling are the same guarantees in both cases, and
 # a second renderer would be a second place for them to drift out of.
 #
-# Neither Claude Code nor Codex reads `.cursor/rules/`, so this block is the only
-# global rule layer for both — the rule text is inlined rather than referenced.
+# This block is the only global rule layer both harnesses read — the rule text is inlined
+# rather than referenced.
 #
 # Rendering refuses to proceed if a rule body contains a delimiter on a line of its own.
 # No rule does today, so this is a guard rather than a live bug — but the failure it
@@ -756,7 +704,7 @@ generated_only() {
 
 # preflight_managed_block <file>
 # Refuse, with context, the two shapes that would otherwise surface as a raw tool error from
-# the middle of the run: `mkdir: …/.codex: File exists` when the parent is a regular file, or
+# the middle of the run: `mkdir: …/.zcode: File exists` when the parent is a regular file, or
 # a burst of `grep: … Is a directory` followed by `cp: … is a directory` when the instruction
 # file itself is a directory. Both already failed safe; neither told the user which harness
 # step it was, that earlier steps had already installed, or what to do about it.
@@ -774,8 +722,7 @@ preflight_managed_block() {
 # install_managed_block <target-file> [rule-name…]
 #
 # Rewrite ONLY the delimited block in an agent instruction file — globally
-# (~/.claude/CLAUDE.md for Claude Code, ~/.codex/AGENTS.md for Codex, ~/.zcode/AGENTS.md
-# for ZCode) or in a project (<project>/CLAUDE.md and <project>/AGENTS.md, carrying that
+# (~/.claude/CLAUDE.md for Claude Code, ~/.zcode/AGENTS.md for ZCode) or in a project (<project>/CLAUDE.md and <project>/AGENTS.md, carrying that
 # project's opted-in rules). Trailing arguments are the rule list, forwarded verbatim to
 # render_managed_block; with none, the always-on set is rendered.
 #
@@ -1015,19 +962,16 @@ install_global() {
   # The managed-block targets, declared once so the preflight below and the install below
   # can never scan a different set than they write.
   #   - ~/.claude/CLAUDE.md — the only global rule layer Claude Code reads.
-  #   - ~/.codex/AGENTS.md  — Codex reads neither .cursor/rules/ nor CLAUDE.md; without a
-  #     managed block there, a global install left Codex sessions with no always-on rules
-  #     at all, including the pipeline contract itself.
   #   - ~/.zcode/AGENTS.md  — ZCode's user instruction file, the same role for that client.
-  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md" "$home_dir/.zcode/AGENTS.md")
+  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.zcode/AGENTS.md")
   local managed_file
   info "Setting up flow globally under $home_dir"
 
   # PREFLIGHT — everything that can refuse this run must refuse BEFORE the first symlink.
-  # These checks used to fire midway: install_rules_cursor had already linked an offending
-  # rule into ~/.cursor/rules/ by the time render_managed_block refused it, so Cursor picked
-  # the rule up while Claude Code and Codex got no managed block at all — two harnesses
-  # running the same repo under different rules, reproduced identically on every later run.
+  # These checks used to fire midway: an offending rule was already linked into one harness's
+  # rules directory by the time render_managed_block refused it, so that harness picked the
+  # rule up while the others got no managed block at all — harnesses running the same repo
+  # under different rules, reproduced identically on every later run.
   # The refusals themselves are correct; only their ordering was wrong. Render into nothing purely
   # to validate every rule body, and stat the block targets, before installing anything.
   render_managed_block >/dev/null
@@ -1036,23 +980,12 @@ install_global() {
   done
 
   install_skills "$home_dir/.claude/skills"
-  # Cursor needs its own copy: every commands/ file resolves skills through
-  # .cursor/skills/<skill>/SKILL.md, and there is no per-project copy any more.
-  install_skills "$home_dir/.cursor/skills"
-  # Codex too. The managed block written into ~/.codex/AGENTS.md below carries
-  # flow-manual-review.mdc, which names the /flow* skills throughout; without this a
-  # global install told Codex the rules and left it nothing to resolve them against. The
-  # per-project mode already uses .codex/skills, and projects may not keep their own copies
-  # once a global install exists, so this is the only place the skills can come from.
-  install_skills "$home_dir/.codex/skills"
-  # ZCode, same reasoning: its AGENTS.md block names the /flow* skills, and user scope
+  # ZCode needs its own copy: its AGENTS.md block names the /flow* skills, and user scope
   # (~/.zcode/skills) is where that client resolves them from.
   install_skills "$home_dir/.zcode/skills"
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.claude/commands"
-  install_commands "$COMMANDS_CURSOR_SRC" "$home_dir/.cursor/commands"
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.zcode/commands"
   install_agents "$home_dir/.claude/agents"
-  install_rules_cursor "$home_dir/.cursor/rules"
   # Claude Code's layer is two halves of one source: the core of each rule goes into the
   # managed block below, the full text is linked here, and the block's `Full rule:` pointer
   # is what joins them. Install the links BEFORE the block, so a pointer is never written to
@@ -1064,28 +997,20 @@ install_global() {
   install_hooks "$home_dir/.claude"
   install_hooks_zcode "$home_dir/.zcode"
   install_zcode_env "$home_dir"
-  for managed_file in "$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md"; do
-    install_managed_block "$managed_file"
-  done
-  # The ZCode block is rendered from the same rules as the other two, then has its
+  install_managed_block "$home_dir/.claude/CLAUDE.md"
+  # The ZCode block is rendered from the same rules as the Claude Code one, then has its
   # ~/.claude/ pointers rewritten to the ~/.zcode/ copies installed above — see
   # MANAGED_BLOCK_POSTPROCESS. The prefix assignment scopes the rewrite to this one call,
-  # so no later block (or harness) can inherit it. Installed last and separately from the
-  # loop above for that reason; the preflight above already stat'ed this target with the
-  # rest of managed_files.
+  # so no later block can inherit it. Installed last and separately for that reason; the
+  # preflight above already stat'ed this target with the rest of managed_files.
   MANAGED_BLOCK_POSTPROCESS='sed s|~/\.claude/|~/.zcode/|g' \
     install_managed_block "$home_dir/.zcode/AGENTS.md"
   echo ""
   finish_banner "Global" "$skipped_before"
-  echo "   Skills   → $home_dir/.claude/skills/, $home_dir/.cursor/skills/, $home_dir/.codex/skills/"
-  echo "              and $home_dir/.zcode/skills/"
-  echo "   Commands → $home_dir/.claude/commands/, $home_dir/.cursor/commands/ and"
-  echo "              $home_dir/.zcode/commands/"
-  echo "              No commands layer is installed for Codex — in a Codex session invoke a"
-  echo "              skill by reading $home_dir/.codex/skills/<skill>/SKILL.md and following it."
+  echo "   Skills   → $home_dir/.claude/skills/ and $home_dir/.zcode/skills/"
+  echo "   Commands → $home_dir/.claude/commands/ and $home_dir/.zcode/commands/"
   echo "   Agents   → $home_dir/.claude/agents/"
-  echo "   Rules    → $home_dir/.cursor/rules/, and the managed block in"
-  echo "              $home_dir/.claude/CLAUDE.md, $home_dir/.codex/AGENTS.md and"
+  echo "   Rules    → the managed block in $home_dir/.claude/CLAUDE.md and"
   echo "              $home_dir/.zcode/AGENTS.md"
   echo "              Full texts → $home_dir/.claude/rules/ and $home_dir/.zcode/rules/, which"
   echo "              the core excerpts in the respective managed blocks point at. Same source,"
@@ -1111,32 +1036,19 @@ install_global() {
 }
 
 case "$HARNESS" in
-  cursor)      install_cursor ;;
   global)      install_global ;;
   claude-code) install_claude_code ;;
-  codex)       install_codex ;;
   zcode)       install_zcode ;;
-  all)
-    install_cursor
-    echo ""
-    install_claude_code
-    echo ""
-    install_codex
-    echo ""
-    install_zcode
-    ;;
-  *) die "Unknown harness '$HARNESS'. Choose: cursor | claude-code | codex | zcode | all | global" ;;
+  *) die "Unknown harness '$HARNESS'. Choose: claude-code | zcode | global" ;;
 esac
 
-# Opt-in standards are rendered once per run, here rather than inside each mode: `all` would
-# otherwise render the same block four times and report each project skip four times. It
-# runs AFTER the mode so that the CLAUDE.md / AGENTS.md a first-time `claude-code` or `codex`
-# install copies in is the file the block lands in. ZCode is in this list for the same
-# reason codex is: it reads the project-root AGENTS.md the block lands in. `global` installs
-# no project files at all, so it is deliberately not in this list — a user-level install
-# must not start writing into whatever directory it happened to be run from.
+# Opt-in standards are rendered after the mode, so that the CLAUDE.md / AGENTS.md a
+# first-time `claude-code` or `zcode` install copies in is the file the block lands in.
+# `global` installs no project files at all, so it is deliberately not in this list — a
+# user-level install must not start writing into whatever directory it happened to be run
+# from.
 case "$HARNESS" in
-  cursor|claude-code|codex|zcode|all) install_project_standards "$PROJECT_DIR" ;;
+  claude-code|zcode) install_project_standards "$PROJECT_DIR" ;;
 esac
 
 # A run that could not link something is not a successful install, and a caller (CI, a

@@ -364,7 +364,7 @@ func (s *smcScan) checkCall(f string, c smcCall) {
 		if !smcHasHarness.MatchString(c.cmd) {
 			s.finding("%s:%d: `flow stage begin` carries no -harness -- required so a recorded run states which harness marked it", f, c.line)
 		} else if h := smcValue(smcHarnessValue, c.cmd); !smcPlaceholder.MatchString(h) {
-			s.finding("%s:%d: -harness %s is a hardcoded literal, not a placeholder -- this skill source is one file installed into `~/.claude/skills/`, `~/.cursor/skills/` and `~/.codex/skills/` alike, so a fixed value mislabels every harness but the one it names; write a bracketed placeholder (e.g. -harness <harness>) that the agent fills in with the harness actually running the command", f, c.line, smcQuote(h, s.utf8))
+			s.finding("%s:%d: -harness %s is a hardcoded literal, not a placeholder -- this skill source is one file installed into `~/.claude/skills/` and `~/.zcode/skills/` alike, so a fixed value mislabels every harness but the one it names; write a bracketed placeholder (e.g. -harness <harness>) that the agent fills in with the harness actually running the command", f, c.line, smcQuote(h, s.utf8))
 		}
 	}
 

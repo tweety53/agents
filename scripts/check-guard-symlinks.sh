@@ -16,7 +16,7 @@
 #      target is relative — an absolute target would bake this machine's
 #      checkout path into the repository. `__pycache__` is skipped: Python
 #      writes it beside a .py it imports through the symlinked path, it is
-#      gitignored, and check-vocabulary.sh prunes it for the same reason.
+#      and it is gitignored.
 #   2. Every guard INVOKED in a skill's own text — any token of a
 #      ```bash/sh/zsh fenced command line (a leading word, a pipeline
 #      segment, an `&&` continuation or a command substitution), or a

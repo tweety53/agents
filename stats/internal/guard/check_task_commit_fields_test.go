@@ -1077,7 +1077,7 @@ example
 	"108": bt(`- [ ] 1. Prose field naming a script
 
 **Files:** ¤alpha.txt¤
-**Tests:** covered by the existing guards — ¤check-references.sh¤ and ¤check-vocabulary.sh¤
+**Tests:** covered by the existing guards — ¤check-references.sh¤ and ¤check-stage-mark-calls.sh¤
 **Commit:** add alpha
 **Build:** green
 `),

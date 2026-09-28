@@ -1081,7 +1081,6 @@ func TestPriceFreezesCostAndVersion(t *testing.T) {
 		EffectiveFrom:       time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		InputPerMTok:        3,
 		OutputPerMTok:       15,
-		CacheWritePerMTok:   3.75,
 		CacheWrite5mPerMTok: 3.75,
 		CacheWrite1hPerMTok: ptr(3.75),
 		CacheReadPerMTok:    0.3,
@@ -1195,13 +1194,13 @@ func TestPriceTwoModelsAgainstTwoRates(t *testing.T) {
 
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-opus-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 3, OutputPerMTok: 15, CacheWritePerMTok: 3.75, CacheReadPerMTok: 0.3,
+		InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3,
 	}); err != nil {
 		t.Fatalf("PutPricing(opus): %v", err)
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing(sonnet): %v", err)
 	}
@@ -1267,7 +1266,7 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-opus-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 3, OutputPerMTok: 15, CacheWritePerMTok: 3.75, CacheReadPerMTok: 0.3,
+		InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
@@ -1355,7 +1354,7 @@ func TestPriceWithoutChargeableFieldIsUnavailable(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-opus-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 3, OutputPerMTok: 15, CacheWritePerMTok: 3.75, CacheReadPerMTok: 0.3,
+		InputPerMTok: 3, OutputPerMTok: 15, CacheReadPerMTok: 0.3,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
@@ -1426,7 +1425,7 @@ func TestPriceChargesFiveMinuteAndOneHourWritesAtTheirOwnRates(t *testing.T) {
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-opus-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		InputPerMTok: 5, OutputPerMTok: 25,
-		CacheWritePerMTok: 6.25, CacheWrite5mPerMTok: 6.25, CacheWrite1hPerMTok: ptr(10.0),
+		CacheWrite5mPerMTok: 6.25, CacheWrite1hPerMTok: ptr(10.0),
 		CacheReadPerMTok: 0.50,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
@@ -1485,7 +1484,7 @@ func TestPriceUnknownCacheSplitIsUnpriceable(t *testing.T) {
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-opus-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		InputPerMTok: 5, OutputPerMTok: 25,
-		CacheWritePerMTok: 6.25, CacheWrite5mPerMTok: 6.25, CacheWrite1hPerMTok: ptr(10.0),
+		CacheWrite5mPerMTok: 6.25, CacheWrite1hPerMTok: ptr(10.0),
 		CacheReadPerMTok: 0.50,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
@@ -1546,7 +1545,7 @@ func TestPriceFastModeUsesFastRate(t *testing.T) {
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-opus-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		InputPerMTok: 5, OutputPerMTok: 25,
-		CacheWritePerMTok: 6.25, CacheWrite5mPerMTok: 6.25, CacheWrite1hPerMTok: ptr(10.0),
+		CacheWrite5mPerMTok: 6.25, CacheWrite1hPerMTok: ptr(10.0),
 		CacheReadPerMTok:  0.50,
 		FastInputPerMTok:  ptr(10.0),
 		FastOutputPerMTok: ptr(50.0),
@@ -1599,7 +1598,7 @@ func TestPriceFastModeWithoutFastRateIsUnpriceable(t *testing.T) {
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		InputPerMTok: 2, OutputPerMTok: 10,
-		CacheWritePerMTok: 2.5, CacheWrite5mPerMTok: 2.5, CacheWrite1hPerMTok: ptr(4.0),
+		CacheWrite5mPerMTok: 2.5, CacheWrite1hPerMTok: ptr(4.0),
 		CacheReadPerMTok: 0.20,
 		// No fast rate published for this model -- FastInputPerMTok and
 		// FastOutputPerMTok stay nil.
@@ -1660,7 +1659,7 @@ func TestPriceDispatchGetsCostThroughSamePricingPath(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
@@ -1745,7 +1744,7 @@ func TestPriceDispatchIsPricedWhenEveryModelBucketIsUnpriceable(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
@@ -1815,7 +1814,7 @@ func TestPriceDegradesOnMalformedDispatchesRatherThanFailing(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
@@ -1914,13 +1913,13 @@ func TestPriceDispatchLookupErrorDoesNotDiscardModelsResult(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
 	if _, err := rawPool.Exec(ctx, `
-		INSERT INTO pricing (model, effective_from, input_per_mtok, output_per_mtok, cache_write_per_mtok, cache_write_5m_per_mtok, cache_read_per_mtok)
-		VALUES ('overflow-model', $1, '1e309', 1, 1, 1, 1)
+		INSERT INTO pricing (model, effective_from, input_per_mtok, output_per_mtok, cache_write_5m_per_mtok, cache_read_per_mtok)
+		VALUES ('overflow-model', $1, '1e309', 1, 1, 1)
 	`, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)); err != nil {
 		t.Fatalf("seed overflow pricing row: %v", err)
 	}
@@ -1986,7 +1985,7 @@ func TestPriceDispatchWithNoRecordedModelGetsNoCost(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
@@ -2045,7 +2044,7 @@ func TestPriceDispatchModelWithNoPricingRowGetsNoCost(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}
@@ -2108,7 +2107,7 @@ func TestPriceDispatchWithUnknownCacheSplitGetsNoCost(t *testing.T) {
 	}
 	if err := st.PutPricing(ctx, store.PricingRate{
 		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+		InputPerMTok: 1, OutputPerMTok: 5, CacheReadPerMTok: 0.1,
 	}); err != nil {
 		t.Fatalf("PutPricing: %v", err)
 	}

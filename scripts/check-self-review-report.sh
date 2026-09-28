@@ -52,8 +52,6 @@
 # whether the rename or the reports give way. The guard can never lag the
 # table the way a hardcoded copy would. (The original five came from the
 # kan-200 self-review spec's "One combined reasoning pass" angle table.)
-# The reports written before the myflow→flow rename carry the same angles
-# under their `myflow-` spelling, see LEGACY_ANGLE_LABELS below.
 #
 # PER-REPORT COVERAGE, via scripts/lib/coverage.sh. Each report's recorded
 # count is the number of section-level checks this guard actually performed
@@ -69,22 +67,6 @@
 # headings present — but is missing one or more of the others gets an
 # explicit "missing section" finding for each absent one, on top of whatever
 # non-zero count its present sections contribute.
-#
-# THE DECLARED PRE-RULE LIST. Seventeen reports under docs/self-review/
-# predate this shape and are declared, by name, with the reason
-# "predates the five-angle report shape (KAN-200)" — never inferred from a
-# date, a sort order, or a marker inside the report itself, because a marker
-# a new report can forget to write is a mechanism for passing without being
-# checked, which is the exact outcome the declaration exists to prevent (see
-# the ADDED "A guard checks every self-review report" requirement in this
-# change's spec). Declaration only runs on this guard's own default, bare
-# invocation (no CLI argument) — mirroring the expected-zero declaration in
-# stats/internal/guard/stagemarkcalls.go, gated the same way and for the same reason: the
-# companion test harness always passes an explicit, sandboxed mktemp
-# fixture directory, a wholly different and smaller tree where none of these
-# seventeen real basenames exist, and declaring them there would make every
-# one of them a coverage.sh "declared but never recorded" violation for a
-# member that was simply never part of that run's corpus at all.
 #
 # ADOPTED, NOT INVENTED: every guard in this repository holds to three
 # disciplines — `-a` on every grep, the `rc > 1` split between "no match"
@@ -190,32 +172,6 @@ done < <(awk -F'|' '
 [[ "${#ANGLE_LABELS[@]}" -ge 1 ]] ||
   die "the canonical angle table yielded no labels: $ANGLE_CONTRACT"
 
-# LEGACY_ANGLE_LABELS -- the same five angles under the `myflow-` names the
-# older reports carry, POSITIONALLY ALIGNED with the first five members of
-# ANGLE_LABELS above.
-#
-# THIS IS NOT A COMPATIBILITY SHIM, AND IT IS NOT OPTIONAL, AND IT IS NOT A
-# LEGACY REMNANT TO CLEAN UP. The reports under docs/self-review/ are immutable
-# records of runs that really happened; the twelve this guard actually checks
-# were written with the labels spelled `myflow-fix`, `myflow-cost` and so on,
-# and they are never rewritten. Dropping this set -- with no
-# legacy set -- makes this guard report 166 violations across all twelve of
-# them, because every angle heading they carry stops being recognised. Measured
-# by doing exactly that and running the guard over the real corpus.
-#
-# Rewriting those reports to match a renamed guard is the wrong repair: it would
-# edit the record of what past runs found in order to satisfy a present-day
-# spelling. So the guard reads both eras instead. An author writing a report
-# today uses ANGLE_LABELS; a report written before the rename keeps its own
-# names and stays readable.
-#
-# The alignment covers the five angles the legacy era knew. The canonical
-# table may hold more (kan-585 parses it live); an angle beyond index 4 has
-# no legacy twin -- no report can predate an angle added after the rename --
-# so the heading matcher reads this array with `:-` and an absent twin
-# simply never matches a heading.
-LEGACY_ANGLE_LABELS=(myflow-fix myflow-cost myflow-improvement myflow-automation myflow-stats-app)
-
 # Regex patterns are kept in variables and referenced unquoted in `[[ =~ ]]`
 # below rather than written inline: bash's quote-removal strips a literal
 # `\]`/`\*` written directly after `=~` before the regex engine ever sees
@@ -242,72 +198,8 @@ DISPOSITION_FILED_RE='^filed:[[:space:]]*(.*)$'
 # else naming itself `filed:` (empty, `yes`, `201`, `KAN-`) is a violation.
 ISSUE_KEY_RE='^[A-Z][A-Z0-9]*-[0-9]+$'
 
-# The seventeen reports present before this shape existed (measured against
-# docs/self-review/ once task 1 restored the seventeenth, KAN-197's own
-# report) — written out by name, per this guard's own header above.
-DECLARED_REPORTS=(
-  "kan-100-myflow-get-rid-of-staging-use-commits-self-review.md"
-  "kan-106-slim-the-myflow-skills-cut-meta-prose-extract-self-review.md"
-  "kan-107-remove-manual-test-guide-and-gate-self-review.md"
-  "kan-108-cut-the-time-and-token-cost-of-a-myflow-do-run-self-review.md"
-  "kan-109-optimize-myflow-agent-token-and-time-cost-self-review.md"
-  "kan-110-lighter-auto-code-review-by-default-self-review.md"
-  "kan-111-myflow-fast-self-review.md"
-  "kan-13-myflow-planning-and-status-fixes-self-review.md"
-  "kan-15-parallel-myflow-do-task-lanes-self-review.md"
-  "kan-153-kan-108-follow-up-self-review.md"
-  "kan-16-myflow-stats-app-self-review.md"
-  "kan-197-require-mutation-test-for-every-guard-self-review.md"
-  "kan-23-myflow-self-review-self-review.md"
-  "kan-73-install-guard-scripts-alongside-skills-self-review.md"
-  "kan-82-cut-myflow-per-command-token-overhead-self-review.md"
-  "kan-87-cut-per-command-load-further-self-review.md"
-  "kan-95-slim-the-myflow-contract-files-self-review.md"
-)
-DECLARED_REASON="predates the five-angle report shape (KAN-200)"
-
-# declare_pre_rule — called ONLY for this guard's own default, full-corpus
-# scan (no explicit CLI target). See the header comment above for why.
-declare_pre_rule() {
-  local b
-  for b in "${DECLARED_REPORTS[@]}"; do
-    if ! coverage_declare "docs/self-review/$b" "$DECLARED_REASON"; then
-      die "coverage_declare failed for 'docs/self-review/$b' (see stderr above)"
-    fi
-  done
-}
-
-# `$# -eq 0` is 1 only for this guard's own default, full-corpus scan (no
-# explicit CLI target) — the one mode where declare_pre_rule below actually
-# runs and registers the seventeen basenames with coverage.sh. The main loop
-# further down consults the same test again (F8): is_declared_basename's own
-# list is a static, hardcoded array present regardless of mode, so checking
-# it without also checking `$# -eq 0` would let a file merely SHARING one of
-# the seventeen basenames skip every content check in EXPLICIT-directory mode
-# too — the mode the companion test harness always uses, against a wholly
-# different sandboxed tree where no coverage_declare call for that name was
-# ever made. Read directly rather than cached in a flag variable: this script
-# never calls `shift` or `set --`, so `$#` cannot change between here and the
-# main loop's own check of it, and a flag would only restate what `$#`
-# already says.
-if [[ $# -eq 0 ]]; then
-  declare_pre_rule
-fi
-
-# is_declared_basename <basename> -> exit 0 if <basename> is one of the
-# seventeen pre-rule reports declared above, 1 otherwise. Only meaningful
-# when `$# -eq 0` — see the comment above.
-is_declared_basename() {
-  local target="$1" b
-  for b in "${DECLARED_REPORTS[@]}"; do
-    [[ "$b" == "$target" ]] && return 0
-  done
-  return 1
-}
-
 VIOLATIONS=0
 CHECKED_REPORTS=0
-DECLARED_COUNT=0
 
 # find's own exit status is captured directly, not folded through a pipe
 # (F2): `find ... | sort -z` in a process substitution loses find's status
@@ -336,14 +228,6 @@ for f in "${FILES[@]:-}"; do
   [[ -n "${f:-}" ]] || continue
   rel="${f#"$REPO_ROOT"/}"
   base="$(basename -- "$f")"
-
-  if [[ $# -eq 0 ]] && is_declared_basename "$base"; then
-    if ! coverage_record "$rel" 0; then
-      die "coverage_record failed for '$rel' (see stderr above)"
-    fi
-    DECLARED_COUNT=$((DECLARED_COUNT + 1))
-    continue
-  fi
 
   # Reset per-report state: one slot per angle label, walked by index —
   # bash 3.2 is the floor (macOS's own /bin/bash), matching
@@ -421,31 +305,8 @@ for f in "${FILES[@]:-}"; do
       cur=""
       for i in "${!ANGLE_LABELS[@]}"; do
         quoted_label='`'"${ANGLE_LABELS[$i]}"'`'
-        # `:-` because the canonical table can hold more angles than the
-        # legacy era knew (kan-585); a missing twin matches no heading.
-        quoted_legacy='`'"${LEGACY_ANGLE_LABELS[$i]:-}"'`'
-        # Either spelling identifies the same angle at the same index, and
-        # `cur` MUST be the spelling the report actually used -- not the
-        # canonical one. `cur` is compared against each finding line's own
-        # `[label]` further down, so a legacy report whose section reads
-        # `myflow-fix` and whose finding lines read `myflow-fix` would be
-        # reported as self-contradictory ("finding line label `myflow-fix`
-        # does not match its section `flow-fix`") the moment `cur` is
-        # canonicalised. Measured: canonicalising it fails three harness cases
-        # AND the real historical report
-        # docs/self-review/2026-08-24-kan-284-store-rejects-same-state-write.md.
-        #
-        # The cost is that a message pairing `cur` with a NEIGHBOURING label
-        # drawn from ANGLE_LABELS can name two eras in one sentence. That is
-        # accepted: a slightly mixed sentence beats telling an author their
-        # report contradicts itself when it does not.
         if [[ "$line" == *"$quoted_label"* ]]; then
           cur="${ANGLE_LABELS[$i]}"
-          idx="$i"
-          break
-        fi
-        if [[ "$line" == *"$quoted_legacy"* ]]; then
-          cur="${LEGACY_ANGLE_LABELS[$i]}"
           idx="$i"
           break
         fi
@@ -602,13 +463,11 @@ if ! coverage_verdict_out="$(coverage_verdict)"; then
 fi
 
 if [[ "$VIOLATIONS" -gt 0 ]]; then
-  echo "check-self-review-report: $VIOLATIONS violation(s) across $CHECKED_REPORTS report(s) checked, $DECLARED_COUNT declared pre-rule" >&2
+  echo "check-self-review-report: $VIOLATIONS violation(s) across $CHECKED_REPORTS report(s) checked" >&2
   exit 1
 fi
 
-TOTAL_REPORTS=$((CHECKED_REPORTS + DECLARED_COUNT))
-printf 'SELF-REVIEW-REPORT-OK: %s — %s report(s), %s checked, %s declared pre-rule\n' \
-  "$TARGET" "$TOTAL_REPORTS" "$CHECKED_REPORTS" "$DECLARED_COUNT"
+printf 'SELF-REVIEW-REPORT-OK: %s — %s report(s) checked\n' "$TARGET" "$CHECKED_REPORTS"
 coverage_frag="$(coverage_report)"
 [[ -n "$coverage_frag" ]] && printf '  %s\n' "$coverage_frag"
 exit 0

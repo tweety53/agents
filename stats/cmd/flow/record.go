@@ -449,7 +449,7 @@ identifier the launch returned out of the parent transcript's own tool
 result and fills the row's empty agent_id with it, so the hand-typed call
 KAN-212 predicted would be forgotten is no longer an obligation. Pass it
 explicitly to pin the id; pass the literal "none" to record that the
-harness exposes none (Cursor and Codex). A dispatch recorded without any
+harness exposes none. A dispatch recorded without any
 id -- "none" or a launch the daemon has not seen -- is ordinary, not
 degraded, and its cost is attributed by the dispatch's own time window
 instead. Giving the real id is what lets two slots dispatched at once be

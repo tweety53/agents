@@ -8,8 +8,7 @@
 # paragraph, verbatim, at dispatch sites. Nothing then stops a LATER prose
 # edit from trimming a required paragraph away one line at a time — this
 # guard is what makes that loud instead of silent, the same role
-# check-guard-symlinks.sh and check-vocabulary.sh play for their own
-# templates. KAN-217 added a second required paragraph — the VERBATIM
+# check-guard-symlinks.sh plays for its own templates. KAN-217 added a second required paragraph — the VERBATIM
 # REPORT — THE FACT blockquote that tells the fix subagent its slot's
 # report file outranks the dispatcher's summary — and generalized this
 # guard from one hard-coded paragraph to a table of them so a third would
@@ -308,8 +307,8 @@
 # cannot answer at all: a scoped file missing, unreadable, a symlink, or a
 # read failing for any reason. A scoped path that
 # exists as neither a file nor a directory is folded into the same hard `2`
-# ("not a regular file") — never a silent skip, per check-vocabulary.sh's
-# own header warning about a vacuous "✓ clean".
+# ("not a regular file") — never a silent skip, which would be a vacuous
+# "✓ clean".
 #
 # WHAT A GREEN RUN DOES NOT PROVE: only that each label and its phrases are
 # present at each required site — never that a dispatcher actually wrote the

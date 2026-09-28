@@ -136,8 +136,8 @@ type Pricer interface {
 // "bound is a bound number of cycles, or a wall-clock window -- pick
 // one"). This package picks cycles, not wall-clock: the bound only
 // exists to cap wasted work for a harness that will never produce a
-// transcript at all (Cursor, Codex -- design.md's rejected-alternatives
-// section), and a cycle count is exact and trivial to test
+// transcript at all (design.md's rejected-alternatives section), and a cycle count
+// is exact and trivial to test
 // deterministically (drive RunOnce N times), where a wall-clock bound
 // would make the same test depend on either a fake clock threaded
 // through this package for no other purpose, or a real sleep. At
@@ -880,7 +880,7 @@ func dispatchAgentIDForPath(path string) (string, bool) {
 // dispatch's usage, keyed on that dispatch's own per-dispatch session id,
 // so concurrent dispatches neither lose nor blend their cost figures.
 // Only batches from top-level session transcripts -- embedded sidechains,
-// the shape Cursor and Codex and pre-agent-file Claude transcripts
+// the shape pre-agent-file Claude transcripts
 // produce -- still go through DispatchAttributor.
 //
 // Every failure is logged and stepped over, never returned: the first

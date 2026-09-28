@@ -135,10 +135,10 @@ func TestAggregateExcludesUnavailableTokensFromAverages(t *testing.T) {
 	measuredB.SessionID = ptr("s-b")
 	runStage(t, st, measuredB, json.RawMessage(`{"tokens":{"main":{"input":100}}}`), base.StartedAt.Add(time.Minute), "completed")
 
-	// A Cursor/Codex-style run: no transcript, so no tokens key at all.
+	// A run on a harness with no transcript, so no tokens key at all.
 	unmeasured := base
 	unmeasured.SessionID = ptr("s-c")
-	unmeasured.Harness = "cursor"
+	unmeasured.Harness = "no-transcript-harness"
 	runStage(t, st, unmeasured, json.RawMessage(`{"tokens_available":false}`), base.StartedAt.Add(time.Minute), "completed")
 
 	period := store.Period{
@@ -627,7 +627,7 @@ func TestCountRunsWithoutModel(t *testing.T) {
 
 	noModelA := baseBeginInput(projectKey, "kan-1", "/flow", "finish")
 	noModelA.SessionID = ptr("s-none-a")
-	noModelA.Harness = "cursor"
+	noModelA.Harness = "no-transcript-harness"
 	noModelA.StartedAt = time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, noModelA, json.RawMessage(`{"tokens_available":false}`), noModelA.StartedAt.Add(time.Minute), "completed")
 
@@ -1263,18 +1263,15 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 // ImplementerGroups columns, projected from panel.grouping,
 // panel.dispatches and the top-level groups field. A free grouping with two
 // dispatch groups and two implementer-merge groups renders each as its
-// roles/ids '+'-joined within a group and ' · '-joined across groups,
-// whether the groups are {slots|bundles, model, effort} objects or the bare
-// id arrays older rows recorded; a decision whose panel is the bare
-// "default" string (a micro class) renders Grouping as "default" with
-// no dispatches to show, and a nil groups field (inline execution) renders
-// as empty.
+// roles/ids '+'-joined within a group and ' · '-joined across groups; a
+// decision whose panel is the bare "default" string (a micro class)
+// renders Grouping as "default" with no dispatches to show, and a nil
+// groups field (inline execution) renders as empty.
 func TestDecisionsRendersGrouping(t *testing.T) {
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-grouping-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-free")
-	seedChange(t, st, projectKey, "kan-legacy")
 	seedChange(t, st, projectKey, "kan-default")
 
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-free", records.Decision{
@@ -1307,25 +1304,6 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 		t.Fatalf("RecordDecision kan-free: %v", err)
 	}
 
-	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-legacy", records.Decision{
-		SessionToken: "mf-decisions-grouping-legacy",
-		Decision: json.RawMessage(`{
-			"class": "big", "execution": "sdd",
-			"implementer": {"model": "opus", "effort": "high"},
-			"panel": {
-				"compact": false, "rerun": "full",
-				"roster": [{"slot": "primary", "model": "opus", "effort": "high", "experimental": false}],
-				"grouping": "free",
-				"dispatches": [["primary", "principles"], ["bugbot", "mutation"]],
-				"grouping_reason": "legacy per-slot row"
-			},
-			"groups": [[1, 2], [3]],
-			"groups_reason": "legacy bare arrays"
-		}`),
-	}); err != nil {
-		t.Fatalf("RecordDecision kan-legacy: %v", err)
-	}
-
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-default", records.Decision{
 		SessionToken: "mf-decisions-grouping-default",
 		Decision: json.RawMessage(`{
@@ -1343,8 +1321,8 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decisions: %v", err)
 	}
-	if len(rows) != 3 {
-		t.Fatalf("Decisions returned %d rows, want 3", len(rows))
+	if len(rows) != 2 {
+		t.Fatalf("Decisions returned %d rows, want 2", len(rows))
 	}
 
 	byChange := map[string]store.DecisionRow{}
@@ -1364,17 +1342,6 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 	}
 	if free.ImplementerGroups != "1+2 · 3" {
 		t.Errorf("kan-free ImplementerGroups = %q, want %q", free.ImplementerGroups, "1+2 · 3")
-	}
-
-	legacy, ok := byChange["kan-legacy"]
-	if !ok {
-		t.Fatalf("no row for kan-legacy")
-	}
-	if legacy.Dispatches != "primary+principles · bugbot+mutation" {
-		t.Errorf("kan-legacy Dispatches = %q, want %q", legacy.Dispatches, "primary+principles · bugbot+mutation")
-	}
-	if legacy.ImplementerGroups != "1+2 · 3" {
-		t.Errorf("kan-legacy ImplementerGroups = %q, want %q", legacy.ImplementerGroups, "1+2 · 3")
 	}
 
 	def, ok := byChange["kan-default"]

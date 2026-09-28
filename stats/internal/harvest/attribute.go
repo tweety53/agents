@@ -659,9 +659,8 @@ func bestWindow(windows []Window, ts time.Time) (Window, bool) {
 // dispatched, as the dispatcher recorded it. It is what separates two
 // dispatches whose intervals overlap -- a review panel's slots, dispatched
 // at once against one session -- which no interval can do by itself. It is
-// empty whenever the harness exposed none: Cursor and Codex expose none at
-// all, so that is the ordinary case on two of the three supported
-// harnesses rather than a legacy or degraded one, and an empty value means
+// empty whenever the harness exposed none, which is an ordinary case
+// rather than a legacy or degraded one, and an empty value means
 // "not reported" and never matches another empty one.
 type DispatchWindow struct {
 	DispatchID int64
@@ -1001,9 +1000,8 @@ func splitInt64(v int64, weights []float64) []int64 {
 // dispatch's own window entirely.
 //
 // The interval rule underneath is not a legacy path and is not going away.
-// Cursor and Codex expose no subagent identifier at all, so on two of the
-// three supported harnesses every dispatch is recorded without one, and
-// the interval remains exactly correct for dispatches that do not overlap
+// A harness that exposes no subagent identifier records every dispatch
+// without one, and the interval remains exactly correct for dispatches that do not overlap
 // -- which is every dispatch outside a panel.
 //
 // Both passes used to end in a tie-break -- latest StartedAt, and among

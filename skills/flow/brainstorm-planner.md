@@ -15,9 +15,7 @@ approval.
 ### The checklist
 
 **A run on a filed fix/cost finding verifies the defect still exists before planning.** When the
-linked issue's labels carry `flow-fix` or `flow-cost` — the earlier `myflow-` spellings matched
-too, per step 9 of **Run 2 — the branch is merged**
-(`skills/flow-contracts/finish-contract-run2.md`) — the checklist opens, before any design
+linked issue's labels carry `flow-fix` or `flow-cost`, the checklist opens, before any design
 question, with a reachability check against the resolved base (the base the `flow.kickoff`
 worktree was created from): state the finding's defect as a claim the tree can answer, then run
 the cheapest thing that answers it — the guard the finding names, the contract section it says is

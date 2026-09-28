@@ -42,14 +42,14 @@ The derivation, stated precisely enough that two independent implementations agr
 4. **The id** is the prefix and the digest joined by a single `-`, prefix first: `<prefix>-<digest>`.
 
 ```bash verified:run in this worktree on macOS (Darwin 25.5.0) with /usr/bin/shasum, /usr/bin/sed and bash 3.2, under LC_ALL of C, en_US.UTF-8, ru_RU.UTF-8 and tr_TR.UTF-8; every id in a comment is that run's output, identical under all four
-name="kan-15-parallel-myflow-do-task-lanes"
+name="kan-15-parallel-flow-task-lanes"
 
 prefix="$(printf '%s' "$name" | LC_ALL=C tr 'A-Z' 'a-z' | LC_ALL=C tr -c 'a-z0-9' '-')"
 while [ "${#prefix}" -gt 12 ] && [ "${prefix%-*}" != "$prefix" ]; do prefix="${prefix%-*}"; done
 prefix="$(printf '%s' "${prefix:0:12}" | LC_ALL=C sed 's/-*$//')"
 
 digest="$(printf '%s' "$name" | shasum -a 256 | cut -c1-4)"
-id="$prefix-$digest"                 # kan-15-55a6
+id="$prefix-$digest"                 # kan-15-fb13
                                      # Demo_X           -> demo-x-5197
                                      # KAN-99-Fix.Thing -> kan-99-fix-feef
                                      # İstanbul-test    -> --stanbul-6b8a
@@ -127,15 +127,15 @@ the one call site added next year, not only the ones that exist today.
 
 **`<id_underscored>` is that spelling, and the substitution is total: every `-` in the id becomes
 `_`.** It applies to the whole id — the separators inside the prefix and the `-` joining the prefix
-to the digest alike — so the worked name above, `kan-15-parallel-myflow-do-task-lanes`, derives the
-id `kan-15-55a6` and the underscored spelling `kan_15_55a6`. Replacing only the joiner would leave
-`kan-15_55a6`, which still needs quoting and so buys none of what the paragraph above is for, and
+to the digest alike — so the worked name above, `kan-15-parallel-flow-task-lanes`, derives the
+id `kan-15-fb13` and the underscored spelling `kan_15_fb13`. Replacing only the joiner would leave
+`kan-15_fb13`, which still needs quoting and so buys none of what the paragraph above is for, and
 the two readings differ on every id whose prefix has more than one segment. Nothing else is
 replaced: the prefix rule already confines the id to `[a-z0-9-]`, so `-` is the only character a
 substitution can have to reach.
 
-```bash verified:run in this worktree on macOS (Darwin 25.5.0) with bash 3.2; continues the id block above, whose $id is kan-15-55a6
-id_underscored="${id//-/_}"          # kan_15_55a6
+```bash verified:run in this worktree on macOS (Darwin 25.5.0) with bash 3.2; continues the id block above, whose $id is kan-15-fb13
+id_underscored="${id//-/_}"          # kan_15_fb13
 ```
 
 **A bucket name is not a SQL identifier, so it takes the id verbatim.** See **What the id derives**
@@ -146,8 +146,8 @@ id exactly as this file derives it.
 
 **The port block is one offset, derived from the same digest:**
 
-```bash verified:run in this worktree on macOS (Darwin 25.5.0) with digest 55a6, the digest derived above
-offset=$(( (16#$digest % 400 + 1) * 10 ))    # 3270 for digest 55a6
+```bash verified:run in this worktree on macOS (Darwin 25.5.0) with digest fb13, the digest derived above
+offset=$(( (16#$digest % 400 + 1) * 10 ))    # 2760 for digest fb13
 ```
 
 That yields a multiple of 10 between 10 and 4000, so a change's ports are stable across sessions and

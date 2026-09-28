@@ -6,8 +6,8 @@
 # skills/flow-fast/, and deleting a symlink from that skill still reported
 # GUARD-SYMLINKS-OK. Three reviewers read that guard and missed it, because
 # the guard's own output gave them nothing to notice. This library exists so
-# that four guards (check-guard-symlinks.sh, check-references.sh,
-# check-vocabulary.sh, check-stage-mark-calls.sh) make "nothing was checked
+# that three guards (check-guard-symlinks.sh, check-references.sh,
+# check-stage-mark-calls.sh) make "nothing was checked
 # for this member" a visible, failing fact on a healthy tree, and so that
 # they cannot disagree with each other about how — the exact five-copy
 # `resolve_file` drift KAN-73's own review raised as a Critical, and that
@@ -214,8 +214,7 @@ coverage_report() {
 # declaration list can only grow, never self-prune, as a renamed or deleted
 # member leaves a stale entry nobody notices. A legitimate declared-zero
 # member IS always also recorded (with count 0) by every guard's own scan —
-# see check-guard-symlinks.sh, check-references.sh and check-vocabulary.sh,
-# each of which records every corpus member it enumerates before checking
+# see check-guard-symlinks.sh and check-references.sh, each of which records every corpus member it enumerates before checking
 # whether that member's declaration applies — so this second pass costs
 # nothing on a healthy guard and only fires on a genuinely stale declaration.
 #
