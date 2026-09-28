@@ -37,3 +37,10 @@
   dated Correction note (`a5e7e207`).
 - **Deferred:** F20 (Minor, interrupt-path cleanup race) went to `KNOWN-BUGS.md`, beside the two
   task-review Minors.
+
+## 2026-09-28 — integrate run
+
+- Preflight `RUN1`; main checkout staged-clean and drift-clean.
+- Unfinished-work gate `CLEAR`; visual-verify `OK` (no UI paths).
+- `origin/main` had not moved since `979ee6cb` — no rebase.
+- Route: merge and push, from the project's configured default, not asked.
