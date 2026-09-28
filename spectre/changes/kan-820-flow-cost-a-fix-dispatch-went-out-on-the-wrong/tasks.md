@@ -131,10 +131,10 @@ git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add 
   - [x] **Step 3: check-model-keys.sh header.** Its header already reads "both keys are optional" — make it name them: `## self review model` and `## model`, citing project-configuration.md's rows.
   - [x] **Step 4: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-model-keys.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
 
-    Correction (2026-09-28): the step originally named `scripts/check-contract-budget.sh` too;
-    the guard was removed from origin/main by another change while this one ran, and the step
-    names only the guards this tree carries. The budget guard did run and pass at the task's own
-    close, before the rebase that brought the removal in.
+    Correction (2026-09-28): the step originally named the contract-budget ratchet too; that
+    guard was removed from origin/main by another change while this one ran, and the step names
+    only the guards this tree carries. The ratchet did run and pass at the task's own close,
+    before the rebase that brought the removal in.
   - [x] **Step 5: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
