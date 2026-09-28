@@ -25,3 +25,11 @@
   `check-panel-fix-single-dispatch.sh`'s chunk-shape check — auto-resolved Continue, recorded.
 - Environment note: `grep -c` exiting 1 on zero matches masqueraded as a failing Go suite for
   one moment; read as the no-match exit, the suite was fully green.
+## 2026-09-28 — integrate run
+
+- Preflight RUN1; unfinished-work CLEAR; visual-verify OK. The base had moved again (28 commits,
+  no path overlap) — automatic rebase, which conflicted four times on KNOWN-BUGS.md (main is
+  landing deferred findings from other changes continuously). Each resolved in place by union;
+  the blind unions briefly resurrected this change's already-retired entries, normalized after
+  the rebase finished, with one stray `=======` from a diff3 base line dropped the same way.
+- Landing route: merge and push — from this project's configured default, not asked.
