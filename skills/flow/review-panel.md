@@ -839,6 +839,15 @@ verification takes the handback below, and that loop re-runs no slot either.
 **A deferral's reason is one clause naming the mechanism — never a rationale essay, in the store
 row or in the round's output.**
 
+**A rule that changes mid-run governs from the round it lands in, and each round's pass log names
+the rule it decided under.** When the wording of a rule this file states — the Minor-deferral
+default above included — changes while a panel is in flight, by an operator instruction or by an
+edit to this file, the new wording governs from the first round decided after it lands: a round
+the old rule already closed stands as closed, never re-decided retroactively. Each round decided
+under wording that changed during the run records that wording beside its decisions, with the
+round's own pass-log rows — `flow record pass -change <name> -round <round> -note 'decided under:
+<the rule as this round applied it>'` — so the rendered pass log shows which rule governed what.
+
 **When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
 was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
