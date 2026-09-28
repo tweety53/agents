@@ -358,7 +358,7 @@ stops being bytewise.
   - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestDecodeRGB$' -count=1 -race`.
   - [x] **Step 4: Verify.** `gofmt -l`, `go vet ./internal/guard/`.
 
-- [ ] 7. Port compose-mockup-frames
+- [x] 7. Port compose-mockup-frames
 
 **Files:** `stats/internal/guard/composemockupframes.go`, `stats/internal/guard/compose_mockup_frames_test.go`, `scripts/compose-mockup-frames.sh`, `scripts/compose-mockup-frames.py`, `scripts/test-compose-mockup-frames.sh`, `skills/flow/scripts/compose-mockup-frames.py`
 **Allowed-collateral:** `stats/internal/guard/testdata/compose-mockup-frames/**`
@@ -381,7 +381,7 @@ counting.
 
 **Decision:** env-stdin
 
-  - [ ] **Step 1: Goldens, before any Go.** With the Python still in place: extract each
+  - [x] **Step 1: Goldens, before any Go.** With the Python still in place: extract each
     `python3 - <<'PY'` fixture snippet of `scripts/test-compose-mockup-frames.sh` into a scratch
     generator (not committed) writing its PNGs, map files and mockup roots to
     `stats/internal/guard/testdata/compose-mockup-frames/<case>/`; run
@@ -391,7 +391,7 @@ counting.
     pair, and list the cases where it does not in `design.md` **Measurements** (expected: none;
     a hit means that case's diff panel is compared against the any-channel mask in step 2).
     `measured: no harness fixture carries a sub-luma difference — ImageChops.difference(cap, frame).convert("L") mask equals the any-channel mask on all 8 harness three-panel composites (case-20, 21×2, 22, 23a, 23b, 26, 27), Pillow 12.3.0 @ 3915fbc0`
-  - [ ] **Step 2: Failing test.** Port every case, one subtest per `ok:` label, reading the
+  - [x] **Step 2: Failing test.** Port every case, one subtest per `ok:` label, reading the
     committed fixtures; each composed case additionally compares every written PNG with its golden
     pixel by pixel (via `decodeRGB`) and stdout lines with the golden's, output paths compared
     after replacing the golden run's directory with the test's. Case 11 (Pillow absent) has no
@@ -400,7 +400,7 @@ counting.
     a lone `\r` between two paths and with CRLF; a map file that is not UTF-8 exits 2 with one
     `compose-mockup-frames: …` line; a relative output directory from a cwd reached through a
     symlink prints the physical absolute path (`syscall.Getwd`). Run — expect failure.
-  - [ ] **Step 3: Port**, registering `compose-mockup-frames`: usage (4 or 5 args; geometry
+  - [x] **Step 3: Port**, registering `compose-mockup-frames`: usage (4 or 5 args; geometry
     `scale=… status=… border=…`, each key once, non-negative ASCII-digit values, `scale ≥ 1`), map
     read (UTF-8, universal newlines, Python whitespace for `strip`/`split`), stdin paths
     (`Env.Stdin`, same rules), every stdin PNG decoded up front (exit 2 on failure), per map line
@@ -408,12 +408,12 @@ counting.
     suffixes, `crop_box`'s two bottom rules, the three-panel and two-panel layouts (16px gutter,
     background `(40,40,40)`), the any-channel difference panel and ratio (`%.4f`), outputs on
     stdout then findings on stderr, exit 1 if any finding. Uses `decodeRGB`/`encodeRGB`.
-  - [ ] **Step 4: Green.** `go test ./internal/guard/ -run '^TestComposeMockupFrames$' -count=1
+  - [x] **Step 4: Green.** `go test ./internal/guard/ -run '^TestComposeMockupFrames$' -count=1
     -race -v | grep -c -- '--- PASS: TestComposeMockupFrames/'` — at least 59.
-  - [ ] **Step 5: Shim and delete** — `scripts/compose-mockup-frames.sh` becomes the shim with the
+  - [x] **Step 5: Shim and delete** — `scripts/compose-mockup-frames.sh` becomes the shim with the
     docstring-derived header (see the shim template note above); `git rm
     scripts/compose-mockup-frames.py scripts/test-compose-mockup-frames.sh`.
-  - [ ] **Step 6: Verify.** `gofmt -l`, `go vet ./internal/guard/`; the shim, through a symlink in
+  - [x] **Step 6: Verify.** `gofmt -l`, `go vet ./internal/guard/`; the shim, through a symlink in
     a temp directory, composes one committed fixture pair and prints the golden's line.
 
   Correction (2026-09-28): `**Files:**` widened by `skills/flow/scripts/compose-mockup-frames.py`,
@@ -430,7 +430,7 @@ counting.
 
 - [ ] 8. Port measure-visual-properties
 
-**Files:** `stats/internal/guard/measurevisualproperties.go`, `stats/internal/guard/pyjson.go`, `stats/internal/guard/measure_visual_properties_test.go`, `scripts/measure-visual-properties.sh`, `scripts/measure-visual-properties.py`, `scripts/test-measure-visual-properties.sh`
+**Files:** `stats/internal/guard/measurevisualproperties.go`, `stats/internal/guard/pyjson.go`, `stats/internal/guard/measure_visual_properties_test.go`, `scripts/measure-visual-properties.sh`, `scripts/measure-visual-properties.py`, `scripts/test-measure-visual-properties.sh`, `skills/flow/scripts/measure-visual-properties.py`
 **Allowed-collateral:** `stats/internal/guard/testdata/measure-visual-properties/**`
 **Tests:** `TestMeasureVisualProperties`, `TestPyJSON`
 **Regression:** `TestMeasureVisualProperties` fails if any of the harness's 11 `ok:` behaviours
@@ -488,6 +488,19 @@ regress or any golden's stdout differs by a byte; `TestPyJSON` fails if a float,
     scripts/test-measure-visual-properties.sh`.
   - [ ] **Step 7: Verify.** `gofmt -l`, `go vet ./internal/guard/`; the shim, through a symlink in
     a temp directory, reproduces one golden's stdout byte for byte (`cmp`).
+
+  Correction (2026-09-28): `**Files:**` widened by `skills/flow/scripts/measure-visual-properties.py`,
+  the installed symlink the `.py`'s deletion left dangling. Step 3 shipped as: `pyFloat(f float64)
+  string` is Python's `repr` — `FormatFloat(f, 'f', -1, 64)` plus `.0` when integral for `f == 0` or
+  `1e-4 ≤ |f| < 1e16` (the plan's rule missed zero), else `'e', -1`; `nan`/`inf`/`-inf` for the
+  specials — and `pyRound(x, n) float64` via `FormatFloat(x, 'f', n)` then `ParseFloat`; `pyObj` an
+  insertion-ordered pair slice; `pyDump` emits `indent=2` with `NaN`/`Infinity`. No `MarshalJSON`
+  (`encoding/json` rejects the NaN/Infinity Python prints for `--scale nan`), no `pyInt` (Go's `int`
+  carries the distinction), no `set` (objects are built in final order) — measured: `python3 -c
+  'print(repr(0.0), repr(-0.0), repr(1e15), repr(1e16), repr(1e-05), round(2.675, 2), round(-0.04, 1))'`
+  @ 3915fbc0. Reuses `pyStrip` (`installedcitations.go`), `ppRepr`/`ppOSError` (`planprovenance.go`).
+  Goldens: 52, a `modal-tie` fixture added when a last-seen tie mutant survived. Subtests: 78 (11
+  harness, 52 goldens, 14 usage, 1 symlinked cwd). Testdata: 127 files, 155,253 bytes.
 
 - [ ] 9. Delete the sole-user helpers and repoint citations
 

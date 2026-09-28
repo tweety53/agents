@@ -75,6 +75,9 @@
 
 Each Go test carries at least its harness's floor in cases (`parity-by-case-count`).
 
+- measure-visual-properties goldens: 52, every `ALL_PROPS` property single-image and paired; the
+  port matched the base Python on 452 + 244 differential argvs (stdout, stderr, exit).
+  <!-- measured: task 8's scratch generator and seeded-random sweeps against python3 3915fbc0:scripts/measure-visual-properties.py, Pillow 12.3.0 -->
 - Compose luma vs any-channel mask: equal on all 8 harness three-panel composites; only task 7's
   new one-pixel `(255,0,0)`/`(254,0,0)` fixture differs (Python `diff=0.0000`, port `diff=0.0005`).
   <!-- measured: task 7's scratch generator comparing ImageChops.difference(...).convert("L") with an any-channel mask per golden composite, Pillow 12.3.0 @ 3915fbc0 -->
@@ -295,5 +298,18 @@ no caller writes either, and matching Pillow's per-decoder messages means embedd
 naming the screenshot `.png` composes `out/.png` and exits 0 where the Python's `save` raised
 (traceback, exit 1); a non-UTF-8 path argument prints raw in stderr lines where the Python's
 `backslashreplace` stderr printed `\udcXX` (APFS refuses such names, so only error lines reach it).
+
+### measure-visual-properties reads PNG and ASCII numbers only
+
+**ID:** measure-png-ascii-only
+**Status:** active
+**Chosen:** the port measures PNG only (`png-rgb-decode`; another format exits 2 `cannot identify image
+file`); a corrupt PNG's message is Go's decoder error; `parse_box` and float options take ASCII digits
+only, and an integer past Go's `int` range is `invalid parse_box value`; `-h` prints argparse's
+80-column uncoloured help; with abbreviations gone `-hx -h` prints help; a non-UTF-8 argument echoes
+as U+FFFD where Python printed `\udcXX`. Exit codes match in every case but `-hx -h`. Raised at task
+8, auto-resolved on the recommended option.
+**Considered:** other decoders, Pillow's messages and
+Unicode digits — no caller supplies them.
 
 ## Open questions
