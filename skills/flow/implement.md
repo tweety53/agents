@@ -816,6 +816,18 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    check-task-commit-fields.sh <worktree> <task-id> <task-sha> "" <canonical-worktree> <name>
    ```
 
+   **On a change whose resolved worktree set spans more than one repository, the third argument
+   is the per-repository commit map instead of one sha** — `"<worktree>=<sha>[,<worktree>=<sha>…]"`,
+   one pair per repository carrying any of the task's commits, the fourth argument still empty
+   (the map derives each commit's parent in its own repository) — so every task's
+   `**Commit:**`/`**Files:**`/`**Tests:**`/`**Baseline:**` fields are guard-checked regardless
+   of how many repositories the change spans. The verdict merges across the listed
+   repositories; the guard's own header (`scripts/check-task-commit-fields.sh`, THE COMMIT MAP)
+   is canonical for the form. A task that landed in one repository passes that repository's
+   pair alone, which is the single-sha form; skipping the guard on a cross-repo change and
+   checking fields by hand is the substitution shape **A guard you could not run is
+   hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
+
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
    launches: **exit 1** is the parent's own fix — it re-commits that task itself and
