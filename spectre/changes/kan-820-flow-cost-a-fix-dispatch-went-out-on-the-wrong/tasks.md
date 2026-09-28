@@ -129,7 +129,12 @@ git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add 
   - [x] **Step 1: project-configuration.md.** Add a `## model` row to the key table beside `## self review model`'s: optional, literal single-line body, one member of the store's `ValidModels`, matched byte-for-byte with leading/trailing whitespace trimmed and nothing else normalized, reported by name and dropped otherwise, absent → store default. Name its consumer: `DEFAULT_MODEL`'s resolution (**Model resolution**, `skills/flow/SKILL.md`), the governed roles per **Model policy**.
   - [x] **Step 2: model-policy.md.** Under **Model policy**, restate the resolution order — project `## model` → store `defaultModel` → literal `opus`, resolved per run — the governed role set (implementer, fixer, panel dispatches, rerun pair; `VERIFY_MODEL` fixed, `SELF_REVIEW_MODEL` separate), the surfacing duty (resolution names model + source; Decide preamble, run summary and `decision.json` `resolved` carry it — nothing blocks), and the mapping sentence: the key governs the pre-mapping value; on harness `zcode` the mapping still replaces the model at dispatch and the ledger records the model actually run. Never restate what project-configuration.md's row canonically says — cite it.
   - [x] **Step 3: check-model-keys.sh header.** Its header already reads "both keys are optional" — make it name them: `## self review model` and `## model`, citing project-configuration.md's rows.
-  - [x] **Step 4: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-contract-budget.sh` and `scripts/check-model-keys.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
+  - [x] **Step 4: Run the prose guards.** Run: `scripts/check-vocabulary.sh` and `scripts/check-references.sh` and `scripts/check-model-keys.sh` and `scripts/check-markdown-integrity.py` — all expected exit 0.
+
+    Correction (2026-09-28): the step originally named `scripts/check-contract-budget.sh` too;
+    the guard was removed from origin/main by another change while this one ran, and the step
+    names only the guards this tree carries. The budget guard did run and pass at the task's own
+    close, before the rebase that brought the removal in.
   - [x] **Step 5: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
@@ -182,7 +187,7 @@ before this transcription.
   - [x] **Step 3: Commit.**
 
 ```bash verified:pathspec, excludes and reset order mirror the FLOW — COMMIT-PER-TASK sequence, skills/flow/implement.md
-git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow/verify-and-handoff.md ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "docs(flow): handoff summary names the resolved model and source" -m "Task-Id: 5" -- skills/flow/verify-and-handoff.md
+git reset -q -- spectre/changes/ openspec/changes/ docs/superpowers/ && git add -- skills/flow-contracts/pipeline.md ':(exclude)spectre/changes/' ':(exclude)openspec/changes/' ':(exclude)docs/superpowers/' && git commit -m "docs(flow-contracts): run summary names the resolved model and source" -m "Task-Id: 5" -- skills/flow-contracts/pipeline.md
 ```
 
 - [x] 6. flow-plan resolves no model directly
