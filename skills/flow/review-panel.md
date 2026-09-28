@@ -1038,10 +1038,11 @@ unfinished fix. **The parent runs these re-runs itself, in its own
 Bash calls** (**Dispatch sites — the
 parent's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
-change.** A fix that does not is not a fix: the finding stays open and goes through the handback
-below. **Beside that match, three shapes close on their own evidence, each judged from the same
+change.** A fix that meets neither that match nor one of the three shapes below is not a fix: the
+finding stays open and goes through the handback below. **Beside that match, three shapes close on their own evidence, each judged from the same
 fix diff or repaired history the match reads, never from the fix subagent's report alone:**
-(a) **a test-only fix** — every non-context change in the diff is in a test file — closes on the
+(a) **a test-only fix** — every non-context change in the diff is in a test file, a file the
+project's `## test` commands run or that only test code imports — closes on the
 flip the re-run already required, when the finding's pinned reproducer flipped demonstrated → not
 demonstrated: the defect was a missing or weakened test, and the diff that adds or strengthens it
 is the fix; (b) **a comment-only diff closes a comment-only finding** — the finding's defect is a
@@ -1058,7 +1059,8 @@ re-authoring. That refusal is the fix working, never a runner bug.
 
 A finding meeting both conditions is recorded closed there and then — a Minor recorded
 `none — <reason>` has no reproducer to flip and closes on the path condition alone, or on its
-comment-only alternative when the finding's defect is a comment and the fix repairs it in place:
+comment-only alternative when the finding's defect is a comment and the diff's comment-only
+repair touches that named path:
 
 ```bash
 flow record status -change <name> -ref F<n> -status fixed
@@ -1068,7 +1070,7 @@ flow record status -change <name> -ref F<n> -status fixed
 never deferred to the round's end** — the reproducer re-runs and the fix diff are read in one
 call, each finding judged, then every `status fixed` recorded together, so an aborted round
 still leaves every already-verified finding closed. **A finding failing
-either condition is left untouched** on `open`, for the handback below. This walk follows
+the match and all three shapes is left untouched** on `open`, for the handback below. This walk follows
 **Read discipline** (`skills/flow/implement.md`): the specific hunks a finding names, never the <!-- refs-guard:allow -->
 whole fix diff.
 
