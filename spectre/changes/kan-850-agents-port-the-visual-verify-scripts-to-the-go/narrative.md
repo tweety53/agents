@@ -24,3 +24,10 @@ The run resumed at `STARTED`, with the plan already ready, and implemented all t
 - **Panel close.** `check-panel-fix-single-dispatch.sh` flagged task 10's `full-suite-fix-1` dispatch key, recorded during `flow.sdd-tdd` with role `panel-fix`. The run resolved that prompt on Continue.
 - **Stale plan snapshots.** Several times, my own mid-flight edits to the plan and to `KNOWN-BUGS.md` tripped the plan and marker snapshot checks while a reviewer was in flight. Each time the diff was hand-checked and showed only those edits.
 - **Suite timings not stored.** `flow suite record` could not store the verify run's timings: the exported worktree `FLOW_ADDR` (port 6683) has no daemon behind it. Every suite still passed.
+
+## 2026-09-28 — integrate run
+
+- **Preflight.** `RUN1` — `HEAD` is not an ancestor of `origin/main`. Main checkout: `STAGED-CLEAN`, `DRIFT-CLEAN`.
+- **Unfinished-work gate.** `CLEAR` — every plan item checked, no open finding. `VISUAL-VERIFY-OK` — no UI paths touched.
+- **Base.** `CLEAR` — `origin/main` has not moved since `3915fbc0`, so no rebase.
+- **Route.** Merge and push, from the project's configured default; no PR existed for the branch.
