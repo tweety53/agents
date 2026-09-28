@@ -251,6 +251,10 @@ defer
 
 fable
 
+## model
+
+opus
+
 ## workspace isolation
 
 | Resource | Variable | Default | In a workspace |

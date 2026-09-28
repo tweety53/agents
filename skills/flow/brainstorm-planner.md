@@ -543,7 +543,11 @@ recorded),
 skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
-`groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
+`groups_reason` fields, or all four `null` when `execution` is inline), `resolved` (an object
+`{model, source}` — the `DEFAULT_MODEL` **Model resolution** (`skills/flow/SKILL.md`) resolved
+this run and where it resolved from, `source` one of `project`/`store`/`fallback`, written every
+run that resolves, beside `rolls`; a session-instruction override leaves `resolved` as resolved
+and lands in `overrides` as today), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
 overrides to a *result*; empty unless one was given). Print this exact shape as the
 run's own output once the Decide step completes, filling every cell from what was just decided:
@@ -596,7 +600,7 @@ appear in a run, never printed twice:
 
 ```text
 planning:  inline, this session (<the model named in this session's own system prompt>)
-models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
+models:    default <DEFAULT_MODEL> (<MODEL_SOURCE>) · reviewers <REVIEWERS>
 ```
 
 ```bash

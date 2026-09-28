@@ -49,16 +49,42 @@ The full key list, in the order each phase file marks them:
 **Resolve this once, near the top of every run, before any dispatch below reads it:**
 
 ```bash
-SETTINGS_JSON="$(flow settings get)"
+SETTINGS_JSON="$(flow settings get 2>/dev/null || true)"
+MODEL_ROOT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
+PROJECT_MODEL="$(project-get.sh "$MODEL_ROOT" 'model' 2>&1)"; rc=$?
+case "$rc" in
+  0) PROJECT_MODEL="$(printf '%s' "$PROJECT_MODEL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^`\(.*\)`$/\1/')" ;;
+  1) PROJECT_MODEL="" ;;
+  *) echo "⛔ flow: project-get.sh exited $rc: $PROJECT_MODEL — stop the run" >&2; exit 2 ;;
+esac
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
+MODEL_SOURCE=store
+if [ -n "$PROJECT_MODEL" ]; then
+  if flow settings models | grep -qx -- "$PROJECT_MODEL"; then
+    DEFAULT_MODEL="$PROJECT_MODEL"
+    MODEL_SOURCE=project
+  else
+    echo "⚠ flow: .flow/project.md '## model' body '$PROJECT_MODEL' is not a valid model — dropped" >&2
+  fi
+fi
+[ -n "$DEFAULT_MODEL" ] && [ "$DEFAULT_MODEL" != "null" ] || { DEFAULT_MODEL=opus; MODEL_SOURCE=fallback; }
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 VERIFY_MODEL=opus
 ```
 
+`MODEL_SOURCE` names where `DEFAULT_MODEL` resolved from — `project` when the project's own
+`## model` key supplied it (**Project configuration**, `skills/flow-contracts/project-configuration.md`,
+validated against the same `ValidModels` set `flow settings models` prints), `store` when the
+settings store's `defaultModel` did, `fallback` when neither did — and is reported beside the
+model everywhere this run records it: the Decide preamble's `models:` line, the run summary, and
+`decision.json`'s `resolved` object.
+
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
-no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
-`opus` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`),
-naming that this is a fallback rather than a resolved value, and continue: settings unreachable is
+no per-change fallback file for this record. The project's `## model` key still resolves in that
+case: it is read from the repository, not the store, and `MODEL_SOURCE` then reads `project`.
+Only when neither the key nor the store answers does `MODEL_SOURCE` read `fallback` and the
+literal `opus` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`)
+stand in, naming that this is a fallback rather than a resolved value. Settings unreachable is
 never a reason to block implementation.
 
 **Execution mode, implementer effort and the review panel are decided per change, never

@@ -38,6 +38,22 @@ and extra-principle slots) rather than the model. See **Model policy**
 (`skills/flow/brainstorm-planner.md`). The fixer's pair is its own, not the implementer's; a
 fix-round re-run runs on the decision's `panel.rerun_dispatch` pair.
 
+**Where `DEFAULT_MODEL` comes from: the project key, then the store, then the literal.**
+`DEFAULT_MODEL` resolves per run in this order: `<project>/.flow/project.md`'s `## model` key
+(**Project configuration**, `skills/flow-contracts/project-configuration.md`, canonical for the
+key's shape and its match-and-drop rule), then the settings store's `defaultModel`, then the
+literal `opus`. The resolution records model + source — `project`, `store` or `fallback` — in
+`decision.json`'s `resolved` object, and reports both in the Decide preamble's `models:` line and
+the run summary; an operator instruction that overrides the resolved value lands in `overrides`
+beside a named source, as it always did. Nothing blocks on what the key declares: it makes the
+operator's policy machine-readable and visible before a dispatch goes out, it does not police
+one. The governed roles are every role above that reads `DEFAULT_MODEL` — the implementer, the
+fixer, every panel dispatch, the fix-round re-run pair; `VERIFY_MODEL` stays the fixed literal
+and `SELF_REVIEW_MODEL` keeps its own key and precedence, and every effort choice belongs to the
+Decide step, never to the key. On harness `zcode` the key governs the pre-mapping value
+(**Harness mapping** below): resolution and every record name the resolved policy model, while
+the dispatch's ledger line records the mapped model that actually ran.
+
 **An explicit operator instruction overrides either default, in either direction** — raising the
 panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical
 work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
