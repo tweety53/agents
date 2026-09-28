@@ -1,0 +1,580 @@
+A global install populates both skill directories with live links	.claude/skills holds every skill
+A global install populates both skill directories with live links	.claude/skills holds only resolvable symlinks
+A global install populates both skill directories with live links	.zcode/skills holds every skill
+A global install populates both skill directories with live links	.zcode/skills holds only resolvable symlinks
+A global install populates both skill directories with live links	a global install leaves zero dangling symlinks
+A global install populates both skill directories with live links	flow-contracts installs into .claude/skills
+A global install populates both skill directories with live links	flow-contracts installs into .zcode/skills
+A global install populates both skill directories with live links	flow-contracts installs state-file.md
+A global install populates both skill directories with live links	the block carries the commit-scope rule's core excerpt
+A global install populates both skill directories with live links	the block points at the installed commit-scope rule
+A global install populates both skill directories with live links	the commit-scope rule's full text is installed
+A global install populates both skill directories with live links	the installed commit-scope rule is a symlink into the repo
+A global install populates both skill directories with live links	the managed AGENTS.md does not inline the state-file write template
+A global install populates both skill directories with live links	the managed CLAUDE.md does not inline the state-file write template
+A global install populates both skill directories with live links	the real-repo global install succeeds
+A named rule that does not exist is reported and skipped	a bullet inside a fenced block is not read as an entry
+A named rule that does not exist is reported and skipped	a missing rule makes the run report a skip in its exit status
+A named rule that does not exist is reported and skipped	both instruction files still got the rules that do exist
+A named rule that does not exist is reported and skipped	the missing rule is reported by name
+A named rule that does not exist is reported and skipped	the rules that do exist are still rendered
+A pre-existing skill directory is moved outside the scanned tree	no <name>.bak is left inside the skills tree
+A pre-existing skill directory is moved outside the scanned tree	the displaced skill is now a symlink
+A pre-existing skill directory is moved outside the scanned tree	the install over a pre-existing skill directory succeeds
+A pre-existing skill directory is moved outside the scanned tree	the stale copy is no longer reachable from the skills tree
+A pre-existing skill directory is moved outside the scanned tree	the stale copy is preserved outside the scanned tree
+A project with nothing to render is left alone, silently	CLAUDE.md is untouched for a project with no config
+A project with nothing to render is left alone, silently	a project naming no shared rule installs cleanly
+A project with nothing to render is left alone, silently	a project with no .flow/project.md installs cleanly
+A project with nothing to render is left alone, silently	a slashed .mdc entry is not looked up in the shared library
+A project with nothing to render is left alone, silently	no AGENTS.md is created for a project naming no shared rule
+A project with nothing to render is left alone, silently	no AGENTS.md is created for a project with no config
+A project with nothing to render is left alone, silently	no block is written when no entry resolves to the shared library
+A project's opted-in shared rule is rendered into both its instruction files	AGENTS.md carries the opted-in rule body
+A project's opted-in shared rule is rendered into both its instruction files	AGENTS.md does not re-render the always-on rule
+A project's opted-in shared rule is rendered into both its instruction files	AGENTS.md exists after the install
+A project's opted-in shared rule is rendered into both its instruction files	AGENTS.md has exactly one begin
+A project's opted-in shared rule is rendered into both its instruction files	AGENTS.md has exactly one end
+A project's opted-in shared rule is rendered into both its instruction files	AGENTS.md labels the rule it inlined
+A project's opted-in shared rule is rendered into both its instruction files	AGENTS.md treats a bare non-.mdc entry as no shared rule
+A project's opted-in shared rule is rendered into both its instruction files	CLAUDE.md carries the opted-in rule body
+A project's opted-in shared rule is rendered into both its instruction files	CLAUDE.md does not re-render the always-on rule
+A project's opted-in shared rule is rendered into both its instruction files	CLAUDE.md exists after the install
+A project's opted-in shared rule is rendered into both its instruction files	CLAUDE.md has exactly one begin
+A project's opted-in shared rule is rendered into both its instruction files	CLAUDE.md has exactly one end
+A project's opted-in shared rule is rendered into both its instruction files	CLAUDE.md labels the rule it inlined
+A project's opted-in shared rule is rendered into both its instruction files	CLAUDE.md treats a bare non-.mdc entry as no shared rule
+A project's opted-in shared rule is rendered into both its instruction files	the project install succeeds
+A project's opted-in shared rule is rendered into both its instruction files	the run reports which rule it rendered
+A re-install prunes links whose source was deleted	a real file the user put there is NOT pruned
+A re-install prunes links whose source was deleted	a still-live command link survives the prune
+A re-install prunes links whose source was deleted	a still-live skill link survives the prune
+A re-install prunes links whose source was deleted	a user's own BROKEN symlink outside this repo is NOT pruned
+A re-install prunes links whose source was deleted	first install succeeds
+A re-install prunes links whose source was deleted	re-install after deletion succeeds
+A re-install prunes links whose source was deleted	the doomed command is installed
+A re-install prunes links whose source was deleted	the doomed skill is installed
+A re-install prunes links whose source was deleted	the stale command link is pruned
+A re-install prunes links whose source was deleted	the stale skill link is pruned
+A rule carrying a delimiter installs nothing at all	a rule body carrying a delimiter aborts the run
+A rule carrying a delimiter installs nothing at all	nothing installed: .claude/CLAUDE.md
+A rule carrying a delimiter installs nothing at all	nothing installed: .claude/commands
+A rule carrying a delimiter installs nothing at all	nothing installed: .claude/rules
+A rule carrying a delimiter installs nothing at all	nothing installed: .claude/skills
+A rule carrying a delimiter installs nothing at all	nothing installed: .zcode/AGENTS.md
+A rule carrying a delimiter installs nothing at all	nothing installed: .zcode/commands
+A rule carrying a delimiter installs nothing at all	nothing installed: .zcode/rules
+A rule carrying a delimiter installs nothing at all	nothing installed: .zcode/skills
+A rule carrying a delimiter installs nothing at all	the abort names the offending rule
+Core excerpts, full-text links and the agent baseline	AGENTS.md carries the core too
+Core excerpts, full-text links and the agent baseline	an opt-in rule is not linked there
+Core excerpts, full-text links and the agent baseline	an unbalanced core marker aborts the run
+Core excerpts, full-text links and the agent baseline	an unmarked rule is linked there as well
+Core excerpts, full-text links and the agent baseline	an unregistered flow-active-change hook is reported
+Core excerpts, full-text links and the agent baseline	an unregistered hook is reported, not assumed
+Core excerpts, full-text links and the agent baseline	no core marker survives into the block
+Core excerpts, full-text links and the agent baseline	nothing was installed: CLAUDE.md
+Core excerpts, full-text links and the agent baseline	the abort names the offending rule
+Core excerpts, full-text links and the agent baseline	the agent baseline is installed
+Core excerpts, full-text links and the agent baseline	the block carries the core excerpt
+Core excerpts, full-text links and the agent baseline	the block points at the installed full rule
+Core excerpts, full-text links and the agent baseline	the block stops at the closing marker
+Core excerpts, full-text links and the agent baseline	the claude agent-baseline registration snippet is printed
+Core excerpts, full-text links and the agent baseline	the claude flow-active-change registration snippet is printed
+Core excerpts, full-text links and the agent baseline	the enforcement hook is installed
+Core excerpts, full-text links and the agent baseline	the flow-active-change hook is installed
+Core excerpts, full-text links and the agent baseline	the full text is linked into ~/.claude/rules
+Core excerpts, full-text links and the agent baseline	the install succeeds
+Core excerpts, full-text links and the agent baseline	the linked full text has what the block dropped
+Core excerpts, full-text links and the agent baseline	the protect-main-checkout hook is installed
+Core excerpts, full-text links and the agent baseline	the protect-main-checkout registration snippet is printed
+Core excerpts, full-text links and the agent baseline	the unregistered protect-main-checkout hook is reported
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/check-plan-shape.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/check-plan-shape.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/check-plan-shape.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/check-plan-shape.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/check-task-commit-fields.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/check-task-commit-fields.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/land-self-review-report.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/land-self-review-report.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/plan-class.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/plan-class.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/project-get.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-fast/scripts/project-get.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-plan-shape.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-plan-shape.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-plan-shape.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-plan-shape.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-planning-commit-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-planning-commit-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-task-commit-fields.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-task-commit-fields.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-worktree-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/check-worktree-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-class.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-class.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-bundles.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-bundles.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-bundles.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-bundles.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-groups.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-groups.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-groups.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/plan-dispatch-groups.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/project-get.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-plan/scripts/project-get.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-self-review/scripts/land-self-review-report.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-self-review/scripts/land-self-review-report.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-status/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-status/scripts/resolve-base-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow-status/scripts/resolve-base-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/aside-planning-artifacts.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/aside-planning-artifacts.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-archive-scope.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-archive-scope.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-base-moved.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-base-moved.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-cleanup-complete.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-cleanup-complete.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-dev-stack-fresh.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-dev-stack-fresh.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-finish-preflight.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-finish-preflight.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-foreign-staged.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-foreign-staged.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-main-checkout-drift.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-main-checkout-drift.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-citation-trigger.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-citation-trigger.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-diff-size.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-diff-size.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-docs-only.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-docs-only.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-findings-closed.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-findings-closed.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-fix-single-dispatch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-fix-single-dispatch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-reproducer-exit-contract.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-reproducer-exit-contract.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-reproducers.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-panel-reproducers.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-plan-shape.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-plan-shape.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-plan-shape.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-plan-shape.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-plan-unchanged.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-plan-unchanged.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-planning-commit-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-planning-commit-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-spec-reach.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-spec-reach.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-commit-fields.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-commit-fields.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-commit-fields.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-commit-fields.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-commit-planning-paths.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-commit-planning-paths.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-records.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-records.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-records.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-records.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-reviewer-single-dispatch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-task-reviewer-single-dispatch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-tree-markers.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-tree-markers.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-unfinished-work.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-unfinished-work.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-visual-trigger.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-visual-trigger.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-visual-verification.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-visual-verification.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-visual-verify-dispatched.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-visual-verify-dispatched.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-workspace-isolation.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-workspace-isolation.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-worktree-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-worktree-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-worktree-processes.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/check-worktree-processes.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/classify-untracked.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/classify-untracked.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/commit-split.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/commit-split.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/compose-mockup-frames.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/compose-mockup-frames.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/compose-mockup-frames.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/compose-mockup-frames.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/gather-dispatch-context.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/gather-dispatch-context.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/generate-relocation-comparison.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/generate-relocation-comparison.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/generate-relocation-comparison.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/generate-relocation-comparison.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/guard-autosquash.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/guard-autosquash.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/land-self-review-report.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/land-self-review-report.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/measure-visual-properties.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/measure-visual-properties.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/measure-visual-properties.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/measure-visual-properties.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/mutate-and-verify.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/mutate-and-verify.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-class.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-class.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-bundles.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-bundles.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-bundles.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-bundles.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-groups.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-groups.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-groups.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/plan-dispatch-groups.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/prepare-archive-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/prepare-archive-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/prepare-workspace.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/prepare-workspace.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/project-get.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/project-get.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/prove-reproducer.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/prove-reproducer.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/refresh-main-checkout.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/refresh-main-checkout.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/reshape-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/reshape-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/resolve-base-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/resolve-base-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/resolve-visual-screenshots.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/resolve-visual-screenshots.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/run-reproducer.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.claude/skills/flow/scripts/run-reproducer.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/check-plan-shape.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/check-plan-shape.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/check-plan-shape.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/check-plan-shape.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/check-task-commit-fields.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/check-task-commit-fields.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/land-self-review-report.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/land-self-review-report.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/plan-class.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/plan-class.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/project-get.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-fast/scripts/project-get.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-plan-shape.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-plan-shape.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-plan-shape.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-plan-shape.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-planning-commit-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-planning-commit-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-task-commit-fields.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-task-commit-fields.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-worktree-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/check-worktree-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-class.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-class.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-bundles.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-bundles.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-bundles.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-bundles.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-groups.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-groups.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-groups.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/plan-dispatch-groups.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/project-get.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-plan/scripts/project-get.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-self-review/scripts/land-self-review-report.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-self-review/scripts/land-self-review-report.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-status/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-status/scripts/resolve-base-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow-status/scripts/resolve-base-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/aside-planning-artifacts.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/aside-planning-artifacts.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-archive-scope.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-archive-scope.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-base-moved.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-base-moved.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-cleanup-complete.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-cleanup-complete.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-dev-stack-fresh.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-dev-stack-fresh.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-finish-preflight.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-finish-preflight.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-foreign-staged.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-foreign-staged.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-main-checkout-drift.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-main-checkout-drift.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-citation-trigger.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-citation-trigger.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-diff-size.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-diff-size.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-docs-only.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-docs-only.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-findings-closed.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-findings-closed.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-fix-single-dispatch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-fix-single-dispatch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-reproducer-exit-contract.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-reproducer-exit-contract.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-reproducers.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-panel-reproducers.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-plan-shape.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-plan-shape.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-plan-shape.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-plan-shape.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-plan-unchanged.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-plan-unchanged.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-planning-commit-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-planning-commit-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-spec-reach.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-spec-reach.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-commit-fields.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-commit-fields.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-commit-fields.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-commit-fields.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-commit-planning-paths.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-commit-planning-paths.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-records.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-records.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-records.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-records.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-reviewer-single-dispatch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-task-reviewer-single-dispatch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-tree-markers.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-tree-markers.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-unfinished-work.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-unfinished-work.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-visual-trigger.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-visual-trigger.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-visual-verification.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-visual-verification.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-visual-verify-dispatched.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-visual-verify-dispatched.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-workspace-isolation.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-workspace-isolation.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-worktree-location.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-worktree-location.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-worktree-processes.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/check-worktree-processes.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/classify-untracked.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/classify-untracked.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/commit-split.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/commit-split.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/compose-mockup-frames.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/compose-mockup-frames.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/compose-mockup-frames.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/compose-mockup-frames.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/gather-dispatch-context.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/gather-dispatch-context.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/generate-relocation-comparison.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/generate-relocation-comparison.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/generate-relocation-comparison.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/generate-relocation-comparison.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/guard-autosquash.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/guard-autosquash.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/land-self-review-report.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/land-self-review-report.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/lib is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/measure-visual-properties.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/measure-visual-properties.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/measure-visual-properties.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/measure-visual-properties.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/mutate-and-verify.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/mutate-and-verify.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-class.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-class.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-bundles.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-bundles.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-bundles.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-bundles.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-groups.py is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-groups.py is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-groups.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/plan-dispatch-groups.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/prepare-archive-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/prepare-archive-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/prepare-workspace.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/prepare-workspace.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/project-get.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/project-get.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/prove-reproducer.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/prove-reproducer.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/refresh-main-checkout.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/refresh-main-checkout.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/reshape-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/reshape-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/resolve-base-branch.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/resolve-base-branch.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/resolve-visual-screenshots.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/resolve-visual-screenshots.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/run-reproducer.sh is executable at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	.zcode/skills/flow/scripts/run-reproducer.sh is present at the installed path
+Every guard in a command skill's scripts/ directory reaches the install	the global install for the guard-reachability check succeeds
+Hand-written content and file mode survive every run	first run over a hand-written file succeeds
+Hand-written content and file mode survive every run	run 1 keeps the hand-written line
+Hand-written content and file mode survive every run	run 1 takes a pre-install backup
+Hand-written content and file mode survive every run	run 2 keeps content above the block
+Hand-written content and file mode survive every run	run 2 keeps content below the block
+Hand-written content and file mode survive every run	run 2 over a hand-written file succeeds
+Hand-written content and file mode survive every run	run 2: still exactly one begin
+Hand-written content and file mode survive every run	run 2: still exactly one end
+Hand-written content and file mode survive every run	run 2: the .flow.bak keeps the 640 mode
+Hand-written content and file mode survive every run	run 2: the pre-install backup is never overwritten
+Hand-written content and file mode survive every run	run 2: the target keeps its 640 mode
+Hand-written content and file mode survive every run	run 3 keeps content above the block
+Hand-written content and file mode survive every run	run 3 keeps content below the block
+Hand-written content and file mode survive every run	run 3 leaves the hand-written file byte-identical to run 2
+Hand-written content and file mode survive every run	run 3 over a hand-written file succeeds
+Hand-written content and file mode survive every run	run 3: still exactly one begin
+Hand-written content and file mode survive every run	run 3: still exactly one end
+Hand-written content and file mode survive every run	run 3: the .flow.bak keeps the 640 mode
+Hand-written content and file mode survive every run	run 3: the pre-install backup is never overwritten
+Hand-written content and file mode survive every run	run 3: the target keeps its 640 mode
+Hand-written content and file mode survive every run	the backup is the file as it was before flow touched it
+Malformed delimiters abort with the target byte-identical	CRLF delimiters abort the run
+Malformed delimiters abort with the target byte-identical	CRLF: CLAUDE.md is byte-identical afterwards
+Malformed delimiters abort with the target byte-identical	duplicated delimiters abort the run
+Malformed delimiters abort with the target byte-identical	duplicated: AGENTS.md is byte-identical afterwards
+Malformed delimiters abort with the target byte-identical	duplicated: no .flow.bak was written
+Malformed delimiters abort with the target byte-identical	reversed delimiters abort the run
+Malformed delimiters abort with the target byte-identical	reversed: CLAUDE.md is byte-identical afterwards
+Malformed delimiters abort with the target byte-identical	reversed: no .flow.bak was written
+Malformed delimiters abort with the target byte-identical	the CRLF abort carries the remediation hint
+Malformed delimiters abort with the target byte-identical	the abort names the delimiter shape
+Nothing outside the sandbox was touched	the repo's own skills, rules and commands are unchanged
+Nothing outside the sandbox was touched	~/.claude and ~/.zcode are unchanged
+Only rules declaring alwaysApply: true install	alwaysApply: false is not installed
+Only rules declaring alwaysApply: true install	alwaysApply: true_for_kotlin_only is not installed
+Only rules declaring alwaysApply: true install	an unterminated frontmatter is not installed
+Only rules declaring alwaysApply: true install	exactly the two always-on rules are installed
+Only rules declaring alwaysApply: true install	the always-on rule is installed
+Only rules declaring alwaysApply: true install	the fixture install succeeds
+Only rules declaring alwaysApply: true install	the managed block carries the always-on rule body
+Only rules declaring alwaysApply: true install	the managed block omits the opt-in rule
+Only rules declaring alwaysApply: true install	the managed block omits the true-prefixed rule
+Only rules declaring alwaysApply: true install	the managed block omits the unterminated rule
+Project rendering is idempotent and preserves hand-written content	project run 1 keeps the hand-written line
+Project rendering is idempotent and preserves hand-written content	project run 1 succeeds
+Project rendering is idempotent and preserves hand-written content	project run 1: CLAUDE.md keeps its 640 mode
+Project rendering is idempotent and preserves hand-written content	project run 1: exactly one begin in AGENTS.md
+Project rendering is idempotent and preserves hand-written content	project run 1: exactly one begin in CLAUDE.md
+Project rendering is idempotent and preserves hand-written content	project run 2 keeps the hand-written line
+Project rendering is idempotent and preserves hand-written content	project run 2 succeeds
+Project rendering is idempotent and preserves hand-written content	project run 2: CLAUDE.md keeps its 640 mode
+Project rendering is idempotent and preserves hand-written content	project run 2: exactly one begin in AGENTS.md
+Project rendering is idempotent and preserves hand-written content	project run 2: exactly one begin in CLAUDE.md
+Project rendering is idempotent and preserves hand-written content	project run 3 keeps the hand-written line
+Project rendering is idempotent and preserves hand-written content	project run 3 leaves AGENTS.md byte-identical to run 2
+Project rendering is idempotent and preserves hand-written content	project run 3 leaves CLAUDE.md byte-identical to run 2
+Project rendering is idempotent and preserves hand-written content	project run 3 succeeds
+Project rendering is idempotent and preserves hand-written content	project run 3: CLAUDE.md keeps its 640 mode
+Project rendering is idempotent and preserves hand-written content	project run 3: exactly one begin in AGENTS.md
+Project rendering is idempotent and preserves hand-written content	project run 3: exactly one begin in CLAUDE.md
+Project rendering is idempotent and preserves hand-written content	the project's pre-install copy is the file as the user wrote it
+The delimiter guards fire on a project file exactly as on a global one	reversed delimiters in a project file abort the run
+The delimiter guards fire on a project file exactly as on a global one	reversed: no project .flow.bak was written
+The delimiter guards fire on a project file exactly as on a global one	reversed: the project CLAUDE.md is byte-identical afterwards
+The delimiter guards fire on a project file exactly as on a global one	the project abort names the delimiter shape
+The opt-in Kotlin rule is installed by no mode	mode claude-code installs cleanly
+The opt-in Kotlin rule is installed by no mode	mode claude-code installs no kotlin-backend-development-standard.mdc
+The opt-in Kotlin rule is installed by no mode	mode claude-code writes no managed block at .claude/CLAUDE.md
+The opt-in Kotlin rule is installed by no mode	mode claude-code writes no managed block at .zcode/AGENTS.md
+The opt-in Kotlin rule is installed by no mode	mode global installs cleanly
+The opt-in Kotlin rule is installed by no mode	mode global installs no kotlin-backend-development-standard.mdc
+The opt-in Kotlin rule is installed by no mode	mode global: .claude/CLAUDE.md exists
+The opt-in Kotlin rule is installed by no mode	mode global: .claude/CLAUDE.md has no inlined Kotlin rule
+The opt-in Kotlin rule is installed by no mode	mode global: .zcode/AGENTS.md exists
+The opt-in Kotlin rule is installed by no mode	mode global: .zcode/AGENTS.md has no inlined Kotlin rule
+The opt-in Kotlin rule is installed by no mode	mode zcode installs cleanly
+The opt-in Kotlin rule is installed by no mode	mode zcode installs no kotlin-backend-development-standard.mdc
+The opt-in Kotlin rule is installed by no mode	mode zcode writes no managed block at .claude/CLAUDE.md
+The opt-in Kotlin rule is installed by no mode	mode zcode writes no managed block at .zcode/AGENTS.md
+The real Kotlin standard reaches a project that opts into it	AGENTS.md carries the Kotlin standard's text
+The real Kotlin standard reaches a project that opts into it	AGENTS.md inlines the Kotlin standard
+The real Kotlin standard reaches a project that opts into it	AGENTS.md strips the rule's frontmatter
+The real Kotlin standard reaches a project that opts into it	CLAUDE.md carries the Kotlin standard's text
+The real Kotlin standard reaches a project that opts into it	CLAUDE.md inlines the Kotlin standard
+The real Kotlin standard reaches a project that opts into it	CLAUDE.md strips the rule's frontmatter
+The real Kotlin standard reaches a project that opts into it	the real-repo project install succeeds
+The retired cursor, codex and all modes are refused	setup.sh all exits non-zero
+The retired cursor, codex and all modes are refused	setup.sh all prints the usage line
+The retired cursor, codex and all modes are refused	setup.sh all writes nothing into the project
+The retired cursor, codex and all modes are refused	setup.sh codex exits non-zero
+The retired cursor, codex and all modes are refused	setup.sh codex prints the usage line
+The retired cursor, codex and all modes are refused	setup.sh codex writes nothing into the project
+The retired cursor, codex and all modes are refused	setup.sh cursor exits non-zero
+The retired cursor, codex and all modes are refused	setup.sh cursor prints the usage line
+The retired cursor, codex and all modes are refused	setup.sh cursor writes nothing into the project
+Three consecutive global runs converge	run 1 succeeds
+Three consecutive global runs converge	run 1: exactly one begin in AGENTS.md
+Three consecutive global runs converge	run 1: exactly one begin in CLAUDE.md
+Three consecutive global runs converge	run 1: exactly one end in AGENTS.md
+Three consecutive global runs converge	run 1: exactly one end in CLAUDE.md
+Three consecutive global runs converge	run 2 succeeds
+Three consecutive global runs converge	run 2: exactly one begin in AGENTS.md
+Three consecutive global runs converge	run 2: exactly one begin in CLAUDE.md
+Three consecutive global runs converge	run 2: exactly one end in AGENTS.md
+Three consecutive global runs converge	run 2: exactly one end in CLAUDE.md
+Three consecutive global runs converge	run 3 leaves AGENTS.md byte-identical to run 2
+Three consecutive global runs converge	run 3 leaves CLAUDE.md byte-identical to run 2
+Three consecutive global runs converge	run 3 succeeds
+Three consecutive global runs converge	run 3: exactly one begin in AGENTS.md
+Three consecutive global runs converge	run 3: exactly one begin in CLAUDE.md
+Three consecutive global runs converge	run 3: exactly one end in AGENTS.md
+Three consecutive global runs converge	run 3: exactly one end in CLAUDE.md
+Which modes render project standards	global installs cleanly beside a project with standards
+Which modes render project standards	global writes no project AGENTS.md
+Which modes render project standards	global writes no project CLAUDE.md
+Which modes render project standards	mode claude-code installs cleanly over a project with standards
+Which modes render project standards	mode claude-code renders the rule into AGENTS.md
+Which modes render project standards	mode claude-code renders the rule into CLAUDE.md
+Which modes render project standards	mode zcode installs cleanly over a project with standards
+Which modes render project standards	mode zcode renders the rule into AGENTS.md
+Which modes render project standards	mode zcode renders the rule into CLAUDE.md
+ZCode: global installs a self-contained ~/.zcode layer	global with the zcode layer succeeds
+ZCode: global installs a self-contained ~/.zcode layer	the claude block keeps its own pointers — no rewrite leak
+ZCode: global installs a self-contained ~/.zcode layer	the generated baseline says where it came from
+ZCode: global installs a self-contained ~/.zcode layer	the second global with the zcode layer succeeds
+ZCode: global installs a self-contained ~/.zcode layer	the zcode agent baseline is generated, not linked
+ZCode: global installs a self-contained ~/.zcode layer	the zcode block carries no ~/.claude pointer
+ZCode: global installs a self-contained ~/.zcode layer	the zcode block is byte-identical on re-run
+ZCode: global installs a self-contained ~/.zcode layer	the zcode block points at zcode-local full texts
+ZCode: global installs a self-contained ~/.zcode layer	the zcode flow-active-change hook is linked
+ZCode: global installs a self-contained ~/.zcode layer	the zcode flow-active-change registration snippet is printed
+ZCode: global installs a self-contained ~/.zcode layer	the zcode hook is linked
+ZCode: global installs a self-contained ~/.zcode layer	the zcode hook registration snippet is printed
+ZCode: global installs a self-contained ~/.zcode layer	the zcode protect-main-checkout hook is linked
+ZCode: global installs a self-contained ~/.zcode layer	zcode gets the claude command set, as the format is shared
+ZCode: global installs a self-contained ~/.zcode layer	zcode rule full texts are linked
+ZCode: global installs a self-contained ~/.zcode layer	zcode skill links land beside the other harnesses'
+ZCode: the compact-window env block in the shell rc	.bashrc gets the block when it exists
+ZCode: the compact-window env block in the shell rc	.zshrc block is delimited
+ZCode: the compact-window env block in the shell rc	.zshrc carries the managed export
+ZCode: the compact-window env block in the shell rc	an absent .bashrc is not created
+ZCode: the compact-window env block in the shell rc	an unmanaged Z_COMPACT_WINDOW line is left byte-identical
+ZCode: the compact-window env block in the shell rc	exactly one begin marker
+ZCode: the compact-window env block in the shell rc	global with the env step succeeds
+ZCode: the compact-window env block in the shell rc	re-run leaves exactly one block in .zshrc
+ZCode: the compact-window env block in the shell rc	the skip is explained in the log
+ZCode: the compact-window env block in the shell rc	the user's own .bashrc content survives
+ZCode: the per-project mode writes project paths only	AGENTS.md is copied to the project root
+ZCode: the per-project mode writes project paths only	no claude state is created
+ZCode: the per-project mode writes project paths only	no user-level zcode state is created
+ZCode: the per-project mode writes project paths only	project commands land in .zcode/commands
+ZCode: the per-project mode writes project paths only	project skills land in .zcode/skills
+ZCode: the per-project mode writes project paths only	the zcode project install succeeds
+__pycache__ churn leaves the source fingerprint unchanged	a .pyc rewrite under __pycache__ leaves the fingerprint unchanged
+__pycache__ churn leaves the source fingerprint unchanged	a real source-file change still moves the fingerprint
+check-panel-reproducers.sh runs through the installed path and finds its dependencies	check-panel-reproducers.sh reaches its own usage message (proves lib/flow-guard.sh loaded and the flow-guard binary ran, not just that the file exists)
+check-panel-reproducers.sh runs through the installed path and finds its dependencies	check-panel-reproducers.sh through the installed path does not report a missing lib/flow-guard.sh
+check-panel-reproducers.sh runs through the installed path and finds its dependencies	check-panel-reproducers.sh with no change name exits non-zero (expected — not a failure)
+check-panel-reproducers.sh runs through the installed path and finds its dependencies	the installed check-panel-reproducers.sh exists to invoke
+global install writes nothing under .cursor or .codex	global over an earlier cursor/codex install succeeds
+global install writes nothing under .cursor or .codex	global succeeds
+global install writes nothing under .cursor or .codex	no ~/.codex is created
+global install writes nothing under .cursor or .codex	no ~/.cursor is created
+global install writes nothing under .cursor or .codex	~/.cursor and ~/.codex are byte-identical after the run
