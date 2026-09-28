@@ -766,13 +766,12 @@ preflight_managed_block() {
 # stray delimiter may be sitting in content the user wrote and wants to keep.
 install_managed_block() {
   local target_file="$1"
-  local block_tmp out_tmp begin_lines end_lines begins ends crlf_markers rc
+  local block_tmp swap_tmp begin_lines end_lines begins ends crlf_markers rc
   local cr=$'\r'
   preflight_managed_block "$target_file"
   mkdir -p "$(dirname "$target_file")"
   block_tmp="$(mktemp)"
-  out_tmp="$(mktemp)"
-  TMP_FILES+=("$block_tmp" "$out_tmp")
+  TMP_FILES+=("$block_tmp")
   render_managed_block "${@:2}" >"$block_tmp"
   if [[ -n "${MANAGED_BLOCK_POSTPROCESS:-}" ]]; then
     # The postprocess sees only generated content, so a failure means no block is written
@@ -842,12 +841,21 @@ install_managed_block() {
       backup_once "$target_file"
       provenance="pre-install copy: $target_file.flow.bak"
     fi
+    # The rewrite lands by same-directory rename, not an in-place `cat`: a bare
+    # `cat > target` truncates first, and a guard reading during that window
+    # sees a torn file and reports drift the file does not have (KAN-808 F2).
+    # The swap copy is made with `cp` so it inherits the target's mode and
+    # owner — the rename then changes nothing but the content — and a `cp`
+    # failure dies with the target untouched.
+    swap_tmp="$(dirname "$target_file")/.${target_file##*/}.swap.$$"
+    TMP_FILES+=("$swap_tmp")
+    cp "$target_file" "$swap_tmp"
     awk -v begin="$CLAUDE_MD_BEGIN" -v end="$CLAUDE_MD_END" -v blockfile="$block_tmp" '
       $0 == begin { inblock = 1; while ((getline l < blockfile) > 0) print l; next }
       $0 == end   { inblock = 0; next }
       !inblock    { print }
-    ' "$target_file" >"$out_tmp"
-    cat "$out_tmp" >"$target_file"
+    ' "$target_file" >"$swap_tmp"
+    mv -f "$swap_tmp" "$target_file"
     info "Refreshed managed flow block in $target_file ($provenance)"
     return 0
   fi
