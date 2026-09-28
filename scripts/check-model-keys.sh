@@ -9,11 +9,11 @@
 # ROOT — the directory holding `.flow/project.md` — never the file itself.
 #
 # **Project configuration** (`skills/flow-contracts/project-configuration.md`)
-# is canonical: the key is optional, and its value — the body's first
-# non-blank line, whitespace-trimmed and de-backticked; lines below it are
-# documentation, never read — must match exactly one `ValidModels` member. A
-# resolver reading a mismatched head reports it by name and falls back as if
-# the key were absent; THIS guard is
+# is canonical: `## self review model` and `## model` are both optional, and
+# each value — the body's first non-blank line, whitespace-trimmed and
+# de-backticked; lines below it are documentation, never read — must match
+# exactly one `ValidModels` member. A resolver reading a mismatched head
+# reports it by name and falls back as if the key were absent; THIS guard is
 # stricter on purpose — it exists so that fallback never has to happen in the
 # first place, so a mismatch here is a hard failure, not a silent drop.
 #

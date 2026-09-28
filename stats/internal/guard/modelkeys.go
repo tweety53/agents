@@ -101,22 +101,25 @@ func checkModelKeys(args []string, env Env, stdout, stderr io.Writer) int {
 		if !gsReadable(abs + "/.flow/project.md") {
 			return die("cannot read: %s", pf)
 		}
-		const key = "self review model"
-		// The value is the body's head (KAN-797): mkSectionBody has already
-		// trimmed each line and stripped its surrounding backticks, so the
-		// head is the first line that is not empty after that — lines below
-		// it are documentation, never read.
-		if body := mkSectionBody(abs+"/.flow/project.md", key, utf8); body != "" {
-			head := ""
-			for _, line := range strings.Split(body, "\n") {
-				if line != "" {
-					head = line
-					break
+		// Both keys the contract declares are optional and independent:
+		// absence of either is valid. The value is each body's head
+		// (KAN-797): mkSectionBody has already trimmed each line and
+		// stripped its surrounding backticks, so the head is the first
+		// line that is not empty after that — lines below it are
+		// documentation, never read.
+		for _, key := range []string{"self review model", "model"} {
+			if body := mkSectionBody(abs+"/.flow/project.md", key, utf8); body != "" {
+				head := ""
+				for _, line := range strings.Split(body, "\n") {
+					if line != "" {
+						head = line
+						break
+					}
 				}
-			}
-			if head != "" && !mkMember(valid, head) {
-				fmt.Fprintf(stdout, "%s: `## %s` value %s is not a ValidModels member\n", pf, key, smcQuote(head, utf8))
-				violations++
+				if head != "" && !mkMember(valid, head) {
+					fmt.Fprintf(stdout, "%s: `## %s` value %s is not a ValidModels member\n", pf, key, smcQuote(head, utf8))
+					violations++
+				}
 			}
 		}
 		checked++

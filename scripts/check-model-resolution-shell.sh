@@ -120,7 +120,7 @@ run_case() {
   cat >"$STUB_DIR/flow" <<EOF
 #!/usr/bin/env bash
 case "\$1 \$2" in
-  "settings get") printf '%s' '$json' ;;
+  "settings get") if [ -z '$json' ]; then exit 3; else printf '%s' '$json'; fi ;;
   "settings models") printf 'sonnet\nopus\nhaiku\nfable\n' ;;
   *) echo "flow stub: unexpected arguments: \$*" >&2; exit 2 ;;
 esac
@@ -152,7 +152,7 @@ EOF
     echo "check-model-resolution-shell: case '$name' — SELF_REVIEW_MODEL resolved to '$got_srm', want '$expect_srm'" >&2
     FAILURES=$((FAILURES + 1))
   fi
-  if [[ "$got_default" != sonnet ]]; then
+  if [[ "$got_default" != "${EXPECTED_DEFAULT:-sonnet}" ]]; then
     echo "check-model-resolution-shell: case '$name' — DEFAULT_MODEL resolved to '$got_default', want 'sonnet'" >&2
     FAILURES=$((FAILURES + 1))
   fi
@@ -194,10 +194,39 @@ run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":""}' \
   "sonnet" "project key valid wins over fable fallback" \
   $'## self review model\n\n`sonnet`\n'
 
+# Case 8: the project's `## model` dispatch key is present and valid — it
+# beats the store's set value. DEFAULT_MODEL resolves to the key's body and
+# MODEL_SOURCE to `project`, not the stub's `sonnet`.
+EXPECTED_DEFAULT=opus
+run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":""}' \
+  "fable" "project-model-wins" \
+  $'## model\n\n`opus`\n'
+
+# Case 9: the dispatch key is present but invalid — reported and dropped,
+# so the store's value stands and DEFAULT_SOURCE stays with the store.
+EXPECTED_DEFAULT=sonnet
+run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":""}' \
+  "fable" "project-model-invalid-drops" \
+  $'## model\n\n`gpt-9`\n'
+
+# Case 10: the store is unreachable (the stub's `settings get` exits 3 on
+# an empty JSON argument) — the project key still resolves the dispatch
+# model, the outage property the in-repo key exists to provide.
+EXPECTED_DEFAULT=opus
+run_case '' \
+  "fable" "store-down-project-wins" \
+  $'## model\n\n`opus`\n'
+
+# Case 11: the store answers JSON null for defaultModel — the literal
+# fallback fires rather than the string "null" becoming the model.
+run_case '{"defaultModel":null,"reviewers":[],"selfReviewModel":""}' \
+  "fable" "store-null-falls-back"
+EXPECTED_DEFAULT=sonnet
+
 if [[ "$FAILURES" -gt 0 ]]; then
   echo "check-model-resolution-shell: $FAILURES failure(s)" >&2
   exit 1
 fi
 
-echo "MODEL-RESOLUTION-SHELL-OK: 7 case(s) checked"
+echo "MODEL-RESOLUTION-SHELL-OK: 11 case(s) checked"
 exit 0

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -364,5 +365,64 @@ printf 'warn one\n\tsecond  \xc2\xa0 \n' >&2`)
 				t.Fatalf("rc=%d out=%s", rc, out.String())
 			}
 		})
+	}
+}
+
+// TestCheckModelKeysDispatchKey pins the second key the guard scans: the
+// dispatcher-facing `## model` (the `## self review model` precedent's own
+// rules — optional, single-line-literal, one ValidModels member), added by
+// kan-820-flow-cost-a-fix-dispatch-went-out-on-the-wrong. The d71a2327 port
+// cases above stay on `## self review model` fixtures, where one scanned key
+// and two read identically; these cases are what make the second key differ.
+func TestCheckModelKeysDispatchKey(t *testing.T) {
+	t.Parallel()
+	dispKey := func(v string) *string { s := "## model\n\n`" + v + "`\n"; return &s }
+	both := func(srm, disp string) *string {
+		s := "## self review model\n\n`" + srm + "`\n\n## model\n\n`" + disp + "`\n"
+		return &s
+	}
+	cases := []struct {
+		run    func(t *testing.T) (Env, []string)
+		checks []smcCheck
+	}{
+		{func(t *testing.T) (Env, []string) {
+			return mkEnv(smcRepoRoot, ""), []string{mkRoot(t, dispKey("fable"))}
+		},
+			[]smcCheck{smcRC("valid ## model key passes", 0)}},
+		{func(t *testing.T) (Env, []string) {
+			return mkEnv(smcRepoRoot, ""), []string{mkRoot(t, dispKey("bogus-model"))}
+		},
+			[]smcCheck{smcRC("invalid ## model value fails", 1),
+				smcHas("the invalid ## model value is named", "`## model` value", "bogus-model", "is not a ValidModels member")}},
+		{func(t *testing.T) (Env, []string) { return mkEnv(smcRepoRoot, ""), []string{mkRoot(t, nil)} },
+			[]smcCheck{smcRC("an absent ## model key passes", 0)}},
+		{func(t *testing.T) (Env, []string) {
+			return mkEnv(smcRepoRoot, ""), []string{mkRoot(t, both("fable", "opus"))}
+		},
+			[]smcCheck{smcRC("both keys validate independently", 0)}},
+		{func(t *testing.T) (Env, []string) {
+			return mkEnv(smcRepoRoot, ""), []string{mkRoot(t, both("fable", "bogus-model"))}
+		},
+			[]smcCheck{smcRC("a bad ## model fails beside a good self review model", 1),
+				smcHas("the ## model violation is named", "`## model` value", "is not a ValidModels member"),
+				smcLacks("the valid self review model is not flagged", "is not a ValidModels member\ncheck-model-keys: 2")}},
+	}
+	for _, c := range cases {
+		// The fixtures belong to the parent test, so they outlive every
+		// parallel subtest reading this case's one run.
+		env, args := c.run(t)
+		run := sync.OnceValues(func() (int, string) {
+			var out bytes.Buffer
+			rc := checkModelKeys(args, env, &out, &out)
+			return rc, out.String()
+		})
+		for _, chk := range c.checks {
+			t.Run(chk.label, func(t *testing.T) {
+				t.Parallel()
+				if rc, out := run(); !chk.ok(rc, out, "") {
+					t.Fatalf("rc=%d out=%s", rc, out)
+				}
+			})
+		}
 	}
 }
