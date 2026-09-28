@@ -376,6 +376,7 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 **Change:** <name>
 **Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " or "late-fix — " followed by the resolved slot(s) not dispatched, or "no">; <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
 **Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
+**Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify.md? | aborted — verified without added sweeps
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
 **Deferred:** <count of deferred Minors>
@@ -427,6 +428,11 @@ overrule any of them with a fix run; it reads `none` when the run took none.
 absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
 rule — the operator must be able to open the PNG. **Its push clause appears only when step 12
 committed to a `regression checkout`.**
+
+**The `Tooling analysis:` line reports **A missed defect — the tooling analysis**
+(`skills/flow/visual-verify.md`)**, one entry per worktree whose fix run dispatched one. A
+completed analysis names its sweeps file by absolute path, so the operator can decide whether its
+sweeps join step 10 for every later change; the run itself never edits `visual-verify.md`.
 
 The pre-edit description line is present only on a fix run that synced the description in **3.
 Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or

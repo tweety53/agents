@@ -48,7 +48,7 @@ the run summary; an operator instruction that overrides the resolved value lands
 beside a named source, as it always did. Nothing blocks on what the key declares: it makes the
 operator's policy machine-readable and visible before a dispatch goes out, it does not police
 one. The governed roles are every role above that reads `DEFAULT_MODEL` — the implementer, the
-fixer, every panel dispatch, the fix-round re-run pair; `VERIFY_MODEL` stays the fixed literal
+fixer, every panel dispatch, the fix-round re-run pair, the tooling analyst; `VERIFY_MODEL` stays the fixed literal
 and `SELF_REVIEW_MODEL` keeps its own key and precedence, and every effort choice belongs to the
 Decide step, never to the key. On harness `zcode` the key governs the pre-mapping value
 (**Harness mapping** below): resolution and every record name the resolved policy model, while

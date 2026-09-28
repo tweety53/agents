@@ -114,10 +114,11 @@ and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatch
 never falls back, because it is never resolved — the point is a predictable model for mechanical
 verification runs regardless of what `DEFAULT_MODEL` resolved to.
 
-**`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
+**`DEFAULT_MODEL` is the model for all four roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot, Bugbot and Security included (every one a
 prompt-driven role, per **The roster**, `skills/flow/review-panel.md`),
-and the panel-fix subagent (`skills/flow/review-panel.md`).
+the panel-fix subagent (`skills/flow/review-panel.md`), and the tooling analyst
+(**A missed defect — the tooling analysis**, `skills/flow/visual-verify.md`).
 
 **A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — "use opus for
 the panel", "implement on haiku" — per **Model policy** (`skills/flow-contracts/model-policy.md`).

@@ -51,7 +51,7 @@ These six rows are **every** Agent-tool dispatch the parent may make, across sec
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
-| tooling analyst, one per fix run reporting a miss the stage's earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
+| tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
 
 **Everything else in those five sections is the parent's own Bash and Read work, never
 delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,

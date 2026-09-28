@@ -83,13 +83,13 @@ and blocks this handoff exactly as a failed command would, naming the death.
 ## A missed defect — the tooling analysis
 
 **A miss is a defect the fix instructions report in a view an earlier round of this stage
-passed** — a `verify-report-*.md` under `<changeRoot>` from that round exists and names no
-departure for it. The parent classifies each defect the fix instructions name, from those reports,
-before the verifier dispatch. A miss means the sweeps below cannot see that defect's class — the
-property, element kind or state no sweep read — and fixing the one instance leaves every other
-defect of the class in place. So on a fix run with at least one miss, **the parent dispatches one
-tooling analyst after step 3's pre-flight passes and before the verifier**, and this round's
-verifier runs the sweeps it writes. A fix run with no miss dispatches none.
+passed** — that round's report, at the relay contract's path above
+(`<abs-worktree>/.superpowers/sdd/verify-report-<key>.md`), exists and names no departure for it.
+The parent classifies each defect the fix instructions name, from those reports, before the
+verifier dispatch. On a fix run with at least one miss, **the parent dispatches one tooling
+analyst per worktree with a miss, after step 3's pre-flight passes and before that worktree's
+verifier**, and that verifier runs the sweeps it writes. A worktree with no miss dispatches
+none.
 
 `subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model`
 parameter set to `DEFAULT_MODEL` (**Model resolution**, `skills/flow/SKILL.md`), mapped on harness
@@ -120,7 +120,8 @@ verbatim:
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
 It also states: the absolute worktree path; each missed defect, verbatim from the fix
-instructions; the paths of the earlier round's `verify-report-*.md` and
+instructions; the paths of the earlier round's `verify-report-*.md` under
+`<abs-worktree>/.superpowers/sdd/` and
 `<changeRoot>/visual-verification.md`, and the captures they cite; the path of this file; and
 this task, as written:
 
@@ -149,11 +150,9 @@ its sweeps in step 10 beside the sweeps listed there, on every view and frame th
 step 10's frame-gating note states for the others. A departure an added sweep finds is a defect
 the verifier reports, and blocks as one. The report carries one line per added sweep.
 
-An analyst that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`;
-the verifier is dispatched without added sweeps, and the handoff names `tooling analysis:
-aborted — verified without added sweeps`. A completed analysis puts `tooling analysis:
-<changeRoot>/sweeps-<n>.md — <k> sweeps` in the handoff, so the operator can fold the sweeps into
-step 10 for every later change.
+An analyst that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`,
+and the verifier is dispatched without added sweeps. Either outcome is reported on the handoff's
+`**Tooling analysis:**` line (`skills/flow/verify-and-handoff.md`).
 
 ## Steps 3–13
 
