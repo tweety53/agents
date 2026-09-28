@@ -135,10 +135,11 @@ the change `IN_PROGRESS`, stop before the landing question, and close the mark `
 re-run the project's whole `## lint`/`## test` list here. A clean rebase whose overlap set clears
 this stage proceeds to the landing question and closes the mark `completed`.
 
-Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), and resolve it
-against the three literals `pull request` / `merge and push` /
-`manual`, byte-for-byte after trimming leading/trailing whitespace. A body matching none of
-them exactly is reported by name and dropped, resolving as absent.
+Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), take the body's
+first non-blank line — trimmed, backticks removed — and resolve it against the three literals
+`pull request` / `merge and push` / `manual`, byte-for-byte per **Project configuration**
+(`skills/flow-contracts/project-configuration.md`); lines below it are documentation. A head
+matching none of them exactly is reported by name and dropped, resolving as absent.
 
 **A resolved default skips the question entirely** — take that route without asking, and say so
 in the handoff (`Route: <route> — from this project's configured default, not asked`). Only an
