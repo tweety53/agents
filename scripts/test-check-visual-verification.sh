@@ -983,6 +983,31 @@ run_guard
 assert_rc "case 36" 1
 assert_out_contains "case 36" "a second \`mockup frame\` row"
 
+# ===========================================================================
+# Case 37 (KAN-761 task 15): a `specs` row is a member of the closed `Command`
+# vocabulary -- accepted, never reported as an unknown command -- and it is
+# OPTIONAL, exactly as `fingerprint` is (case 28): every case above declares
+# none. Reverting task 15 makes `specs` fall outside the vocabulary, so this
+# case fails on the dropped-row violation.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |
+| \`specs\` | \`node scripts/specs-for-diff.mjs <frontend-root> <merge-base>\` |"
+run_guard
+assert_rc "case 37" 0
+assert_out_contains "case 37" "VISUAL-OK"
+assert_out_not_contains "case 37" "vocabulary is closed"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
