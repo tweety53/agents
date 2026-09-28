@@ -131,6 +131,7 @@ scripts/check-mutation-reproducer-pin.sh
 scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
+scripts/check-hand-notes-in-step.sh
 scripts/check-normative-inventory.sh
 scripts/check-verbatim-moves.sh
 scripts/check-worktree-location.sh "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
