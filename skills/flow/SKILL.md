@@ -48,14 +48,14 @@ The full key list, in the order each phase file marks them:
 **Resolve this once, near the top of every run, before any dispatch below reads it:**
 
 ```bash
-SETTINGS_JSON="$(flow settings get || true)"
+SETTINGS_JSON="$(flow settings get 2>/dev/null || true)"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 VERIFY_MODEL=opus
 ```
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
-no per-change fallback file for this record. Report the CLI's stderr, which the read leaves
-visible. Settings unreachable is never a reason to block implementation.
+no per-change fallback file for this record. Settings unreachable is never a reason to block
+implementation.
 
 **Execution mode, every dispatch's model and effort, and the review panel are decided per change,
 never configured.** The plan's class and rolls decide them — **Decide**
