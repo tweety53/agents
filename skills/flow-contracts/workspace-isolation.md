@@ -110,7 +110,7 @@ determinism does not promise about a digest collision, and the remedy if one eve
 - **a block of application ports**, so two changes' applications can be up at the same time.
 
 A project names the variable that carries each of these and the default each falls back to, per
-**Project configuration** (`skills/flow-contracts/project-configuration.md`). The cache index is
+**Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`). The cache index is
 deliberately absent from this list; it is not derived at all, for the reason given under
 **The cache index** below.
 
@@ -266,7 +266,7 @@ a deliberate act rather than an omission.
 there is worth stating rather than resolving quietly.** A malformed row is reported by name and
 dropped rather than repaired — repairing it would be a guess about a resource that may not exist.
 Which shapes fail, how a failure is reported, and what *row* and *cell* each name are stated under
-**Project configuration** (`skills/flow-contracts/project-configuration.md`). But the value a
+**Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`). But the value a
 dropped row would fall back to is its declared default, and that default is by construction the
 project's **shared** resource: it is precisely the value the empty-id case is built on. The two
 checkouts therefore resolve a drop differently, and the asymmetry is a decision rather than an
@@ -333,7 +333,7 @@ code. Why a third verb rather than two, rather than reading the removal's own re
 checks the row lives in the agents repository and must stay project-agnostic, so it cannot hold
 `psql -l` or one project's object-store client. The project owns the question and answers it in its
 own configuration, exactly as it owns creation and removal —
-see **Project configuration** (`skills/flow-contracts/project-configuration.md`), canonical for how
+see **Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`), canonical for how
 the three commands are written, what the survivor report prints, what its exit code means, what a
 non-empty report does to the terminal state, and what a project that declares no survivor report at
 all gets in place of the verification.
@@ -341,8 +341,8 @@ all gets in place of the verification.
 **A service that is not running is reported and skipped, rather than failed.** If the database
 server is down when run 2 reaches cleanup, there is nothing to remove at that moment: the skip is
 reported by name and the run continues. This is deliberately unlike a reported survivor, which
-blocks the terminal state under **Project configuration**
-(`skills/flow-contracts/project-configuration.md`), and the asymmetry is stated here rather than
+blocks the terminal state under **Project configuration — workspace isolation**
+(`skills/flow-contracts/project-configuration-isolation.md`), and the asymmetry is stated here rather than
 left for a reader to find and mistake for an oversight. See **Creation and cleanup**
 (`skills/flow-contracts/workspace-isolation-rationale.md`) for the cost this asymmetry trades
 against, and why it matches the project-supplied stop check. A change whose project declares no

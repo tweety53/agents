@@ -68,7 +68,7 @@
 # `survivors` command in its .flow/project.md, this guard runs it, and its
 # output and exit code are the row's verdict. Both are specified under "What
 # `survivors` prints, and what its exit code means" in
-# skills/flow-contracts/project-configuration.md, which is canonical; the
+# skills/flow-contracts/project-configuration-isolation.md, which is canonical; the
 # reasoning for a third verb beside `create` and `remove` is under "Creation and
 # cleanup" in skills/flow-contracts/workspace-isolation.md.
 #

@@ -70,3 +70,14 @@ skills/
 Every skill above but `flow-plan` and `flow-contracts` requires the `spectre` CLI
 (`go install github.com/tweety53/spectre/cmd/spectre@latest`); those two need none — reading a
 spectre tree, or a contract file, is reading markdown.
+
+## Naming a guard in skill prose
+
+**Prose describing this repository's own guard is not an invocation.** A guard invoked by name
+uses the basename form above. Prose that describes **this repository's own** lint and test
+guards — resolved through `<agents repo>/.flow/project.md`'s `## lint` and `## test` lists
+rather than through `<skill-dir>/scripts/` — names the guard as
+`<agents repo>/scripts/<name>` instead of a bare repository-relative path: a bare path there
+resolves, for a reader standing in an installed project, against that project's own tree, so the
+sentence would name a file the reader may be able to write. See **Guard resolution**
+(`skills/flow-contracts/pipeline-rationale.md`) for why carrying the prefix matters.

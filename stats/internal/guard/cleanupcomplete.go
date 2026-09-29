@@ -61,7 +61,7 @@ const (
 	// that needs longer is a command that answers faster, which is the same
 	// remedy the bound itself points a project author at under "What
 	// `survivors` prints, and what its exit code means" in
-	// skills/flow-contracts/project-configuration.md — and a command reaching
+	// skills/flow-contracts/project-configuration-isolation.md — and a command reaching
 	// a service through a container runtime is not helped by ANY grace here,
 	// for the reason ccRunSurvivors gives.
 	//
@@ -807,7 +807,7 @@ func ccSurvivorsTimeout(env Env) (time.Duration, string) {
 // project-agnostic can no more hold one container runtime's `kill` than it can
 // hold `psql -l` — so it is closed where the command is written, and stated
 // for the author who writes it under "What `survivors` prints, and what its
-// exit code means" in skills/flow-contracts/project-configuration.md. What the
+// exit code means" in skills/flow-contracts/project-configuration-isolation.md. What the
 // bound still guarantees is all three things run 2 depends on, and they hold
 // for the escaped shape too: this function returns, because Wait names the
 // direct child alone and WaitDelay stops it waiting on a stderr pipe an
@@ -833,8 +833,8 @@ func ccSurvivorsTimeout(env Env) (time.Duration, string) {
 // and exit 0 with empty output is the ONE result that verifies the row. The
 // row would then be reported verified by a command that never ran, and
 // FINISHED written over resources nothing looked at. A pipe is not an exotic
-// shape here: **Project configuration**
-// (`skills/flow-contracts/project-configuration.md`) names filtering the
+// shape here: **Project configuration — workspace isolation**
+// (`skills/flow-contracts/project-configuration-isolation.md`) names filtering the
 // project's own tooling as the reason a command contains one.
 //
 // IT CANNOT BE SET BY PREPENDING `set -o pipefail;` TO THE COMMAND TEXT. That

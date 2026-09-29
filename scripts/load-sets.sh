@@ -37,7 +37,7 @@ row "router (command + SKILL.md + pipeline.md)" "${ROUTER[@]}"
 
 echo "--- planning session (creating run) ---"
 PD=("$F/brainstorm.md" "$F/brainstorm-planner.md" "$C/jira-integration.md" "$C/plan-provenance.md" "$C/build-green.md")
-PC=("$C/worktree-resolution.md" "$C/git-boundaries.md" "$C/handoff-blocks.md" "$C/operator-prompts.md")
+PC=("$C/worktree-resolution.md" "$C/git-boundaries.md" "$C/handoff-blocks.md" "$C/operator-prompts.md" "$C/operator-prompts-auto-resolution.md")
 row "  phase files + load directives" "${PD[@]}"
 row "  + cited at point of use" "${PC[@]}"
 row "  TOTAL definite" "${ALWAYS[@]}" "${ROUTER[@]}" "${PD[@]}"
@@ -45,8 +45,8 @@ row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${PD[@]}" "${PC[@]}"
 
 echo "--- implementation session (enters via Resuming at STARTED) ---"
 ID=("$F/brainstorm.md" "$F/implement.md" "$C/artifacts-registry.md" "$C/worktree-resolution.md" "$F/review-panel.md" "$F/verify-and-handoff.md" "$C/session-records.md" "$C/git-boundaries.md")
-IC=("$C/operator-prompts.md" "$C/model-policy.md" "$C/known-bugs.md" "$F/primary-reviewer-prompt.md" "$F/principles-reviewer-prompt.md" "$F/failure-modes-reviewer-prompt.md")
-IX=("$F/review-panel-optional-slots.md" "$C/workspace-isolation.md" "$F/visual-verify.md")
+IC=("$C/operator-prompts.md" "$C/operator-prompts-auto-resolution.md" "$C/project-configuration-standards.md" "$C/model-policy.md" "$C/known-bugs.md" "$F/primary-reviewer-prompt.md" "$F/principles-reviewer-prompt.md" "$F/failure-modes-reviewer-prompt.md")
+IX=("$F/review-panel-optional-slots.md" "$C/workspace-isolation.md" "$F/visual-verify.md" "$C/project-configuration-visual.md" "$C/guard-verdict-verification.md")
 row "  phase files + load directives" "${ID[@]}"
 row "  + cited / reviewer templates" "${IC[@]}"
 row "  + conditional (optional slots, isolation, UI)" "${IX[@]}"
@@ -57,10 +57,10 @@ row "  TOTAL worst case" "${ALWAYS[@]}" "${ROUTER[@]}" "${ID[@]}" "${IC[@]}" "${
 echo "--- finish session (merge-and-push: run 1 chained into run 2) ---"
 FD=("$F/integrate.md" "$C/worktree-resolution.md" "$C/finish-contract-run1.md" "$C/git-boundaries.md" "$C/session-records.md" "$C/jira-integration.md" "$F/archive.md" "$C/artifacts-registry.md" "$C/finish-contract-run2.md")
 FC=("$C/operator-prompts.md" "$C/model-policy.md")
-FX=("$C/jira-followups.md" "$C/state-file.md" "$C/project-configuration.md")
+FX=("$C/jira-followups.md" "$C/state-file.md" "$C/project-configuration.md" "$C/guard-verdict-verification.md")
 row "  phase files + load directives" "${FD[@]}"
 row "  + cited" "${FC[@]}"
-row "  + conditional (follow-ups, state file, config)" "${FX[@]}"
+row "  + conditional (follow-ups, state file, config, verdicts)" "${FX[@]}"
 row "  TOTAL definite" "${ALWAYS[@]}" "${ROUTER[@]}" "${FD[@]}"
 row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${FD[@]}" "${FC[@]}"
 

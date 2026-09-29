@@ -13,7 +13,7 @@
 # and **What the id derives** (skills/flow-contracts/workspace-isolation.md),
 # and the `## workspace isolation` row shapes — the four `In a workspace`
 # forms, the `<id>`, `<id_underscored>` and `<value:VARIABLE>` tokens — under
-# **Project configuration** (skills/flow-contracts/project-configuration.md).
+# **Project configuration — workspace isolation** (skills/flow-contracts/project-configuration-isolation.md).
 # This script re-derives none of that reasoning; it applies the rule.
 #
 # Prints one `KEY=value` line per exported variable to stdout, one per
@@ -202,7 +202,7 @@ substitute_id_tokens() {
 # the only ones Pass 1 (below) gives a WSVAL before this runs, so a reference
 # resolving to any other kind — a `url` row (forbidden per **What a `url` row
 # may reference, and what it may not**,
-# skills/flow-contracts/project-configuration.md — a `url` row may never
+# skills/flow-contracts/project-configuration-isolation.md — a `url` row may never
 # reference another `url` row, so this table read cleanly by definition never
 # produces one) or a `cache index` row (never given a WSVAL at all, per **The
 # cache index** below) — would still find the VARIABLE by name and substitute
@@ -222,7 +222,7 @@ resolve_value_refs() {
         case "${RES[$i]}" in
           database|bucket|port) found=1 ;;
           *)
-            echo "prepare-workspace: <value:$name> resolves to \`${VAR[$i]}\`, a \`${RES[$i]}\` row — a reference may only name a \`database\`, \`bucket\` or \`port\` row, per **What a \`url\` row may reference, and what it may not** (skills/flow-contracts/project-configuration.md) — refusing rather than substituting an empty or stale value" >&2
+            echo "prepare-workspace: <value:$name> resolves to \`${VAR[$i]}\`, a \`${RES[$i]}\` row — a reference may only name a \`database\`, \`bucket\` or \`port\` row, per **What a \`url\` row may reference, and what it may not** (skills/flow-contracts/project-configuration-isolation.md) — refusing rather than substituting an empty or stale value" >&2
             exit 2
             ;;
         esac

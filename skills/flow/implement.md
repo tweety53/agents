@@ -36,6 +36,13 @@ run the guard-presence check, before this run's first dispatch — on a fix run,
 `groups` field, which section **4** below
 dispatches by.
 
+**On the implementation branch the granularity is per task.** The stages from
+`flow.load-context` to `flow.write-in-progress` (**The parent orchestrates directly**,
+`skills/flow/implement.md`) run in the parent session itself, which holds its own task-list tool
+throughout the run — no resumed subagent sits between the parent and the list, so nothing forces a
+coarser stage-level granularity. One entry per `tasks.md` item, updated as each task's guard passes
+and its checkbox ticks.
+
 **Never end a turn with a child in flight** — wait for every implementer, reviewer, slot or fix
 subagent launched before reporting a stage boundary or asking the operator anything. **Turn
 discipline**, below, states the one-foreground-wait-call shape this applies through.
@@ -306,7 +313,7 @@ nothing here.
 
 **Every `## apps` entry is resolved in this stage too, before any implementation runs — never
 improvised mid-run by a later stage in need of a commit destination.** Read
-`<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Where the agents repository is**
+`<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Project configuration**
 (`skills/flow-contracts/project-configuration.md`): an entry whose
 repository already holds a worktree for this change — the kickoff worktree's repository, a
 peer's repository linked above, a second entry naming a repository already resolved by an

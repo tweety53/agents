@@ -50,6 +50,8 @@ an entry naming this workspace, per **The cache index**
 and **Workspace isolation** (`skills/flow-contracts/workspace-isolation.md`), and say in the handoff that the validation and
 export were performed manually and why.
 
+**Load `skills/flow-contracts/project-configuration-isolation.md`** only when the script cannot be located.
+
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
@@ -149,7 +151,7 @@ flow stage begin -command '/flow' \
 ```
 
 Reads the `## visual verification` section, canonical in
-`skills/flow-contracts/project-configuration.md`. This stage owns its procedure — nothing else in
+`skills/flow-contracts/project-configuration-visual.md`. This stage owns its procedure — nothing else in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 

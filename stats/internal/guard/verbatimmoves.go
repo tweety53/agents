@@ -45,7 +45,9 @@ var (
 )
 
 // vmAckFile is the per-change acknowledgement list: one sentence per line,
-// exactly as the guard prints it after "::", `#` lines ignored. A sentence
+// exactly as the guard prints it after "::", `#` lines ignored. A leading
+// `\` is dropped and the rest taken literally, so a heading the guard prints
+// (`## …`) is listed as `\## …` rather than read as a comment. A sentence
 // in it is a rewording or deletion the change states it meant — the escape
 // a non-trim change needs, recorded in the change's own artifacts so it
 // archives with them and never outlives the change.
@@ -302,9 +304,10 @@ func vmAcks(root string) (map[string]bool, error) {
 		}
 		for _, l := range strings.Split(string(b), "\n") {
 			l = vmSpace.ReplaceAllString(strings.TrimSpace(l), " ")
-			if l != "" && !strings.HasPrefix(l, "#") {
-				acks[l] = true
+			if l == "" || strings.HasPrefix(l, "#") {
+				continue
 			}
+			acks[strings.TrimPrefix(l, `\`)] = true
 		}
 	}
 	return acks, nil

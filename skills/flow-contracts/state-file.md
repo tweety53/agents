@@ -15,53 +15,11 @@ directory) — the same purpose `git`'s own `-C` serves, and useful from a workt
 The record is keyed by **project and change name together**, so two projects may each hold a
 change of the same name without collision.
 
-**The on-disk JSON file at the path below is the CLI's fallback record and the write-ahead journal's
-payload shape**, per **The pipeline never blocks** below. It is written only when the store could
-not be reached, and no command reads it while the store answers normally.
-
-```text
-/Users/tweety53/Agents/flow/state/<project-key>/<name>.json
-/Users/tweety53/Agents/flow/state/<project-key>/<name>.journal
-```
-
-**The directory those paths live under is resolvable, never guessed: `flow state dir [-C dir]`
-prints it as one line** — the same project-key resolution `flow state get`/`set` perform, with no
-store contact anywhere on the path. A step that passes the state directory to a guard or a script
-cites what that command printed rather than deriving the location by hand; run 2 step 7's
-`<state-dir>` argument (`finish-contract-run2.md`) is the worked case.
-
-`<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `myrepo-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous. It is the same key `flow state get`/`set` send the daemon, so the store, the fallback file and the journal all address one record under one key.
-
-**Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and review (in the main checkout) two different keys for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `<project>/.git` from anywhere, including inside a worktree:
-
-```bash
-MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
-PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
-```
-
-The CLI performs this derivation itself (`flow state get`/`flow state set` resolve it from `-C
-dir`, or the working directory). It is stated here because it is what makes the store, the fallback
-file and the journal agree on one identity for one change.
-
-**The path is resolved through symlinks — physical resolution, not the raw one — and that is
-load-bearing rather than incidental.** Git records a worktree's pointer back to its main checkout
-as an **already-resolved** real path, while a naive resolution of the main checkout side preserves
-whatever symlinked route the operator arrived by. Without resolving both sides the same way, the
-identical repository yields **two different project keys** depending on which side asks — the
-exact split this section exists to prevent, reappearing one level down.
-
-Anything else deriving this key — a command, a script, or a program — resolves symlinks the same
-way. A project reached through a symlinked path (a symlinked home directory, a synced folder, a
-hand-made checkout symlink) otherwise splits its records between two keys the moment two mechanisms
-disagree.
-
 ## The pipeline never blocks
 
 **Every CLI path that touches the store falls back on any failure, and exits 0.** "Any failure"
 means the daemon is down, the database behind it is down, the request times out, or the daemon
-answers with anything other than a success — this is deliberately broader than the Jira contract's
-"never a gate", because a state write happens at the end of every command: an outage that stopped
-the write would strand a change at an unwritten state with the work already done.
+answers with anything other than a success.
 
 - `flow state get <name>`: on success, prints the store's record and exits 0. If the store
   correctly reports no record for this project and name, it prints that and **exits 1** — this is
@@ -83,7 +41,8 @@ the monotonic-write refusal below — is reported: `flow state set` prints
 undocumented-field payload included — is folded into the same "store failure" bucket as an outage**
 and takes the fallback path above, exiting 0. A skill that sends a malformed payload is therefore
 never stopped by this layer; the payload is written to the fallback file and journal as sent, and
-what happens to it next is stated under **The journal is replayed, never merged** below.
+what happens to it next is stated under **The journal is replayed, never merged**
+(`skills/flow-contracts/state-file-internals.md`).
 
 A CLI usage error — non-JSON stdin, JSON that is not an object, stdin over the CLI's own size
 cap, or a `worktrees` value that is neither `null` nor a sha (**The record** below) — is a local
@@ -115,17 +74,13 @@ This is the whole wire shape `state get` prints and `state set` reads — the sa
 fallback file and each journal entry's payload carry, unchanged, so replay needs no translation
 step.
 
-**`state set` also accepts, and the CLI itself injects, a `mainCheckoutPath` field** that bootstraps
-the daemon's project row on a change's first write. It is transport-only: it is never part of this
-record's own vocabulary, never appears in `state get`'s output, and no skill supplies it — the CLI
-adds it from the same main-checkout resolution described above.
-
 **The record's field vocabulary is closed**, and the daemon enforces it whenever it is reachable: a
 payload naming a field outside those documented above (`mainCheckoutPath` aside) is rejected. Per
 **The pipeline never blocks** above, that rejection is a 400, not a 409, so the CLI does not report
 it as a refusal — it takes the fallback path like any other store failure. The undocumented field is
 therefore not silently accepted into the store, but it is also not reported to the operator at write
-time; see **The journal is replayed, never merged** for where it actually surfaces.
+time; see **The journal is replayed, never merged**
+(`skills/flow-contracts/state-file-internals.md`) for where it actually surfaces.
 
 **Omitting a documented field from a write clears it.** `state set` sends the whole record, and the
 store performs a full overwrite: a field the payload does not carry is stored as absent, exactly as
@@ -177,9 +132,7 @@ field is how it gets erased.
   actually ran on.
 
   **A record that omits `planningEffort` or `models` entirely is valid**, and each absent key is
-  read as *not recorded*. Without this exception, `state get` would hand back a record it treats as
-  malformed for every change written before these fields existed — a spurious report against a
-  value nobody had the chance to set. The carve-out covers a key that is **absent**: `artifactUrl`,
+  read as *not recorded*. The carve-out covers a key that is **absent**: `artifactUrl`,
   `jiraIssue` and `prUrl` are all *present and nullable*, which is a different thing from *absent*.
 
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
@@ -191,10 +144,7 @@ field is how it gets erased.
   and refused by the store paired with any state other than `FINISHED`
   (`store.ErrInvalidState`). The CLI carries the field byte-transparently — `state set` validates
   the object and the worktree values and forwards the body — so no CLI change writes it; `state
-  get` prints it as stored. The route's state write needs a daemon that knows the field: an older
-  one refuses the payload as an unknown field, the write falls back to the journal, the entry is
-  retired as definitively invalid, and one ⚠ line names it — the record unchanged, the route
-  re-run once the daemon is current.
+  get` prints it as stored.
 - `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `flow state set`
   stamps it on every write from its own clock, at full precision, overwriting whatever value the
   payload carried. The stamped instant is the one the store row, the on-disk fallback file and the
@@ -216,15 +166,6 @@ at the *same* `state` — to an `updatedAt` earlier than the one already recorde
 instant is the primary ordering and the pipeline state is the tiebreaker, so a replayed or
 duplicated write can never silently overwrite a newer record with older field values.
 
-The instant this ordering rests on comes from a single writer — the CLI stamps it (`updatedAt`
-under **The record** above) — so every live write is ordered by one clock at one precision.
-
-**This same refusal covers a benign duplicate** — a write identical to one already accepted, being
-retried or replayed — because the store cannot tell a superseded write from a harmless repeat of the
-current one from the error alone: both carry a `state`/`updatedAt` pair no later than what is
-already stored. Both are safe to retire without further action, which is exactly what
-**The journal is replayed, never merged** below does with them.
-
 ## Carry the record forward on every write
 
 Because a write renders the whole record and omission clears a field (**The record** above), every
@@ -234,35 +175,6 @@ state set`. Re-emit each as read (`null` only if it was already `null`). Droppin
 permanently: the link to the Jira issue, the PR (which also silently
 downgrades the next fix from commit-and-push to staged-only), or the authoritative list of worktrees
 for a multi-repo change.
-
-## The journal is replayed, never merged
-
-The on-disk journal beside the fallback file (`<name>.journal`) holds every write `state set` could
-not deliver, in the order it appended them. The daemon replays it — in file order — at startup and
-whenever it regains a database connection.
-
-Each entry is a whole-record write, applied through the same monotonic rule above: conflicts resolve
-by `updatedAt`, with the pipeline state as the tiebreaker, so a `FINISHED` record already in the
-store is **never** overwritten by an earlier state arriving from a stale journal entry.
-
-**An entry is retired from the journal only once its outcome is definitive**, never on any other
-outcome. *Definitive* covers every case where retrying the identical entry would produce the same
-result again: the write was accepted; it was refused under the monotonic rule (a genuine
-supersession or a benign duplicate, per above); or it was refused for a reason that lives in the
-entry's own content rather than the store's availability — an invalid `state` value, an
-unresolvable project bootstrap on a change's first write, or a body that fails to decode at all,
-undocumented field included. All of these leave the record correct and nothing left for that entry
-to do, so all of them retire — this is where a malformed payload that the live write path let
-through (as a 400 or a decode failure folded into the fallback bucket, per **The pipeline never
-blocks**) actually gets resolved, rather than staying invisible.
-
-What is *not* definitive, and so is left in the journal for the next replay, is an outcome that
-might resolve differently later: a transport-shaped failure talking to the database, or the replay
-being interrupted before it reaches that entry. Replay stops at the first such entry in a given
-journal file, which is what makes an interrupted replay repeat rather than lose work — but it does
-not stop for an entry whose refusal is already known to be permanent. If the daemon stops partway
-through a replay, the entries not yet resolved simply remain, and the next replay processes them
-without duplicating the ones already applied.
 
 ## A change spanning repositories is one record
 
@@ -289,13 +201,6 @@ reads to sequence run 1's routes. The run itself is what keeps that record whole
 repository of the resolved set, linked or not, is named in it at `flow.isolate-workspace`
 (`skills/flow/implement.md`), so a repository no `spectre link` ever touched still has a
 mechanical landing position instead of one reasoned out from prose mid-archive.
-
-```json
-"worktrees": {
-  "/Users/tweety53/Projects/agents/.worktrees/<name>": "5ee4c9a…",
-  "/Users/tweety53/Projects/other/.worktrees/<name>": "b31f7c2…"
-}
-```
 
 ## Read it, write it
 

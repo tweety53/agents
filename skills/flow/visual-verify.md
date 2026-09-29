@@ -8,6 +8,14 @@ this file.
 
 ## The verifier dispatch
 
+**`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
+verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
+and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort
+`low` through `subagent_type: flow-low`, read from neither the settings store nor
+`<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
+never falls back, because it is never resolved — the point is a predictable model for mechanical
+verification runs regardless of what the decision chose for any other dispatch.
+
 `flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
@@ -236,7 +244,7 @@ worktree's build, starting, stopping and restarting nothing, committing and push
    `capture` with `<spec>` substituted for the spec's path. **Every capture asserts the view is on
    screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the
    capture instead of becoming its baseline (KAN-747). `screenshots`'s root-not-leaf shape is canonical in
-   `skills/flow-contracts/project-configuration.md`; nothing here restates it. **Every screenshot
+   `skills/flow-contracts/project-configuration-visual.md`; nothing here restates it. **Every screenshot
    this spec takes is the full page or viewport, never a clipped region.** A clip is the right tool
    for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
    own job — page-wide styling (background, shadow, border, font, spacing) matching the mockup — is
@@ -279,7 +287,7 @@ worktree's build, starting, stopping and restarting nothing, committing and push
 
    **Then update the full app suite — and create it where the checkout has none.** The suite and
    its file names are canonical in **Visual verification**
-   (`skills/flow-contracts/project-configuration.md`). Absent → author `full-app-suite.spec.ts`
+   (`skills/flow-contracts/project-configuration-visual.md`). Absent → author `full-app-suite.spec.ts`
    beside the capture spec, one full-page capture per screen the app has — enumerated from the
    app's own routes or navigation and from every spec already in the checkout, never from this
    change's diff. Present → add a capture for every screen this change added and update the
@@ -669,7 +677,7 @@ worktree's build, starting, stopping and restarting nothing, committing and push
    stage writes. No plausible match anywhere in the directory → report `mockups: no map for
    <spec's basename> — searched <mockups dir>, no frame for <views>`, naming what was searched, and
    continue. Not declared → report `mockups: not declared` and continue. The sidecar's shape is
-   canonical in **visual verification** (`skills/flow-contracts/project-configuration.md`).
+   canonical in **visual verification** (`skills/flow-contracts/project-configuration-visual.md`).
 11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's path in `<changeRoot>/visual-verification/`, the frame id, its `diff=`

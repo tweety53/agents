@@ -67,8 +67,8 @@ Which resources there are, and how each derived value is derived, is stated unde
 **This is the one row whose removal is verified by asking rather than by looking: a survivor is
 established from the project's own survivor report, never inferred from the removal's exit code**
 — stated once under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`), with
-the report's output and exit-code contract under **Project configuration**
-(`skills/flow-contracts/project-configuration.md`). A report that could not reach its service is
+the report's output and exit-code contract under **Project configuration — workspace isolation**
+(`skills/flow-contracts/project-configuration-isolation.md`). A report that could not reach its service is
 skipped rather than failed. See **Temporary artifacts registry**
 (`skills/flow-contracts/artifacts-registry-rationale.md`) for why asking, not looking, is required here.
 
@@ -79,7 +79,7 @@ design.md's open question `archive-branch-cleanup`.
 
 **Nothing removes the claimed cache index, and nothing in this pipeline can.** It is not written
 into the state file, and the project's `remove` command does not touch it either — stated as a
-property of the `cache index` resource word under **Project configuration**
-(`skills/flow-contracts/project-configuration.md`). See **Temporary artifacts registry**
+property of the `cache index` resource word under **Project configuration — workspace isolation**
+(`skills/flow-contracts/project-configuration-isolation.md`). See **Temporary artifacts registry**
 (`skills/flow-contracts/artifacts-registry-rationale.md`) for why: guessing an index to sweep risks flushing
 another workspace's.

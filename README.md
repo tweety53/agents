@@ -135,7 +135,7 @@ Canonical: **Decide** and **Model and effort** (`skills/flow/brainstorm-planner.
 
 Every stage a run marks in `flowd`. `stats/internal/stages/names_test.go` parses this table and
 fails if it drifts from the code, so edit both together. `/flow-status` marks nothing; which phase
-file marks each key is **Stage keys** (`skills/flow/SKILL.md`).
+file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 | Key | Name | Commands |
 |-----|------|----------|

@@ -42,8 +42,8 @@ the design.
   approvable, and no task whose specification is that frame is written, until the handoff assets
   are committed into the repository or their location is recorded in
   `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
-  mockups directory lives — **Project configuration**,
-  `skills/flow-contracts/project-configuration.md`).
+  mockups directory lives — **Project configuration — visual verification**,
+  `skills/flow-contracts/project-configuration-visual.md`).
 - The design presentation does **not** end a section, or the whole design, with a "does this look
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
@@ -85,6 +85,18 @@ refuses a close over the shape.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
+
+### Stage exit — never the command's own judgment
+
+Within a single run, a stage that loops — most concretely `/flow`'s brainstorm
+stage, whose convergence test reopens after every planning-stage exchange that leaves a question the
+command's inputs do not answer — never closes on the command's own judgment. It closes only on an
+explicit operator answer: at a confirm, or by declining an offer, recording what is still open
+rather than assuming it away. The one bounded exception is a session that cannot ask at all: it
+records the confirm itself as an open question and ends the stage there, since no operator answer
+could ever arrive through it. An operator who is present but silent is not that exception and still
+gets another round. The same explicit answer may both close the checklist and grant the design
+approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
 
 ### Convergence
 
@@ -146,7 +158,7 @@ silence default above never fires (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`).
 
 Rounds one and two open without asking. **There is no hard cap.** No round count ends the stage —
-see **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
+see **Stage exit — never the command's own judgment** (`skills/flow/brainstorm-planner.md`).
 
 The explicit **approve the design and move on** answer is at once the convergence exit that closes
 the checklist and the design approval the HARD GATE requires; mark `flow.brainstorm` end, then

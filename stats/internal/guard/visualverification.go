@@ -269,7 +269,7 @@ func (v *vvValidation) addv(line int, msg string) {
 
 // scan reads the section's lines as contiguous runs of table rows. A run
 // ends at any non-table line and at a heading — a `###` subheading keeps the
-// section open (project-configuration.md allows prose beside the two tables,
+// section open (project-configuration-visual.md allows prose beside the two tables,
 // and a subheading is exactly that) but still ends the table above it, which
 // shows here as a gap in the line numbers vvSectionLines leaves out.
 func (v *vvValidation) scan(lines []vvLine) {

@@ -334,6 +334,9 @@ the reduction is a read-scope decision, never a weaker close.
 
 ### Bundled dispatch
 
+Before dispatching any panel round,
+re-check the decision's `panel.dispatches`/`panel.grouping`.
+
 **At most two review dispatches per round, each carrying one to three roles**, on
 decided and `default` panels alike and in both execution modes. A dispatch carrying one role covers that role alone; a roster the
 two dispatches cannot hold shrinks to what they hold.
@@ -675,7 +678,7 @@ exists before spawning; if it does not, stop and report rather than dispatching 
 
 **Resolve `[STANDARDS_PATHS]` before dispatching the principles slot**, from the entries
 `project-get.sh <worktree> standards` prints (exit 1: none declared), resolved per the entry-form
-and containment rules of **Project configuration** (`skills/flow-contracts/project-configuration.md`),
+and containment rules of **Project configuration — standards** (`skills/flow-contracts/project-configuration-standards.md`),
 never by reading the template. Pass an **empty** value when none resolve.
 Record which standards files were passed, or that none resolved.
 

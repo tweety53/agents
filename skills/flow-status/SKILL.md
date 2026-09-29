@@ -8,6 +8,12 @@ compatibility: Requires the spectre CLI, the flow CLI, and jq.
 
 Report the pipeline state of every open (non-archived) spectre change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes state.
 
+`/flow-status` is read-only and **registers nothing**. Registering steps for a
+report would put entries on the operator's task list for work nobody is doing.
+
+`/flow-status` marks nothing — the Level 1 section of `<agents repo>/README.md` says so, and a read-only report
+that wrote stage runs would be recording work nobody did.
+
 **Announce at start:** "Using flow-status."
 
 Follow both contracts:

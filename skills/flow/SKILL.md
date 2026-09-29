@@ -15,33 +15,14 @@ force. Nothing here duplicates that file's own content.
 **Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
 transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
 handoff shape and change-name resolution. Its **State transitions** table is `/flow`'s contract;
-**Stage keys** below names which phase file marks each key.
+**Stage keys** (`skills/flow/stage-keys.md`) names which phase file marks each key.
 
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per **Progress visibility**
-(`skills/flow-contracts/pipeline.md`). One entry per brainstorming checklist item and artifact on
-the planning branch, one entry per `tasks.md` item on the implementation branch, one entry per step
-of whichever finish run is executing on the integrate/archive branch.
+(`skills/flow-contracts/pipeline.md`).
 
 **No flags.** The only argument is the optional change name/description on a creating or resuming
 run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
-
-## Stage keys
-
-Every stage `/flow` marks uses a `flow.*` key.
-
-The full key list, in the order each phase file marks them:
-
-| Phase file | Keys |
-|------------|------|
-| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
-| `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.decide` (fix runs), `flow.sdd-tdd` |
-| `skills/flow/review-panel.md` | `flow.review-panel` |
-| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` or an `exp-` slot |
-| `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify` (steps 1–2), `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
-| `skills/flow/visual-verify.md` | `flow.visual-verify` from step 3 — loaded only when a worktree's diff matched a `ui paths` glob |
-| `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
-| `skills/flow/archive.md` | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.self-review`, `flow.push-archive` |
 
 ## Model resolution
 
@@ -71,14 +52,6 @@ is canonical for what dispatching it means):
 | Reachable, list non-empty | exactly the list |
 | Reachable, list empty | `primary` alone |
 | Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value |
-
-**`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
-verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
-and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort
-`low` through `subagent_type: flow-low`, read from neither the settings store nor
-`<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
-never falls back, because it is never resolved — the point is a predictable model for mechanical
-verification runs regardless of what the decision chose for any other dispatch.
 
 **Every other dispatch runs on its decision pair** — the implementer, every panel slot and the
 panel-fix subagent — or, with no pair recorded, on the literal `opus`. **Model and effort**
@@ -143,9 +116,7 @@ and a Jira key named in prose without the slash.
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow` can invoke — every `<name>.sh` a fenced command line or the prose of
 `skills/flow/*.md` and the contract files it loads names, the set
-`<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 derives — is present in
-`<skill-dir>/scripts/`. A complete set prints nothing; any absence prints that section's block once,
-and the run continues under each guard's own hand-run fallback.
+`<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 derives — is present in `<skill-dir>/scripts/`.
 
 Every `flow-guard` shim — every guard whose source loads `<agents repo>/scripts/lib/flow-guard.sh`,
 by `$SCRIPT_DIR/lib/…` or by `$(dirname -- "${BASH_SOURCE[0]}")/lib/…` — also requires that file as
@@ -172,34 +143,7 @@ run — generates its own rather than reusing an earlier run's.
 - Never ask a planning-effort, model, or review-panel-roster question on a creating run. The
   roster is the recorded decision's, never asked — the settings store's on a `micro` decision; see **Model resolution** above and
   **Review panel** (`skills/flow/review-panel.md`).
-- Never publish a proposal artifact. `artifactUrl` is written
-  `null` and stays `null` for the life of the change.
 - Never skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
-- Never add a slot beyond the resolved roster automatically, by diff size, touched area, or any
-  other trigger — only an explicit operator instruction adds one, for that run only, checked at the
-  start of the panel stage and at every fix round. The automatic changes to the roster are
-  reductions, and they only ever remove, from the decision's roster as from any other:
-  `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone
-  (**The docs-only reduction**, `skills/flow/review-panel.md`), and so does the late-fix
-  reduction on a small fix run against an already-clean stage
-  (**The late-fix reduction**, `skills/flow/review-panel.md`).
-- Never run more than three implementer dispatches in flight at once, in any wave — a fourth or
-  later ready group queues in plan order and launches only as an in-flight one is picked; see the
-  Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).
-- Never dispatch review-panel roles as separate parallel `Agent` calls. A round is at most two
-  dispatches, each one `Agent` call carrying one to three roles as its own `PASS <id>` sections —
-  see **Bundled dispatch** (`skills/flow/review-panel.md`). Before dispatching any panel round,
-  re-check the decision's `panel.dispatches`/`panel.grouping`.
-- Never hand off with an open finding of any severity, or a stale clean result — no fixed
-  slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
-  defines it. A deferred Minor is not open.
-- Never commit `<project>/spectre/changes/` in a task or fixup commit. Never push, merge,
-  or open a PR outside the integrate/archive branches' own routes.
 - Never advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch
   and **The withdrawal route** (`skills/flow/brainstorm.md`) write `FINISHED`.
-- `implement.md` sections 1, 2 and 4, <!-- refs-guard:allow -->
-  `review-panel.md` and `verify-and-handoff.md` run in the parent session directly — the parent
-  orchestrates every guard, gather, dispatch, mark and report itself and prints its own handoff,
-  per **The parent orchestrates directly** and **Inline — the parent implements**
-  (`skills/flow/implement.md`).

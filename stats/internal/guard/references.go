@@ -71,6 +71,7 @@ var crExpectedZero = []struct {
 }{
 	{"command-dispatch stub — every path it cites sits inside the SAME bold span as the verb citing it (e.g. \"**load `path` first**\"); looks_like_section rejects any bold span containing '/', so no candidate section name ever forms adjacent to the path",
 		[]string{
+			"commands-claude/flow.md",
 			"commands-claude/flow-plan.md",
 			"commands-claude/flow-self-review.md",
 			"commands-claude/flow-settings.md",

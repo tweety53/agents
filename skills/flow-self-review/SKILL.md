@@ -74,6 +74,22 @@ as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine`
 typed through the tool's free-text "Other". More than nine findings roll the overflow into one
 further call of the same shape, without the rating.
 
+#### The multi-select variant
+
+Some prompts ask the operator to choose any subset of several options, not exactly one. This
+variant states:
+
+- the question, with each option listed separately
+- that the operator may select any subset of the listed options — none, one, or several
+- one explicitly stated default — named by the call site — for what happens if the operator is
+  silent
+
+This contract fixes the shape, not the default's polarity: the call site chooses it, and states it
+plainly. A safe default may resolve silence to the empty set (an explicit "None" option, marked
+recommended) or to the full set (every listed option, silence needing no option of its own to name
+it) — whichever matches what the options actually control. The one live multi-select call site,
+the self-review filing ask, chooses the empty set: silence selects **None — file nothing**.
+
 ### 4. File chosen findings
 
 File each chosen finding as a Jira issue per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`), carrying its angle's label on top of that set.

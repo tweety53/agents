@@ -98,6 +98,7 @@ var cicExpectedZero = [][2]string{
 	{"rules/fix-determinism-at-the-source.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/never-touch-production.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"skills/flow/engineering-principles.md", "reviewer-prompt file, deliberately self-contained — cites principles-reviewer-prompt.md only via a Markdown link, a shape this guard's classifier does not scan"},
+	{"commands-claude/flow.md", "command-dispatch stub — delegates to the flow skill by name, not by path; cites no .md/.mdc path at all"},
 	{"commands-claude/flow-plan.md", "command-dispatch stub — delegates to the flow-plan skill by name, not by path; cites no .md/.mdc path at all"},
 	{"commands-claude/flow-settings.md", "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"},
 	{"commands-claude/flow-self-review.md", "command-dispatch stub — delegates to the flow-self-review skill by name, not by path; cites no .md/.mdc path at all"},

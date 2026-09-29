@@ -9,7 +9,8 @@ package guard
 // real project on this machine.
 //
 // READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-// contract in skills/flow-contracts/project-configuration.md — the
+// contract in skills/flow-contracts/project-configuration.md and
+// skills/flow-contracts/project-configuration-isolation.md — the
 // `## workspace isolation` row of the key table, the four `In a workspace`
 // cell forms, "What a `url` row may reference, and what it may not", and the
 // two bullets under "An isolation row resolves under the same rules this file

@@ -140,6 +140,43 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    derivation, and arrives at the same id `/flow`'s implement phase used, in a session that shared nothing with
    it.
 
+   The command table has three rows and two columns:
+
+   | Command | Runs |
+   |---------|------|
+   | `create` | The command that creates this workspace's resources when they are absent. Whatever starts the project's applications calls it. |
+   | `remove` | The command that removes them. `/flow`'s archive run calls it, and nothing else does. |
+   | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/check-cleanup-complete.sh` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
+
+   Why a third verb rather than two — why "ran `remove`" is not "verified gone", and why a guard in the
+   agents repository cannot ask the question itself — is stated under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
+
+   **Each command runs with a repository root as its working directory, and which root is fixed here
+   rather than left to the caller.** See
+   **Working directory for `survivors`, `remove`, and `create`**
+   (`skills/flow-contracts/project-configuration-rationale.md`) for why it must be stated.
+
+   - **`survivors` runs from the main checkout**, and that is not a convention invented here. See
+     **Working directory for `survivors`, `remove`, and `create`**
+     (`skills/flow-contracts/project-configuration-rationale.md`) for how
+     `<agents repo>/scripts/check-cleanup-complete.sh` invokes it.
+   - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
+     step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`). See
+     **Working directory for `survivors`, `remove`, and `create`**
+     (`skills/flow-contracts/project-configuration-rationale.md`) for why.
+   - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
+     applications does, and that is the worktree whose applications need the resources. See
+     **Working directory for `survivors`, `remove`, and `create`**
+     (`skills/flow-contracts/project-configuration-rationale.md`) for why the asymmetry is the rule
+     working rather than an exception to it.
+
+   The tokens `<id>` and `<id_underscored>` are substituted in a command's text too, and that is how the
+   workspace id reaches it — one mechanism for both tables, so there is no argument convention to
+   remember alongside it. `<value:…>` is **not** substituted in a command: a command that needs a
+   derived value reads the exported variable, which is already in its environment. **Which command a
+   project names is the project's own decision**, reusing one
+   it already ships or adding one, per **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
+
    **A project declaring no `## workspace isolation` section, or no `remove` command in it, has this
    half skipped rather than failed** — a step whose artifact is already absent is a success, which is
    the same re-entrancy rule every other removal in run 2 follows.

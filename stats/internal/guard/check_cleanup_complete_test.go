@@ -804,7 +804,7 @@ wait`, f.recordPid(), f.base))
 				"the in-group half of an escaping command was not reaped: pid %d ('sleep 4272') is still running", ingroup)
 			ccCheck(t, "a process that leaves the guard's process group outlives the bound, as documented",
 				syscall.Kill(escapee, 0) == nil,
-				"a process that left the guard's process group did NOT outlive the bound — cleanupcomplete.go's ccRunSurvivors comment and skills/flow-contracts/project-configuration.md both document that it does, and are now wrong")
+				"a process that left the guard's process group did NOT outlive the bound — cleanupcomplete.go's ccRunSurvivors comment and skills/flow-contracts/project-configuration-isolation.md both document that it does, and are now wrong")
 		}},
 		{"28c", func(t *testing.T, f *ccFx) {
 			f.script(t, "survivors.sh", fmt.Sprintf("touch '%s/survivors-ran'", f.repo))

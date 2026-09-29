@@ -34,3 +34,15 @@ never moves the state, so there is no origin state for a fix to return to.
 The on-disk fallback file is written only by the CLI's own fallback path. No command reads a JSON
 file it did not write there, and nothing is imported into the store from history. A change with no
 record in the store has none until a command writes one.
+
+## state-file.md — The pipeline never blocks
+
+This is deliberately broader than the Jira contract's "never a gate", because a state write
+happens at the end of every command: an outage that stopped the write would strand a change at an
+unwritten state with the work already done.
+
+## state-file.md — A record that omits a legacy field
+
+Without this exception, `state get` would hand back a record it treats as
+malformed for every change written before these fields existed — a spurious report against a
+value nobody had the chance to set.

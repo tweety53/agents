@@ -21,7 +21,8 @@
 #
 # A change that rewords or adds a rule on purpose lists each such sentence,
 # exactly as the FAIL line prints it after "::", one per line, in
-# <spec-root>/changes/<change>/verbatim-moves.txt (`#` lines are comments).
+# <spec-root>/changes/<change>/verbatim-moves.txt (`#` lines are comments; a
+# leading `\` is dropped, so a heading is listed as `\## …`).
 # Only in-flight changes count; an archived change's list is never read.
 #
 # It cannot judge whether a lazily loaded file's "Load X only when Y"

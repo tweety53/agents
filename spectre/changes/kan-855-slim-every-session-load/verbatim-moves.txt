@@ -1,0 +1,115 @@
+# Sentences KAN-855 cuts, repoints or adds on purpose. Every entry is one of:
+# - a declared duplicate or stale line (audit-every-session.md rows C1-C5, K1, K7, K10, K12-K17,
+#   F2, F8, G7, M4-M6, P6, P19), its canonical copy named in design.md;
+# - the remainder of a sentence whose rationale clause moved verbatim to a -rationale.md
+#   (P5, P9, P10-P12, P14, P15, F4) — the clause itself is the REVIEW line, not listed here;
+# - a citation repointed to the file its section moved to (G1-G3, G6, G8-G9, K3, P3);
+# - a heading or index row the new split files need.
+"Any failure" means the daemon is down, the database behind it is down, the request times out, or the daemon answers with anything other than a success — this is deliberately broader than the Jira contract's "never a gate", because a state write happens at the end of every command: an outage that stopped the write would strand a change at an unwritten state with the work already done.
+\## Stage exit — never the command's own judgment
+\## The multi-select variant
+\## review panel citation check
+**A session instruction governs the run in which it is given** and is recorded with its dispatch exactly as above.
+**Absent key means the whole pre-panel step is skipped**, exactly like every other optional key here.
+**An explicit operator instruction overrides a decision's pair, in either direction** — raising the implementer to Opus for a change that warrants it, or lowering it to Sonnet for genuinely mechanical work.
+**At `IN_PROGRESS`, bare**, `/flow` integrates on the first such invocation and archives on the
+**At `IN_PROGRESS`, with an argument**, `/flow` resumes the existing worktree and applies a fix,
+**At `IN_PROGRESS`, with no invocation at all** — a plain message reporting a problem or asking
+**At `STARTED`**, `/flow` resumes the creating run from wherever brainstorming stopped.
+**Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below — because one skill source installs into `~/.claude/skills/` and `~/.zcode/skills/` alike, and a hardcoded `-harness claude-code` would mislabel every ZCode run as Claude Code, hiding the very thing the field exists to record: which harness ran the stage.**
+**Resolve `[STANDARDS_PATHS]` before dispatching the principles slot**, from the entries `project-get.sh <worktree> standards` prints (exit 1: none declared), resolved per the entry-form and containment rules of **Project configuration** (`skills/flow-contracts/project-configuration.md`), never by reading the template.
+**The directory those paths live under is resolvable, never guessed: `flow state dir [-C dir]` prints it as one line** — the same project-key resolution `flow state get`/`set` perform, with no store contact anywhere on the path.
+**The model each role runs on is chosen per dispatch by the Decide step, never configured.
+**This is the one row whose removal is verified by asking rather than by looking: a survivor is established from the project's own survivor report, never inferred from the removal's exit code** — stated once under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`), with the report's output and exit-code contract under **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+**This key declares one command, and reading it is the whole of what this file does with it.
+**`stage end` carries no session token and no harness of its own** — attribution happens once, at `begin`, and the harness recorded there is immutable, so an end mark can never contradict the harness a stage began under.
+A complete set prints nothing; any absence prints that section's block once, and the run continues under each guard's own hand-run fallback.
+A deferred Minor is not open.
+A finding it reports reaches the panel as information for a reviewer to raise, never as a gate — the actual gate remains `flow.verify`'s existing `## lint` run.
+A plain problem report typed with no /flow at all, in the session that ran the last /flow <name>, is the same fix run (**A plain message at IN_PROGRESS**, skills/flow/SKILL.md).
+A project names the variable that carries each of these and the default each falls back to, per **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+A round is at most two
+A skill that sends a malformed payload is therefore never stopped by this layer; the payload is written to the fallback file and journal as sent, and what happens to it next is stated under **The journal is replayed, never merged** below.
+A step that passes the state directory to a guard or a script cites what that command printed rather than deriving the location by hand; run 2 step 7's `<state-dir>` argument (`finish-contract-run2.md`) is the worked case.
+At `FINISHED`, nothing further.
+At `IN_PROGRESS` after choosing open PR or manual, there is nothing new to review — wait for the merge or your manual steps, then re-run bare to archive.
+If omitted at `IN_PROGRESS`, resolve it per **Change name resolution (all `/flow*` commands)** (`skills/flow-contracts/pipeline.md`).
+It is not written into the state file, and the project's `remove` command does not touch it either — stated as a property of the `cache index` resource word under **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+Its **State transitions** table is `/flow`'s contract; **Stage keys** below names which phase file marks each key.
+Never add a slot beyond the resolved roster automatically, by diff size, touched area, or any
+Never commit `<project>/spectre/changes/` in a task or fixup commit.
+Never dispatch review-panel roles as separate parallel `Agent` calls.
+Never publish a proposal artifact.
+Never push, merge,
+Never run more than three implementer dispatches in flight at once, in any wave — a fourth or
+No dedicated parsing guard checks its shape, unlike `## workspace isolation` and `## visual verification` above — the section is a single fenced command block and nothing else, and the whole of what it means to the resolver is "a fenced block exists, read literally".
+No round count ends the stage — see **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
+Publishes no proposal artifact — the operator is present for the brainstorming dialogue that produces the design.
+Re-invoked with an argument at `IN_PROGRESS`, the argument is fix instructions.
+Re-invoking `/flow` is the supported way to revise its output.
+Read `<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Where the agents repository is** (`skills/flow-contracts/project-configuration.md`): an entry whose repository already holds a worktree for this change — the kickoff worktree's repository, a peer's repository linked above, a second entry naming a repository already resolved by an earlier entry, or a repository where an earlier run of this change created one — records that worktree as its root and creates nothing.
+Reads the `## visual verification` section, canonical in `skills/flow-contracts/project-configuration.md`.
+Record the instruction with the dispatch; an override nobody wrote down is indistinguishable from a mistake.
+Resumed at `STARTED` once planned, it runs implementation, review and verification orchestrated by this session — implementers and panel slots dispatched on the models the Decide step chose — behind the review panel the recorded decision names, ending at `IN_PROGRESS`.
+See **State file** (`skills/flow-contracts/state-file.md`).
+Skills and contracts name a guard by **basename**, never by a path relative to a repository root — such a path resolves only when the project being worked on *is* the agents repository, which is the one case that is never the interesting one.
+The automatic changes to the roster are reductions, and they only ever remove, from the decision's roster as from any other: `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone (**The docs-only reduction**, `skills/flow/review-panel.md`), and so does the late-fix reduction on a small fix run against an already-clean stage (**The late-fix reduction**, `skills/flow/review-panel.md`).
+The command's combined stdout+stderr is captured verbatim; its exit code is read by nobody.
+The full wiring procedure — where the captured output is written, and how each panel slot's dispatch prompt is told about it — is canonical in `skills/flow/review-panel.md`, not restated here.
+The project owns the question and answers it in its own configuration, exactly as it owns creation and removal — see **Project configuration** (`skills/flow-contracts/project-configuration.md`), canonical for how the three commands are written, what the survivor report prints, what its exit code means, what a non-empty report does to the terminal state, and what a project that declares no survivor report at all gets in place of the verification.
+The route's state write needs a daemon that knows the field: an older one refuses the payload as an unknown field, the write falls back to the journal, the entry is retired as definitively invalid, and one ⚠ line names it — the record unchanged, the route re-run once the daemon is current.
+The sidecar's shape is canonical in **visual verification** (`skills/flow-contracts/project-configuration.md`).
+The suite and its file names are canonical in **Visual verification** (`skills/flow-contracts/project-configuration.md`).
+The undocumented field is therefore not silently accepted into the store, but it is also not reported to the operator at write time; see **The journal is replayed, never merged** for where it actually surfaces.
+There is no separate `*-fix` command:
+This is deliberately unlike a reported survivor, which blocks the terminal state under **Project configuration** (`skills/flow-contracts/project-configuration.md`), and the asymmetry is stated here rather than left for a reader to find and mistake for an oversight.
+Which shapes fail, how a failure is reported, and what *row* and *cell* each name are stated under **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+`REVIEWERS` resolves once near the top of every run, per **Model resolution** (`skills/flow/SKILL.md`).
+`artifactUrl` is written
+`implement.md` sections 1, 2 and 4, <!-- refs-guard:allow -->
+`null` and stays `null` for the life of the change.
+`review-panel.md` and `verify-and-handoff.md` run in the parent session directly — the parent orchestrates every guard, gather, dispatch, mark and report itself and prints its own handoff, per **The parent orchestrates directly** and **Inline — the parent implements** (`skills/flow/implement.md`).
+`screenshots`'s root-not-leaf shape is canonical in `skills/flow-contracts/project-configuration.md`; nothing here restates it.
+`skills/flow/review-panel.md`'s `flow.review-panel` stage runs the declared command from the apply worktree, but only when `check-panel-citation-trigger.sh` exits 0 (**Guard resolution**, `skills/flow-contracts/pipeline.md`) — that guard decides whether the change's own diff touches a `.md` or `.mdc` path at all, so a purely-code change never pays for this section's cost.
+`tasks.md` remains the single source of truth for a plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file — a second source of completion state would be one that guard cannot see.
+dispatches, each one `Agent` call carrying one to three roles as its own `PASS <id>` sections — see **Bundled dispatch** (`skills/flow/review-panel.md`).
+for a change, typed in the session that ran the last `/flow <name>` — is that same fix run, the message its instructions.
+key is **Stage keys** (`skills/flow/SKILL.md`).
+later ready group queues in plan order and launches only as an in-flight one is picked; see the Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).
+next, once the branch has merged.
+or open a PR outside the integrate/archive branches' own routes.
+other trigger — only an explicit operator instruction adds one, for that run only, checked at the start of the panel stage and at every fix round.
+slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`) defines it.
+| [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines, including standards-entry resolution and containment, the workspace-isolation and visual-verification tables, and the single-line-literal keys.
+| [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
+"Any failure" means the daemon is down, the database behind it is down, the request times out, or the daemon answers with anything other than a success.
+\# Auto-resolution
+\# Hand-verifying a guard verdict
+\# Project configuration — standards
+\# Project configuration — visual verification
+\# Project configuration — workspace isolation
+\# Stage keys
+\# State file — internals
+\## A change spanning repositories
+\## Naming a guard in skill prose
+\## The fallback file and the project key
+\## Write ordering
+\### Stage exit — never the command's own judgment
+\#### The multi-select variant
+**Loaded at the principles dispatch** |
+**Loaded only when `prepare-workspace.sh` cannot be located** |
+**Loaded with `skills/flow/visual-verify.md`** |
+**Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below.**
+**`stage end` carries no session token and no harness of its own.**
+An argument that is none of those is **reported**, not silently ignored.
+Reads the `## visual verification` section, canonical in `skills/flow-contracts/project-configuration-visual.md`.
+Skills and contracts name a guard by **basename**, never by a path relative to a repository root.
+`screenshots`'s root-not-leaf shape is canonical in `skills/flow-contracts/project-configuration-visual.md`; nothing here restates it.
+`tasks.md` remains the single source of truth for a plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file.
+design's specification is a drawn frame — a mockup the implementation must match (**Design mockups are a specification, not an inspiration**, `rules/design-mockups-are-specs.mdc`) — the design is not approvable, and no task whose specification is that frame is written, until the handoff assets are committed into the repository or their location is recorded in `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared mockups directory lives — **Project configuration — visual verification**, `skills/flow-contracts/project-configuration-visual.md`).
+| [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, the `survivors` output and exit contract, row validation and what is left to the agent.
+| [project-configuration-standards.md](project-configuration-standards.md) | Resolve a `## standards` entry: the three entry forms, containment, and where `<agents repo>` is.
+| [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite.
+| [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys.
+| [state-file-internals.md](state-file-internals.md) | How the CLI and daemon keep the record: the fallback paths, the project-key derivation, write ordering and journal replay.
+| [state-file.md](state-file.md) | Read or write a change's state file: its full shape, monotonic state writes, carry-forward |

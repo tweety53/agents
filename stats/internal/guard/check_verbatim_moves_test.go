@@ -116,6 +116,18 @@ func TestCheckVerbatimMoves(t *testing.T) {
 				"spectre/changes/demo/verbatim-moves.txt": "# deliberate\n**This table is authoritative.\n**This table is canonical.\n",
 			},
 			rc: 0, want: []string{"ok   acknowledged", "0 violation(s)"}, reject: []string{"FAIL"}},
+		{name: "a heading is acknowledged behind a backslash",
+			edit: map[string]string{
+				vmPipe: "# Pipeline\n\n## Transition table\n\n" + vmTable + " Every row is a transition.\n\n" + vmMark + "\n\n" + vmWhy + "\n",
+				"spectre/changes/demo/verbatim-moves.txt": "\\## Transition table\n",
+			},
+			rc: 0, want: []string{"ok   acknowledged new text :: ## Transition table", "0 violation(s)"}, reject: []string{"FAIL"}},
+		{name: "an unescaped heading in the list is a comment, not an acknowledgement",
+			edit: map[string]string{
+				vmPipe: "# Pipeline\n\n## Transition table\n\n" + vmTable + " Every row is a transition.\n\n" + vmMark + "\n\n" + vmWhy + "\n",
+				"spectre/changes/demo/verbatim-moves.txt": "## Transition table\n",
+			},
+			rc: 1, want: []string{"FAIL new run-loaded text (paraphrase?) :: ## Transition table"}},
 		{name: "an acknowledgement in an archived change does not count",
 			edit: map[string]string{
 				vmPipe: "# Pipeline\n\n" + vmTable + " Every row is a transition.\n\n" + vmWhy + "\n",

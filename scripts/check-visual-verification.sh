@@ -34,7 +34,7 @@
 # heading text of the table a project writes. The literal on-disk shape is
 # established from two other places instead: task 8 of tasks.md's worked
 # example for Gymie writes the settings table as `| Setting | Value |`, and
-# `## workspace isolation` (skills/flow-contracts/project-configuration.md,
+# `## workspace isolation` (skills/flow-contracts/project-configuration-isolation.md,
 # `check-workspace-isolation.sh`) already establishes `| Command | Runs |` as
 # this repository's one convention for a table of commands a project
 # declares — reused here rather than invented a second time, so a project
@@ -48,7 +48,7 @@
 # WHAT IS CANONICAL, AND WHAT THIS FILE IS, for both checks below — matching
 # check-workspace-isolation.sh's own citation of the identical shape for its
 # `Resource` word. **Project configuration**
-# (`skills/flow-contracts/project-configuration.md`), under its "## visual
+# (`skills/flow-contracts/project-configuration-visual.md`), under its "## visual
 # verification" heading, states the `Setting` and `Command` vocabularies as
 # closed, and states that `regression repo` is an identity assertion, not an
 # authorisation, checked whenever `regression checkout` and `regression

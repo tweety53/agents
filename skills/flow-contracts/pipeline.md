@@ -36,8 +36,7 @@ A change is always in exactly one of three states, recorded in its state file.
 **The human gate is a property of the state, not a separate stage.** `IN_PROGRESS` *means* a
 staged diff is waiting for the human to review, alongside a stack the handoff already started.
 Nothing records that the review or the testing happened; the operator running the next
-command is what carries the change forward. This is why no `*-done` command exists — there would
-be nothing for one to write.
+command is what carries the change forward.
 
 | State | Means | Waiting on |
 |-------|-------|-----------|
@@ -49,18 +48,6 @@ be nothing for one to write.
 the same run, so the human does both at one sitting. There is no state between implementation and
 finishing — integration is not a stage, it is the first half of finishing.
 
-## Stage exit — never the command's own judgment
-
-Within a single run, a stage that loops — most concretely `/flow`'s brainstorm
-stage, whose convergence test reopens after every planning-stage exchange that leaves a question the
-command's inputs do not answer — never closes on the command's own judgment. It closes only on an
-explicit operator answer: at a confirm, or by declining an offer, recording what is still open
-rather than assuming it away. The one bounded exception is a session that cannot ask at all: it
-records the confirm itself as an open question and ends the stage there, since no operator answer
-could ever arrive through it. An operator who is present but silent is not that exception and still
-gets another round. The same explicit answer may both close the checklist and grant the design
-approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
-
 ## Command surface
 
 One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
@@ -71,8 +58,7 @@ a flag.** The only argument is the optional change name — see **Change name re
 on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on `/flow-plan`, a
 topic; on `/flow`, fix instructions at `IN_PROGRESS`.
 
-An argument that is none of those is **reported**, not silently ignored — a silently
-ignored word is indistinguishable from a flag that stopped working.
+An argument that is none of those is **reported**, not silently ignored.
 
 ## State transitions
 
@@ -86,24 +72,11 @@ ignored word is indistinguishable from a flag that stopped working.
 | `/flow` | `FINISHED` | wrong-state handoff — the change is archived |
 | `/flow-status` | any — read-only, never block | unchanged |
 
-Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/SKILL.md`).
+Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 **This table is authoritative.**
 
 ### Every invocation is re-entrant
-
-Re-invoking `/flow` is the supported way to revise its output. There is no separate `*-fix`
-command:
-
-- **At `STARTED`**, `/flow` resumes the creating run from wherever brainstorming stopped.
-- **At `IN_PROGRESS`, with an argument**, `/flow` resumes the existing worktree and applies a fix,
-  documenting it in `proposal.md`/`tasks.md` or a `<name>-fix-N` sub-change first, and refreshing
-  the run instructions alongside the code so the two surfaces never drift apart.
-- **At `IN_PROGRESS`, with no invocation at all** — a plain message reporting a problem or asking
-  for a change, typed in the session that ran the last `/flow <name>` — is that same fix run, the
-  message its instructions.
-- **At `IN_PROGRESS`, bare**, `/flow` integrates on the first such invocation and archives on the
-  next, once the branch has merged.
 
 **The bare invocation that starts integrate must be an actual new `/flow` (or `/flow <name>`)
 command from the operator — never inferred from anything said inside a still-running turn.** A
@@ -153,20 +126,9 @@ time, at that stage's own granularity — brainstorming checklist items and arti
 creating/resuming branch, tasks on the implementation branch, a finish run's steps on the
 integrate/archive branch.
 
-**On the implementation branch the granularity is per task.** The stages from
-`flow.load-context` to `flow.write-in-progress` (**The parent orchestrates directly**,
-`skills/flow/implement.md`) run in the parent session itself, which holds its own task-list tool
-throughout the run — no resumed subagent sits between the parent and the list, so nothing forces a
-coarser stage-level granularity. One entry per `tasks.md` item, updated as each task's guard passes
-and its checkbox ticks.
-
-`/flow-status` is read-only and **registers nothing**. Registering steps for a
-report would put entries on the operator's task list for work nobody is doing.
-
 **The progress view is a view, never a record.** No command, guard or contract reads the harness's
 task list back as evidence of what was done. `tasks.md` remains the single source of truth for a
-plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file — a second source of
-completion state would be one that guard cannot see.
+plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
 count comes from the harness's task list alone, which no run persists. See **Progress visibility**
@@ -188,16 +150,10 @@ identifier is the **key**, never the prose name, from **Level 1 — the stages o
 **A `stage begin` mark MUST carry `-session-token` and `-harness`.** Generate the token once, near the start of
 the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
 same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
-— `claude-code` or `zcode`. On Claude Code the mark also binds the stage run's session
-directly from the `CLAUDE_CODE_SESSION_ID` the harness exports to every Bash call, so the token's
-transcript search is the fallback for a mark made without it — the literal-token rule stands because
-the token is still the join key between a change's dispatches and its stage runs.
+— `claude-code` or `zcode`.
 
 **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
-filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below —
-because one skill source installs into `~/.claude/skills/` and `~/.zcode/skills/` alike, and a
-hardcoded `-harness claude-code` would mislabel every ZCode run as Claude Code, hiding the very
-thing the field exists to record: which harness ran the stage.**
+filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below.**
 
 ```bash
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -219,12 +175,7 @@ line, and exits 0 — the same never-block guarantee **State file**
 `flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
 still exits 0, so there is nothing to react to.
 
-**`stage end` carries no session token and no harness of its own** — attribution happens once, at
-`begin`, and the harness recorded there is immutable, so an end mark can never contradict the harness
-a stage began under.
-
-`/flow-status` marks nothing — the Level 1 section of `<agents repo>/README.md` says so, and a read-only report
-that wrote stage runs would be recording work nobody did.
+**`stage end` carries no session token and no harness of its own.**
 
 ## Handoff output
 
@@ -242,9 +193,7 @@ Next:
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
 - **A handoff that leaves the change at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
-  Yes, puts `/clear` on the line above the next command.** Every invocation re-enters from the state file and the change's own artifacts, so the
-  next run needs nothing this session carries — while a run started in this session re-reads all of
-  it on every turn. It is a recommendation the operator may skip, never a gate, and the next
+  Yes, puts `/clear` on the line above the next command.** It is a recommendation the operator may skip, never a gate, and the next
   command stays the last line.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
@@ -355,23 +304,12 @@ Paths are absolute, resolved from `git worktree list`. Never emit a relative pat
 ## Guard resolution
 
 **A named guard resolves to `<skill-dir>/scripts/<name>`.**
-Skills and contracts name a guard by **basename**, never by a path relative to a repository
-root — such a path resolves only when the project being worked on *is* the agents repository,
-which is the one case that is never the interesting one.
+Skills and contracts name a guard by **basename**, never by a path relative to a repository root.
 
 `skills/flow-contracts/` is never a running command and carries no
 `skills/flow-contracts/scripts/` directory. See **Guard resolution**
 (`skills/flow-contracts/pipeline-rationale.md`) for what resolving against the running command's
 own skill directory buys.
-
-**Prose describing this repository's own guard is not an invocation.** A guard invoked by name
-uses the basename form above. Prose that describes **this repository's own** lint and test
-guards — resolved through `<agents repo>/.flow/project.md`'s `## lint` and `## test` lists
-rather than through `<skill-dir>/scripts/` — names the guard as
-`<agents repo>/scripts/<name>` instead of a bare repository-relative path: a bare path there
-resolves, for a reader standing in an installed project, against that project's own tree, so the
-sentence would name a file the reader may be able to write. See **Guard resolution**
-(`skills/flow-contracts/pipeline-rationale.md`) for why carrying the prefix matters.
 
 ## Guard presence check
 
@@ -409,36 +347,7 @@ rule 2 derives at lint time. Each command cites this section for the block shape
 
 ## Hand-verifying a guard verdict
 
-**When a gate guard's verdict fires while the situation contradicts the pipeline's own structural
-conventions, the run relays how to hand-verify that verdict, and the operator verifies before
-choosing a course.** The gate guards are `check-foreign-staged.sh` (`STAGED-FOREIGN`),
-`check-finish-preflight.sh` (`REFUSE`),
-`check-unfinished-work.sh` (`OUTSTANDING`), `check-base-moved.sh` (`MOVED`) and
-`check-cleanup-complete.sh` (`LEFTOVER`). The contradiction is structural, not evidential: a
-cross-repo change whose plan resolves only in the canonical tree, a recorded merge base a rebase
-made stale, a worktree the state file keeps because its removal failed. The procedure the run
-relays is the guard's own — each gate guard's header carries its hand-verification paragraph,
-canonical for it as the header is for the guard's every other semantic — shown alongside the
-breakdown, before the prompt's courses are chosen, never instead of them.
-
-Two failure directions are named so neither is taken. Trusting the verdict blindly blocks
-verified-complete work, or teaches the operator to click past a gate that does sometimes speak
-truly. Overriding it blindly silences a guard that may have seen real unfinished work. Hand
-verification is the middle path: it recomputes the guard's own signals from the primary records —
-the plan, the store, git — and never rewrites the verdict line or the exit code, never bypasses
-the courses the gate offers. A verification that upholds the verdict leaves the operator exactly
-where they were. A verdict the verification confirms structural is recorded where the call site
-provides a recording — today, `flow record verdict false-positive` at the unfinished-work gate in
-`skills/flow/integrate.md`, with the operator's reason, verbatim.
-
-## Finish contract
-
-**Finish contract** (`skills/flow-contracts/finish-contract-run1.md`,
-`skills/flow-contracts/finish-contract-run2.md`) governs the preflight signals, both runs'
-procedures, base-branch resolution and worktree cleanup, split by run: `/flow`'s integrate phase
-loads `finish-contract-run1.md` and its archive phase loads `finish-contract-run2.md` — no other
-`/flow` phase loads either; `/flow-status` and `/flow-fast` read single sections of run 1, and
-`/flow-self-review` reads run 2's step 9.
+**Load `skills/flow-contracts/guard-verdict-verification.md`** only when a gate guard's verdict fires — `STAGED-FOREIGN`, `REFUSE`, `OUTSTANDING`, `MOVED` or `LEFTOVER`.
 
 ## State file
 

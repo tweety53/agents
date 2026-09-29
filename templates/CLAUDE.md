@@ -10,8 +10,7 @@ It contains mandatory rules and an index of project-specific skills.
 ### Lint Fix Priority
 
 The fix-first lint policy is a **global rule**, installed into the managed block in
-`~/.claude/CLAUDE.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
-source of truth, so the policy cannot drift between the global copy and this file.
+`~/.claude/CLAUDE.md` from `<agents repo>/rules/lint-fix-priority.mdc`.
 
 What is project-specific is which commands it means: `<project>/.flow/project.md`'s `## lint`
 section lists them.
@@ -69,17 +68,9 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | `skills/flow-self-review/` | `/flow-self-review` | Runs a self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle. Standalone, not a pipeline stage |
 | `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract-run1.md`/`finish-contract-run2.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
-### How to invoke a skill
-
-Type its slash command. Each file in `commands-claude/` names one skill plus its accepted states,
-and the Skill tool loads that skill by name.
-
 ### Superpowers general skills
 
 The Superpowers plugin provides general-purpose workflow skills (brainstorming, TDD,
 subagent-driven-development, etc.). These are referenced by the `/flow` skill above.
 
 Install it per `<agents repo>/README.md`'s Claude Code section.
-
-After install, general skills auto-trigger from their descriptions. Project-specific `/flow`
-skills are loaded on demand by their slash commands as described above.

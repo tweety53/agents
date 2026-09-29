@@ -10,6 +10,9 @@ Moved verbatim from the contract's preamble, where it followed **Load this file 
 only the trigger, not the whole state machine — the same reason the other contract files beside it
 were split out.
 
+This is why no `*-done` command exists — there would
+be nothing for one to write.
+
 ## Stage exit — never the command's own judgment
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
@@ -23,6 +26,9 @@ now serves as both.
 Behaviour a flag used to select is now either asked at invocation (the integration choice in
 bare `/flow`), derived from the current state, or fixed at the single sensible default
 (review-panel breadth, decided by its escalation triggers).
+
+A silently
+ignored word is indistinguishable from a flag that stopped working.
 
 ## State transitions
 
@@ -50,6 +56,9 @@ Where a harness offers no task-list mechanism, the command prints the equivalent
 instead: a count line naming how many steps are done, in progress and open, followed by one line per
 step marked done or not done. The rule is satisfied by whichever mechanism the harness provides, and
 no harness has to gain a task tool to satisfy it.
+
+A second source of
+completion state would be one that guard cannot see.
 
 ## Stage marks
 
@@ -116,7 +125,24 @@ restated nowhere here, on purpose: a second copy is exactly what its own README-
 Moved verbatim from the contract's `-harness` sentence, after `zcode`: (`zcode` is the harness whose
 rollout transcripts the harvester reads as a second source, kan-479).
 
+On Claude Code the mark also binds the stage run's session
+directly from the `CLAUDE_CODE_SESSION_ID` the harness exports to every Bash call, so the token's
+transcript search is the fallback for a mark made without it — the literal-token rule stands because
+the token is still the join key between a change's dispatches and its stage runs.
+
+Neither is hardcoded because one skill source installs into `~/.claude/skills/` and `~/.zcode/skills/` alike, and a
+hardcoded `-harness claude-code` would mislabel every ZCode run as Claude Code, hiding the very
+thing the field exists to record: which harness ran the stage.
+
+`stage end` carries none of its own because attribution happens once, at
+`begin`, and the harness recorded there is immutable, so an end mark can never contradict the harness
+a stage began under.
+
 ## Handoff output
+
+Every invocation re-enters from the state file and the change's own artifacts, so the
+  next run needs nothing this session carries — while a run started in this session re-reads all of
+  it on every turn.
 
 ### The block each state renders
 
@@ -161,6 +187,9 @@ whichever command is actually running, never a fixed one of them.
 Carrying the prefix says which
 repository is meant, and removes the need for any classifier to tell describing a guard from
 running one.
+
+Such a path resolves only when the project being worked on *is* the agents repository,
+which is the one case that is never the interesting one.
 
 ## Guard presence check
 

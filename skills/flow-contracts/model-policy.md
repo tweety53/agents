@@ -38,21 +38,8 @@ own, not the implementer's; a fix-round re-run runs on the decision's `panel.rer
 Which model a dispatch with no recorded pair runs on — a micro panel, the no-decision dispatch,
 the tooling analyst — is **Model and effort** (`skills/flow/brainstorm-planner.md`) as well.
 
-**An explicit operator instruction overrides a decision's pair, in either direction** — raising
-the implementer to Opus for a change that warrants it, or lowering it to Sonnet for genuinely
-mechanical work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
-from a mistake.
-
-**The model each role runs on is chosen per dispatch by the Decide step, never configured.**
-`REVIEWERS` resolves once near the top of every run, per **Model resolution**
-(`skills/flow/SKILL.md`). The state file's `models.default` is a legacy field no run
-writes a value into — no run asks a model question — carried forward verbatim. See **State file** (`skills/flow-contracts/state-file.md`).
-
 **A subagent that repairs panel findings is implementer work, so the implementer rule above governs
 it too.** See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why.
-
-**A session instruction governs the run in which it is given** and is recorded with its dispatch
-exactly as above.
 
 **The ledger records what happened.** A recorded model choice does **not** replace the per-dispatch
 ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
