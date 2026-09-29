@@ -9,6 +9,9 @@ brainstorming and planning directly**.
 
 **Load `skills/flow/withdrawal.md`** only when `total == 0` below.
 
+**Load `skills/flow/seeded-note.md`** only when the change was seeded from a note and the resume
+point is section C or D, which never reopens the checklist that otherwise loads it.
+
 ### Resuming at `STARTED`
 
 A run finding `"state": "STARTED"` already recorded is resuming a creating run that stopped before

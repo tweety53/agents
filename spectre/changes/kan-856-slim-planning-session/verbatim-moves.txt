@@ -123,3 +123,5 @@ test declarations (`@Test` and its language equivalents), never from a test run,
 | `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
 | `skills/flow/brainstorm-planner.md` | `flow.brainstorm` (end), `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
 | `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm` (begin), `flow.decide` |
+**Load `skills/flow/resume.md`** only when the name resolves to a change already recorded at `STARTED`, and continue there rather than with the rest of **A**.
+**Cited by every command that creates an issue; loaded by `/flow`'s integrate run 1 at the In Review transition** |

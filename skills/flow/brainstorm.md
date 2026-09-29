@@ -28,8 +28,9 @@ Then the change name:
   (`skills/flow-contracts/pipeline.md`) defines it, restricted to changes with incomplete planning
   artifacts.
 
-**Load `skills/flow/resume.md`** only when the name resolves to a change already recorded at
-`STARTED`, and continue there rather than with the rest of **A**.
+**Load `skills/flow/resume.md`** only when, on `/flow`, the name resolves to a change already
+recorded at `STARTED`, and continue there rather than with the rest of **A**; `/flow-plan` routes
+such a name to its own existing-change destination instead.
 
 **Transition the issue to In Progress now**, per **Transitions** in Jira integration
 (`skills/flow-contracts/jira-integration.md`) — before brainstorming, so the board is correct
@@ -137,6 +138,8 @@ the `STARTED` handoff (**The `STARTED` handoff block**, below),
 the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
 
 ### The `STARTED` handoff block
+
+Defined by **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`), cited here and never loaded by this run.
 
 **A value the state file does not carry is reported as missing, not dropped.**
 
