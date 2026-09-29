@@ -26,8 +26,8 @@ run — the roster is the recorded decision's, the settings store's reviewer lis
 `micro` decision (`skills/flow/review-panel.md` is canonical for it); a slot beyond that list is added only by an
 explicit operator instruction, at any point in the run.
 
-Also follow the flow rule (`flow-manual-review.mdc`) — rendered into the managed block of
-`~/.claude/CLAUDE.md`, so it is already in context. It is a stub: **load
+Also follow the flow rule (`flow-manual-review.mdc`) — rendered into your harness's global managed block
+(`~/.claude/CLAUDE.md`, `~/.zcode/AGENTS.md`), so it is already in context. It is a stub: **load
 `skills/flow-contracts/pipeline.md` first**, which is canonical for the states and transitions —
 git boundaries and the finish contract live in their own files, which it names; `/flow`'s own stage keys are in `skills/flow/SKILL.md`'s own
 **Stage keys**, cited rather than repeated here.

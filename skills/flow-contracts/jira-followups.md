@@ -16,7 +16,7 @@ A **follow-up** is an issue the pipeline files for work a run left outstanding. 
 
 **This naming governs every follow-up the integrate run files.**
 
-### The integrate run's outstanding items
+### The filing site's outstanding items
 
 **The outstanding items are the integrate run's own** — that
 run's outstanding work (**Run 1 — the branch is not merged**,

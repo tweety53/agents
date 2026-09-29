@@ -35,6 +35,21 @@ section lists them.
 
 ---
 
+### Never stop the dev workspace's stats service or its storage
+
+`flowd` on `127.0.0.1:4173`, the `flow-postgres` container on host port 5433, and the default
+`flow` database inside it are the **dev workspace's** service and storage — the store every
+`flow` call in every project writes state, stage marks and records through. No agent action stops
+or drops them: not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid,
+and not to make a later step succeed. Bringing them back up does not repair a run that already fell
+through to the on-disk journal.
+
+The reasoning and the boundary are the `## stop` section of `<agents repo>/.flow/project.md` —
+canonical for it, and not restated here. Stopping the dev stack is an operator action; the commands
+live in that file's `## run` section and in `<agents repo>/stats/README.md`.
+
+---
+
 ### Project-specific standards
 
 <!-- Replace this section with the coding standard this project actually follows:

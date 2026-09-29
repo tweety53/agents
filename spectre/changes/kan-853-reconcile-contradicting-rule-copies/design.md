@@ -55,6 +55,9 @@ Audit row: subagent-prompts D3.
 - The template's auto-detect of `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md` contradicted that
   rule. It also contradicted agent-baseline.md, which says the other harness's rendering is never
   read as well.
+- project-configuration.md's `## standards` row now says that an absent section resolves no
+  standards. Its general "absent key means auto-detect" rule would otherwise have carried the
+  disagreement over.
 
 ### D6 — generic project templates ship from `templates/`
 
@@ -64,6 +67,9 @@ Audit rows: every-session D21, D22.
   one, carrying this repository's lint commands and dev-workspace rule. It now copies
   `templates/CLAUDE.md` / `templates/AGENTS.md`, which are generic.
 - The template comment moved with them.
+- The templates keep a generic copy of the "Never stop the dev workspace's stats service" rule,
+  citing `<agents repo>/.flow/project.md`'s `## stop`. That rule governs every project, so
+  verify-and-handoff.md's `<project>/CLAUDE.md` citation stays true (verify D14).
 - The `CONTRIBUTING.md` sentence is gone, because that file never existed.
 
 ### D7 — pipeline.md's diagram gains the withdrawal line
@@ -88,11 +94,11 @@ Audit rows: every-session D18, D19 and verify D7.
 - Each is carried forward as recorded and governs nothing.
 - state-file.md, model-policy.md and verify-and-handoff.md now agree.
 
-### D10 — the verify report quotes the last 20 lines
+### D10 — the verify report's line cap follows implement.md
 
-Audit row: verify D17. verify-and-handoff.md's `## Report` now says 20 lines, matching
-implement.md's `| tail -20` rule for the parent's own `flow.verify` runs. visual-verify.md's
-40-line allowance governs the verifier subagent's report, not the parent's, so it stays.
+Audit row: verify D17. verify-and-handoff.md's `## Report` now allows the same number of lines as
+implement.md's `tail` rule for the parent's own `flow.verify` runs. visual-verify.md's larger cap
+governs the verifier subagent's report, not the parent's, so it stays.
 
 ### D11 — the finish copies follow run 1 and run 2
 
@@ -105,7 +111,8 @@ Audit rows: finish D1–D7, D9, D13, D15–D21 and D24.
 - "Merges nothing into the base branch" is scoped to before step 10.
 - The stale `/flow-fast` override paragraph is replaced by what `/flow-fast` actually does.
 - Related KNOWN-BUGS F13, the stale second filing site in `jira-followups.md`, is resolved and its
-  entry removed.
+  entry removed. The section heading keeps its name, because the verbatim-move list cannot carry a
+  `#` line.
 
 ### D12 — the §2 heading rename is coordinated
 

@@ -262,7 +262,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
 
   **Never the flow dev stack.** `flowd` on `127.0.0.1:4173`, its `flow-postgres` container and the
   `flow` database inside it are never stopped, restarted or dropped by any run —
-  the dev workspace's `<agents repo>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
+  `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
   own `## run` names that service, the prohibition wins over this start rule, never the reverse.
   This is separate from the visual-verification procedure's own start/stop rule (step 13, `skills/flow/visual-verify.md`): that stage
   stops only the stack it started for its own probe, and that rule is not restated here. This rule
@@ -274,7 +274,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   why:
 
   ```
-  Not started: <app> (<url>) — protected, see <agents repo>/CLAUDE.md.
+  Not started: <app> (<url>) — protected, see <project>/CLAUDE.md.
   ```
 
   **A start that fails blocks this stage**, naming the application and what the command printed —

@@ -68,8 +68,8 @@ one that creates a change at `STARTED` and stops there (`/flow-plan`), one minim
 variant that writes no state file (`/flow-fast`) and two standalone, non-pipeline commands
 (`/flow-settings`, `/flow-self-review`). **No command accepts
 a flag.** The only argument is the optional change name — see **Change name resolution** — or,
-on `/flow`, a description or Jira key seeding a creating run, or fix instructions at
-`IN_PROGRESS`.
+on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on `/flow-plan`, a
+topic; on `/flow`, fix instructions at `IN_PROGRESS`.
 
 An argument that is none of those is **reported**, not silently ignored — a silently
 ignored word is indistinguishable from a flag that stopped working.

@@ -61,8 +61,8 @@ flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -sessio
 change: `/flow` asks no planning-effort or model question on a creating run, and models are resolved per run from the settings store, not recorded per change. `artifactUrl` stays `null` —
 `/flow` publishes no proposal artifact.
 
-**No further command runs before this point on a creating run** but the Jira resolution and the
-In Progress transition above — the state write above is the
+**Nothing is written before this point on a creating run** but the In Progress transition
+above — the state write above is the
 first thing this invocation writes once the name is fixed, ahead of even the design conversation. The
 operator sees `STARTED` recorded the moment they invoke `/flow`, whether or not the run goes on to
 finish brainstorming in the same sitting.
