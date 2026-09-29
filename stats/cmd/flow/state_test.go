@@ -891,7 +891,7 @@ func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
 // is not a state" half: a change row whose only author is a stage mark's
 // own bootstrap side effect (stages.SyntheticChangeUpdatedBy) is
 // surfaced as `"synthetic": true` in `state get`'s output, so a caller
-// (skills/flow-fast/SKILL.md's state gate) can test a field instead of
+// (skills/flow/SKILL.md's Reading the state) can test a field instead of
 // comparing "updatedBy" strings itself.
 func TestStateGetMarksSyntheticRecord(t *testing.T) {
 	repo := gitRepo(t)

@@ -167,10 +167,10 @@ field is how it gets erased.
 - `planningEffort` — a legacy field: the level recorded for an older change's planning, or `null`.
   No run writes it; every invocation **carries it forward verbatim**. It governs nothing — no
   command derives behaviour from it, and the review panel's breadth is never scaled from it.
-- `models` — an object carrying one field, `default`, naming the model chosen for the change, or
-  `null` where none was chosen. Written only on the run that **creates** the
-  change; every other invocation **carries it forward verbatim**. Its live consumer is `/flow`,
-  which dispatches on that value. The model's default and how an operator override applies are
+- `models` — a legacy field: an object carrying one field, `default`, naming the model recorded
+  for an older change, or `null`. The run that **creates** the change writes it `null` — no run
+  asks a model question — and every other invocation **carries it forward verbatim**. It governs
+  nothing: `/flow` dispatches on the model it resolves per run. The model's default and how an operator override applies are
   stated once under **Model resolution** (`skills/flow/SKILL.md`), which is canonical
   for them; a second copy here is what this repository's reference guard exists to prevent. This
   field records what was *chosen* — the SDD ledger remains the only record of what a dispatch

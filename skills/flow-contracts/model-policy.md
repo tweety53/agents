@@ -3,7 +3,7 @@
 Which model each role runs on, their defaults, how an override applies, and per-harness
 enforcement.
 
-**Loaded by `/flow`'s creating run, `/flow`'s implement phase and `/flow-fast`** — at the model questions and at
+**Loaded by `/flow`'s creating run, `/flow`'s implement phase and `/flow-fast`** — at
 each implementer and panel dispatch.
 
 This file is **canonical** for everything in it.
@@ -61,9 +61,8 @@ from a mistake.
 
 **The model each role runs on is resolved per run from the settings store, never recorded per
 change.** `DEFAULT_MODEL` and `REVIEWERS` resolve once near the top of every run, per **Model
-resolution** (`skills/flow/SKILL.md`). The state file's `models.default` records only a model an
-operator explicitly chose for the change; it is `null` on every change the creating run did not ask
-about. See **State file** (`skills/flow-contracts/state-file.md`).
+resolution** (`skills/flow/SKILL.md`). The state file's `models.default` is a legacy field no run
+writes a value into — no run asks a model question — carried forward verbatim. See **State file** (`skills/flow-contracts/state-file.md`).
 
 **A subagent that repairs panel findings is implementer work, so the implementer rule above governs
 it too.** See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why.

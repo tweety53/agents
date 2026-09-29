@@ -7,7 +7,9 @@ Use the **flow-fast** skill — installed globally, so let your harness resolve 
 than assuming a project-local path.
 
 Follow that skill exactly. One invocation runs from the Jira key to the landed change: resolve the
-issue and name per **Transitions** (`skills/flow-contracts/jira-integration.md`), move it to In Progress, create a git worktree on a branch named after the change (git isolation only
+issue and name per
+**Resolution (how `jiraIssue` is decided)** and **Change naming** (`skills/flow-contracts/jira-integration.md`),
+move it to In Progress per **Transitions** there, create a git worktree on a branch named after the change (git isolation only
 — no workspace setup, database or bucket), write `tasks.md` and decide how to implement it per
 the plan's class — inline, or implementer subagents per group, with the review panel the class
 calls for — run the project's
@@ -21,9 +23,8 @@ stage `/flow` marks is marked, most as an empty pair, so the stats views see one
 No spectre artifacts and no state file; subagents and a review panel only as the recorded decision
 names them. Asks no model, planning-effort or review question.
 
-Also follow the flow rule (`flow-manual-review.mdc`) — installed globally, so let your harness
-resolve it rather than assuming a project-local path — for the Jira contract it points at; the
-pipeline's states do not apply here, since `/flow-fast` writes none.
+The Jira contract is the one the skill cites directly; the flow rule's pipeline states do not
+apply here, since `/flow-fast` writes none.
 
 **Input:** the change description or Jira key, from `$ARGUMENTS` or the conversation — and nothing
 else. **This command takes no flags.** Re-invoked with a name whose worktree still exists, the

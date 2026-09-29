@@ -215,7 +215,7 @@ func readLiteral(setupSh, name string) string {
 // those are exactly the inputs two of the guarantees are about. It returns an error rather
 // than failing a test: TestMain calls it before any *testing.T exists.
 func makeFixtureRepo(d string, badRule bool) error {
-	for _, sub := range []string{"rules", "commands-claude", "skills/demo-skill", "hooks"} {
+	for _, sub := range []string{"rules", "commands-claude", "skills/demo-skill", "hooks", "templates"} {
 		if err := os.MkdirAll(filepath.Join(d, sub), 0o755); err != nil {
 			return err
 		}
@@ -259,6 +259,8 @@ func makeFixtureRepo(d string, badRule bool) error {
 		{"skills/demo-skill/SKILL.md", "# demo skill\n", 0o644},
 		{"CLAUDE.md", "# fixture CLAUDE.md\n", 0o644},
 		{"AGENTS.md", "# fixture AGENTS.md\n", 0o644},
+		{"templates/CLAUDE.md", "# fixture template CLAUDE.md\n", 0o644},
+		{"templates/AGENTS.md", "# fixture template AGENTS.md\n", 0o644},
 		{"commands-claude/demo.md", "# demo command\n", 0o644},
 		// Always-on: the one rule that must install.
 		{"rules/good-always.mdc", "---\ndescription: fixture always-on rule\nalwaysApply: true\n---\n\n# Good\nBODY-GOOD-ALWAYS\n", 0o644},

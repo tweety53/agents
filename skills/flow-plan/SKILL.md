@@ -35,7 +35,7 @@ below, and creates the change or offers the `design.md` capture directly. Every 
 in this skill addresses the running session.
 
 **Generate this session's token once, right here — `fp-<literal-token>`, a short unique literal
-string, exactly as `/flow` generates `mf-<literal-token>` (**Stage keys**, `skills/flow/SKILL.md`)
+string, exactly as `/flow` generates `mf-<literal-token>` (**Stage marks**, `skills/flow-contracts/pipeline.md`)
 — and mark the session as soon as the Jira key is known:**
 
 ```bash

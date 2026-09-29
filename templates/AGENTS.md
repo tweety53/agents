@@ -30,36 +30,23 @@ The fix-first lint policy is a **global rule**, installed into the managed block
 `~/.zcode/AGENTS.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
 source of truth, so the policy cannot drift between the global copy and this file.
 
-What is project-specific is which commands it means. Full list in `<project>/.flow/project.md`'s `## lint`
-section — named here so this file states them rather than leaving a placeholder:
-
-```bash
-cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
-                                                          # this repository has an auto-fix command
-scripts/check-references.sh                               # plus every other scripts/check-*.sh guard
-                                                          # named in <project>/.flow/project.md's `## lint`
-cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
-cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
-```
+What is project-specific is which commands it means: `<project>/.flow/project.md`'s `## lint`
+section lists them.
 
 ---
 
-### Never stop the dev workspace's stats service or its storage
+### Project-specific standards
 
-`flowd` on `127.0.0.1:4173`, the `flow-postgres` container on host port 5433, and the default
-`flow` database inside it are the **dev workspace's** service and storage — the store every
-`flow` call in every project writes state, stage marks and records through. No agent action stops
-or drops them: not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid,
-and not to make a later step succeed. Bringing them back up does not repair a run that already fell
-through to the on-disk journal.
+<!-- Replace this section with the coding standard this project actually follows:
+     module layout, layering rules, naming conventions, framework constraints, and the
+     test command to run before claiming completion.
 
-**Only those.** A worktree's own derived `flow_<id>` database and bucket are per-change artifacts,
-and `<project>/scripts/workspace.sh remove <id>` drops them during archive cleanup as it should.
-
-The reasoning, that boundary, and why `/flow`'s worktree-cleanup check 5 therefore has nothing to
-run, are the `## stop` section of `<project>/.flow/project.md` — canonical for it, and not
-restated here. Stopping the dev stack is an operator action; the commands live in that file's
-`## run` section and in `<project>/stats/README.md`.
+     This template ships generic on purpose. `<agents repo>/setup.sh` copies it into any project root
+     that lacks an `<project>/AGENTS.md`, so a standard hardcoded to one stack would be wrong in
+     every other project. A standard meant to apply across *many* projects belongs in
+     `<agents repo>/rules/` as an opt-in rule instead, activated per project by naming it in
+     `<project>/.flow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
+     is the worked example of that pattern. -->
 
 ---
 

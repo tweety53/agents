@@ -12,8 +12,8 @@ When running `/flow`, follow this **fixed three-state pipeline**:
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
 /flow  (reachability end)  → FINISHED (withdrawn)     nothing to plan — the operator may withdraw
-/flow  (STARTED, planned)  → IN_PROGRESS              you: review the staged diff and run the apps
-/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
+/flow  (STARTED, planned)  → IN_PROGRESS              you: review the staged diff — the stack is running
+/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff — the stack is running
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```
 
@@ -22,8 +22,8 @@ state, not a separate step — which is why no command exists whose only job is 
 review happened. A creating or fix run produces both the staged diff and the run instructions, so
 reviewing and testing are one gate. Every invocation is re-entrant, and a fix never moves the state.
 
-A bare invocation at `IN_PROGRESS` asks how the branch should land: open a PR by default, merge and
-push, or leave it to you. Choosing merge-and-push continues the same invocation once the branch is
+A bare invocation at `IN_PROGRESS` lands the branch by the project's `## default landing route`, and
+asks only when none is declared: open a PR by default, merge and push, or leave it to you. Choosing merge-and-push continues the same invocation once the branch is
 merged, syncing, archiving, pushing and removing the worktrees; open PR and manual stop and hand off
 instead.
 
@@ -55,7 +55,7 @@ first time a contract is added, nothing checks it against the table, and that is
 | **State file** (`skills/flow-contracts/state-file.md`) | reading or writing a change's state file |
 | **Project configuration** (`skills/flow-contracts/project-configuration.md`) | resolving `<project>/.flow/project.md` |
 | **Jira integration** (`skills/flow-contracts/jira-integration.md`) | any Jira-related step |
-| **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1, and the review panel's deferred-findings close |
+| **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1 |
 | **Plan provenance** (`skills/flow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
 | **Plan provenance — the guard** (`skills/flow-contracts/plan-provenance-guard.md`) | what the plan-provenance guard enforces |
 | **The build-green tag** (`skills/flow-contracts/build-green.md`) | writing or checking a task's build tag |

@@ -69,6 +69,9 @@ records.
 > — per design.md's `rebase-is-a-confirmed-choice`: the rebase never runs on its own, only after the
 > operator picks this option, and only against the worktree(s) that actually moved
 
+Superseded: the rebase now runs with no prompt on every `MOVED` worktree — **Sync the branch onto
+the base** (`skills/flow-contracts/finish-contract-run1.md`).
+
 > , per design.md's `never-auto-abort`
 
 ## integrate.md — Scoped re-verification

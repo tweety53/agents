@@ -263,7 +263,7 @@ for ((i = 0; i < N; i++)); do
       WSVAL[$i]=$(( 10#${DEF[i]} + OFFSET ))
       ;;
     "cache index")
-      echo "prepare-workspace: \`${VAR[$i]}\` (cache index) is claimed by probing the project's own cache, not derived from the workspace id — per the registry in skills/flow-contracts/pipeline.md, \`/flow\` claims it, by probing, when it exports the workspace's variables. This script does not carry a client for the project's cache, so this row is reported rather than exported; claim it against the real service before anything reads \`${VAR[$i]}\`." >&2
+      echo "prepare-workspace: \`${VAR[$i]}\` (cache index) is claimed by probing the project's own cache, not derived from the workspace id — per the registry in skills/flow-contracts/artifacts-registry.md, \`/flow\` claims it, by probing, when it exports the workspace's variables. This script does not carry a client for the project's cache, so this row is reported rather than exported; claim it against the real service before anything reads \`${VAR[$i]}\`." >&2
       ;;
   esac
 done

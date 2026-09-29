@@ -221,8 +221,8 @@ install_claude_code() {
   install_commands "$COMMANDS_CLAUDE_SRC" "$PROJECT_DIR/.claude/commands"
   install_agents "$PROJECT_DIR/.claude/agents"
   if [[ ! -f "$PROJECT_DIR/CLAUDE.md" ]]; then
-    cp "$SCRIPT_DIR/CLAUDE.md" "$PROJECT_DIR/CLAUDE.md"
-    info "Copied CLAUDE.md to project root"
+    cp "$SCRIPT_DIR/templates/CLAUDE.md" "$PROJECT_DIR/CLAUDE.md"
+    info "Copied templates/CLAUDE.md to project root"
   else
     info "CLAUDE.md already exists — skipping copy (diff manually if needed)"
   fi
@@ -240,8 +240,8 @@ install_zcode() {
   # so the claude command set is the right source here.
   install_commands "$COMMANDS_CLAUDE_SRC" "$PROJECT_DIR/.zcode/commands"
   if [[ ! -f "$PROJECT_DIR/AGENTS.md" ]]; then
-    cp "$SCRIPT_DIR/AGENTS.md" "$PROJECT_DIR/AGENTS.md"
-    info "Copied AGENTS.md to project root"
+    cp "$SCRIPT_DIR/templates/AGENTS.md" "$PROJECT_DIR/AGENTS.md"
+    info "Copied templates/AGENTS.md to project root"
   else
     info "AGENTS.md already exists — skipping copy (diff manually if needed)"
   fi

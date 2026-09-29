@@ -92,7 +92,7 @@ func treeFingerprint(paths ...string) string {
 // blind spot a write-through incident would exploit twice.
 func sourceTreeFingerprint(root string) string {
 	var ps []string
-	for _, p := range []string{"skills", "rules", "commands-claude", "scripts", "setup.sh", "CLAUDE.md", "AGENTS.md", "README.md"} {
+	for _, p := range []string{"skills", "rules", "commands-claude", "scripts", "setup.sh", "CLAUDE.md", "AGENTS.md", "templates", "README.md"} {
 		ps = append(ps, filepath.Join(root, p))
 	}
 	return treeFingerprint(ps...)

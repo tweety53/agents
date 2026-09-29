@@ -21,8 +21,7 @@ handoff shape and change-name resolution. Its **State transitions** table is `/f
 and keep each entry's status current as the run proceeds, per **Progress visibility**
 (`skills/flow-contracts/pipeline.md`). One entry per brainstorming checklist item and artifact on
 the planning branch, one entry per `tasks.md` item on the implementation branch, one entry per step
-of whichever finish run is executing on the integrate/archive branch — the same granularity
-`/flow-fast` used for the branch it is running, since `/flow` runs the same branches.
+of whichever finish run is executing on the integrate/archive branch.
 
 **No flags.** The only argument is the optional change name/description on a creating or resuming
 run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
@@ -189,8 +188,8 @@ every other guard above.
 
 **The `<change>` argument to every mark below is always a resolved change name.** On a creating run
 the name does not exist until **A. Resolve the change and write `STARTED`**
-(`skills/flow/brainstorm.md`) produces it — defer `flow.state-gate`-equivalent bookkeeping into that
-section, per **Change name resolution (all `/flow*` commands)**
+(`skills/flow/brainstorm.md`) produces it — defer every mark until that
+section has produced it, per **Change name resolution (all `/flow*` commands)**
 (`skills/flow-contracts/pipeline.md`). This router reads state above using
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 
@@ -222,14 +221,14 @@ one per mark or per phase file.
   dispatches, each one `Agent` call carrying one to three roles as its own `PASS <id>` sections —
   see **Bundled dispatch** (`skills/flow/review-panel.md`). Before dispatching any panel round,
   re-check the decision's `panel.dispatches`/`panel.grouping`.
-- Never hand off with an open finding of any severity, or a stale clean result — no preset or
-  fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
+- Never hand off with an open finding of any severity, or a stale clean result — no fixed
+  slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
   defines it. A deferred Minor is not open.
 - Never commit `<project>/spectre/changes/` in a task or fixup commit. Never push, merge,
   or open a PR outside the integrate/archive branches' own routes.
 - Never advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch
-  writes `FINISHED`.
+  and **The withdrawal route** (`skills/flow/brainstorm.md`) write `FINISHED`.
 - `implement.md` sections 1, 2 and 4, <!-- refs-guard:allow -->
   `review-panel.md` and `verify-and-handoff.md` run in the parent session directly — the parent
   orchestrates every guard, gather, dispatch, mark and report itself and prints its own handoff,

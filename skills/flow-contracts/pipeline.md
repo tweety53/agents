@@ -27,13 +27,11 @@ A change is always in exactly one of three states, recorded in its state file.
 
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
+/flow  (reachability end)  → FINISHED (withdrawn)     nothing to plan — the operator may withdraw
 /flow  (STARTED, planned)  → IN_PROGRESS              you: review the staged diff — the stack is running
 /flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff — the stack is running
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route — see the finish contract
 ```
-
-**Each command ends in the state named after it**, so the state vocabulary and the command
-vocabulary are the same words.
 
 **The human gate is a property of the state, not a separate stage.** `IN_PROGRESS` *means* a
 staged diff is waiting for the human to review, alongside a stack the handoff already started.
@@ -66,11 +64,14 @@ approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
 ## Command surface
 
 One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
-one that creates a change at `STARTED` and stops there (`/flow-plan`) and one standalone,
-non-pipeline command (`/flow-settings`). **No command accepts
-a flag.** The only argument is the optional change name — see **Change name resolution**.
+one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony
+variant that writes no state file (`/flow-fast`) and two standalone, non-pipeline commands
+(`/flow-settings`, `/flow-self-review`). **No command accepts
+a flag.** The only argument is the optional change name — see **Change name resolution** — or,
+on `/flow`, a description or Jira key seeding a creating run, or fix instructions at
+`IN_PROGRESS`.
 
-An argument that is not a known change name is **reported**, not silently ignored — a silently
+An argument that is none of those is **reported**, not silently ignored — a silently
 ignored word is indistinguishable from a flag that stopped working.
 
 ## State transitions
@@ -97,7 +98,7 @@ command:
 - **At `STARTED`**, `/flow` resumes the creating run from wherever brainstorming stopped.
 - **At `IN_PROGRESS`, with an argument**, `/flow` resumes the existing worktree and applies a fix,
   documenting it in `proposal.md`/`tasks.md` or a `<name>-fix-N` sub-change first, and refreshing
-  the test guide alongside the code so the two surfaces never drift apart.
+  the run instructions alongside the code so the two surfaces never drift apart.
 - **At `IN_PROGRESS`, with no invocation at all** — a plain message reporting a problem or asking
   for a change, typed in the session that ran the last `/flow <name>` — is that same fix run, the
   message its instructions.
@@ -149,7 +150,7 @@ that step finishes — so the harness's live progress view, a count line and one
 renders throughout the run rather than arriving with the handoff. The count line then distinguishes
 done, in progress and open at every point. One entry per whichever cited stage is running at the
 time, at that stage's own granularity — brainstorming checklist items and artifacts on the
-creating/resuming branch, stages on the implementation branch, a finish run's steps on the
+creating/resuming branch, tasks on the implementation branch, a finish run's steps on the
 integrate/archive branch.
 
 **On the implementation branch the granularity is per task.** The stages from
@@ -432,7 +433,8 @@ provides a recording — today, `flow record verdict false-positive` at the unfi
 `skills/flow-contracts/finish-contract-run2.md`) governs the preflight signals, both runs'
 procedures, base-branch resolution and worktree cleanup, split by run: `/flow`'s integrate phase
 loads `finish-contract-run1.md` and its archive phase loads `finish-contract-run2.md` — no other
-phase loads either.
+`/flow` phase loads either; `/flow-status` and `/flow-fast` read single sections of run 1, and
+`/flow-self-review` reads run 2's step 9.
 
 ## State file
 
@@ -465,12 +467,12 @@ hand-written HTTP call, never a directory listing of your own.** It prints one J
 names of fallback records that could not be read). A `FINISHED` change is never a candidate, and
 neither is one already under `<project>/spectre/changes/archive/`.
 
-**A record `state list` marks `"unreadable":true` is reported and skipped from the union — never
+**A record `flow state resolve` marks `"unreadable":true` is reported and skipped from the union — never
 silently dropped.** Name the unreadable file in the resolution's own output; do not fold it into a
 "zero matches" or "no change" result as if it were never there.
 
 **Every command that resolves this candidate set reports which of the two sources produced it** —
-`state list`'s own `"source"` field, echoed rather than re-derived.
+`flow state resolve`'s own `"source"` field, echoed rather than re-derived.
 
 Once the candidate set is built:
 

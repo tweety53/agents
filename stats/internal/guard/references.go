@@ -58,10 +58,9 @@ var crTargets = []string{"rules", "skills", "commands-claude", "README.md", "AGE
 //	path or a `[label](path)` Markdown link (skills/flow-contracts/SKILL.md's
 //	own table), never as a bold token adjacent to the path.
 //
-//	reviewer-prompt file — deliberately self-contained; three of the five
-//	cite no .md/.mdc path anywhere, and the two that do (engineering-
-//	principles.md, principles-reviewer-prompt.md) never pair the citation
-//	with an adjacent bold section name.
+//	reviewer-prompt file — deliberately self-contained; where it cites a
+//	.md/.mdc path it never pairs the citation with an adjacent bold
+//	section name.
 //
 //	rationale/exploration doc — prose-only; any path citation sits inside the
 //	same bold span as its citing verb (the command-dispatch-stub shape), or

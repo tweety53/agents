@@ -13,7 +13,7 @@ import (
 // flow_settings.default_model value may take (design.md's
 // model-default-sonnet decision: implementer, fixer and reviewer all
 // default to one of these, uniformly). "fable" is the literal
-// skills/flow/SKILL.md's self-review-model resolver falls back to -- it
+// skills/flow/archive.md step 9's self-review-model resolver falls back to -- it
 // must be a legal value for every model field, or the store would refuse
 // the very default that fallback introduces.
 var ValidModels = map[string]bool{
@@ -76,7 +76,7 @@ type Settings struct {
 	DefaultModel string
 	// SelfReviewModel is the model /flow's archive-phase self-review
 	// reasoning pass runs on. Unlike DefaultModel, empty is a valid value
-	// here -- it means the literal "fable", skills/flow/SKILL.md's own
+	// here -- it means the literal "fable", skills/flow/archive.md step 9's own
 	// fallback, not "unset".
 	SelfReviewModel string
 	Reviewers       []string

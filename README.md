@@ -33,7 +33,8 @@ any project.
 | `scripts/` | The guards `/flow` runs, each with its `test-*.sh` harness |
 | `stats/` | `flowd` — the PostgreSQL-backed service holding pipeline state and per-stage telemetry, with a web UI. See `stats/README.md` |
 | `spectre/` | This repository's own specs and changes |
-| `CLAUDE.md`, `AGENTS.md` | This repository's project instructions, and templates for other projects |
+| `CLAUDE.md`, `AGENTS.md` | This repository's project instructions |
+| `templates/` | The `CLAUDE.md` and `AGENTS.md` that `setup.sh` copies into a project that lacks one |
 | `setup.sh` | The installer |
 
 ---
