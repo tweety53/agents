@@ -61,8 +61,9 @@ flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -sessio
 change: `/flow` asks no planning-effort or model question on a creating run, and models are resolved per run from the settings store, not recorded per change. `artifactUrl` stays `null` —
 `/flow` publishes no proposal artifact.
 
-**No further command runs before this point on a creating run** — the state write above is the
-first thing this invocation does once the name is fixed, ahead of even the design conversation. The
+**No further command runs before this point on a creating run** but the Jira resolution and the
+In Progress transition above — the state write above is the
+first thing this invocation writes once the name is fixed, ahead of even the design conversation. The
 operator sees `STARTED` recorded the moment they invoke `/flow`, whether or not the run goes on to
 finish brainstorming in the same sitting.
 
@@ -236,8 +237,8 @@ enrichment and the Decide step, its JSON at `<abs-worktree>/.superpowers/sdd/dec
 `flow.writing-plans` end once **D**'s plan enrichment and Decide step complete.
 
 Once the Decide step finishes, print the `## Decision`
-block verbatim — the shape **The `## Decision` block** (`design.md`) shows — then run the record
-sequence that section states:
+block verbatim — the two-table shape (input side, then decision side) **Decide** (`skills/flow/brainstorm-planner.md`) prints — then run the record
+sequence below:
 
 ```bash
 flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
@@ -256,7 +257,7 @@ the plan ready (**Resuming at `STARTED`** above) and implements on a fresh conte
 
 ## Resume and fix runs
 
-**Resume and fix runs** (`design.md`) is canonical for both cases: a run resumed at `STARTED` reads
+Both cases rest on **Decide** (`skills/flow/brainstorm-planner.md`): a run resumed at `STARTED` reads
 `flow record decisions -change <name>` and follows the newest row rather than re-rolling, or
 re-runs the Decide step alone when none exists yet; a fix run's `flow.document-fix`
 (`skills/flow/implement.md`) hands the appended plan through the same Decide step, re-grouping the

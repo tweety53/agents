@@ -79,7 +79,7 @@ track the plan.
 **The note's verification tags are evidence-checked at seeding.** A `verified:`/`measured:` tag
 the note carries is copied only when its evidence is in hand; a tag naming nothing is rewritten to
 the honest `unverified:`/`predicted:` tag, or dropped, never copied — per **Plan provenance**'s
-evidence rule (`skills/flow-contracts/plan-provenance.md`), which also names why: seeding is how
+evidence rule (`skills/flow-contracts/plan-provenance.md`); seeding is how
 an unverifiable verification tag enters a plan believing itself checked. The task-close guard
 refuses a close over the shape.
 
@@ -232,9 +232,9 @@ together. A round that answers the question sets that entry's `**Status:**` to `
 <decision-id>` and adds the answering entry under `## Decisions`. **Never delete or rewrite an entry
 once recorded.**
 
-`STARTED` is written before this section exists (per **A** above), so no `STARTED` handoff counts
-what this section holds; the count instead appears in the `IN_PROGRESS` handoff **Verify, stage, and hand off**
-(`skills/flow/verify-and-handoff.md`) prints once implementation completes.
+`STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
+`STARTED` handoff prints at the end of the run, so its `Recorded` line counts what this section holds
+(**The block each state renders**, `skills/flow-contracts/handoff-blocks.md`); the `IN_PROGRESS` handoff carries no count.
 
 ```bash
 flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
@@ -406,7 +406,8 @@ prose:
 
 or `**Relocation:** no`. This line is required and explicit on every plan — never omitted, per
 this repository's "missing rather than dropped" convention. `yes` scopes a mechanical passage
-comparison (generated later in the pipeline, by a script this change adds elsewhere) to the union
+comparison (generated later in the pipeline, by `generate-relocation-comparison.sh`,
+run before the review panel's `final-review.diff`) to the union
 of every task's own `**Files:**` field across the plan.
 
 Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
@@ -637,6 +638,7 @@ Under the `## decisions: recommended` mode the gate takes **Yes** without asking
 and the `## Decision` block still print, so the record of what was approved stays complete
 (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
 
-What happens once this section's plan enrichment completes is stated in **Run brainstorming and
-planning directly** (`skills/flow/brainstorm.md`) — the run ends with a `/clear` handoff, and the
-next `/flow <name>` enters `skills/flow/implement.md`.
+In `/flow`, what happens once this section's plan enrichment completes is stated in
+**Run brainstorming and planning directly** (`skills/flow/brainstorm.md`) — the run ends with a
+`/clear` handoff, and the next `/flow <name>` enters `skills/flow/implement.md`. `/flow-plan`
+commits and ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).

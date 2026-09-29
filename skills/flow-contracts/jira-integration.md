@@ -12,11 +12,12 @@ and writes it through the Atlassian MCP tools available to the session (`getJira
 this machine — never shell out to one.
 
 The linked issue key lives in the state file's `jiraIssue` field — see **State file** in `state-file.md`.
-`/flow`'s creating run resolves it; every other command carries it forward verbatim.
+The run that creates a change resolves it; every other command carries it forward verbatim.
 
 ### Resolution (how `jiraIssue` is decided)
 
-Only `/flow`'s creating run resolves a key, and it follows this contract exactly.
+Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture or a `/flow-fast`
+run — resolves a key, and it follows this contract exactly.
 
 - **No Atlassian tooling available** in the session **and** no `## jira` section in
   `<project>/.flow/project.md` → resolve `jiraIssue: null` **silently**, ask nothing, and report exactly one
@@ -82,7 +83,7 @@ fix round adds scope, per **Description sync** (`jira-integration.md`), below. S
 description are separate concerns.
 
 The creating run's transition fires before brainstorming. A failed transition is one line and the
-run still writes its state at the end, per **Never blocking** (`jira-integration.md`).
+run still writes its state as it would have, per **Never blocking** (`jira-integration.md`).
 
 bare `/flow`'s In Review transition is **not** conditioned on a pull request existing. It fires
 at the end of a successful run 1 whichever route was taken — pull request, merge and push, or
@@ -133,13 +134,13 @@ transition:
 > - **Yes — transition it**
 
 **This ask is one of exactly two carve-outs from Never blocking.** The creating run's guardrail says a Jira call may never block, delay, or
-alter the proposal, and an interactive question does delay by definition — so the exception is
+alter the run, and an interactive question does delay by definition — so the exception is
 stated with its limits: it is asked **once** per run, never repeated and never retried; it is
 reached only when an unrecognised status was actually observed, which is rare; and **only an
 explicit yes transitions the issue**. Anything else — No, silence, an answer that is not a choice, or
 a session that cannot ask at all — leaves the status untouched, emits one `⚠ Jira: skipped —
 <reason>` line, and the run continues and writes its state exactly as it would have. Nothing about
-the proposal depends on the answer, which is what keeps the guardrail's actual promise intact.
+the run depends on the answer, which is what keeps the guardrail's actual promise intact.
 
 **The other is the join confirmation**, stated under
 **Follow-up issues** (`jira-followups.md`), and bounded identically: asked once,

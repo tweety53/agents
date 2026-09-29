@@ -37,11 +37,13 @@ prefix ending on a word boundary, and whatever follows it on the line (`green �
 `green (unchanged)`) is free prose the guard ignores, still line-scoped. `**Squash-with:**` is
 anchored at column 0 the same way, as is every field the
 `flow-task-commit-fields` family adds to a task. Indenting the fields along with the steps is the
-natural reading of "the body sits beneath its task", and it is wrong in a way nothing catches
-kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
+natural reading of "the body sits beneath its task", and it is wrong in a way only
+`check-plan-shape.sh` catches kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
 task line to spectre than a step is, while this file's own guard reports
 `task <id> has no **Build:** tag` — naming the consequence and hiding the cause, since the tag is
 there, one column short of where its regex looks. Measured on a one-task plan written both ways.
+The shape guard names the cause instead — `task <id> carries a **Build:** line indented past
+column 0` — and runs unconditionally at plan time.
 
 Within that body, the `Build:` tag is the **first** column-0 `**Build:**` line, well-formed or not; a
 body with no such line has no tag at all. A first line whose value opens with neither keyword

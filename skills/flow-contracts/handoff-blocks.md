@@ -70,7 +70,7 @@ read-only in both forms.
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
 Open in IntelliJ:
-open -na "IntelliJ IDEA" --args "<absolute main-checkout path>"
+open -na "IntelliJ IDEA" --args "<absolute apply-worktree path>"
 
 <what the operator does next>
 
@@ -81,8 +81,8 @@ Next:
 
 **Both the decisions count and the open-questions count render `none` when zero — never `0` — by
 the missing-rather-than-dropped rule above.** The entry shape, the immutable ID and the never-delete
-rule the open-questions count reads through are stated once under **Open questions**
-(`skills/flow/brainstorm-planner.md`). `Jira` on the line below is `(run-only)`;
+rule the open-questions count reads through are stated once under
+**Open questions** (`skills/flow/brainstorm-planner.md`). `Jira` on the line below is `(run-only)`;
 `Recorded` is not. See **Why the open-questions count is on-disk, not run-only**
 (`skills/flow-contracts/handoff-blocks-rationale.md`) and **Why the `Jira` line is run-only**
 (`skills/flow-contracts/handoff-blocks-rationale.md`).
