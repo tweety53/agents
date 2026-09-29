@@ -30,3 +30,12 @@
 - **Gated-review fixer key.** `check-panel-fix-single-dispatch.sh` flagged the gated per-task fix
   row key `task-1+4+5-implementer-fix-1` as out of the panel-fix shape; it is not a panel-fix
   dispatch, and the prompt was auto-resolved on Continue.
+
+## 2026-09-29 — integrate run
+
+- Preflight: `STAGED-CLEAN`, `DRIFT-CLEAN`, `RUN1` against `origin/main`.
+- Unfinished-work gate: `CLEAR`; visual verify `VISUAL-VERIFY-OK` (no UI paths).
+- Base: `check-base-moved.sh` `CLEAR` — no rebase needed.
+- Route: merge and push, from the project's configured default, not asked.
+- Environment: one `flow stage end` issued from `~/.claude/skills` failed to resolve the project key
+  (not a git checkout); re-issued from the main checkout.
