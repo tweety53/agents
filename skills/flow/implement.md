@@ -23,13 +23,14 @@ Sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and
 `flow.load-context` through `flow.write-in-progress` on its behalf; the running session does it
 itself. Every "you" in those files addresses the parent. On a fix run,
 section **3** below runs first: the parent resolves the worktree from the state file's `worktrees`
-map, runs section 3's inline plan-append and Jira sync, then continues into load-context/isolate/
+map, runs section 3's inline plan-append, Jira sync and re-decision, then continues into load-context/isolate/
 sdd-tdd on the same session, with no dispatch in between. A fix run's stage order is therefore
-document-fix → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated
+document-fix → decide → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated
 after the fix's edit.
 
 **Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and
-run the guard-presence check, before this run's first dispatch. Read the decision JSON
+run the guard-presence check, before this run's first dispatch — on a fix run, before section
+**3**'s re-decision. Read the decision JSON
 (`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `execution`, `implementer`,
 `fixer` and `panel` — per the `## Decision` block of **Decide** (`skills/flow/brainstorm-planner.md`) — and for the recorded
 `groups` field, which section **4** below
@@ -47,7 +48,7 @@ These six rows are **every** Agent-tool dispatch the parent may make, across sec
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
 | implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
-| gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `micro`/`small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot\|slot+slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
@@ -81,9 +82,10 @@ dispatch-time parameter) carries a `tools:` allowlist that omits
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
-**The roster**), and the gated per-task reviewer row whenever it dispatches on its group's
-`model`/`effort` pair. On a `default` panel a reviewer row dispatches `flow-low`, so the
-reviewer rows are structurally fork-free on both panel shapes. The verifier
+**The roster**), and the gated per-task reviewer row on `big`, where it dispatches on its group's
+`model`/`effort` pair. On `micro`, `small` and `regular` that row dispatches `flow-low`
+(**The gated per-task reviewer**, section **4** below), and on a `default` panel a panel-bundle
+row does too, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too.
 
@@ -145,10 +147,22 @@ these substitutions:
   subject, runs `check-task-commit-fields.sh` and ticks the task exactly as section **4** states.
   Waves are not parallel inline: bundles run in plan order, one at a time, never launched into a
   throwaway worktree.
-- **Every dispatch-prompt paragraph that instructs an implementer or fixer** — FLOW —
+- **Every dispatch-prompt paragraph that instructs an implementer or fixer in its work** — FLOW —
   COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND
-  BUILDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent
-  in the same words**, as if the parent had dispatched itself.
+  BUILDS, PROJECT HAZARDS, and the rest section **4** and `skills/flow/review-panel.md` list —
+  **binds the parent in the same words**, as if the parent had dispatched itself. **Five
+  paragraphs govern only a dispatched child's own channel and never bind the parent**: NO
+  DELEGATION (inline, the parent keeps the dispatch rows the closed list above leaves it), MODEL
+  HANDSHAKE, TOOLS, CONTEXT BUNDLE and REPORT FILE. Without a bundle, REQUIRED READING's principles
+  are read from `engineering-principles.md` beside this file, and PROJECT HAZARDS' warnings as the
+  next bullet states. A question REPORT, DON'T DECIDE would carry in a report file goes to the
+  operator in the parent's own output instead.
+- **Project hazards are read by the parent itself.** Inline gathers no context bundle, so the
+  `## hazards` section PROJECT HAZARDS points at never reaches it. Once per run, before the first
+  bundle's first edit, the parent runs `flow hazards -C <canonical-worktree> -shape <shape>`,
+  where `<shape>` is the value section **4** computes for its gathers, and holds every row it
+  prints to PROJECT HAZARDS' terms. `[]` means no hazards. A failed call is reported in one line
+  and never blocks, just as the gather's own hazards read never does.
 - **Panel slots, the gated per-task reviewer and the visual-verify verifier dispatch exactly as in
   sdd mode** — a session reviewing its own diff is not a review. Panel fixes and gated per-task
   review fixes are applied by the parent instead of a panel-fix subagent or a resumed implementer;
@@ -446,6 +460,23 @@ Then make the fix-run planning commit over the appended plan (**Planning commits
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
 ```
 
+**The appended plan is re-decided before load-context.** Appended tasks can move the plan's
+class, and the run executes by the newest decision row, so on every fix run — **Re-plan** and
+**Append anyway** alike — the decision follows the plan here. Read **Decide**
+(`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from
+`plan-class.sh` on over the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry
+in the state file's `worktrees` map. The rolls are name-derived, so they come out identical to the
+first row's; only `class`, `execution`, `groups` and a free grouping's shape can change. Write the
+decision JSON and print the `## Decision` block with its two preamble lines, then record the second
+row below. The section's closing `flow.writing-plans` mark belongs to the planning run and never
+runs here, and **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
+
+```bash
+flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
+flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
+flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
+```
+
 ## 4. Execute (SDD + TDD)
 
 ```bash
@@ -577,7 +608,8 @@ worktree fifth, resolved `<name>` sixth) runs on each picked commit, and the dis
 the picked sha. A pick conflict or a
 guard failure is the parent's own to fix — it resolves the conflict or re-commits in the canonical
 worktree itself and re-runs the guard — while sibling members, queued groups and
-already-ready later waves are unaffected. A copy is removed once its group is picked. A member reporting BLOCKED follows the existing BLOCKED handback. The
+already-ready later waves are unaffected. A copy is removed once its group is picked —
+`git -C <worktree> worktree remove --force <worktree>-wave-group-<g>`. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
 **Gather one context bundle per group, immediately before that group's implementer goes out.**
@@ -927,9 +959,12 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 goes out in one reviewer Agent call beside group N+2's implementer, on that group's
 `model`/`effort` pair from the decision's `groups` entry, `high` in place of an `xhigh` effort,
 which is the implementer's alone. **Groups join into one bundle by the
-decision's `class`**: on `big`, one bundle per group; on `small` or `regular`, every gate-fired
-task of the run waits and goes out in one bundle at the last boundary, on `DEFAULT_MODEL`/`default`
-when the run has no groups. **Never one reviewer dispatch per gate-fired task, and never one per
+decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `regular`, every gate-fired
+task of the run waits and goes out in one bundle at the last boundary, on `subagent_type: flow-low`
+with `DEFAULT_MODEL` (or the run's session override) as the Agent tool's own `model` parameter,
+recorded `-model <that model> -effort low` — the `default`-panel reviewer's pair, since these
+classes record no group pair to take; on harness `zcode`, **Harness mapping**
+(`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. **Never one reviewer dispatch per gate-fired task, and never one per
 group on `small`/`regular`** (the review-dispatch count tracks the
 change's size, never its task count). Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
@@ -1125,7 +1160,7 @@ check-task-reviewer-single-dispatch.sh <worktree> <change> <session-token>
 proceeds to the stage close below. Exit 1 names every violation of the gated-
 per-task-reviewer bundling contract above — a bundle carrying more than one non-retry dispatch, a
 retry with no original, a key outside the canonical shape, two gate-fired tasks of the same
-implementer group split across separate reviewer bundles, or (on `small`/`regular`) more than one
+implementer group split across separate reviewer bundles, or (on `micro`/`small`/`regular`) more than one
 original bundle for the whole run — and is a prompt, resolved on its recommended **Continue** per
 **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`), the same shape
 `skills/flow/review-panel.md`'s own `check-panel-fix-single-dispatch.sh` handback carries:

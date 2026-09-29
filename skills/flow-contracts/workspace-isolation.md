@@ -155,29 +155,23 @@ can be bookmarked with no registry and no coordination — the same property the
 reason. See **What the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for
 why one offset covers the whole block rather than one per port.
 
-**The block is checked free before use.** Every port in the block, not merely the first:
-
-```bash verified:run in this worktree on macOS (Darwin 25.5.0) with /usr/sbin/lsof; exit 1 with no listener, exit 0 with one
-lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1    # 0 = bound, 1 = free
-```
-
-**Any bound port discards the entire block.** If a single port in the block is already held — by
-another workspace, or by an unrelated process that knows nothing about this pipeline — the **whole**
-block is abandoned in favour of free-port discovery. It is never repaired port by port. See **What
-the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why a patched
-block is worse than either alternative. A workspace's ports are therefore always either wholly its
-deterministic block or wholly discovered.
+**The block is exported as derived, with no free check.** `prepare-workspace.sh` exports every
+port of the block at its offset without probing whether anything holds it, and nothing later
+rediscovers, repairs or reassigns a port — a workspace's ports are always wholly its deterministic
+block. See **What the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for
+why a patched block is worse than either alternative.
 
 **The ports actually bound are printed in the `/flow`'s implement phase handoff.** The handoff names the
 URLs of the worktree that resolved them, never the project's declared defaults. See **What the id
 derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for the cost this mitigates
 and the failure it prevents.
 
-**What the free check does not promise.** What the contract requires is that the failure stay loud:
-a bind that fails is surfaced and the block rediscovered, never silently reassigned to whatever
-happened to be free at the time. See **What the id derives**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why the check only narrows the race
-rather than closing it.
+**A held port is relayed, never resolved.** A port in the block already held — by another
+workspace, or by an unrelated process that knows nothing about this pipeline — makes the project's
+start command refuse the bind, and that refusal is the collision's only signal. What the contract
+requires is that it stay loud: **Resolve the run instructions** (`skills/flow/verify-and-handoff.md`)
+prints the refusal verbatim and ends the run at `IN_PROGRESS`, never retrying, never picking
+another port, and never stopping the holder.
 
 ## The cache index
 
@@ -190,7 +184,7 @@ exception is deliberate.
 the digest modulo sixteen and two concurrent workspaces land on the same index one time in sixteen —
 roughly **six percent**. Everywhere else in this contract a collision is either vanishingly unlikely
 or loud: a database name is drawn from 65 536 digests, and a port already bound refuses the bind and
-discards the block. A shared cache index is neither. Two changes would quietly share sessions and
+stops the start. A shared cache index is neither. Two changes would quietly share sessions and
 cache entries, which is exactly the class of silent wrong answer this contract exists to remove, and
 a six-percent silent failure is worse than a rarer loud one.
 

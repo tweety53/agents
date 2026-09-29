@@ -17,7 +17,7 @@
 # belonged to three implementer groups, before the operator stopped the
 # run and implement.md's "The gated per-task reviewer" paragraph was
 # rewritten to require ONE bundled dispatch per implementer group whose
-# gate fired (or one bundle for the whole run on `small`/`regular`). Prose
+# gate fired (or one bundle for the whole run on `micro`/`small`/`regular`). Prose
 # alone already failed once for the panel's own fix step (KAN-482); this
 # guard exists so the same failure mode is caught here too, at the stage's
 # own close, immediately before `flow stage end -command '/flow' -stage
@@ -55,7 +55,7 @@
 # `plan-dispatch-groups.sh` (bundle -> group) -- the same source of truth
 # `skills/flow/brainstorm-planner.md`'s Decide step and implement.md's own
 # wave-grouping already use, never re-derived by this guard from the raw
-# markdown. On the decision's `class` `small` or `regular` (read via `flow
+# markdown. On the decision's `class` `micro`, `small` or `regular` (read via `flow
 # record decisions -change <name> -C <worktree>`, the last entry's
 # `.decision.class`; a failed read, output that is not JSON, or no class
 # is treated as `big`, and JSON that is not an array of decision rows is a
@@ -93,7 +93,7 @@
 # Exit codes:
 #   0  every gated-per-task reviewer row of this session token is
 #      shape-clean, retry-clean, and bundled per implementer group (and,
-#      on `small`/`regular`, bundled into one dispatch for the whole run)
+#      on `micro`/`small`/`regular`, bundled into one dispatch for the whole run)
 #   1  at least one violation -- each offending key or group named on
 #      stderr
 #   2  cannot answer at all -- missing arguments, a non-directory

@@ -152,7 +152,12 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 		{"case 6: two original bundles on class small exit 1",
 			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok), decisions: `[{"decision":{"class":"small"}}]`}, 1, "",
 			func(string) string {
-				return p + "class 'small' carries 2 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on small/regular\n"
+				return p + "class 'small' carries 2 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular\n"
+			}},
+		{"two original bundles on class micro exit 1 (KAN-854: micro joins small/regular's one-bundle rule)",
+			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok), decisions: `[{"decision":{"class":"micro"}}]`}, 1, "",
+			func(string) string {
+				return p + "class 'micro' carries 2 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular\n"
 			}},
 		{"case 7: two original bundles on class big (default) exits 0",
 			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok)}, 0, trsdOK, nil},
@@ -199,7 +204,7 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok, "task-5-reviewer", r, tok),
 				decisions: `[{"decision":{"class":"big"}},{"decision":{"class":"regular"}}]`}, 1, "",
 			func(string) string {
-				return p + "class 'regular' carries 3 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer task-5-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on small/regular\n"
+				return p + "class 'regular' carries 3 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer task-5-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular\n"
 			}},
 		{"foreign token, other role and a task outside the plan are ignored",
 			trsdCase{dispatches: d("task-1-reviewer", r, tok, "task-3-reviewer", r, "other", "task-3-reviewer", "implementer", tok, "task-9-reviewer", r, tok)}, 0, trsdOK, nil},

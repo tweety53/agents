@@ -205,8 +205,7 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 ```
 
 Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow -->
-directly — `DEFAULT_MODEL` and `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) and the resolved worktree
-count (per **Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`) are
+directly — `DEFAULT_MODEL` and `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) are
 already in scope from this run's own earlier resolution.
 
 **Questions are the session's own direct `AskUserQuestion` calls**, batched per **The checklist**
@@ -259,8 +258,6 @@ the plan ready (**Resuming at `STARTED`** above) and implements on a fresh conte
 
 Both cases rest on **Decide** (`skills/flow/brainstorm-planner.md`): a run resumed at `STARTED` reads
 `flow record decisions -change <name>` and follows the newest row rather than re-rolling, or
-re-runs the Decide step alone when none exists yet; a fix run's `flow.document-fix`
-(`skills/flow/implement.md`) hands the appended plan through the same Decide step, re-grouping the
-review panel on the same name-derived `bundle_roll`, and recording a second row whose rolls — being
-name-derived — stay identical to the first, so only `class`, `groups` (the appended plan's bundles)
-and a free grouping's shape can change.
+re-runs the Decide step alone when none exists yet. A fix run re-decides its appended plan as a
+second row under **3. Documenting a fix, before implementing it** (`skills/flow/implement.md`),
+canonical there because a fix run never loads this file.

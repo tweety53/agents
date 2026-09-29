@@ -21,8 +21,10 @@
 #   tasks     = count of column-0 `- [ ] <n>.` / `- [x] <n>.` lines
 #   files     = size of the union of every task's `**Files:**` backticked
 #               paths
-#   repos     = the <repos> argument, verbatim — the planner resolves the
-#               worktree set, this script only classifies it
+#   repos     = the <repos> argument, verbatim — the number of distinct
+#               repository roots the plan's **Files:** fall under, which the
+#               planner counts (brainstorm-planner.md's Decide); this script
+#               only classifies it
 #   migration = any **Files:** path under stats/internal/store/migrations/
 #               or ending .sql
 #   spec      = any **Files:** path under spectre/specs/

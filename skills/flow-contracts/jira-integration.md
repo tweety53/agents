@@ -148,6 +148,14 @@ only when a candidate was actually found, with anything but an explicit yes taki
 and the run continuing regardless. Both exist for the same reason — a write aimed at an issue this
 pipeline did not choose — and neither ever gates a state write.
 
+**`flow jira transition` is not this pipeline's transition path.** The command fires the same
+four-position, forward-only table through flowd (KAN-571), but only on a daemon configured with
+`FLOWD_JIRA_SITE`, `FLOWD_JIRA_EMAIL` and `FLOWD_JIRA_TOKEN`, and it cannot ask: an unrecognised
+status exits 1 with the status named on stderr — this section's default **No**, never its **Yes**.
+No `/flow*` command calls it; every transition in **Transitions** above runs in the session. A
+caller that wires it in treats that exit 1 as reaching this section and asks once, as above,
+rather than printing it straight as a skip.
+
 ### Never blocking
 
 **No state write, commit, PR, or archive ever depends on a Jira call succeeding.**

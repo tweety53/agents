@@ -31,7 +31,7 @@ contract text across `skills/myflow-do/SKILL.md` and `SKILL-rationale.md`.
 
 ## Stats app and storage — `flow-stats-app`
 
-- **[flow-stats-app]** The workspace port-block free check `workspace-isolation.md` requires is never performed — `prepare-workspace.sh` printed `MYFLOWD_PORT=5423` with no `lsof` probe, and the daemon already is the registry the probe-and-discard loop exists to substitute for — filed: KAN-314
+- **[flow-stats-app]** The workspace port-block free check `workspace-isolation.md` requires is never performed — `prepare-workspace.sh` printed `MYFLOWD_PORT=5423` with no `lsof` probe, and the daemon already is the registry the probe-and-discard loop exists to substitute for — filed: KAN-854
 
 ## Notes on this run
 

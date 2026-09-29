@@ -183,8 +183,9 @@ flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <na
 flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Read `<project>/CLAUDE.md`, `<project>/AGENTS.md` where present, and `<project>/.flow/project.md`'s
-`## lint`, `## test`, `## handoff`, `## self review` and `## default landing route` sections, each
+The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
+Claude Code, `<project>/AGENTS.md` on ZCode); never read either one here. Read
+`<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff`, `## self review` and `## default landing route` sections, each
 read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first
 three, `## handoff` says whether the run stops between them, and `## self review` says whether
 section 5 saves a context bundle.

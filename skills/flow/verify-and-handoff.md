@@ -352,10 +352,11 @@ flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed
 flow record journal-count -change <name> -C <abs-worktree>
 ```
 
-**Produce the handoff's `Costs:` line the same way**, one call per affected worktree:
+**Produce the handoff's `Costs:` line with one call**, against the canonical worktree the ledger
+render above targets — the store keys a change's dispatches by project, and `Costs:` is one line:
 
 ```bash
-flow record cost-status -change <name>
+flow record cost-status -change <name> -C <canonical-worktree>
 ```
 
 It exits 0 always — `unknown` included. Render exactly what it printed.

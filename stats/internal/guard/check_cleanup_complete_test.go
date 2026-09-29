@@ -281,6 +281,21 @@ func TestCheckCleanupComplete(t *testing.T) {
 			ccVerdict(t, r, "LEFTOVER:", "a worktree whose path contains a space is LEFTOVER")
 			ccHas(t, r, real, "the breakdown names the worktree's whole path")
 		}},
+		// KAN-854: a wave-group throwaway copy a run that died mid-wave left
+		// behind is detached, so only its own match finds it.
+		{"2d", func(t *testing.T, f *ccFx) {
+			gitRun(t, f.repo, "worktree", "add", "-q", "--detach", t.TempDir()+"/demo-wave-group-2", "HEAD")
+			r := f.guard(t, "demo")
+			ccVerdict(t, r, "LEFTOVER:", "a surviving wave-group copy is LEFTOVER")
+			ccHas(t, r, "wave-group worktree copy", "a surviving wave-group copy names its row")
+			ccHas(t, r, "demo-wave-group-2", "the breakdown names the copy's path")
+		}},
+		{"2e", func(t *testing.T, f *ccFx) {
+			gitRun(t, f.repo, "worktree", "add", "-q", "--detach", t.TempDir()+"/demo-other-wave-group-2", "HEAD")
+			gitRun(t, f.repo, "worktree", "add", "-q", "--detach", t.TempDir()+"/demo-wave-group-x", "HEAD")
+			f.worktree(t, "spectre/demo-wave-group-3", "demo-wave-group-3")
+			ccVerdict(t, f.guard(t, "demo"), "COMPLETE:", "another change's worktree or a non-numeric group is not this change's wave-group copy")
+		}},
 		{"3", func(t *testing.T, f *ccFx) {
 			gitRun(t, f.repo, "branch", "spectre/demo")
 			r := f.guard(t, "demo")

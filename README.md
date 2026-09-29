@@ -296,8 +296,10 @@ wrapper.
   `<!-- flow:begin -->` / `<!-- flow:end -->` is rewritten; your own notes around it survive.
 - **Hooks are installed, never registered.** The installer prints the `settings.json` (or ZCode
   `~/.zcode/cli/config.json`) snippet and leaves the paste to you.
-- **Subagents read no `CLAUDE.md`,** so every dispatch must point at
-  `~/.claude/rules/agent-baseline.md`; `enforce-agent-baseline.py` denies one that does not.
+- **Whether a subagent reads `CLAUDE.md` depends on the harness and the agent type** — Claude
+  Code passes it to some subagent types and not others, and ZCode's behaviour is unverified — so
+  every dispatch still points at `~/.claude/rules/agent-baseline.md`, the one channel that reaches
+  every subagent; `enforce-agent-baseline.py` denies one that does not.
 
 ### Per project
 

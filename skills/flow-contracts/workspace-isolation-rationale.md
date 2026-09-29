@@ -108,10 +108,6 @@ mitigation for the one cost this contract imposes on an operator: a worktree's p
 project's documented ones, so opening the documented URL out of habit reaches the main checkout's
 applications — a different change's work, answering plausibly and about the wrong thing.
 
-It narrows a race, it does not close one. A port observed
-free can be bound by anything on the machine between the check and the bind, and no amount of
-re-checking removes that window.
-
 ## The cache index
 
 This is the load-bearing half, and it is stated

@@ -155,6 +155,18 @@ overrides:
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
 dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
+**Fill every template placeholder from this table — never by reading the template.** Each is
+substituted in the dispatch prompt with the value named here:
+
+| Placeholder | Template | The parent substitutes |
+|---|---|---|
+| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+| `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory the dispatch context bundle reads (`<changeRoot>`, or a satellite's canonical change directory) |
+| `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
+| `[PRINCIPLES_PATH]` | principles | as the Principles section below resolves it |
+| `[STANDARDS_PATHS]` | principles | as the Principles section below resolves it; empty when none resolve |
+| `[GLOBAL_CONSTRAINTS]` | principles | the literal `the design.md section of your context bundle` — never a selection or paraphrase; on the CONTEXT BUNDLE FAILURE continue path, the absolute path of the change's `design.md`, or `none` when it has none |
+
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts.
 `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
 for this run. Every slot in this table

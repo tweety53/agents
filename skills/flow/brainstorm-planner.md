@@ -430,7 +430,8 @@ flow tasks count -C <worktree> <name>
 ### Decide
 
 Run `plan-class.sh <changeRoot>/tasks.md <repos> <abs-worktree> <merge-base>` — `<repos>` is the
-size of the resolved worktree set, `<abs-worktree>` the worktree `flow.kickoff` created, and
+number of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps`
+table; `1` when every path is in this one), `<abs-worktree>` the worktree `flow.kickoff` created, and
 `<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the
 script classify `micro` (**Micro** below), and the two-argument form stays valid and never
 classifies `micro`. Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls.

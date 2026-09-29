@@ -38,11 +38,15 @@
 # Reporting a leftover is the whole point: run 2 previously assumed its own
 # removals succeeded.
 #
-# THE SIX ROWS, AND WHY THEY ARE THESE SIX. The registry in
-# skills/flow-contracts/pipeline.md owns the list; the rows whose lifetime
-# ends at run 2 are the worktree, the local branch, the remote branch, the
-# change directory, the proposal artifact source and the workspace database and
-# bucket. The per-task diffs, the panel record and the session ledger are not
+# THE SEVEN ROWS, AND WHY THEY ARE THESE SEVEN. The registry in
+# skills/flow-contracts/artifacts-registry.md owns the list; the rows whose
+# lifetime ends at run 2 are the worktree, the local branch, the remote branch,
+# the change directory, the proposal artifact source and the workspace database
+# and bucket — plus the wave-group throwaway worktree copy, whose lifetime is
+# meant to end inside the implement phase but which a run that died mid-wave
+# leaves for run 2. It is detached, so the branch match that finds the worktree
+# row never sees it; it is matched instead on git's own worktree list as a
+# detached entry whose last path element is `<name>-wave-group-<digits>`. The per-task diffs, the panel record and the session ledger are not
 # checked separately because the registry removes them WITH the worktree — a
 # surviving one of those is a surviving worktree, already reported. The state
 # file is not checked at all: its row says it is never removed, so its presence
@@ -55,8 +59,8 @@
 # which index to look at. A row this guard invented a check for would be
 # checking an index it guessed.
 #
-# THE SIXTH ROW IS ANSWERED BY ASKING, NOT BY LOOKING, and it is the only one
-# that is. The other five live in this repository's own git bookkeeping and
+# THE WORKSPACE ROW IS ANSWERED BY ASKING, NOT BY LOOKING, and it is the only one
+# that is. The other six live in this repository's own git bookkeeping and
 # filesystem, which this guard can read directly. A workspace's database and
 # bucket live inside services this guard knows nothing about, and it must stay
 # project-agnostic — it can hold neither `psql -l` nor any project's
@@ -112,6 +116,7 @@
 # registry-row-checked: Change directory
 # registry-row-checked: Proposal artifact source
 # registry-row-checked: Workspace database and bucket
+# registry-row-checked: Wave-group throwaway worktree copy
 # registry-row-not-checked: Per-task and review diffs — removed with the worktree
 # registry-row-not-checked: Panel slot verbatim reports — removed with the worktree
 # registry-row-not-checked: Panel record — lives in the store; nothing removes it

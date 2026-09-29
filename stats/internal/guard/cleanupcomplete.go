@@ -156,7 +156,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "check-cleanup-complete: cannot list the worktrees of %s — cannot determine anything\n", repo)
 		return 2
 	}
-	var wts []string
+	var wts, copies []string
 	wt := ""
 	// The path is the whole rest of the `worktree ` line, never a
 	// whitespace-split field: `worktree list --porcelain` emits the path raw, so
@@ -177,10 +177,17 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 			if f := strings.Fields(b); len(f) > 0 && f[0] == "refs/heads/spectre/"+name {
 				wts = append(wts, wt)
 			}
+		} else if l == "detached" && ccWaveGroupCopy(wt, name) {
+			copies = append(copies, wt)
 		}
 	}
 	if len(wts) > 0 {
 		add(fmt.Sprintf("worktree(s) still registered for spectre/%s at %s", name, strings.Join(wts, ", ")))
+	}
+	// The wave-group throwaway copies (KAN-854) are detached, so the branch
+	// match above never sees one; a run that died mid-wave leaves them for run 2.
+	if len(copies) > 0 {
+		add(fmt.Sprintf("wave-group worktree copy(ies) of spectre/%s still registered at %s", name, strings.Join(copies, ", ")))
 	}
 
 	// Rows two and three — the local branch and the remote branch. The remote
@@ -917,4 +924,17 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 	}
 	out, _ = os.ReadFile(scratch.Name())
 	return out, rrExitCode(cmd.ProcessState), timedOut, true
+}
+
+// ccWaveGroupCopy reports whether path is a wave-group throwaway copy of
+// change name's apply worktree: implement.md's `<worktree>-wave-group-<g>`,
+// matched on the path's last element as `<name>-wave-group-` followed by
+// digits and nothing else. The caller only asks for a DETACHED entry -- the
+// copy is created with --detach -- so a change actually named
+// `<name>-wave-group-3`, whose apply worktree carries a branch, is never
+// read as this change's copy. The path is read from git's own worktree
+// list, never guessed from a layout.
+func ccWaveGroupCopy(path, name string) bool {
+	g, ok := strings.CutPrefix(path[strings.LastIndex(path, "/")+1:], name+"-wave-group-")
+	return ok && g != "" && strings.Trim(g, "0123456789") == ""
 }

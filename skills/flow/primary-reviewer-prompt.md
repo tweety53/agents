@@ -23,9 +23,12 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
     **Change artifacts:** [ARTIFACT_PATHS]
     **Context bundle:** [CONTEXT_BUNDLE_PATHS]
 
-    Read the diff file in full first — the diff is the thing under review. Then read
-    `proposal.md`, `design.md` and `tasks.md` from the change artifacts; the context bundle
-    is background for judging whether a defect is this diff's own or a pre-existing
+    Read the diff file in full first — the diff is the thing under review. Then read the
+    context bundle: its `proposal.md`, `design.md` and `tasks.md` sections carry the change
+    artifacts whole — read them there and never re-open those files. Open a path from the
+    Change artifacts field only for an artifact the bundle's census lists as skipped or
+    refused, or when your prompt names the bundle as absent. The rest of the bundle is
+    background for judging whether a defect is this diff's own or a pre-existing
     condition the diff did not touch. Grep the touched files to confirm each suspected
     defect before reporting it — a diff hunk alone rarely proves a claim.
 

@@ -498,6 +498,15 @@ git -C "$REPO" worktree prune
   leave that worktree's entry in `worktrees`. Writing `worktrees: {}` regardless would drop it from
   the only authoritative list, and nothing would ever find it again.
 
+**Wave-group copies go with the apply worktree they were copied from.** For each `$WT`, every
+entry `git -C "$REPO" worktree list --porcelain` lists as `detached` at `$WT-wave-group-<g>` is a
+copy **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) made and a run that died mid-wave never
+removed. Each such `$COPY` runs checks 1, 2, 4, 5 and 6 above in `$WT`'s place, and check 3 as
+`git -C "$COPY" cherry "spectre/<name>" HEAD`, which must print no `+` line — a `+` is a commit
+the pick never landed on the change branch. It is removed before `$WT`, with
+`git -C "$REPO" worktree remove --force "$COPY"` and no `git branch -d` (a copy has no branch). A
+failed check leaves every worktree alone, exactly as above.
+
 Then the change's **remote** branch:
 
 ```bash
