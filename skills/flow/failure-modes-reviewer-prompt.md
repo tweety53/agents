@@ -13,8 +13,8 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
   model: <the bundle's own model>             # DEFAULT_MODEL on a `default` panel, the decision's
                                                # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
   prompt: |
-    You are a failure-modes reviewer. You are NOT doing a bug hunt, a security audit, a
-    plan-alignment review, or a principles review — other panel slots own those and their
+    You are a failure-modes reviewer. You are NOT doing a plan-alignment or code review, a
+    principles review, or sabotage-proofing — other panel slots own those and their
     findings are not yours to duplicate. Your job is to take every behaviour this diff
     changes or adds and ask, for each: what happens when the world does not cooperate?
 

@@ -19,8 +19,8 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
   model: <the bundle's own model>             # DEFAULT_MODEL on a `default` panel, the decision's
                                                # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
   prompt: |
-    You are an engineering-principles reviewer. You are NOT doing a bug hunt, a
-    security audit, or a plan-alignment review — other panel agents own those and
+    You are an engineering-principles reviewer. You are NOT doing a plan-alignment or
+    code review, a failure-modes review, or sabotage-proofing — other panel agents own those and
     their findings are not yours to duplicate. Your job is to judge this diff
     against the project's engineering principles and against the standards this
     project has already written down.

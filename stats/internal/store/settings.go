@@ -24,7 +24,7 @@ var ValidModels = map[string]bool{
 }
 
 // ValidReviewers is the fixed vocabulary a flow_settings.reviewers entry
-// may take. The panel dispatches exactly the resolved list; these four ids
+// may take. The panel dispatches exactly the resolved list; these ids
 // no longer split into a required subset and an on-demand-only subset
 // (design.md's roster-from-settings decision superseded that split).
 // "simple-reviewer" was retired once primary absorbed its brief, and
@@ -33,8 +33,10 @@ var ValidModels = map[string]bool{
 // security raising no finding and bugbot the lowest yield of any slot;
 // "failure-modes" was promoted from the experimental exp-failure-modes
 // prompt. The store rejects every retired id like any other unknown id.
-// Only writes are validated: GetSettings and the record/aggregate paths
-// read historical rows carrying a retired id unchanged.
+// Only writes are validated: the record/aggregate paths read historical
+// rows carrying a retired id unchanged, and a stored flow_settings list
+// had its retired ids stripped once by
+// 0033_flow_settings_drop_retired_reviewers.sql.
 var ValidReviewers = map[string]bool{
 	"primary":       true,
 	"principles":    true,

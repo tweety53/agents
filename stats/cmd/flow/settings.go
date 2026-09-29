@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -114,7 +115,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	var f settingsConnFlags
 	registerSettingsConnFlags(fset, &f)
 	model := fset.String("model", "", "the default model, e.g. opus (required)")
-	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from primary,principles,failure-modes,mutation (required)")
+	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from "+strings.Join(slices.Sorted(maps.Keys(store.ValidReviewers)), ",")+" (required)")
 	selfReviewModel := fset.String("self-review-model", "", "self-review's model, e.g. opus; empty resolves to the store's default")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {

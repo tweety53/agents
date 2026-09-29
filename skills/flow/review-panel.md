@@ -330,9 +330,8 @@ two dispatches cannot hold shrinks to what they hold.
 design.md's **Bundled dispatch › Grouping** table, unchanged, no override — or `free` — the
 planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On a `default` panel,
 the settings-store roster is grouped deterministically by the same static logic, no roll and no
-planner: reading roles (`primary`, `principles`, `failure-modes`) fill the first
-dispatch in that order up to three, the mutating role (`mutation`) the
-second; a list the two cannot hold is truncated in store order, and the truncation is
+planner: the floor roles (`primary`, `principles`) fill the first
+dispatch, every other role the second, up to three, the mutating role (`mutation`) last; a list the two cannot hold is truncated in store order, and the truncation is
 recorded with `flow record pass -round <round>`.
 
 **One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with

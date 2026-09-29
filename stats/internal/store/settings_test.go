@@ -203,3 +203,39 @@ func TestSettingsStore_RejectsRetiredBugbotAndSecurity(t *testing.T) {
 		}
 	}
 }
+
+// TestSettingsStore_MigrationDropsRetiredReviewers asserts
+// 0033_flow_settings_drop_retired_reviewers.sql strips every retired slot
+// id from a flow_settings row written before the retirement, so no run
+// resolves a slot with no prompt behind it and /flow-settings' "keep
+// current" re-writes a list PutSettings accepts.
+func TestSettingsStore_MigrationDropsRetiredReviewers(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO flow_settings (id, default_model, self_review_model, reviewers)
+		VALUES (TRUE, 'opus', '', '["primary","bugbot","principles","security","code-review-low","simple-reviewer","mutation"]')
+		ON CONFLICT (id) DO UPDATE SET reviewers = EXCLUDED.reviewers
+	`); err != nil {
+		t.Fatalf("seed legacy row: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM schema_migrations WHERE filename = '0033_flow_settings_drop_retired_reviewers.sql'`); err != nil {
+		t.Fatalf("unrecord migration: %v", err)
+	}
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("RunMigrations: %v", err)
+	}
+
+	got, err := st.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	want := []string{"primary", "principles", "mutation"}
+	if !reflect.DeepEqual(got.Reviewers, want) {
+		t.Errorf("reviewers = %v, want %v", got.Reviewers, want)
+	}
+	if err := st.PutSettings(ctx, got); err != nil {
+		t.Errorf("PutSettings(migrated row) = %v, want it accepted", err)
+	}
+}
