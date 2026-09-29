@@ -109,8 +109,8 @@ list — every remaining command in the order above still runs.
 
 **Recording.** One `dispatches` row per worktree, `-role verifier -key verify -model <parent
 model> -effort <parent effort> -agent-id inline`, suffixed `-<worktree basename>` when this
-run's resolved set holds more than one worktree — the same convention **Inline — the parent
-implements** (`skills/flow/implement.md`) uses for implementer and panel-fix rows. `begin` is
+run's resolved set holds more than one worktree — the same convention
+**The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows. `begin` is
 recorded before the first command in the list; `end` after the `## Report` is written, carrying
 `-outcome completed`, or `-outcome blocked -cause <cause>` on the `## Question` handback above —
 `test-failure` for a command of the branch that failed twice, `environment` where the
