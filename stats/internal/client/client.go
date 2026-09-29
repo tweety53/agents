@@ -154,10 +154,10 @@ func (c *Client) PutChange(ctx context.Context, project, name string, body []byt
 }
 
 // settingsURL is flowd's harness-wide settings endpoint -- GET/PUT
-// /api/v1/settings, per design.md's model-default-sonnet and
-// review-panel-fixed-3 decisions. Unlike every other endpoint above, it
-// carries no project or change identity: flow_settings holds exactly one
-// row for the whole harness (internal/store/settings.go).
+// /api/v1/settings, per design.md's review-panel-fixed-3 decision.
+// Unlike every other endpoint above, it carries no project or change
+// identity: flow_settings holds exactly one row for the whole harness
+// (internal/store/settings.go).
 func (c *Client) settingsURL() string { return c.baseURL + "/api/v1/settings" }
 
 // Settings is the wire shape GET/PUT /api/v1/settings exchange, copied
@@ -165,13 +165,11 @@ func (c *Client) settingsURL() string { return c.baseURL + "/api/v1/settings" }
 // the same boundary reason StateBoardRow is copied rather than imported:
 // the CLI knows only HTTP, never the daemon's internal packages.
 type Settings struct {
-	DefaultModel    string   `json:"defaultModel"`
-	SelfReviewModel string   `json:"selfReviewModel"`
-	Reviewers       []string `json:"reviewers"`
+	Reviewers []string `json:"reviewers"`
 }
 
 // ErrSettingsRejected means the store was reached and refused a
-// PutSettings call with a 400 -- an unknown model or reviewer value, named
+// PutSettings call with a 400 -- an unknown reviewer value, named
 // in the wrapped error text exactly as internal/api/settings.go's put
 // handler writes it. Like ErrRefused and ErrNotFound, this is the store
 // answering, not the store being unreachable: a caller mistake with no

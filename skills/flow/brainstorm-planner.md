@@ -452,8 +452,9 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    chosen per **Model and effort** below. The implementer pair is every implementer group's
    default (step 4). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
    round does — repair named findings against their reproducers, usually a narrower job than the
-   implementation — so its effort may differ from the implementer pair's, its `reason` saying
-   why. Both recorded `skipped — inline` when step 1 is inline.
+   implementation — so it may differ from the implementer pair, its `reason` saying why. Both
+   recorded `skipped — inline` when step 1 is inline, where the parent applies panel fixes on its
+   own model (`skills/flow/implement.md`).
 3. **review panel** — roster, compact/experimental, rerun policy, the **rerun pair**, and its
    **grouping** —
    `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a
@@ -471,8 +472,8 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    below, keyed on `class` and the rolls. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
    fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
    findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is
-   `DEFAULT_MODEL` like every pair (**Model and effort** below), and its `effort` is `low`, fixed,
-   since a re-run reads a delta to confirm a fix and must be short and fast.
+   chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
+   delta to confirm a fix and must be short and fast.
 4. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
    `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
@@ -505,11 +506,24 @@ itself, the verify stage, or the self-review.
 
 #### Model and effort
 
-Every pair a Decide step assigns — the implementer, the fixer, each panel dispatch, the rerun
-pair, each implementer group — takes `model` `DEFAULT_MODEL` (**Model resolution**,
-`skills/flow/SKILL.md`), never another model; the decision varies the effort only. Pairs may
-repeat — two dispatches, or a pass-1 dispatch and the rerun pair, on the same model and effort is
-not a defect. The rerun pair's effort is fixed at `low` (step 3); every other `effort` is the
+**This section is canonical for how a dispatch's model is chosen.** Every pair a Decide step
+assigns — the implementer, the fixer, each panel dispatch, the rerun pair, each implementer group
+— carries a planner-chosen `model`, one of `opus` or `sonnet`, within these bounds:
+
+- **implementer, fixer and each implementer group** — `opus` by default; `sonnet` only for simple,
+  predictable work near-certain to succeed on the first try, the pair's `reason` saying so;
+- **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
+  performance-sensitive code — `opus`, always;
+- **every pass-1 panel dispatch** — `opus`, always;
+- **every gated per-task reviewer bundle** — `opus`, always, at its group's effort (`high` in place
+  of `xhigh`); it is a first-pass review too (`skills/flow/implement.md`);
+- **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
+
+A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
+**review-panel.md**'s no-decision dispatch, the tooling analyst — runs on the literal `opus`. `flow record
+decision` refuses a decision whose pairs name any other model. Pairs may repeat — two dispatches,
+or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. The rerun
+pair's effort is fixed at `low` (step 3); every other `effort` is the
 planner's own choice, one of `low`/`medium`/`high` — and, for the implementer pair and an
 implementer group alone, `xhigh` — decided from what that dispatch will actually
 do: the complexity of its tasks, the time and space
@@ -549,13 +563,10 @@ recorded),
 skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
-`groups_reason` fields, or all four `null` when `execution` is inline), `resolved` (an object
-`{model, source}` — the `DEFAULT_MODEL` **Model resolution** (`skills/flow/SKILL.md`) resolved
-this run and where it resolved from, `source` one of `project`/`store`/`fallback`, written every
-run that resolves, beside `rolls`; a session-instruction override leaves `resolved` as resolved
-and lands in `overrides` as today), `parent` (the parent's own
+`groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
-overrides to a *result*; empty unless one was given). Print this exact shape as the
+overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was
+given). Print this exact shape as the
 run's own output once the Decide step completes, filling every cell from what was just decided:
 
 ```markdown
@@ -606,7 +617,7 @@ appear in a run, never printed twice:
 
 ```text
 planning:  inline, this session (<the model named in this session's own system prompt>)
-models:    default <DEFAULT_MODEL> (<MODEL_SOURCE>) · reviewers <REVIEWERS>
+reviewers: <REVIEWERS>
 ```
 
 ```bash

@@ -169,10 +169,9 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
 **Load `skills/flow-contracts/jira-integration.md`.** **Transition the issue to Done** after the state write, per **Jira integration**
 (`skills/flow-contracts/jira-integration.md`). A run that stopped at step 7 transitions nothing.
 
-9. **Run self-review.** The procedure — skippable per run with running it the default, fetching
-   input as a served bundle rather than an inline re-read, one combined reasoning pass across all
-   five angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the
-   branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it.
+9. **Save the self-review context bundle.** Self-review is always deferred: this step writes and
+   lands the bundle, and `/flow-self-review` is the only reasoning pass — **Run 2 — the branch is
+   merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it.
    What is specific to *executing* it here: `flow self-review bundle -change <name>` fetches the
    whole bundle — flowd serves the ledger and panel record from the store, falling back, per
    record, to the copies step 4 committed onto the archive branch when the store yields no render
@@ -182,81 +181,16 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    the finish-run commits' git log — so nothing is rendered into the landing worktree first and no
    landing-worktree path is passed in or baked into the bundle.
 
-   Run `project-get.sh <main-checkout> "self review"` (exit 1: absent), take the body's first
-   non-blank line — trimmed, backticks removed — and match it against the three literals `run` /
-   `skip` / `defer` byte-for-byte per **Project configuration**
-   (`skills/flow-contracts/project-configuration.md`); lines below it are documentation. A head
-   matching none is reported by name and dropped, resolving as absent. `skip`
-   ends step 9 here, the handoff's `Self-review` line reading `skipped — project default`. `run`
-   proceeds to the reasoning pass below with no prompt. `defer` proceeds straight to the bundle
-   write below, with no prompt and no reasoning pass.
-
-   When the key is absent, the skip prompt fires first:
-
-   > **Run self-review for this change?**
-   > - **Yes — run it** *(default, recommended)*
-   > - **Defer — save the bundle for `/flow-self-review`**
-   > - **No — skip**
-
-   An explicit **No** stops step 9 here; the handoff's `Self-review` line reads `skipped`. A session
-   with no interactive channel to present this prompt still runs self-review, exactly as an explicit
-   **Yes** would.
-
-   **On `defer`** — by key or by the prompt's third option — fetch the bundle exactly as above
-   (`flow self-review bundle -change <name>`) and write its stdout, then `## Session narrative`
-   (one paragraph this session writes for run 2 itself — the archived `design.md` and
-   `narrative.md` are bundle sections now, and a change predating the narrative rule has the
-   bundle report it skipped), to
-   `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`; commit
-   with the report's own landing script, path and subject swapped:
+   Write the bundle's stdout, then `## Session narrative` (one paragraph this session writes for
+   run 2 itself — the archived `design.md` and `narrative.md` are bundle sections now, and a change
+   predating the narrative rule has the bundle report it skipped), to
+   `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, and commit
+   it on `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:
 
    ```bash
    land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
      "docs(self-review): <name> self-review context bundle" \
      docs/self-review/<name>-context.md
-   ```
-
-   Then straight to the `flow stage end … flow.self-review -outcome completed` mark below; no
-   reasoning pass runs, and the handoff's `Self-review` line reads `deferred —
-   docs/self-review/<name>-context.md`.
-
-   **On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass
-   itself, inline — no subagent, no dispatch — on whatever model it is already on.** Feed the bundle's content and the
-   five angles cited below directly into this session's own reasoning, then continue straight into
-   the filing-and-rating prompt below — the same session already driving `AskUserQuestion`.
-
-   The five angles and their labels are **Run 2 — the branch is merged**
-   (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for them.
-
-   **One combined pass** — never five separate dispatches. Every finding is explained in the message
-   body first, before any prompt fires. The filing ask and the rating are **one `AskUserQuestion`
-   call** — one multi-select question per three findings, each option `<label>: <finding>`, the
-   rating last:
-
-   > **File any of these findings as Jira issues?**
-   > - **`<label>`: <finding 1>**
-   > - **`<label>`: <finding 2>**
-   > - **`<label>`: <finding 3>**
-   > - **None — file nothing** *(default, recommended)*
-   >
-   > **Rate this flow run:**
-   > - **5 — excellent**
-   > - **4 — good**
-   > - **3 — fine**
-   > - **2 — rough** — a `1` is typed through the tool's free-text "Other"
-
-   More than nine findings roll the overflow into one further call without the rating.
-
-   Write `<project>/docs/self-review/<name>-self-review.md`, physically under `<landing-worktree>`
-   — one section per angle, all five present; each finding one line naming its angle's label, the
-   finding, and its disposition;
-   an angle with no findings carrying an explicit none-marker — plus the rating — and commit it on
-   `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:
-
-   ```bash
-   land-self-review-report.sh "<landing-worktree>" "chore/archive-<name>" \
-     "docs(self-review): <name> self-review report" \
-     docs/self-review/<name>-self-review.md
    ```
 
 A branch mismatch or a commit that FAILS is reported and stops this commit. A staged index
@@ -270,7 +204,7 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
 
 10. **Push the archive branch and land it.** The procedure — the two-row route table keyed on how
     this run of `archive.md` was reached, the guarantee that the archive commit and step 9's
-    self-review report or context bundle always land together — on the merge-and-push
+    self-review context bundle always land together — on the merge-and-push
     continuation, in the one push of `<base>` that also carries run 1's merge — and the
     failure-reporting rules —
     is **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step
@@ -305,7 +239,7 @@ flow stage end -command '/flow' -stage flow.push-archive -outcome completed <nam
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
-**Self-review:** <path> (rating: <n>/5) | deferred — docs/self-review/<name>-context.md | skipped | skipped — project default
+**Self-review:** deferred — docs/self-review/<name>-context.md
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
@@ -348,5 +282,4 @@ record, so `HELD:` and the guard's exit 2 both stop `/flow`.
 - **Never** `git add` the state file, and never move it into the archive.
 - **Never** let a Jira call block the archive — one skipped-with-reason line.
 - **Never** let self-review block, delay, or undo the `FINISHED` write.
-- **Never** ask the self-review skip prompt or the filing-and-rating prompt, nor resolve the
-  `## self review` key, before `FINISHED` has been written.
+- **Never** fetch or write the self-review context bundle before `FINISHED` has been written.

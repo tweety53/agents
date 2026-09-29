@@ -184,7 +184,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// machine, a syntax error, a signal); this validator is in-process
 		// code with no such way to stop short, and the shim is what refuses
 		// when flow-guard itself cannot run.
-		p := wiValidate(cfg, recs, mkSpace(utf8Locale), utf8Locale, printRows)
+		p := wiValidate(cfg, recs, wiSpace(utf8Locale), utf8Locale, printRows)
 		if len(p.viol) > 0 {
 			// Sanitized at the ONE point they reach stdout, rather than at each
 			// of the twenty places a cell is interpolated into a message: a
@@ -660,4 +660,11 @@ func (p *wiParse) commandRow(line int, cells []string) {
 			p.violation(line, "command row `"+verb+"`: the command names "+tok+", and only `<id>` and `<id_underscored>` are substituted in a command — the pipeline would hand the shell a literal nobody intended, so the row is dropped")
 		}
 	}
+}
+
+// wiSpace is awk's and sed's [[:space:]]: the ASCII whitespace but newline,
+// plus U+00A0 under a UTF-8 locale (measured on macOS; U+0085, U+2000–U+200A
+// and U+3000 are not matched).
+func wiSpace(utf8 bool) func(rune) bool {
+	return func(r rune) bool { return strings.ContainsRune(gdcSpace, r) || (utf8 && r == ' ') }
 }

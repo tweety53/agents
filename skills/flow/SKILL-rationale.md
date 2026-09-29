@@ -23,11 +23,6 @@ records.
 
 ## SKILL.md — Model resolution
 
-> **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer <!-- refs-guard:allow -->
-> (`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix
-> subagent (`skills/flow/review-panel.md`) — per design.md's `model-default-sonnet`: one default,
-> chosen once per run, not three per-role defaults.
-
 > An empty list can never reach this table from `/flow-settings`: `<agents repo>/stats/cmd/flow/settings.go`'s
 > `settings set` refuses an empty `-reviewers` as a caller mistake before any write reaches the
 > store. The empty-list row exists because this resolver must still define a value for a state the
@@ -53,8 +48,8 @@ records.
 
 > `planningEffort` and `models.default` are written `null` and stay `null` for the life of the
 > change: `/flow` asks no planning-effort or model question on a creating run
-> (`ask-options-removed`), and models are resolved per run from the settings store
-> (`model-default-sonnet`, `settings-scope`), not recorded per change. `artifactUrl` stays `null` —
+> (`ask-options-removed`), and models are chosen per dispatch by the Decide step
+> (`planner-chooses-models`), not recorded per change. `artifactUrl` stays `null` —
 > `/flow` publishes no proposal artifact (`publish-proposal-removed`).
 
 ## integrate.md — preamble
@@ -500,8 +495,6 @@ it re-read about 24k lines of branch diff and found only Minors; the catches rec
 > A round may not chunk freely: its chunk count is bounded by
 > `ceil(findings raised in earlier rounds / 10)` — a bound, not a target, so a well-formed
 > per-finding sequence stays caught.
-
-> **Dispatch it on `DEFAULT_MODEL`** (design.md's `model-default-sonnet`).
 
 > A
 > re-run that finds a fix incomplete — kan-512's round 1 catching task 10's own correction as F4,

@@ -1,16 +1,14 @@
 ---
 name: flow-settings
-description: Read and change the harness-wide flow defaults — default model, reviewer slots and self-review model. Standalone, not a pipeline stage. Use for /flow-settings.
+description: Read and change the harness-wide flow defaults — the reviewer slots. Standalone, not a pipeline stage. Use for /flow-settings.
 allowed-tools: Bash(flow:*), Bash(jq:*)
 license: MIT
 compatibility: Requires the flow CLI and jq.
 ---
 
-Read and change the harness-wide settings record `flow settings get`/`set` manage: the default
-model (`defaultModel`) every `/flow` run's implementer, fixer and reviewer roles use unless a
-session overrides it, the reviewer slots (`reviewers`) the review panel dispatches by default, and
-the stored `selfReviewModel`, which no run reads — the archive-phase self-review pass runs
-inline, on whatever model the archive session is already on (step 9, `skills/flow/archive.md`).
+Read and change the harness-wide settings record `flow settings get`/`set` manage: the reviewer
+slots (`reviewers`) the review panel dispatches by default. Models are not a setting — the Decide
+step chooses every dispatch's model (**Model and effort**, `skills/flow/brainstorm-planner.md`).
 
 **This is a standalone command, not a pipeline stage.** It takes no change name, reads and writes
 no per-change state file, and marks no `flow stage` call. It changes the harness-wide store, not
@@ -30,35 +28,25 @@ only input is the operator's answers to the questions this skill asks interactiv
 CURRENT="$(flow settings get)"
 ```
 
-`flow settings get` prints one line of JSON: `defaultModel` (a string), `reviewers` (an array of
-strings) and `selfReviewModel` (a string, empty meaning "the store's own default, `fable`"). A
-non-zero exit means the store could not be reached — report the CLI's stderr verbatim and stop;
+`flow settings get` prints one line of JSON: `reviewers` (an array of strings). A non-zero exit means the store could not be reached — report the CLI's stderr verbatim and stop;
 there is no per-harness fallback file for this record the way a per-change state file has one.
 
 Print the current values plainly before asking anything:
 
 ```
 Current flow settings:
-  default model:      <defaultModel, verbatim>
-  reviewers:          <comma-separated list from Reviewers, verbatim>
-  self-review model:  <selfReviewModel, or "(fable — store default)" when empty>
+  reviewers:  <comma-separated list from Reviewers, verbatim>
 ```
 
 Then run step 3's conductor-depth check against the **stored** roster and print its line when it
 fires — a roster saved before the check existed surfaces its gap here too, not only when the
 operator changes something.
 
-### 2. Offer to change each field
+### 2. Offer to change the reviewers
 
-Ask about the three fields the settings store actually holds — `defaultModel`, `reviewers` and
-`selfReviewModel`. Use **AskUserQuestion**, one field at a time, starting from the current value
-read in step 1:
+Ask about the one field the settings store holds, `reviewers`, with **AskUserQuestion**, starting
+from the current value read in step 1:
 
-- **Default model** — offer the harness's known model identifiers, read from
-  `<agents repo>/stats/internal/store/settings.go`'s `ValidModels` map at the time this skill runs,
-  plus "keep current". This is the one value every `/flow` run's implementer, fixer and reviewer
-  roles default to; a session can still override it via plain-language instruction, recorded per-run
-  rather than here.
 - **Reviewers** — offer the exact reviewer-slot ids read from `<agents repo>/stats/internal/store/settings.go`'s
   `ValidReviewers` map at the time this skill runs, never a copy of that list written into this
   file — `ValidReviewers` is that store's own enum and the only place it is canonical. **This list is
@@ -70,30 +58,19 @@ read in step 1:
   set as a multi-select seeded with the current list, plus "keep current", and say plainly when
   asking that the selection made here becomes every subsequent run's panel, not just this one. The
   CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags
-  check (`<agents repo>/stats/cmd/flow/settings.go`'s `-model and -reviewers are both required`
-  check) exits 2, distinct from the store's own
+  check (`<agents repo>/stats/cmd/flow/settings.go`'s `-reviewers is required` check) exits 2, distinct from the store's own
   exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero
   slots fails at step 3 with exit 2, rather than turning review off.
-- **Self-review model** — offer the same `ValidModels` set as Default model, plus an explicit
-  **"Store default (fable)"** option (maps to the empty string, `-self-review-model ""`) and "keep
-  current". No run reads this field — the archive session runs the 5-angle retrospective inline,
-  on whatever model it is already on (step 9, `skills/flow/archive.md`) — so its value changes
-  nothing; it is still asked because `settings set` writes the whole record.
-If the operator keeps all three fields unchanged, say so and stop — do not call `settings set`
-for a no-op write.
+If the operator keeps the list unchanged, say so and stop — do not call `settings set` for a no-op
+write.
 
 ### 3. Write the change
 
 ```bash
-flow settings set -model "<defaultModel>" -reviewers "<comma,separated,list>" -self-review-model "<selfReviewModel>"
+flow settings set -reviewers "<comma,separated,list>"
 ```
 
-`-model` and `-reviewers` are required by the CLI even when only one field changed — `settings set`
-writes the whole record, replacing what was recorded before. `-self-review-model` is optional on
-the CLI (omitting it means empty), but this skill always passes it explicitly — "keep current"
-resolves to the value read in step 1, exactly as the other fields do — so a no-op run of this skill
-never silently resets it to empty. Pass the value just confirmed for each field that changed, and
-the value read in step 1 for each field that did not.
+`settings set` writes the whole record, replacing what was recorded before.
 
 **Before the write, tell the operator which slots cannot dispatch as themselves here.** The
 roster's slots spawn as **The roster** (`skills/flow/review-panel.md`) spawns them — on
@@ -110,12 +87,11 @@ affected slot in roster order:
 The write proceeds either way: never a gate. Never
 block the save on it and never drop a slot to silence it.
 
-A non-zero exit means the store rejected the write (an invalid model or reviewer name) or could not
+A non-zero exit means the store rejected the write (an invalid reviewer name) or could not
 be reached. Print the CLI's stderr verbatim — it names the specific bad value on a rejection — and
 do not report success.
 
-On success, report exactly what changed against the values read in step 1: which field(s) changed,
-old value → new value. A field left unchanged is not mentioned as a change.
+On success, report exactly what changed against the value read in step 1: old list → new list.
 
 ## Guardrails
 

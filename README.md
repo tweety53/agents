@@ -50,7 +50,7 @@ asked. No command takes a flag.
 | `/flow-fast <name>` | Lighter variant: worktree, class-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
-| `/flow-settings` | Global default model and reviewer slots |
+| `/flow-settings` | Global reviewer slots |
 | `/flow-self-review <name>` | Runs a self-review pass a run deferred |
 
 ## How the pipeline works
@@ -128,9 +128,8 @@ then prints a `## Decision` table and asks **Proceed to implementation?** before
    record, the verify stage and self-review.
 
 The choice is saved to `.superpowers/sdd/decision.json` in the worktree and recorded in `flowd`.
-The model never varies: every dispatch runs on `DEFAULT_MODEL`, and only the effort changes.
-Canonical: **Decide** (`skills/flow/brainstorm-planner.md`), **Model resolution**
-(`skills/flow/SKILL.md`).
+The Decide step also picks every dispatch's model.
+Canonical: **Decide** and **Model and effort** (`skills/flow/brainstorm-planner.md`).
 
 ### Level 1 — the stages of each command
 
@@ -248,7 +247,7 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   shown as *unavailable*, never estimated.
 - **Records.** Review findings with their reproducers, verdicts, subagent dispatches, planner
   decisions and incidents (`flow record`). The guards above read these, not Markdown.
-- **Settings.** The default model and reviewer slots, set by `/flow-settings` (`flow settings`).
+- **Settings.** The default reviewer slots, set by `/flow-settings` (`flow settings`).
 - **Jira.** Forward-only status changes (To Do → In Progress → In Review → Done), with retries
   (`flow jira transition`). Off until the three `FLOWD_JIRA_*` variables are set.
 

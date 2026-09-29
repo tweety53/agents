@@ -168,8 +168,8 @@ substituted in the dispatch prompt with the value named here:
 | `[GLOBAL_CONSTRAINTS]` | principles | the literal `the design.md section of your context bundle` — never a selection or paraphrase; on the CONTEXT BUNDLE FAILURE continue path, the absolute path of the change's `design.md`, or `none` when it has none |
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts.
-`DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
-for this run. Every slot in this table
+A `default` panel, which records no pair, runs every slot on the literal `opus`
+(**Model and effort**, `skills/flow/brainstorm-planner.md`). Every slot in this table
 is dispatched on `flow-low` (`agents/flow-low.md`, on
 a `default` panel) and carries the same model rule. The `flow-<effort>` definitions are
 this repository's own, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a
@@ -315,7 +315,7 @@ this stage's start, reading not the whole `final-review.diff` but only a
 per-worktree sectioned shape as `final-review.diff`, each `# worktree:` header naming the
 since-close sha. On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch`
 pair under the fix-round re-run's 5-minute ceiling; on a `default` panel, which carries no
-decision to read a pair from, on `DEFAULT_MODEL` at `low` effort under the ordinary 15-minute
+decision to read a pair from, on `opus` at `low` effort under the ordinary 15-minute
 ceiling. Mutation and Failure-modes are not dispatched, and each dropped slot is recorded
 with `flow record pass -round <round> -note 'not dispatched — late-fix reduction: <slot>'`, the
 docs-only reduction's own convention. Every entry check above still runs as any round's — base
@@ -420,7 +420,7 @@ is read or finding recorded — a slot's clean report is never the answer to wha
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
-panel record names every worktree's sha beside the delta path. `-model` is `DEFAULT_MODEL` (or this run's override) on
+panel record names every worktree's sha beside the delta path. `-model` is `opus` (or this run's override) on
 a `default` panel and the dispatch's own model from the decision's
 `panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a
 fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` likewise:
@@ -1248,7 +1248,7 @@ against its defect identity. **Inline no source excerpt.**
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
-Dispatched on `DEFAULT_MODEL` (below); the dispatcher compares that line against it and applies
+Dispatched on the fixer pair's model (below); the dispatcher compares that line against it and applies
 **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first
 mismatch is a fallback plus one retry under `panel-fix-<round>[-<chunk>]-retry` — the only
 retry key `check-panel-fix-single-dispatch.sh` accepts; a second is a fallback plus
@@ -1348,8 +1348,8 @@ itself under the same paragraphs, dispatching no subagent, and records the pass 
 panel-fix -model <parent model> -effort <parent effort> -agent-id inline`, `begin` before its first
 edit and `end` once the fix commit lands, as that section's **Records** bullet states. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. **Dispatch it on `DEFAULT_MODEL`**. **On an `sdd` decision, dispatch it instead on the decision's
-`fixer` object** — its own model and effort, chosen apart from the implementer's, `subagent_type:
+writing its fix. **Dispatch it on the decision's `fixer` object** — its own model and effort,
+chosen apart from the implementer's, `subagent_type:
 flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
 `-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). Record
 every pass with `flow record pass -round <round>`: which agents ran, why,

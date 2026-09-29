@@ -817,7 +817,7 @@ esac
 # Case 25 (KAN-512): a self-review context bundle (`<name>-context.md`) sits
 # beside a compliant report -> the bundle is neither scanned nor treated as
 # an undeclared-zero coverage violation. `docs/self-review/<name>-context.md`
-# is a bundle step 9 writes on `## self review: defer` and
+# is a bundle step 9 writes on every run and
 # `/flow-self-review` deletes once it runs the deferred pass — never a
 # report, so this guard's `find` must skip it outright.
 # ===========================================================================
@@ -834,12 +834,11 @@ esac
 
 # ===========================================================================
 # Cases 26-30 (kan-585): ANGLE_LABELS is parsed from the canonical angle
-# table in skills/flow-contracts/finish-contract-run2.md, not hardcoded, so
+# table in skills/flow-self-review/SKILL.md, not hardcoded, so
 # a rename or an addition in that table moves the guard FIRST. The fixture
 # contract reaches the guard through CHECK_SELF_REVIEW_ANGLES_CONTRACT,
-# the same override-for-the-harness-alone convention
-# CHECK_MODEL_RESOLUTION_SKILL_MD established — the real tree is never
-# written, whose mtime run-guard-tests.sh fingerprints.
+# an override for the harness alone — the real tree is never written,
+# whose mtime run-guard-tests.sh fingerprints.
 # ===========================================================================
 
 # A fixture contract in the canonical table's exact shape, with angle 1

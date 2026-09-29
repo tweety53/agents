@@ -56,8 +56,9 @@ the deferred bundle of section 5 alone — never a reasoning pass.
 
 ## Dynamic decisions
 
-`DEFAULT_MODEL` and `REVIEWERS` resolve per **Model resolution** (`skills/flow/SKILL.md`) before
-section 2.
+`REVIEWERS` resolves per **Model resolution** (`skills/flow/SKILL.md`) before section 2; every
+dispatch's model is the recorded decision's pair, per **Model and effort**
+(`skills/flow/brainstorm-planner.md`).
 
 `<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
 basename is what keys the rolls — and `<project>/.superpowers/` joins `<project>/.worktrees/` in
@@ -81,7 +82,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and its tree table
   (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
-  `## Decision` block under its `planning:`/`models:` lines.
+  `## Decision` block under its `planning:`/`reviewers:` lines.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
   written — one implementer per decided group on that group's model and effort, the context
   bundle gathered on `<changeRoot>`, every dispatch-prompt paragraph, both dispatch records, the
@@ -185,10 +186,9 @@ flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harnes
 
 The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
 Claude Code, `<project>/AGENTS.md` on ZCode); never read either one here. Read
-`<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff`, `## self review` and `## default landing route` sections, each
+`<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, each
 read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first
-three, `## handoff` says whether the run stops between them, and `## self review` says whether
-section 5 saves a context bundle.
+three, and `## handoff` says whether the run stops between them.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.load-context -outcome completed <name>
@@ -253,12 +253,9 @@ flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <na
 flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-**Self-review is `defer` or nothing here — this section is canonical for `/flow-fast`'s
-self-review.** With `## self review` `defer` (**Project configuration**,
-`skills/flow-contracts/project-configuration.md`), save the context bundle `/flow-self-review
-<name>` consumes, on this branch, as its own commit; no reasoning pass runs and nothing is asked.
-Every other body — `run`, `skip`, absent, invalid — marks through with nothing written, since
-`/flow-fast` asks no review question and runs no pass. Write
+**Self-review is always deferred — this section is canonical for `/flow-fast`'s self-review.**
+Save the context bundle `/flow-self-review <name>` consumes, on this branch, as its own commit;
+no reasoning pass runs and nothing is asked. Write
 `<project>/docs/self-review/<name>-context.md`, physically under `<worktree>`, as, in order: the stdout of `flow self-review
 bundle -change <name>` run from the worktree — of the six sources run 2 step 9 judges a change
 by, a `/flow-fast` run can never have tasks.md, design.md and narrative.md (no spectre

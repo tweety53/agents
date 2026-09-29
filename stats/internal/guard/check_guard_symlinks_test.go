@@ -1103,7 +1103,6 @@ func TestShimSiblingsDeclared(t *testing.T) {
 		"prepare-archive-branch.sh":          {"lib"},
 		"check-base-moved.sh":                {"lib"},
 		"check-panel-fix-single-dispatch.sh": {"lib"},
-		"check-model-keys.sh":                {"lib"},
 		"prove-reproducer.sh":                {"lib"},
 		"check-finish-preflight.sh":          {"lib", "check-worktree-location.sh"},
 	}

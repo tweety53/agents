@@ -1,0 +1,276 @@
+# Sentences this change rewords, adds or deletes on purpose: each follows from a decision in
+# design.md — the Decide step chooses every dispatch's model, settings hold reviewers only, and
+# self-review is always deferred. Nothing here is a trim.
+├── flow-self-review/ ← /flow-self-review (deferred self-review pass)
+├── flow-self-review/ ← /flow-self-review (self-review pass)
+(`skills/flow/brainstorm-planner.md`) as written — the roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the `## Decision` block under its `planning:`/`models:` lines.
+[ -n "$DEFAULT_MODEL" ] && [ "$DEFAULT_MODEL" != "null" ] || { DEFAULT_MODEL=opus; MODEL_SOURCE=fallback; }
+*) echo "⛔ flow: project-get.sh exited $rc: $PROJECT_MODEL — stop the run" >&2; exit 2 ;;
+**"Store default (fable)"** option (maps to the empty string, `-self-review-model ""`) and "keep current".
+**`-model` is the model this dispatch was actually given — the group's own `model` from the decision's `groups` entry** (`DEFAULT_MODEL`, `skills/flow/SKILL.md`'s **Model resolution**, or the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is `flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the definition carries the effort, the dispatch carries the model.
+**`-model` is the model this dispatch was actually given — the group's own `model` from the decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brainstorm-planner.md`, or the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is `flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the definition carries the effort, the dispatch carries the model.
+**`<label>`: <finding 1>**
+**`<label>`: <finding 2>**
+**`<label>`: <finding 3>**
+**`DEFAULT_MODEL` is the model for all four roles this run dispatches on** — the implementer <!-- refs-guard:allow --> (`skills/flow/implement.md`), every panel slot (every one a prompt-driven role, per **The roster**, `skills/flow/review-panel.md`), the panel-fix subagent (`skills/flow/review-panel.md`), and the tooling analyst (**A missed defect — the tooling analysis**, `skills/flow/visual-verify.md`).
+**2 — rough** — a `1` is typed through the tool's free-text "Other"
+**3 — fine**
+**4 — good**
+**5 — excellent**
+**A `/flow-fast` run runs no reasoning pass
+**A `/flow-fast` run saves the bundle on its own branch before landing** (**5. Verify**, `skills/flow-fast/SKILL.md`, canonical for it).
+**a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
+**A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — "use opus for the panel", "implement on haiku" — per **Model policy** (`skills/flow-contracts/model-policy.md`).
+**An explicit operator instruction overrides a decision's pair, in either direction** — raising the implementer to Opus for a change that warrants it, or lowering it to Sonnet for genuinely mechanical work.
+**An explicit operator instruction overrides either default, in either direction** — raising the panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical work.
+**Default model** — offer the harness's known model identifiers, read from
+**Defer — save the bundle for `/flow-self-review`**
+**Dispatch it on `DEFAULT_MODEL`**.
+**Dispatch it on the decision's `fixer` object** — its own model and effort, chosen apart from the implementer's, `subagent_type: flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and `-model`/`-effort` below carry that pair.
+**Every angle produces zero or more findings, and an angle that produces none says so explicitly** — present-but-empty, the way `## Decisions` and `## Open questions` already are, rather than omitted.
+**Every finding is explained in the message body before any prompt fires** — what was observed, what breaks, and what the fix would be.
+**every gated per-task reviewer bundle** — `opus`, always, at its group's effort (`high` in place
+**Every other dispatch runs on its decision pair** — the implementer, every panel slot and the panel-fix subagent — or, with no pair recorded, on the literal `opus`.
+**every pass-1 panel dispatch** — `opus`, always;
+**Execution mode, every dispatch's model and effort, and the review panel are decided per change, never configured.
+**Execution mode, implementer effort and the review panel are decided per change, never configured.
+**File any of these findings as Jira issues?**
+**Groups join into one bundle by the decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `regular`, every gate-fired task of the run waits and goes out in one bundle at the last boundary, on `subagent_type: flow-low` with `DEFAULT_MODEL` (or the run's session override) as the Agent tool's own `model` parameter, recorded `-model <that model> -effort low` — the `default`-panel reviewer's pair, since these classes record no group pair to take; on harness `zcode`, **Harness mapping** (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair.
+**Handshake** as **The verifier dispatch** above states it, compared against `DEFAULT_MODEL` instead of `opus`.
+**Handshake** as **The verifier dispatch** above states it, compared against `opus`.
+**Implementer subagents dispatched by `/flow`'s implement phase run on `DEFAULT_MODEL`**, which **explicitly overrides** superpowers:subagent-driven-development's model guidance.
+**Implementer subagents dispatched by `/flow`'s implement phase run on their group's decision pair**, which **explicitly overrides** superpowers:subagent-driven-development's model guidance.
+**implementer, fixer and each implementer group** — `opus` by default; `sonnet` only for simple,
+**Never** ask the self-review skip prompt or the filing-and-rating prompt, nor resolve the
+**Never** fetch or write the self-review context bundle before `FINISHED` has been written.
+**No — skip**
+**None — file nothing** *(default, recommended)*
+**On `defer`** — by key or by the prompt's third option — fetch the bundle exactly as above (`flow self-review bundle -change <name>`) and write its stdout, then `## Session narrative` (one paragraph this session writes for run 2 itself — the archived `design.md` and `narrative.md` are bundle sections now, and a change predating the narrative rule has the bundle report it skipped), to `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`; commit with the report's own landing script, path and subject swapped:
+**On `run`, this same step-9 session runs the reasoning pass itself, inline, on whatever model it is already on — no subagent, no dispatch.
+**On an `sdd` decision, dispatch it instead on the decision's `fixer` object** — its own model and effort, chosen apart from the implementer's, `subagent_type: flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and `-model`/`-effort` below carry that pair.
+**One combined pass** — never five separate dispatches.
+**Rate this flow run:**
+**Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and run the guard-presence check, before this run's first dispatch — on a fix run, before section **3**'s re-decision.
+**Run self-review for this change?**
+**Run self-review.
+**Run self-review** — after `FINISHED` is written.
+**Save the self-review context bundle.
+**Save the self-review context bundle** — after `FINISHED` is written.
+**Self-review is `defer` or nothing here — this section is canonical for `/flow-fast`'s self-review.
+**Self-review is always deferred — this section is canonical for `/flow-fast`'s self-review.
+**Self-review model** — offer the same `ValidModels` set as Default model, plus an explicit
+**Self-review:** <path> (rating: <n>/5) | deferred — docs/self-review/<name>-context.md | skipped | skipped — project default
+**Self-review:** deferred — docs/self-review/<name>-context.md
+**The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired goes out in one reviewer Agent call beside group N+2's implementer, on that group's `model`/`effort` pair from the decision's `groups` entry, `high` in place of an `xhigh` effort, which is the implementer's alone.
+**The model each role runs on is chosen per dispatch by the Decide step, never configured.
+**The model each role runs on is resolved per run from the settings store, never recorded per change.
+**the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
+**The rerun pair** (`panel.rerun_dispatch`) is the one pair every fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is `DEFAULT_MODEL` like every pair (**Model and effort** below), and its `effort` is `low`, fixed, since a re-run reads a delta to confirm a fix and must be short and fast.
+**The rerun pair** (`panel.rerun_dispatch`) is the one pair every fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a delta to confirm a fix and must be short and fast.
+**This procedure is canonical here.**
+**This section is canonical for how a dispatch's model is chosen.
+**Where `DEFAULT_MODEL` comes from: the project key, then the store, then the literal.
+**Whichever option runs, the session fetches the bundle first**, with `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the panel record rendered from the store, or, when the store yields no render for that record, read from the copies step 4 committed onto the archive branch, the archived `tasks.md`, `design.md` and `narrative.md` read out of the `chore/archive-<name>` branch of the repository the command resolves from its own location (the main checkout its working directory sits in — the store carries no repository roots for the pipeline's changes), and the `git log --stat` of the implementation, planning and archive commits — and prints it as one Markdown document.
+**Yes — run it** *(default, recommended)*
+`-model` and `-reviewers` are required by the CLI even when only one field changed — `settings set` writes the whole record, replacing what was recorded before.
+`-model` is `DEFAULT_MODEL` (or this run's override) on a `default` panel and the dispatch's own model from the decision's `panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model.
+`-model` is `opus` (or this run's override) on a `default` panel and the dispatch's own model from the decision's `panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model.
+`-self-review-model` is optional on the CLI (omitting it means empty), but this skill always passes it explicitly — "keep current" resolves to the value read in step 1, exactly as the other fields do — so a no-op run of this skill never silently resets it to empty.
+`/flow-fast` reads it too and honours `defer` alone (**5. Verify**, `skills/flow-fast/SKILL.md`).
+`## self review` key, before `FINISHED` has been written.
+`<agents repo>/stats/internal/store/settings.go`'s `ValidModels` map at the time this skill runs, plus "keep current".
+`DEFAULT_MODEL` and `REVIEWERS` resolve once near the top of every run, per **Model resolution** (`skills/flow/SKILL.md`).
+`DEFAULT_MODEL` and `REVIEWERS` resolve per **Model resolution** (`skills/flow/SKILL.md`) before section 2.
+`DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value for this run.
+`DEFAULT_MODEL` resolves per run in this order: `<project>/.flow/project.md`'s `## model` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`, canonical for the key's shape and its match-and-drop rule), then the settings store's `defaultModel`, then the literal `opus`.
+`defer` — by key or by the prompt's third option — fetches the bundle as above, appends `## Session narrative` (one paragraph this session writes for run 2 itself; the archived `narrative.md` is already a bundle section, and a change predating the narrative rule has the bundle report it skipped), writes the whole to `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, commits it on `chore/archive-<name>` with subject `docs(self-review): <name> self-review context bundle`, and runs no reasoning pass; step 10 carries the bundle as it carries the report.
+`defer` proceeds straight to the bundle write below, with no prompt and no reasoning pass.
+`fallback` source **Model resolution** (`skills/flow/SKILL.md`) named at resolution — so the operator reads the run's model policy off the summary without opening the ledger;
+`flow record decision` refuses a decision whose pairs name any other model.
+`flow settings get` prints one line of JSON: `defaultModel` (a string), `reviewers` (an array of strings) and `selfReviewModel` (a string, empty meaning "the store's own default, `fable`").
+`flow settings get` prints one line of JSON: `reviewers` (an array of strings).
+`MODEL_SOURCE` names where `DEFAULT_MODEL` resolved from — `project` when the project's own `## model` key supplied it (**Project configuration**, `skills/flow-contracts/project-configuration.md`, validated against the same `ValidModels` set `flow settings models` prints), `store` when the settings store's `defaultModel` did, `fallback` when neither did — and is reported beside the model everywhere this run records it: the Decide preamble's `models:` line, the run summary, and `decision.json`'s `resolved` object.
+`planningEffort` and `models.default` are written `null` and stay `null` for the life of the change: `/flow` asks no planning-effort or model question on a creating run, and models are chosen per dispatch by the Decide step, not recorded per change.
+`planningEffort` and `models.default` are written `null` and stay `null` for the life of the change: `/flow` asks no planning-effort or model question on a creating run, and models are resolved per run from the settings store, not recorded per change.
+`run` proceeds to the reasoning pass below with no prompt.
+`settings set` writes the whole record, replacing what was recorded before.
+`skip` ends step 9 here, the handoff's `Self-review` line reading `skipped — project default`.
+`subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model` parameter set to `DEFAULT_MODEL` (**Model resolution**, `skills/flow/SKILL.md`), mapped on harness `zcode` per **Harness mapping** (`skills/flow-contracts/model-policy.md`).
+`subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the literal `opus`, never `DEFAULT_MODEL` and never a session override — mapped on harness `zcode` per **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then compares against.
+`VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort `low` through `subagent_type: flow-low`, read from neither the settings store nor `<project>/.flow/project.md`; a plain-language session instruction does not override it; and it never falls back, because it is never resolved — the point is a predictable model for mechanical verification runs regardless of what `DEFAULT_MODEL` resolved to.
+`VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort `low` through `subagent_type: flow-low`, read from neither the settings store nor `<project>/.flow/project.md`; a plain-language session instruction does not override it; and it never falls back, because it is never resolved — the point is a predictable model for mechanical verification runs regardless of what the decision chose for any other dispatch.
+`VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code, and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the `subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran on, never the pre-mapping value.
+| `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved.
+| `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` or `/flow-fast` run deferred, inline on this session's model, from the saved context bundle.
+| `/flow-settings` | `flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from |
+| `/flow-settings` | `flow-settings` | Reads/writes the harness-wide reviewer slots every `/flow` run reads from |
+| `## model` | Optional.
+| `## self review model` | Optional.
+| `## self review` | Optional.
+| a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, then **merge it immediately with that same CLI** (`gh pr merge --merge --delete-branch` or the host's equivalent) — no wait for checks or review, and no operator prompt, because everything this PR carries is this pipeline's own mechanical output (the archive move, the self-review context bundle), never code a human review gate exists for.
+| a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, then **merge it immediately with that same CLI** (`gh pr merge --merge --delete-branch` or the host's equivalent) — no wait for checks or review, and no operator prompt, because everything this PR carries is this pipeline's own mechanical output (the archive move, the self-review report or context bundle), never code a human review gate exists for.
+| bare `/flow` | run 2, during self-review | **Commits** the self-review context bundle on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
+| bare `/flow` | run 2, during self-review | **Commits** the self-review report, or the context bundle on `## self review: defer`, on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
+| Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
+| Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value |
+0) PROJECT_MODEL="$(printf '%s' "$PROJECT_MODEL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^`\(.*\)`$/\1/')" ;;
+1) PROJECT_MODEL="" ;;
+A `default` panel, which records no pair, runs every slot on the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`).
+A deferred pass covers what the bundle holds and nothing a same-run session could still remember beyond it — **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9 — say so in the report, never imply parity with a same-run pass.
+A deferred pass covers what the bundle holds and nothing a same-run session could still remember beyond it — the report's `**Deferred:**` line states that.
+A deferred pass covers what the bundle holds and nothing beyond it — the report's `**Deferred:**` line states that.
+A field left unchanged is not mentioned as a change.
+A finding filed this way carries its angle's label on top of the set **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`) already defines.
+A head matching no `ValidModels` member is reported by name (quoting what was found) and dropped, resolving as if the key were absent.
+A head matching none is reported by name and dropped, resolving as absent.
+A head matching none of the three literals exactly is reported by name and dropped, resolving as if the key were absent.
+A micro decision records no pair, and a dispatch with no recorded pair — a micro panel, **review-panel.md**'s no-decision dispatch, the tooling analyst — runs on the literal `opus`.
+A non-zero exit means the store rejected the write (an invalid model or reviewer name) or could not be reached.
+A non-zero exit means the store rejected the write (an invalid reviewer name) or could not be reached.
+A project's `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`) decides without asking when present and valid; the per-run prompt is the absent case.
+A session with no interactive channel to present this prompt still runs self-review, exactly as an explicit **Yes** would.
+A silent angle and a skipped angle are indistinguishable to a reader, which is why an empty angle says so.
+A silent angle and a skipped angle are indistinguishable to a reader.
+An explicit **No** stops step 9 here; the handoff's `Self-review` line reads `skipped`.
+and no prompt here** — it honours `defer` alone, saving the bundle on its own branch before landing (**5. Verify**, `skills/flow-fast/SKILL.md`, canonical for it).
+Ask about the one field the settings store holds, `reviewers`, with **AskUserQuestion**, starting from the current value read in step 1:
+Ask about the three fields the settings store actually holds — `defaultModel`, `reviewers` and `selfReviewModel`.
+Both recorded `skipped — inline` when step 1 is inline.
+case "$rc" in
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/archive.md` step 9 lands its own report with, differing only in the asserted branch, the removed context-bundle path and the `--push` — since the round-trip through the five-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/archive.md` step 9 lands the context bundle with, differing in the asserted branch, the report path, the removed context-bundle path and the `--push` — since the round-trip through the five-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+Compare the `Model:` line against `opus` (never a decision pair or a session override) and apply **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged — its first- and second-mismatch course and its single-model-harness case alike, `opus` the requested model it names.
+Compare the line against the model this dispatch requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or the run's session override.
+Compare the line against the model this dispatch requested (`DEFAULT_MODEL`, or the run's session override).
+default model: <defaultModel, verbatim>
+DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
+DEFAULT_MODEL="$PROJECT_MODEL"
+deferred: no reasoning pass and no prompt run here, and a failure never moves the change off `FINISHED`.
+description: Run a change's self-review pass, inline on this session's model, from the context bundle /flow or /flow-fast saved
+description: Run a self-review pass a /flow or /flow-fast run deferred, inline on this session's model, from the saved context bundle
+Dispatched on the fixer pair's model (below); the dispatcher compares that line against it and applies **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first mismatch is a fallback plus one retry under `panel-fix-<round>[-<chunk>]-retry` — the only retry key `check-panel-fix-single-dispatch.sh` accepts; a second is a fallback plus the **AskUserQuestion** it states.
+docs/self-review/<name>-self-review.md
+echo "⚠ flow: .flow/project.md '## model' body '$PROJECT_MODEL' is not a valid model — dropped" >&2
+Every commit run 2 makes after step 2 — this one and the self-review context bundle at step 9 alike — asserts `chore/archive-<name>` rather than assuming it: naming the directory with `git -C <landing-worktree>` fixes the directory, not the branch.
+Every commit run 2 makes after step 2 — this one and the self-review report at step 9 alike — asserts `chore/archive-<name>` rather than assuming it: naming the directory with `git -C <landing-worktree>` fixes the directory, not the branch.
+Every finding is explained in the message body first, before any prompt fires.
+Every other body — `run`, `skip`, absent, invalid — marks through with nothing written, since `/flow-fast` asks no review question and runs no pass.
+Every pair a Decide step assigns — the implementer, the fixer, each panel dispatch, the rerun pair, each implementer group — carries a planner-chosen `model`, one of `opus` or `sonnet`, within these bounds:
+Every pair a Decide step assigns — the implementer, the fixer, each panel dispatch, the rerun pair, each implementer group — takes `model` `DEFAULT_MODEL` (**Model resolution**, `skills/flow/SKILL.md`), never another model; the decision varies the effort only.
+Every panel slot is a prompt-driven role (**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every other slot does.
+Every panel slot is a prompt-driven role (**The roster**, `skills/flow/review-panel.md`) and takes the panel's model the same way every other slot does.
+Feed the bundle's content and the five angles cited below directly into this session's own reasoning, then continue straight into the filing-and-rating prompt below — the same session already driving `AskUserQuestion`.
+Findings from every angle fill up to three multi-select questions, each carrying at most three findings — every option prefixed with its angle's label — plus **None — file nothing** as that question's `(default, recommended)` option; the rating is the call's last question, options `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1` typed through the tool's free-text "Other".
+flow fixes every panel slot at its dispatch's decision pair instead and escalates breadth (the conditional Failure-modes and Mutation slots) rather than the model.
+flow fixes every panel slot at the panel's model instead and escalates breadth (the conditional Failure-modes and Mutation slots) rather than the model.
+flow settings set -model "<defaultModel>" -reviewers "<comma,separated,list>" -self-review-model "<selfReviewModel>"
+flow settings set -reviewers "<comma,separated,list>"
+if [ -n "$PROJECT_MODEL" ]; then
+if flow settings models | grep -qx -- "$PROJECT_MODEL"; then
+If the operator keeps all three fields unchanged, say so and stop — do not call `settings set` for a no-op write.
+If the operator keeps the list unchanged, say so and stop — do not call `settings set` for a no-op write.
+input as a served bundle rather than an inline re-read, one combined reasoning pass across all five angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it.
+It carries one section per angle, all five present; each finding is one line naming its angle's label, the finding, and its disposition — the issue key when filed, an explicit declined marker when not — and an angle with no findings carries an explicit none-marker instead of finding lines.
+It fetches its input with `flow self-review bundle -change <name>` rather than re-reading files a second time, and runs **one** combined reasoning pass covering all five angles below, together with the operator's 1-5 rating, never as five separate passes — the same session drives `AskUserQuestion` for the filing-and-rating prompt either way.
+It is skippable per run, with running it the default.
+It reads and writes the harness-wide settings record (`flow settings get`/`set`): the reviewer slots.
+It reads the context bundle a `/flow` or `/flow-fast` run saved, runs the five-angle reasoning pass inline, files and rates findings, writes the report, deletes the bundle, and lands both on the default branch.
+It reads the saved context bundle a `/flow` run's `## self review: defer` left behind, runs the five-angle reasoning pass inline, files and rates findings, writes the report, deletes the bundle, and lands both on the default branch.
+Mechanically enforced by `<agents repo>/scripts/check-model-keys.sh`, which validates both model keys.
+MODEL_ROOT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
+MODEL_SOURCE=project
+MODEL_SOURCE=store
+model: <the bundle's own model> # `opus` on a `default` panel, the decision's
+model: <the bundle's own model> # DEFAULT_MODEL on a `default` panel, the decision's
+model: opus description: View and change the harness-wide flow defaults — the reviewer slots
+Models are not a setting — the Decide step chooses every dispatch's model (**Model and effort**, `skills/flow/brainstorm-planner.md`).
+models: default <DEFAULT_MODEL> (<MODEL_SOURCE>) · reviewers <REVIEWERS>
+More than nine findings roll the overflow into one further call without the rating.
+name: flow-self-review description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; file, rate, write the report, delete the bundle.
+name: flow-self-review description: Run the self-review pass a `/flow` or `/flow-fast` run deferred, inline on this session's model, from the saved context bundle; file, rate, write the report, delete the bundle.
+name: flow-settings description: Read and change the harness-wide flow defaults — default model, reviewer slots and self-review model.
+name: flow-settings description: Read and change the harness-wide flow defaults — the reviewer slots.
+Nothing blocks on what the key declares: it makes the operator's policy machine-readable and visible before a dispatch goes out, it does not police one.
+Offer to change each field
+Offer to change the reviewers
+On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch` pair under the fix-round re-run's 5-minute ceiling; on a `default` panel, which carries no decision to read a pair from, on `DEFAULT_MODEL` at `low` effort under the ordinary 15-minute ceiling.
+On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch` pair under the fix-round re-run's 5-minute ceiling; on a `default` panel, which carries no decision to read a pair from, on `opus` at `low` effort under the ordinary 15-minute ceiling.
+On harness `zcode` the key governs the pre-mapping value (**Harness mapping** below): resolution and every record name the resolved policy model, while the dispatch's ledger line records the mapped model that actually ran.
+On success, report exactly what changed against the value read in step 1: old list → new list.
+On success, report exactly what changed against the values read in step 1: which field(s) changed, old value → new value.
+One invocation runs from the Jira key to the landed change: resolve the issue and name per **Resolution (how `jiraIssue` is decided)** and **Change naming** (`skills/flow-contracts/jira-integration.md`), move it to In Progress per **Transitions** there, create a git worktree on a branch named after the change (git isolation only — no workspace setup, database or bucket), write `tasks.md` and decide how to implement it per the plan's class — inline, or implementer subagents per group, with the review panel the class calls for — run the project's `## lint` and the tests the change touches, with `## self review` `defer` commit the self-review context bundle on the branch for `/flow-self-review`, print the change summary, then — unless the project's `## handoff` is `none` — stop for the operator to review the branch; land by the project's `## default landing route` (asking only when none is declared), move the issue to In Review, and — on merge and push — remove the worktree and branch and move the issue to Done.
+One member of `<agents repo>/stats/internal/store/settings.go`'s `ValidModels` map — the body's first non-blank line is the value, whitespace-trimmed and de-backticked; lines below it are documentation for the reader, never read.
+One of the literals `run`, `skip` or `defer` — the body's first non-blank line is the value, whitespace-trimmed and de-backticked; lines below it are documentation for the reader, never read.
+Only when neither the key nor the store answers does `MODEL_SOURCE` read `fallback` and the literal `opus` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`) stand in, naming that this is a fallback rather than a resolved value.
+Otherwise the session fetches the bundle with `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the panel record rendered from the store, or, when the store yields no render for that record, read from the copies step 4 committed onto the archive branch, the archived `tasks.md`, `design.md` and `narrative.md` read out of the `chore/archive-<name>` branch of the repository the command resolves from its own location (the main checkout its working directory sits in — the store carries no repository roots for the pipeline's changes), and the `git log --stat` of the implementation, planning and archive commits — and prints it as one Markdown document.
+Otherwise: a skip, a failure, or a decline never moves the change off `FINISHED`.
+Pass the value just confirmed for each field that changed, and the value read in step 1 for each field that did not.
+performance-sensitive code — `opus`, always;
+Picking a stronger model than the same-run pass would have used is done by picking the model this session runs on (`/model`) before invoking this command, not by anything this skill itself resolves.
+predictable work near-certain to succeed on the first try, the pair's `reason` saying so;
+PROJECT_MODEL="$(project-get.sh "$MODEL_ROOT" 'model' 2>&1)"; rc=$?
+Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, each read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first three, and `## handoff` says whether the run stops between them.
+Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow --> directly — `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) is already in scope from this run's own earlier resolution.
+Read and change the harness-wide settings record `flow settings get`/`set` manage: the reviewer slots (`reviewers`) the review panel dispatches by default.
+Read by **Model resolution** (`skills/flow/SKILL.md`), which reports the resolved source beside the model; what it governs, and how it interacts with a mapping harness, **Model policy** (`skills/flow-contracts/model-policy.md`) states — never `VERIFY_MODEL`.
+Resolved by run 2's step 9 (`skills/flow/archive.md`) before its skip prompt: `skip` skips self-review without asking, `run` runs it without asking, `defer` saves the context bundle without asking (**Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`, step 9) for `/flow-self-review` to consume, absent means the operator is asked.
+Resumed at `STARTED` once planned, it runs implementation, review and verification orchestrated by this session — implementers and panel slots dispatched on the models the Decide step chose — behind the review panel the recorded decision names, ending at `IN_PROGRESS`.
+reviewers: <REVIEWERS>
+Run `project-get.sh <main-checkout> "self review"` (exit 1: absent), take the body's first non-blank line — trimmed, backticks removed — and match it against the three literals `run` / `skip` / `defer` byte-for-byte per **Project configuration** (`skills/flow-contracts/project-configuration.md`); lines below it are documentation.
+Run the self-review reasoning pass a `/flow` or `/flow-fast` run deferred (`## self review: defer`, per `skills/flow-contracts/project-configuration.md`), from the context bundle run 2 step 9 saved — `skills/flow-contracts/finish-contract-run2.md` step 9 is canonical for that bundle's shape and the five-angle table below — or **5. Verify** (`skills/flow-fast/SKILL.md`) saved on the change branch before landing.
+Save the context bundle `/flow-self-review <name>` consumes, on this branch, as its own commit; no reasoning pass runs and nothing is asked.
+Self-review is always
+Self-review is always deferred: this step writes and
+self-review model: <selfReviewModel, or "(fable — store default)" when empty>
+Shape per **Operator prompts** (`skills/flow-contracts/operator-prompts.md`).
+The angle-to-label table is canonical in `skills/flow-self-review/SKILL.md`'s step 2, cited here rather than copied, so the two cannot drift.
+The angle-to-label table is canonical in step 9 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), cited here rather than copied, so the two cannot drift.
+The CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags check (`<agents repo>/stats/cmd/flow/settings.go`'s `-model and -reviewers are both required` check) exits 2, distinct from the store's own exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero slots fails at step 3 with exit 2, rather than turning review off.
+The CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags check (`<agents repo>/stats/cmd/flow/settings.go`'s `-reviewers is required` check) exits 2, distinct from the store's own exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero slots fails at step 3 with exit 2, rather than turning review off.
+The filing ask and the rating are **one `AskUserQuestion` call** — one multi-select question per three findings, each option `<label>: <finding>`, the rating last:
+The filing ask and the rating are **one `AskUserQuestion` call**, shaped exactly as run 2 step 9's own — **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9: up to three multi-select questions of three findings each, every option prefixed with its angle's label, plus **None — file nothing** as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1` typed through the tool's free-text "Other".
+The filing ask and the rating are **one `AskUserQuestion` call**.
+The five angles and their labels are **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for them.
+The fixer pair is the panel-fix subagent's own and is chosen from what a fix round does — repair named findings against their reproducers, usually a narrower job than the implementation — so it may differ from the implementer pair, its `reason` saying why.
+The fixer pair is the panel-fix subagent's own and is chosen from what a fix round does — repair named findings against their reproducers, usually a narrower job than the implementation — so its effort may differ from the implementer pair's, its `reason` saying why.
+The implementer, the fixer and each panel dispatch run on `DEFAULT_MODEL` at the effort the Decide step chose for them, per **Model and effort** (`skills/flow/brainstorm-planner.md`).
+The JSON carries: `class`, `classMechanical`, `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls` (`compact`, `experimental`, `bundle`), `execution`, `implementer` and `fixer` (each an object `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster: [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`), `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster order — the one place a pass-1 reviewer's model and effort are recorded), `rerun_dispatch` (an object `{model, effort, reason}`, the rerun pair — the one place a fix-round re-run's model and effort are recorded), `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and `groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was given).
+The JSON carries: `class`, `classMechanical`, `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls` (`compact`, `experimental`, `bundle`), `execution`, `implementer` and `fixer` (each an object `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster: [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`), `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster order — the one place a pass-1 reviewer's model and effort are recorded), `rerun_dispatch` (an object `{model, effort, reason}`, the rerun pair — the one place a fix-round re-run's model and effort are recorded), `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and `groups_reason` fields, or all four `null` when `execution` is inline), `resolved` (an object `{model, source}` — the `DEFAULT_MODEL` **Model resolution** (`skills/flow/SKILL.md`) resolved this run and where it resolved from, `source` one of `project`/`store`/`fallback`, written every run that resolves, beside `rolls`; a session-instruction override leaves `resolved` as resolved and lands in `overrides` as today), `parent` (the parent's own model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction overrides to a *result*; empty unless one was given).
+The keys matched this way are `## default landing route`, `## decisions` and `## handoff`.
+The keys matched this way are `## default landing route`, `## decisions`, `## model`, `## self review model`, `## self review` and `## handoff`.
+The model is picked by picking the model this session runs on (`/model`) before invoking this command, not by anything this skill itself resolves.
+The model the dispatcher's `DEFAULT_MODEL` resolves to for this project's `/flow` runs.
+the models the recorded decision chose for this run's dispatches — each pair, per **Model and
+The override is **never** written back to the settings store — `/flow-settings` is the only command that changes a global default, per that command's own guardrails.
+The override never rewrites the settings store or the decision's pairs; it lands in the decision's `overrides`.
+The parent compares that line against `DEFAULT_MODEL` (or the run's session override) and applies **The handshake** stated above, unchanged.
+The parent compares that line against the group's recorded model (or the run's session override) and applies **The handshake** stated above, unchanged.
+The parent records the dispatch `-role planner`, `-task` omitted, `-model <DEFAULT_MODEL> -effort high`, `-key tooling-analysis-<n>`, suffixed `-<worktree basename>` under the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here, not restated.
+The parent records the dispatch `-role planner`, `-task` omitted, `-model opus -effort high`, `-key tooling-analysis-<n>`, suffixed `-<worktree basename>` under the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here, not restated.
+The parent session runs on the harness's own model for the whole of `/flow`, and **every review-panel reviewer runs on its dispatch's decision pair** — regardless of the parent model; what never varies is that the panel's model is *chosen*, not inherited from the parent session.
+The parent session runs on the harness's own model for the whole of `/flow`, and **every review-panel reviewer runs on the panel's model — `DEFAULT_MODEL` from the settings store** — regardless of the parent model; what never varies is that the panel's model is *chosen*, not inherited from the parent session.
+The pass covers what the bundle holds and nothing beyond it — say so in the report's `**Deferred:**` line.
+The pass runs on whatever model this session is already on.
+The pass then runs in `/flow-self-review <name>` (`skills/flow-self-review/SKILL.md`), canonical for the deferred pass, which deletes the bundle in its report commit.
+The plan's class and rolls decide all three — **Decide** (`skills/flow/brainstorm-planner.md`) — and the run reads them from the recorded `decision.json`.
+The procedure — skippable per run with running it the default, fetching
+The project's `## model` key still resolves in that case: it is read from the repository, not the store, and `MODEL_SOURCE` then reads `project`.
+The report is committed onto `chore/archive-<name>` in `<landing-worktree>` — asserting that branch rather than assuming it, and not pushed here; step 10 carries the push — to `<project>/docs/self-review/<name>-self-review.md`, physically under `<landing-worktree>`.
+The resolution records model + source — `project`, `store` or `fallback` — in `decision.json`'s `resolved` object, and reports both in the Decide preamble's `models:` line and the run summary; an operator instruction that overrides the resolved value lands in `overrides` beside a named source, as it always did.
+the run's resolved `DEFAULT_MODEL` and where it resolved from — the `project`/`store`/
+The session appends `## Session narrative` (one paragraph it writes for run 2 itself; the archived `narrative.md` is already a bundle section, and a change predating the narrative rule has the bundle report it skipped), writes the whole to `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, and commits it on `chore/archive-<name>` with subject `docs(self-review): <name> self-review context bundle`; step 10 carries the bundle.
+Then straight to the `flow stage end … flow.self-review -outcome completed` mark below; no reasoning pass runs, and the handoff's `Self-review` line reads `deferred — docs/self-review/<name>-context.md`.
+This file is canonical for the five angles, what may be filed, the filing-and-rating prompt and the report.
+This is the one value every `/flow` run's implementer, fixer and reviewer roles default to; a session can still override it via plain-language instruction, recorded per-run rather than here.
+This push carries both the archive commit and step 9's context bundle, so there is no window in which the archive lands while the bundle is still unwritten.
+This push carries both the archive commit and step 9's output — the self-review report, or the context bundle on `defer` — either way, so there is no window in which the archive lands while that output is still unwritten.
+this run of `archive.md` was reached, the guarantee that the archive commit and step 9's self-review report or context bundle always land together — on the merge-and-push continuation, in the one push of `<base>` that also carries run 1's merge — and the failure-reporting rules — is **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 10, canonical for it.
+Use **AskUserQuestion**, one field at a time, starting from the current value read in step 1:
+When present and valid it wins over the settings store's `defaultModel`; absent falls through to the store.
+When the key is absent, the skip prompt fires first:
+Which model each role runs on, how an override applies, and per-harness enforcement.
+Which model each role runs on, their defaults, how an override applies, and per-harness enforcement.
+With `## self review` `defer` (**Project configuration**, `skills/flow-contracts/project-configuration.md`), save the context bundle `/flow-self-review <name>` consumes, on this branch, as its own commit; no reasoning pass runs and nothing is asked.
+with `<repos>` the number of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps` table; `1` when every path is in this one); `DEFAULT_MODEL` per **Model resolution** (`skills/flow/SKILL.md`); the JSON at `<abs-worktree>/.superpowers/sdd/decision.json`; the `## Decision` block printed.
+Write `<project>/docs/self-review/<name>-self-review.md`, physically under `<landing-worktree>` — one section per angle, all five present; each finding one line naming its angle's label, the finding, and its disposition; an angle with no findings carrying an explicit none-marker — plus the rating — and commit it on `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:
+Write the bundle's stdout, then `## Session narrative` (one paragraph this session writes for run 2 itself — the archived `design.md` and `narrative.md` are bundle sections now, and a change predating the narrative rule has the bundle report it skipped), to `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, and commit it on `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:

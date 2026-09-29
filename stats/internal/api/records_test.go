@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1594,6 +1596,107 @@ func TestRecordDecisionRejectsEmptyBody(t *testing.T) {
 			}
 			if fs.recordCalls != before {
 				t.Errorf("the store was reached for a body with %s", name)
+			}
+		})
+	}
+}
+
+// decisionWithModels is a full sdd-shaped decision body whose five model
+// fields carry the given values, in path order: implementer, fixer,
+// panel.dispatches[0], panel.rerun_dispatch, groups[1].
+func decisionWithModels(impl, fixer, dispatch, rerun, group string) string {
+	return fmt.Sprintf(`{"class":"big","execution":"sdd",`+
+		`"implementer":{"model":%q,"effort":"high","reason":"r"},`+
+		`"fixer":{"model":%q,"effort":"medium","reason":"r"},`+
+		`"panel":{"roster":[{"slot":"primary"}],"dispatches":[{"model":%q,"effort":"high","slots":["primary"],"reason":"r"}],`+
+		`"rerun_dispatch":{"model":%q,"effort":"low","reason":"r"}},`+
+		`"groups":[{"bundles":[1],"model":"opus","effort":"high"},{"bundles":[2],"model":%q,"effort":"medium"}]}`,
+		impl, fixer, dispatch, rerun, group)
+}
+
+// TestRecordDecisionRejectsOffPolicyModel pins that ApplyDecisionRecord
+// refuses a decision naming a model outside store.ValidModels in any one
+// nested pair, naming that pair's JSON path and the value, before the
+// store is touched (refuse-off-policy-models).
+func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
+	tests := []struct {
+		path string
+		body string
+		bad  string
+	}{
+		{"implementer.model", decisionWithModels("haiku", "opus", "opus", "sonnet", "sonnet"), "haiku"},
+		{"fixer.model", decisionWithModels("opus", "haiku", "opus", "sonnet", "sonnet"), "haiku"},
+		{"panel.dispatches[0].model", decisionWithModels("opus", "opus", "haiku", "sonnet", "sonnet"), "haiku"},
+		{"panel.rerun_dispatch.model", decisionWithModels("opus", "opus", "opus", "haiku", "sonnet"), "haiku"},
+		{"groups[1].model", decisionWithModels("opus", "opus", "opus", "sonnet", "haiku"), "haiku"},
+		{"groups[1].model", decisionWithModels("opus", "opus", "opus", "sonnet", "fable"), "fable"},
+		{"implementer.model", decisionWithModels("", "opus", "opus", "sonnet", "sonnet"), ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path+"="+tt.bad, func(t *testing.T) {
+			_, fs := recordTestServer(t, "proj", "kan-1")
+			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(tt.body)})
+			if !errors.Is(err, api.ErrInvalidRecord) {
+				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
+			}
+			if want := fmt.Sprintf("%s %q", tt.path, tt.bad); !strings.Contains(err.Error(), want) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), want)
+			}
+			if fs.recordCalls != 0 || len(fs.decisions) != 0 {
+				t.Errorf("the store was reached for an off-policy %s", tt.path)
+			}
+		})
+	}
+}
+
+// TestRecordDecisionRejectsCaseVariantKeys pins that a case-variant
+// duplicate key cannot mask an off-policy pair: the check reads the exact
+// key the stored jsonb carries, so "Implementer" never stands in for
+// "implementer".
+func TestRecordDecisionRejectsCaseVariantKeys(t *testing.T) {
+	_, fs := recordTestServer(t, "proj", "kan-1")
+	body := `{"implementer":{"model":"haiku","effort":"high","reason":"r"},"Implementer":"skipped — inline"}`
+	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body)})
+	if !errors.Is(err, api.ErrInvalidRecord) {
+		t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
+	}
+	if fs.recordCalls != 0 {
+		t.Errorf("the store was reached for a masked off-policy implementer")
+	}
+}
+
+// TestRecordDecisionRefusalNamesValidModels pins that the refusal lists
+// store.ValidModels itself, so the message cannot drift from the set.
+func TestRecordDecisionRefusalNamesValidModels(t *testing.T) {
+	_, fs := recordTestServer(t, "proj", "kan-1")
+	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(decisionWithModels("haiku", "opus", "opus", "opus", "opus"))})
+	want := strings.Join(slices.Sorted(maps.Keys(store.ValidModels)), ", ")
+	if err == nil || !strings.HasSuffix(err.Error(), "is not one of "+want) {
+		t.Errorf("error = %v, want it to name %q", err, want)
+	}
+}
+
+// TestRecordDecisionAcceptsRecordedStrings pins that the string-valued
+// pairs a micro or inline decision records (implementer/fixer "skipped —
+// inline", panel "default", groups null) carry no model and pass, and that
+// a full sdd body on opus and sonnet records.
+func TestRecordDecisionAcceptsRecordedStrings(t *testing.T) {
+	for name, body := range map[string]string{
+		"micro":    `{"class":"micro","execution":"inline","implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`,
+		"full sdd": decisionWithModels("opus", "sonnet", "opus", "sonnet", "sonnet"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, fs := recordTestServer(t, "proj", "kan-1")
+			_, created, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body)})
+			if err != nil {
+				t.Fatalf("ApplyDecisionRecord: %v", err)
+			}
+			if !created || len(fs.decisions) != 1 {
+				t.Errorf("created = %v, decisions = %d, want one recorded row", created, len(fs.decisions))
 			}
 		})
 	}

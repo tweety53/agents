@@ -177,8 +177,8 @@ copies drift: nothing tells the next editor of the skill that this file exists. 
 turns three copies into one definition and three renderings of it.
 
 Moved verbatim from the `FINISHED` paragraph, describing the terminal block `skills/flow/archive.md`
-prints: That block also carries `**Self-review:** <path> (rating: <n>/5) | deferred —
-docs/self-review/<name>-context.md | skipped | skipped — project default`, immediately after
+prints: That block also carries `**Self-review:** deferred —
+docs/self-review/<name>-context.md`, immediately after
 `**Cleanup:** verified`, naming step 9's outcome, and `**Guards:** all present | N missing — those
 checks were performed by hand`, immediately after `Self-review`, naming what that run's own
 start-of-run guard presence check found — both values only run 2 ever has, exactly like the fields

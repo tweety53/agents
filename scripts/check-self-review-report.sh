@@ -43,8 +43,8 @@
 # recognized section heading is a named violation rather than a silent drop.
 #
 # THE ANGLE LABELS ARE SERVED, NOT COPIED (kan-585). The canonical angle
-# table — step 9's numbered table in
-# skills/flow-contracts/finish-contract-run2.md, the one source
+# table — step 2's numbered table in
+# skills/flow-self-review/SKILL.md, the one source
 # jira-integration.md already cites instead of copying — is parsed at run
 # time into ANGLE_LABELS, in table order. A label renamed or added there
 # moves this guard first: every report still carrying the old spelling
@@ -87,7 +87,7 @@
 # limit of the all-bash shape under KAN-211.
 #
 # SELF-REVIEW CONTEXT BUNDLES ARE NOT REPORTS (KAN-512). Run 2 step 9
-# commits `docs/self-review/<name>-context.md` on `## self review: defer`
+# commits `docs/self-review/<name>-context.md` on every run
 # (canonical: `skills/flow-contracts/finish-contract-run2.md`, step 9), and
 # `/flow-self-review <name>` deletes it once it runs the deferred pass. It is
 # a bundle awaiting a reasoning pass, never a report of one — `find` below
@@ -145,14 +145,13 @@ fi
 
 # The angle labels, in the report shape's own order, parsed from the
 # canonical table (kan-585 — see the header). The override env var exists
-# for the companion harness alone, the same convention as
-# CHECK_MODEL_RESOLUTION_SKILL_MD: a fixture contract lets the harness
+# for the companion harness alone: a fixture contract lets the harness
 # prove the guard follows the source without writing the real tree, whose
 # mtime run-guard-tests.sh fingerprints. The table is the only one in the
 # contract whose rows are numbered in the first cell, so "second cell
 # numeric, last non-empty cell is the backticked label" selects exactly
 # the angle rows and cannot leak from any other table.
-ANGLE_CONTRACT="${CHECK_SELF_REVIEW_ANGLES_CONTRACT:-$REPO_ROOT/skills/flow-contracts/finish-contract-run2.md}"
+ANGLE_CONTRACT="${CHECK_SELF_REVIEW_ANGLES_CONTRACT:-$REPO_ROOT/skills/flow-self-review/SKILL.md}"
 [[ -r "$ANGLE_CONTRACT" ]] || die "the canonical angle table is unreadable: $ANGLE_CONTRACT"
 ANGLE_LABELS=()
 while IFS= read -r parsed_label; do

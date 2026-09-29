@@ -21,8 +21,9 @@ The two rules point in opposite directions on purpose. A reviewer's job is to be
 readings of a finished diff, so its cost must not scale with the operator's session model. An
 implementer's job is to get the diff right the first time, where capability compounds.
 
-**Implementer subagents dispatched by `/flow`'s implement phase run on Opus** (or the harness's strongest
-available model). This **explicitly overrides** superpowers:subagent-driven-development's model
+**Implementer subagents dispatched by `/flow`'s implement phase run on Opus by default** (or the
+harness's strongest available model), Sonnet only where the Decide step judges the work simple
+and predictable. This **explicitly overrides** superpowers:subagent-driven-development's model
 guidance — that skill says to pick "the least powerful model that can handle each role" and to use
 the cheapest tier where the plan already contains the code to write. That guidance does not govern
 this pipeline. The saving it offers is false here: an implementation defect is not avoided by the
@@ -34,21 +35,18 @@ rather than left to be discovered.** subagent-driven-development says to dispatc
 review* on the most capable model: flow does not — it fixes every panel slot at the panel's
 model, Opus by default, for the reason above, and escalates the panel's **breadth** instead (the conditional Failure-modes and
 Mutation slots), which buys more independent readings rather than one stronger one.
-It also says to *escalate the model in fix rounds 4-5*: flow cannot, because its implementers
-already sit at the ceiling from round 1. Fix rounds escalate the same way — more slots, not a
+It also says to *escalate the model in fix rounds 4-5*: flow does not, because the model is
+chosen per dispatch at Decide time from what the work needs, not raised by round count. Fix rounds escalate the same way — more slots, not a
 bigger model — and round 5 hands back to the operator rather than pretending an escalation is
 available.
 
-**The panel-fix default is the strongest available model, and deliberately not Sonnet.** The role
-names the agent that *applies* a fix, which is an implementer — so the implementer rule above
-already governs it. Fix rounds escalate the panel's breadth rather than its model precisely because
-implementers sit at the ceiling from round 1, and a fix-wave default of Sonnet would contradict both
-of those rules at once.
+**The panel-fix pair follows the implementer rule.** The role names the agent that *applies* a
+fix, which is an implementer — so the implementer rule above already governs it. Fix rounds escalate the panel's breadth rather than its model for the same reason.
 
-**The rerun pair is `DEFAULT_MODEL` at `low`, and no longer a model no pass-1 dispatch used.**
+**The rerun pair is planner-chosen at `low`, and no longer a model no pass-1 dispatch used.**
 Rejected — the exclusion: with every pass-1 dispatch on Opus it left only Sonnet and Haiku, so it
-forced every fix-round re-run off the model the operator set as the one model for every run, and
-its `sonnet` fallback did the same whenever the exclusion left nothing. The re-run's
+forced every fix-round re-run off the model the operator's policy picked, and its `sonnet`
+fallback did the same whenever the exclusion left nothing. The re-run's
 independence comes from reading only the fix delta against named findings,
 not from a different model.
 

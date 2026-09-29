@@ -1,19 +1,19 @@
 ---
 name: flow-self-review
-description: Run the self-review pass a `/flow` or `/flow-fast` run deferred, inline on this session's model, from the saved context bundle; file, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; file, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
 compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
 ---
 
-Run the self-review reasoning pass a `/flow` or `/flow-fast` run deferred (`## self review:
-defer`, per `skills/flow-contracts/project-configuration.md`), from the context bundle run 2
-step 9 saved — `skills/flow-contracts/finish-contract-run2.md` step 9 is canonical for that
-bundle's shape and the five-angle table below — or **5. Verify** (`skills/flow-fast/SKILL.md`)
-saved on the change branch before landing. **The pass runs inline, in this session, on whatever model it is
-already on** — no subagent, no dispatch. Picking a stronger model than the
-same-run pass would have used is done by picking the model this session runs on (`/model`) before
-invoking this command, not by anything this skill itself resolves.
+Run a change's self-review reasoning pass — the only one the pipeline has — from the context
+bundle run 2 step 9 saved (`skills/flow-contracts/finish-contract-run2.md` step 9 is canonical
+for that bundle's shape) or **5. Verify** (`skills/flow-fast/SKILL.md`) saved on the change
+branch before landing. This file is canonical for the five angles, what may be filed, the
+filing-and-rating prompt and the report. **The pass runs inline, in this session, on whatever
+model it is already on** — no subagent, no dispatch. The model is picked by picking the model
+this session runs on (`/model`) before invoking this command, not by anything this skill itself
+resolves.
 
 **This is a standalone command, not a pipeline stage.** It takes one change name, writes no
 per-change state file, and marks no `flow stage` call.
@@ -45,18 +45,30 @@ present-but-empty for an angle with no findings, never omitted:
 | 4 | What could be automated or moved to a script | `flow-automation` |
 | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
 
-What may be filed is bounded by run 2 step 9's paragraph that a finding is filed only from the five angles
-(**Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`).
+Angle 5's remit covers the records the pipeline writes to files today and the derivation work
+now done in Bash or by the agent — **not** what the SPA should display. A silent angle and a
+skipped angle are indistinguishable to a reader, which is why an empty angle says so.
 
-**One combined pass** — never five separate reads. A deferred pass covers what the bundle holds
-and nothing a same-run session could still remember beyond it — **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9 — say so in the report, never imply
-parity with a same-run pass.
+**A finding is filed only from the five angles, and only by the operator's choice.** A finding
+about the pipeline itself is offered under its angle. A finding about the project's own product
+code is offered only when it is Important or worse — something a user or the data would
+suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a
+missing test over already-correct code) is left out of the prompt, and so is every finding the
+review panel deferred, since the panel already decided its disposition. The report carries no
+section beyond the five angles and the rating. The filing prompt is never waived: a pass with
+no operator to answer it files nothing and records every finding `declined`.
+
+**One combined pass** — never five separate reads. The pass covers what the bundle holds and
+nothing beyond it — say so in the report's `**Deferred:**` line.
 
 ### 3. Explain, then ask
 
 Every finding is explained in the message body first, before any prompt fires — what was
-observed, what breaks, and what the fix would be. The filing ask and the rating are **one
-`AskUserQuestion` call**, shaped exactly as run 2 step 9's own — **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9: up to three multi-select questions of
+observed, what breaks, and what the fix would be. A prompt's option text cannot carry that
+explanation, so the prompt records the decision only: a filed issue is durable, and an
+explanation arriving afterward describes something the operator did not agree to. The filing ask
+and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
+(`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
 three findings each, every option prefixed with its angle's label, plus **None — file nothing**
 as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1`
 typed through the tool's free-text "Other". More than nine findings roll the overflow into one
@@ -86,8 +98,8 @@ it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before
 unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: report it and stop before the
 commit, never commit a report the guard could not read.
 Commit both paths in one commit through the landing chain's one script — the same invocation
-`skills/flow/archive.md` step 9 lands its own report with, differing only in the asserted branch,
-the removed context-bundle path and the `--push` — since the round-trip through the five-angle
+`skills/flow/archive.md` step 9 lands the context bundle with, differing in the asserted branch,
+the report path, the removed context-bundle path and the `--push` — since the round-trip through the five-angle
 pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking
 rather than trusted from step 1 alone:
 

@@ -82,7 +82,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
 4. **Commit the archive on `chore/archive-<name>` — no push.** There is no merge to do: the change
    branch was already merged, which step 1 proved. Run 2 merges nothing into the base branch before step 10 lands the archive,
    and never commits the archive on the base branch itself. Every commit run 2 makes after step 2 —
-   this one and the self-review report at step 9 alike — asserts `chore/archive-<name>` rather than
+   this one and the self-review context bundle at step 9 alike — asserts `chore/archive-<name>` rather than
    assuming it: naming the directory with `git -C <landing-worktree>` fixes the directory, not the
    branch. A finished change never leaves the archive move uncommitted in the working tree. The push
    happens at step 10, after self-review; step 11, which removes the landing worktree, closes the
@@ -209,14 +209,11 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    succeeded** — see **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
-9. **Run self-review** — after `FINISHED` is written. **A `/flow-fast` run runs no reasoning pass
-   and no prompt here** — it honours `defer` alone, saving the bundle on its own branch before
-   landing (**5. Verify**, `skills/flow-fast/SKILL.md`, canonical for it). Otherwise: a
-   skip, a failure, or a decline never moves
-   the change off `FINISHED`. It is skippable per run, with running it the default. A project's
-   `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
-   decides without asking when present and valid; the per-run prompt is the absent case.
-   **Whichever option runs, the session fetches the bundle first**, with
+9. **Save the self-review context bundle** — after `FINISHED` is written. Self-review is always
+   deferred: no reasoning pass and no prompt run here, and a failure never moves the change off
+   `FINISHED`. **A `/flow-fast` run saves the bundle on its own branch before landing** (**5.
+   Verify**, `skills/flow-fast/SKILL.md`, canonical for it). Otherwise the session fetches the
+   bundle with
    `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
    panel record rendered from the store, or, when the store yields no render for that record, read
    from the copies step 4 committed onto the archive branch, the archived `tasks.md`,
@@ -227,83 +224,26 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    archive commits — and prints it as one Markdown document. A source that is absent is reported
    `skipped: <source> (absent)` inside the bundle, never fatal; nothing is rendered into the
    landing worktree first, and no landing-worktree path is passed in or baked into the bundle.
-   `defer` — by key or by the prompt's third option — fetches the bundle as above, appends
-   `## Session narrative` (one paragraph this session writes for run 2 itself; the archived
-   `narrative.md` is already a bundle section, and a change predating the narrative rule has the
-   bundle report it skipped), writes the whole to
-   `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, commits
-   it on `chore/archive-<name>` with subject `docs(self-review): <name> self-review context
-   bundle`, and runs no reasoning pass; step 10 carries the bundle as it carries the report. The
-   pass then runs in `/flow-self-review <name>` (`skills/flow-self-review/SKILL.md`), canonical
-   for the deferred pass, which deletes the bundle in its report commit. A deferred pass covers
-   what the bundle holds and nothing a same-run session could still remember beyond it — the
-   report's `**Deferred:**` line states that.
-
-   **On `run`, this same step-9 session runs the reasoning pass itself, inline, on whatever
-   model it is already on — no subagent, no dispatch.** It fetches its
-   input with `flow self-review bundle -change <name>` rather than re-reading files a second time,
-   and runs **one** combined reasoning pass covering all five angles below, together with the
-   operator's 1-5 rating, never as five separate passes — the same session drives
-   `AskUserQuestion` for the filing-and-rating prompt either way.
-
-   | # | Angle | Label |
-   |---|-------|-------|
-   | 1 | Problems encountered, and what pipeline change would avoid them | `flow-fix` |
-   | 2 | Token/time cost, and what would reduce it without quality loss | `flow-cost` |
-   | 3 | What went well, and how to reproduce it | `flow-improvement` |
-   | 4 | What could be automated or moved to a script | `flow-automation` |
-   | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
-
-   Angle 5's remit covers the records the pipeline writes to files today and the derivation work
-   now done in Bash or by the agent — **not** what the SPA should display.
-
-   **Every angle produces zero or more findings, and an angle that produces none says so
-   explicitly** — present-but-empty, the way `## Decisions` and `## Open questions` already are,
-   rather than omitted. A silent angle and a skipped angle are indistinguishable to a reader.
-
-   **A finding is filed only from the five angles, and only by the operator's choice.** A finding
-   about the pipeline itself is offered under its angle. A finding about the project's own product
-   code is offered only when it is Important or worse — something a user or the data would
-   suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a
-   missing test over already-correct code) is left out of the prompt, and so is every finding the
-   review panel deferred, since the panel already decided its disposition. The report carries no
-   section beyond the five angles and the rating. The filing prompt is never waived: a pass with
-   no operator to answer it files nothing and records every finding `declined`.
-
-   **Every finding is explained in the message body before any prompt fires** — what was observed,
-   what breaks, and what the fix would be. A prompt's option text cannot carry that explanation, so
-   the prompt records the decision only: a filed issue is durable, and an explanation arriving
-   afterward describes something the operator did not agree to.
-
-   The filing ask and the rating are **one `AskUserQuestion` call**. Findings from every angle
-   fill up to three multi-select questions, each carrying at most three findings — every option
-   prefixed with its angle's label — plus **None — file nothing** as that question's `(default,
-   recommended)` option; the rating is the call's last question, options `5 — excellent` /
-   `4 — good` / `3 — fine` / `2 — rough`, a `1` typed through the tool's free-text "Other". More
-   than nine findings roll the overflow into one further call of the same shape, without the
-   rating. Shape per **Operator prompts** (`skills/flow-contracts/operator-prompts.md`). A finding
-   filed this way carries its angle's label on top of the set **Labels on issues the pipeline
-   creates** (`skills/flow-contracts/jira-integration.md`) already defines.
-
-   The report is committed onto `chore/archive-<name>` in `<landing-worktree>` — asserting that
-   branch rather than assuming it, and not pushed here; step 10 carries the push — to
-   `<project>/docs/self-review/<name>-self-review.md`, physically under `<landing-worktree>`. It
-   carries one section per angle,
-   all five present; each finding is one line naming its angle's label, the finding, and its
-   disposition — the issue key when filed, an explicit declined marker when not — and an angle with
-   no findings carries an explicit none-marker instead of finding lines. **This procedure is
-   canonical here.**
+   The session appends `## Session narrative` (one paragraph it writes for run 2 itself; the
+   archived `narrative.md` is already a bundle section, and a change predating the narrative rule
+   has the bundle report it skipped), writes the whole to
+   `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, and
+   commits it on `chore/archive-<name>` with subject `docs(self-review): <name> self-review context
+   bundle`; step 10 carries the bundle. The pass then runs in `/flow-self-review <name>`
+   (`skills/flow-self-review/SKILL.md`), canonical for the five angles, what may be filed, the
+   filing-and-rating prompt and the report, which deletes the bundle in its report commit. A
+   deferred pass covers what the bundle holds and nothing beyond it — the report's
+   `**Deferred:**` line states that.
 10. **Push the archive branch and land it — the route depends on how this run of archive.md was
     reached.**
 
     | Reached via | Then |
     |---|---|
     | the merge-and-push continuation, same invocation as run 1 | in `<landing-worktree>`: `git checkout <base>`; `git merge --ff-only chore/archive-<name>`; `git push origin <base>` — **the route's one push of `<base>`**, carrying run 1's merge, the archive commit and step 9's output together. `chore/archive-<name>` is not pushed; its local branch stays, since `flow self-review bundle` reads the archive from it |
-    | a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, then **merge it immediately with that same CLI** (`gh pr merge --merge --delete-branch` or the host's equivalent) — no wait for checks or review, and no operator prompt, because everything this PR carries is this pipeline's own mechanical output (the archive move, the self-review report or context bundle), never code a human review gate exists for. When no PR CLI is usable for the host, print the forge's create-PR URL and ask whether it was opened **and merged** — the same shape Run 1's pull-request route uses, extended to cover the merge this row no longer defers |
+    | a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, then **merge it immediately with that same CLI** (`gh pr merge --merge --delete-branch` or the host's equivalent) — no wait for checks or review, and no operator prompt, because everything this PR carries is this pipeline's own mechanical output (the archive move, the self-review context bundle), never code a human review gate exists for. When no PR CLI is usable for the host, print the forge's create-PR URL and ask whether it was opened **and merged** — the same shape Run 1's pull-request route uses, extended to cover the merge this row no longer defers |
 
-    This push carries both the archive commit and step 9's output — the self-review report, or the
-    context bundle on `defer` — either way, so there is no window in which the archive lands while
-    that output is still unwritten. Run 2
+    This push carries both the archive commit and step 9's context bundle, so there is no window
+    in which the archive lands while the bundle is still unwritten. Run 2
     never pushes anything but `chore/archive-<name>` on the standalone row and `<base>` on the
     merge-and-push row; the standalone row's PR-CLI merge does not push `<base>` directly — the forge's own
     merge does that on the PR CLI's behalf.
