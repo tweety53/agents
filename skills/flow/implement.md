@@ -8,7 +8,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 |------|-------|------|
 | **2** | resume the workspace created at `flow.kickoff`, stated in **2. Isolate the workspace** below | Before the first code change, every run |
 | **3** | **superpowers:writing-plans** | Validate the plan; repair `tasks.md` if it is not apply-ready |
-| **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks |
+| **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks — only when the recorded decision's `execution` is `sdd`; an `inline` run (**Inline — the parent implements** below) never loads it |
 | **5** | **superpowers:test-driven-development** | Every implementer dispatch, every task |
 | **6** | the review panel | The final whole-branch panel |
 | **7** | **superpowers:systematic-debugging** | An unexpected test failure during implementation, or a review-panel finding confirmed as a real defect |
@@ -274,6 +274,15 @@ set.
 worktree resumed above, plus any additional worktree this change affects.** Per
 **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
 construction on every ordinary run.
+
+**Every worktree this stage creates — a linked peer's, or an `## apps` entry's below — runs its
+repository's `## worktree setup` before anything else touches it**: before its `spectre link`, its
+link or planning commit, and any task. Run `project-get.sh <that worktree> "worktree setup"` and
+handle it exactly as step 4 of **A. Resolve the change and write `STARTED`**
+(`skills/flow/brainstorm.md`) does for the kickoff worktree — only the fenced command lines, from
+that worktree's root, in order, in the foreground; exit 1 says the key is absent and continues;
+exit 2 stops the run; a command's non-zero exit ends the turn naming the command and its output. A
+worktree this stage resumes rather than creates runs nothing here.
 
 **After creating each additional worktree, run
 `spectre link --root <abs-worktree>/spectre <canonical-peer>:<name>` with the working directory at

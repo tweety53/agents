@@ -9,9 +9,8 @@ compatibility: Requires the flow CLI and jq.
 Read and change the harness-wide settings record `flow settings get`/`set` manage: the default
 model (`defaultModel`) every `/flow` run's implementer, fixer and reviewer roles use unless a
 session overrides it, the reviewer slots (`reviewers`) the review panel dispatches by default, and
-the recorded value (`selfReviewModel`) unless a project overrides it — the archive-phase
-self-review pass itself runs inline, on whatever model the archive session is already on, so
-this field is resolved but governs no dispatch (step 9, `skills/flow/archive.md`).
+the stored `selfReviewModel`, which no run reads — the archive-phase self-review pass runs
+inline, on whatever model the archive session is already on (step 9, `skills/flow/archive.md`).
 
 **This is a standalone command, not a pipeline stage.** It takes no change name, reads and writes
 no per-change state file, and marks no `flow stage` call. It changes the harness-wide store, not
@@ -77,12 +76,9 @@ read in step 1:
   slots fails at step 3 with exit 2, rather than turning review off.
 - **Self-review model** — offer the same `ValidModels` set as Default model, plus an explicit
   **"Store default (fable)"** option (maps to the empty string, `-self-review-model ""`) and "keep
-  current". This field still resolves — the 5-angle retrospective `/flow` runs after a change
-  reaches `FINISHED` — but governs no dispatch: the archive session runs that pass inline, on
-  whatever model it is already on; an empty value is a legitimate, first-class choice, not a
-  fallback born of an unreachable store, so offer it as a named option rather than only as "keep
-  current". Empty resolves to the literal `fable`, unless `<project>/.flow/project.md`'s `##
-  self review model` key overrides it, per step 9 (`skills/flow/archive.md`).
+  current". No run reads this field — the archive session runs the 5-angle retrospective inline,
+  on whatever model it is already on (step 9, `skills/flow/archive.md`) — so its value changes
+  nothing; it is still asked because `settings set` writes the whole record.
 If the operator keeps all three fields unchanged, say so and stop — do not call `settings set`
 for a no-op write.
 

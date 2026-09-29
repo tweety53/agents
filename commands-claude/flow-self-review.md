@@ -11,8 +11,8 @@ no per-change state file, and marks no `flow stage` call. It reads the saved con
 and rates findings, writes the report, deletes the bundle, and lands both on the default branch.
 
 The pass runs on whatever model this session is already on: the settings store's
-`selfReviewModel` and a project's `## self review model` key resolve for the record but govern no
-dispatch, so neither overrides it.
+`selfReviewModel` and a project's `## self review model` key are read by no run, so neither
+overrides it.
 
 **Input:** one change name, required. Any other argument is reported rather than ignored.
 

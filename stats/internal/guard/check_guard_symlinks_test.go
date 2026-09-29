@@ -1126,3 +1126,76 @@ func TestShimSiblingsDeclared(t *testing.T) {
 		})
 	}
 }
+
+// TestEveryFlowGuardShimRequiresLib is KAN-854: every real shim that loads
+// lib/flow-guard.sh -- by $SCRIPT_DIR or by $(dirname -- "${BASH_SOURCE[0]}")
+// -- makes lib a rule 2 sibling dependency of a skill that carries it. Before
+// gsSelfDirSibling, every dirname-spelled shim passed with no lib symlink.
+func TestEveryFlowGuardShimRequiresLib(t *testing.T) {
+	t.Parallel()
+	scripts := tcfScriptsDir(t)
+	entries, err := os.ReadDir(scripts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, e := range entries {
+		shim := e.Name()
+		if !strings.HasSuffix(shim, ".sh") || strings.HasPrefix(shim, "test-") {
+			continue
+		}
+		b, err := os.ReadFile(scripts + "/" + shim)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), `/lib/flow-guard.sh"`) {
+			continue
+		}
+		found++
+		t.Run(shim, func(t *testing.T) {
+			t.Parallel()
+			repo := gsNew(t)
+			gsGuard(t, repo, shim, string(b))
+			gsLink(t, repo, "flow", shim)
+			gsSkill(t, repo, "flow", gsMD("# flow fixture\n\n'''bash\n"+shim+" <worktree>\n'''\n"))
+			r := gsRun(t, repo)
+			gsInvalid(t, r, "a skill carrying the shim alone is a rule 2 violation")
+			gsReports(t, r, "lib is a sibling dependency", "names the missing lib")
+		})
+	}
+	if found == 0 {
+		t.Fatal("no shim in scripts/ loads lib/flow-guard.sh -- the walk found nothing to check")
+	}
+}
+
+// TestSelfDirSiblingSpellings pins gsSelfDirSibling's two spellings and its
+// refusal to read a `/..` walk as a sibling.
+func TestSelfDirSiblingSpellings(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ name, body string }{
+		{"bash-source", `. "$(dirname -- "${BASH_SOURCE[0]}")/lib/helper.sh"`},
+		{"dollar-zero", `. "$(dirname "$0")/lib/helper.sh"`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			repo := gsNew(t)
+			writeFile(t, repo+"/scripts/lib/helper.sh", "true\n")
+			gsGuard(t, repo, "check-x.sh", "#!/usr/bin/env bash\n"+c.body)
+			gsLink(t, repo, "flow", "check-x.sh")
+			gsSkill(t, repo, "flow", gsMD("# flow fixture\n\n'''bash\ncheck-x.sh <worktree>\n'''\n"))
+			r := gsRun(t, repo)
+			gsInvalid(t, r, "a skill carrying the guard without lib is a rule 2 violation")
+			gsReports(t, r, "lib is a sibling dependency", "names the missing lib")
+		})
+	}
+	t.Run("parent-walk", func(t *testing.T) {
+		t.Parallel()
+		repo := gsNew(t)
+		gsGuard(t, repo, "check-x.sh", "#!/usr/bin/env bash\n"+`ROOT="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"`)
+		gsLink(t, repo, "flow", "check-x.sh")
+		gsSkill(t, repo, "flow", gsMD("# flow fixture\n\n'''bash\ncheck-x.sh <worktree>\n'''\n"))
+		r := gsRun(t, repo)
+		gsSilent(t, r, "a /.. walk names no sibling")
+		gsCheck(t, "a /.. walk is no sibling", !strings.Contains(r.out, ".. is a sibling dependency"), "output: %s", r.out)
+	})
+}

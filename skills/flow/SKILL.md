@@ -101,10 +101,6 @@ is canonical for what dispatching it means):
 | Reachable, list empty | `primary` alone |
 | Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
 
-**`SELF_REVIEW_MODEL` is not resolved here.** It governs no dispatch and only the archive-phase
-self-review pass reads it, so it resolves there, at its point of consumption —
-`skills/flow/archive.md` step 9, canonical for it. No run that stops before archive pays for it.
-
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
 and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort
@@ -181,8 +177,9 @@ confirm every guard `/flow` can invoke — every `<name>.sh` a fenced command li
 `<skill-dir>/scripts/`. A complete set prints nothing; any absence prints that section's block once,
 and the run continues under each guard's own hand-run fallback.
 
-`check-unfinished-work.sh` and `check-task-commit-fields.sh` are `flow-guard` shims: each also requires
-`<agents repo>/scripts/lib/flow-guard.sh` as a `<agents repo>/scripts/lib/` sibling — the same
+Every `flow-guard` shim — every guard whose source loads `<agents repo>/scripts/lib/flow-guard.sh`,
+by `$SCRIPT_DIR/lib/…` or by `$(dirname -- "${BASH_SOURCE[0]}")/lib/…` — also requires that file as
+a `<agents repo>/scripts/lib/` sibling — the same
 sibling-dependency rule `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already applies to
 every other guard above.
 
@@ -196,7 +193,9 @@ a guess or the best available name, which is legal for a read; it is never legal
 **Generate this run's session token once, right here, before the first mark any phase file below
 makes — a short, unique literal string — and reuse that exact same value at every `stage begin` this
 run makes, including inside every phase file it dispatches into.** One run, one token, never a fresh
-one per mark or per phase file.
+one per mark or per phase file. `<literal-token>` in each mark is that string written in place of
+the placeholder, never the placeholder itself, and a later `/flow` invocation — a resume or a fix
+run — generates its own rather than reusing an earlier run's.
 
 ## Guardrails
 

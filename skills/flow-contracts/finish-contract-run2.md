@@ -89,7 +89,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    run.
 
    **The staging is `git add -A`, and this commit's diff is verified scoped to
-   `<agents repo>/spectre/changes/`
+   `<project>/spectre/changes/`
    before it is made** — `check-archive-scope.sh <landing-worktree> "spectre/changes/"`, run between
    the add and the commit. `add -A` stages the whole landing worktree, not only the archive move, so
    a landing worktree step 2 failed to actually fast-forward — silently, or by a skipped guard run
@@ -240,9 +240,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    report's `**Deferred:**` line states that.
 
    **On `run`, this same step-9 session runs the reasoning pass itself, inline, on whatever
-   model it is already on — no subagent, no dispatch.** `SELF_REVIEW_MODEL` (step 9, `skills/flow/archive.md`) still
-   resolves — the store field, a project override, the `fable` fallback — but governs nothing:
-   there is no dispatch left to send it to. It fetches its
+   model it is already on — no subagent, no dispatch.** It fetches its
    input with `flow self-review bundle -change <name>` rather than re-reading files a second time,
    and runs **one** combined reasoning pass covering all five angles below, together with the
    operator's 1-5 rating, never as five separate passes — the same session drives
@@ -441,7 +439,7 @@ and the resulting orphan holds ports shared across every workspace. The remedy i
 process and re-run, while
 the worktree still exists and the project's own stop command can still read what it started.
 
-**Check 4 is a disclosure, not a gate — but it asks only about what it cannot prove regenerates.**
+**Check 4 is a disclosure, not a gate — it asks only about an irreplaceable entry nothing preserved.**
 Split what it found into two buckets by path, never by guessing intent:
 
 - **Regeneratable** — a path under a build/cache/log/test-output location a fresh build, test run
@@ -461,9 +459,12 @@ An empty unclassified bucket → **show the regeneratable bucket's count and pro
 asking** — every entry in it is reproduced identically by the next run of whatever wrote it, so
 confirming its loss adds nothing the operator can act on, and asking every single time a routine
 archive leaves nothing but build output behind is a prompt with no real decision behind it. A
-non-empty unclassified bucket → **stop, show that bucket in full** (the regeneratable one named
-only by count), and ask for explicit confirmation before removing that worktree, exactly as
-before — the ask exists for the entries that are actually in doubt.
+non-empty unclassified bucket → **show that bucket in full** (the regeneratable one named only by
+count), saying of each entry whether it is irreplaceable and whether it was already preserved,
+**and proceed without asking** — by this point the change's own work is committed and step 1
+proved it merged, and the rendered ledger and panel record ride step 4's archive commit. **The one
+ask:** an entry that is irreplaceable and *unpreserved* → stop and ask for explicit confirmation
+before removing that worktree.
 
 **`/flow-fast` runs none of these checks.** Its cleanup (**8. Clean up**, `skills/flow-fast/SKILL.md`)
 removes its worktree without `--force`, so git itself refuses one holding modified or untracked
@@ -481,7 +482,7 @@ git -C "$REPO" worktree prune
   and 2 establish only that nothing *tracked-and-modified* and nothing *untracked-and-unignored*
   is at risk. They say nothing about ignored files, because `--exclude-standard` is what hides
   them — and "ignored" is not "disposable". Check 4 exists to make that visible rather than to
-  prevent it: it lists exactly what will die, and the operator confirms. Claiming the checks make
+  prevent it: it lists exactly what will die, and asks only about an irreplaceable, unpreserved entry. Claiming the checks make
   `--force` safe would be false: a gitignored `.env` passes checks 1 and 2 and is
   destroyed silently.
 - **Neither check sees a file whose `assume-unchanged` bit is set.** `git status` is blind to it

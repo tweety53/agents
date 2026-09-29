@@ -1,0 +1,174 @@
+# Sentences this change rewords, adds or deletes on purpose: each is one of the 25
+# KAN-854 behaviour decisions recorded in design.md. Nothing here is a trim.
+*) echo "⛔ flow: project-get.sh exited $rc: $PROJECT_SRM — stop the run" >&2; exit 2 ;;
+**A held port is relayed, never resolved.
+**Any bound port discards the entire block.
+**Check 4 is a disclosure, not a gate — but it asks only about what it cannot prove regenerates.
+**Check 4 is a disclosure, not a gate — it asks only about an irreplaceable entry nothing preserved.
+**Every dispatch-prompt paragraph that instructs an implementer or fixer in its work** — FLOW —
+**Every dispatch-prompt paragraph that instructs an implementer or fixer** — FLOW —
+**Every worktree this stage creates — a linked peer's, or an `## apps` entry's below — runs its repository's `## worktree setup` before anything else touches it**: before its `spectre link`, its link or planning commit, and any task.
+**Fill every template placeholder from this table — never by reading the template.
+**Five paragraphs govern only a dispatched child's own channel and never bind the parent**: NO DELEGATION (inline, the parent keeps the dispatch rows the closed list above leaves it), MODEL HANDSHAKE, TOOLS, CONTEXT BUNDLE and REPORT FILE.
+**Groups join into one bundle by the decision's `class`**: on `big`, one bundle per group; on `small` or `regular`, every gate-fired task of the run waits and goes out in one bundle at the last boundary, on `DEFAULT_MODEL`/`default` when the run has no groups.
+**Never ask check 4's ignored-files confirmation before removing a worktree.
+**On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass itself, inline — no subagent, no dispatch — on whatever model it is already on.
+**On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass itself, inline — no subagent, no dispatch.
+**Produce the handoff's `Costs:` line the same way**, one call per affected worktree:
+**Produce the handoff's `Costs:` line with one call**, against the canonical worktree the ledger render above targets — the store keys a change's dispatches by project, and `Costs:` is one line:
+**Project hazards are read by the parent itself.
+**Remove the proposal artifact source** — always the literal `null`/absent under `/flow`, since
+**Remove the proposal artifact source** — delete `<state-dir>/<name>-proposal-artifact.html`
+**Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and run the guard-presence check, before this run's first dispatch.
+**Resolve `SELF_REVIEW_MODEL` here, where it is consumed** — `/flow`'s **Model resolution** (`skills/flow/SKILL.md`) deliberately does not, since no run that stops before archive reads it:
+**The appended plan is re-decided before load-context.
+**The block is checked free before use.
+**The block is exported as derived, with no free check.
+**The one ask:** an entry that is irreplaceable and *unpreserved* → stop and ask for explicit confirmation before removing that worktree.
+**The staging is `git add -A`, and this commit's diff is verified scoped to `<agents repo>/spectre/changes/` before it is made** — `check-archive-scope.sh <landing-worktree> "spectre/changes/"`, run between the add and the commit.
+**The staging is `git add -A`, and this commit's diff is verified scoped to `<project>/spectre/changes/` before it is made** — `check-archive-scope.sh <landing-worktree> "spectre/changes/"`, run between the add and the commit.
+**Wave-group copies go with the apply worktree they were copied from.
+**What the free check does not promise.
+**When absent**, run `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside `<agents repo>/spectre/changes/`.
+**When absent**, run `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside `<project>/spectre/changes/`, the prefix the guard call above passes.
+**`SELF_REVIEW_MODEL` is not resolved here.
+**`flow jira transition` is not this pipeline's transition path.
+0) PROJECT_SRM="$(printf '%s' "$PROJECT_SRM" | sed '/^[[:space:]]*$/d;q' | tr -d '`' | xargs)" ;;
+1) PROJECT_SRM="" ;;
+A caller that wires it in treats that exit 1 as reaching this section and asks once, as above, rather than printing it straight as a skip.
+A copy is removed once its group is picked — `git -C <worktree> worktree remove --force <worktree>-wave-group-<g>`.
+A copy is removed once its group is picked.
+A failed call is reported in one line and never blocks, just as the gather's own hazards read never does.
+A failed check leaves every worktree alone, exactly as above.
+A fix run's stage order is therefore document-fix → decide → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated after the fix's edit.
+A fix run's stage order is therefore document-fix → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated after the fix's edit.
+A non-empty unclassified bucket → **show that bucket in full** (the regeneratable one named only by count), saying of each entry whether it is irreplaceable and whether it was already preserved, **and proceed without asking** — by this point the change's own work is committed and step 1 proved it merged, and the rendered ledger and panel record ride step 4's archive commit.
+A non-empty unclassified bucket → **stop, show that bucket in full** (the regeneratable one named only by count), and ask for explicit confirmation before removing that worktree, exactly as before — the ask exists for the entries that are actually in doubt.
+A port in the block already held — by another workspace, or by an unrelated process that knows nothing about this pipeline — makes the project's start command refuse the bind, and that refusal is the collision's only signal.
+A question REPORT, DON'T DECIDE would carry in a report file goes to the operator in the parent's own output instead.
+A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**).
+A workspace's ports are therefore always either wholly its deterministic block or wholly discovered.
+A worktree this stage resumes rather than creates runs nothing here.
+Absent, there is nothing to remove, and the step says so.
+Appended tasks can move the plan's class, and the run executes by the newest decision row, so on every fix run — **Re-plan** and **Append anyway** alike — the decision follows the plan here.
+Both cases rest on **Decide** (`skills/flow/brainstorm-planner.md`): a run resumed at `STARTED` reads `flow record decisions -change <name>` and follows the newest row rather than re-rolling, or re-runs the Decide step alone when none exists yet; a fix run's `flow.document-fix` (`skills/flow/implement.md`) hands the appended plan through the same Decide step, re-grouping the review panel on the same name-derived `bundle_roll`, and recording a second row whose rolls — being name-derived — stay identical to the first, so only `class`, `groups` (the appended plan's bundles) and a free grouping's shape can change.
+COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND BUILDS, PROJECT HAZARDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent in the same words**, as if the parent had dispatched itself.
+COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND BUILDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent in the same words**, as if the parent had dispatched itself.
+Change artifacts field only for an artifact the bundle's census lists as skipped or
+Check 4 exists to make that visible rather than to prevent it: it lists exactly what will die, and asks only about an irreplaceable, unpreserved entry.
+Check 4 exists to make that visible rather than to prevent it: it lists exactly what will die, and the operator confirms.
+Check 4 turning up something genuinely irreplaceable and *unpreserved* is not this override's case: stop and ask.
+Check 6, the live-process check, is named explicitly because it is the one check 4's proceed-without-asking could plausibly be read as reaching: a live process is not a preserved record, so `HELD:` and the guard's exit 2 both stop `/flow`.
+Check 6, the live-process check, is named explicitly because it is the one this override could plausibly be read as reaching: a live process is not a preserved record, so `HELD:` and the guard's exit 2 both stop `/flow` exactly as they stop the base contract.
+Derive a guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` and `$(dirname -- "${BASH_SOURCE[0]}")/<name>`, the spelling most `flow-guard` shims load `<agents repo>/scripts/lib/flow-guard.sh` by — rather than trusting a hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list here would drift from that guard's own dependencies the moment they change.
+Derive a guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` — rather than trusting a hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list here would drift from that guard's own dependencies the moment they change.
+Dispatched on `DEFAULT_MODEL` (below); the dispatcher compares that line against it and applies **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first mismatch is a fallback plus one retry under `panel-fix-<round>[-<chunk>]-retry` — the only retry key `check-panel-fix-single-dispatch.sh` accepts; a second is a fallback plus the **AskUserQuestion** it states.
+Do not branch on `flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store still exits 0, so there is nothing to react to.
+Each is substituted in the dispatch prompt with the value named here:
+Each such `$COPY` runs checks 1, 2, 4, 5 and 6 above in `$WT`'s place, and check 3 as `git -C "$COPY" cherry "spectre/<name>" HEAD`, which must print no `+` line — a `+` is a commit the pick never landed on the change branch.
+Empty resolves to the literal `fable`, unless `<project>/.flow/project.md`'s `## self review model` key overrides it, per step 9 (`skills/flow/archive.md`).
+Every `flow-guard` shim — every guard whose source loads `<agents repo>/scripts/lib/flow-guard.sh`, by `$SCRIPT_DIR/lib/…` or by `$(dirname -- "${BASH_SOURCE[0]}")/lib/…` — also requires that file as a `<agents repo>/scripts/lib/` sibling — the same sibling-dependency rule `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already applies to every other guard above.
+Every port in the block, not merely the first:
+Everywhere else in this contract a collision is either vanishingly unlikely or loud: a database name is drawn from 65 536 digests, and a port already bound refuses the bind and discards the block.
+Everywhere else in this contract a collision is either vanishingly unlikely or loud: a database name is drawn from 65 536 digests, and a port already bound refuses the bind and stops the start.
+Exit 1 names every violation of the gated- per-task-reviewer bundling contract above — a bundle carrying more than one non-retry dispatch, a retry with no original, a key outside the canonical shape, two gate-fired tasks of the same implementer group split across separate reviewer bundles, or (on `small`/`regular`) more than one original bundle for the whole run — and is a prompt, resolved on its recommended **Continue** per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`), the same shape `skills/flow/review-panel.md`'s own `check-panel-fix-single-dispatch.sh` handback carries:
+If a single port in the block is already held — by another workspace, or by an unrelated process that knows nothing about this pipeline — the **whole** block is abandoned in favour of free-port discovery.
+Inline gathers no context bundle, so the
+It governs no dispatch and only the archive-phase self-review pass reads it, so it resolves there, at its point of consumption — `skills/flow/archive.md` step 9, canonical for it.
+It is never repaired port by port.
+It is removed before `$WT`, with `git -C "$REPO" worktree remove --force "$COPY"` and no `git branch -d` (a copy has no branch).
+MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
+No `/flow*` command calls it; every transition in **Transitions** above runs in the session.
+No run reads this field — the archive session runs the 5-angle retrospective inline, on whatever model it is already on (step 9, `skills/flow/archive.md`) — so its value changes nothing; it is still asked because `settings set` writes the whole record.
+No run that stops before archive pays for it.
+On `micro`, `small` and `regular` that row dispatches `flow-low` (**The gated per-task reviewer**, section **4** below), and on a `default` panel a panel-bundle row does too, so the reviewer rows are structurally fork-free on every class and both panel shapes.
+On a `default` panel a reviewer row dispatches `flow-low`, so the reviewer rows are structurally fork-free on both panel shapes.
+On a fix run, section **3** below runs first: the parent resolves the worktree from the state file's `worktrees` map, runs section 3's inline plan-append and Jira sync, then continues into load-context/isolate/ sdd-tdd on the same session, with no dispatch in between.
+On a fix run, section **3** below runs first: the parent resolves the worktree from the state file's `worktrees` map, runs section 3's inline plan-append, Jira sync and re-decision, then continues into load-context/isolate/ sdd-tdd on the same session, with no dispatch in between.
+Once per run, before the first bundle's first edit, the parent runs `flow hazards -C <canonical-worktree> -shape <shape>`, where `<shape>` is the value section **4** computes for its gathers, and holds every row it prints to PROJECT HAZARDS' terms.
+Open a path from the
+Open the Principles path itself only
+PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>&1)"; rc=$?
+Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff`, `## self review` and `## default landing route` sections, each read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first three, `## handoff` says whether the run stops between them, and `## self review` says whether section 5 saves a context bundle.
+Read `<project>/CLAUDE.md`, `<project>/AGENTS.md` where present, and `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff`, `## self review` and `## default landing route` sections, each read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first three, `## handoff` says whether the run stops between them, and `## self review` says whether section 5 saves a context bundle.
+Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow --> directly — `DEFAULT_MODEL` and `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) and the resolved worktree count (per **Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`) are already in scope from this run's own earlier resolution.
+Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow --> directly — `DEFAULT_MODEL` and `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) are already in scope from this run's own earlier resolution.
+Read and change the harness-wide settings record `flow settings get`/`set` manage: the default model (`defaultModel`) every `/flow` run's implementer, fixer and reviewer roles use unless a session overrides it, the reviewer slots (`reviewers`) the review panel dispatches by default, and the recorded value (`selfReviewModel`) unless a project overrides it — the archive-phase self-review pass itself runs inline, on whatever model the archive session is already on, so this field is resolved but governs no dispatch (step 9, `skills/flow/archive.md`).
+Read and change the harness-wide settings record `flow settings get`/`set` manage: the default model (`defaultModel`) every `/flow` run's implementer, fixer and reviewer roles use unless a session overrides it, the reviewer slots (`reviewers`) the review panel dispatches by default, and the stored `selfReviewModel`, which no run reads — the archive-phase self-review pass runs inline, on whatever model the archive session is already on (step 9, `skills/flow/archive.md`).
+Read by **Model resolution** (`skills/flow/SKILL.md`), which reports the resolved source beside the model; what it governs, and how it interacts with a mapping harness, **Model policy** (`skills/flow-contracts/model-policy.md`) states — never `VERIFY_MODEL`, never `SELF_REVIEW_MODEL`.
+Read the principles FIRST: the context bundle your prompt names carries the
+Read the principles file FIRST, then the project standards files, then the
+Record one `fix-mutation:` line per behaviour in your report, plus a `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> — <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt; for a guard-script fix the third field is the measured `<pre>→<post> <what the observable counts>` (`2→0 orphaned temp lists`); and one `fix-mutations-total: <n>` line after them.
+Record one `fix-mutation:` line per behaviour in your report, plus a `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives.
+Report what `--force` will destroy — how many ignored files, which are build output, and which are irreplaceable together with whether they were already preserved — and proceed.
+Run `plan-class.sh <changeRoot>/tasks.md <repos> <abs-worktree> <merge-base>` — `<repos>` is the number of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps` table; `1` when every path is in this one), `<abs-worktree>` the worktree `flow.kickoff` created, and `<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the script classify `micro` (**Micro** below), and the two-argument form stays valid and never classifies `micro`.
+Run `plan-class.sh <changeRoot>/tasks.md <repos> <abs-worktree> <merge-base>` — `<repos>` is the size of the resolved worktree set, `<abs-worktree>` the worktree `flow.kickoff` created, and `<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the script classify `micro` (**Micro** below), and the two-argument form stays valid and never classifies `micro`.
+Run `project-get.sh <that worktree> "worktree setup"` and handle it exactly as step 4 of **A.
+SELF_REVIEW_MODEL="$(flow settings get | jq -r '.selfReviewModel // empty')"
+See **What the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why the check only narrows the race rather than closing it.
+The command fires the same four-position, forward-only table through flowd (KAN-571), but only on a daemon configured with `FLOWD_JIRA_SITE`, `FLOWD_JIRA_EMAIL` and `FLOWD_JIRA_TOKEN`, and it cannot ask: an unrecognised status exits 1 with the status named on stderr — this section's default **No**, never its **Yes**.
+The governed roles are every role above that reads `DEFAULT_MODEL` — the implementer, the fixer, every panel dispatch, the fix-round re-run pair, the tooling analyst; `VERIFY_MODEL` stays the fixed literal and `SELF_REVIEW_MODEL` keeps its own key and precedence, and every effort choice belongs to the Decide step, never to the key.
+The governed roles are every role above that reads `DEFAULT_MODEL` — the implementer, the fixer, every panel dispatch, the fix-round re-run pair, the tooling analyst; `VERIFY_MODEL` stays the fixed literal, and every effort choice belongs to the Decide step, never to the key.
+The handshake compares against `glm-5.3-flash`.
+The pass runs on whatever model this session is already on: the settings store's `selfReviewModel` and a project's `## self review model` key are read by no run, so neither overrides it.
+The pass runs on whatever model this session is already on: the settings store's `selfReviewModel` and a project's `## self review model` key resolve for the record but govern no dispatch, so neither overrides it.
+The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on Claude Code, `<project>/AGENTS.md` on ZCode); never read either one here.
+The rest of the bundle is
+The rolls are name-derived, so they come out identical to the first row's; only `class`, `execution`, `groups` and a free grouping's shape can change.
+Then read the
+Then read the project standards files, then the diff.
+This covers the panel bundle and panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own **The roster**), and the gated per-task reviewer row on `big`, where it dispatches on its group's `model`/`effort` pair.
+This covers the panel bundle and panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own **The roster**), and the gated per-task reviewer row whenever it dispatches on its group's `model`/`effort` pair.
+This field still resolves — the 5-angle retrospective `/flow` runs after a change reaches `FINISHED` — but governs no dispatch: the archive session runs that pass inline, on whatever model it is already on; an empty value is a legitimate, first-class choice, not a fallback born of an unreachable store, so offer it as a named option rather than only as "keep current".
+This is a scoped override of the disclosure ask in **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`); it is safe here because the records worth keeping are already out of the worktree by this point: the change's own work is committed and step 1 proved it merged, and the rendered ledger and panel record ride the archive commit step 4 made before any removal.
+This step is unconditionally a no-op skip; it still runs, and still reports the skip.
+Validated, but read by no run: the self-review pass runs inline on the session's own model (step 9, `skills/flow/archive.md`), so this key, like the store's `selfReviewModel`, governs nothing.
+What the contract requires is that the failure stay loud: a bind that fails is surfaced and the block rediscovered, never silently reassigned to whatever happened to be free at the time.
+When present and valid it wins over the settings store's `selfReviewModel` in `SELF_REVIEW_MODEL` resolution (step 9, `skills/flow/archive.md`); absent falls through to the store.
+Without a bundle, REQUIRED READING's principles are read from `engineering-principles.md` beside this file, and PROJECT HAZARDS' warnings as the next bullet states.
+Write the decision JSON and print the `## Decision` block with its two preamble lines, then record the second row below.
+[ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL=fable
+`## hazards` section PROJECT HAZARDS points at never reaches it.
+`/flow` has written none since `publish-proposal-removed`, but a change created before it may still hold one, and step 7's guard reports a survivor as a leftover.
+`<literal-token>` in each mark is that string written in place of the placeholder, never the placeholder itself, and a later `/flow` invocation — a resume or a fix run — generates its own rather than reusing an earlier run's.
+`<project>/.flow/project.md`'s `## self review model` key, when present and a valid `ValidModels` member, wins over the store's `selfReviewModel` field; when both are empty, or `flow settings get` cannot reach the store at all, `SELF_REVIEW_MODEL` falls back to the literal `fable`, named as a fallback rather than a resolved value exactly as `DEFAULT_MODEL`'s own `opus` literal is.
+`DEFAULT_MODEL`, `VERIFY_MODEL`, `SELF_REVIEW_MODEL`, a decision's implementer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code, and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the `subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran on, never the pre-mapping value.
+`DEFAULT_MODEL`, `VERIFY_MODEL`, a decision's implementer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code, and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the `subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran on, never the pre-mapping value.
+`SELF_REVIEW_MODEL` (step 9, `skills/flow/archive.md`) still resolves — the store field, a project override, the `fable` fallback — but governs nothing: there is no dispatch left to send it to.
+`SELF_REVIEW_MODEL` still resolves, purely as a recorded value, but governs nothing here: there is no dispatch left to send it to.
+`[]` means no hazards.
+`check-unfinished-work.sh` and `check-task-commit-fields.sh` are `flow-guard` shims: each also requires `<agents repo>/scripts/lib/flow-guard.sh` as a `<agents repo>/scripts/lib/` sibling — the same sibling-dependency rule `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already applies to every other guard above.
+`prepare-workspace.sh` exports every port of the block at its offset without probing whether anything holds it, and nothing later rediscovers, repairs or reassigns a port — a workspace's ports are always wholly its deterministic block.
+`proposal.md`, `design.md` and `tasks.md` from the change artifacts; the context bundle
+`publish-proposal-removed` means no `/flow` change ever publishes one, per **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`)'s row for it.
+artifacts whole — read them there and never re-open those files.
+background for judging whether a defect is this diff's own or a pre-existing
+context bundle: its `proposal.md`, `design.md` and `tasks.md` sections carry the change
+else echo "⚠ flow: .flow/project.md '## self review model' body '$PROJECT_SRM' is not a valid model — dropped" >&2; fi
+flow record cost-status -change <name>
+flow record cost-status -change <name> -C <canonical-worktree>
+if [ -n "$PROJECT_SRM" ]; then
+if flow settings models | grep -qx -- "$PROJECT_SRM"; then SELF_REVIEW_MODEL="$PROJECT_SRM"
+is background for judging whether a defect is this diff's own or a pre-existing
+lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1 # 0 = bound, 1 = free
+path as skipped.
+principles file whole, under a section headed with the Principles path above —
+read it there and never re-open that file.
+refused, or when your prompt names the bundle as absent.
+when your prompt names the bundle as absent or the bundle's census lists that
+| **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks |
+| **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks — only when the recorded decision's `execution` is `sdd`; an `inline` run (**Inline — the parent implements** below) never loads it |
+| **4** | subagent-driven-development | `/flow` (implementation) |
+| **4** | subagent-driven-development | `/flow` (implementation, `sdd` execution only) |
+| Placeholder | Template | The parent substitutes |
+| `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory the dispatch context bundle reads (`<changeRoot>`, or a satellite's canonical change directory) |
+| `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
+| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+| `[GLOBAL_CONSTRAINTS]` | principles | the literal `the design.md section of your context bundle` — never a selection or paraphrase; on the CONTEXT BUNDLE FAILURE continue path, the absolute path of the change's `design.md`, or `none` when it has none |
+| `[PRINCIPLES_PATH]` | principles | as the Principles section below resolves it |
+| `[STANDARDS_PATHS]` | principles | as the Principles section below resolves it; empty when none resolve |
+| `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.decide` (fix runs), `flow.sdd-tdd` |
+| `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
+| gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `micro`/`small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+|---|---|---|

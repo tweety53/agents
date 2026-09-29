@@ -213,7 +213,11 @@ substitution.**
 **A mark never blocks, delays, or alters the stage it marks.** The only nonzero exit is a caller mistake — an
 undocumented stage key, a missing required flag, or a session token carrying a substitution shape —
 which is a defect in the skill's own call, not an outcome of the stage, and is fixed by correcting the
-call rather than worked around.
+call rather than worked around. On any store failure the CLI journals the intent, prints one warning
+line, and exits 0 — the same never-block guarantee **State file**
+(`skills/flow-contracts/state-file.md`) already states for `state set`. Do not branch on
+`flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
+still exits 0, so there is nothing to react to.
 
 **`stage end` carries no session token and no harness of its own** — attribution happens once, at
 `begin`, and the harness recorded there is immutable, so an end mark can never contradict the harness
@@ -395,7 +399,7 @@ one of the guards it already named performs the check by hand without printing t
 **The check covers a named guard's own sibling dependencies too, not only the guard itself.** See
 **Guard presence check** (`skills/flow-contracts/pipeline-rationale.md`) for the mechanism and
 examples. Derive a
-guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` — rather than trusting a
+guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` and `$(dirname -- "${BASH_SOURCE[0]}")/<name>`, the spelling most `flow-guard` shims load `<agents repo>/scripts/lib/flow-guard.sh` by — rather than trusting a
 hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
 here would drift from that guard's own dependencies the moment they change.
 

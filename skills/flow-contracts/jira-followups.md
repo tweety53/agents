@@ -24,12 +24,7 @@ run's outstanding work (**Run 1 — the branch is not merged**,
 the outcome rows — reads "this run's items" and "this run's `<m>` outstanding items" as that
 list.
 
-**Every filing ask explains before it asks.** Before the filing prompt fires, the message body
-explains each item the run would file — what was observed, what breaks because of it, and what the
-fix would be — never leaving that explanation to the prompt's option text. The prompt itself follows
-the shape **Operator prompts** (`skills/flow-contracts/operator-prompts.md`) defines and records
-only the decision. A filed issue is durable and already on the board; an explanation reaching the
-operator afterward would describe something they never agreed to.
+**Every filing ask explains before it asks** — stated where the filing prompt fires, under **1. Check for unfinished work** (`skills/flow/integrate.md`).
 
 **Join an open follow-up rather than filing a second one.** Before creating a follow-up, search the
 project (`searchJiraIssuesUsingJql`) for an issue that carries the `AI-generated` label, is titled

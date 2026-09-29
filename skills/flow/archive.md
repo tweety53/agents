@@ -103,7 +103,7 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
    the guard's header makes an inability to answer a non-verdict, so it is never read
    as `SCOPE-OK`. **When absent**, run
    `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside
-   `<agents repo>/spectre/changes/`.
+   `<project>/spectre/changes/`, the prefix the guard call above passes.
 
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
    at `IN_PROGRESS`. The subject is the fixed literal shown, per **Commit scopes name the module**
@@ -124,10 +124,11 @@ flow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -sessio
    command, has this half **skipped, not failed**. A removal that fails is **the one exception to the
    stop-at-the-first-failure rule**: report it and carry on to step 7, which decides the verdict
    from the project's survivor report, never from this command's exit code.
-6. **Remove the proposal artifact source** — always the literal `null`/absent under `/flow`, since
-   `publish-proposal-removed` means no `/flow` change ever publishes one, per **Temporary artifacts
-   registry** (`skills/flow-contracts/artifacts-registry.md`)'s row for it. This step is
-   unconditionally a no-op skip; it still runs, and still reports the skip.
+6. **Remove the proposal artifact source** — delete `<state-dir>/<name>-proposal-artifact.html`
+   when present (`<state-dir>` as step 7 resolves it), per **Temporary artifacts registry**
+   (`skills/flow-contracts/artifacts-registry.md`)'s row for it. `/flow` has written none since
+   `publish-proposal-removed`, but a change created before it may still hold one, and step 7's
+   guard reports a survivor as a leftover. Absent, there is nothing to remove, and the step says so.
 
 Steps 5 and 6 together are the one `flow.cleanup` stage:
 
@@ -181,31 +182,6 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    the finish-run commits' git log — so nothing is rendered into the landing worktree first and no
    landing-worktree path is passed in or baked into the bundle.
 
-   **Resolve `SELF_REVIEW_MODEL` here, where it is consumed** — `/flow`'s **Model resolution**
-   (`skills/flow/SKILL.md`) deliberately does not, since no run that stops before archive reads it:
-
-   ```bash
-   MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
-   SELF_REVIEW_MODEL="$(flow settings get | jq -r '.selfReviewModel // empty')"
-   PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>&1)"; rc=$?
-   case "$rc" in
-     0) PROJECT_SRM="$(printf '%s' "$PROJECT_SRM" | sed '/^[[:space:]]*$/d;q' | tr -d '`' | xargs)" ;;
-     1) PROJECT_SRM="" ;;
-     *) echo "⛔ flow: project-get.sh exited $rc: $PROJECT_SRM — stop the run" >&2; exit 2 ;;
-   esac
-   if [ -n "$PROJECT_SRM" ]; then
-     if flow settings models | grep -qx -- "$PROJECT_SRM"; then SELF_REVIEW_MODEL="$PROJECT_SRM"
-     else echo "⚠ flow: .flow/project.md '## self review model' body '$PROJECT_SRM' is not a valid model — dropped" >&2; fi
-   fi
-   [ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL=fable
-   ```
-
-   `<project>/.flow/project.md`'s `## self review model` key, when present and a valid `ValidModels`
-   member, wins over the store's `selfReviewModel` field; when both are empty, or `flow settings
-   get` cannot reach the store at all, `SELF_REVIEW_MODEL` falls back to the literal `fable`, named
-   as a fallback rather than a resolved value exactly as `DEFAULT_MODEL`'s own `opus` literal is.
-   On harness `zcode` no mapping applies: the pass below is inline, with no dispatch.
-
    Run `project-get.sh <main-checkout> "self review"` (exit 1: absent), take the body's first
    non-blank line — trimmed, backticks removed — and match it against the three literals `run` /
    `skip` / `defer` byte-for-byte per **Project configuration**
@@ -245,9 +221,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    docs/self-review/<name>-context.md`.
 
    **On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass
-   itself, inline — no subagent, no dispatch.**
-   `SELF_REVIEW_MODEL` still resolves, purely as a recorded value, but governs
-   nothing here: there is no dispatch left to send it to. Feed the bundle's content and the
+   itself, inline — no subagent, no dispatch — on whatever model it is already on.** Feed the bundle's content and the
    five angles cited below directly into this session's own reasoning, then continue straight into
    the filing-and-rating prompt below — the same session already driving `AskUserQuestion`.
 
@@ -359,17 +333,12 @@ Next:
 For each worktree, run **every** check of the six-check sequence in **Worktree cleanup**
 (`skills/flow-contracts/finish-contract-run2.md`), canonical for it, before removing anything:
 
-**Never ask check 4's ignored-files confirmation before removing a worktree.** Report what
-`--force` will destroy — how many ignored files, which are build output, and which are irreplaceable
-together with whether they were already preserved — and proceed. This is a scoped override of the
-disclosure ask in **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`); it is safe
-here because the records worth keeping are already out of the worktree by this point: the change's
-own work is committed and step 1 proved it merged, and the rendered ledger and panel record ride
-the archive commit step 4 made before any removal. **Checks 1, 2, 3, 5 and 6 remain gates.** Check
-6, the live-process check, is named explicitly because it is the one this override could plausibly
-be read as reaching: a live process is not a preserved record, so `HELD:` and the guard's exit 2
-both stop `/flow` exactly as they stop the base contract. Check 4 turning up something genuinely
-irreplaceable and *unpreserved* is not this override's case: stop and ask.
+**Check 4 asks only about an irreplaceable, unpreserved entry**, per check 4 of **Worktree cleanup**
+(`skills/flow-contracts/finish-contract-run2.md`), canonical for the buckets and that one ask;
+everything else it finds is reported and the removal proceeds. **Checks 1, 2, 3, 5 and 6 remain
+gates.** Check 6, the live-process check, is named explicitly because it is the one check 4's
+proceed-without-asking could plausibly be read as reaching: a live process is not a preserved
+record, so `HELD:` and the guard's exit 2 both stop `/flow`.
 
 ## Guardrails
 

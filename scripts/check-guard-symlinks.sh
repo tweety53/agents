@@ -26,7 +26,7 @@
 #      symlink in that skill's own
 #      scripts/ directory. A guard's sibling dependency — read from the guard's
 #      OWN source rather than a hardcoded table, by grepping it for
-#      `$SCRIPT_DIR/<name>` — is required exactly where the guard it belongs
+#      `$SCRIPT_DIR/<name>` or `$(dirname -- "${BASH_SOURCE[0]}")/<name>` — is required exactly where the guard it belongs
 #      beside is required. An invoked basename matching NO guard this
 #      repository ships is itself a rule 2 violation: any `.sh`-shaped name
 #      in an invoking position — the shape every guard here carries — is a

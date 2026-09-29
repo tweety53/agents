@@ -75,6 +75,13 @@ var (
 	// to stop, so all three are matched here.
 	gsFixedDepthRoot = regexp.MustCompile(`\$\{?SCRIPT_DIR\}?"?/\.\.|dirname([ \t]+--)?[ \t]+"?\$\{?SCRIPT_DIR\}?"?|cd[ \t]+"?\$\{?SCRIPT_DIR\}?"?"?[ \t]*(&&|;)[ \t]*cd[ \t]+\.\.`)
 	gsSibling        = regexp.MustCompile(`\$\{?SCRIPT_DIR\}?"?/[A-Za-z0-9._-]+`)
+	// gsSelfDirSibling is the other spelling a guard names a sibling by --
+	// `. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh"`, or
+	// `$(dirname "$0")/<name>` -- with no $SCRIPT_DIR variable in it. Read by
+	// gsSibling alone, every flow-guard shim spelled this way had its lib/
+	// dependency invisible to rule 2 (KAN-854). The name may not start with a
+	// dot: `$(dirname ...)/..` walks up, it names no sibling.
+	gsSelfDirSibling = regexp.MustCompile(`\$\(dirname([ \t]+--)?[ \t]+"?\$(\{BASH_SOURCE(\[0\])?\}|BASH_SOURCE|0)"?\)"?/[A-Za-z0-9_-][A-Za-z0-9._-]*`)
 	// Anchored to a full word — "bash", "sh" or "zsh" followed by whitespace
 	// or end of string — never a prefix match. Unanchored, this also matched
 	// "shell" and "shellsession" by accident (both start with "sh"), which
@@ -641,7 +648,7 @@ func gsDelegates(b []byte) []string {
 // skill's own scripts/ directory, sibling dependencies included. Level-0
 // citations come from the skill's own *.md files; a required guard's
 // siblings are then derived from THAT GUARD'S OWN SOURCE (a $SCRIPT_DIR/<name>
-// match), never from a hardcoded table — task 2's map, checked rather than
+// or $(dirname -- "${BASH_SOURCE[0]}")/<name> match), never from a hardcoded table — task 2's map, checked rather than
 // trusted. Returns REQUIRED_UNIQUE: one row per (skill, guard), at its
 // first-discovered citation.
 //
@@ -748,7 +755,7 @@ func (s *gsScan) rule2(commandSkills, skillNames []string, guards map[string]boo
 				if err != nil {
 					return nil, gsRefuse("grep exited 2 scanning %s for sibling dependencies (rule 2)", real)
 				}
-				for _, m := range gsSibling.FindAllString(string(b), -1) {
+				for _, m := range append(gsSibling.FindAllString(string(b), -1), gsSelfDirSibling.FindAllString(string(b), -1)...) {
 					sib := m[strings.LastIndex(m, "/")+1:]
 					if !seen[sib] {
 						seen[sib] = true

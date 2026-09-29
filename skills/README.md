@@ -31,7 +31,7 @@ still apply.
 | **1** | brainstorming | `/flow` (creating run) |
 | **3** | writing-plans | `/flow` (creating run) |
 | **2** | worktree creation, stated in `skills/flow/implement.md` (no skill) | `/flow` (implementation) |
-| **4** | subagent-driven-development | `/flow` (implementation) |
+| **4** | subagent-driven-development | `/flow` (implementation, `sdd` execution only) |
 | **5** | test-driven-development | `/flow`, every implementer dispatch |
 | **6** | the review panel | `/flow` (implementation) |
 | **8** | verification-before-completion | `/flow` (implementation) |

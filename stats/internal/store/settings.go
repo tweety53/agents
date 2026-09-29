@@ -12,10 +12,9 @@ import (
 // ValidModels is the harness's fixed set of known model identifiers a
 // flow_settings.default_model value may take (design.md's
 // model-default-sonnet decision: implementer, fixer and reviewer all
-// default to one of these, uniformly). "fable" is the literal
-// skills/flow/archive.md step 9's self-review-model resolver falls back to -- it
-// must be a legal value for every model field, or the store would refuse
-// the very default that fallback introduces.
+// default to one of these, uniformly). "fable" is the store's documented
+// empty-value default for SelfReviewModel; it stays a legal value for every
+// model field even though no /flow run resolves that field any more (KAN-854).
 var ValidModels = map[string]bool{
 	"sonnet": true,
 	"opus":   true,
@@ -74,10 +73,10 @@ var DefaultReviewers = []string{"primary", "principles"}
 // shape.
 type Settings struct {
 	DefaultModel string
-	// SelfReviewModel is the model /flow's archive-phase self-review
-	// reasoning pass runs on. Unlike DefaultModel, empty is a valid value
-	// here -- it means the literal "fable", skills/flow/archive.md step 9's own
-	// fallback, not "unset".
+	// SelfReviewModel is the stored self-review model. No /flow run reads
+	// it (KAN-854): the archive-phase self-review pass runs inline on the
+	// session's own model. Unlike DefaultModel, empty is a valid value here
+	// -- the store's "fable" default, not "unset".
 	SelfReviewModel string
 	Reviewers       []string
 }

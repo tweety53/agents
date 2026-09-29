@@ -48,8 +48,8 @@ the run summary; an operator instruction that overrides the resolved value lands
 beside a named source, as it always did. Nothing blocks on what the key declares: it makes the
 operator's policy machine-readable and visible before a dispatch goes out, it does not police
 one. The governed roles are every role above that reads `DEFAULT_MODEL` — the implementer, the
-fixer, every panel dispatch, the fix-round re-run pair, the tooling analyst; `VERIFY_MODEL` stays the fixed literal
-and `SELF_REVIEW_MODEL` keeps its own key and precedence, and every effort choice belongs to the
+fixer, every panel dispatch, the fix-round re-run pair, the tooling analyst; `VERIFY_MODEL` stays the fixed literal,
+and every effort choice belongs to the
 Decide step, never to the key. On harness `zcode` the key governs the pre-mapping value
 (**Harness mapping** below): resolution and every record name the resolved policy model, while
 the dispatch's ledger line records the mapped model that actually ran.
@@ -104,11 +104,11 @@ neither the write into the store nor the render out of it invents a model slug. 
 ## Harness mapping
 
 **On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
-`DEFAULT_MODEL`, `VERIFY_MODEL`, `SELF_REVIEW_MODEL`, a decision's implementer, group and panel
+`DEFAULT_MODEL`, `VERIFY_MODEL`, a decision's implementer, group and panel
 pairs, and an operator override alike resolve and are recorded as they would be on Claude Code,
 and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
 `subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's
 ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran
-on, never the pre-mapping value. The handshake compares against `glm-5.3-flash`. The harness is
+on, never the pre-mapping value. A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**). The harness is
 the same value the run's `-harness` marks carry (**Stage marks**,
 `skills/flow-contracts/pipeline.md`). No other harness maps anything.

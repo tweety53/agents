@@ -2,8 +2,8 @@
 # Assertion harness for check-model-resolution-shell.sh.
 #
 # The guard extracts and runs skills/flow/SKILL.md's own "## Model
-# resolution" bash block together with skills/flow/archive.md step 9's
-# SELF_REVIEW_MODEL block. Its CHECK_MODEL_RESOLUTION_SKILL_MD and
+# resolution" bash block, and drift-checks skills/flow/archive.md for a
+# SELF_REVIEW_MODEL resolution (KAN-854: no run resolves it). Its CHECK_MODEL_RESOLUTION_SKILL_MD and
 # CHECK_MODEL_RESOLUTION_ARCHIVE_MD overrides (the
 # RUN_GUARD_TESTS_ROOT idiom) let this harness point it at scratch copies
 # of the real files, so the mutation cases below never write the real tree —
@@ -53,26 +53,39 @@ run_guard() {
 run_guard
 [ "$RC" -eq 0 ] && pass "unmutated block passes" || fail "unmutated: rc=$RC out=$OUT"
 
-# 2. Flipping SELF_REVIEW_MODEL's `-z` to `-n` breaks the fallback logic:
-# a non-empty resolved value gets forcibly overwritten instead of preserved.
-# The line lives in archive.md step 9's block now. The guard must catch this
-# and fail.
-sed -i.bak 's/\[ -z "\$SELF_REVIEW_MODEL" \] && SELF_REVIEW_MODEL=fable/[ -n "$SELF_REVIEW_MODEL" ] \&\& SELF_REVIEW_MODEL=fable/' "$WORK_ARCHIVE_MD"
-rm -f "$WORK_ARCHIVE_MD.bak"
+# 2. Flipping DEFAULT_MODEL's `-n` to `-z` breaks the fallback logic: a
+# non-empty resolved value gets forcibly overwritten with the `opus` literal
+# instead of preserved. The guard must catch this and fail.
+sed -i.bak 's/^\[ -n "\$DEFAULT_MODEL" \]/[ -z "$DEFAULT_MODEL" ]/' "$WORK_SKILL_MD"
+rm -f "$WORK_SKILL_MD.bak"
+cmp -s "$SKILL_MD" "$WORK_SKILL_MD" && fail "the -n/-z mutation did not land in the copy"
 run_guard
-[ "$RC" -eq 1 ] && pass "flipped -z/-n mutation is caught" \
-  || fail "flipped -z/-n: expected rc=1, got rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "flipped -n/-z mutation is caught" \
+  || fail "flipped -n/-z: expected rc=1, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"SELF_REVIEW_MODEL"*) pass "the failure names SELF_REVIEW_MODEL" ;;
-  *) fail "failure does not name SELF_REVIEW_MODEL: out=$OUT" ;;
+  *"DEFAULT_MODEL"*) pass "the failure names DEFAULT_MODEL" ;;
+  *) fail "failure does not name DEFAULT_MODEL: out=$OUT" ;;
+esac
+cp "$SKILL_MD" "$WORK_SKILL_MD"
+
+# 3. A SELF_REVIEW_MODEL resolution re-added to archive.md is refused: no
+# run resolves it (KAN-854), and the drift check keeps it that way.
+printf '   SELF_REVIEW_MODEL=fable\n' >>"$WORK_ARCHIVE_MD"
+run_guard
+[ "$RC" -eq 2 ] && pass "a re-added SELF_REVIEW_MODEL resolution is refused" \
+  || fail "re-added SELF_REVIEW_MODEL: expected rc=2, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"SELF_REVIEW_MODEL"*) pass "the refusal names SELF_REVIEW_MODEL" ;;
+  *) fail "refusal does not name SELF_REVIEW_MODEL: out=$OUT" ;;
 esac
 
-# 3. Restored, the guard passes clean again. The pristine source is the
-# real file, read-only as far as this harness is concerned: it is copied
-# FROM, never written.
+# 4. Restored, the guard passes clean again. The pristine sources are the
+# real files, read-only as far as this harness is concerned: they are
+# copied FROM, never written.
+cp "$SKILL_MD" "$WORK_SKILL_MD"
 cp "$ARCHIVE_MD" "$WORK_ARCHIVE_MD"
 run_guard
-[ "$RC" -eq 0 ] && pass "restored block passes again" \
+[ "$RC" -eq 0 ] && pass "restored files pass again" \
   || fail "restored: rc=$RC out=$OUT"
 
 if [ "$FAILURES" -ne 0 ]; then
