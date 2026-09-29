@@ -280,8 +280,7 @@ git -C "$WT" ls-files --others --exclude-standard
 # 3. no commits that exist only here. Resolve `BASE` fresh for THIS worktree — never reused from
 #    another worktree in the set. A multi-repo change has one `origin` and one default branch per
 #    repository, so a name resolved against one worktree's `origin` can be the wrong ref, or absent
-#    entirely, in another repository. Resolving it here, before this worktree's own removal below,
-#    is what "before cleanup removes it" (run 2 step 5, above) means per worktree.
+#    entirely, in another repository. Resolve it here, before this worktree's own removal below.
 BASE="$(resolve-base-branch.sh "$WT")" || { echo "cannot resolve the base branch for $WT — stop and ask"; false; }
 #    `@{upstream}` ERRORS when no upstream is configured, and an empty capture would read as
 #    "nothing unpushed" — so resolve it explicitly and never let a failed lookup pass as success.

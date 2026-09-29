@@ -23,8 +23,7 @@ pipeline did not choose — and neither ever gates a state write.
 
 **A join is the one write this echo does not cover**, because the description it would reproduce
 belongs to another change's issue and this pipeline never authored it. What is echoed there instead
-is under **Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`), and why under
-**Moved by KAN-859 — jira-followups.md** (`skills/flow-contracts/jira-integration-rationale.md`).
+is under **Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`).
 
 ### Labels on issues the pipeline creates
 

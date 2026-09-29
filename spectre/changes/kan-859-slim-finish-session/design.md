@@ -207,3 +207,36 @@ is reasoning, and the rule it explains is still stated in a run-loaded file.
 condition is false. That run cannot be produced in this environment, which has no `flow` or
 `spectre` CLI and no flowd. Structurally, each moved file is reached only through its one
 `Load … only when` directive, plus the `Loaded by` header that repeats the condition.
+
+## Review
+
+A read-only review of `74578d46` found no Critical findings, two Important findings and several
+Minor ones. Both Important findings are fixed in the follow-up commit.
+
+- **Important: `archive.md` step 1.** A19b's cut left the outline telling a merge-and-push run to
+  test the merge with a PR CLI or `origin/<base>`. Neither can see run 1's still-local merge, so
+  every default-route run would have stopped at `not-run-2`.
+  - **Fixed:** the sentence is restored. A19b is no longer cut.
+- **Important: the load condition for `sync-onto-base.md`.** The directive missed one case. On
+  the merge-and-push route, when the merge conflicts, run 1 re-runs the sync after every verdict
+  was `CLEAR`.
+  - **Fixed:** the directive, the file's "Loaded by" header and the Stage-keys row now name that
+    case.
+- **Minor, fixed:**
+  - Two cross-file "above"/"below" references in run 1 (signal 1, the three courses), repointed.
+  - `/flow-status`'s "for the reason stated there", now pointing at the rationale file.
+  - Run 2 check 3's comment, which still cited the moved step-5 phrase.
+  - `check-unfinished-work.sh`'s header, which cited integrate.md's course.
+  - `jira-integration-finish.md`'s pointer into a rationale file, dropped.
+  - The Stage-keys wording "marks nothing", corrected.
+  - `flow-manual-review.mdc`: a row added for the hand-fallbacks file.
+- **Minor, left as is:**
+  - The dangling "So" and "therefore" in `jira-followups-join.md`. The audit accepted them as cuts.
+  - The two adjacent failed-filing sentences in `unfinished-work-gate.md`. Both are verbatim, and
+    they state the same rule.
+  - The integrate-only aside in `sync-onto-base.md`. Its other citers cite only the **Conflict**
+    bullet.
+
+`go test`: the failing set matches clean `56d30791`, which fails on root and locale in this
+environment. `TestRunReproducer` failed once under the full parallel run and passed 3/3 on its
+own.

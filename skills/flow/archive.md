@@ -17,7 +17,8 @@ flow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -s
 ```
 
 1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor`. Fetch
-   first. Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **archive
+   first. On the merge-and-push continuation the merge is still local, so the test is
+   `git -C <landing-worktree> merge-base --is-ancestor spectre/<name> <base>`. Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **archive
    nothing** — end this mark `-outcome not-run-2` and stop.
 
 ```bash

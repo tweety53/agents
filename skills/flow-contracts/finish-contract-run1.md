@@ -97,9 +97,9 @@ that greps for `CLEAR` in empty output finds nothing.
 
 **Then run `check-visual-verify-dispatched.sh <worktree> <change-name> <recorded-merge-base>`**,
 once per worktree in the same resolved set, `<recorded-merge-base>` being the same state-file value
-signal 1 above already reads. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
+the preflight above already reads. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
 breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same
-breakdown and the same three courses below, not a second prompt. Exit 2 (cannot answer) is stop-and-ask,
+breakdown and the same three courses (**The three courses**, `skills/flow/unfinished-work-gate.md`), not a second prompt. Exit 2 (cannot answer) is stop-and-ask,
 the same as a missing `check-unfinished-work.sh` verdict line above.
 
 **Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` or

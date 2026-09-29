@@ -156,3 +156,16 @@ three-course prompt and what each course does are there.
 | [finish-hand-fallbacks.md](finish-hand-fallbacks.md) | The by-hand procedure for each script the two finish contracts call.
 | `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when a worktree's `check-base-moved.sh` verdict is `MOVED`; marks nothing itself |
 | `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`; marks nothing itself |
+# --- review fixes (the sync file's widened condition, repointed below/above references, a stale shell-comment clause)
+\# is what "before cleanup removes it" (run 2 step 5, above) means per worktree.
+**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> <recorded-merge-base>`**, once per worktree in the same resolved set, `<recorded-merge-base>` being the same state-file value signal 1 above already reads.
+A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same breakdown and the same three courses below, not a second prompt.
+Resolving it here, before this worktree's own removal below,
+exactly as **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) does — never a hand-derived name, and never `HEAD@{upstream}`, for the reason stated there; running it in this worktree is also what satisfies its unconditional assertion that the base differs from the current branch, since `HEAD` here is the change's own branch.
+| **Finish contract — run 1 (the branch is not merged)** (`skills/flow-contracts/finish-contract-run1.md`) | `/flow`'s integrate phase — the preflight signals, run 1's procedure, base-branch resolution |
+**Loaded by `skills/flow/integrate.md`'s step 2 only when** `check-base-moved.sh` reported `MOVED` for a worktree, or by run 1's merge-and-push route when its merge conflicted and the sync is re-run.
+**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> <recorded-merge-base>`**, once per worktree in the same resolved set, `<recorded-merge-base>` being the same state-file value the preflight above already reads.
+A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same breakdown and the same three courses (**The three courses**, `skills/flow/unfinished-work-gate.md`), not a second prompt.
+Resolve it here, before this worktree's own removal below.
+| `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when a worktree's `check-base-moved.sh` verdict is `MOVED`, or the merge-and-push route's merge conflicted; closes the enclosing mark, begins none |
+| `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`; begins no mark |

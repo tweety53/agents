@@ -1,7 +1,7 @@
 # Sync the branch onto the base
 
 **Loaded by `skills/flow/integrate.md`'s step 2 only when** `check-base-moved.sh` reported `MOVED`
-for a worktree. `/flow-fast` and the review panel's fix round cite its **Conflict** bullet.
+for a worktree, or by run 1's merge-and-push route when its merge conflicted and the sync is re-run. `/flow-fast` and the review panel's fix round cite its **Conflict** bullet.
 
 **Runs after the base-moved check and before the landing question, on every route — so what
 lands is what was verified, and neither a merge nor a PR ever meets a conflict.** Once per

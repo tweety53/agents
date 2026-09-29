@@ -103,7 +103,7 @@ row. Each worktree in the resolved set is answered in **three steps, in this ord
    so it is **not merged**, and no ancestor test is run.
 3. otherwise resolve `<base>`, **in the same worktree**, by invoking `resolve-base-branch.sh`
    exactly as **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) does — never a
-   hand-derived name, and never `HEAD@{upstream}`, for the reason stated there; running it in this
+   hand-derived name, and never `HEAD@{upstream}`, for the reason stated in `skills/flow-contracts/finish-contract-rationale.md`; running it in this
    worktree is also what satisfies its unconditional assertion that the base differs from the
    current branch, since `HEAD` here is the change's own branch. **A non-zero exit is
    inconclusive** — the same disposition this step already gives a git failure or an unresolvable

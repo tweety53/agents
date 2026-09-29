@@ -99,7 +99,7 @@
 # before acting on the verdict: resolve the plan the way this guard does
 # (scripts/lib/change-plan.sh) and count column-0 `^- \[ \]` lines by hand;
 # run `flow record findings -change <name> -C <worktree>` and expect `[]`.
-# Both clean means the verdict was structural — record it (integrate.md's
+# Both clean means the verdict was structural — record it (unfinished-work-gate.md's
 # false-positive course) rather than trusting it or silently overriding it.
 # Anything else means the verdict was right, and the courses it offers stand.
 

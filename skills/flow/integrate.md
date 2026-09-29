@@ -80,7 +80,7 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <n
 Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the
 branch onto the base** (`skills/flow/sync-onto-base.md`), which is canonical for
 the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the
-after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`. No
+after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`, or the merge-and-push route's merge conflicted and the sync is re-run. No
 `MOVED` verdict anywhere → report the counts and go straight to the landing question.
 
 Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), take the body's
