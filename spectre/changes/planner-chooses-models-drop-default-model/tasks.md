@@ -157,6 +157,11 @@ record a row.
 Correction (2026-09-29): as for Task 1, this commit's tree is still red on
 `scripts/check-model-keys.sh` and `TestCheckModelKeys*`; Task 3's commit retires both.
 
+Correction (2026-09-29): the panel's round-1 fix added `TestRecordDecisionRejectsCaseVariantKeys`
+(the check reads exact keys — `encoding/json` struct decoding folds case) and
+`TestRecordDecisionRefusalNamesValidModels` (the refusal lists `store.ValidModels`), on top of
+this task's commit; `records_test.go` carries 51 tests after them.
+
 - [x] 3. Retire the model-key and model-resolution guards and the three project keys
 
 Must land before Tasks 4 and 6: `check-model-resolution-shell.sh` extracts the blocks those tasks
