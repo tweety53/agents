@@ -113,9 +113,14 @@ and `settings models` answers.
 **Decision:** remove-self-review-model
 **Decision:** valid-models-opus-sonnet
 
-- [ ] 2. Refuse an off-policy model when a decision is recorded
+Correction (2026-09-29): **Build:** green holds for the task's own tests, not the tree: shrinking
+`ValidModels` here left `scripts/check-model-keys.sh` (on `.flow/project.md`'s `fable` value) and
+`TestCheckModelKeys*` red at this commit and Task 2's, until Task 3's commit retired both. The
+branch was already pushed, so the order stands and this records it.
 
-  - [ ] **Step 1: Write the failing tests** in `stats/internal/api/records_test.go`:
+- [x] 2. Refuse an off-policy model when a decision is recorded
+
+  - [x] **Step 1: Write the failing tests** in `stats/internal/api/records_test.go`:
     - `TestRecordDecisionRejectsOffPolicyModel` — table over the five paths
       (`implementer.model`, `fixer.model`, `panel.dispatches[0].model`,
       `panel.rerun_dispatch.model`, `groups[1].model`), each set to `haiku` in an otherwise valid
@@ -124,9 +129,9 @@ and `settings models` answers.
     - `TestRecordDecisionAcceptsRecordedStrings` — a micro body (`implementer`/`fixer`
       `"skipped — inline"`, `panel` `"default"`, `groups` `null`) and a full `sdd` body on
       `opus`/`sonnet` both record.
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/api -run
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/api -run
     'RecordDecision' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/internal/api/records.go`: a `checkDecisionModels(body
+  - [x] **Step 3: Implement** in `stats/internal/api/records.go`: a `checkDecisionModels(body
     json.RawMessage) error` that unmarshals into a minimal struct of `json.RawMessage` fields
     (`implementer`, `fixer`, `panel`, `groups`); a field that decodes as a JSON string or `null` is
     skipped; an object's `model` (and `panel.dispatches[].model`, `panel.rerun_dispatch.model`,
@@ -134,8 +139,8 @@ and `settings models` answers.
     one of opus, sonnet", ErrInvalidRecord, path, model)`. An absent `model` key in an object is
     refused the same way (`""`). Call it from `ApplyDecisionRecord` after the emptiness check. A
     body that is not a JSON object is refused as `ErrInvalidRecord`.
-  - [ ] **Step 4: Run the tests; they pass**; `gofmt -l`, `go vet`.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Run the tests; they pass**; `gofmt -l`, `go vet`.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/api/records.go`, `stats/internal/api/records_test.go`
 **Tests:** `TestRecordDecisionRejectsOffPolicyModel`, `TestRecordDecisionAcceptsRecordedStrings`
@@ -149,15 +154,18 @@ record a row.
 
 **Decision:** refuse-off-policy-models
 
-- [ ] 3. Retire the model-key and model-resolution guards and the three project keys
+Correction (2026-09-29): as for Task 1, this commit's tree is still red on
+`scripts/check-model-keys.sh` and `TestCheckModelKeys*`; Task 3's commit retires both.
+
+- [x] 3. Retire the model-key and model-resolution guards and the three project keys
 
 Must land before Tasks 4 and 6: `check-model-resolution-shell.sh` extracts the blocks those tasks
 rewrite.
 
-  - [ ] **Step 1:** `git rm scripts/check-model-keys.sh scripts/check-model-resolution-shell.sh
+  - [x] **Step 1:** `git rm scripts/check-model-keys.sh scripts/check-model-resolution-shell.sh
     scripts/test-check-model-resolution-shell.sh stats/internal/guard/modelkeys.go
     stats/internal/guard/check_model_keys_test.go`.
-  - [ ] **Step 2:** remove the `"check-model-keys.sh": {"lib"},` entry from
+  - [x] **Step 2:** remove the `"check-model-keys.sh": {"lib"},` entry from
     `stats/internal/guard/check_guard_symlinks_test.go`; drop `check-model-keys.sh` from
     `scripts/lib/project-section.sh`'s header comment; in `.flow/project.md` delete the two
     `## lint` lines and the `## self review`, `## self review model` and `## model` sections; in
@@ -165,10 +173,10 @@ rewrite.
     `KNOWN-BUGS.md`'s three entries citing `modelkeys.go` and `check-model-resolution-shell.sh`;
     in `skills/flow-contracts/project-configuration-rationale.md` delete the
     `check-model-keys.sh` passage (around line 200) and the rationale for the three keys.
-  - [ ] **Step 3: Verify** — `cd stats && go vet ./... && go test ./internal/guard -count=1`,
+  - [x] **Step 3: Verify** — `cd stats && go vet ./... && go test ./internal/guard -count=1`,
     `scripts/check-guard-symlinks.sh`, `scripts/check-references.sh`,
     `scripts/check-markdown-integrity.py`.
-  - [ ] **Step 4: Commit.**
+  - [x] **Step 4: Commit.**
 
 **Files:** `scripts/check-model-keys.sh`, `scripts/check-model-resolution-shell.sh`,
 `scripts/test-check-model-resolution-shell.sh`, `stats/internal/guard/modelkeys.go`,
@@ -191,7 +199,7 @@ rewrite.
 
 Correction (2026-09-29): the plan declared the five guard files deletable as-is; `modelkeys.go`
 also defined `mkSpace`, which `workspaceisolation.go` calls, so the helper moved there as
-`wiSpace` and that file joined **Files:**. `KNOWN-BUGS.md` lost ten entries, not three: every
+`wiSpace` and that file joined **Files:**. `KNOWN-BUGS.md` lost twelve entries, not three: every
 entry whose subject this change deletes — the two guards, `check_model_keys_test.go`, the
 `## self review model` wording at `project-configuration.md:91`, archive's self-review-key
 snippet at `archive.md:191`, and `SKILL.md:74`'s `MODEL_SOURCE` paragraph (Tasks 4 and 6 remove
@@ -245,8 +253,14 @@ those subjects).
 **Build:** green
 
 **Decision:** planner-chooses-models
-**Decision:** inline-fixer-planner-chosen
+**Decision:** fixer-pair-sdd-only
 **Decision:** remove-default-model
+
+Correction (2026-09-29): the plan had step 2 record the fixer pair on every non-micro class
+(`inline-fixer-planner-chosen`); the gated review found inline runs have no panel-fix dispatch,
+so the operator superseded it with `fixer-pair-sdd-only` and the fix round restored the
+sdd-only fixer pair. The same round cut the README's restated model bounds to a citation of
+**Model and effort**.
 
 - [ ] 5. Dispatch sites read the decision's pair
 
@@ -277,35 +291,39 @@ those subjects).
 **Build:** green
 
 **Decision:** planner-chooses-models
-**Decision:** inline-fixer-planner-chosen
+**Decision:** fixer-pair-sdd-only
 
-- [ ] 6. Self-review is deferred, always; /flow-settings manages reviewers only
+Correction (2026-09-29): the panel-fix sentence the plan implied ("the fixer pair on every
+non-micro class, `opus` on micro") was superseded with `fixer-pair-sdd-only`; the fix round made
+the panel-fix subagent run on the `sdd` decision's fixer pair alone.
 
-  - [ ] **Step 1:** `skills/flow/archive.md` step 9 — keep the bundle fetch, `## Session
+- [x] 6. Self-review is deferred, always; /flow-settings manages reviewers only
+
+  - [x] **Step 1:** `skills/flow/archive.md` step 9 — keep the bundle fetch, `## Session
     narrative`, the context-file write and `land-self-review-report.sh … context bundle`; delete
     the `SELF_REVIEW_MODEL` block, the `## self review` key read, the skip prompt, the inline
     reasoning pass, the filing/rating ask and the report write; the handoff `Self-review` line is
     `deferred — docs/self-review/<name>-context.md` only (and in `## Finished`).
     `skills/flow-contracts/finish-contract-run2.md` step 9 to match (canonical: the deferred bundle;
     the angles and rating now live in `/flow-self-review` alone).
-  - [ ] **Step 2:** `skills/flow-fast/SKILL.md` — the self-review section always writes and lands
+  - [x] **Step 2:** `skills/flow-fast/SKILL.md` — the self-review section always writes and lands
     the bundle (drop "`defer` or nothing", the key read and the mark-through branch); line ~59 and
     ~188-190 drop `DEFAULT_MODEL` and the `## self review` key; its model text points at the Decide
     step. `commands-claude/flow-fast.md` to match.
-  - [ ] **Step 3:** `skills/flow-self-review/SKILL.md` and `commands-claude/flow-self-review.md` —
+  - [x] **Step 3:** `skills/flow-self-review/SKILL.md` and `commands-claude/flow-self-review.md` —
     drop "a `/flow` or `/flow-fast` run deferred" framing that implies alternatives and the
     same-run-pass comparison; the pass runs on this session's model.
-  - [ ] **Step 4:** `skills/flow-contracts/project-configuration.md` — delete the `## self review`,
+  - [x] **Step 4:** `skills/flow-contracts/project-configuration.md` — delete the `## self review`,
     `## self review model`, `## model` rows and their names from the match-and-drop list (~94-95).
     `skills/flow-contracts/git-boundaries.md`, `skills/flow-contracts/handoff-blocks-rationale.md`:
     drop self-review report / run-skip references that no longer happen in `/flow`.
-  - [ ] **Step 5:** `skills/flow-settings/SKILL.md` and `commands-claude/flow-settings.md` — the
+  - [x] **Step 5:** `skills/flow-settings/SKILL.md` and `commands-claude/flow-settings.md` — the
     record is `reviewers` alone; the show block, the ask and `flow settings set -reviewers "<list>"`. The skill-index rows in
     `CLAUDE.md`, `AGENTS.md` and `skills/README.md` read "reviewer slots" only.
-  - [ ] **Step 6: Verify** — `grep -n 'self review model\|selfReviewModel\|SELF_REVIEW_MODEL\|##
+  - [x] **Step 6: Verify** — `grep -n 'self review model\|selfReviewModel\|SELF_REVIEW_MODEL\|##
     self review\|defaultModel\|settings models\|skipped — project default' <files>` prints nothing;
     `scripts/check-self-review-report.sh`, the Markdown lint lines.
-  - [ ] **Step 7: Commit.**
+  - [x] **Step 7: Commit.**
 
 **Files:** `skills/flow/archive.md`, `skills/flow-contracts/finish-contract-run2.md`,
 `skills/flow-fast/SKILL.md`, `commands-claude/flow-fast.md`, `skills/flow-self-review/SKILL.md`,

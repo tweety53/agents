@@ -13,8 +13,7 @@
 
 ## What changes
 
-- **Decide picks every model.** Implementer, fixer (every non-micro class, inline included), each
-  panel dispatch, the rerun pair and each implementer group carry a planner-chosen
+- **Decide picks every model.** Implementer and fixer (on `sdd`), each panel dispatch, the rerun pair and each implementer group carry a planner-chosen
   `{model, effort, reason}`, `model` ∈ {`opus`, `sonnet`}, under the bounds in `design.md`.
 - **No `DEFAULT_MODEL`.** Micro-class dispatches and any dispatch with no recorded pair run on the
   literal `opus`. `VERIFY_MODEL` stays `opus`. A session instruction still overrides, per run.

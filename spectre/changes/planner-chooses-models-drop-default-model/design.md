@@ -18,9 +18,10 @@
   - first-pass panel dispatches — `opus`, always;
   - rerun pair — `opus` or `sonnet`, effort `low` fixed; no must-differ-from-pass-1 constraint (the
     defect `ea661bc6` fixed stays fixed).
-- Step 2 records the **fixer** pair on every non-micro class; the implementer pair stays
-  `skipped — inline` on an inline decision.
-- **Micro** records no pairs; its panel, its panel-fix and every dispatch with no recorded pair
+- Step 2 records the implementer and **fixer** pairs on `sdd` only; both stay `skipped — inline`
+  on an inline decision, whose panel fixes the parent applies on its own model
+  (`fixer-pair-sdd-only`).
+- **Micro** records no pairs; its panel and every dispatch with no recorded pair
   (review-panel.md's no-decision dispatch) run on the literal `opus`.
 - A plain-language session instruction replaces the affected pairs for this run, recorded in
   `overrides`. The model handshake compares against the dispatch's own recorded (or overridden)
@@ -94,10 +95,23 @@ still offers.
 ### Inline fixer is planner-chosen
 
 **ID:** inline-fixer-planner-chosen
-**Status:** active
+**Status:** superseded by fixer-pair-sdd-only
 **Chosen:** step 2 records a fixer pair on every non-micro class — the inline panel-fix dispatch
 otherwise has no model source.
 **Considered:** literal `opus` for the inline fixer — loses the sonnet-for-simple-fixes option.
+**Superseded because:** the gated per-task review found no inline panel-fix dispatch exists — an
+inline run's parent applies panel fixes itself on its own model (`implement.md` **Inline — the
+parent implements**), so an inline fixer pair governs nothing.
+
+### Fixer pair on sdd only
+
+**ID:** fixer-pair-sdd-only
+**Status:** active
+**Chosen:** step 2 records the fixer pair only when execution is `sdd`, the one mode with a
+panel-fix subagent; inline runs record `skipped — inline` — operator's answer at the task review
+(2026-09-29).
+**Considered:** inline runs dispatch a panel-fix subagent on the fixer pair — adds a dispatch and
+its cost to every inline fix round.
 
 ### Refuse off-policy models at record time
 
