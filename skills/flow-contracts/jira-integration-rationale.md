@@ -76,3 +76,37 @@ readers — the prefix scoping in
 follow-up is filed into — read the same validated keys, so a value this clause refuses is never one
 another site quietly accepts. Validating per call site is how the three would drift.
 
+## Moved by KAN-856
+
+Verbatim passages KAN-856 moved out of the planning session's run-loaded files; each is the reason behind a rule that stays where it was.
+
+### Transitions (KAN-856)
+
+That field groups a custom `TO DO URGENT` with `In Progress` under
+`indeterminate`, so a position deduced from it reports an issue sitting at `TO DO URGENT` as
+already at In Progress, makes no transition call, and freezes the board at that status for the
+whole change. Enumerating the name at the To Do position is the opposite operation: it states the
+position rather than deducing it, which is the mechanism the follow-up join search's To Do set
+already uses.
+
+### Unrecognised statuses (KAN-856)
+
+Nothing about
+the run depends on the answer, which is what keeps the guardrail's actual promise intact.
+
+### Description sync (KAN-856)
+
+Everything preceding that heading is left byte-for-byte unchanged, and earlier
+bullets under it are retained — a bad paraphrase must be able to add a line, never to destroy the
+reporter's original ask.
+
+A truncated read, a lossy ADF↔Markdown round-trip, or a summarising paraphrase would
+therefore destroy the reporter's original text, and there is no local backup to restore from.
+
+Between such a read and the write, anything may have edited the
+description: another person, an automation, or another `/flow*` run joining the same issue. The
+assertion would then hold against a copy that is already historical, and the write replaces the
+whole field, so the intervening edit is destroyed by an operation that reported success.
+
+The transcript is
+then the recovery path: the original is recoverable even if the write later proves wrong.

@@ -69,8 +69,11 @@ var smcExpectedZero = []struct{ file, reason string }{
 // KAN-490 widened it again to skills/flow-fast/'s own phase files
 // (review.md, finish.md); /flow-fast has since collapsed into its single
 // SKILL.md, which carries every one of its marks itself.
+// KAN-856 added skills/flow/brainstorm-planner.md: once brainstorm.md stopped
+// restating its marks, the planner holds the only flow.design-approval,
+// flow.create-artifacts and flow.writing-plans `stage begin` lines.
 var smcCandidates = map[string]bool{
-	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "implement.md": true,
+	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "brainstorm-planner.md": true, "implement.md": true,
 	"review-panel.md": true, "verify-and-handoff.md": true, "integrate.md": true,
 	"archive.md": true, "review.md": true, "finish.md": true,
 }

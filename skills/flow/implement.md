@@ -1,7 +1,7 @@
 # Implement (SDD + TDD)
 
-Loaded by `skills/flow/SKILL.md` once planning artifacts exist — continuing straight from
-`skills/flow/brainstorm.md` on a creating run, or entered directly on a resumed `STARTED` run whose
+Loaded by `skills/flow/SKILL.md` once planning artifacts exist — entered from
+`skills/flow/resume.md` on a resumed `STARTED` run whose
 plan is already ready, or on a fix run at `IN_PROGRESS`.
 
 | Step | Skill | When |
@@ -231,7 +231,7 @@ the base at integrate (**Sync the branch onto the base**,
 **Whether there is anything left to implement is read off the task checkboxes**, from
 `spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change:
 
-- `total == 0` → no plan spectre can read: stop, resume at `skills/flow/brainstorm.md`.
+- `total == 0` → no plan spectre can read: stop, resume at `skills/flow/resume.md`.
 - `total > 0` and `done == total` → every task is already checked: proceed to
   `skills/flow/integrate.md`.
 
@@ -768,7 +768,7 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > Establish the real API before writing against it, and report what you found. An assumption tagged
 > `unverified:` in your task is a guess to confirm before you build on it. When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
-> contradicts the plan** (`skills/flow-contracts/plan-provenance.md`). Report a correction your
+> contradicts the plan** (`skills/flow-contracts/plan-amendment.md`). Report a correction your
 > measurement produced — a tag to retag, a number to replace, a `**Files:**` entry to add — as the
 > exact field and its corrected value, so it can be transcribed into the record in place
 > (**The record carries its own corrections**, below).

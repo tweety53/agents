@@ -49,7 +49,7 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
   operator approved. The operator scoped auto-resolution to implementation and fix options, not
   planning. The `## decisions: recommended` mode lifts the planning asks in this bullet — never
   the pivot, which stays asked under the mode because it alters approved scope — and lifts no
-  other bullet here; the withdrawal offers in `skills/flow/brainstorm.md` stay asked under the
+  other bullet here; the withdrawal offers in `skills/flow/withdrawal.md` stay asked under the
   mode too, deleting a change being irreversible and the bullet below governing.
 - **No recommended option.** The second model-handshake mismatch, a multiple-match pick, a finding
   recorded unverifiable, and a question the run cannot honestly give one recommended option.

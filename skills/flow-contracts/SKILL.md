@@ -30,8 +30,10 @@ flow's pipeline and its contract definitions.
 | [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, the `survivors` output and exit contract, row validation and what is left to the agent. **Loaded only when `prepare-workspace.sh` or `check-cleanup-complete.sh` cannot be located** |
 | [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.visual-verify` begins** |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
+| [jira-integration-finish.md](jira-integration-finish.md) | The In Review timing, the join carve-out and echo, and labels on created issues. **Loaded by bare `/flow` run 1 and by every command that creates an issue** |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/flow`'s integrate run** |
-| [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty, and what to do when a measurement contradicts the plan |
+| [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty |
+| [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan. **Cited by `/flow`'s implementer dispatch** |
 | [plan-provenance-guard.md](plan-provenance-guard.md) | What check-plan-provenance.sh enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |

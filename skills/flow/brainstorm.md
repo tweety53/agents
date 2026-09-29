@@ -1,8 +1,8 @@
 # Brainstorm and plan
 
 Superpowers Basic Workflow steps **#1** (brainstorming) and **#3** (writing-plans), intertwined
-with spectre artifact creation, run here. Loaded by `skills/flow/SKILL.md` on a creating run (no state) or a
-resuming run (`STARTED`).
+with spectre artifact creation, run here. Loaded by `skills/flow/SKILL.md` on a creating run (no state), and by
+`skills/flow/resume.md` when a resumed run still has planning to do.
 
 ## A. Resolve the change and write `STARTED`
 
@@ -21,14 +21,15 @@ Then the change name:
   already named it — resumed at its recorded state, announcing which; more than one is an
   **AskUserQuestion** listing each (name, state, last modified); none means the name is
   `<lowercased-key>-<slug>`, per **Change naming** (`skills/flow-contracts/jira-integration.md`).
-  Derive the slug from the issue summary when only a key was given.
 - **Without one**, the name is the descriptive slug alone.
 - If a name or description was given, use it (derive kebab-case from the description if only a
   description was given).
 - **If both are omitted:** enumerate the candidate set exactly as **Change name resolution (all `/flow*` commands)**
   (`skills/flow-contracts/pipeline.md`) defines it, restricted to changes with incomplete planning
-  artifacts. Exactly one match → resume it, announcing which; multiple → **AskUserQuestion** listing
-  each (name, state, last modified); zero → ask what to build.
+  artifacts.
+
+**Load `skills/flow/resume.md`** only when the name resolves to a change already recorded at
+`STARTED`, and continue there rather than with the rest of **A**.
 
 **Transition the issue to In Progress now**, per **Transitions** in Jira integration
 (`skills/flow-contracts/jira-integration.md`) — before brainstorming, so the board is correct
@@ -58,14 +59,11 @@ flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -sessio
 ```
 
 `planningEffort` and `models.default` are written `null` and stay `null` for the life of the
-change: `/flow` asks no planning-effort or model question on a creating run, and models are chosen per dispatch by the Decide step, not recorded per change. `artifactUrl` stays `null` —
-`/flow` publishes no proposal artifact.
+change.
 
 **Nothing is written before this point on a creating run** but the In Progress transition
 above — the state write above is the
-first thing this invocation writes once the name is fixed, ahead of even the design conversation. The
-operator sees `STARTED` recorded the moment they invoke `/flow`, whether or not the run goes on to
-finish brainstorming in the same sitting.
+first thing this invocation writes once the name is fixed, ahead of even the design conversation.
 
 **Then create the worktree, still inside `flow.kickoff` — before brainstorming, before any file
 is read or written for this change.** From this point on, the main checkout is never read, checked
@@ -86,18 +84,13 @@ plan and the decision JSON.
    **2. Isolate the workspace** (`skills/flow/implement.md`) applies to each additional worktree:
    merge the entry `"<abs-worktree>": "<merge-base>"` into the record's `worktrees` map and write
    it back, where `<merge-base>` is the sha `git -C <worktree> rev-parse HEAD` prints immediately
-   after the add — the commit the worktree starts from in either case above. The record written at
-   **A** carries `"worktrees": {}`, and the next durable write would otherwise be
-   `flow.isolate-workspace`'s, a whole brainstorming, design-gate and planning run later; a run
-   killed after the add but before that stage must not leave a real worktree and a pushed branch
-   behind an empty map — the stale `STARTED` record a resumed run reads as a fresh creating run.
+   after the add — the commit the worktree starts from in either case above.
 4. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
    root, in order, in the foreground — the printed body can carry fence markers and trailing prose
    outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
    the fenced command lines, not those. Exit 1: the project declares no `## worktree setup`; say so
    and continue. Exit 2: stop the run, relaying the script's own line. **A command's non-zero exit
-   ends your turn** naming the command and its output — a worktree that cannot be set up fails
-   `flow.verify` later anyway, and the operator should see it here. The key is canonical in
+   ends your turn** naming the command and its output. The key is canonical in
    **Project configuration** (`skills/flow-contracts/project-configuration.md`).
 5. `git -C <worktree> push -u origin spectre/<name>` — the branch exists on the remote from its
    first minute, per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
@@ -106,99 +99,7 @@ plan and the decision JSON.
 flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
 ```
 
-### Resuming at `STARTED`
-
-A run finding `"state": "STARTED"` already recorded is resuming a creating run that stopped before
-reaching `IN_PROGRESS` — an interrupted session, a context limit, an earlier stop. Skip **A** above
-(the name and the `STARTED` write both already exist) and determine where the run actually left off
-by reading, not by assuming:
-
-- **Does the worktree exist** — `git worktree list` naming `<project>/.worktrees/<name>`. It is
-  created inside `flow.kickoff` (steps 1–5 above), so a missing one means the run stopped between
-  the `STARTED` write and that step: run steps 1–5 now, then continue below. `<changeRoot>` is
-  always `<project>/.worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
-- `spectre list --json`'s entry for this change's `done`/`total`, run in the worktree —
-  `total == 0` means no plan exists yet: the run first opens with the withdrawal route's resume
-  ask (**The withdrawal route**, below) — resume brainstorming, the default, or withdraw — and a
-  resume answer continues at **B** in
-  `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
-- The change root's own `tasks.md` — a scaffold with no enriched steps means writing-plans has not
-  run: resume at **D** in `skills/flow/brainstorm-planner.md`. A plan meeting writing-plans <!-- refs-guard:allow -->
-  quality (exact paths, verification commands, no placeholders) means planning is fully done: skip
-  straight to `skills/flow/implement.md`.
-
-State the resumption point plainly before continuing:
-"resuming `<name>` at `<point>`."
-
-### The withdrawal route
-
-A change abandoned before planning — nothing implemented, nothing merged — ends `FINISHED` with
-its record's `withdrawn` field set (`skills/flow-contracts/state-file.md`), its worktree deleted
-and its branches gone, instead of littering every later candidate resolution and `/flow-status`
-report with a `STARTED` record nothing can retire. The route runs inside the creating run —
-inside the already-open `flow.brainstorm` stage, which closes with the withdrawal as its work —
-and no command exists for it.
-
-**Two offer points, both explicit asks:**
-
-- **The reachability check's end** — after the evidence report, the run asks **Withdraw this
-  change?** — **Yes — withdraw** *(recommended)* / **No — leave it at `STARTED`**. Yes is
-  recommended because the run just proved nothing should be planned.
-- **A resume of a planless `STARTED` change** — the `total == 0` case above — opens with
-  **Resume brainstorming, or withdraw?** — **Resume brainstorming** *(default, recommended)* /
-  **Withdraw this change**. Resume is the default because the operator invoked `/flow <name>` to
-  continue.
-
-The ask names exactly what will be deleted — the worktree's absolute path, the local branch
-`spectre/<name>`, the remote branch `origin/spectre/<name>` — and that the record ends
-`FINISHED, withdrawn`. The explicit answer is the only consent any of those deletions get.
-
-Both offers stay asked under the `## decisions: recommended` mode (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`) — the explicit answer is consent to an irreversible
-deletion, and the mode never covers that.
-
-**Steps, in order — git first, record last**, so a crash leaves a re-runnable route rather than a
-terminal record over a live worktree. Every step tolerates the previous run's landed work — a
-worktree already gone, a branch already deleted, a remote delete already done — so the re-run
-reaches the same end from any crash point:
-
-1. Per worktree of the resolved set (**Resolving a change's worktrees**,
-   `skills/flow-contracts/worktree-resolution.md`): `git status --porcelain` must be empty —
-   anything else stops the route with the output shown, before any deletion. A worktree already
-   gone — a previous run's remove landed and a later step failed — is skipped, not a stop: the
-   route re-runs to the same end.
-2. `git -C <main-checkout> worktree remove --force <path> && git -C <main-checkout> worktree
-   prune` — both from the worktree's own main checkout, never `-C <worktree>`: the remove deletes
-   that directory, and a prune pointed inside it fails `fatal: cannot change to '<path>'` on
-   every run. A worktree the previous run already removed reports `fatal: ... is not a working
-   tree`: that is the previous run's landed work — run the prune regardless and continue.
-3. `git branch -D spectre/<name>` in the repository — an already-deleted branch reports
-   `error: branch not found`: the previous run's deletion landed, and the route continues, exactly
-   as step 4 tolerates a failed remote delete.
-4. `git push origin --delete spectre/<name>`. A failure here is one reported line and the route
-   continues — a remote branch that would not delete never blocks the record.
-5. One state write, read-merge-write like every write (**State file**,
-   `skills/flow-contracts/state-file.md`): `state` `FINISHED`, `withdrawn` `true`, `worktrees`
-   `{}`. The write needs a daemon that knows the `withdrawn` field: an older daemon refuses the
-   payload as an unknown field, the write falls back to the journal, the entry is retired as
-   definitively invalid, one ⚠ line names it — the record unchanged, the route re-run once the
-   daemon is current.
-
-The handoff is terminal and names no next command (**Handoff output**,
-`skills/flow-contracts/pipeline.md`).
-
-**Scope.** `STARTED` only: an `IN_PROGRESS` change lands through integrate even when the work
-disappoints. No Jira action — closing the linked issue, if any, is the operator's own act. The
-route marks nothing of its own: the stage it runs inside carries the marks, as any other stage's
-work does.
-
 ## Run brainstorming and planning directly
-
-Sections **B**, **C** and **D** of `skills/flow/brainstorm-planner.md` are the running session's own <!-- refs-guard:allow -->
-work — no dispatched subagent runs them; the session that is already running `/flow` does the
-checklist, the convergence loop, artifact creation, writing-plans and the Decide step itself, on
-its own model, with no relay and no return in between. Every "you" in `brainstorm-planner.md`
-addresses that session.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
@@ -208,32 +109,10 @@ Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and f
 directly — `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) is
 already in scope from this run's own earlier resolution.
 
-**Questions are the session's own direct `AskUserQuestion` calls**, batched per **The checklist**
-(`skills/flow/brainstorm-planner.md`). Section B's merged convergence-and-approval confirm and its
-third-round offer are asked the same way — directly, with named options, exactly as B states them.
-
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"
 paragraph — show that prose to the operator as ordinary text before the **AskUserQuestion** call,
-not only the bare question and options. The operator approving or answering the question is
-approving against the summary they were actually shown.
-
-Mark `flow.brainstorm` end and `flow.design-approval` begin/end around the merged
-convergence-and-approval confirm:
-
-```bash
-flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
-flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
-# … the operator's approve-and-move-on answer — the HARD GATE …
-flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
-```
-
-After the `flow.design-approval` mark above closes, mark `flow.create-artifacts` begin and
-continue directly into **C** — `spectre new` and the three artifacts, in the worktree, uncommitted
-until the plan gate answers **Yes**. Mark `flow.create-artifacts` end once
-**C**'s artifacts are written, then mark `flow.writing-plans` begin and run **D** — writing-plans
-enrichment and the Decide step, its JSON at `<abs-worktree>/.superpowers/sdd/decision.json`. Mark
-`flow.writing-plans` end once **D**'s plan enrichment and Decide step complete.
+not only the bare question and options.
 
 Once the Decide step finishes, print the `## Decision`
 block verbatim — the two-table shape (input side, then decision side) **Decide** (`skills/flow/brainstorm-planner.md`) prints — then run the record
@@ -250,19 +129,35 @@ Decide defect, not a store failure: correct that pair in `decision.json` per **M
 (`skills/flow/brainstorm-planner.md`) and record again before the gate; no dispatch reads a
 decision the store refused.
 
-**The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`)
-— the prose summary of the logic to be implemented, the `## Decision` block, **Proceed to implementation?** with **Yes** /
-**No (plan needs updates)**; a **No** revises and re-decides per that section, recording each
+**The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`), recording each
 re-decision through the sequence above. On **Yes**, make the plan-gate planning commit and push
 it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then **end the run** with
-the `STARTED` handoff (**The block each state renders**, `skills/flow-contracts/handoff-blocks.md`),
+the `STARTED` handoff (**The `STARTED` handoff block**, below),
 `/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds
-the plan ready (**Resuming at `STARTED`** above) and implements on a fresh context.
+the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
 
-## Resume and fix runs
+### The `STARTED` handoff block
 
-Both cases rest on **Decide** (`skills/flow/brainstorm-planner.md`): a run resumed at `STARTED` reads
-`flow record decisions -change <name>` and follows the newest row rather than re-rolling, or
-re-runs the Decide step alone when none exists yet. A fix run re-decides its appended plan as a
-second row under **3. Documenting a fix, before implementing it** (`skills/flow/implement.md`),
-canonical there because a fix run never loads this file.
+**A value the state file does not carry is reported as missing, not dropped.**
+
+```text
+## Proposal ready — review required
+
+**Change:** <name>
+**Artifact:** <artifactUrl, or "missing">
+**Recorded:** <N> decisions · <N> open questions · effort <level, or "not recorded — planned at default"> · model <models.default, or "not recorded">
+**Jira:** <issue key and the transition made, or "none linked", or a skipped-with-reason line>
+**Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block>
+
+Open in IntelliJ:
+open -na "IntelliJ IDEA" --args "<absolute apply-worktree path>"
+
+<what the operator does next>
+
+Next:
+/clear
+/flow <name>
+```
+
+**Both the decisions count and the open-questions count render `none` when zero — never `0` — by
+the missing-rather-than-dropped rule above.**

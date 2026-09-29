@@ -140,7 +140,7 @@ field is how it gets erased.
   that a fix must be committed and pushed rather than merely staged.
 - `withdrawn` — the withdrawal marker: `true` on a record the withdrawal route terminated — a
   change abandoned before planning, closed `FINISHED` without an archive (**The withdrawal
-  route**, `skills/flow/brainstorm.md`). Absent or `false` on every record any other route wrote,
+  route**, `skills/flow/withdrawal.md`). Absent or `false` on every record any other route wrote,
   and refused by the store paired with any state other than `FINISHED`
   (`store.ErrInvalidState`). The CLI carries the field byte-transparently — `state set` validates
   the object and the worktree values and forwards the body — so no CLI change writes it; `state

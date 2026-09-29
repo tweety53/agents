@@ -175,7 +175,7 @@ recommendation is not a courtesy here: the planning-gate capability requires eve
 
 There is no fourth course, and in particular none that hands back to `/flow`'s implement phase inline. The filed
 issue is labelled and linked per
-**Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`).
+**Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`).
 
 **A filing that fails is one skipped-with-reason line, and the run still proceeds** — the same
 degradation every other Jira write in this pipeline has, per

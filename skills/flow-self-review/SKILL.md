@@ -92,7 +92,7 @@ the self-review filing ask, chooses the empty set: silence selects **None — fi
 
 ### 4. File chosen findings
 
-File each chosen finding as a Jira issue per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`), carrying its angle's label on top of that set.
+File each chosen finding as a Jira issue per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), carrying its angle's label on top of that set.
 `## jira` absent or `none` in `<project>/.flow/project.md`, or no Atlassian tooling available in
 this session: print `⚠ Jira: skipped — <reason>` and record that finding `declined` instead.
 

@@ -1,0 +1,125 @@
+# Sentences KAN-856 cuts, repoints or adds on purpose. Every entry is one of:
+# - a declared duplicate (audit-planning.md rows BR-01, BR-02, BR-04, BR-10, BR-11, BR-13, BR-14,
+#   BR-16, BP-01, BP-10, BP-15, BP-16, BP-17, BP-25, JI-01, JI-02, BG-04), its canonical copy named
+#   in design.md;
+# - the fix-run half of "Resume and fix runs" (BR-17), canonical in implement.md §3;
+# - the remainder of a sentence whose rationale clause moved verbatim to a -rationale.md
+#   (BR-03, BR-07, BP-11, BP-13, BP-14, BP-18, JI-07, PV-03, BG-03) — the clause itself is the
+#   REVIEW line, not listed here;
+# - a citation repointed to the file its section moved to (BR-08, BR-09, BP-02, HB-01, JI-06, JI-12,
+#   PV-04), or a "Loaded by" / heading / index row the new split files need;
+# - the carried STARTED block's two lines with the `(run-only)` annotation dropped (HB-01).
+\# … the operator's approve-and-move-on answer — the HARD GATE …
+\## Resume and fix runs
+**A resume of a planless `STARTED` change** — the `total == 0` case above — opens with
+**A status maps to a position by enumerated name, never by inference — and in particular never from Jira's `statusCategory`.
+**Questions are the session's own direct `AskUserQuestion` calls**, batched per **The checklist** (`skills/flow/brainstorm-planner.md`).
+**Resuming at `STARTED`** (`skills/flow/brainstorm.md`).
+**The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`) — the prose summary of the logic to be implemented, the `## Decision` block, **Proceed to implementation?
+**The other is the join confirmation**, stated under **Follow-up issues** (`jira-followups.md`), and bounded identically: asked once, only when a candidate was actually found, with anything but an explicit yes taking the safe course and the run continuing regardless.
+A **withdrawal's** terminal block (**The withdrawal route**, `skills/flow/brainstorm.md`) is the same case: run-only, printed once by the run that withdrew the change, and no template here.
+A block of `**Decision:**` lines sits between blank lines — one before the first line of the block and one after the last, never glued to the `**Commit:**` subject above it: a citation with no blank line rides in the subject's continuation in every reader that has not learned the field's name.
+A fix run re-decides its appended plan as a second row under **3. Documenting a fix, before implementing it** (`skills/flow/implement.md`), canonical there because a fix run never loads this file.
+A question the note leaves open is still asked, batched as above, and the merged convergence-and-approval confirm below runs as written — approval is never seeded.
+A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task its commit folds into.
+After the `flow.design-approval` mark above closes, mark `flow.create-artifacts` begin and continue directly into **C** — `spectre new` and the three artifacts, in the worktree, uncommitted until the plan gate answers **Yes**.
+Any of those is one `⚠ Jira: skipped — <reason>` line and the command continues, per **Never blocking** (`jira-integration.md`) above.
+Both cases rest on **Decide** (`skills/flow/brainstorm-planner.md`): a run resumed at `STARTED` reads `flow record decisions -change <name>` and follows the newest row rather than re-rolling, or re-runs the Decide step alone when none exists yet.
+Derive the slug from the issue summary when only a key was given.
+Every "you" in `brainstorm-planner.md` addresses that session.
+Exactly one match → resume it, announcing which; multiple → **AskUserQuestion** listing each (name, state, last modified); zero → ask what to build.
+File each chosen finding as a Jira issue per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`), carrying its angle's label on top of that set.
+In `/flow`, what happens once this section's plan enrichment completes is stated in **Run brainstorming and planning directly** (`skills/flow/brainstorm.md`) — the run ends with a `/clear` handoff, and the next `/flow <name>` enters `skills/flow/implement.md`.
+In particular `/flow`'s implement phase touches Jira's **status** not at all.
+Labelling is governed by **Labels on issues the pipeline creates** (`jira-integration.md`) — a follow-up is not special.
+Loaded by `skills/flow/SKILL.md` on a creating run (no state) or a resuming run (`STARTED`).
+Loaded by `skills/flow/SKILL.md` once planning artifacts exist — continuing straight from `skills/flow/brainstorm.md` on a creating run, or entered directly on a resumed `STARTED` run whose plan is already ready, or on a fix run at `IN_PROGRESS`.
+Mark `flow.brainstorm` end and `flow.design-approval` begin/end around the merged convergence-and-approval confirm:
+Mark `flow.create-artifacts` end once **C**'s artifacts are written, then mark `flow.writing-plans` begin and run **D** — writing-plans enrichment and the Decide step, its JSON at `<abs-worktree>/.superpowers/sdd/decision.json`.
+Mark `flow.writing-plans` end once **D**'s plan enrichment and Decide step complete.
+On **Yes**, make the plan-gate planning commit and push it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then **end the run** with the `STARTED` handoff (**The block each state renders**, `skills/flow-contracts/handoff-blocks.md`), `/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`** above) and implements on a fresh context.
+Only a run that **completed** archive — or completed a withdrawal (**The withdrawal route**, `skills/flow/brainstorm.md`) — is terminal and names nothing; a run that stopped on a cleanup leftover names itself too, for the same reason: the operator clears what remains and runs it again.
+Restated decision prose drifts from its entry the first time either is edited.
+Section B's merged convergence-and-approval confirm and its third-round offer are asked the same way — directly, with named options, exactly as B states them.
+Sections **B**, **C** and **D** of `skills/flow/brainstorm-planner.md` are the running session's own <!-- refs-guard:allow --> work — no dispatched subagent runs them; the session that is already running `/flow` does the checklist, the convergence loop, artifact creation, writing-plans and the Decide step itself, on its own model, with no relay and no return in between.
+Skip **A** above (the name and the `STARTED` write both already exist) and determine where the run actually left off by reading, not by assuming:
+Status and description are separate concerns.
+The `## decisions: recommended` mode lifts the planning asks in this bullet — never the pivot, which stays asked under the mode because it alters approved scope — and lifts no other bullet here; the withdrawal offers in `skills/flow/brainstorm.md` stay asked under the mode too, deleting a change being irreversible and the bullet below governing.
+The `flow.brainstorm` begin mark lives in **Run brainstorming and planning directly** (`skills/flow/brainstorm.md`), and the `flow.brainstorm` end / `flow.design-approval` begin/end marks under **Convergence** below stay exactly where they are, run around the merged HARD GATE approval.
+The creating run's transition fires before brainstorming.
+The end then offers the withdrawal route (**The withdrawal route**, `skills/flow/brainstorm.md`) — the evidence already showed the change has nothing to plan.
+The filed issue is labelled and linked per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`).
+The worktree is kept either way — it is the change's, resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**, `skills/flow/brainstorm.md`).
+When what you measure contradicts the plan, stop and report the measurement: see **When a measurement contradicts the plan** (`skills/flow-contracts/plan-provenance.md`).
+While enriching `tasks.md`, tag every fenced block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan provenance** (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:` and **kept**, and an unverifiable assumption carries `unverified:<what-to-check>` in the task that depends on it.
+With no key, create one before anything else: a Jira issue of type **Task** in the project `## jira` names (`<project>/.flow/project.md`), summary the session's `<Topic>`, description one paragraph stating the topic, labels per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`), so `AI-generated` alone.
+`/flow`'s creating run runs this guard, when the project declares one, at the same point at which the plan-provenance guard runs (`skills/flow/brainstorm-planner.md`, the configured-guards step), and fixes any hit before the run continues.
+`/flow`'s implement phase is not a no-op against Jira, though: it still writes the issue **description** when a fix round adds scope, per **Description sync** (`jira-integration.md`), below.
+`/flow`'s review panel runs it, when the project declares one, at every round close and again beside the stage-close guards, where its report is blocking rather than advisory.
+`artifactUrl` stays `null` — `/flow` publishes no proposal artifact.
+`total == 0` means no plan exists yet: the run first opens with the withdrawal route's resume ask (**The withdrawal route**, below) — resume brainstorming, the default, or withdraw — and a resume answer continues at **B** in `skills/flow/brainstorm-planner.md`.
+`total == 0` → no plan spectre can read: stop, resume at `skills/flow/brainstorm.md`.
+change abandoned before planning, closed `FINISHED` without an archive (**The withdrawal route**, `skills/flow/brainstorm.md`).
+created inside `flow.kickoff` (steps 1–5 above), so a missing one means the run stopped between the `STARTED` write and that step: run steps 1–5 now, then continue below.
+test declarations (`@Test` and its language equivalents), never from a test run, and each task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field names, so two tasks dispatched in parallel count independently — neither's baseline depends on the other's edits.
+the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch and **The withdrawal route** (`skills/flow/brainstorm.md`) write `FINISHED`.
+with **Yes** / **No (plan needs updates)**; a **No** revises and re-decides per that section, recording each re-decision through the sequence above.
+| [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty, and what to do when a measurement contradicts the plan |
+| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/brainstorm.md`) |
+| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
+\# Jira integration — finish and issue creation
+\# Plan amendment
+\# Reachability check and withdrawal
+\# Resume at `STARTED`
+\# The seeded-note path
+\### In Review is not tied to a pull request
+\### Resuming a recorded decision
+\### The `STARTED` handoff block
+\### The join confirmation
+\### The join echo — the exception to Description sync's pre-edit echo
+\### The reachability check
+**A command's non-zero exit ends your turn** naming the command and its output.
+**A status maps to a position by enumerated name, never by inference — and in particular never from Jira's `statusCategory`.**
+**A value the state file does not carry is reported as missing, not dropped.**
+**Both the decisions count and the open-questions count render `none` when zero — never `0` — by the missing-rather-than-dropped rule above.**
+**Cited by `/flow`'s implementer dispatch** |
+**Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block>
+**Jira:** <issue key and the transition made, or "none linked", or a skipped-with-reason line>
+**Loaded by bare `/flow` run 1 and by every command that creates an issue** |
+A **withdrawal's** terminal block (**The withdrawal route**, `skills/flow/withdrawal.md`) is the same case: run-only, printed once by the run that withdrew the change, and no template here.
+A block of `**Decision:**` lines sits between blank lines — one before the first line of the block and one after the last, never glued to the `**Commit:**` subject above it.
+A first line whose value opens with neither keyword (`**Build:** yellow`, `**Build:** greenish`, a bare backticked path) is a **malformed tag** — its own violation, reported by that line and its value, never as a missing tag, and never overridden by a well-formed `**Build:**` line further down.
+A premise the run disproves strikes the task during planning, before the panel reads the plan.
+Everything preceding that heading is left byte-for-byte unchanged, and earlier bullets under it are retained.
+Labelling is governed by **Labels on issues the pipeline creates** (`jira-integration-finish.md`) — a follow-up is not special.
+Loaded by `skills/flow/SKILL.md` on a creating run (no state), and by `skills/flow/resume.md` when a resumed run still has planning to do.
+Loaded by `skills/flow/SKILL.md` on a run finding `STARTED`, and by **A.
+Loaded by `skills/flow/SKILL.md` once planning artifacts exist — entered from `skills/flow/resume.md` on a resumed `STARTED` run whose plan is already ready, or on a fix run at `IN_PROGRESS`.
+Loaded by `skills/flow/brainstorm-planner.md` when the linked issue carries `flow-fix` or `flow-cost`, and by `skills/flow/resume.md` on a planless `STARTED` resume.
+Loaded by `skills/flow/brainstorm-planner.md`'s **The checklist** when the ask arrives as a seeded research note.
+Loaded by bare `/flow` run 1 and by every command that creates an issue.
+On **Yes**, make the plan-gate planning commit and push it (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), then **end the run** with the `STARTED` handoff (**The `STARTED` handoff block**, below), `/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
+Only a run that **completed** archive — or completed a withdrawal (**The withdrawal route**, `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup leftover names itself too, for the same reason: the operator clears what remains and runs it again.
+Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between the `STARTED` write and that step: run steps 1–5 now, then continue below.
+The `## decisions: recommended` mode lifts the planning asks in this bullet — never the pivot, which stays asked under the mode because it alters approved scope — and lifts no other bullet here; the withdrawal offers in `skills/flow/withdrawal.md` stay asked under the mode too, deleting a change being irreversible and the bullet below governing.
+The end then offers the withdrawal route (**The withdrawal route**, below) — the evidence already showed the change has nothing to plan.
+The recorded command names no ref of its own — no tree, sha, branch or revision argument anywhere inside it: the re-measurement checks each of its two points out itself and runs the command in that working tree.
+The worktree is kept either way — it is the change's, resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**, `skills/flow/resume.md`).
+This line is required and explicit on every plan — never omitted.
+What an implementer does when a measurement contradicts the plan it is implementing.
+Writing either tag without doing the check it names is worse than leaving the block `unverified` or the number `predicted`.
+`STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the `STARTED` handoff prints at the end of the run, so its `Recorded` line counts what this section holds (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
+`planningEffort` and `models.default` are written `null` and stay `null` for the life of the change.
+`total == 0` means no plan exists yet: the run first opens with the withdrawal route's resume ask (**The withdrawal route**, `skills/flow/withdrawal.md`) — resume brainstorming, the default, or withdraw — and a resume answer continues at **B** in `skills/flow/brainstorm-planner.md`.
+`total == 0` → no plan spectre can read: stop, resume at `skills/flow/resume.md`.
+change abandoned before planning, closed `FINISHED` without an archive (**The withdrawal route**, `skills/flow/withdrawal.md`).
+created inside `flow.kickoff` (steps 1–5 of **A.
+test declarations (`@Test` and its language equivalents), never from a test run, and each task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field names.
+| [jira-integration-finish.md](jira-integration-finish.md) | The In Review timing, the join carve-out and echo, and labels on created issues.
+| [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan.
+| [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty |
+| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
+| `skills/flow/brainstorm-planner.md` | `flow.brainstorm` (end), `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
+| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm` (begin), `flow.decide` |

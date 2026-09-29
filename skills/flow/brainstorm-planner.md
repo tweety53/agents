@@ -7,25 +7,10 @@ Every "you" below addresses that session directly.
 
 ## B. Basic Workflow #1 — Brainstorming
 
-The `flow.brainstorm` begin mark lives in **Run brainstorming and planning directly**
-(`skills/flow/brainstorm.md`), and the `flow.brainstorm` end / `flow.design-approval` begin/end
-marks under **Convergence** below stay exactly where they are, run around the merged HARD GATE
-approval.
-
 ### The checklist
 
-**A run on a filed fix/cost finding verifies the defect still exists before planning.** When the
-linked issue's labels carry `flow-fix` or `flow-cost`, the checklist opens, before any design
-question, with a reachability check against the resolved base (the base the `flow.kickoff`
-worktree was created from): state the finding's defect as a claim the tree can answer, then run
-the cheapest thing that answers it — the guard the finding names, the contract section it says is
-missing, the behaviour it reports. A finding the base already delivers — the guard passes, the
-line is already there — ends the run: report the evidence, the command run or the line quoted,
-and stop before convergence; nothing is planned, and the issue is the operator's to close. The
-end then offers the withdrawal route (**The withdrawal route**, `skills/flow/brainstorm.md`) —
-the evidence already showed the change has nothing to plan. A
-finding that still reproduces plans as normal, its evidence carried into proposal.md's `## Why`
-when **C** writes it.
+**Load `skills/flow/withdrawal.md`** only when the linked issue's labels carry `flow-fix` or
+`flow-cost` — its reachability check opens the checklist, before any design question.
 
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
@@ -54,34 +39,9 @@ the design.
   may be the last question in such a call. This is a scoped override of
   `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
 
-**The seeded-note path is legitimate, never a bypass to prevent.** When the ask arrives already
-converged — a seeded research note whose own text carries the design, its decisions with their
-`**ID:**` lines, and the acceptance criteria (a fully-worked issue description, or the equivalent
-a `/flow-plan` capture or a handoff package brought) — the checklist questions the note already
-answers are answered by the note and never re-asked: the note is the research the checklist would
-gather. A question the note leaves open is still asked, batched as above, and the merged
-convergence-and-approval confirm below runs as written — approval is never seeded.
-
-**The note is the research, never the plan's form.** The seeded plan is still written through C
-and D like any other, and what the note abbreviates the plan spells out: every `**Files:**` field
-carries full repo-relative paths — the note's shorthand (commonMain/… and its like) is expanded,
-never copied, because `check-task-commit-fields.sh` matches a declared path against the commit's
-diff literally — and `tasks.md`'s H1 stays the exact `# <change-id>` literal `spectre validate`
-requires, never a title the note supplies.
-
-**The note is an immutable input, never a living copy of the plan.** The plan is canonical from
-the moment it is written, and mid-run corrections — file corrections, baseline re-measures — land
-in `tasks.md` alone; the note is never updated to match. A note carrying a plan copy of its own —
-the retired `<project>/docs/research/<stem>/` capture layout wrote one — holds a snapshot that
-goes stale by design: no stage propagates corrections to it, and no reader should expect it to
-track the plan.
-
-**The note's verification tags are evidence-checked at seeding.** A `verified:`/`measured:` tag
-the note carries is copied only when its evidence is in hand; a tag naming nothing is rewritten to
-the honest `unverified:`/`predicted:` tag, or dropped, never copied — per **Plan provenance**'s
-evidence rule (`skills/flow-contracts/plan-provenance.md`); seeding is how
-an unverifiable verification tag enters a plan believing itself checked. The task-close guard
-refuses a close over the shape.
+**Load `skills/flow/seeded-note.md`** only when the ask arrives as a seeded research note — a
+fully-worked issue description, a `/flow-plan` capture or a handoff package that already carries
+the design, its decisions and the acceptance criteria.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
@@ -246,7 +206,7 @@ once recorded.**
 
 `STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
 `STARTED` handoff prints at the end of the run, so its `Recorded` line counts what this section holds
-(**The block each state renders**, `skills/flow-contracts/handoff-blocks.md`); the `IN_PROGRESS` handoff carries no count.
+(**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
 
 ```bash
 flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
@@ -317,9 +277,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan
-provenance** (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged
-`unverified:` and **kept**, and an unverifiable assumption carries `unverified:<what-to-check>` in
-the task that depends on it.
+provenance** (`skills/flow-contracts/plan-provenance.md`).
 
 **A task premise about a guard's behaviour is run at plan time, never assumed.** When a task
 written here rests on what a guard or check currently does — that a ratchet trips or does not,
@@ -327,8 +285,7 @@ an exit code, the figures a guard prints — planning runs that guard before the
 and cites its output in the task as a `measured:` comment per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`), naming the command and the ref and quoting the
 exit code or figures the run produced. A premise the run disproves strikes the task during
-planning, before the panel reads the plan — the same verify-the-premise move the filed-finding
-reachability check makes at checklist open, applied to each task's own premise.
+planning, before the panel reads the plan.
 
 **A task premise about a harness or tool is spiked live at plan time, never assumed.** When a
 task written here rests on how a harness or tool behaves — that a config key takes effect where
@@ -337,9 +294,7 @@ a live spike of five minutes or less for each such assumption before the task is
 records the result in the task as a `measured:` comment per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`), naming the command and the ref. A premise the spike
 disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
-stays tagged `unverified:<what-to-check>` for the implementer. KAN-750's task 11 was blocked for
-35 minutes on a plan that assumed Playwright's `reducedMotion` took effect under `use`, where it
-takes effect only under `contextOptions`.
+stays tagged `unverified:<what-to-check>` for the implementer.
 
 **Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
 with `**Build:**` per **The build-green tag**
@@ -364,8 +319,7 @@ with `**Build:**` per **The build-green tag**
 - `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, counted statically from
   test declarations (`@Test` and its language equivalents), never from a test run, and each
   task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field
-  names, so two tasks dispatched in parallel count independently — neither's baseline depends on
-  the other's edits. The counts are exact integers: `after=~N` is unparseable by the guard and
+  names. The counts are exact integers: `after=~N` is unparseable by the guard and
   silently disables the re-measurement. A Baseline that records a plan-provenance `<!-- measured:
   <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
   `check-task-commit-fields.sh` re-runs that command at the commit's parent and at the commit, and
@@ -374,15 +328,11 @@ with `**Build:**` per **The build-green tag**
   "never from a test run" as constraining how the declared numbers are derived at plan time, not
   the guard's re-measurement. The recorded command names no ref of its own — no tree, sha, branch
   or revision argument anywhere inside it: the re-measurement checks each of its two points out
-  itself and runs the command in that working tree, so a command naming a ref measures that one
-  tree at both points, reports identical counts, and fails any nonzero declared delta. The
+  itself and runs the command in that working tree. The
   comment's `@ <ref>` is the provenance annotation, never part of the command.
 - `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
   the task's own `**Files:**` field carries, per **Commit scopes name the module**
   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
-
-A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task
-its commit folds into.
 
 An `**After:**` field — `Task <ids>` or `none` — declares the task's predecessors, and **every
 task writes it**: a plan states its ordering in declarations, so `plan-dispatch-bundles.sh`
@@ -395,12 +345,10 @@ across a `**Squash-with:**` pair (union semantics merge the pair into one bundle
 **A task cites the decision it implements, never restates it.** When a task exists to implement
 an entry of design.md's `## Decisions`, it names that entry by its `**ID:**` in a
 `**Decision:** <id>` field and copies nothing of the entry's text — the decision lives once,
-under `## Decisions`, and the citation is the link. Restated decision prose drifts from its
-entry the first time either is edited. A task
+under `## Decisions`, and the citation is the link. A task
 implementing no recorded decision writes no such field. A block of `**Decision:**` lines sits
 between blank lines — one before the first line of the block and one after the last, never
-glued to the `**Commit:**` subject above it: a citation with no blank line rides in the
-subject's continuation in every reader that has not learned the field's name.
+glued to the `**Commit:**` subject above it.
 
 Add this header to `tasks.md`:
 
@@ -416,8 +364,7 @@ prose:
 > **Relocation:** yes — <one-line reason>
 ```
 
-or `**Relocation:** no`. This line is required and explicit on every plan — never omitted, per
-this repository's "missing rather than dropped" convention. `yes` scopes a mechanical passage
+or `**Relocation:** no`. This line is required and explicit on every plan — never omitted. `yes` scopes a mechanical passage
 comparison (generated later in the pipeline, by `generate-relocation-comparison.sh`,
 run before the review panel's `final-review.diff`) to the union
 of every task's own `**Files:**` field across the plan.
@@ -662,7 +609,4 @@ Under the `## decisions: recommended` mode the gate takes **Yes** without asking
 and the `## Decision` block still print, so the record of what was approved stays complete
 (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
 
-In `/flow`, what happens once this section's plan enrichment completes is stated in
-**Run brainstorming and planning directly** (`skills/flow/brainstorm.md`) — the run ends with a
-`/clear` handoff, and the next `/flow <name>` enters `skills/flow/implement.md`. `/flow-plan`
-commits and ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).
+`/flow-plan` commits and ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).

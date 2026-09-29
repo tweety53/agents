@@ -156,7 +156,7 @@ the argument or resolved from the conversation per **Resolution (how `jiraIssue`
 (`skills/flow-contracts/jira-integration.md`). With no key, create one before anything else: a
 Jira issue of type **Task** in the project `## jira` names (`<project>/.flow/project.md`), summary
 the session's `<Topic>`, description one paragraph stating the topic, labels per **Labels on
-issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`), so `AI-generated`
+issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), so `AI-generated`
 alone. The created key is then the known key, and this session's `plan.session` mark fires now
 when it did not at start. The creation is a Jira write like any other: `## jira` absent or
 `none`, no Atlassian tooling, or a refused create is one `⚠ Jira: skipped — <reason>` line, and
@@ -220,7 +220,7 @@ Exactly that directory is staged — never `-A`, never anything else in the work
 remote rejects leaves the commit on `spectre/<name>` in the worktree; say so and name the commit,
 the branch and the worktree path. The worktree is kept either way — it is the change's, resumed by
 `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**,
-`skills/flow/brainstorm.md`).
+`skills/flow/resume.md`).
 
 End by naming the change, the Jira key, the commit and the worktree's absolute path, and close
 the session's mark:

@@ -10,7 +10,8 @@ The full key list, in the order each phase file marks them:
 
 | Phase file | Keys |
 |------------|------|
-| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
+| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm` (begin), `flow.decide` |
+| `skills/flow/brainstorm-planner.md` | `flow.brainstorm` (end), `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.decide` (fix runs), `flow.sdd-tdd` |
 | `skills/flow/review-panel.md` | `flow.review-panel` |
 | `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` or an `exp-` slot |

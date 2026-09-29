@@ -76,7 +76,7 @@ flow state get <name-or-best-guess> -C <repo-root>
   the plan gate's **Yes** with a `/clear` handoff, and the next `/flow <name>` enters **The parent
   orchestrates directly** (`skills/flow/implement.md`).
 - **Exit 0, `"state": "STARTED"`** — a creating run interrupted before it reached `IN_PROGRESS`. See
-  **Resuming at `STARTED`** (`skills/flow/brainstorm.md`).
+  **Resuming at `STARTED`** (`skills/flow/resume.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run — or a plain message, per
   **A plain message at IN_PROGRESS** below. See
   **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
@@ -146,4 +146,4 @@ run — generates its own rather than reusing an earlier run's.
 - Never skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
 - Never advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch
-  and **The withdrawal route** (`skills/flow/brainstorm.md`) write `FINISHED`.
+  and **The withdrawal route** (`skills/flow/withdrawal.md`) write `FINISHED`.

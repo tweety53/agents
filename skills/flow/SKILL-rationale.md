@@ -628,3 +628,57 @@ it re-read about 24k lines of branch diff and found only Minors; the catches rec
 
 > gate-time re-planning visible as a trend in the app rather than a
 > per-change surprise (KAN-415)
+
+## Moved by KAN-856 — planning-session trims
+
+Verbatim passages KAN-856 moved out of the planning session's run-loaded files; each is the reason behind a rule that stays where it was.
+
+### brainstorm.md — A. Resolve the change and write `STARTED` (KAN-856)
+
+`planningEffort` and `models.default` are written `null` and stay `null` for the life of the
+change: `/flow` asks no planning-effort or model question on a creating run, and models are chosen per dispatch by the Decide step, not recorded per change.
+
+The
+operator sees `STARTED` recorded the moment they invoke `/flow`, whether or not the run goes on to
+finish brainstorming in the same sitting.
+
+### brainstorm.md — the worktree is created inside `flow.kickoff` (KAN-856)
+
+The record written at
+**A** carries `"worktrees": {}`, and the next durable write would otherwise be
+`flow.isolate-workspace`'s, a whole brainstorming, design-gate and planning run later; a run
+killed after the add but before that stage must not leave a real worktree and a pushed branch
+behind an empty map — the stale `STARTED` record a resumed run reads as a fresh creating run.
+
+**A command's non-zero exit
+ends your turn** naming the command and its output — a worktree that cannot be set up fails
+`flow.verify` later anyway, and the operator should see it here.
+
+### brainstorm.md — Run brainstorming and planning directly
+
+The operator approving or answering the question is
+approving against the summary they were actually shown.
+
+### brainstorm-planner.md — D. Writing plans (KAN-856)
+
+A premise the run disproves strikes the task during
+planning, before the panel reads the plan — the same verify-the-premise move the filed-finding
+reachability check makes at checklist open, applied to each task's own premise.
+
+KAN-750's task 11 was blocked for
+35 minutes on a plan that assumed Playwright's `reducedMotion` took effect under `use`, where it
+takes effect only under `contextOptions`.
+
+`**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, counted statically from
+test declarations (`@Test` and its language equivalents), never from a test run, and each
+task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field
+names, so two tasks dispatched in parallel count independently — neither's baseline depends on
+the other's edits.
+
+The recorded command names no ref of its own — no tree, sha, branch
+or revision argument anywhere inside it: the re-measurement checks each of its two points out
+itself and runs the command in that working tree, so a command naming a ref measures that one
+tree at both points, reports identical counts, and fails any nonzero declared delta.
+
+This line is required and explicit on every plan — never omitted, per
+this repository's "missing rather than dropped" convention.

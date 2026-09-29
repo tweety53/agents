@@ -187,3 +187,20 @@ merely narrow for its own sake:
 
 The two rules that follow are stated in **The guard's scope, and why it is narrow**
 (`skills/flow-contracts/plan-provenance-guard.md`).
+
+## plan-provenance.md — moved by KAN-856
+
+Verbatim passages KAN-856 moved out of the planning session's run-loaded files; each is the reason behind a rule that stays where it was.
+
+A plan under `/flow`'s implement phase sits on a branch whose
+commits do not exist yet, so naming the merge base is worse than useless: the commands being cited
+frequently do not exist there, and `git cat-file -e <merge-base>:<script>` fails outright.
+
+A number has no such escape
+hatch: an untagged number is not "unverified", it is unattributed, and an implementer reading it
+cannot tell whether it was run or guessed.
+
+Writing either tag
+without doing the check it names is worse than leaving the block `unverified` or the number
+`predicted` — it tells the next reader a check happened when it did not, which is exactly the
+failure this contract exists to prevent.

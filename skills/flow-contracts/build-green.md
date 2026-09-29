@@ -36,20 +36,12 @@ task line above it is — and its kind from that value as `^\s+(green|red)\b`: t
 prefix ending on a word boundary, and whatever follows it on the line (`green — 2259 tests`,
 `green (unchanged)`) is free prose the guard ignores, still line-scoped. `**Squash-with:**` is
 anchored at column 0 the same way, as is every field the
-`flow-task-commit-fields` family adds to a task. Indenting the fields along with the steps is the
-natural reading of "the body sits beneath its task", and it is wrong in a way only
-`check-plan-shape.sh` catches kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
-task line to spectre than a step is, while this file's own guard reports
-`task <id> has no **Build:** tag` — naming the consequence and hiding the cause, since the tag is
-there, one column short of where its regex looks. Measured on a one-task plan written both ways.
-The shape guard names the cause instead — `task <id> carries a **Build:** line indented past
-column 0` — and runs unconditionally at plan time.
+`flow-task-commit-fields` family adds to a task.
 
 Within that body, the `Build:` tag is the **first** column-0 `**Build:**` line, well-formed or not; a
 body with no such line has no tag at all. A first line whose value opens with neither keyword
 (`**Build:** yellow`, `**Build:** greenish`, a bare backticked path) is a **malformed tag** — its
-own violation, reported by that line and its value, never as a missing tag (which would name the
-consequence and hide the cause, exactly as the unclosed-fence finding refuses to), and never
+own violation, reported by that line and its value, never as a missing tag, and never
 overridden by a well-formed `**Build:**` line further down.
 
 ## The guard's scope
@@ -69,16 +61,8 @@ A guard script (`<agents repo>/scripts/check-task-build-green.py`, wrapped by
 A `red` task with no partner pointing back at it, and a `red` task whose partner is `green`, are
 both accepted — "unreferenced" is not a violation shape this guard checks for.
 
-`/flow`'s creating run runs this guard, when the project declares one, at the same point at which
-the plan-provenance guard runs (`skills/flow/brainstorm-planner.md`, the configured-guards step), and
-fixes any hit before the run continues. `/flow`'s review panel runs it, when the project declares one, at every round close and
-again beside the stage-close guards, where its report is blocking rather than advisory.
-
 **What the guard does not do.** The guard verifies only that every task declares a build state and
 that no declared-`red` task is left unresolved. It does **not** attempt to verify that a `green`
 tag is true — it never runs the build, never runs the task's own verification command, and never
-checks that the state left by preceding tasks is actually what a `green` tag claims. This is the
-same accepted limit as **What the guard does not do**
-(`skills/flow-contracts/plan-provenance-guard.md`): a script can confirm a claim was written down, not
-that the claim is correct. Whether a `green` tag is honest is a human judgment made when writing
+checks that the state left by preceding tasks is actually what a `green` tag claims. Whether a `green` tag is honest is a human judgment made when writing
 or reviewing the plan, not something this guard can hold anyone to.

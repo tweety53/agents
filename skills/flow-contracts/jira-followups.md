@@ -12,7 +12,7 @@ review panel's deferred findings go to `<project>/KNOWN-BUGS.md` instead (**Defe
 A **follow-up** is an issue the pipeline files for work a run left outstanding. It is titled
 `<KEY> follow-up`, where `<KEY>` is the change's linked issue; with no linked issue it is titled
 `flow follow-up`. Labelling is governed by **Labels on issues the pipeline creates**
-(`jira-integration.md`) — a follow-up is not special.
+(`jira-integration-finish.md`) — a follow-up is not special.
 
 **This naming governs every follow-up the integrate run files.**
 

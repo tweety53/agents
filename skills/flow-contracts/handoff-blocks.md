@@ -255,7 +255,7 @@ at `IN_PROGRESS` and prints its own interrupted-run report, every field of which
 run-only — what that run synced, archived and left behind, which the state file does not record.
 `/flow-status` regenerates one of the two `IN_PROGRESS` renderings above for such a change, by
 the test just given. A **withdrawal's** terminal block (**The withdrawal route**,
-`skills/flow/brainstorm.md`) is the same case: run-only, printed once by the run that withdrew
+`skills/flow/withdrawal.md`) is the same case: run-only, printed once by the run that withdrew
 the change, and no template here.
 
 Which path each `open` line names, and why `open -na` rather than the `idea` shim, are

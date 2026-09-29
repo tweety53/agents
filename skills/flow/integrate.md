@@ -267,6 +267,8 @@ opened, and every other field carried forward.
 
 **Load `skills/flow-contracts/jira-integration.md`** — it is canonical for the transition below.
 
+**Load `skills/flow-contracts/jira-integration-finish.md`** too — its **In Review is not tied to a pull request** governs the transition below.
+
 **Sub-step: transition the issue to In Review**, whichever route was taken — pull request, merge and
 push, or manual — per **Transitions** (`skills/flow-contracts/jira-integration.md`): after the
 state write, never before, never blocking. A run that stopped on a failed push does **not**

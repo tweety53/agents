@@ -64,8 +64,8 @@ An argument that is none of those is **reported**, not silently ignored.
 
 | Command | Accepts | Ends at |
 |---------|---------|---------|
-| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
-| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/brainstorm.md`) |
+| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
 | `/flow` | `IN_PROGRESS`, with an argument | fix run; state unchanged |
 | *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) |
 | `/flow` | `IN_PROGRESS`, bare | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
@@ -198,7 +198,7 @@ Next:
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
   **completed** archive — or completed a withdrawal (**The withdrawal route**,
-  `skills/flow/brainstorm.md`) — is terminal and names nothing; a run that stopped on a cleanup
+  `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup
   leftover names itself too, for the same reason: the operator clears what remains and runs it
   again.
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
