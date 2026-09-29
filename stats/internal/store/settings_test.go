@@ -21,7 +21,7 @@ func TestSettingsStore_RoundTrip(t *testing.T) {
 	want := store.Settings{
 		DefaultModel:    "opus",
 		SelfReviewModel: "haiku",
-		Reviewers:       []string{"primary", "principles", "bugbot", "mutation"},
+		Reviewers:       []string{"primary", "principles", "failure-modes", "mutation"},
 	}
 
 	if err := st.PutSettings(ctx, want); err != nil {
@@ -46,7 +46,7 @@ func TestSettingsStore_RoundTripUpdates(t *testing.T) {
 	ctx := context.Background()
 
 	first := store.Settings{DefaultModel: "sonnet", SelfReviewModel: "", Reviewers: []string{"primary"}}
-	second := store.Settings{DefaultModel: "haiku", SelfReviewModel: "opus", Reviewers: []string{"primary", "security"}}
+	second := store.Settings{DefaultModel: "haiku", SelfReviewModel: "opus", Reviewers: []string{"primary", "failure-modes"}}
 
 	if err := st.PutSettings(ctx, first); err != nil {
 		t.Fatalf("first PutSettings: %v", err)
@@ -184,5 +184,22 @@ func TestSettingsStore_RejectsRetiredCodeReviewLow(t *testing.T) {
 	want := []string{"primary", "principles", "code-review-low"}
 	if !reflect.DeepEqual(got.Reviewers, want) {
 		t.Errorf("GetSettings reviewers = %v, want %v", got.Reviewers, want)
+	}
+}
+
+// TestSettingsStore_RejectsRetiredBugbotAndSecurity asserts the retired
+// "bugbot" and "security" slot ids are refused on write like any unknown id.
+func TestSettingsStore_RejectsRetiredBugbotAndSecurity(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	for _, id := range []string{"bugbot", "security"} {
+		err := st.PutSettings(ctx, store.Settings{
+			DefaultModel: "opus",
+			Reviewers:    []string{"primary", id},
+		})
+		if !errors.Is(err, store.ErrInvalidReviewer) {
+			t.Errorf("PutSettings(%q) error = %v, want it to wrap ErrInvalidReviewer", id, err)
+		}
 	}
 }

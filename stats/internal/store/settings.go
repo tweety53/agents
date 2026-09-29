@@ -24,20 +24,22 @@ var ValidModels = map[string]bool{
 }
 
 // ValidReviewers is the fixed vocabulary a flow_settings.reviewers entry
-// may take. The panel dispatches exactly the resolved list; these five ids
+// may take. The panel dispatches exactly the resolved list; these four ids
 // no longer split into a required subset and an on-demand-only subset
 // (design.md's roster-from-settings decision superseded that split).
 // "simple-reviewer" was retired once primary absorbed its brief, and
 // "code-review-low" once it proved a shallower copy of primary's
-// code-review angle; the store rejects both like any other unknown id.
+// code-review angle; "bugbot" and "security" once the flow store showed
+// security raising no finding and bugbot the lowest yield of any slot;
+// "failure-modes" was promoted from the experimental exp-failure-modes
+// prompt. The store rejects every retired id like any other unknown id.
 // Only writes are validated: GetSettings and the record/aggregate paths
 // read historical rows carrying a retired id unchanged.
 var ValidReviewers = map[string]bool{
-	"primary":    true,
-	"principles": true,
-	"bugbot":     true,
-	"security":   true,
-	"mutation":   true,
+	"primary":       true,
+	"principles":    true,
+	"failure-modes": true,
+	"mutation":      true,
 }
 
 // ErrInvalidModel is returned by PutSettings when DefaultModel is not one
