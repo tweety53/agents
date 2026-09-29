@@ -17,6 +17,7 @@ import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
 import { CacheEfficiency } from "./views/CacheEfficiency";
 import { Decisions } from "./views/Decisions";
+import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
 import { Reviewers } from "./views/Reviewers";
 import { Runs } from "./views/Runs";
@@ -34,6 +35,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   reviewers: "Reviewers",
   decisions: "Decisions",
   runs: "Runs",
+  "flow-health": "Flow health",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
@@ -44,6 +46,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   reviewers: Reviewers,
   decisions: Decisions,
   runs: Runs,
+  "flow-health": FlowHealth,
 };
 
 function isViewName(v: string): v is ViewName {
@@ -175,8 +178,12 @@ function routePath(route: Route): string {
  * (internal/api/stats.go's viewStateBoard branch) so a reader sees the
  * same explanation whichever side told them.
  */
-const MODEL_DISABLED_REASON =
-  "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.";
+const MODEL_DISABLED_REASONS: Partial<Record<ViewName, string>> = {
+  "state-board":
+    "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.",
+  "flow-health":
+    "Flow health counts guard runs, stage re-entries and panel rounds across every model, so a model restriction cannot apply here.",
+};
 
 export function App() {
   const [period, setPeriod] = useState<Period>(currentPeriod);
@@ -207,10 +214,12 @@ export function App() {
   }, [route, period]);
 
   const ActiveView = route.kind === "view" ? VIEW_COMPONENTS[route.view] : null;
-  // The state board is the one dashboard today whose rows are changes
-  // rather than stage runs (proposal.md's Fix round 1) -- every other
-  // static view aggregates stage runs and accepts the restriction.
-  const modelDisabled = route.kind === "view" && route.view === "state-board";
+  // The state board's rows are changes rather than stage runs
+  // (proposal.md's Fix round 1), and flow health counts across models --
+  // every other static view aggregates stage runs and accepts the
+  // restriction.
+  const modelDisabledReason = route.kind === "view" ? MODEL_DISABLED_REASONS[route.view] : undefined;
+  const modelDisabled = modelDisabledReason !== undefined;
 
   return (
     <div className="app-shell">
@@ -235,7 +244,7 @@ export function App() {
           model={model}
           onModelChange={setModel}
           modelDisabled={modelDisabled}
-          modelDisabledReason={MODEL_DISABLED_REASON}
+          modelDisabledReason={modelDisabledReason}
         />
       </header>
       <main>

@@ -17,15 +17,28 @@ package main
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard"
 )
 
 const usage = "usage: flow-guard <name> [arguments]\n\nruns the Go port of scripts/<name>.sh; see that script's header for its contract\n"
 
+// registry is guard.Registry, named here so telemetry.go's dispatched and
+// run read the same map.
+var registry = guard.Registry
+
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	start := time.Now()
+	code := run(os.Args[1:], os.Stdout, os.Stderr)
+	if name, ok := dispatched(os.Args[1:]); ok {
+		if dir := workingDir(); dir != "" {
+			recordRun(os.Getenv, dir, name, code, time.Since(start), http.DefaultClient)
+		}
+	}
+	os.Exit(code)
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -33,7 +46,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, usage)
 		return 2
 	}
-	fn, ok := guard.Registry[args[0]]
+	fn, ok := registry[args[0]]
 	if !ok {
 		fmt.Fprintf(stderr, "flow-guard: unknown guard %s\n", args[0])
 		return 2

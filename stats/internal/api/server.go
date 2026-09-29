@@ -173,7 +173,8 @@ type Option func(*serverOptions)
 // It exists as its own type, rather than fields tacked onto Server, so a
 // caller reads what New optionally accepts in one place.
 type serverOptions struct {
-	spa http.Handler
+	spa       http.Handler
+	guardRuns GuardRunStore
 }
 
 // WithSPA mounts h at "/" as the daemon's user interface, task 12's
@@ -362,6 +363,10 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("no such API route: %s %s", r.Method, r.URL.Path))
 	})
+	if so.guardRuns != nil {
+		grh := &guardRunHandler{store: so.guardRuns, logger: logger}
+		mux.HandleFunc("POST /api/v1/guard-runs/{project}", grh.record)
+	}
 	if so.spa != nil {
 		mux.Handle("/", so.spa)
 	}

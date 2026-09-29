@@ -555,3 +555,26 @@ func CostStatusOf(r Run) CostStatus {
 	}
 	return CostStatus{Unattributed: unattributedCount, Reasons: reasons}
 }
+
+// GuardRun is one invocation of a flow-guard guard, as the binary itself
+// records it (0032_guard_runs.sql): which guard, in which worktree, its raw
+// exit code, the binary's classification of that code, and how long it
+// took. It is written for every guard the binary dispatches, whether or not
+// the guard records a verdict of its own, so "which guards ever fire" has an
+// answer that does not depend on each guard remembering to record one.
+//
+// Outcome is one of GuardRunOutcomes. RecordedAt is the caller's own
+// timestamp, as Verdict.RecordedAt is.
+type GuardRun struct {
+	ID         int64     `json:"id"`
+	Guard      string    `json:"guard"`
+	Worktree   string    `json:"worktree"`
+	ExitCode   int       `json:"exitCode"`
+	Outcome    string    `json:"outcome"`
+	DurationMS int       `json:"durationMs"`
+	RecordedAt time.Time `json:"recordedAt"`
+}
+
+// GuardRunOutcomes is the closed set GuardRun.Outcome accepts -- the same
+// set 0032_guard_runs.sql's CHECK constraint enforces.
+var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}

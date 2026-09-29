@@ -866,6 +866,18 @@ func (stubStageStore) Decisions(context.Context, store.Period, *string) ([]store
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) GuardActivity(context.Context, store.Period, *string) ([]store.GuardActivityRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) StageRedo(context.Context, store.Period, *string) ([]store.StageRedoRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) PanelRounds(context.Context, store.Period, *string) ([]store.PanelRoundsRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) ListRuns(context.Context, store.Period, *string, *string) ([]store.ChangeRuns, error) {
 	return nil, errStageStoreNotImplemented
 }

@@ -63,6 +63,12 @@ type StatsStore interface {
 	// models across its dispatches.
 	ListRuns(ctx context.Context, period store.Period, project, change *string) ([]store.ChangeRuns, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
+	// GuardActivity, StageRedo and PanelRounds back the flow-health
+	// dashboard's views (store/health.go): which guards fire, which stages
+	// get re-entered, and how many review-panel rounds a change needs.
+	GuardActivity(ctx context.Context, period store.Period, project *string) ([]store.GuardActivityRow, error)
+	StageRedo(ctx context.Context, period store.Period, project *string) ([]store.StageRedoRow, error)
+	PanelRounds(ctx context.Context, period store.Period, project *string) ([]store.PanelRoundsRow, error)
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
 	// ExcludedNoModel), the latter GET /api/v1/models's only source.
@@ -108,6 +114,9 @@ const (
 	viewReviewers        viewName = "reviewers"
 	viewDecisions        viewName = "decisions"
 	viewRuns             viewName = "runs"
+	viewGuards           viewName = "guards"
+	viewStageRedo        viewName = "stage-redo"
+	viewPanelRounds      viewName = "panel-rounds"
 )
 
 // knownViews is every accepted {view} path value, used both to dispatch and
@@ -117,6 +126,7 @@ const (
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
 	viewCacheEfficiency, viewReviewers, viewDecisions, viewRuns,
+	viewGuards, viewStageRedo, viewPanelRounds,
 }
 
 func acceptedViewNames() string {
@@ -406,8 +416,11 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// already fully reported by Recorded=false, so asking "did none of its
 	// runs carry a measurement" would be a wasted query answering a
 	// question that period does not raise.
+	// The flow-health views count guard runs, stage attempts and panel
+	// rounds, none of which is a token measurement, so "no run carried a
+	// measurement" says nothing about them and would hide real rows.
 	var unmeasured bool
-	if recorded {
+	if recorded && !isHealthView(name) {
 		unmeasured, err = h.store.AllRecordedRunsUnmeasured(r.Context(), period, project)
 		if err != nil {
 			status, msg := mapStoreError(h.logger, "resolve unmeasured period for "+string(name), err)
@@ -542,6 +555,9 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 			return nil, s, m
 		}
 		return toChangeRunsDTOs(rows), 0, ""
+
+	case viewGuards, viewStageRedo, viewPanelRounds:
+		return h.healthRows(ctx, name, period, project, model)
 
 	default:
 		return nil, http.StatusBadRequest, fmt.Sprintf("unrecognised view %q; accepted: %s", name, acceptedViewNames())

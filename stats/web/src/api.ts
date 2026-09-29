@@ -44,7 +44,8 @@ export type ViewName =
   | "cache-efficiency"
   | "reviewers"
   | "decisions"
-  | "runs";
+  | "runs"
+  | "flow-health";
 
 export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
@@ -54,6 +55,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "reviewers",
   "decisions",
   "runs",
+  "flow-health",
 ];
 
 /** The "cost-per-change" statistics endpoint slug -- not a navigable
@@ -61,6 +63,14 @@ export const VIEW_NAMES: readonly ViewName[] = [
  * but still called directly by `useRunDetail.ts` for a change's own
  * aggregate, so `fetchStatsView` keeps accepting it alongside `ViewName`. */
 type CostPerChangeViewSlug = "cost-per-change";
+
+/** The three statistics endpoints the "flow-health" dashboard composes
+ * (internal/api/health.go) -- not navigable views of their own: the one
+ * dashboard reads all three. */
+export type HealthViewSlug = "guards" | "stage-redo" | "panel-rounds";
+
+/** Every slug GET /api/v1/stats/{view} is called with from this client. */
+export type StatsViewSlug = ViewName | CostPerChangeViewSlug | HealthViewSlug;
 
 /**
  * Parameters every statistics view accepts. "from" and "to" are both
@@ -120,7 +130,7 @@ export interface StatsViewParams {
 
 /** The envelope every statistics view answers with. */
 export interface StatsResponse<Row = unknown> {
-  view: ViewName | CostPerChangeViewSlug;
+  view: StatsViewSlug;
   /** RFC 3339, the period actually applied -- echoed back, not merely the request's raw string. */
   from: string;
   to: string;
@@ -274,6 +284,46 @@ export interface StageLeaderboardRow {
   meanCostUsd: number;
   medianCostUsd: number;
   p90CostUsd: number;
+}
+
+/** Mirrors guardActivityRowDTO (internal/api/health.go). The run-derived
+ * fields are null for a guard known only from a recorded verdict. */
+export interface GuardActivityRow {
+  guard: string;
+  runs: number;
+  fired: number;
+  cannotAnswer: number;
+  lastRunAt: string | null;
+  lastFiredAt: string | null;
+  medianDurationMs: number | null;
+  verdicts: number;
+  falsePositives: number;
+}
+
+/** Mirrors stageRedoRowDTO. The durations are null when no run in the
+ * group has ended. */
+export interface StageRedoRow {
+  command: string;
+  stage: string;
+  runs: number;
+  changes: number;
+  reentries: number;
+  reenteredChanges: number;
+  medianSeconds: number | null;
+  p90Seconds: number | null;
+}
+
+/** Mirrors panelRoundsRowDTO. `rounds` is null when the change recorded
+ * no finding and no pass-log line -- not recorded, never zero rounds. */
+export interface PanelRoundsRow {
+  project: string;
+  change: string;
+  startedAt: string;
+  rounds: number | null;
+  findings: number;
+  critical: number;
+  important: number;
+  minor: number;
 }
 
 /** Mirrors trendPointDTO. */
@@ -543,7 +593,7 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= */
 export async function fetchStatsView<Row = unknown>(
-  view: ViewName | CostPerChangeViewSlug,
+  view: StatsViewSlug,
   params: StatsViewParams,
   init?: RequestInit,
 ): Promise<StatsResponse<Row>> {

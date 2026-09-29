@@ -69,6 +69,15 @@ func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string
 func (f *fakeStore) ListRuns(_ context.Context, _ store.Period, _, _ *string) ([]store.ChangeRuns, error) {
 	return nil, nil
 }
+func (f *fakeStore) GuardActivity(_ context.Context, _ store.Period, _ *string) ([]store.GuardActivityRow, error) {
+	return nil, nil
+}
+func (f *fakeStore) StageRedo(_ context.Context, _ store.Period, _ *string) ([]store.StageRedoRow, error) {
+	return nil, nil
+}
+func (f *fakeStore) PanelRounds(_ context.Context, _ store.Period, _ *string) ([]store.PanelRoundsRow, error) {
+	return nil, nil
+}
 func (f *fakeStore) CountRunsWithoutModel(_ context.Context, _ store.Period, _ *string) (int, error) {
 	return 0, nil
 }
@@ -107,6 +116,9 @@ type statsFake struct {
 	reviewers        []store.ReviewerRow
 	decisions        []store.DecisionRow
 	runs             []store.ChangeRuns
+	guardActivity    []store.GuardActivityRow
+	stageRedo        []store.StageRedoRow
+	panelRounds      []store.PanelRoundsRow
 	aggErr           error
 
 	countRunsWithoutModel    int
@@ -179,6 +191,18 @@ func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]s
 }
 func (f *statsFake) ListRuns(_ context.Context, _ store.Period, _ *string, _ *string) ([]store.ChangeRuns, error) {
 	return f.runs, f.aggErr
+}
+func (f *statsFake) GuardActivity(_ context.Context, _ store.Period, p *string) ([]store.GuardActivityRow, error) {
+	f.lastProject = p
+	return f.guardActivity, f.aggErr
+}
+func (f *statsFake) StageRedo(_ context.Context, _ store.Period, p *string) ([]store.StageRedoRow, error) {
+	f.lastProject = p
+	return f.stageRedo, f.aggErr
+}
+func (f *statsFake) PanelRounds(_ context.Context, _ store.Period, p *string) ([]store.PanelRoundsRow, error) {
+	f.lastProject = p
+	return f.panelRounds, f.aggErr
 }
 func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *string) (int, error) {
 	f.lastProject = p

@@ -6,14 +6,14 @@
 // hook rather than duplicating its effect in eight components is what
 // keeps that guarantee in one place (DRY, engineering-principles.md).
 import { useEffect, useState } from "react";
-import { fetchStatsView, type StatsResponse, type StatsViewParams, type ViewName } from "../api";
+import { fetchStatsView, type StatsResponse, type StatsViewParams, type StatsViewSlug } from "../api";
 
 export type StatsViewState<Row> =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; data: StatsResponse<Row> };
 
-export function useStatsView<Row>(view: ViewName, params: StatsViewParams): StatsViewState<Row> {
+export function useStatsView<Row>(view: StatsViewSlug, params: StatsViewParams): StatsViewState<Row> {
   const [state, setState] = useState<StatsViewState<Row>>({ status: "loading" });
 
   const fromMs = params.from.getTime();

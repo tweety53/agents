@@ -6,10 +6,11 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { StatsResponse, ViewName } from "../api";
+import type { HealthViewSlug, StatsResponse, StatsViewSlug, ViewName } from "../api";
 import { App } from "../App";
 import { CacheEfficiency } from "./CacheEfficiency";
 import { Decisions } from "./Decisions";
+import { FlowHealth } from "./FlowHealth";
 import { Reviewers } from "./Reviewers";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
@@ -24,7 +25,7 @@ vi.mock("../api", async (importOriginal) => {
 
 const period = { from: new Date("2026-01-01T00:00:00Z"), to: new Date("2026-02-01T00:00:00Z") };
 
-function envelope<Row>(view: ViewName, rows: Row, recorded = true, unmeasured = false): StatsResponse<Row> {
+function envelope<Row>(view: StatsViewSlug, rows: Row, recorded = true, unmeasured = false): StatsResponse<Row> {
   return {
     view,
     from: period.from.toISOString(),
@@ -36,7 +37,9 @@ function envelope<Row>(view: ViewName, rows: Row, recorded = true, unmeasured = 
   };
 }
 
-const fixtures: Record<ViewName, StatsResponse<unknown>> = {
+// Every slug a view fetches: the navigable views, less "flow-health", which
+// fetches the three health slugs instead of one of its own.
+const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsResponse<unknown>> = {
   "state-board": envelope("state-board", [
     {
       projectKey: "kan-16-stats-app",
@@ -173,11 +176,63 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
     },
   ]),
   runs: envelope("runs", []),
+  guards: envelope("guards", [
+    {
+      guard: "check-plan-shape",
+      runs: 40,
+      fired: 10,
+      cannotAnswer: 3,
+      lastRunAt: "2026-01-20T10:00:00Z",
+      lastFiredAt: "2026-01-19T10:00:00Z",
+      medianDurationMs: 850,
+      verdicts: 0,
+      falsePositives: 0,
+    },
+    {
+      guard: "check-quiet",
+      runs: 12,
+      fired: 0,
+      cannotAnswer: 0,
+      lastRunAt: "2026-01-20T10:00:00Z",
+      lastFiredAt: null,
+      medianDurationMs: 40,
+      verdicts: 0,
+      falsePositives: 0,
+    },
+    {
+      guard: "check-unfinished-work",
+      runs: 0,
+      fired: 0,
+      cannotAnswer: 0,
+      lastRunAt: null,
+      lastFiredAt: null,
+      medianDurationMs: null,
+      verdicts: 6,
+      falsePositives: 2,
+    },
+  ]),
+  "stage-redo": envelope("stage-redo", [
+    {
+      command: "/flow",
+      stage: "flow.review-panel",
+      runs: 9,
+      changes: 5,
+      reentries: 4,
+      reenteredChanges: 3,
+      medianSeconds: 90,
+      p90Seconds: null,
+    },
+  ]),
+  "panel-rounds": envelope("panel-rounds", [
+    { project: "agents", change: "kan-1", startedAt: "2026-01-10T10:00:00Z", rounds: 3, findings: 7, critical: 1, important: 2, minor: 4 },
+    { project: "agents", change: "kan-2", startedAt: "2026-01-09T10:00:00Z", rounds: 2, findings: 0, critical: 0, important: 0, minor: 0 },
+    { project: "agents", change: "kan-3", startedAt: "2026-01-08T10:00:00Z", rounds: null, findings: 0, critical: 0, important: 0, minor: 0 },
+  ]),
 };
 
 beforeEach(() => {
   fetchStatsViewMock.mockReset();
-  fetchStatsViewMock.mockImplementation((view: ViewName) => Promise.resolve(fixtures[view]));
+  fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) => Promise.resolve(fixtures[view]));
 });
 
 describe("views render their fixture response's actual values", () => {
@@ -528,5 +583,41 @@ describe("routing", () => {
     render(<App />);
     expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
     window.location.hash = "";
+  });
+});
+
+describe("flow health", () => {
+  it("shows each guard's fire rate, marks a never-fired guard, and keeps a verdict-only guard's run fields unavailable", async () => {
+    render(<FlowHealth period={period} project={undefined} />);
+    const shape = (await screen.findByRole("cell", { name: "check-plan-shape" })).closest("tr")!;
+    expect(within(shape).getByText("25%")).toBeInTheDocument(); // 10 of 40 fired
+    expect(within(shape).getByText("850 ms")).toBeInTheDocument();
+
+    const quiet = screen.getByRole("cell", { name: "check-quiet" }).closest("tr")!;
+    expect(within(quiet).getByText("0%")).toBeInTheDocument();
+    expect(within(quiet).getByText("never")).toBeInTheDocument();
+
+    // Known only from its verdicts: no fire rate and no runtime, shown as
+    // unavailable rather than as a zero.
+    const verdictOnly = screen.getByRole("cell", { name: "check-unfinished-work" }).closest("tr")!;
+    expect(within(verdictOnly).getAllByTestId("unavailable")).toHaveLength(2);
+    expect(within(verdictOnly).getByText("6")).toBeInTheDocument();
+
+    within(screen.getByRole("region", { name: "Guards that fired" })).getByText("1");
+    within(screen.getByRole("region", { name: "Guards that ran and never fired" })).getByText("1");
+  });
+
+  it("shows stage re-entries and the mean over changes that recorded panel rounds", async () => {
+    render(<FlowHealth period={period} project={undefined} />);
+    const panelRow = (await screen.findByRole("cell", { name: "flow.review-panel" })).closest("tr")!;
+    expect(within(panelRow).getByText("60%")).toBeInTheDocument(); // 3 of 5 changes re-entered
+    expect(within(panelRow).getByText("1.5 min")).toBeInTheDocument();
+    expect(within(panelRow).getByTestId("unavailable")).toBeInTheDocument(); // p90 not measured
+
+    // (3 + 2) / 2 -- kan-3 recorded no rounds and is not counted as zero.
+    within(screen.getByRole("region", { name: "Mean panel rounds" })).getByText("2.50");
+    within(screen.getByRole("region", { name: "Total re-entries" })).getByText("4");
+    const kan3 = screen.getByRole("cell", { name: "kan-3" }).closest("tr")!;
+    expect(within(kan3).getByTestId("unavailable")).toBeInTheDocument();
   });
 });

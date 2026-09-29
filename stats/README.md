@@ -54,7 +54,18 @@ from, builds on the first call for a hash into
 (`FLOW_GUARD_CACHE_DIR` overrides the directory), and execs the cached binary
 after that. Nothing is installed. With no `go` to build it, or a failed build,
 the shim exits that guard's own cannot-answer code — 4 for `run-reproducer`,
-2 for the others — and names the cause. Before/after suite timings
+2 for the others — and names the cause.
+
+Every guard `flow-guard` dispatches is also recorded in flowd's `guard_runs`
+table (`POST /api/v1/guard-runs/{project}`): the guard, its exit code
+classified as `clear`, `fired` or `cannot-answer`, and its runtime. That is
+what the SPA's **Flow health** view reads to show which guards ever fire. The
+write is best-effort: it goes to `FLOW_RECORDS_ADDR`, then `FLOW_ADDR`, then
+the dev daemon, is bounded at 500 ms, never changes a guard's exit code, and
+is dropped when the daemon is down or does not know the project (a guard run
+inside a test fixture's repository). `FLOW_GUARD_TELEMETRY=off` turns it off.
+
+Before/after suite timings
 for the port are recorded in the design of change
 kan-760-agents-port-the-flow-guard-scripts-and-their, not here.
 
