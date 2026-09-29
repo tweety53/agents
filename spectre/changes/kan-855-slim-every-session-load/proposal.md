@@ -17,9 +17,7 @@ Verbatim moves and declared-duplicate cuts only; nothing reworded but the lines 
 `verbatim-moves.txt`.
 
 1. `project-configuration.md` → a 13.1 KB core. Standards → `-standards.md`
-   (principles dispatch); workspace-isolation authoring/validator spec → `-isolation.md` (only when
-   `prepare-workspace.sh` is missing); visual verification → `-visual.md` (with
-   `visual-verify.md`); the `create`/`remove`/`survivors` command table and token rule → run 2
+   (principles dispatch); workspace-isolation authoring/validator spec → `-isolation.md` (only when `prepare-workspace.sh` or `check-cleanup-complete.sh` is missing); visual verification → `-visual.md` (when `flow.visual-verify` begins); `<agents repo>` stays in the core; the `create`/`remove`/`survivors` command table and token rule → run 2
    step 5; `## review panel citation check` cut (duplicate of its key row and `review-panel.md`).
 2. `state-file.md` → 14.4 KB. Fallback paths, key derivation, `mainCheckoutPath`, write ordering,
    journal replay and the worked example → `state-file-internals.md` (no run loads it); `flow state
