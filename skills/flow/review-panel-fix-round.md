@@ -2,7 +2,7 @@
 
 Loaded during `flow.review-panel` by the load directive of **Panel re-runs**
 (`skills/flow/review-panel.md`), only once a round has recorded a Critical or Important finding or a close guard sends the run back
-to the handback loop.
+to the handback loop, or read by section where a citer outside the panel stage names it.
 Every section name below without a path is a section of this file or of
 `skills/flow/review-panel.md`; the fix subagent's dispatch paragraphs and its dispatch record stay
 there.

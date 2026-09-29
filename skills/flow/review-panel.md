@@ -279,7 +279,8 @@ grouped into those dispatches.
 ### The late-fix reduction
 
 **Load `skills/flow/review-panel-late-fix.md` only when** this run is a fix run — a `/flow`
-invocation whose argument is fix instructions — before this stage opens its first round; it carries
+invocation whose argument is fix instructions, or a plain message at `IN_PROGRESS`
+(`skills/flow/SKILL.md`) — before this stage opens its first round; it carries
 the reduction's conditions, its single dispatch and what voids it.
 
 ### Bundled dispatch
@@ -328,8 +329,6 @@ Every bundle prompt also carries this paragraph verbatim:
 group whose other members are clean dispatches with its re-running members only. On
 a decided panel a fix round's re-running roles are never bundled: one dispatch per
 role, its `-slot` that role alone (**Panel re-runs**).
-
-
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
@@ -669,7 +668,8 @@ skip-the-render shortcut.
 
 **Load `skills/flow/review-panel-fix-round.md` only when** a round has recorded a Critical or
 Important finding, before that round's fix opens, or a close guard below sends the run back to the
-handback loop — it carries every fix round's procedure: the
+handback loop, or a section of it is cited at the point of use (the full-suite fix, the gated
+reviewer's fix, the stage-diff check) — it carries every fix round's procedure: the
 round-boundary base re-check, the fix commit routes, which slots re-run and on what, the
 reproducer guards and re-runs, the fix's mutation proof and round close, the fix chunks and the
 non-convergence loop, while the fix subagent's dispatch paragraphs and dispatch record stay in
@@ -708,7 +708,9 @@ re-run and it has not, or when any commit or working-tree change to source lande
 last read, from any stage — `flow.verify` included**. An unrecorded edit after the panel closes is
 stale by definition, not only one a fix round produced. A fix against which a slot raised no
 finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
-fix changed.
+fix changed. A delta the late-fix reduction read has its own carve-out
+(`skills/flow/review-panel-late-fix.md`).
+
 **Every fix subagent's dispatch prompt also carries the VERBATIM REPORT — THE FACT paragraph**:
 
 > **VERBATIM REPORT — THE FACT:** each finding below names the file its slot's report was written

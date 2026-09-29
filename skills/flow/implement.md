@@ -392,7 +392,8 @@ one repository → `cross-repo`, otherwise `single-repo` — and passed on every
 makes, this file's and `skills/flow/review-panel.md`'s alike. The context bundle's `## hazards`
 section is filtered by it; a gather made without it carries only always-on hazards.
 
-where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and
+In every gather (`skills/flow/sdd-dispatch.md`, `skills/flow/review-panel.md`), `<changeRoot>` is
+`<project>/spectre/changes/<name>/` resolved inside this worktree, and
 `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
 `skills/flow/`, always.
 
@@ -789,7 +790,6 @@ commits**, `skills/flow-contracts/git-boundaries.md`) over its own transcription
 report file exists, the parent runs `check-plan-unchanged.sh verify <worktree> <name>
 <snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit
 1 ends the turn with `## Question` carrying the guard's lines verbatim; exit 2, the same stop.
-
 
 **Every dispatch that can touch the worktree is bracketed by content markers — the subagent's
 own clean-state claim never answers for the tree.** The plan-tree guard above is one instance of

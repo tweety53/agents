@@ -27,6 +27,7 @@ delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff` — `fix
 the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel.md`).
 the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`, per **Panel re-runs** (`skills/flow/review-panel.md`)
 third-round offer, the plan review gate, every `/flow-plan` prompt, a fix run's own planning pass (the re-plan-budget and where-the-fix-goes prompts in `skills/flow/implement.md`), and a pivot, which alters scope the operator approved.
+where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** — `skills/flow/`, always.
 | `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` or an `exp-` slot |
 — and `review-panel-optional-slots.md` and `visual-verify.md` when their stage loads them — are each read in full once, at the start of the stage that needs them; a later need is served by `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 \# Documenting a fix, before implementing it
@@ -48,15 +49,19 @@ third-round offer, the plan review gate, every `/flow-plan` prompt, a fix run's 
 **The handshake.
 **The parent applies the fix itself**, never resuming the group's implementer: one inline round per group carrying every `fix` report of that group's tasks, recorded as one pair `-model <parent model> -effort <parent effort> -agent-id inline` under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids; per task, it stages the changed paths (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only, so a fix that adds a file stages first) and commits on the route the branch's push state dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) — one new commit on top for a branch the remote already holds, the guarded, set-aside fold onto `<task-sha>^` for unpushed history only, as that section states it for a fixup against `<task-sha>`.
 **The rerun pair** (`panel.rerun_dispatch`) is the one pair every fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the findings that role raised (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a delta to confirm a fix and must be short and fast.
+**The staleness carve-out.
 A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes itself**, as inline fixes are applied: it edits, commits on the route the branch's push state dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under `full-suite-fix-<n>`, and re-runs the list.
 A generic warning ("be careful with git") is not a carry.
 A group's implementer works its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task is bundled with, and commits with, the partner its `**Squash-with:**` field names.
+A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per the paragraph below.
 After the planning pass writes its appends and bumps `**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's plan-growth series:
 An `inline` run never loads this file (**Inline — the parent implements**, `skills/flow/implement.md`).
+Beside the stale definition's rule that a fix against which a slot raised no finding leaves that slot's result current (**Panel re-runs**, `skills/flow/review-panel.md`):
 Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit per completed task plus each fix round's fix commits on top — a pushed branch takes a panel fix as a new commit, never a rewrite (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) — with every red-task-partner and unpushed-history fixup already folded in via `git rebase --autosquash`; no stray `fixup!
 Every "you" here addresses the parent (**The parent orchestrates directly**, `skills/flow/implement.md`).
 Every section name below without a path is a section of this file or of `skills/flow/review-panel.md`; the fix subagent's dispatch paragraphs and its dispatch record stay there.
 Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`).
+In every gather (`skills/flow/sdd-dispatch.md`, `skills/flow/review-panel.md`), `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** — `skills/flow/`, always.
 Loaded by `skills/flow/review-panel.md` only for a round whose roster carries `mutation`.
 Loaded by `skills/flow/review-panel.md` only for a round whose roster carries an `exp-` slot.
 The child's own claim that nothing went wrong never closes an incident.
@@ -75,7 +80,7 @@ third-round offer, the plan review gate, every `/flow-plan` prompt, a fix run's 
 | `skills/flow/gated-review-fix.md` | `flow.sdd-tdd` — loaded only when a gated reviewer pass closes `fix` |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
 | `skills/flow/review-panel-experimental-slot.md` | `flow.review-panel` — loaded only for a round whose roster carries an `exp-` slot |
-| `skills/flow/review-panel-fix-round.md` | `flow.review-panel` — loaded only once a round has recorded a Critical or Important finding, or a close guard sends the run back to the handback loop |
+| `skills/flow/review-panel-fix-round.md` | `flow.review-panel` — loaded only once a round has recorded a Critical or Important finding, or a close guard sends the run back to the handback loop; read by section where a citer names it |
 | `skills/flow/review-panel-late-fix.md` | `flow.review-panel` — loaded only on a fix run |
 | `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` |
 | `skills/flow/sdd-dispatch.md` | `flow.sdd-tdd` — loaded only when the decision's `execution` is `sdd` |

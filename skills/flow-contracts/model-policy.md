@@ -88,7 +88,7 @@ fixer, group and panel pairs, and an operator override alike resolve and are rec
 and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
 `subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's
 ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran
-on, never the pre-mapping value. A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**). The harness is
+on, never the pre-mapping value. A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per the paragraph below. The harness is
 the same value the run's `-harness` marks carry (**Stage marks**,
 `skills/flow-contracts/pipeline.md`). No other harness maps anything.
 

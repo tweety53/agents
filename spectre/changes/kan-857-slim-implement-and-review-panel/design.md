@@ -140,4 +140,25 @@ Critical or Important finding adds `review-panel-fix-round.md` (34.2 KB).
 ./internal/guard/...` fails the same cases on `b8cc6e75` as on this branch (environment: root,
 locale); no new failure.
 
+## Review
+
+A read-only review of `770e0a80` raised nothing above Minor. It checked every directive against the
+text it gates and every REVIEW line. Fixed in the follow-up commit:
+
+- **The fix-round directive, the header and the Stage-keys row.** They now also name the
+  point-of-use citers outside the panel stage: the full-suite fix, the gated reviewer's fix and the
+  stage-diff check.
+- **The late-fix directive.** It now names a plain message at `IN_PROGRESS`, matching
+  `document-fix.md`.
+- **The late-fix staleness carve-out.** It gets a lead-in naming the rule it qualifies, and the
+  stale definition points to it.
+- **Dangling references and cosmetic lines:**
+  - the `<changeRoot>` definition after the sdd directive;
+  - the `## apps` lead-in in `cross-repo-worktrees.md`;
+  - the circular zcode citation in `model-policy.md`;
+  - doubled blank lines and a run-together paragraph.
+
+Left as is: the cross-file "above"/"below" wording inside the moved text. Rewording it would add
+acknowledged rewording for no behavioural gain.
+
 ## Open questions

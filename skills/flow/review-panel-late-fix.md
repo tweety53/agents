@@ -52,6 +52,9 @@ targeted dispatch reads the delta clean, or raises only Minors that defer under 
 rule, the close sha moves to the round's HEAD and the stage closes under the existing rules —
 the reduction is a read-scope decision, never a weaker close.
 
+**The staleness carve-out.** Beside the stale definition's rule that a fix against which a slot
+raised no finding leaves that slot's result current (**Panel re-runs**, `skills/flow/review-panel.md`):
+
 The same holds for a delta the late-fix reduction's targeted dispatch read — clean,
 or with every finding it raised a deferred Minor under the standing rule:
 `primary`'s read on the since-close range leaves every slot it did not dispatch current —

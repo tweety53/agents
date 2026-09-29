@@ -28,8 +28,8 @@ base in this run's working notes. **A refusal is a hard failure of this stage**:
 stop the run. A change with no linked peers runs
 nothing here.
 
-For the `## apps` entries **2. Isolate the workspace** (`skills/flow/implement.md`) left
-unresolved:
+**2. Isolate the workspace** (`skills/flow/implement.md`) records the worktree of every `## apps`
+entry whose repository already holds one, and creates nothing for it; for each remaining entry:
 
 Every other entry gets the kickoff recipe in its own
 repository — `<project>` in the commands below is that entry's repository root, not this
