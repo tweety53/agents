@@ -432,8 +432,8 @@ command that reaches it:
 ps -o pid,command -p <pid>
 ```
 
-**There is no confirmation to proceed past check 6**, unlike check 4's disclosure. That disclosure
-is safe to confirm because the operator can see what is at stake and decide; a live process is
+**There is no confirmation to proceed past check 6**, unlike check 4's one ask. That ask is safe
+because the operator sees exactly the irreplaceable entry at stake and decides; a live process is
 different in kind. Confirming it destroys the only records that can reach the process afterwards,
 and the resulting orphan holds ports shared across every workspace. The remedy is to clear the
 process and re-run, while
@@ -502,11 +502,16 @@ git -C "$REPO" worktree prune
 **Wave-group copies go with the apply worktree they were copied from.** For each `$WT`, every
 entry `git -C "$REPO" worktree list --porcelain` lists as `detached` at `$WT-wave-group-<g>` is a
 copy **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) made and a run that died mid-wave never
-removed. Each such `$COPY` runs checks 1, 2, 4, 5 and 6 above in `$WT`'s place, and check 3 as
-`git -C "$COPY" cherry "spectre/<name>" HEAD`, which must print no `+` line — a `+` is a commit
-the pick never landed on the change branch. It is removed before `$WT`, with
-`git -C "$REPO" worktree remove --force "$COPY"` and no `git branch -d` (a copy has no branch). A
-failed check leaves every worktree alone, exactly as above.
+removed. Checks 5 and 6 above run on each such `$COPY` in `$WT`'s place and stay gates. Checks 1–4
+do not: a copy starts from the canonical worktree's uncommitted state, and run 1's reshape folds
+every picked commit into one, so a clean tree or a patch-id match proves nothing about it. Instead
+**disclose** `git -C "$COPY" status --short` and `git -C "$COPY" log --oneline <merge-base>..HEAD`,
+then ask once — **Remove the wave-group copies?** — **Yes — remove them** *(recommended)* / **No —
+stop and keep them**. Every task the copy ran is either ticked in `tasks.md` and landed through the
+reshape, or unticked and re-run by a later implement run, so what the disclosure shows is
+diagnostic, not work. On Yes each copy is removed before `$WT`, with
+`git -C "$REPO" worktree remove --force "$COPY"` and no `git branch -d` (a copy has no branch); on
+No, or a failed check 5 or 6, every worktree is left alone, exactly as above.
 
 Then the change's **remote** branch:
 

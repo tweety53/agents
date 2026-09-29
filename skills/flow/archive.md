@@ -125,7 +125,7 @@ flow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -sessio
    stop-at-the-first-failure rule**: report it and carry on to step 7, which decides the verdict
    from the project's survivor report, never from this command's exit code.
 6. **Remove the proposal artifact source** — delete `<state-dir>/<name>-proposal-artifact.html`
-   when present (`<state-dir>` as step 7 resolves it), per **Temporary artifacts registry**
+   when present (`<state-dir>` the path `flow state dir` prints for this repository), per **Temporary artifacts registry**
    (`skills/flow-contracts/artifacts-registry.md`)'s row for it. `/flow` has written none since
    `publish-proposal-removed`, but a change created before it may still hold one, and step 7's
    guard reports a survivor as a leftover. Absent, there is nothing to remove, and the step says so.

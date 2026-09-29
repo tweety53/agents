@@ -211,7 +211,10 @@ Rejected: a distinct exit code, which has no caller to use it.
 verify-and-contracts D10.
 
 - The registry gains a row, implement.md names the removal command, and run 2's **Worktree
-  cleanup** runs the checks on and removes a surviving copy.
+  cleanup** removes a surviving copy. Checks 5 and 6 stay gates on a copy. Checks 1–4 become a
+  disclosure (status and log) plus one ask, default remove: a copy starts from the worktree's
+  uncommitted state, and run 1's reshape folds every pick, so a clean-tree or `git cherry` gate
+  would fail on every copy and strand the change (found in review).
 - `check-cleanup-complete` reports a **detached** worktree whose last path element is
   `<name>-wave-group-<digits>`. Requiring "detached" means a change named that way, which has a
   branch, is never matched.

@@ -475,7 +475,10 @@ class, and the run executes by the newest decision row, so on every fix run — 
 (`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from
 `plan-class.sh` on over the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry
 in the state file's `worktrees` map. The rolls are name-derived, so they come out identical to the
-first row's; only `class`, `execution`, `groups` and a free grouping's shape can change. Write the
+first row's; everything else Decide outputs is recomputed — `class`, `execution`, the implementer
+and fixer pairs, `groups`, the panel roster (a class move can add or drop slots, and `micro` makes it
+the string `default`) and a free grouping's shape — and the run follows the new row, never the
+first row's panel or pairs. Write the
 decision JSON and print the `## Decision` block with its two preamble lines, then record the second
 row below. The section's closing `flow.writing-plans` mark belongs to the planning run and never
 runs here, and **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
