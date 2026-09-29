@@ -75,7 +75,7 @@ def _load_check_file():
 check_file = _load_check_file()
 
 
-# The implementer in-flight cap (skills/flow/implement.md's **Waves**
+# The implementer in-flight cap (skills/flow/sdd-dispatch.md's **Waves**
 # paragraph): a ready-set folds to this many groups, never more.
 MAX_IN_FLIGHT = 3
 

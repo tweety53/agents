@@ -48,10 +48,10 @@ row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${PD[@]}" "${PC[@]}"
 echo "--- implementation session (enters via Resuming at STARTED) ---"
 ID=("$F/resume.md" "$F/implement.md" "$C/artifacts-registry.md" "$C/worktree-resolution.md" "$F/review-panel.md" "$F/verify-and-handoff.md" "$C/session-records.md" "$C/git-boundaries.md")
 IC=("$C/operator-prompts.md" "$C/operator-prompts-auto-resolution.md" "$C/project-configuration-standards.md" "$C/model-policy.md" "$C/known-bugs.md" "$F/primary-reviewer-prompt.md" "$F/principles-reviewer-prompt.md" "$F/failure-modes-reviewer-prompt.md" "$C/plan-amendment.md")
-IX=("$F/review-panel-optional-slots.md" "$C/workspace-isolation.md" "$F/visual-verify.md" "$C/project-configuration-visual.md" "$C/guard-verdict-verification.md")
+IX=("$F/document-fix.md" "$F/cross-repo-worktrees.md" "$F/sdd-dispatch.md" "$F/gated-review-fix.md" "$F/review-panel-late-fix.md" "$F/review-panel-fix-round.md" "$F/review-panel-optional-slots.md" "$F/review-panel-experimental-slot.md" "$C/workspace-isolation.md" "$F/visual-verify.md" "$C/project-configuration-visual.md" "$C/guard-verdict-verification.md")
 row "  phase files + load directives" "${ID[@]}"
 row "  + cited / reviewer templates" "${IC[@]}"
-row "  + conditional (optional slots, isolation, UI)" "${IX[@]}"
+row "  + conditional (fix run, cross-repo, sdd, gated fix, fix round, optional slots, isolation, UI)" "${IX[@]}"
 row "  TOTAL definite" "${ALWAYS[@]}" "${ROUTER[@]}" "${ID[@]}"
 row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${ID[@]}" "${IC[@]}"
 row "  TOTAL worst case" "${ALWAYS[@]}" "${ROUTER[@]}" "${ID[@]}" "${IC[@]}" "${IX[@]}"

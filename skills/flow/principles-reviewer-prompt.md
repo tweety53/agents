@@ -157,7 +157,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 - `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
   the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a
   scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`,
-  per **Panel re-runs** (`skills/flow/review-panel.md`)
+  per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`)
 - `[PRINCIPLES_PATH]` — the **absolute** path of `engineering-principles.md` inside the
   running skill directory, i.e. this file's own directory + `/engineering-principles.md`.
   Under the global install that is

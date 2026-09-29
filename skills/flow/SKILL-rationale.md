@@ -682,3 +682,196 @@ tree at both points, reports identical counts, and fails any nonzero declared de
 
 This line is required and explicit on every plan — never omitted, per
 this repository's "missing rather than dropped" convention.
+
+## Moved by KAN-857 — implementation-session trims
+
+Sentences `skills/flow/implement.md` and the files split out of it (`document-fix.md`,
+`cross-repo-worktrees.md`) carried as reasons, moved here verbatim. Each rule they explained stays
+in the run-loaded file.
+
+### implement.md — Dispatch sites (KAN-857)
+
+A subagent's prompt cache lives five minutes, so a child woken later re-writes its whole context at the cache-write price.
+
+**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`, `agents/flow-xhigh.md` — four definitions, one per effort, each carrying `effort:` and no `model:`, since the Agent tool's dispatch-time `model` parameter overrides a definition's `model` while `effort` has no dispatch-time parameter) carries a `tools:` allowlist that omits `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent structurally does not have, not by prompt text alone.
+
+**A dispatch whose agent dies is closed with `-outcome aborted`, reported, and not retried**: print `/flow <name>` for the operator — a re-run resumes from whatever was left (checkbox state, the state file's worktrees, findings in the store) through this file's own re-entry rules, and the operator should see the death rather than have it hidden by a second dispatch.
+
+### implement.md — 1. Load context and validate the plan (KAN-857)
+
+The plan and design were written against a snapshot of the base branch and the capability specs, and a concurrent merge can outdate both while this change waits.
+
+### implement.md — 2. Isolate the workspace (KAN-857)
+
+A run that stops, is interrupted, or is resumed after a context compaction anywhere between here and `flow.write-in-progress` (`skills/flow/verify-and-handoff.md`) must not leave the state record looking like a creating run with no worktrees, when real worktrees, branches and commits already exist — that mismatch is exactly what **Reading the state** (`skills/flow/SKILL.md`) uses to decide whether this is a creating run at all, so a stale record makes a resumed session re-derive everything from scratch or misclassify the run.
+
+### implement.md — 2. Isolate the workspace, additional worktrees (KAN-857)
+
+The working directory is what resolves the peers file's relative entries — `ResolvePeer` stats a declared peer path against the process working directory, so from inside a worktree `../<peer>` resolves into `<project>/.worktrees/` and the link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side `link.md` into the worktree, where `check-unfinished-work.sh` reads it at integrate.
+
+**A refusal is a hard failure of this stage**: report it and stop the run — a change whose cross-repo link cannot be established lands at integrate with a false OUTSTANDING verdict that forces hand verification.
+
+**A worktree add that fails is a hard failure of this stage**, reported and stopping the run exactly like a refused link: a declared app left unresolved is the commit destination a later stage creates by hand, off the wrong base, unrecorded.
+
+### implement.md — 3. Documenting a fix (KAN-857)
+
+When the count has reached **6**, the re-plan budget, this fix round is offered the planning pass before anything is appended: an append past this budget is how a change outgrows its own proposal without anyone deciding it should.
+
+The glance that passed the control is what the operator is contesting, and repeating it answers nothing.
+
+After the planning pass writes its appends and bumps `**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's plan-growth series — gate-time re-planning visible as a trend in the app rather than a per-change surprise:
+
+```bash
+flow tasks count -C <worktree> <name>
+```
+
+### implement.md — 4. Execute (SDD + TDD) (KAN-857)
+
+The invariant is the working tree, not the build tool, and it holds however file-disjoint two tasks look on paper: UI fixes routinely touch shared files — icon sets, shared components, menu wiring — neither task named.
+
+`begin` is recorded immediately before the dispatch — or, when several launches go out together in one message, in the next Bash call, one call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no `-agent-id`: the daemon captures the agent's identifier — Claude Code writes it into the parent transcript's own launch tool result, the harvester pairs that result with the begin nearest it in time, and the row's empty `agent_id` is filled from it, which is why `begin` never waits for the launch's id.
+
+A generic warning ("be careful with git") is not a carry: kan-527's chunk 1 worked under one and its git incident happened anyway; chunk 2's dispatch carried the specific three and finished with ancestry confirmed clean.
+
+The child's own claim that nothing went wrong never closes an incident — the same reason the content markers assert by grep, never by the child's prose (KAN-643's rule).
+
+The write journals on store failure like every record write and never blocks the run — the row is the evidence a later cross-repo fix is justified and shaped by, which silence cannot hold.
+
+### implement.md — The parent runs the full suite (KAN-857)
+
+A subagent's prompt cache lives five minutes, the parent's an hour: a suite run outlasting five minutes inside an implementer re-prices that implementer's whole context on its next turn.
+
+### implement.md — The review gate (KAN-857)
+
+The undeclared-path arm is the gate's risk half: a commit reaching past its own plan declaration is exactly the surprise a second reading exists for, however few lines it runs.
+
+### implement.md — The record carries its own corrections (KAN-857)
+
+The review gate's undeclared-path arm reads the paths the refusal named — the pre-correction declaration lives in the refusal, not in any field the transcription can overwrite — so the disclosure cannot disarm the gate.
+
+### implement.md — A deviation from the plan (KAN-857)
+
+The archived plan then reads as what actually shipped, and the panel verifies the deviation instead of discovering it.
+
+### implement.md — The plan tree survives every reviewer dispatch (KAN-857)
+
+A reviewer that closed clean over a tree it changed has reported about evidence it destroyed — the verify answers whether the tree survived, never the prose.
+
+### implement.md — content markers (KAN-857)
+
+The markers sit beside the plan-tree guard, never in its place: that guard asserts git's view of one directory, while markers pin known content anywhere in the tree, independent of git entirely — content that was never committed has no git answer at all, which is exactly what KAN-579's destroyed-and-self-reported-restored artifacts were.
+
+### implement.md — Turn discipline (KAN-857)
+
+The loop is bounded at 240 s rather than the Bash tool's ten-minute cap: a wait long enough to outlast the prompt cache re-prices the whole context on return, while a bounded wait's `still-running` turn reads it at the cache rate and keeps it warm.
+
+### implement.md — Read discipline (KAN-857)
+
+The parent does a large amount of reading across one long-lived context, so keeping that context small is what keeps a warm call cheap.
+
+### implement.md — The handshake (single-model harness, now in model-policy.md)
+
+The mapping already fixes what the handshake exists to establish, and the dispatch's ledger line records it.
+
+## Moved by KAN-857 — review-panel trims
+
+Sentences `skills/flow/review-panel.md` and the files split out of it (`review-panel-late-fix.md`,
+`review-panel-fix-round.md`, `review-panel-optional-slots.md`) carried as reasons or as the
+renderer's output format, moved here verbatim. Each rule they explained stays in the run-loaded
+file.
+
+### review-panel.md — The roster (KAN-857)
+
+The `flow-<effort>` definitions are this repository's own, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a capability the slot structurally does not have, not by the NO DELEGATION paragraph alone; `general-purpose` is a harness-provided type whose tool set cannot be restricted.
+
+### review-panel.md — final-review.diff (KAN-857)
+
+The first line is the file's own answer to the reviewer who reads it as anything narrower: it is a plain working-tree diff against the merge base, so work still unstaged or uncommitted is already in it.
+
+### review-panel.md — Bundled dispatch (KAN-857)
+
+The same plan-tree discipline rides every round, re-run rounds included: before the launches the parent makes the reviewer-dispatch planning commit (**Planning commits**, `skills/flow-contracts/git-boundaries.md`) and runs `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any report is read or finding recorded — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
+
+Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this verify is the assertion that a breach cannot slide past as a clean report.
+
+### review-panel.md — the reproducer rule (KAN-857)
+
+`prove-reproducer.sh <worktree> <pre-fix-ref> <reproducer-path>` runs both legs and prints both exits for the record — the detached scratch worktree it materializes at the pre-fix commit, with the script copied to the same worktree-relative path inside it, is what keeps the pre-fix leg off the already-fixed live tree, the failure mode where a pre-fix check silently reads a fixed worktree and proves nothing.
+
+### review-panel.md — the rendered record's format (KAN-857; the renderer writes it, stats/internal/records/render.go)
+
+The record carries a findings table, one row per finding:
+
+| ID | Slot | Severity | Location | Note |
+|---|---|---|---|---|
+| F1 | Mutation | Minor | `src/Foo.kt:42` | replaced the silent catch |
+
+and, below it, the marker block — one line per row, plus the count:
+
+```
+findings-total: 1
+finding-status: F1 fixed
+```
+
+The marker format is never quoted inside the record itself. The renderer neutralises any marker
+label a finding's note or location happens to carry, on the way out only.
+
+**The reproducer each finding's slot supplied gets a marker block of its own**, separate from the
+`finding-status:` block above:
+
+```
+reproducers-total: 1
+finding-reproducer: F1 scripts/test-check-plan-unchanged.sh
+```
+
+A finding recorded with no reproducer renders the `none — <reason>` exemption form.
+
+**The table carries no status column, on purpose.** To read a finding's state, look up its `F<n>`
+in the marker block.
+
+### review-panel.md — The late-fix reduction (KAN-857)
+
+An appended fix that a full pass would bury under re-covered ground is reviewed by one targeted dispatch on what the fix actually changed; the full-read coverage stays exactly where it earns its keep, on every round this reduction does not fire for.
+
+A consuming project typically carries none of those paths and the condition holds vacuously there; a fix to anything the panel reads as its own brief is never its own reviewer.
+
+### review-panel.md — Panel re-runs (KAN-857)
+
+The entry check ran once, before pass 1; a base that moves while earlier rounds ran would otherwise reach the final round — and then integrate — unchallenged, its conflict surfacing only after review has closed.
+
+A conflict found here surfaces while the panel is still active and the operator is already engaged.
+
+The scoping exists because a round that re-reads a growing fix diff regress-checks by volume, not by site.
+
+A `fixed` recorded in the same call as its re-run stands verified before that exit is known — the ordering KAN-582's F1 rode in on, luck rather than discipline — which is the defect the close guard's fixed-without-clean-rerun class below exists to catch.
+
+### review-panel.md — The fix round mutation-proves what it changed (KAN-857)
+
+This catches an undeclared file the fixup added and a declared test it removed or renamed, read post-autosquash.
+
+This binds the fix round every run — the obligation is the round's, not a slot's, so a run where Mutation is not in the resolved roster or added this run is exactly where the round's own proof is the only mutation reasoning that happens at all.
+
+### review-panel-optional-slots.md — The throwaway worktree (KAN-857)
+
+`git diff HEAD --binary` — against `HEAD`, not a bare `git diff --binary` — is the same "staged and
+unstaged together" semantics `final-review.diff` already uses, and covers the transplant in
+one diff rather than the working-tree-only diff a bare `git diff` produces: a bare `git diff` misses
+anything staged, and (independently) fails to reconstruct a rename whose move is already reflected
+in the index. `--allow-empty` on the `apply` side makes the sequence a no-op, not a failure, when
+there is nothing to transplant — the common case, since task and fix-round work is committed and
+`worktree add --detach ... HEAD` already carries every committed change on its own. The
+untracked-file loop reads `git status --porcelain -z`, NUL-delimited, into `read -r -d ''` — the
+plain-text `awk` form cannot survive git's quote-escaping of a filename with a space or another
+special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal
+byte string through untouched, regardless of what the filename contains. The scaffold lines after
+the loop exist because the slot dispatched into the copy resolves the bundle paths its prompt names
+— `dispatch-context.md`, and the report file it writes — against its dispatched root. The `-d` test
+keeps a canonical worktree with no bundle yet a no-op rather than a failure.
+
+It rescues the slot's reproducers beside its reports — both are recorded as worktree-relative paths the parent later runs, and one left only in the copy dangles.
+
+A copy-side file newer than the canonical one replaces it — the wall-clock re-dispatch's fresh report outranking a timed-out attempt's — and the `[ -s ]` tests keep an empty copy-side file from being copied.
+
+Mutation mutates code in place to run its brief; every other slot only reads the diff.
+
+Dispatching a mutating slot into the same worktree a reading slot concurrently reads is the collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched reading slot reads from `<worktree>` at that moment.

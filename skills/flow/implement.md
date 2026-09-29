@@ -72,8 +72,7 @@ other name.
 call that names no row is not made.
 
 **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
-`SendMessage` to a child that has written its report. A subagent's prompt cache lives five
-minutes, so a child woken later re-writes its whole context at the cache-write price. Whatever a
+`SendMessage` to a child that has written its report. Whatever a
 finished child's work still needs — a guard refusal, a pick conflict, a reviewer's `fix` — is the
 parent's own inline fix, under the commit mechanics and records **Inline — the parent
 implements** below already states; a re-review is a fresh dispatch.
@@ -83,9 +82,7 @@ Every row's own prompt carries the NO DELEGATION paragraph (section **4** below,
 nothing exists below these rows.
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`,
 `agents/flow-xhigh.md` — four definitions, one per effort, each carrying `effort:` and no
-`model:`, since the Agent
-tool's dispatch-time `model` parameter overrides a definition's `model` while `effort` has no
-dispatch-time parameter) carries a `tools:` allowlist that omits
+`model:`) carries a `tools:` allowlist that omits
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
@@ -100,7 +97,7 @@ so it is structurally fork-free too.
 rows — the parent's only permitted dispatches inline are the panel-bundle, gated per-task-reviewer,
 verifier and tooling-analyst rows.
 
-**The handshake — stated once here, cited everywhere else.** Every dispatched role in this
+**The handshake.** Every dispatched role in this
 pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst — opens its first reply with the `Model:`
 line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
 this pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
@@ -122,13 +119,8 @@ actually answered, options **Continue on `<the model the second handshake named>
 that running agent, no third dispatch — or **Stop the run**. **A mark or a record never blocks** —
 proceed on the handshake's outcome regardless of whether any `flow` call reached the store.
 
-**On a single-model harness the recorded mapping satisfies the handshake.** Where the harness maps
-every dispatch to one recorded model that no re-dispatch can change — harness `zcode`, the one
-mapping (**Harness mapping**, `skills/flow-contracts/model-policy.md`) — a first reply whose
-`Model:` line is missing or names anything else is not a mismatch: no `-outcome fallback`, no
-`<key>-retry`, no second-mismatch question. The mapping already fixes what the handshake exists to
-establish, and the dispatch's ledger line records it. The MODEL HANDSHAKE paragraph stays in every
-dispatch prompt, and the comparison governs in full on every harness no mapping covers.
+On a single-model harness, **Harness mapping** (`skills/flow-contracts/model-policy.md`) states when a
+reply's `Model:` line is not a mismatch.
 
 **The return.** Once a dispatch's report file appears, read its verdict, print the change's own
 handoff or continue to the next stage, and close the record under whichever key is open:
@@ -140,8 +132,7 @@ flow record dispatch end -change <name> -key <the key currently open> -session-t
 
 **A dispatch whose agent dies is closed with `-outcome aborted`, reported, and not retried**: print
 `/flow <name>` for the operator — a re-run resumes from whatever was left (checkbox state, the
-state file's worktrees, findings in the store) through this file's own re-entry rules, and the
-operator should see the death rather than have it hidden by a second dispatch.
+state file's worktrees, findings in the store) through this file's own re-entry rules.
 
 ## Inline — the parent implements
 
@@ -212,9 +203,7 @@ stops the run.
 - `<changeRoot>/design.md` — how, when the change carries one
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
 
-**The plan is refreshed against the base before task 1 runs.** The plan and design were written
-against a snapshot of the base branch and the capability specs, and a concurrent merge can
-outdate both while this change waits. Before the
+**The plan is refreshed against the base before task 1 runs.** Before the
 first task dispatches — inline or as an implementer — `git -C <worktree> fetch origin` and
 compare this run's working-notes merge base against `origin/<default-branch>`. On a moved base,
 re-read at the moved base every capability spec the proposal names —
@@ -261,10 +250,7 @@ default branch without explicit consent.
 exists — never defer this to the end of the run.** A run that stops, is interrupted, or is
 resumed after a context compaction anywhere between here and `flow.write-in-progress`
 (`skills/flow/verify-and-handoff.md`) must not leave the state record looking like a creating run
-with no worktrees, when real worktrees, branches and commits already exist — that mismatch is
-exactly what **Reading the state** (`skills/flow/SKILL.md`) uses to decide whether this is a
-creating run at all, so a stale record makes a resumed session re-derive everything from scratch
-or misclassify the run. Read the current record with `flow state get`, merge in this worktree's
+with no worktrees, when real worktrees, branches and commits already exist. Read the current record with `flow state get`, merge in this worktree's
 `<abs-path>: <merge-base-sha>` entry (never drop an existing peer's entry already present from an
 earlier worktree in this same run), and write the merged record back with `flow state set` —
 `state` stays exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still
@@ -283,34 +269,6 @@ worktree resumed above, plus any additional worktree this change affects.** Per
 **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
 construction on every ordinary run.
 
-**Every worktree this stage creates — a linked peer's, or an `## apps` entry's below — runs its
-repository's `## worktree setup` before anything else touches it**: before its `spectre link`, its
-link or planning commit, and any task. Run `project-get.sh <that worktree> "worktree setup"` and
-handle it exactly as step 4 of **A. Resolve the change and write `STARTED`**
-(`skills/flow/brainstorm.md`) does for the kickoff worktree — only the fenced command lines, from
-that worktree's root, in order, in the foreground; exit 1 says the key is absent and continues;
-exit 2 stops the run; a command's non-zero exit ends the turn naming the command and its output. A
-worktree this stage resumes rather than creates runs nothing here.
-
-**After creating each additional worktree, run
-`spectre link --root <abs-worktree>/spectre <canonical-peer>:<name>` with the working directory at
-that repository's primary checkout.** The working directory is what resolves the peers file's
-relative entries — `ResolvePeer` stats a declared peer path against the process working
-directory, so from inside a worktree `../<peer>` resolves into `<project>/.worktrees/` and the
-link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side
-`link.md` into the worktree, where `check-unfinished-work.sh` reads it at integrate.
-`<canonical-peer>` is the canonical repository's own name in that worktree's
-`<project>/spectre/peers` file. Each link writes `link.md` on both sides, so each is followed by its
-link commit before the next link runs (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`) — never by `--force`. Each link commit is made in the
-worktree holding that `link.md`, never the primary checkout the link ran from, behind
-`check-planning-commit-location.sh <abs-worktree> <name>`; a refusal stops the run like a refused
-link. Record what the command wrote alongside that worktree's merge
-base in this run's working notes. **A refusal is a hard failure of this stage**: report it and
-stop the run — a change whose cross-repo link cannot be established lands at integrate with a
-false OUTSTANDING verdict that forces hand verification. A change with no linked peers runs
-nothing here.
-
 **Every `## apps` entry is resolved in this stage too, before any implementation runs — never
 improvised mid-run by a later stage in need of a commit destination.** Read
 `<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Where the agents repository is**
@@ -318,40 +276,13 @@ improvised mid-run by a later stage in need of a commit destination.** Read
 repository already holds a worktree for this change — the kickoff worktree's repository, a
 peer's repository linked above, a second entry naming a repository already resolved by an
 earlier entry, or a repository where an earlier run of this change created one — records that
-worktree as its root and creates nothing. Every other entry gets the kickoff recipe in its own
-repository — `<project>` in the commands below is that entry's repository root, not this
-change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 3): when
-`git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an
-earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local
-branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b
-spectre/<name> origin/<default-branch>` — after `check-worktree-location.sh <that repo>`, with
-the merge base
-`git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees`
-map by the read-merge-write at the top of this stage, and
-`git -C <that worktree> push -u origin spectre/<name>` per **Branch backup**
-(`skills/flow-contracts/git-boundaries.md`). No `spectre link` runs for these worktrees — they
-are declared apps, not peers — and each of them joins this run's resolved worktree set. **A
-worktree add that fails is a hard failure of this stage**, reported and stopping the run exactly
-like a refused link: a declared app left unresolved is the commit destination a later stage
-creates by hand, off the wrong base, unrecorded. The worktree of the repository `## visual verification`'s `regression checkout` names,
-once created — or resumed without a `node_modules` — gets its own toolchain: that section's
-`setup` command runs from the worktree's root, in the foreground, and a non-zero exit is a hard
-failure of this stage like a failed worktree add. Never a symlink to the main checkout's
-`node_modules`.
+worktree as its root and creates nothing.
 
-**Then make the merge-order record cover the whole set.** The canonical `link.md`'s
-`## Merge order` is what **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
-reads to sequence run 1's routes, so every repository of the resolved worktree set — linked or
-not — is named in it before this stage ends. When `spectre link` wrote the canonical side's
-`link.md`, extend its `## Merge order` with the resolved repositories it does not yet name,
-appended in `## apps` declaration order after the entries it found — never reordering what the
-link wrote; when no link ran and the resolved set holds more than one repository, write the
-change's own `<changeRoot>link.md` carrying a `## Merge order` section alone — never a
-`## Part of`, the section that makes a `link.md` a satellite's — ordered `.` first, then the
-remaining repositories in `## apps` declaration order. The write lands as a planning commit in the
-worktree holding the file, behind `check-planning-commit-location.sh <abs-worktree> <name>`
-(**Planning commits**, `skills/flow-contracts/git-boundaries.md`), and what it wrote is recorded
-in the working notes beside the merge bases. A change with one repository runs nothing here.
+**Load `skills/flow/cross-repo-worktrees.md` only when** this change links a peer, an `## apps`
+entry names a repository holding no worktree for this change, `## visual verification` names a
+`regression checkout`, or this run's resolved worktree set spans more than one repository — it carries each created worktree's `## worktree setup`, the `spectre link`
+step, the rest of `## apps` resolution, the regression checkout's toolchain and the merge-order
+record.
 
 **Then run `flow workspace-id <name>` for this worktree's workspace id**, once per run, on a fix
 run exactly as on the first.
@@ -362,140 +293,10 @@ flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed
 
 ## 3. Documenting a fix, before implementing it
 
-**Parent work, run before the plan is executed** — see **The parent orchestrates directly**
-above. Everything below is the parent's own.
-
-**Fix runs only** — a first run resumes the worktree `flow.kickoff` created, per **2** above, and
-marks nothing here:
-
-```bash
-flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
-```
-
-**Before the planning pass, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
-line from the header of this change's `tasks.md` — the count of tasks appended at the human gate
-since the plan was first written; a plan that has never carried the line reads as 0. When the
-count has reached **6**, the re-plan budget, this fix round is offered the planning pass before
-anything is appended: an append past this budget is how a change outgrows its own proposal
-without anyone deciding it should. Ask the
-operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) fixes:
-
-> **This change's plan has had <n> tasks appended at the human gate — at the re-plan budget of
-> 6. Re-plan instead of appending?**
-> - **Re-plan** *(default, recommended)* — this fix's planning pass rewrites the plan instead of
->   appending: the accumulated appends and this round's fix instructions are folded into a fresh
->   `tasks.md` with fresh task numbering, `proposal.md`'s scope statement is brought up to date
->   with what the change now covers, and `**Tasks appended:**` resets to 0 — the folded tasks are
->   planned, not appended
-> - **Append anyway** — the fix is appended exactly as this section otherwise states, and the
->   count keeps growing
-
-Silence takes the recommended re-plan, and the ⚠ line names it. Under the
-`## decisions: recommended` mode (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`) the ask is not made: **Re-plan** is taken and
-recorded the way the mode records a taken default. Either answer continues into the
-planning pass below — the answer names its brief: on **Append anyway** the pass runs as this
-section states it, its own where-should-it-go question included; on **Re-plan** the rewrite is the
-brief and that question does not arise.
-
-Record what changed **before** writing code, so the proposal never goes stale. `<n>` is this fix
-run's own ordinal — one more than the number of fix rounds already recorded in `proposal.md`/
-`tasks.md` or as `<name>-fix-N` sub-changes, the same `N` the "where should it go" prompt's
-sub-change option below names. **This planning pass is the parent's own work**, run inline on this
-session's model with the fix instructions in place of the design checklist — no dispatch, no
-handshake, no relay.
-
-The planning pass opens by asking where the fix should go, asked directly by the parent, shape per
-Operator prompts (`skills/flow-contracts/operator-prompts.md`):
-
-> **This fix has to be recorded before it is written — where should it go?**
-> - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — nothing new is created
-> - **Create a linked `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that adds
->   scope the parent change does not describe
-
-Under the mode the ask is not made: **Append to `proposal.md` and `tasks.md`** is taken and
-recorded the way the mode records a taken default (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`).
-
-The parent writes the append, or the sub-change's own proposal and plan. Whichever brief the
-budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks
-appended:**` value by one, creating the line in `tasks.md`'s header when the plan has never
-carried one.
-
-**The appended task's verification tags are evidence-checked like a seeded note's.** An appended
-task carries a `verified:`/`measured:` tag only when its evidence is in hand; an unverifiable one
-is written `unverified:`/`predicted:` instead, never appended as a verification tag. The append
-is where a fix round is most tempted to assert a check nobody made: `check-task-commit-fields.sh`
-refuses the close of a task whose record carries the evidence-free shape, per **Plan
-provenance**'s evidence rule (`skills/flow-contracts/plan-provenance.md`).
-
-**An appended task is implemented and panel-checked exactly as plan-time work — the append never
-narrows the panel.** The operator flag that prompted it is not a verification of its premise: its
-work lands in the fix run's diff and takes the panel beside every other task's, and the narrow
-late-fix path stays closed to an append (**The late-fix reduction**, `skills/flow/review-panel.md`).
-
-**A passing test that asserts the behaviour the fix instructions report as wrong is evidence of
-the code, not of the spec — it decides nothing on its own.** Before the planning pass treats such
-a test as the tie-breaker, search this change's `design.md`, `proposal.md`, panel records and the
-linked Jira issue for a sentence that decided *this* point. One found: cite it and hand the fix
-back as "won't fix, per <cite>" through `## Question` rather than silently changing what the spec
-required. None found: the test guarded an unexamined implementation choice, the report wins, and
-the plan changes the test alongside the behaviour, its commit saying so ("no design decision
-covers this; the prior test locked in the behaviour the report flags"). A test whose own name
-reads as a description of the reported bug is a signal to pause on, not reassurance.
-
-**Fix instructions that dispute a visual judgement this session already made — a spacing, size
-or alignment an earlier round eyeballed as fine — open with the measurement, never with another
-look.** Before the planning pass answers "it matches" or plans a fix, run
-`measure-visual-properties.sh` on the disputed region of the current capture and the mockup
-(**10** in `skills/flow/visual-verify.md`) and put the numbers in the plan or the
-`## Question`; a spacing dispute is measured on every side the complaint names. The glance that
-passed the control is what the operator is contesting, and repeating it answers nothing. The complaint's own wording names which
-property that is — "too big", "oversized" is a size (`box` and `ink`); "cramped", "uneven",
-"too close" is a spacing (`gap`); "not filled to the border", "flush", "reaches" is an edge
-alignment (`runs` through the container) — so the measurement answers the property
-named, never the screen area the complaint happens to sit in.
-
-**The Jira description sync stays in the parent.** **Load
-`skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
-describe, sync the issue **description** per **Description sync** in Jira integration
-(`skills/flow-contracts/jira-integration.md`). Never transition the issue here.
-
-**The appended plan's growth is recorded.** After the planning pass writes its appends and bumps
-`**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's
-plan-growth series — gate-time re-planning visible as a trend in the app rather than a
-per-change surprise:
-
-```bash
-flow tasks count -C <worktree> <name>
-```
-
-Then make the fix-run planning commit over the appended plan (**Planning commits**,
-`skills/flow-contracts/git-boundaries.md`), before any implementer is dispatched.
-
-```bash
-flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
-```
-
-**The appended plan is re-decided before load-context.** Appended tasks can move the plan's
-class, and the run executes by the newest decision row, so on every fix run — **Re-plan** and
-**Append anyway** alike — the decision follows the plan here. Read **Decide**
-(`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from
-`plan-class.sh` on over the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry
-in the state file's `worktrees` map. The rolls are name-derived, so they come out identical to the
-first row's; everything else Decide outputs is recomputed — `class`, `execution`, the implementer
-and fixer pairs, `groups`, the panel roster (a class move can add or drop slots, and `micro` makes it
-the string `default`) and a free grouping's shape — and the run follows the new row, never the
-first row's panel or pairs. Write the
-decision JSON and print the `## Decision` block with its two preamble lines, then record the second
-row below. The section's closing `flow.writing-plans` mark belongs to the planning run and never
-runs here, and **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
-
-```bash
-flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
-flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
-flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
-```
+**Load `skills/flow/document-fix.md` only when** this run is a fix run — state `IN_PROGRESS` with
+fix instructions, or a plain message at `IN_PROGRESS` (`skills/flow/SKILL.md`); it carries the
+`flow.document-fix` and `flow.decide` marks, the re-plan budget, the planning pass, the Jira
+description sync, plan growth and the fix-run planning commit, and a first run marks nothing there.
 
 ## 4. Execute (SDD + TDD)
 
@@ -509,8 +310,7 @@ one: it reads an immutable commit range, and any number of them may run beside t
 Dispatches into different worktrees remain free to run concurrently. This explicitly overrides
 `superpowers:subagent-driven-development`'s parallel dispatch guidance and
 `superpowers:dispatching-parallel-agents` for same-worktree tasks. The invariant is the working
-tree, not the build tool, and it holds however file-disjoint two tasks look on paper: UI fixes
-routinely touch shared files — icon sets, shared components, menu wiring — neither task named. **A mutating dispatch's
+tree, not the build tool, and it holds however file-disjoint two tasks look on paper. **A mutating dispatch's
 report is complete only when its build's own success line is quoted and `git -C <worktree>
 status --porcelain` is empty or every entry it prints is explained in the report** — "waiting for
 the build" is never a finished report, and uncommitted WIP is a finding, never a state the next
@@ -536,10 +336,7 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
 Both calls are required. `begin` is recorded immediately before the dispatch — or, when several
 launches go out together in one message, in the next Bash call, one call for all (step 3 of **The
 next implementer overlaps the guard**, below) — carrying no
-`-agent-id`: the daemon captures the agent's identifier — Claude Code
-writes it into the parent transcript's own launch tool result, the harvester pairs that result
-with the begin nearest it in time, and the row's empty `agent_id` is filled from it, which is why
-`begin` never waits for the launch's id. `-agent-id` is accepted on both
+`-agent-id`: the daemon captures the agent's identifier. `-agent-id` is accepted on both
 calls as recorded intent the daemon never overwrites, for a caller that knows the id — the
 literal `inline` on a row the parent's own inline work records included. `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
@@ -573,11 +370,8 @@ flow record incident -guard <the check that would have caught it> -symptom <what
 
 and opens the next dispatch to that same role with the incident carried verbatim: what happened,
 those exact commands, and an explicit **stop and report** instruction — a repeat is handed back,
-never self-recovered. A generic warning ("be careful with git") is not a carry: kan-527's chunk 1
-worked under one and its git incident happened anyway; chunk 2's dispatch carried the specific
-three and finished with ancestry confirmed clean. The child's own claim that nothing went wrong
-never closes an incident — the same reason the content markers assert by grep, never by the
-child's prose (KAN-643's rule).
+never self-recovered. A generic warning ("be careful with git") is not a carry. The child's own claim that nothing went wrong
+never closes an incident.
 
 Run `plan-dispatch-bundles.sh <changeRoot>/tasks.md` for this plan's bundles:
 
@@ -588,59 +382,10 @@ plan-dispatch-bundles.sh <changeRoot>/tasks.md
 Exit 0 proceeds. A non-zero exit is a plan defect: exit 1 names a task missing its `**Files:**`
 field, repaired by `superpowers:writing-plans` before any dispatch happens; exit 2 stops the run.
 
-**Dispatch one implementer per group, not per bundle.** The unit is the recorded decision's
-`groups` entry — `{bundles, model, effort}`, `bundles` an array of bundle ids from the same
-`plan-dispatch-bundles.sh` output above, `model`/`effort` what this group's implementer runs on; a
-`null` `groups` field, which only inline execution ever records, never reaches this section, since
-inline runs bundles in plan order with no implementer dispatch at all. A group's implementer works
-its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer — a red
-task and its partner make one commit between them — and a `Build: red` task is bundled with, and
-commits with, the partner its `**Squash-with:**` field names.
-
-**Waves — concurrent dispatch of ready groups.** A group is ready when every id in the union of
-its bundles' `after <k>:` lines **that is not itself a task of one of the group's own bundles** has
-landed — committed and guard-passed, by direct commit or pick.
-**At most three implementer dispatches are in flight per wave**, on every `sdd` decision.
-A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
-worktree and commits directly; two or three ready groups launch together in one message,
-each into its own throwaway worktree created by the sequence below, each copy then running the
-project's resolved `## worktree setup` command once before its implementer dispatches. A fourth or
-later ready group queues in plan order and launches, into its own throwaway worktree by the same
-sequence, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in
-flight, never how many groups may be ready at once:
-
-```bash
-git -C <worktree> worktree add --detach <worktree>-wave-group-<g> HEAD
-git -C <worktree> diff HEAD --binary | git -C <worktree>-wave-group-<g> apply --allow-empty
-git -C <worktree> status --porcelain -z | \
-  while IFS= read -r -d '' entry; do
-    st="${entry:0:2}"; f="${entry:3}"
-    [ "$st" = "??" ] || continue
-    mkdir -p "<worktree>-wave-group-<g>/$(dirname "$f")"
-    cp -a "<worktree>/$f" "<worktree>-wave-group-<g>/$f"
-  done
-```
-
-**As wave members return**, each is cherry-picked onto the change branch in plan order — a member
-is picked once every plan-earlier member of its wave is picked. The same
-`check-task-commit-fields.sh` call the task-close step below runs (empty fourth argument, canonical
-worktree fifth, resolved `<name>` sixth) runs on each picked commit, and the dispatch `end` records
-the picked sha. A pick conflict or a
-guard failure is the parent's own to fix — it resolves the conflict or re-commits in the canonical
-worktree itself and re-runs the guard — while sibling members, queued groups and
-already-ready later waves are unaffected. A copy is removed once its group is picked —
-`git -C <worktree> worktree remove --force <worktree>-wave-group-<g>`. A member reporting BLOCKED follows the existing BLOCKED handback. The
-one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
-
-**Gather one context bundle per group, immediately before that group's implementer goes out.**
-Take `<g>` and the union of the ids from the `bundle <k>: <ids>` lines `plan-dispatch-bundles.sh`
-printed for every bundle in the group, comma-separated:
-
-```bash
-mkdir -p <worktree>/.superpowers/sdd
-gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context-group-<g>.md <id>[,<id>…] <canonical-worktree> <shape>
-```
+**Load `skills/flow/sdd-dispatch.md` only when** the recorded decision's `execution` is `sdd` — it
+carries the per-group implementer dispatch, the **Waves**, the per-group context-bundle gather and
+its failure handling, and the sixth-argument scoping; an `inline` run (**Inline — the parent
+implements**, above) never loads it.
 
 `<shape>` is this change's shape, computed once per run from the resolved worktree set — more than
 one repository → `cross-repo`, otherwise `single-repo` — and passed on every gather this run
@@ -660,20 +405,6 @@ canonical plan under labeled sections while keeping this worktree's own project 
 incidents and HEAD (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for
 the resolution).
 
-A non-zero exit — including the guard being absent — is reported, and
-dispatching proceeds without a context bundle: the dispatch prompt carries the change's proposal,
-design, engineering principles and the group's own tasks inline instead; an implementer's context
-bundle never gates a run (the panel's bundle failure is its own prompt, in `skills/flow/review-panel.md`). Confirm the bundle was actually written (`test -f
-<worktree>/.superpowers/sdd/dispatch-context-group-<g>.md`) and report plainly if it is not.
-**Never read the bundle back into this context** — `test -f` is the whole check; its content is the
-implementer's input, not the dispatcher's. Report the script's stderr line for this stage (`bundle
-unchanged — reusing …` or `bundle rebuilt — …`) as part of this stage's own reporting.
-
-The sixth argument scopes the group's `## tasks.md` section to the plan header and the named
-tasks' blocks; a named id the plan does not carry is
-exit 2, a plan defect reported like a missing `**Files:**` field. The panel's and the fix
-subagent's bundles (`skills/flow/review-panel.md`) pass an empty sixth argument and keep the whole plan.
-
 **A guard you could not run is hand-substituted only on the record.** When a guard this
 file calls — the gather above, `check-task-commit-fields.sh` at task close — exits non-zero,
 cannot resolve this change's topology, or is absent, and you go on by composing its facts,
@@ -685,9 +416,7 @@ flow record substitution -change <name> -guard <guard-name> -shape <shape> -subs
 ```
 
 `<shape>` is the same computed value the gather above took (`cross-repo` or `single-repo`), and
-`-substitution` carries the command or manual step actually used, verbatim. The write journals on
-store failure like every record write and never blocks the run — the row is the evidence a later
-cross-repo fix is justified and shaped by, which silence cannot hold.
+`-substitution` carries the command or manual step actually used, verbatim.
 
 Every implementer dispatch **must** carry:
 
@@ -841,11 +570,9 @@ Every implementer dispatch also carries:
 holding the last `bundle <k>` line `plan-dispatch-bundles.sh` printed — has passed the guard, by
 direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
 once on the canonical worktree, in the foreground, in the order the context bundle carries it, its
-output through `tail`. A subagent's prompt cache lives five minutes, the parent's an hour: a suite
-run outlasting five minutes inside an implementer re-prices that implementer's whole context on its
-next turn. A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes
+output through `tail`. A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes
 itself**, as inline fixes are applied: it edits, commits on the route the branch's push state
-dictates (**Panel re-runs**, `skills/flow/review-panel.md`), records the round as one
+dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one
 `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline`
 under `full-suite-fix-<n>`, and re-runs the list. Any other failure is the last boundary's
 `## Question`, below.
@@ -917,9 +644,7 @@ gate from two facts, both read in the same Bash call as the guard's verdict:
 paths in its `**Files:**` field plus everything its optional `**Allowed-collateral:**` glob
 covers. **The gate fires when the commit changes more than 40 lines, or touches any path outside
 that declared set.** Forty changed lines is the boundary below which a diff still is one glance;
-apply it as stated, never argue it away per run. The undeclared-path arm is the gate's risk half: a commit
-reaching past its own plan declaration is exactly the surprise a second reading exists for,
-however few lines it runs.
+apply it as stated, never argue it away per run.
 
 **The guard's pass ticks an ungated task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
 once `check-task-commit-fields.sh` exits 0 on its commit and the gate does not fire — no reviewer
@@ -941,8 +666,7 @@ one correction whose disclosure has a mechanical record: `check-task-commit-fiel
 against the record as it stood, refuses the commit, and names every undeclared path; the parent
 judges the deviation legitimate or not on exactly that refusal, and only a legitimate one is
 transcribed and the guard re-run green. The review gate's undeclared-path arm reads the paths the
-refusal named — the pre-correction declaration lives in the refusal, not in any field the
-transcription can overwrite — so the disclosure cannot disarm the gate. This is expected practice
+refusal named, so the disclosure cannot disarm the gate. This is expected practice
 on every task, not one implementer's habit.
 
 **A deviation from the plan records as a dated `Correction:` paragraph.** When a task's commit
@@ -951,9 +675,7 @@ the plan did not name — the parent appends a paragraph opening `Correction (YY
 that task's entry in `tasks.md`, at the task-close boundary where the task's other corrections
 are transcribed (before the guard runs on the commit), stating what the plan declared, what
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
-reports the deviation, the parent transcribes it; inline, the session is both halves. The
-archived plan then reads as what actually shipped, and the panel verifies the deviation instead
-of discovering it.
+reports the deviation, the parent transcribes it; inline, the session is both halves.
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already
@@ -984,8 +706,7 @@ decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `re
 task of the run waits and goes out in one bundle at the last boundary, on `opus` at the
 implementer pair's effort, or `default` when none is recorded; on harness `zcode`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. **Never one reviewer dispatch per gate-fired task, and never one per
-group on `small`/`regular`** (the review-dispatch count tracks the
-change's size, never its task count). Each task inside the bundle keeps its own pass: its own
+group on `small`/`regular`**. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report
 file. Record the bundle as one `dispatches` row (`-role reviewer`, `-key task-<n+n+n>-reviewer`
@@ -1000,21 +721,10 @@ shape of **Deferred review findings** (`skills/flow-contracts/known-bugs.md`), `
 of `F<n>`. A `fix` pass sends its Minors to the same fix. **A
 mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
 closes the record, and every `fix` task takes the fix path below on its own sha, independently
-of its bundle-mates. **The parent applies the fix itself**, never resuming the group's
-implementer: one inline round per group carrying every `fix` report of that group's tasks,
-recorded as one pair `-model <parent model> -effort <parent effort> -agent-id inline` under
-`task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids; per task, it stages the
-changed paths (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only, so
-a fix that adds a file stages first) and commits on the route the branch's push state dictates
-(**Panel re-runs**, `skills/flow/review-panel.md`) — one new commit on top for a branch the remote
-already holds, the guarded, set-aside fold onto `<task-sha>^` for unpushed history only, as that
-section states it for a fixup against `<task-sha>`. The
-parent re-runs the guard on every sha the fold's rebase rewrote — the on-top route rewrites none, so
-its re-run covers nothing — then re-dispatches the reviewer — one
-bundle carrying every fixed task of the group, under `task-<n+n>-reviewer-fix-<k>`, the same
-convention as the implementer's fix key — each pass on its own range: the on-top route reads its
-fix commit's own diff `git diff <fix-commit>^..<fix-commit>`, the fold its rewritten
-`git diff <task-sha>^..<new-task-sha>`.
+of its bundle-mates.
+
+**Load `skills/flow/gated-review-fix.md` only when** a gated reviewer pass closes `fix` — it
+carries that fix path.
 
 Every gated reviewer bundle dispatch **must** carry the shared paragraphs below once, then one
 **PASS task-`<n>`** section per gate-fired task in plan order, each carrying that task's record
@@ -1079,8 +789,7 @@ commits**, `skills/flow-contracts/git-boundaries.md`) over its own transcription
 report file exists, the parent runs `check-plan-unchanged.sh verify <worktree> <name>
 <snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit
 1 ends the turn with `## Question` carrying the guard's lines verbatim; exit 2, the same stop.
-A reviewer that closed clean over a tree it changed has reported about evidence it destroyed —
-the verify answers whether the tree survived, never the prose.
+
 
 **Every dispatch that can touch the worktree is bracketed by content markers — the subagent's
 own clean-state claim never answers for the tree.** The plan-tree guard above is one instance of
@@ -1094,10 +803,7 @@ dispatch's report file exists, the parent runs `check-tree-markers.sh verify <wo
 <markers-file> <snapshot-file>` before the report is read or acted on. Exit 1 is the dispatch
 having mutated the tree, whatever its report claims — the same `## Question` stop as the
 plan-tree guard's, with the guard's lines verbatim; exit 2, the same stop. The markers sit beside
-the plan-tree guard, never in its place: that guard asserts git's view of one directory, while
-markers pin known content anywhere in the tree, independent of git entirely — content that was
-never committed has no git answer at all, which is exactly what KAN-579's
-destroyed-and-self-reported-restored artifacts were.
+the plan-tree guard, never in its place.
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix
@@ -1120,16 +826,13 @@ test -s <report> && echo ready || echo still-running
 
 `<report>` is the file the child's REPORT FILE paragraph names — every child kind writes one as
 its last act, after its commit and its final test run, so the file's presence is the child's
-completion. The loop is bounded at 240 s rather than the Bash tool's ten-minute cap: a wait long
-enough to outlast the prompt cache re-prices the whole context on return, while a bounded wait's
-`still-running` turn reads it at the cache rate and keeps it warm. `still-running` re-issues
+completion. `still-running` re-issues
 the wait, and a ceiling (**No forking, and a wall-clock ceiling on every slot**,
 `skills/flow/review-panel.md`) is tracked across the calls. `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate
 none of it.
 
-**Read discipline.** The parent does a large amount of reading across one long-lived context, so
-keeping that context small is what keeps a warm call cheap. These five rules are the run's own size
+**Read discipline.** These five rules are the run's own size
 control,
 stated once here and cited — never restated — from `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` wherever they read a report or a diff:
@@ -1141,13 +844,15 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Never read `final-review.diff`, a dispatch-context bundle, or a panel-fix diff whole.** A slot
   reads the diff it was dispatched against; the parent walks a fix's hunks through `git diff
   --stat` and the specific hunks a finding names, never the whole diff. "Never read the bundle
-  back" (**4**, above) extends to every generated file the parent produces for a child.
+  back" (`skills/flow/sdd-dispatch.md`) extends to every generated file the parent produces for a child.
 - **Test/lint output through `tail`.** A targeted test or lint run's output is piped through
   `tail` (`| tail -20`, the failing block reproduced from the log file on a failure) — already the
   rule for implementers (TARGETED TESTS); it binds the parent's own `## lint`/`## test` runs in
   `flow.verify` and the full-suite run after the last group the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
-  — and `review-panel-optional-slots.md` and `visual-verify.md` when their stage loads them — are each read in full
+  — and `document-fix.md`, `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`,
+  `review-panel-late-fix.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
+  `review-panel-experimental-slot.md` and `visual-verify.md` when their load directive or stage loads them — are each read in full
   once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;

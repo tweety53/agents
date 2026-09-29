@@ -73,7 +73,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 // restating its marks, the planner holds the only flow.design-approval,
 // flow.create-artifacts and flow.writing-plans `stage begin` lines.
 var smcCandidates = map[string]bool{
-	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "brainstorm-planner.md": true, "implement.md": true,
+	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "brainstorm-planner.md": true, "implement.md": true, "document-fix.md": true,
 	"review-panel.md": true, "verify-and-handoff.md": true, "integrate.md": true,
 	"archive.md": true, "review.md": true, "finish.md": true,
 }

@@ -109,7 +109,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 - `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run the
   delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff` — `fix-round-N.diff`
   instead on a decided panel or a scoped round — per **Panel re-runs**
-  (`skills/flow/review-panel.md`).
+  (`skills/flow/review-panel-fix-round.md`).
 - `[ARTIFACT_PATHS]` — the absolute paths of `proposal.md`, `design.md` and `tasks.md` under
   `<project>/spectre/changes/<name>/`.
 - `[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries

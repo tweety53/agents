@@ -45,7 +45,7 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
 - **Planning.** Brainstorm and design questions, the convergence-and-approval confirm, the
   third-round offer, the plan
   review gate, every `/flow-plan` prompt, a fix run's own planning pass (the re-plan-budget and
-  where-the-fix-goes prompts in `skills/flow/implement.md`), and a pivot, which alters scope the
+  where-the-fix-goes prompts in `skills/flow/document-fix.md`), and a pivot, which alters scope the
   operator approved. The operator scoped auto-resolution to implementation and fix options, not
   planning. The `## decisions: recommended` mode lifts the planning asks in this bullet — never
   the pivot, which stays asked under the mode because it alters approved scope — and lifts no

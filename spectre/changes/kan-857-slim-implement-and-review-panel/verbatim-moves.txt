@@ -1,0 +1,82 @@
+# Sentences KAN-857 cuts, repoints or adds on purpose. Every entry is one of:
+# - a declared duplicate cut (audit rows D39, RP09, RP10, RP12; R23's clause, already verbatim in
+#   SKILL-rationale.md; R34's editor meta), its canonical copy named in design.md;
+# - the remainder of a sentence whose reason clause moved verbatim to SKILL-rationale.md
+#   (R2, R4, R6, R8, R9, R10, R12, R13, R14, R15, R16, R21, R30, RP23, RP24, RP25, RP30) — the
+#   whole original sentence is the moved/REVIEW line, not listed here;
+# - a citation repointed to the file its section moved to (the fix-round commit route and re-run
+#   rules, the fix-run prompts, "Never read the bundle back"), or a load directive, "Loaded by"
+#   header, heading, Stage-keys row or phase-file list entry the new split files need;
+# - a sentence whose parse changed only because its neighbour was cut (the `withdrawn` marker lead).
+"Never read the bundle back" (**4**, above) extends to every generated file the parent produces for a child.
+**A `withdrawn` marker's reason is checked for being there at all.
+**Load `skills/flow/review-panel-optional-slots.md`** before dispatching any round whose roster carries `mutation` or an `exp-` slot — it carries **Experimental slot** and **The throwaway worktree**.
+**Never one reviewer dispatch per gate-fired task, and never one per group on `small`/`regular`** (the review-dispatch count tracks the change's size, never its task count).
+**Parent work, run before the plan is executed** — see **The parent orchestrates directly** above.
+**The handshake — stated once here, cited everywhere else.
+**The rerun pair** (`panel.rerun_dispatch`) is the one pair every fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a delta to confirm a fix and must be short and fast.
+A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes itself**, as inline fixes are applied: it edits, commits on the route the branch's push state dictates (**Panel re-runs**, `skills/flow/review-panel.md`), records the round as one `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under `full-suite-fix-<n>`, and re-runs the list.
+A finding is recorded `fixed` by the parent at the fix round's verification step below, never by the fix subagent.
+A group's implementer works its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer — a red task and its partner make one commit between them — and a `Build: red` task is bundled with, and commits with, the partner its `**Squash-with:**` field names.
+Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit per completed task plus each fix round's fix commits on top — a pushed branch takes a panel fix as a new commit, never a rewrite (**Panel re-runs**, `skills/flow/review-panel.md`) — with every red-task-partner and unpushed-history fixup already folded in via `git rebase --autosquash`; no stray `fixup!
+Loaded by `skills/flow/review-panel.md` only for a round whose roster carries `mutation` or an `exp-` slot.
+The rebase clears every slot's held last-reviewed sha, so a re-run after it reads the whole `final-review.diff` under **Panel re-runs**' existing no-held-sha rule below.
+The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:` line name the dispatches as `+`-joined groups (`primary+principles · failure-modes+mutation`).
+`delta` is **Panel re-runs**' own rerun policy (`skills/flow/review-panel.md`); the docs-only reduction there still applies and still only removes.
+delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel.md`).
+the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel.md`).
+the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`, per **Panel re-runs** (`skills/flow/review-panel.md`)
+third-round offer, the plan review gate, every `/flow-plan` prompt, a fix run's own planning pass (the re-plan-budget and where-the-fix-goes prompts in `skills/flow/implement.md`), and a pivot, which alters scope the operator approved.
+| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` or an `exp-` slot |
+— and `review-panel-optional-slots.md` and `visual-verify.md` when their stage loads them — are each read in full once, at the start of the stage that needs them; a later need is served by `grep -n` for the heading plus `sed -n` for that section, never a second full read.
+\# Documenting a fix, before implementing it
+\# Execute — `sdd` dispatch
+\# Isolate the workspace — additional worktrees
+\# Review panel — experimental slot
+\# Review panel — fix rounds
+\# Review panel — the late-fix reduction
+\# The gated per-task reviewer — the `fix` path
+\## The late-fix reduction
+\## The mutation slot's prompt
+\### The fix dispatch
+**A `withdrawn` marker's reason is checked for being there at all.**
+**A dispatch whose agent dies is closed with `-outcome aborted`, reported, and not retried**: print `/flow <name>` for the operator — a re-run resumes from whatever was left (checkbox state, the state file's worktrees, findings in the store) through this file's own re-entry rules.
+**A refusal is a hard failure of this stage**: report it and stop the run.
+**A worktree add that fails is a hard failure of this stage**, reported and stopping the run exactly like a refused link.
+**Never one reviewer dispatch per gate-fired task, and never one per group on `small`/`regular`**.
+**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`, `agents/flow-xhigh.md` — four definitions, one per effort, each carrying `effort:` and no `model:`) carries a `tools:` allowlist that omits `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent structurally does not have, not by prompt text alone.
+**The handshake.
+**The parent applies the fix itself**, never resuming the group's implementer: one inline round per group carrying every `fix` report of that group's tasks, recorded as one pair `-model <parent model> -effort <parent effort> -agent-id inline` under `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids; per task, it stages the changed paths (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only, so a fix that adds a file stages first) and commits on the route the branch's push state dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) — one new commit on top for a branch the remote already holds, the guarded, set-aside fold onto `<task-sha>^` for unpushed history only, as that section states it for a fixup against `<task-sha>`.
+**The rerun pair** (`panel.rerun_dispatch`) is the one pair every fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the findings that role raised (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a delta to confirm a fix and must be short and fast.
+A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes itself**, as inline fixes are applied: it edits, commits on the route the branch's push state dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under `full-suite-fix-<n>`, and re-runs the list.
+A generic warning ("be careful with git") is not a carry.
+A group's implementer works its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task is bundled with, and commits with, the partner its `**Squash-with:**` field names.
+After the planning pass writes its appends and bumps `**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's plan-growth series:
+An `inline` run never loads this file (**Inline — the parent implements**, `skills/flow/implement.md`).
+Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit per completed task plus each fix round's fix commits on top — a pushed branch takes a panel fix as a new commit, never a rewrite (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) — with every red-task-partner and unpushed-history fixup already folded in via `git rebase --autosquash`; no stray `fixup!
+Every "you" here addresses the parent (**The parent orchestrates directly**, `skills/flow/implement.md`).
+Every section name below without a path is a section of this file or of `skills/flow/review-panel.md`; the fix subagent's dispatch paragraphs and its dispatch record stay there.
+Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`).
+Loaded by `skills/flow/review-panel.md` only for a round whose roster carries `mutation`.
+Loaded by `skills/flow/review-panel.md` only for a round whose roster carries an `exp-` slot.
+The child's own claim that nothing went wrong never closes an incident.
+The invariant is the working tree, not the build tool, and it holds however file-disjoint two tasks look on paper.
+The markers sit beside the plan-tree guard, never in its place.
+The review gate's undeclared-path arm reads the paths the refusal named, so the disclosure cannot disarm the gate.
+The round brackets itself with content markers beside that guard (the content-marker rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`): the marker list names the plan artifacts and working notes the round reads, `check-tree-markers.sh snapshot <worktree> <markers-file> <snapshot-file>` runs with the plan-tree guard's own snapshot, and `check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>` runs before any report is read or finding recorded.
+The same plan-tree discipline rides every round, re-run rounds included: before the launches the parent makes the reviewer-dispatch planning commit (**Planning commits**, `skills/flow-contracts/git-boundaries.md`) and runs `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any report is read or finding recorded.
+This binds the fix round every run — the obligation is the round's, not a slot's.
+When the count has reached **6**, the re-plan budget, this fix round is offered the planning pass before anything is appended.
+`begin` is recorded immediately before the dispatch — or, when several launches go out together in one message, in the next Bash call, one call for all (step 3 of **The next implementer overlaps the guard**, below) — carrying no `-agent-id`: the daemon captures the agent's identifier.
+`prove-reproducer.sh <worktree> <pre-fix-ref> <reproducer-path>` runs both legs and prints both exits for the record.
+third-round offer, the plan review gate, every `/flow-plan` prompt, a fix run's own planning pass (the re-plan-budget and where-the-fix-goes prompts in `skills/flow/document-fix.md`), and a pivot, which alters scope the operator approved.
+| `skills/flow/cross-repo-worktrees.md` | `flow.isolate-workspace` — loaded only when the change links a peer, an `## apps` entry names a repository holding no worktree for it, `## visual verification` names a `regression checkout`, or the resolved set spans more than one repository |
+| `skills/flow/document-fix.md` | `flow.document-fix`, `flow.decide` (fix runs) — loaded only on a fix run |
+| `skills/flow/gated-review-fix.md` | `flow.sdd-tdd` — loaded only when a gated reviewer pass closes `fix` |
+| `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
+| `skills/flow/review-panel-experimental-slot.md` | `flow.review-panel` — loaded only for a round whose roster carries an `exp-` slot |
+| `skills/flow/review-panel-fix-round.md` | `flow.review-panel` — loaded only once a round has recorded a Critical or Important finding, or a close guard sends the run back to the handback loop |
+| `skills/flow/review-panel-late-fix.md` | `flow.review-panel` — loaded only on a fix run |
+| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` |
+| `skills/flow/sdd-dispatch.md` | `flow.sdd-tdd` — loaded only when the decision's `execution` is `sdd` |
+— and `document-fix.md`, `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`, `review-panel-late-fix.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`, `review-panel-experimental-slot.md` and `visual-verify.md` when their load directive or stage loads them — are each read in full once, at the start of the stage that needs them; a later need is served by `grep -n` for the heading plus `sed -n` for that section, never a second full read.

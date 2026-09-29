@@ -430,7 +430,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree**
    below, keyed on `class` and the rolls. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
    fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
-   findings that role raised (**Panel re-runs**, `skills/flow/review-panel.md`): its `model` is
+   findings that role raised (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
    chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
    delta to confirm a fix and must be short and fast.
 4. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
@@ -504,7 +504,7 @@ count` into that sorted list. `<name>` is its basename with `.md` dropped, and i
 `description` fields for the roster entry are that file's path (`skills/flow/experimental/<name>.md`)
 and its line-1 `description:` value. An absent directory or one holding no `*.md` file (`count = 0`)
 records `experimental: none available` and adds nothing — never a division by zero. `delta`
-is **Panel re-runs**' own rerun policy (`skills/flow/review-panel.md`); the docs-only reduction
+is **Panel re-runs**' own rerun policy (`skills/flow/review-panel-fix-round.md`); the docs-only reduction
 there still applies and still only removes.
 
 Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — on a first creating

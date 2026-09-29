@@ -91,3 +91,10 @@ ledger line records `-model glm-5.3-flash -effort high` — the model the dispat
 on, never the pre-mapping value. A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**). The harness is
 the same value the run's `-harness` marks carry (**Stage marks**,
 `skills/flow-contracts/pipeline.md`). No other harness maps anything.
+
+**On a single-model harness the recorded mapping satisfies the handshake.** Where the harness maps
+every dispatch to one recorded model that no re-dispatch can change — harness `zcode`, the one
+mapping (**Harness mapping**, `skills/flow-contracts/model-policy.md`) — a first reply whose
+`Model:` line is missing or names anything else is not a mismatch: no `-outcome fallback`, no
+`<key>-retry`, no second-mismatch question. The MODEL HANDSHAKE paragraph stays in every
+dispatch prompt, and the comparison governs in full on every harness no mapping covers.
