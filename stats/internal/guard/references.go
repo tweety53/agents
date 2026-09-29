@@ -101,9 +101,11 @@ var crExpectedZero = []struct {
 	{"reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name",
 		[]string{
 			"skills/flow/engineering-principles.md",
+			"skills/flow/reviewer-calibration.md",
 		}},
 	{"rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all",
 		[]string{
+			"rules/agent-baseline-rationale.md",
 			"skills/flow-contracts/git-boundaries-rationale.md",
 			"skills/flow-contracts/session-records-rationale.md",
 			"skills/flow-contracts/worktree-resolution-rationale.md",

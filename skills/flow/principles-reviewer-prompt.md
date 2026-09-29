@@ -1,24 +1,4 @@
-# Principles Reviewer Prompt Template
-
-Use this template for the panel's **Principles** slot — dispatched whenever the resolved roster
-carries it, per **Review panel** (`skills/flow/review-panel.md`).
-
-The principle list itself is **not** restated here — the reviewer reads
-[engineering-principles.md](engineering-principles.md) (this file's sibling, inside the installed
-skill directory), which is the single source of truth. Never paste the list into a dispatch
-prompt. The relative link above resolves only for a reader of *this* file; the dispatched
-subagent's working directory is the **project worktree**, which has no `skills/` tree of its own,
-so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path before spawning.
-
-Read-only review.
-
 ```
-Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;   
-                                            # flow-<effort> on a decided panel
-  description: "Principles review"
-  model: <the bundle's own model>             # `opus` on a `default` panel, the decision's
-                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
-  prompt: |
     You are an engineering-principles reviewer. You are NOT doing a plan-alignment or
     code review, a failure-modes review, or sabotage-proofing — other panel agents own those and
     their findings are not yours to duplicate. Your job is to judge this diff
@@ -65,12 +45,6 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 
     Do not mutate the working tree, index, HEAD, or branch. Inspect with Read,
     Grep, and git show/diff only.
-
-    ## Your Scope
-
-    Apply all three principle groups:
-    `## Structure`, `## Simplicity & state`, and `## Robustness & ops`, as
-    `engineering-principles.md` defines them.
 
     ## Hard Invariants (project standards)
 
@@ -158,23 +132,4 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
   the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a
   scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`,
   per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`)
-- `[PRINCIPLES_PATH]` — the **absolute** path of `engineering-principles.md` inside the
-  running skill directory, i.e. this file's own directory + `/engineering-principles.md`.
-  Under the global install that is
-  `~/.claude/skills/flow/engineering-principles.md`; under a
-  project-local install it is `<project>/.claude/skills/…` or `<project>/.zcode/skills/…`.
-  Resolve it from where this template was actually read — never hardcode a repo-relative
-  `skills/…` path: the subagent's working directory is the project worktree, which has no
-  `skills/` tree, so a relative path fails to open and the reviewer loses its principle
-  list. Verify the file exists before dispatching; if it does not, stop and say so rather
-  than dispatching a reviewer with no principles.
-- `[STANDARDS_PATHS]` — the project's own written standards: the entries listed under the
-  `## standards` section of `<project>/.flow/project.md`, when the project has one — resolved to
-  absolute paths per the `## standards` entry-form table and
-  containment rule. Entries are not paths to use as-is: a bare `*.mdc` filename means
-  the shared agents rule library, any other bare filename means the project's own file,
-  and a path that escapes the project root is dropped; no section declared resolves none.
-  Pass the resolved absolute paths; report and drop any entry that resolves to no existing
-  file or that fails containment. Pass an empty value when none resolve, which empties the
-  Hard Invariants section by design.
 - `[GLOBAL_CONSTRAINTS]` — verbatim constraints from design/specs

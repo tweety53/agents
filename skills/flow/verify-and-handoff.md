@@ -36,9 +36,10 @@ exit is the dropped-row case (exit 1, relay the script's own lines verbatim and 
 cannot-answer case (exit 2, stop the same way) — stop **before** `## lint` and `## test`, without
 writing the state file.
 
-**Load `skills/flow-contracts/workspace-isolation.md` only when `prepare-workspace.sh` exited
-non-zero, or exited 0 with stderr naming a `cache index` row** — the procedures for both live
-there; the ordinary exit-0 run loads nothing.
+**Load `skills/flow-contracts/workspace-isolation.md` by section, only the one each trigger
+needs** — `grep -n` for its heading plus `sed -n` for that section, never the whole file: **The
+cache index** when `prepare-workspace.sh` exited 0 with stderr naming a `cache index` row, **The
+empty id** when it exited 1, and nothing when it exited 2; the ordinary exit-0 run loads nothing.
 
 **A declared `cache index` row is never among the printed `KEY=value` lines** — the script reports
 it by name on stderr instead. On an exit-0 run whose stderr names a `cache index` row, probe the
@@ -59,10 +60,7 @@ exports, lints, tests, and hands off.
 
 **After the panel closes, the parent edits no source.** Any source change from here on makes
 every slot's result stale (**Panel re-runs**, `skills/flow/review-panel.md`), and the only path
-that changes source is a fix run the operator starts. `## lint`, `## test` and
-`check-spec-reach.sh <worktree>` **are the parent's own Bash calls, run inline per worktree,
-never through a subagent** — its work in this stage is `prepare-workspace.sh`, those commands, the
-visual-verify dispatch below and the ledger render.
+that changes source is a fix run the operator starts.
 
 ### Inline verify
 
@@ -132,8 +130,7 @@ flow record render -change <name> -kind ledger -repo <canonical-worktree>
 
 Read the outcome word, not the exit code. `rendered: <dest>` is ordinary. **`MISSING: ledger — no
 rows for <name>` means this run recorded no dispatch at all**, reported plainly here rather than
-discovered later. `journalled: ledger` and a non-zero exit are reported the same way. None of these
-gates or stops the run — unlike the lint and test exits above. The outcome words are the table under
+discovered later. The outcome words are the table under
 **Rendering the session records** (`skills/flow-contracts/session-records.md`).
 
 ```bash
@@ -191,8 +188,7 @@ commit per completed task plus each fix round's fix commits on top — a pushed 
 panel fix as a new commit, never a rewrite (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) —
 with every red-task-partner and unpushed-history fixup already folded in via
 `git rebase --autosquash`; no stray `fixup!` commit should remain unsquashed, unless a PR already
-exists (below). From here to the handoff, each stage's `begin` mark rides its first command and
-its `end` mark its last (**Turn discipline**, `skills/flow/implement.md`) <!-- refs-guard:allow -->.
+exists (below).
 
 In **every** affected worktree:
 
@@ -201,9 +197,7 @@ git -C <worktree> status
 git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> **`<project>/spectre/changes/` is never part of a task commit.** `<project>/spectre/specs/`
-> is not planning — a capability spec belongs in the task commit that implements its
-> requirement. This step only confirms nothing slipped in.
+> This step only confirms nothing slipped in.
 
 **Load `skills/flow-contracts/git-boundaries.md`** before committing below.
 
@@ -211,7 +205,12 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 pushed as it landed (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). If the state
 file records a `prUrl`, a PR is already open, so this run also commits whatever the operator
 edited at the human gate and whatever planning delta the last planning commit left, and pushes
-everything to the PR branch; otherwise this step commits nothing more. On that path only — and in this order — run
+everything to the PR branch; otherwise this step commits nothing more.
+
+**Load `skills/flow-contracts/git-boundaries-commit-chain.md`** only when the state file records a
+`prUrl` — `commit-split.sh` below runs that chain.
+
+On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <canonical-worktree>` (the same member the
 ledger render above targets); then `commit-split.sh <worktree>
 <name> "<impl-msg>" "chore(spectre): plan"`; then push the branch
@@ -220,8 +219,7 @@ covers working-tree edits the operator made at the human gate without staging th
 same way a fixup commit's subject is derived — `fix(<module>): <what changed since the last task
 commit>`.
 
-The render overwrites in place. `MISSING: <kind>` means the store holds no rows of that kind and
-nothing was written — report it. **A non-zero exit means a destination was refused or could not be
+The render overwrites in place. **A non-zero exit means a destination was refused or could not be
 written** — report it, and continue committing the fix.
 
 ```bash
@@ -236,9 +234,6 @@ flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness
 
 Resolve the run instructions for the handoff's `Running:` section. It writes no file.
 
-- **Every app root is absolute**, resolved from `git worktree list` or the state file's `worktrees`
-  keys. Never a relative sibling path, and never a main-checkout path while a worktree holds the
-  work.
 - **Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path
   made absolute.
 - **Every URL is the one this worktree resolved**, never the project's declared base. Resolve each
@@ -331,11 +326,8 @@ write-in-progress planning commit carries it (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`), made once the append lands; nothing else stages it.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
-`worktrees` should already carry one absolute-path key per affected worktree and its merge base —
-`flow.kickoff` writes the first worktree's entry the moment it is created
-(`skills/flow/brainstorm.md` step 3) and **2. Isolate the workspace**
-(`skills/flow/implement.md`) writes each additional one the moment that worktree exists, rather
-than deferring to here — so this step re-reads the current record and
+`worktrees` should already carry one absolute-path key per affected worktree and its merge base,
+so this step re-reads the current record and
 confirms every resolved worktree is present rather than reconstructing the map from scratch;
 add any entry still missing (a worktree added after the last incremental write) before
 proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort`
@@ -380,7 +372,7 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 **Change:** <name>
 **Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " or "late-fix — " followed by the resolved slot(s) not dispatched, or "no">; <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
 **Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
-**Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify.md? | aborted — verified without added sweeps
+**Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md? | aborted — verified without added sweeps
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
 **Deferred:** <count of deferred Minors>
@@ -429,19 +421,13 @@ option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so th
 overrule any of them with a fix run; it reads `none` when the run took none. Planning answers
 the `## decisions: recommended` mode took are named here the same way.
 
-**The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
-absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
-rule — the operator must be able to open the PNG. **Its push clause appears only when step 12
+**The `Visual:` line reports `flow.visual-verify`'s own outcome.** **Its push clause appears only when step 12
 committed to a `regression checkout`.**
 
 **The `Tooling analysis:` line reports **A missed defect — the tooling analysis**
 (`skills/flow/visual-verify.md`)**, one entry per worktree whose fix run dispatched one. A
 completed analysis names its sweeps file by absolute path, so the operator can decide whether its
-sweeps join step 10 for every later change; the run itself never edits `visual-verify.md`.
-
-The pre-edit description line is present only on a fix run that synced the description in **3.
-Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or
-reflowing it.
+sweeps join step 10 for every later change; the run itself never edits `visual-verify-verifier.md`.
 
 **The parent prints this block directly, as this stage's own output** — no return, no relay: the
 running session assembles it here and shows it to the operator in the same turn (**The parent

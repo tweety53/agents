@@ -1,18 +1,6 @@
 # Failure-Modes Reviewer Prompt Template
 
-Use this template for the panel's **Failure-modes** slot — what each changed behaviour does under
-error return, timeout, partial write and concurrent re-entry — dispatched like every other slot,
-per **The roster** (`skills/flow/review-panel.md`).
-
-Read-only review.
-
 ```
-Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
-                                            # flow-<effort> on a decided panel
-  description: "Failure-modes review (failure-modes)"
-  model: <the bundle's own model>             # `opus` on a `default` panel, the decision's
-                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
-  prompt: |
     You are a failure-modes reviewer. You are NOT doing a plan-alignment or code review, a
     principles review, or sabotage-proofing — other panel slots own those and their
     findings are not yours to duplicate. Your job is to take every behaviour this diff

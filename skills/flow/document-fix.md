@@ -89,7 +89,7 @@ reads as a description of the reported bug is a signal to pause on, not reassura
 or alignment an earlier round eyeballed as fine — open with the measurement, never with another
 look.** Before the planning pass answers "it matches" or plans a fix, run
 `measure-visual-properties.sh` on the disputed region of the current capture and the mockup
-(**10** in `skills/flow/visual-verify.md`) and put the numbers in the plan or the
+(**10** in `skills/flow/visual-verify-verifier.md`) and put the numbers in the plan or the
 `## Question`; a spacing dispute is measured on every side the complaint names. The complaint's own wording names which
 property that is — "too big", "oversized" is a size (`box` and `ink`); "cramped", "uneven",
 "too close" is a spacing (`gap`); "not filled to the border", "flush", "reaches" is an edge

@@ -185,3 +185,44 @@ response: run 2 is past the merge, and blocking an already-merged change over a 
 to be down is what the paragraph above forbids. The cost is real and is named rather than hidden — a
 genuinely broken survivor report is indistinguishable here from a stopped service — which is why the
 skip carries the command's name and its exit code instead of being noted in passing.
+
+## Moved by KAN-858
+
+Moved verbatim from `skills/flow-contracts/workspace-isolation.md`; each heading names the section
+the passage came from.
+
+### The workspace id
+
+flow change names are `<lowercased-jira-key>-<slug>` in practice, so this is a boundary case rather than a daily one, and a boundary case nobody has written down is where two implementations drift apart.
+
+The id blocks' fences carried the verification environment they were measured in:
+
+- `verified:run in this worktree on macOS (Darwin 25.5.0) with /usr/bin/shasum, /usr/bin/sed and bash 3.2, under LC_ALL of C, en_US.UTF-8, ru_RU.UTF-8 and tr_TR.UTF-8; every id in a comment is that run's output, identical under all four`
+- `verified:run in this worktree on macOS (Darwin 25.5.0) with bash 3.2; continues the id block above, whose $id is kan-15-fb13`
+- `verified:run in this worktree on macOS (Darwin 25.5.0) with digest fb13, the digest derived above`
+
+### What the id derives
+
+Replacing only the joiner would leave `kan-15_fb13`, which still needs quoting and so buys none of what the paragraph above is for, and the two readings differ on every id whose prefix has more than one segment.
+
+### The cache index
+
+**The reason is the size of the space.** A cache offers **sixteen** indices, so a derived value is
+the digest modulo sixteen and two concurrent workspaces land on the same index one time in sixteen —
+roughly **six percent**. Everywhere else in this contract a collision is either vanishingly unlikely
+or loud: a database name is drawn from 65 536 digests, and a port already bound refuses the bind and
+stops the start. A shared cache index is neither. Two changes would quietly share sessions and
+cache entries, which is exactly the class of silent wrong answer this contract exists to remove, and
+a six-percent silent failure is worse than a rarer loud one.
+
+Identity replaces it: a claim naming its holder can be released, reported and listed by name.
+
+**A project whose claim is visible can do better than the pipeline
+can**, and the ceiling above is the reason to: releasing the claim in its own `remove` command,
+reporting a claim that outlived cleanup through `survivors`, and listing every claim on the machine
+without needing an id — which is what an abandoned change does not leave behind. None of that is
+required here, and none of it changes the registry row.
+
+### Creation and cleanup
+
+Why a third verb rather than two, rather than reading the removal's own result: the guard that checks the row lives in the agents repository and must stay project-agnostic, so it cannot hold `psql -l` or one project's object-store client.

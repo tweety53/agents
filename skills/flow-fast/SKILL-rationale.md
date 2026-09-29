@@ -17,3 +17,7 @@ The writing-plans step's exit-2 rule — a missing or unreadable plan file is re
 run, never fixed by editing the plan — was written for:
 
 > (KAN-601)
+
+## SKILL.md — 4. Implement (moved by KAN-858)
+
+The commit series is the change's whole record, and no task-fields guard reads it: `check-task-commit-fields.sh`, the guard `/flow`'s implement phase closes every task commit with, resolves only a spectre plan (`<worktree>/<spec-root>/changes/*/tasks.md`) — a layout a `/flow-fast` change never has — so it is out of scope here by construction, and section 5's lint and tests are the only close a commit gets.

@@ -875,3 +875,48 @@ A copy-side file newer than the canonical one replaces it — the wall-clock re-
 Mutation mutates code in place to run its brief; every other slot only reads the diff.
 
 Dispatching a mutating slot into the same worktree a reading slot concurrently reads is the collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched reading slot reads from `<worktree>` at that moment.
+
+## Moved by KAN-858 — visual verification
+
+### visual-verify-verifier.md — Visual verification, step 8 (capture)
+
+**Every capture asserts the view is on screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the capture instead of becoming its baseline (KAN-747).
+
+### visual-verify-verifier.md — Visual verification, step 10 (the `mockups` declaration gates the frame comparison)
+
+The state sweeps run on the captures alone and are the default on every `flow.visual-verify` run, composed or not: a verification that transcribes no text run (sweep 5), checks no element against its container's bounds (sweep 6), scrolls no region to its end (sweep 7) and re-derives no derived value (sweep 8) is the operator-driven round this stage exists to replace.
+
+### visual-verify-verifier.md — Visual verification, step 10 (state 3, every option of every picker)
+
+`rules/design-mockups-are-specs.mdc` puts the same question to the implementer; this is the verifier's side of it.
+
+### visual-verify-verifier.md — Visual verification, step 10 (sweep 9, bounded rows)
+
+Nothing else here sees it — the composite's ratio barely moves when a row's content is right and only the whitespace around it is wrong, the per-control crop matches its control wherever it sits, and the order-and-containment sweep finds every element present and inside its container.
+
+### visual-verify-verifier.md — Visual verification, step 10 (sweep 10, non-text ink)
+
+Every sweep above starts from something the capture shows or the text says: a control, a text run, a row, a value. A line the frame draws and the capture omits is on none of those lists, and the composite's ratio barely moves for a 1px rule, so nothing above asks for it and a verifier who has matched every label and number walks away satisfied.
+
+### visual-verify-verifier.md — Visual verification, step 10 (edge-to-edge measurement)
+
+Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text included, and a fill covering half the box flips which colour counts as `fill` (both shown on the incident's own geometry by `TestMeasureVisualProperties` in `<agents repo>/stats/internal/guard/measure_visual_properties_test.go`).
+
+### visual-verify-verifier.md — `## Report`
+
+The template's fence carried the authoring provenance `verified:design.md section 3 of this change` (`kan-171-generic-visual-verification-step`).
+
+### visual-verify.md — Visual verification, step 12 (commit)
+
+**Never push** — see `no-automatic-push` (design.md): a file inside a repository cannot authorise a push to another repository, so no guard here grants one, worktree or not.
+
+## Moved by KAN-858 — reviewer templates
+
+### principles-reviewer-prompt.md — preamble
+
+The principle list itself is **not** restated here — the reviewer reads
+[engineering-principles.md](engineering-principles.md) (this file's sibling, inside the installed
+skill directory), which is the single source of truth. Never paste the list into a dispatch
+prompt. The relative link above resolves only for a reader of *this* file; the dispatched
+subagent's working directory is the **project worktree**, which has no `skills/` tree of its own,
+so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path before spawning.

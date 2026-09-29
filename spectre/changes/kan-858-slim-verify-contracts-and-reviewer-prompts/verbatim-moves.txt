@@ -1,0 +1,121 @@
+# Sentences KAN-858 cuts, repoints or adds on purpose. Every entry is one of:
+# - a declared duplicate cut (VH-03, VH-05, VH-06, VH-09, VH-10, VH-12, VH-15, VH-18, VH-20,
+#   A3, FF3–FF6, the principles template's R4 and R6's existence check, R7's standards
+#   bullet), its canonical copy named in design.md;
+# - dispatcher-facing template text cut (the primary, principles and failure-modes intros,
+#   Agent-call headers and "Read-only review." lines: P1–P3, R1a–R3, F1–F3 equivalents);
+# - the remainder of a sentence whose reason clause moved verbatim to a -rationale.md (VV-06,
+#   VV-08, VV-15, VV-17, WI-08, WI-07, WI-03, WI-09, FF7, FF9b, A1, A2, A4) — the whole original
+#   sentence is the moved/REVIEW line, not listed here;
+# - a citation repointed to the file its section moved to (the verifier's steps, the tooling
+#   analyst, the two-commit chain, the calibration scale), or a load directive, "Loaded by"
+#   header, heading, index row, Stage-keys row or phase-file list entry the new split files need;
+# - the calibration scale, whose lines left the prompt fence for a plain list, so the splitter
+#   reads them as new sentences;
+# - R6's install-path worked example, moved into review-panel.md **Principles** with "this
+#   template" read as "this file".
+**Critical** — bugs, security issues, data-loss risks, broken functionality; a
+**Every app root is absolute**, resolved from `git worktree list` or the state file's `worktrees`
+**Every capture asserts the view is on screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the capture instead of becoming its baseline.
+**Important** — architecture problems, poor error handling, test gaps; a task field
+**Load `skills/flow-contracts/artifacts-registry.md`** — the worktree and branch created at `flow.kickoff` are rows in it.
+**Load `skills/flow-contracts/workspace-isolation.md` only when `prepare-workspace.sh` exited non-zero, or exited 0 with stderr naming a `cache index` row** — the procedures for both live there; the ordinary exit-0 run loads nothing.
+**Loaded by `/flow`'s archive run and `/flow-fast`** |
+**Loaded by `/flow`'s archive run and `/flow-fast`** — wherever an artifact this table names is created or removed.
+**Loaded by `/flow`'s implement phase, `/flow`'s archive run and `/flow-fast`** |
+**Loaded by `/flow`'s implement phase, `/flow`'s archive run and `/flow-fast`** — wherever an artifact this table names is created or removed.
+**Loaded by bare `/flow`'s run 1, and by `/flow`'s implement phase only when a `prUrl` is recorded** |
+**Minor** — code style, optimization opportunities, documentation polish; a defensive
+**Never push**: a file inside a repository cannot authorise a push to another repository, so no guard here grants one, worktree or not.
+**REPORT FILE:** write this pass's report to `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` before beginning the next pass, the bundle's last one as your **last** act — a `## Verdict` section carrying exactly `clean` or `fix`, and each finding with its file, line and severity — Critical, Important or Minor as `skills/flow/primary-reviewer-prompt.md`'s `## Calibration` defines them.
+**REPORT FILE:** write this pass's report to `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` before beginning the next pass, the bundle's last one as your **last** act — a `## Verdict` section carrying exactly `clean` or `fix`, and each finding with its file, line and severity — Critical, Important or Minor as `skills/flow/reviewer-calibration.md` defines them.
+**Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md?
+**Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify.md?
+**`<project>/spectre/changes/` is never part of a task commit.
+- **Critical** — bugs, security issues, data-loss risks, broken functionality; a
+- **Important** — architecture problems, poor error handling, test gaps; a task field
+- **Minor** — code style, optimization opportunities, documentation polish; a defensive
+A completed analysis names its sweeps file by absolute path, so the operator can decide whether its sweeps join step 10 for every later change; the run itself never edits `visual-verify-verifier.md`.
+A completed analysis names its sweeps file by absolute path, so the operator can decide whether its sweeps join step 10 for every later change; the run itself never edits `visual-verify.md`.
+Apply all three principle groups:
+Before the planning pass answers "it matches" or plans a fix, run `measure-visual-properties.sh` on the disputed region of the current capture and the mockup (**10** in `skills/flow/visual-verify-verifier.md`) and put the numbers in the plan or the `## Question`; a spacing dispute is measured on every side the complaint names.
+Commit one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch backup**, `skills/flow-contracts/git-boundaries.md`).
+Commit one logical unit at a time on the `<name>` branch, subject in Conventional Commits form, no attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch backup**, `skills/flow-contracts/git-boundaries.md`).
+Every screenshot path in it is absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute rule — the operator must be able to open the PNG.
+For each missed defect, name the sweep in steps 8–10 of `skills/flow/visual-verify-verifier.md` that should have caught it and why it did not, then name the defect's class — the property, element kind or state no sweep read.
+For each missed defect, name the sweep in steps 8–10 of `skills/flow/visual-verify.md` that should have caught it and why it did not, then name the defect's class — the property, element kind or state no sweep read.
+From here to the handoff, each stage's `begin` mark rides its first command and its `end` mark its last (**Turn discipline**, `skills/flow/implement.md`) <!-- refs-guard:allow -->.
+It also states: the absolute worktree path; each missed defect, verbatim from the fix instructions; the paths of the earlier round's `verify-report-*.md` under `<abs-worktree>/.superpowers/sdd/` and `<changeRoot>/visual-verification.md`, and the captures they cite; the absolute path of `skills/flow/visual-verify-verifier.md`; and this task, as written:
+It also states: the absolute worktree path; each missed defect, verbatim from the fix instructions; the paths of the earlier round's `verify-report-*.md` under `<abs-worktree>/.superpowers/sdd/` and `<changeRoot>/visual-verification.md`, and the captures they cite; the path of this file; and this task, as written:
+It carries step 4, steps 7–11 and the `## Report` template, run as written.
+Its prompt states: the absolute worktree path; the `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture` and `specs` commands and `screenshots` root, its resolved `mockups` root when declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths` matched; the project's `## run` commands; the views touched; `<changeRoot>`; `sweeps-<n>.md`'s path when **A missed defect — the tooling analysis** above completed this round; and to run steps 4 and 7–11 below as written against the stack steps 5 and 6 left serving the worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
+Loaded by `/flow`'s integrate run 1 (**3. Commit the staged work**, `skills/flow/integrate.md`) and by its implement phase only when the state file records a `prUrl` (**Stage, excluding the planning paths**, `skills/flow/verify-and-handoff.md`).
+Never a relative sibling path, and never a main-checkout path while a worktree holds the work.
+None of these gates or stops the run — unlike the lint and test exits above.
+Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text included, and a fill covering half the box flips which colour counts as `fill`.
+Pass an empty value when none resolve, which empties the Hard Invariants section by design.
+Pass the resolved absolute paths; report and drop any entry that resolves to no existing file or that fails containment.
+Read the calibration file at [CALIBRATION_PATH] and categorize every finding by the
+Read-only review.
+Resolve it from where this file was actually read — never hardcode a repo-relative `skills/…` path: the subagent's working directory is the project worktree, which has no `skills/` tree, so a relative path fails to open and the reviewer loses its principle list.
+Resolve it from where this template was actually read — never hardcode a repo-relative `skills/…` path: the subagent's working directory is the project worktree, which has no `skills/` tree, so a relative path fails to open and the reviewer loses its principle list.
+Subagent (<the dispatch's subagent_type>): # flow-low on a `default` panel;
+The commit series is the change's whole record; no task-fields guard reads it, and section 5's lint and tests are the only close a commit gets.
+The guarded two-commit chain (**The guarded two-commit chain**, `skills/flow-contracts/git-boundaries-commit-chain.md`) is the deliberate exception: its `add -A` is what picks up operator edits and new files at the human gate, which a pathspec-scoped commit would drop.
+The guarded two-commit chain below is the deliberate exception: its `add -A` is what picks up operator edits and new files at the human gate, which a pathspec-scoped commit would drop.
+The guarded two-commit chain that enforces the split between implementation and planning artifacts is `skills/flow-contracts/git-boundaries-commit-chain.md`.
+The guards, the skipped-empty rule, the stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries** (`skills/flow-contracts/git-boundaries.md`).
+The pre-edit description line is present only on a fix run that synced the description in **3. Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or reflowing it.
+The reader is the dispatched reviewer.
+The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this call site and the implement phase's PR-exception path.
+The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the symlink case — is the chain **The guarded two-commit chain** (`git-boundaries-commit-chain.md`) gives; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this call site and the implement phase's PR-exception path.
+The state sweeps run on the captures alone and are the default on every `flow.visual-verify` run, composed or not.
+Then transition the issue to **In Progress** per **Transitions** there (by name, forward-only, one line on failure per **Never blocking**).
+Then transition the issue to **In Progress** per **Transitions** there.
+This is enforced: a `PreToolUse` hook denies any dispatch whose prompt omits the pointer.
+This repository's `primary-reviewer-prompt.md` and `reviewer-calibration.md` (Primary), `principles-reviewer-prompt.md` and `engineering-principles.md` (Principles), `failure-modes-reviewer-prompt.md` (Failure-modes), and `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the dispatcher resolves their paths, confirms each exists, and names them in the prompt.
+This route is the one place `/flow-fast` pushes to the default branch.
+This route is the one place `/flow-fast` pushes to the default branch; a project whose default branch is protected declares `pull request` instead.
+Use this template for the panel's **Failure-modes** slot — what each changed behaviour does under error return, timeout, partial write and concurrent re-entry — dispatched like every other slot, per **The roster** (`skills/flow/review-panel.md`).
+Use this template for the panel's **Primary** slot — plan alignment plus senior code review, on every decided roster and on the docs-only and late-fix reductions, dispatched like every other slot, per **The roster** (`skills/flow/review-panel.md`).
+Use this template for the panel's **Principles** slot — dispatched whenever the resolved roster carries it, per **Review panel** (`skills/flow/review-panel.md`).
+Verify the file exists before dispatching; if it does not, stop and say so rather than dispatching a reviewer with no principles.
+Which git actions each command may take and the planning commits.
+Which git actions each command may take, the planning commits, and the guarded two-commit chain that enforces the split between implementation and planning artifacts.
+\# Principles Reviewer Prompt Template
+\# Reviewer calibration
+\# The guarded two-commit chain
+\# Visual verification — the tooling analyst
+\# Visual verification — the verifier's steps
+\# flow-<effort> on a decided panel
+\# panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
+\## Your Scope
+`## Structure`, `## Simplicity & state`, and `## Robustness & ops`, as
+`## lint`, `## test` and `check-spec-reach.sh <worktree>` **are the parent's own Bash calls, run inline per worktree, never through a subagent** — its work in this stage is `prepare-workspace.sh`, those commands, the visual-verify dispatch below and the ledger render.
+`<project>/spectre/specs/` is not planning — a capability spec belongs in the task commit that implements its requirement.
+`MISSING: <kind>` means the store holds no rows of that kind and nothing was written — report it.
+`[CALIBRATION_PATH]` — the absolute path of `reviewer-calibration.md` beside this file.
+`[PRINCIPLES_PATH]` — the **absolute** path of `engineering-principles.md` inside the
+`engineering-principles.md` defines them.
+`journalled: ledger` and a non-zero exit are reported the same way.
+`worktrees` should already carry one absolute-path key per affected worktree and its merge base — `flow.kickoff` writes the first worktree's entry the moment it is created (`skills/flow/brainstorm.md` step 3) and **2. Isolate the workspace** (`skills/flow/implement.md`) writes each additional one the moment that worktree exists, rather than deferring to here — so this step re-reads the current record and confirms every resolved worktree is present rather than reconstructing the map from scratch; add any entry still missing (a worktree added after the last incremental write) before proceeding.
+`worktrees` should already carry one absolute-path key per affected worktree and its merge base, so this step re-reads the current record and confirms every resolved worktree is present rather than reconstructing the map from scratch; add any entry still missing (a worktree added after the last incremental write) before proceeding.
+description: "Code review (primary)"
+description: "Failure-modes review (failure-modes)"
+model: <the bundle's own model> # `opus` on a `default` panel, the decision's
+realistic input.
+running skill directory, i.e.
+severity it defines.
+that no longer reflects the diff; a defect that produces a wrong result under a
+that no longer reflects the diff; a defect that produces a wrong result under a realistic input.
+this file's own directory + `/engineering-principles.md`.
+written except that `check-task-commit-fields.sh` is not run and no task is ticked: section 5's lint and tests are what close a group.
+written — one implementer per decided group on that group's model and effort, the context bundle gathered on `<changeRoot>`, every dispatch-prompt paragraph, both dispatch records, the handshake, waves — except that `check-task-commit-fields.sh` is not run and no task is ticked: section 5's lint and tests are what close a group.
+written, **Check base movement first** through **Panel re-runs** — the decision's roster, grouping and dispatches on their own model and effort, every fix-round re-run on its `panel.rerun_dispatch` pair, findings recorded, fixes as that file states them: the parent itself on `inline`, the panel-fix subagent on `sdd` on the decision's `fixer` pair.
+written, **Check base movement first** through **Panel re-runs**.
+| [git-boundaries-commit-chain.md](git-boundaries-commit-chain.md) | The guarded two-commit chain that enforces the split between implementation and planning artifacts.
+| [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, the planning commits, and the branch backup.
+| [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, the planning commits, the guarded two-commit chain that enforces the split between implementation and planning artifacts, and the branch backup.
+| `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
+| `skills/flow/visual-verify-tooling-analysis.md` | `flow.visual-verify` — loaded only on a fix run with at least one miss |
+— and `document-fix.md`, `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`, `review-panel-late-fix.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`, `review-panel-experimental-slot.md`, `visual-verify.md` and `visual-verify-tooling-analysis.md` when their load directive or stage loads them — are each read in full once, at the start of the stage that needs them; a later need is served by `grep -n` for the heading plus `sed -n` for that section, never a second full read.

@@ -84,17 +84,11 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block under its `planning:`/`reviewers:` lines.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
-  written — one implementer per decided group on that group's model and effort, the context
-  bundle gathered on `<changeRoot>`, every dispatch-prompt paragraph, both dispatch records, the
-  handshake, waves — except that `check-task-commit-fields.sh` is not run and no task is ticked:
+  written except that `check-task-commit-fields.sh` is not run and no task is ticked:
   section 5's lint and tests are what close a group. On `inline`, section 4 as this file states
   it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
-  written, **Check base movement first** through **Panel re-runs** — the decision's roster,
-  grouping and dispatches on their own model and effort, every fix-round re-run on its
-  `panel.rerun_dispatch` pair, findings recorded, fixes as that file
-  states them: the parent itself on `inline`, the panel-fix subagent on `sdd` on the decision's
-  `fixer` pair. A `default` panel (the `micro` class) runs no panel.
+  written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs no panel.
 
 The change summary in section 5 then also carries the `## Decision` block and, when a panel ran,
 each finding with its status.
@@ -104,7 +98,7 @@ each finding with its status.
 Resolve the Jira key and the change name per **Resolution (how `jiraIssue` is decided)** and
 **Change naming** (`skills/flow-contracts/jira-integration.md`), exactly — including the slug
 constraints on a summary-derived name. Then transition the issue to **In Progress** per
-**Transitions** there (by name, forward-only, one line on failure per **Never blocking**). Then:
+**Transitions** there. Then:
 
 ```bash
 flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
@@ -214,14 +208,10 @@ Implement in the worktree, in this session — or, on a decided `sdd`, per **Dyn
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. A
 refactor of output-producing code follows the PIN BEFORE REFACTOR rule of **4. Execute (SDD + TDD)**
 (`skills/flow/implement.md`). Commit
-one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope
-naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no
+one logical unit at a time on the `<name>` branch, subject in Conventional Commits form, no
 attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch
 backup**, `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
-record, and no task-fields guard reads it: `check-task-commit-fields.sh`, the guard `/flow`'s
-implement phase closes every task commit with, resolves only a spectre plan
-(`<worktree>/<spec-root>/changes/*/tasks.md`) — a layout a `/flow-fast` change never has — so it
-is out of scope here by construction, and section 5's lint and tests are the only close a commit
+record; no task-fields guard reads it, and section 5's lint and tests are the only close a commit
 gets. Fix every lint hit the project's `## lint`
 raises on the files you touched rather than suppressing it.
 
@@ -353,8 +343,7 @@ runs the project's whole `## lint` and `## test` lists instead.
 
 - **merge and push**: `git -C <worktree> push origin <name>:<default-branch>`. A push the
   remote rejects (branch protection, a non-fast-forward) falls back to **pull request** below and
-  says so. This route is the one place `/flow-fast` pushes to the default branch; a project whose
-  default branch is protected declares `pull request` instead.
+  says so. This route is the one place `/flow-fast` pushes to the default branch.
 - **pull request**: `git -C <worktree> push --force-with-lease origin <name>`, then `gh pr create --base
   <default-branch> --head <name>` with the summary from section 5 as the body.
 - **manual**: `git -C <worktree> push --force-with-lease origin <name>`; print the branch name and the worktree path.

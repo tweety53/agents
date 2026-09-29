@@ -236,9 +236,6 @@ flow stage end -command '/flow' -stage flow.load-context -outcome completed <nam
 
 ## 2. Isolate the workspace
 
-**Load `skills/flow-contracts/artifacts-registry.md`** — the worktree and branch created at
-`flow.kickoff` are rows in it.
-
 ```bash
 flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
@@ -775,7 +772,7 @@ and, inside each **PASS task-`<n>`** section:
 > `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` before beginning the next pass,
 > the bundle's last one as your **last** act — a `## Verdict` section carrying exactly `clean` or
 > `fix`, and each finding with its file, line and severity — Critical, Important or Minor as
-> `skills/flow/primary-reviewer-prompt.md`'s `## Calibration` defines them. The verdict is `fix`
+> `skills/flow/reviewer-calibration.md` defines them. The verdict is `fix`
 > only when a Critical or Important finding stands; Minor-only findings are `clean`. The dispatcher waits on every pass's
 > file (`test -s` on each), and a fix round's re-review writes
 > `reviewer-report-task-<n>-fix-<k>.md`.
@@ -852,7 +849,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
   — and `document-fix.md`, `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`,
   `review-panel-late-fix.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
-  `review-panel-experimental-slot.md` and `visual-verify.md` when their load directive or stage loads them — are each read in full
+  `review-panel-experimental-slot.md`, `visual-verify.md` and `visual-verify-tooling-analysis.md` when their load directive or stage loads them — are each read in full
   once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;

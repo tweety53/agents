@@ -321,7 +321,7 @@ pathspec — the same clearing pass **Git boundaries** (`git-boundaries.md`) giv
 for the same reason: an exclusion cannot retract what an earlier step staged, and at this gate that
 step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
 picks that path up; `<abs-worktree>/.superpowers/sdd/` is gitignored, so it never does. The sequence itself — the guarded commits, the skipped-empty rule, the
-failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives;
+failure rule and the symlink case — is the chain **The guarded two-commit chain** (`git-boundaries-commit-chain.md`) gives;
 `<agents repo>/scripts/commit-split.sh` is what runs it, at both this
 call site and the implement phase's PR-exception path.
 

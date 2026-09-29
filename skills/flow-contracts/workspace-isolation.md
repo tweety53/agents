@@ -41,7 +41,7 @@ The derivation, stated precisely enough that two independent implementations agr
    characters, the prefix is that segment's first 12 characters. Every trailing `-` is then removed.
 4. **The id** is the prefix and the digest joined by a single `-`, prefix first: `<prefix>-<digest>`.
 
-```bash verified:run in this worktree on macOS (Darwin 25.5.0) with /usr/bin/shasum, /usr/bin/sed and bash 3.2, under LC_ALL of C, en_US.UTF-8, ru_RU.UTF-8 and tr_TR.UTF-8; every id in a comment is that run's output, identical under all four
+```bash
 name="kan-15-parallel-flow-task-lanes"
 
 prefix="$(printf '%s' "$name" | LC_ALL=C tr 'A-Z' 'a-z' | LC_ALL=C tr -c 'a-z0-9' '-')"
@@ -76,9 +76,7 @@ acceptable.
 (`skills/flow-contracts/workspace-isolation-rationale.md`) for the collision example this
 separates.
 
-**A change name outside `[a-z0-9-]`, stated rather than left to be discovered.** flow change names
-are `<lowercased-jira-key>-<slug>` in practice, so this is a boundary case rather than a daily one,
-and a boundary case nobody has written down is where two implementations drift apart. Step 2 defines
+**A change name outside `[a-z0-9-]`, stated rather than left to be discovered.** Step 2 defines
 it completely, and these are its consequences:
 
 - **Upper case is folded by the ASCII rule only**, never by Unicode case folding. `A`–`Z` lower;
@@ -128,13 +126,11 @@ the one call site added next year, not only the ones that exist today.
 **`<id_underscored>` is that spelling, and the substitution is total: every `-` in the id becomes
 `_`.** It applies to the whole id — the separators inside the prefix and the `-` joining the prefix
 to the digest alike — so the worked name above, `kan-15-parallel-flow-task-lanes`, derives the
-id `kan-15-fb13` and the underscored spelling `kan_15_fb13`. Replacing only the joiner would leave
-`kan-15_fb13`, which still needs quoting and so buys none of what the paragraph above is for, and
-the two readings differ on every id whose prefix has more than one segment. Nothing else is
+id `kan-15-fb13` and the underscored spelling `kan_15_fb13`. Nothing else is
 replaced: the prefix rule already confines the id to `[a-z0-9-]`, so `-` is the only character a
 substitution can have to reach.
 
-```bash verified:run in this worktree on macOS (Darwin 25.5.0) with bash 3.2; continues the id block above, whose $id is kan-15-fb13
+```bash
 id_underscored="${id//-/_}"          # kan_15_fb13
 ```
 
@@ -146,7 +142,7 @@ id exactly as this file derives it.
 
 **The port block is one offset, derived from the same digest:**
 
-```bash verified:run in this worktree on macOS (Darwin 25.5.0) with digest fb13, the digest derived above
+```bash
 offset=$(( (16#$digest % 400 + 1) * 10 ))    # 2760 for digest fb13
 ```
 
@@ -180,14 +176,6 @@ cache which indices are already taken, claims a free one, and uses it for every 
 starts. It is the single value in this contract that is not a function of the change name, and the
 exception is deliberate.
 
-**The reason is the size of the space.** A cache offers **sixteen** indices, so a derived value is
-the digest modulo sixteen and two concurrent workspaces land on the same index one time in sixteen —
-roughly **six percent**. Everywhere else in this contract a collision is either vanishingly unlikely
-or loud: a database name is drawn from 65 536 digests, and a port already bound refuses the bind and
-stops the start. A shared cache index is neither. Two changes would quietly share sessions and
-cache entries, which is exactly the class of silent wrong answer this contract exists to remove, and
-a six-percent silent failure is worse than a rarer loud one.
-
 **That argument holds only while a probe can see the previous claim, so the claim is written where
 the next probe looks — inside the cache itself.** See **The cache index**
 (`skills/flow-contracts/workspace-isolation-rationale.md`) for why a private claim would invert
@@ -216,8 +204,7 @@ deriving-and-refusing alternative that was considered and rejected for this desi
 
 **There is no expiry, deliberately.** See **The cache index**
 (`skills/flow-contracts/workspace-isolation-rationale.md`) for why a lease-based lifetime would
-expire under a live workspace. Identity replaces it: a claim naming its holder can be released,
-reported and listed by name. The claim also lives exactly as long as what it protects, since it is
+expire under a live workspace. The claim also lives exactly as long as what it protects, since it is
 kept in the index it reserves — a cache that restarts without persistence loses the claim and the
 entries together, which is correct, because there is then nothing left to keep apart.
 
@@ -232,12 +219,6 @@ restart may be kept there.
 See **The cache index** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why run 2
 cannot know which index to sweep. What that leaves behind and why it is acceptable are stated once
 under **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`).
-**A project whose claim is visible can do better than the pipeline
-can**, and the ceiling above is the reason to: releasing the claim in its own `remove` command,
-reporting a claim that outlived cleanup through `survivors`, and listing every claim on the machine
-without needing an id — which is what an abandoned change does not leave behind. None of that is
-required here, and none of it changes the registry row.
-
 
 ## The empty id
 
@@ -329,9 +310,7 @@ registry row promises that a workspace's database and bucket are *gone*,
 and "ran the removal" is not *verified gone* — a removal that reported success against a stale
 connection, or a bucket a policy refused to delete, both leave the promise broken with nothing
 having failed. A survivor is therefore established by asking, never inferred from the removal's exit
-code. Why a third verb rather than two, rather than reading the removal's own result: the guard that
-checks the row lives in the agents repository and must stay project-agnostic, so it cannot hold
-`psql -l` or one project's object-store client. The project owns the question and answers it in its
+code. The project owns the question and answers it in its
 own configuration, exactly as it owns creation and removal —
 see **Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`), canonical for how
 the three commands are written, what the survivor report prints, what its exit code means, what a

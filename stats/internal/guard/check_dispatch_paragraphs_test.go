@@ -48,13 +48,14 @@ type dpCase struct {
 }
 
 // dpFixture is new_root plus the case's files: every root carries a
-// visual-verify.md with its three required blocks at both of its dispatch
-// sites, which a case may overwrite.
+// visual-verify.md and a visual-verify-tooling-analysis.md, each with its
+// three required blocks at its one dispatch site, which a case may overwrite.
 func dpFixture(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	flow := filepath.Join(root, "skills", "flow")
 	writeFile(t, filepath.Join(flow, "visual-verify.md"), dpCleanVisualVerify+"\n")
+	writeFile(t, filepath.Join(flow, "visual-verify-tooling-analysis.md"), dpCleanVisualVerify+"\n")
 	for name, body := range files {
 		writeFile(t, filepath.Join(flow, name), body+"\n")
 	}
@@ -142,7 +143,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 27 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 30 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -168,7 +169,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 				"visual-verify.md": dpCleanVisualVerify +
 					"\n> **TOOLS:** in your first turn\x00 never a wildcard query re-prices your whole context"},
 			rc: 1, stdout: func(root string) string {
-				f := root + `/skills/flow/visual-verify.md:28: block carrying "**TOOLS:**" is missing the required phrase: `
+				f := root + `/skills/flow/visual-verify.md:14: block carrying "**TOOLS:**" is missing the required phrase: `
 				return f + `"never a wildcard query"` + "\n" + f + `"re-prices your whole context"` + "\n" +
 					"DISPATCH-PARAGRAPHS-INVALID: " + root + " — 2 violation(s)\n"
 			}},
@@ -183,7 +184,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 27 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 30 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -695,15 +696,15 @@ var dpCases = []dpCase{
 			dpHas("case 49: names the dropped phrase", "review-panel.md", "missing the required phrase: \"the leaf of this run\""),
 		}},
 	{files: map[string]string{
-		"visual-verify.md": dpDoc(dpToolsBlock, dpHandshakeBlock, dpDelegationBlock),
-		"review-panel.md":  dpCleanReviewPanel,
-		"implement.md":     dpCleanImplement,
+		"visual-verify-tooling-analysis.md": "No dispatch paragraphs here at all, just prose.",
+		"review-panel.md":                   dpCleanReviewPanel,
+		"implement.md":                      dpCleanImplement,
 	},
 		checks: []dpCheck{
-			dpRC("case 50a: one block of each in visual-verify.md exits 1", 1),
-			dpHas("case 50a: names the TOOLS min-blocks violation at its own threshold", "visual-verify.md", "requires at least 2 block(s) carrying the label \"**TOOLS:**\", found 1"),
-			dpHas("case 50a: names the MODEL HANDSHAKE min-blocks violation at its own threshold", "visual-verify.md", "requires at least 2 block(s) carrying the label \"**MODEL HANDSHAKE:**\", found 1"),
-			dpHas("case 50a: names the NO DELEGATION min-blocks violation at its own threshold", "visual-verify.md", "requires at least 2 block(s) carrying the label \"**NO DELEGATION:**\", found 1"),
+			dpRC("case 50a: no block of each in visual-verify-tooling-analysis.md exits 1", 1),
+			dpHas("case 50a: names the TOOLS min-blocks violation at its own threshold", "visual-verify-tooling-analysis.md", "requires at least 1 block(s) carrying the label \"**TOOLS:**\", found 0"),
+			dpHas("case 50a: names the MODEL HANDSHAKE min-blocks violation at its own threshold", "visual-verify-tooling-analysis.md", "requires at least 1 block(s) carrying the label \"**MODEL HANDSHAKE:**\", found 0"),
+			dpHas("case 50a: names the NO DELEGATION min-blocks violation at its own threshold", "visual-verify-tooling-analysis.md", "requires at least 1 block(s) carrying the label \"**NO DELEGATION:**\", found 0"),
 		}},
 	{files: map[string]string{
 		"visual-verify.md": dpDoc(dpToolsBlock, dpHandshakeBlock),
@@ -1579,6 +1580,7 @@ var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlo
 var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock)
 var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock)
 
-// dpCleanVisualVerify is visual-verify.md at its two dispatch sites -- the
-// verifier and the tooling analyst -- each carrying its three blocks.
-var dpCleanVisualVerify = dpDoc(dpToolsBlock, dpHandshakeBlock, dpDelegationBlock, dpToolsBlock, dpHandshakeBlock, dpDelegationBlock)
+// dpCleanVisualVerify is one visual-verify site file at its one dispatch
+// site -- the verifier in visual-verify.md, the tooling analyst in
+// visual-verify-tooling-analysis.md -- carrying its three blocks.
+var dpCleanVisualVerify = dpDoc(dpToolsBlock, dpHandshakeBlock, dpDelegationBlock)

@@ -1,16 +1,4 @@
-Use this template for the panel's **Primary** slot — plan alignment plus senior code review, on
-every decided roster and on the docs-only and late-fix reductions, dispatched like every other slot,
-per **The roster** (`skills/flow/review-panel.md`).
-
-Read-only review.
-
 ```
-Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;   
-                                            # flow-<effort> on a decided panel
-  description: "Code review (primary)"
-  model: <the bundle's own model>             # `opus` on a `default` panel, the decision's
-                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
-  prompt: |
     You are a Senior Code Reviewer with expertise in software architecture, design
     patterns, and best practices. Your job is to review this diff against its plan and
     against code-quality standards, and to identify issues before they cascade into more
@@ -74,15 +62,8 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 
     ## Calibration
 
-    Categorize by actual severity — not everything is Critical, and a nitpick is never one.
-
-    - **Critical** — bugs, security issues, data-loss risks, broken functionality; a
-      planned piece missing outright.
-    - **Important** — architecture problems, poor error handling, test gaps; a task field
-      that no longer reflects the diff; a defect that produces a wrong result under a
-      realistic input.
-    - **Minor** — code style, optimization opportunities, documentation polish; a defensive
-      check worth adding even though nothing in this diff currently exercises the gap.
+    Read the calibration file at [CALIBRATION_PATH] and categorize every finding by the
+    severity it defines.
 
     ## Output Format
 
@@ -114,3 +95,4 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
   `<project>/spectre/changes/<name>/`.
 - `[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
   (`skills/flow/review-panel.md`): one path per worktree in this run's resolved set.
+- `[CALIBRATION_PATH]` — the absolute path of `reviewer-calibration.md` beside this file.

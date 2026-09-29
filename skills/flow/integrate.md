@@ -172,6 +172,8 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome completed 
 
 **Load `skills/flow-contracts/git-boundaries.md`** before either commit below.
 
+**Load `skills/flow-contracts/git-boundaries-commit-chain.md`** before either commit below.
+
 ```bash
 flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
 ```
@@ -231,8 +233,8 @@ planning message's subject is the fixed literal `chore(spectre): plan`; on **Con
 message also lists the outstanding work, as below.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
-symlinked-planning-path case are all under **Git boundaries**
-(`skills/flow-contracts/git-boundaries.md`).
+symlinked-planning-path case are all under **The guarded two-commit chain**
+(`skills/flow-contracts/git-boundaries-commit-chain.md`).
 
 **Implementation first, planning delta second.** The second commit's message lists anything the
 operator chose to integrate over at **1**. The state file is **not** committed.

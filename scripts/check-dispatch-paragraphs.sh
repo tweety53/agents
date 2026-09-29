@@ -133,7 +133,8 @@
 #   The verifier dispatch moved from verify-and-handoff.md to visual-verify.md
 #   when the visual-verification procedure split into its own on-demand file,
 #   so its three sites below name the new file; the tooling-analyst dispatch
-#   there carries a second block of each, hence min 2.
+#   moved on to visual-verify-tooling-analysis.md (KAN-858), which loads only
+#   on a fix run with a miss, so each file carries one block of each.
 #
 #   Paragraph                          Site                        Min  Variants
 #   **REPRODUCE, DON'T READ:**         skills/flow/review-panel.md  1   reviewer
@@ -147,14 +148,17 @@
 #   **PIXEL PROBE:**                   skills/flow/review-panel.md  1   (none)
 #   **TOOLS:**                         skills/flow/implement.md     2   (none)
 #   **TOOLS:**                         skills/flow/review-panel.md  2   (none)
-#   **TOOLS:**                         skills/flow/visual-verify.md 2   (none)
+#   **TOOLS:**                         skills/flow/visual-verify.md 1   (none)
+#   **TOOLS:**                         skills/flow/visual-verify-tooling-analysis.md 1 (none)
 #   **MODEL HANDSHAKE:**               skills/flow/implement.md     2   (none)
 #   **MODEL HANDSHAKE:**               skills/flow/review-panel.md  2   (none)
-#   **MODEL HANDSHAKE:**               skills/flow/visual-verify.md 2   (none)
+#   **MODEL HANDSHAKE:**               skills/flow/visual-verify.md 1   (none)
+#   **MODEL HANDSHAKE:**               skills/flow/visual-verify-tooling-analysis.md 1 (none)
 #   **INDEPENDENT PASSES:**            skills/flow/review-panel.md  1   (none)
 #   **NO DELEGATION:**                 skills/flow/implement.md     2   (none)
 #   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
-#   **NO DELEGATION:**                 skills/flow/visual-verify.md 2   (none)
+#   **NO DELEGATION:**                 skills/flow/visual-verify.md 1   (none)
+#   **NO DELEGATION:**                 skills/flow/visual-verify-tooling-analysis.md 1 (none)
 #   **PROVE THE GUARD BITES:**         skills/flow/implement.md     1   (none)
 #   **REPORT, DON'T DECIDE:**          skills/flow/implement.md     1   (none)
 #   **ENTRY CONTEXT:**                 skills/flow/review-panel.md  1   (none)
@@ -253,8 +257,8 @@
 #   conductor's own copy, and the planner's in
 #   brainstorm.md, were removed with those roles, kan-488), twice in
 #   review-panel.md (panel slot dispatch, panel-fix subagent dispatch),
-#   and twice in visual-verify.md (verifier dispatch, tooling-analyst
-#   dispatch).
+#   and once each in visual-verify.md (verifier dispatch) and
+#   visual-verify-tooling-analysis.md (tooling-analyst dispatch).
 #
 #   MODEL HANDSHAKE shared phrases (no variants — every block carrying the
 #   label must carry all three): "the first line of your first reply",
@@ -263,8 +267,9 @@
 #   dispatch — the conductor's own copy, and
 #   the planner's in brainstorm.md, were removed with those roles,
 #   kan-488), twice in review-panel.md (panel slot dispatch, panel-fix
-#   subagent dispatch), and twice in visual-verify.md (verifier
-#   dispatch, tooling-analyst dispatch) — the same six sites TOOLS occupies.
+#   subagent dispatch), and once each in visual-verify.md (verifier
+#   dispatch) and visual-verify-tooling-analysis.md (tooling-analyst
+#   dispatch) — the same sites TOOLS occupies.
 #
 #   INDEPENDENT PASSES shared phrases (no variants — every block carrying the
 #   label must carry all three): "starts from `final-review.diff`", "raise it
@@ -278,8 +283,9 @@
 #   a subagent", "the leaf of this run". Required twice in implement.md
 #   (implementer dispatch, gated per-task reviewer dispatch), twice in
 #   review-panel.md (panel slot dispatch,
-#   panel-fix subagent dispatch), twice in visual-verify.md (verifier
-#   dispatch, tooling-analyst dispatch) — there is no conductor or planner dispatch left to be a site
+#   panel-fix subagent dispatch), once each in visual-verify.md (verifier
+#   dispatch) and visual-verify-tooling-analysis.md (tooling-analyst
+#   dispatch) — there is no conductor or planner dispatch left to be a site
 #   (kan-488): the parent orchestrates directly and runs brainstorming
 #   inline.
 #

@@ -28,7 +28,7 @@ import (
 // recordRoles is the closed set of roles a dispatch row may record --
 // design.md's own `implementer · reviewer · panel-fix · red-partner ·
 // planner · conductor · verifier`, planner being the tooling analyst
-// skills/flow/visual-verify.md dispatches when a fix run reports a missed
+// skills/flow/visual-verify-tooling-analysis.md dispatches when a fix run reports a missed
 // defect (KAN-550) -- brainstorm.md's sections B-D and flow.document-fix,
 // which design.md's planner-role once dispatched, are the parent's own
 // inline work now -- conductor being the

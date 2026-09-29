@@ -1,8 +1,6 @@
 # Agent baseline — the rules that hold at every depth
 
-This is the one file a dispatched agent has to read. It carries **one line per rule plus a pointer to
-that rule's own file** — never a copy of the rule, so there is nothing here to drift out of sync with
-the source.
+This is the one file a dispatched agent has to read.
 
 ## Propagate this
 
@@ -12,11 +10,7 @@ in every subagent prompt you write:
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
 
-Unconditionally — not only when a rule looks relevant to the sub-task. You cannot know from a
-dispatch prompt whether the agent will end up touching production, adding a dependency, or pushing a
-branch. An agent that inherits nothing and is told nothing has no rules at all.
-
-This is enforced: a `PreToolUse` hook denies any dispatch whose prompt omits the pointer. Two
+Unconditionally — not only when a rule looks relevant to the sub-task. Two
 carve-outs — a `fork` subagent inherits the parent's full context and needs none, and an agent
 without file-read access needs the relevant rules inlined instead.
 
@@ -51,9 +45,7 @@ on Claude Code, `<project>/AGENTS.md` on ZCode; the other is the same instructio
 other harness, so never read it as well. Project rules are more specific than these and win where they overlap, including which lint,
 test and run commands the rules above actually mean. For a flow project those commands live in
 `<project>/.flow/project.md`, and any `/flow*` step loads its own contract file first; never act on a
-remembered version of a contract. The flow pipeline is deliberately absent from the table above —
-it is command-triggered, and summarising a state machine is exactly the staleness its own rule
-forbids.
+remembered version of a contract.
 
 ## Reporting back
 

@@ -149,7 +149,7 @@ overrides:
 | `mutation` | **Mutation** — sabotage-proofing | `flow-low` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** This repository's
-`primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
+`primary-reviewer-prompt.md` and `reviewer-calibration.md` (Primary), `principles-reviewer-prompt.md` and
 `engineering-principles.md` (Principles),
 `failure-modes-reviewer-prompt.md` (Failure-modes), and
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
@@ -162,6 +162,7 @@ substituted in the dispatch prompt with the value named here:
 |---|---|---|
 | `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
 | `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory the dispatch context bundle reads (`<changeRoot>`, or a satellite's canonical change directory) |
+| `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
 | `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
 | `[PRINCIPLES_PATH]` | principles | as the Principles section below resolves it |
 | `[STANDARDS_PATHS]` | principles | as the Principles section below resolves it; empty when none resolve |
@@ -603,7 +604,13 @@ Principles, when dispatched, is the panel's judgment check on *how* the code is 
 its standards files.
 
 **Resolve `[PRINCIPLES_PATH]` before dispatching the principles slot.** It is the **absolute** path
-of `engineering-principles.md` **beside this file** — `skills/flow/`, always. Confirm the file
+of `engineering-principles.md` **beside this file** — `skills/flow/`, always. Under the global install that is
+`~/.claude/skills/flow/engineering-principles.md`; under a
+project-local install it is `<project>/.claude/skills/…` or `<project>/.zcode/skills/…`.
+Resolve it from where this file was actually read — never hardcode a repo-relative
+`skills/…` path: the subagent's working directory is the project worktree, which has no
+`skills/` tree, so a relative path fails to open and the reviewer loses its principle
+list. Confirm the file
 exists before spawning; if it does not, stop and report rather than dispatching a blind reviewer.
 
 **Resolve `[STANDARDS_PATHS]` before dispatching the principles slot**, from the entries
