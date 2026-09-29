@@ -17,6 +17,7 @@
 **Critical** — bugs, security issues, data-loss risks, broken functionality; a
 **Every app root is absolute**, resolved from `git worktree list` or the state file's `worktrees`
 **Every capture asserts the view is on screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the capture instead of becoming its baseline.
+**Handshake** as **The verifier dispatch** above states it, compared against `opus`.
 **Important** — architecture problems, poor error handling, test gaps; a task field
 **Load `skills/flow-contracts/artifacts-registry.md`** — the worktree and branch created at `flow.kickoff` are rows in it.
 **Load `skills/flow-contracts/workspace-isolation.md` only when `prepare-workspace.sh` exited non-zero, or exited 0 with stderr naming a `cache index` row** — the procedures for both live there; the ordinary exit-0 run loads nothing.
@@ -31,7 +32,8 @@
 **REPORT FILE:** write this pass's report to `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` before beginning the next pass, the bundle's last one as your **last** act — a `## Verdict` section carrying exactly `clean` or `fix`, and each finding with its file, line and severity — Critical, Important or Minor as `skills/flow/reviewer-calibration.md` defines them.
 **Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md?
 **Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify.md?
-**`<project>/spectre/changes/` is never part of a task commit.
+**`capture` creates this change's baseline**: writing a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate over an already-committed baseline, `capture` is not, and only a `capture` failure for some other reason blocks (see **Blocking** below).
+**`capture` creates this change's baseline**: writing a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate over an already-committed baseline, `capture` is not, and only a `capture` failure for some other reason blocks (see Blocking in `skills/flow/visual-verify.md`).
 - **Critical** — bugs, security issues, data-loss risks, broken functionality; a
 - **Important** — architecture problems, poor error handling, test gaps; a task field
 - **Minor** — code style, optimization opportunities, documentation polish; a defensive
@@ -67,6 +69,7 @@ The guarded two-commit chain that enforces the split between implementation and 
 The guards, the skipped-empty rule, the stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries** (`skills/flow-contracts/git-boundaries.md`).
 The pre-edit description line is present only on a fix run that synced the description in **3. Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or reflowing it.
 The reader is the dispatched reviewer.
+The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame list before applying **Blocking**, and a declared frame with no line blocks as a departure would.
 The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this call site and the implement phase's PR-exception path.
 The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the symlink case — is the chain **The guarded two-commit chain** (`git-boundaries-commit-chain.md`) gives; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this call site and the implement phase's PR-exception path.
 The state sweeps run on the captures alone and are the default on every `flow.visual-verify` run, composed or not.
@@ -92,7 +95,7 @@ Which git actions each command may take, the planning commits, and the guarded t
 \## Your Scope
 `## Structure`, `## Simplicity & state`, and `## Robustness & ops`, as
 `## lint`, `## test` and `check-spec-reach.sh <worktree>` **are the parent's own Bash calls, run inline per worktree, never through a subagent** — its work in this stage is `prepare-workspace.sh`, those commands, the visual-verify dispatch below and the ledger render.
-`<project>/spectre/specs/` is not planning — a capability spec belongs in the task commit that implements its requirement.
+`<path>` is the table's **Carries** cell with its `<project>/` prefix dropped — relative to the worktree root — and an empty delta skips the commit rather than failing it, exactly as the two-commit chain below skips.
 `MISSING: <kind>` means the store holds no rows of that kind and nothing was written — report it.
 `[CALIBRATION_PATH]` — the absolute path of `reviewer-calibration.md` beside this file.
 `[PRINCIPLES_PATH]` — the **absolute** path of `engineering-principles.md` inside the

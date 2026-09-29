@@ -1,7 +1,7 @@
 # Visual verification — the verifier's steps
 
 Read by the verifier **Steps 3–13** (`skills/flow/visual-verify.md`) dispatches, at the absolute
-path its prompt carries — the parent never loads this file. It carries step 4, steps 7–11 and the
+path its prompt carries — the parent never loads it whole. It carries step 4, steps 7–11 and the
 `## Report` template, run as written.
 
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
@@ -27,7 +27,7 @@ path its prompt carries — the parent never loads this file. It carries step 4,
    frame and call the result a fidelity check. **`capture` creates this change's baseline**: writing
    a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
-   reason blocks (see **Blocking** below). A `toHaveScreenshot` passing over a baseline this
+   reason blocks (see Blocking in `skills/flow/visual-verify.md`). A `toHaveScreenshot` passing over a baseline this
    change wrote is the app agreeing with itself, never with the mockup — step 10 is the only
    comparison, and `capture: exit 0` is never evidence of a frame's fidelity. **Seed the spec with data the frame does not
    draw.** A mockup is drawn on a happy case, and a spec whose fixture reproduces it verifies only that case:
@@ -277,8 +277,7 @@ path its prompt carries — the parent never loads this file. It carries step 4,
       container padding around correctly-sized controls is invisible to every reading but this one.
    10. **Every non-text ink the frame draws — hairline, divider, rule, border, background fill,
       shadow band — inventoried from the frame alone, then found in the capture one by one.**
-      The
-      horizontal inks — every hairline, rule, fill band and border edge the frame draws across
+      The horizontal inks — every hairline, rule, fill band and border edge the frame draws across
       the page — are the frame's bands, and the band pairing above has already listed each one
       `missing` or paired with its colour; the vertical inks inside every bordered or filled
       band — a control's sides, its cell dividers, a card's inner rules — are its seams, and the

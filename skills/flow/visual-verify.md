@@ -110,8 +110,10 @@ parent applies **Blocking** to its report. Its prompt states: the absolute workt
 `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture` and
 `specs` commands and `screenshots` root, its resolved `mockups` root when
 declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths`
-matched; the project's `## run` commands; the views touched; `<changeRoot>`; `sweeps-<n>.md`'s path
-when **A missed defect — the tooling analysis** above completed this round; and to read the absolute path of
+matched; the project's `## run` commands; the views touched; `<changeRoot>`; the relay contract
+above, with its report path resolved for this dispatch's `<key>`; `sweeps-<n>.md`'s path
+when **A missed defect — the tooling analysis** above completed this round, with the re-run rule
+its loaded file states, as written; and to read the absolute path of
 `visual-verify-verifier.md` beside this file and run its steps 4 and 7–11 as written against the stack steps 5 and 6 left serving the
 worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
 
@@ -203,7 +205,7 @@ worktree's build, starting, stopping and restarting nothing, committing and push
 13. **Stop the stack only if step 5 or step 6 started it** — the parent, once the verifier's report is in. A stack the operator already had running is left
     alone.
 
-The report's `frames:` line counts against that list and names every declared frame absent from the
+The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
 per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame
 list before applying **Blocking**, and a declared frame with no line blocks as a departure
 would. The matrix rides `visual-verification.md` (step 11) under the frame's entry, and the

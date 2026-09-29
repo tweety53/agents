@@ -98,6 +98,7 @@ moving Planning commits out of the finish session, would recover it. It is out o
 
 | Rows | Reason |
 |---|---|
+| VH-10 | Cut, then restored in review: without its first two sentences the blockquote no longer says what must not slip in. |
 | VH-21 | Its canonical copy in `SKILL.md` was removed by KAN-855. `implement.md` states only that the parent does the work itself, not that the handoff is printed directly in the same turn, so the paragraph stays. |
 | VV-07, VV-09, VV-13, VV-14 | Low confidence in the audit. Each carries a scope note, or the next sentence depends on it ("The report's `sweeps:` line then…"). |
 | VV-01–VV-03 | Not in KAN-858's scope. VV-01 is the hook-enforced baseline pointer. |
@@ -144,5 +145,34 @@ environment: root and locale). No test fails that did not fail before.
 The transcript of one real UI run, which KAN-858's "Done when" asks for, cannot be produced in this
 environment: it has no UI project and no `flow`/`spectre` CLIs. Structurally, the verifier's prompt
 contract names every item it named before and adds the file path.
+
+## Review
+
+A read-only review of `dee8831d` raised one Important finding and several Minor ones. All are fixed
+in the follow-up commit.
+
+- **Important: the verifier's prompt contract.** It named only the verifier file, so the verifier no
+  longer received two things it had been given before:
+  - the relay contract (the report path the parent's `test -s` waits on);
+  - the tooling analyst's re-run rule.
+
+  **Steps 3–13** now lists both.
+- **Dangling cross-file references**, repointed:
+  - "see Blocking below";
+  - "**The verifier dispatch** above";
+  - "the two-commit chain below";
+  - the parent's "that list".
+- **VH-10:** restored, as D6 records.
+- **Cosmetic and stale text:**
+  - a torn line in sweep 10;
+  - the verifier file's header, which now reads "never loads it whole", because `document-fix.md`
+    cites step 10 there by section;
+  - a stale "verified bash block" test comment.
+
+Left as is:
+
+- **`implement.md`'s repo-relative calibration path for the per-task reviewer.** The citation it
+  replaced had the same form, so the problem predates this change.
+- **"That argument" in `workspace-isolation.md` after WI-02.** The audit acknowledged it.
 
 ## Open questions

@@ -54,7 +54,7 @@ this task, as written:
 **Recording.** The parent records the dispatch `-role planner`, `-task` omitted, `-model
 opus -effort high`, `-key tooling-analysis-<n>`, suffixed `-<worktree basename>` under
 the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here,
-not restated. **Handshake** as **The verifier dispatch** above states it, compared against `opus`.
+not restated. **Handshake** as **The verifier dispatch** (`skills/flow/visual-verify.md`) states it, compared against `opus`.
 
 **The re-run.** The verifier's prompt then carries `sweeps-<n>.md`'s path, and the verifier runs
 its sweeps in step 10 beside the sweeps listed there, on every view and frame the change touches

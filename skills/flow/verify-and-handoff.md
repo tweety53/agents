@@ -197,7 +197,9 @@ git -C <worktree> status
 git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> This step only confirms nothing slipped in.
+> **`<project>/spectre/changes/` is never part of a task commit.** `<project>/spectre/specs/`
+> is not planning — a capability spec belongs in the task commit that implements its
+> requirement. This step only confirms nothing slipped in.
 
 **Load `skills/flow-contracts/git-boundaries.md`** before committing below.
 

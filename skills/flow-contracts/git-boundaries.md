@@ -57,7 +57,7 @@ check-planning-commit-location.sh <abs-worktree> <name> \
 ```
 
 `<path>` is the table's **Carries** cell with its `<project>/` prefix dropped — relative to the worktree root — and an empty delta skips the commit rather than failing
-it, exactly as the two-commit chain below skips. `<peer>` is the peer name the link command was
+it, exactly as the two-commit chain (`skills/flow-contracts/git-boundaries-commit-chain.md`) skips. `<peer>` is the peer name the link command was
 given. **`spectre link` is never run with `--force`**: it refuses while the canonical change
 directory carries uncommitted modifications, and the answer to that refusal is the planning commit
 above, never an override. Integrate's reshape (**Branch backup** below) keeps every planning commit

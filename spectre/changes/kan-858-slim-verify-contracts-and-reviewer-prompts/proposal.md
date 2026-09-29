@@ -33,8 +33,8 @@ lines listed in `verbatim-moves.txt`.
 
    The file is not split physically.
 4. **AR-01:** implement.md no longer loads `artifacts-registry.md`. The finish session keeps it.
-5. **Duplicates cut in `verify-and-handoff.md`:** VH-03, VH-05, VH-06, VH-09, VH-10, VH-12, VH-15,
-   VH-18 and VH-20.
+5. **Duplicates cut in `verify-and-handoff.md`:** VH-03, VH-05, VH-06, VH-09, VH-12, VH-15, VH-18
+   and VH-20.
 6. **GB-01 + VH-11:** `git-boundaries.md`'s two-commit chain moves to
    `skills/flow-contracts/git-boundaries-commit-chain.md`. `integrate.md` loads it.
    `verify-and-handoff.md` loads it only when a `prUrl` is recorded.

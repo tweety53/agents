@@ -8,7 +8,7 @@ import (
 )
 
 // TestDeriveWorkspaceID covers the worked examples
-// skills/flow-contracts/workspace-isolation.md's verified bash block names
+// skills/flow-contracts/workspace-isolation.md's first bash block names
 // verbatim, plus one case whose first normalised segment alone exceeds 12
 // characters (the second branch of the prefix rule).
 func TestDeriveWorkspaceID(t *testing.T) {
