@@ -49,10 +49,13 @@
 # a shim sources it; it sets no shell options of its own.
 
 # flow_guard_key <stats-dir> — print the cache key of the flow-guard sources
-# under <stats-dir>, or return non-zero if they cannot be hashed.
+# under <stats-dir>, or return non-zero if they cannot be hashed. The glob
+# sorts in C's byte order: under the caller's collation one tree would hash
+# to a key per locale and build its binary once per key.
 flow_guard_key() {
   (
     cd "$1" || exit 1
+    LC_ALL=C
     files=(go.mod go.sum)
     for f in cmd/flow-guard/*.go internal/guard/*.go; do
       case "$f" in *_test.go) ;; *) files+=("$f") ;; esac

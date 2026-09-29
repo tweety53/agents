@@ -474,10 +474,9 @@ func idleMaster() string {
 // its own costs each such test a `go build` of flow-guard and the first exec
 // of a new binary, which macOS assesses serialised machine-wide
 // (execFixtures). The key is the sources' hash, so a shim run from any
-// checkout of these sources finds the one binary -- under this process's
-// locale: flow_guard_key's glob sorts by collation, so a shim run with no
-// LANG (check_plan_provenance's) keys and builds a second. A test about the
-// build itself -- no go, a broken go -- keeps an empty cache of its own.
+// checkout of these sources, under any locale, finds the one binary. A test
+// about the build itself -- no go, a broken go -- keeps an empty cache of its
+// own.
 // Lives in execFixtures.dir, which TestMain removes after the run.
 func guardCache(t *testing.T) string {
 	t.Helper()

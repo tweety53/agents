@@ -212,6 +212,13 @@ for shim in check-cleanup-complete check-panel-reproducer-exit-contract check-ta
   check "case 14: scripts/$shim.sh run by bare filename loads its lib" $?
 done
 
+# 15. The key does not depend on the caller's collation: this checkout's own
+#     sources, whose names a UTF-8 locale orders differently from C, hash to
+#     one key under both, so one tree never builds two binaries.
+key_in() { LC_ALL="$1" bash -c '. "$1"; flow_guard_key "$2"' _ "$LIB" "$REPO/stats"; }
+kc="$(key_in C)" && ku="$(key_in en_US.UTF-8)" && [ -n "$kc" ] && [ "$kc" = "$ku" ]
+check "case 15: the key is identical under LC_ALL=C and LC_ALL=en_US.UTF-8 (C=$kc en_US=$ku)" $?
+
 # 10. A shim with no stats/ beside its checkout exits the cannot-answer code.
 rm -rf "$FIX/stats"
 run "$FIX/scripts/check-x.sh"
