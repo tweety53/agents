@@ -1238,7 +1238,8 @@ against its defect identity. **Inline no source excerpt.**
 
 Dispatched on `DEFAULT_MODEL` (below); the dispatcher compares that line against it and applies
 **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first
-mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a fallback plus
+mismatch is a fallback plus one retry under `panel-fix-<round>[-<chunk>]-retry` — the only
+retry key `check-panel-fix-single-dispatch.sh` accepts; a second is a fallback plus
 the **AskUserQuestion** it states.
 
 **Every fix subagent's dispatch prompt also carries the TARGETED TESTS paragraph**:
@@ -1283,7 +1284,10 @@ the **AskUserQuestion** it states.
 > the fix reverted, where it must report the defect, and with the fix applied, where it must not;
 > the line records the measured pre/post observable, not a bare test name. Record one
 > `fix-mutation:` line per behaviour in your report, plus a
-> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where
+> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —
+> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt; for
+> a guard-script fix the third field is the measured `<pre>→<post> <what the observable counts>`
+> (`2→0 orphaned temp lists`); and one `fix-mutations-total: <n>` line after them. Where
 > you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
 > than deciding it yourself.
 

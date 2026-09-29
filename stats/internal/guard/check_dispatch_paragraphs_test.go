@@ -566,6 +566,14 @@ var dpCases = []dpCase{
 			dpHas("case 44: names the missing phrase", "never buys a test"),
 		}},
 	{files: map[string]string{
+		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlockNoShape),
+		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock),
+	},
+		checks: []dpCheck{
+			dpRC("case 91: a MUTATION PROOF block that cites the fenced block instead of stating the fix-mutation: shape exits 1", 1),
+			dpHas("case 91: names the missing phrase", "missing the required phrase: \"`fix-mutation: <path> — <what was mutated> — <the test that failed>`\""),
+		}},
+	{files: map[string]string{
 		"review-panel.md": dpCleanReviewPanel,
 		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, "No TOOLS paragraph here at all, just prose.", dpHandshakeBlock, dpDelegationBlock),
 	},
@@ -1118,7 +1126,9 @@ const (
 		"> revert would also change state a second check reads, split it into surgical mutations, one per\n" +
 		"> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before\n" +
 		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
-		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where\n" +
+		"> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —\n" +
+		"> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt;\n" +
+		"> and one `fix-mutations-total: <n>` line after them. Where\n" +
 		"> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather\n" +
 		"> than deciding it yourself."
 	dpMutationBlockNoMutationProved = "> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before your\n" +
@@ -1133,7 +1143,9 @@ const (
 		"> revert would also change state a second check reads, split it into surgical mutations, one per\n" +
 		"> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before\n" +
 		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
-		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where\n" +
+		"> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —\n" +
+		"> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt;\n" +
+		"> and one `fix-mutations-total: <n>` line after them. Where\n" +
 		"> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather\n" +
 		"> than deciding it yourself."
 	dpMutationBlockNoConfirmAndRestore = "> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you\n" +
@@ -1148,7 +1160,9 @@ const (
 		"> revert would also change state a second check reads, split it into surgical mutations, one per\n" +
 		"> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before\n" +
 		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
-		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where\n" +
+		"> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —\n" +
+		"> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt;\n" +
+		"> and one `fix-mutations-total: <n>` line after them. Where\n" +
 		"> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather\n" +
 		"> than deciding it yourself."
 	dpMutationBlockNoSurvivingMutant = "> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you\n" +
@@ -1163,7 +1177,9 @@ const (
 		"> revert would also change state a second check reads, split it into surgical mutations, one per\n" +
 		"> mechanism. A mutation no test catches is an uncaught mutation: add the test that catches it before\n" +
 		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
-		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where\n" +
+		"> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —\n" +
+		"> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt;\n" +
+		"> and one `fix-mutations-total: <n>` line after them. Where\n" +
 		"> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather\n" +
 		"> than deciding it yourself."
 	dpMutationBlockNoEditLanded = "> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you\n" +
@@ -1178,7 +1194,9 @@ const (
 		"> revert would also change state a second check reads, split it into surgical mutations, one per\n" +
 		"> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before\n" +
 		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
-		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where\n" +
+		"> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —\n" +
+		"> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt;\n" +
+		"> and one `fix-mutations-total: <n>` line after them. Where\n" +
 		"> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather\n" +
 		"> than deciding it yourself."
 	dpMutationBlockNoRefusal = "> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you\n" +
@@ -1193,7 +1211,9 @@ const (
 		"> revert would also change state a second check reads, split it into surgical mutations, one per\n" +
 		"> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before\n" +
 		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
-		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where\n" +
+		"> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —\n" +
+		"> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt;\n" +
+		"> and one `fix-mutations-total: <n>` line after them. Where\n" +
 		"> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather\n" +
 		"> than deciding it yourself."
 	dpMutationBlockNoNeverBuys = "> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you\n" +
@@ -1208,9 +1228,23 @@ const (
 		"> revert would also change state a second check reads, split it into surgical mutations, one per\n" +
 		"> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before\n" +
 		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
-		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where\n" +
+		"> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —\n" +
+		"> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt;\n" +
+		"> and one `fix-mutations-total: <n>` line after them. Where\n" +
 		"> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather\n" +
 		"> than deciding it yourself."
+	// dpMutationBlockNoShape is the pre-KAN-854 wording: it pointed the fix
+	// subagent at "the review-panel contract's fenced block", which its
+	// dispatch never carries, instead of stating the fix-mutation: shape.
+	dpMutationBlockNoShape = "> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you\n" +
+		"> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a\n" +
+		"> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit\n" +
+		"> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that\n" +
+		"> never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never\n" +
+		"> buys a test. Then confirm an existing test fails, and restore.\n" +
+		"> A mutation no test catches is a surviving mutant: add the test that catches it before\n" +
+		"> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a\n" +
+		"> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives."
 	dpToolsBlock = "> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,\n" +
 		"> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,\n" +
 		"> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a\n" +

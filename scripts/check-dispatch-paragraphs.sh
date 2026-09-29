@@ -196,10 +196,13 @@
 #   is not a site: reviewers do not run the task's tests.
 #
 #   MUTATION PROOF shared phrases (no variants — every block carrying the
-#   label must carry the full set of six): "mutation-proved before you end your
+#   label must carry the full set of seven): "mutation-proved before you end your
 #   turn", "confirm an existing test fails, and restore", "a surviving
 #   mutant", "confirm the edit landed", "a refusal, not a surviving
-#   mutant", "never buys a test". Required once, at the panel-fix subagent
+#   mutant", "never buys a test", and the line shape itself,
+#   "`fix-mutation: <path> — <what was mutated> — <the test that failed>`" —
+#   the fix subagent never receives the contract's fenced block, so its
+#   dispatch states the shape (KAN-854). Required once, at the panel-fix subagent
 #   dispatch in review-panel.md alone — the implementer dispatch and the
 #   panel slot dispatch are not sites: the fix round is the only one this
 #   obligation binds.
