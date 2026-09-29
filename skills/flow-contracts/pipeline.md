@@ -41,7 +41,7 @@ be nothing for one to write.
 
 | State | Means | Waiting on |
 |-------|-------|-----------|
-| `STARTED` | The proposal exists and is published | you — read the artifact |
+| `STARTED` | The change exists; planning is under way or the plan awaits implementation | you — `/clear`, then `/flow <name>` |
 | `IN_PROGRESS` | The implementation is staged and the stack is running | you — review the diff — the stack is running |
 | `FINISHED` | Archived, pushed, worktrees removed — or withdrawn: a change abandoned before planning, its worktree and branches deleted and its record's `withdrawn` field set (`state-file.md`) | — |
 

@@ -43,7 +43,7 @@ still apply.
 | Command | Skill | What it does |
 |---------|-------|--------------|
 | `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. An argument at `IN_PROGRESS` is a fix run; state unchanged. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through archive to `FINISHED`. Publishes no proposal artifact. |
-| *(gate)* | you | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
+| *(gate)* | you | Creating run or fix: review the staged diff — the stack is running. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-fast <name>` | `flow-fast` | Minimal-ceremony `/flow` variant — one invocation from Jira key to landed change: a git worktree for isolation only, implementation and review panel as the plan's class decides, project lint plus the tests the change touches, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks; no spectre artifacts or state file. |
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |

@@ -137,7 +137,7 @@ archived, or withdrawn (the record's `withdrawn` field); neither is open.
 
 | Change | Jira | State | PR | Next | Updated |
 |--------|------|-------|----|------|---------|
-| kan-8-stats-ledger-render | KAN-8 | IN_PROGRESS | #42 | review the diff + run the apps, then `/flow <name>` | 2h ago (/flow) |
+| kan-8-stats-ledger-render | KAN-8 | IN_PROGRESS | #42 | review the diff — the stack is running, then `/flow <name>` | 2h ago (/flow) |
 | active-workout-session-editing | — | STARTED | — | read the artifact, then `/flow`'s implement phase | 19h ago (/flow) |
 ```
 
@@ -166,7 +166,7 @@ Next-command mapping:
 | State | Next |
 |-------|------|
 | `STARTED` | read the artifact, then `/flow <name>` (or re-run `/flow`'s creating run to revise) |
-| `IN_PROGRESS`, branch not merged | review the diff + run the apps, then `/flow <name>` (or re-run `/flow`'s implement phase to fix) |
+| `IN_PROGRESS`, branch not merged | review the diff — the stack is running, then `/flow <name>` (or re-run `/flow`'s implement phase to fix) |
 | `IN_PROGRESS`, branch merged | `/flow <name>` — it will archive |
 | `FINISHED` | — |
 

@@ -34,7 +34,7 @@
 # THE CACHE INDEX IS THE ONE ROW THIS SCRIPT DOES NOT EXPORT. Per **The cache
 # index** (skills/flow-contracts/workspace-isolation.md), a `cache index`
 # row is claimed by probing the project's own cache, not derived from the id —
-# and the registry in skills/flow-contracts/pipeline.md names `/flow`,
+# and the registry in skills/flow-contracts/artifacts-registry.md names `/flow`,
 # by probing, as what claims it "when it exports the workspace's variables".
 # Probing means holding a client for whatever cache technology the project
 # actually runs, which is exactly the kind of project-specific knowledge a

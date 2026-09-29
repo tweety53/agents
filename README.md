@@ -72,7 +72,7 @@ flowchart TD
 
     subgraph S2 ["IN_PROGRESS"]
         impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff + run instructions"]
-        g2{{"you: review the diff and run the apps"}}
+        g2{{"you: review the diff — the stack is running"}}
         land{"/flow (bare)<br/>how to land?"}
         pr["two commits → push → open PR<br/>issue → In Review"]
         g3{{"you: merge the PR, then /flow"}}
