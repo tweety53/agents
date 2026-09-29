@@ -245,14 +245,19 @@ func ApplyDecisionRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 // store.ValidModels in any pair the Decide step records --
 // implementer.model, fixer.model, panel.dispatches[].model,
 // panel.rerun_dispatch.model, groups[].model -- naming the JSON path and
-// the value (refuse-off-policy-models). A pair recorded as a JSON string
+// the value (refuse-off-policy-models). A body that is not a JSON object
+// -- `null` included -- is refused. A pair recorded as a JSON string
 // ("skipped — inline", "default") or null carries no model and passes; an
-// object pair with no model key is refused as the empty model. Writes
-// only: historical rows are never re-checked.
+// object pair with no model key is refused as the empty model, and a pair
+// of any other shape is refused as neither. Writes only: historical rows
+// are never re-checked.
 func checkDecisionModels(body json.RawMessage) error {
 	// A map, not a struct: encoding/json matches struct fields
 	// case-insensitively, so "Implementer" could stand in for the
 	// "implementer" key the stored jsonb actually carries.
+	if !isObject(body) {
+		return fmt.Errorf("%w: decision is not a JSON object", ErrInvalidRecord)
+	}
 	var d map[string]json.RawMessage
 	if err := json.Unmarshal(body, &d); err != nil {
 		return fmt.Errorf("%w: decision is not a JSON object: %v", ErrInvalidRecord, err)
@@ -262,6 +267,9 @@ func checkDecisionModels(body json.RawMessage) error {
 	}
 	if err := checkPairModel("fixer", d["fixer"]); err != nil {
 		return err
+	}
+	if !isObject(d["panel"]) && !modelless(d["panel"]) {
+		return fmt.Errorf("%w: panel is not an object, a string or null", ErrInvalidRecord)
 	}
 	if isObject(d["panel"]) {
 		var panel map[string]json.RawMessage
@@ -298,10 +306,14 @@ func checkDecisionModels(body json.RawMessage) error {
 }
 
 // checkPairModel checks one recorded pair: absent, null or a JSON string
-// passes; an object's model must be a store.ValidModels member.
+// passes; an object's model must be a store.ValidModels member; any other
+// shape is refused.
 func checkPairModel(path string, raw json.RawMessage) error {
 	if !isObject(raw) {
-		return nil
+		if modelless(raw) {
+			return nil
+		}
+		return fmt.Errorf("%w: %s is not an object, a string or null", ErrInvalidRecord, path)
 	}
 	var pair map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &pair); err != nil {
@@ -318,6 +330,13 @@ func checkPairModel(path string, raw json.RawMessage) error {
 			strings.Join(slices.Sorted(maps.Keys(store.ValidModels)), ", "))
 	}
 	return nil
+}
+
+// modelless reports whether raw is a pair that carries no model: absent,
+// null, or a JSON string.
+func modelless(raw json.RawMessage) bool {
+	t := bytes.TrimSpace(raw)
+	return len(t) == 0 || string(t) == "null" || t[0] == '"'
 }
 
 // isObject reports whether raw holds a JSON object.

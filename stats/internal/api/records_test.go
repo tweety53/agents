@@ -1587,6 +1587,7 @@ func TestRecordDecisionRejectsEmptyBody(t *testing.T) {
 	for name, body := range map[string]map[string]any{
 		"empty sessionToken": decisionBody("", `{"class":"small"}`),
 		"empty decision":     missingDecision,
+		"null decision":      decisionBody("mf-decide-1", `null`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			before := fs.recordCalls
@@ -1645,6 +1646,35 @@ func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
 			}
 			if fs.recordCalls != 0 || len(fs.decisions) != 0 {
 				t.Errorf("the store was reached for an off-policy %s", tt.path)
+			}
+		})
+	}
+}
+
+// TestRecordDecisionRejectsNonObjectPairs pins that only a JSON string or
+// null carries no model: a pair of any other non-object shape -- an array
+// or a number -- is refused naming its path, never skipped past the model
+// check, and the store is not touched.
+func TestRecordDecisionRejectsNonObjectPairs(t *testing.T) {
+	for path, body := range map[string]string{
+		"implementer":         `{"implementer":["haiku"]}`,
+		"fixer":               `{"fixer":7}`,
+		"panel":               `{"panel":[{"model":"haiku"}]}`,
+		"groups[0]":           `{"groups":[["haiku"]]}`,
+		"panel.dispatches[0]": `{"panel":{"dispatches":[["haiku"]]}}`,
+	} {
+		t.Run(path, func(t *testing.T) {
+			_, fs := recordTestServer(t, "proj", "kan-1")
+			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body)})
+			if !errors.Is(err, api.ErrInvalidRecord) {
+				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
+			}
+			if !strings.Contains(err.Error(), path+" ") {
+				t.Errorf("error = %q, want it to name %s", err.Error(), path)
+			}
+			if fs.recordCalls != 0 || len(fs.decisions) != 0 {
+				t.Errorf("the store was reached for a non-object %s", path)
 			}
 		})
 	}
