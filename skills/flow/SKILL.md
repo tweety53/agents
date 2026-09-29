@@ -114,7 +114,7 @@ and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatch
 never falls back, because it is never resolved — the point is a predictable model for mechanical
 verification runs regardless of what `DEFAULT_MODEL` resolved to.
 
-**`DEFAULT_MODEL` is the model for all four roles this run dispatches on** — the implementer
+**`DEFAULT_MODEL` is the model for all four roles this run dispatches on** — the implementer <!-- refs-guard:allow -->
 (`skills/flow/implement.md`), every panel slot (every one a
 prompt-driven role, per **The roster**, `skills/flow/review-panel.md`),
 the panel-fix subagent (`skills/flow/review-panel.md`), and the tooling analyst
@@ -190,8 +190,8 @@ every other guard above.
 **The `<change>` argument to every mark below is always a resolved change name.** On a creating run
 the name does not exist until **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) produces it — defer `flow.state-gate`-equivalent bookkeeping into that
-section, per **The `<change>` argument is always a
-resolved change name** (`skills/flow-contracts/pipeline.md`). This router reads state above using
+section, per **Change name resolution (all `/flow*` commands)**
+(`skills/flow-contracts/pipeline.md`). This router reads state above using
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 
 **Generate this run's session token once, right here, before the first mark any phase file below

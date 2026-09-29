@@ -24,8 +24,8 @@ compares against. Its prompt carries, verbatim:
 runs every command in the foreground. Its turn ends with a single `## Report` block, and its last
 act before that is writing the same block to
 `<abs-worktree>/.superpowers/sdd/verify-report-<key>.md` — `<key>` this dispatch's own key from
-**Recording** below — which is what the parent waits on (**Turn discipline**,
-`skills/flow/implement.md`). The first line of its first reply is `Model: <the model named in its
+**Recording** below — which is what the parent waits on (the turn discipline of **4. Execute
+(SDD + TDD)**, `skills/flow/implement.md`). The first line of its first reply is `Model: <the model named in its
 own system prompt>`.
 
 **The prompt also carries the TOOLS paragraph**:
@@ -281,7 +281,7 @@ worktree's build, starting, stopping and restarting nothing, committing and push
    frame on that list with no capture or no sidecar line blocks.
 
    **Then update the full app suite — and create it where the checkout has none.** The suite and
-   its file names are canonical in **The full app suite**
+   its file names are canonical in **Visual verification**
    (`skills/flow-contracts/project-configuration.md`). Absent → author `full-app-suite.spec.ts`
    beside the capture spec, one full-page capture per screen the app has — enumerated from the
    app's own routes or navigation and from every spec already in the checkout, never from this
@@ -698,8 +698,7 @@ worktree's build, starting, stopping and restarting nothing, committing and push
     first, then `git commit -m "<subject>" --` those same paths — the add first because the
     stage's outputs are new untracked files, which a pathspec commit cannot pick up — carrying
     only what this stage wrote, never a bare `git commit`: the index of a main checkout
-    may carry a pre-staged foreign tree (**A commit a run instructs defaults to the pathspec-scoped form**,
-    `skills/flow-contracts/git-boundaries.md`). **Resolve the
+    may carry a pre-staged foreign tree (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). **Resolve the
     `regression checkout` root the same way every other declared app root in this file is
     resolved** — from `git worktree list` in that repository, or the state file's `worktrees`
     map, per **Roots in `## apps` are main checkouts** (`skills/flow-contracts/project-configuration.md`) <!-- refs-guard:allow -->

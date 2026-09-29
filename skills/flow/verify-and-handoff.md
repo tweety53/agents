@@ -412,8 +412,8 @@ uncommitted" spelling covers a run resuming before any task committed. **The `Pa
 dispatched this run: the resolved roster, its docs-only reduction to `primary` (**The docs-only
 reduction**, `skills/flow/review-panel.md`), or its late-fix reduction (**The late-fix
 reduction**, `skills/flow/review-panel.md`); any slot an explicit operator instruction added
-beyond the resolved list; and, per **Bundled dispatch** and **The `## Decision` block**
-(`skills/flow/review-panel.md`, `skills/flow/brainstorm.md`), whether the decision's panel was
+beyond the resolved list; and, per **Bundled dispatch** (`skills/flow/review-panel.md`) and the `## Decision` block of **Decide**
+(`skills/flow/brainstorm-planner.md`), whether the decision's panel was
 `default` (a `micro` class) or decided, the run's class, whether the roster was `compact` or `full`, its rerun
 policy (`delta`), the dispatch groups as `+`-joined roles and, on a decided panel, the
 rerun pair — the same fields and

@@ -38,8 +38,7 @@ the design.
   merged confirm's first option under **Convergence** below; no separate approval question is
   asked.
 - **A frame-specified design needs its handoff assets reachable from the tree.** When the
-  design's specification is a drawn frame — a mockup the implementation must match (**Design
-  mockups are a specification**, `rules/design-mockups-are-specs.mdc`) — the design is not
+  design's specification is a drawn frame — a mockup the implementation must match (**Design mockups are a specification, not an inspiration**, `rules/design-mockups-are-specs.mdc`) — the design is not
   approvable, and no task whose specification is that frame is written, until the handoff assets
   are committed into the repository or their location is recorded in
   `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
@@ -234,8 +233,8 @@ together. A round that answers the question sets that entry's `**Status:**` to `
 once recorded.**
 
 `STARTED` is written before this section exists (per **A** above), so no `STARTED` handoff counts
-what this section holds; the count instead appears in the `IN_PROGRESS` handoff **Verify and
-hand off** (`skills/flow/verify-and-handoff.md`) prints once implementation completes.
+what this section holds; the count instead appears in the `IN_PROGRESS` handoff **Verify, stage, and hand off**
+(`skills/flow/verify-and-handoff.md`) prints once implementation completes.
 
 ```bash
 flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>

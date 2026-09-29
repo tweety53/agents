@@ -122,7 +122,7 @@ bare `/flow` is the only command that loads this file.
    repository's `origin`. Worktree cleanup's check 3 below is where this resolution actually runs:
    for each worktree in the resolved set it invokes `resolve-base-branch.sh` against that same
    worktree, immediately before that worktree's own removal — the same call and exit contract as
-   **Resolve the base branch** under Run 1
+   the resolve-the-base-branch step of Run 1's **Sync the branch onto the base**
    (`skills/flow-contracts/finish-contract-run1.md`), run again here because this is a separate
    invocation and nothing carries `BASE` over from run 1's. Step 4's archive commit runs before this
    step, so every worktree in the set is still present when its own resolution runs, which is what
@@ -465,7 +465,7 @@ non-empty unclassified bucket → **stop, show that bucket in full** (the regene
 only by count), and ask for explicit confirmation before removing that worktree, exactly as
 before — the ask exists for the entries that are actually in doubt.
 
-**`/flow-fast` overrides the ask a level further, and only the ask.** Its own **Guardrails**
+**`/flow-fast` overrides the ask a level further, and only the ask.** Its own guardrails list
 (`skills/flow-fast/SKILL.md`) state that override and why it is safe there: that command reports
 what `--force` will destroy and proceeds regardless of which bucket an entry falls in, having
 already preserved and committed the records worth keeping before it reaches cleanup. It reaches

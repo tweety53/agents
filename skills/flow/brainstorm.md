@@ -15,8 +15,8 @@ only phase that resolves a key.
 
 Then the change name:
 
-- **With a linked issue**, first enumerate the candidate set exactly as **Change name
-  resolution** (`skills/flow-contracts/pipeline.md`) defines it: exactly one candidate whose name
+- **With a linked issue**, first enumerate the candidate set exactly as **Change name resolution (all `/flow*` commands)**
+  (`skills/flow-contracts/pipeline.md`) defines it: exactly one candidate whose name
   starts with `<lowercased-key>-` is this change — a `/flow-plan` capture or an earlier run
   already named it — resumed at its recorded state, announcing which; more than one is an
   **AskUserQuestion** listing each (name, state, last modified); none means the name is
@@ -25,7 +25,7 @@ Then the change name:
 - **Without one**, the name is the descriptive slug alone.
 - If a name or description was given, use it (derive kebab-case from the description if only a
   description was given).
-- **If both are omitted:** enumerate the candidate set exactly as **Change name resolution**
+- **If both are omitted:** enumerate the candidate set exactly as **Change name resolution (all `/flow*` commands)**
   (`skills/flow-contracts/pipeline.md`) defines it, restricted to changes with incomplete planning
   artifacts. Exactly one match → resume it, announcing which; multiple → **AskUserQuestion** listing
   each (name, state, last modified); zero → ask what to build.

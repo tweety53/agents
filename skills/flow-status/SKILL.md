@@ -24,7 +24,7 @@ confirm the one guard this command invokes — `resolve-base-branch.sh` — is p
 `skills/flow-status/scripts/`. A complete set prints nothing; an absence prints that section's
 block once, and the run continues under the guard's own hand-run fallback.
 
-Enumerate the candidate set exactly as **Change name resolution**
+Enumerate the candidate set exactly as **Change name resolution (all `/flow*` commands)**
 (`skills/flow-contracts/pipeline.md`) defines it — through `flow state resolve [-C dir]`, never a
 hand-written HTTP call:
 

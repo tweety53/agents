@@ -402,8 +402,7 @@ that order; and the section being declared at most once.
 
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
 ran".** The guard runs at the point this section is *read*: `/flow`'s implement phase runs it against each apply
-worktree before it resolves or exports a single row, per **Isolate the workspace** in
-`skills/flow/implement.md`, and a non-zero exit stops that run. A project that declares no section passes silently.
+worktree before it resolves or exports a single row, per **2. Isolate the workspace** in `skills/flow/implement.md`, and a non-zero exit stops that run. A project that declares no section passes silently.
 bare `/flow` deliberately does not repeat the validation. See **Where enforcement happens**
 (`skills/flow-contracts/project-configuration-rationale.md`) for why.
 

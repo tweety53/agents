@@ -167,7 +167,7 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome completed 
 flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**Append this run's own narrative first**, the same append `flow.write-in-progress`
+**Append this run's own narrative first**, the same append `flow.write-in-progress` <!-- refs-guard:allow -->
 (`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering
 this run's preflight, the unfinished-work gate and the rebase.
 

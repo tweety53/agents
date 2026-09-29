@@ -23,7 +23,7 @@ records.
 
 ## SKILL.md — Model resolution
 
-> **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
+> **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer <!-- refs-guard:allow -->
 > (`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix
 > subagent (`skills/flow/review-panel.md`) — per design.md's `model-default-sonnet`: one default,
 > chosen once per run, not three per-role defaults.
@@ -457,8 +457,7 @@ file the round-2 pass had already read clean. This is a delete of the policy wea
 retired.** The operator's instruction, verbatim: "get rid of FULL panel rereview. Do the diff
 review there too. Maybe neighboring code at most." `delta` is now every class's policy, and no
 pass after pass 1 re-reads the whole branch — each reads its fix diff, the sites of the findings
-it re-reviews, and at most the code neighbouring those hunks (**FIX-ROUND SCOPE**,
-`skills/flow/review-panel.md`). The `Panel:` line's `demoted:` and `rerun cap:` fields went with
+it re-reviews, and at most the code neighbouring those hunks (the FIX-ROUND SCOPE paragraph of **Panel re-runs**, `skills/flow/review-panel.md`). The `Panel:` line's `demoted:` and `rerun cap:` fields went with
 the mechanism they reported. The scoped-round rule's closing whole-branch pass went too, since
 that pass was **Rerun policy `full`**'s. **Rejected — keeping the whole-branch pass.** On KAN-778
 it re-read about 24k lines of branch diff and found only Minors; the catches recorded above

@@ -132,6 +132,7 @@ scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
 scripts/check-normative-inventory.sh
+scripts/check-verbatim-moves.sh
 scripts/check-model-keys.sh
 scripts/check-model-resolution-shell.sh
 scripts/check-worktree-location.sh "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
@@ -155,9 +156,15 @@ printed and `2` it cannot answer. It has no violation code deliberately: compari
 is the caller's act, so a change that edits prose in bulk captures the output before its first edit
 and diffs the output after its last against it, and resolves any difference by restoring the
 sentence rather than by accepting the new inventory. Unlike every other guard here it writes its
-payload to stdout (its file and sentence counts go to stderr), so a lint run sees roughly a
-thousand lines from it and no verdict line. It resolves the corpus through
-`scripts/lib/owned-corpus.sh`.
+payload to stdout (its file and sentence counts go to stderr), so a lint run sees a handful of lines
+from it and no verdict line. It resolves the corpus through `scripts/lib/owned-corpus.sh`.
+
+**Its limit: it cannot prove a prose edit changed no behaviour.** It sees only the `MUST`/`SHALL`
+sentences — 7 in the whole corpus, against hundreds of rules stated with "never", "always" or
+"only" — and a `MUST` moved into a `-rationale.md`, which no run loads, leaves its output unchanged.
+`check-verbatim-moves.sh` is the guard for that: it fails a run-loaded sentence that was deleted or
+reworded rather than moved verbatim, and new run-loaded prose, unless the change lists the sentence
+in its `verbatim-moves.txt`.
 
 **`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question

@@ -79,7 +79,7 @@ the two sub-bullets that follow govern both:
   next manual step. State stays as it was; this stage stops here and closes the mark `stopped`.
 
 **Everything from the citation pre-check to the throwaway worktrees and the `[PRINCIPLES_PATH]`
-and `[STANDARDS_PATHS]` resolution below is one Bash call**, under **Turn discipline**
+and `[STANDARDS_PATHS]` resolution below is one Bash call**, under the turn discipline of **4. Execute (SDD + TDD)**
 (`skills/flow/implement.md`): every verdict printed, and only the dispatch depends on them — an
 over-cap exit, a `REFUSE`, an absent principles file or an operator prompt is read off that call's
 output and handled before any slot launches. The base-movement check above is the one exception:
@@ -106,7 +106,7 @@ worktree the same way exit 1 does.
 present) still just writes the file. The real gate stays `flow.verify`'s existing `## lint` run,
 unchanged by this step.
 
-**Rebuild the dispatch context bundle at the start of this stage too** — never reused from
+**Rebuild the dispatch context bundle at the start of this stage too** — never reused from <!-- refs-guard:allow -->
 `skills/flow/implement.md`'s run. Overwrite the same path:
 
 ```bash
@@ -339,9 +339,8 @@ recorded with `flow record pass -round <round>`.
 `-model`/`-effort` the bundle's own, from the decision's `panel.dispatches` entry. Every finding still records its own single role in `-slot`, with the
 bundle's `-dispatch-seq`.
 
-An incident a round's slot caused takes the same course (**An incident one dispatch caused rides
-the next dispatch to the same role**, `skills/flow/implement.md`, **The parent orchestrates
-directly**): recorded with `flow record incident`, and the next dispatch to that role — a
+An incident a round's slot caused takes the same course (the incident rule of **4. Execute
+(SDD + TDD)** and **The parent orchestrates directly**, `skills/flow/implement.md`): recorded with `flow record incident`, and the next dispatch to that role — a
 re-run, or the panel-fix subagent — carries it verbatim.
 
 **The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
@@ -384,8 +383,8 @@ flow record dispatch end -change <name> -key panel-<round>-<that slot> \
 
 Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
 call, one call for all; the round's wait is one call whose condition is `test -s` on every
-launched pass's report file; every `end` is recorded in one call once they all exist (**Turn
-discipline**, `skills/flow/implement.md`). A dispatch whose report never appears within its
+launched pass's report file; every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
+(SDD + TDD)**, `skills/flow/implement.md`). A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
 The same plan-tree discipline rides every round, re-run rounds included: before the launches the
@@ -395,11 +394,11 @@ parent makes the reviewer-dispatch planning commit (**Planning commits**,
 exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any
 finding is recorded — the slots read those artifacts, and a flight that changed them has
 invalidated the reviews that flew. Exit 1 or 2 stops the round the same way the per-task
-reviewer's stop works (**The plan tree survives every reviewer dispatch**,
-`skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this
+reviewer's stop works (the plan-tree rule of **4. Execute
+(SDD + TDD)**, `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this
 verify is the assertion that a breach cannot slide past as a clean report. The round brackets
-itself with content markers beside that guard (**Every dispatch that can touch the worktree is
-bracketed by content markers**, `skills/flow/implement.md`): the marker list names the plan
+itself with content markers beside that guard (the content-marker rule of **4. Execute
+(SDD + TDD)**, `skills/flow/implement.md`): the marker list names the plan
 artifacts and working notes the round reads, `check-tree-markers.sh snapshot <worktree>
 <markers-file> <snapshot-file>` runs with the plan-tree guard's own snapshot, and
 `check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>` runs before any finding
@@ -499,7 +498,7 @@ describes — real input events (`page.mouse.wheel()`), a fresh account, data se
 resting state — and a finding closes on that target's evidence, never on the test target's clean
 exit alone.
 
-**Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape
+**Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape <!-- refs-guard:allow -->
 `skills/flow/implement.md`'s implementer dispatch carries; for every worktree in this run's
 resolved set, naming that worktree's own five-argument bundle
 `<abs-worktree>/.superpowers/sdd/dispatch-context.md`, one path each. **For every worktree whose
@@ -774,8 +773,7 @@ that it did not already carry.** Only re-runs after a fix are scoped. Record
 This is the normal case: the branch is pushed with every commit (**Branch backup**,
 `skills/flow-contracts/git-boundaries.md`), so the fix stages the changed paths
 (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only) and is a plain
-`git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**A commit a
-run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`),
+`git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**Branch backup**, `skills/flow-contracts/git-boundaries.md`),
 so it carries only the paths the finding named, whatever else the index holds — pushed
 plain like any other commit, and every downstream commit keeps its sha.
 **Rewrite-based folding is for unpushed history only**: the fixup — stage first

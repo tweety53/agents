@@ -78,9 +78,8 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
   fixed by editing the plan. A re-run replaces the file with
   the fix's own tasks.
-- **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide**
-  steps 1–4 and **The
-  tree** (`skills/flow/brainstorm-planner.md`) as written — the
+- **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and its tree table
+  (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block under its `planning:`/`models:` lines.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
@@ -212,7 +211,7 @@ flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -s
 Implement in the worktree, in this session — or, on a decided `sdd`, per **Dynamic decisions**'
 `sdd-tdd` step. Test first where a test can express the behaviour
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. A
-refactor of output-producing code follows **PIN BEFORE REFACTOR**
+refactor of output-producing code follows the PIN BEFORE REFACTOR rule of **4. Execute (SDD + TDD)**
 (`skills/flow/implement.md`). Commit
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope
 naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no

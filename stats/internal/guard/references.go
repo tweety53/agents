@@ -76,7 +76,6 @@ var crExpectedZero = []struct {
 			"commands-claude/flow-self-review.md",
 			"commands-claude/flow-settings.md",
 			"commands-claude/flow-status.md",
-			"commands-claude/flow.md",
 		}},
 	{"rule file — its own path citations (where present) sit in a Markdown table cell or plain prose, separated from any bold text by more than the adjacency window this guard's is_associated allows, or cite no path in a bold-adjacent shape at all",
 		[]string{
@@ -95,8 +94,6 @@ var crExpectedZero = []struct {
 	{"contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path",
 		[]string{
 			"CLAUDE.md",
-			"skills/flow-contracts/build-green.md",
-			"skills/flow-contracts/operator-prompts.md",
 			"skills/flow-contracts/plan-provenance.md",
 			"skills/flow-contracts/SKILL.md",
 		}},
@@ -107,10 +104,8 @@ var crExpectedZero = []struct {
 	{"rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all",
 		[]string{
 			"skills/flow-contracts/git-boundaries-rationale.md",
-			"skills/flow-contracts/plan-provenance-guard-rationale.md",
 			"skills/flow-contracts/session-records-rationale.md",
 			"skills/flow-contracts/worktree-resolution-rationale.md",
-			"skills/flow-contracts/project-configuration-authoring.md",
 			"skills/flow-contracts/SKILL-rationale.md",
 			"skills/flow-fast/SKILL-rationale.md",
 			"skills/flow-plan/SKILL-rationale.md",
@@ -450,8 +445,11 @@ func crNormalizedLine(line string) string {
 }
 
 var (
-	crMdSpan   = regexp.MustCompile("`[^`]*\\.mdc?`")
-	crCodeSpan = regexp.MustCompile("`[^`]*`")
+	crQuote      = regexp.MustCompile(`^(>\s?)+`)
+	crBlockStart = regexp.MustCompile(`^(#{1,6} |\||---)`)
+	crNumbered   = regexp.MustCompile(`^\d+[.)] `)
+	crMdSpan     = regexp.MustCompile("`[^`]*\\.mdc?`")
+	crCodeSpan   = regexp.MustCompile("`[^`]*`")
 )
 
 // crAssociated is is_associated, the adjacency test applied to the text
@@ -506,6 +504,22 @@ type crSpan struct {
 // split on tabs the way the bash guard's `cut -f1` and `awk -F'\t'` read
 // them back.
 func crAssociations(line string) [][2]string {
+	return crAssociationsWhere(line, func(_, _ crSpan) bool { return true })
+}
+
+// crAssociationsAcross is crAssociations over two joined lines, keeping only
+// the pairs whose bold and path spans do not both sit on one side of the
+// join at byte offset brk.
+func crAssociationsAcross(joined string, brk int) [][2]string {
+	return crAssociationsWhere(joined, func(b, p crSpan) bool {
+		return min(b.start, p.start) < brk && max(b.end, p.end) > brk
+	})
+}
+
+// crAssociationsWhere is crAssociations, a pair kept only when keep accepts
+// its bold and path spans. keep runs after the nearest-path choice, so a
+// dropped pair never hands its token to a farther path.
+func crAssociationsWhere(line string, keep func(bold, path crSpan) bool) [][2]string {
 	var bolds, paths []crSpan
 	for i := 0; ; {
 		s := strings.Index(line[i:], "**")
@@ -561,7 +575,7 @@ func crAssociations(line string) [][2]string {
 				best, bestLen = p, len(gap)
 			}
 		}
-		if best >= 0 {
+		if best >= 0 && keep(b, paths[best]) {
 			f := strings.Split(paths[best].text+"\t"+b.text, "\t")
 			pairs = append(pairs, [2]string{f[0], f[1]})
 		}
@@ -585,12 +599,35 @@ func (r *crScan) checkFile(file string) error {
 		return crRefusal(fmt.Sprintf("check-references: cannot read %s: %v", r.rel(file), err))
 	}
 	checked, inFence := 0, false
-	for n, line := range crLines(b) {
+	lines := crLines(b)
+	// carry is whether the previous prose line of this paragraph left a bold
+	// span open — what crJoined needs to find the right "**" pairing on the
+	// next line, where crNormalizedLine only guesses from an odd count.
+	carry := false
+	for n, line := range lines {
 		if crIsFence(line) {
 			inFence = !inFence
+			carry = false
 			continue
 		}
-		if inFence || strings.Contains(line, "refs-guard:allow") ||
+		if inFence {
+			continue
+		}
+		// A citation split by a soft wrap (KAN-852, audit-finish D23): the
+		// bold heading on this line and its path on the next, or a bold span
+		// wrapped across the break. Only a pair that straddles the break is
+		// checked here, so a pair wholly on one line is never checked twice.
+		if n+1 < len(lines) {
+			if pairs := crSplitPairs(line, lines[n+1], carry); len(pairs) > 0 {
+				c, err := r.checkPairs(file, n+1, pairs)
+				if err != nil {
+					return err
+				}
+				checked += c
+			}
+		}
+		carry = crCarry(line, carry)
+		if strings.Contains(line, "refs-guard:allow") ||
 			!strings.Contains(line, "**") || !strings.Contains(line, "`") {
 			continue
 		}
@@ -598,24 +635,96 @@ func (r *crScan) checkFile(file string) error {
 		if len(pairs) == 0 {
 			continue
 		}
-		// The set of paths this line associates at least one bold token with.
-		var paths []string
-		for _, p := range pairs {
-			paths = append(paths, p[0])
+		c, err := r.checkPairs(file, n+1, pairs)
+		if err != nil {
+			return err
 		}
-		if paths, err = crSort(r.env, paths, true); err != nil {
-			return crRefusal(fmt.Sprintf("check-references: cannot sort the paths of %s:%d: %v", r.rel(file), n+1, err))
-		}
-		for _, p := range paths {
-			if p == "" {
-				continue
-			}
-			if r.checkReference(file, n+1, p, pairs) {
-				checked++
-			}
-		}
+		checked += c
 	}
 	return r.cov.record(r.rel(file), checked)
+}
+
+// checkPairs checks every path the pairs of one citation associate a token
+// with, reported at lineno; it returns how many were CHECKED references.
+func (r *crScan) checkPairs(file string, lineno int, pairs [][2]string) (int, error) {
+	// The set of paths this line associates at least one bold token with.
+	var paths []string
+	for _, p := range pairs {
+		paths = append(paths, p[0])
+	}
+	paths, err := crSort(r.env, paths, true)
+	if err != nil {
+		return 0, crRefusal(fmt.Sprintf("check-references: cannot sort the paths of %s:%d: %v", r.rel(file), lineno, err))
+	}
+	checked := 0
+	for _, p := range paths {
+		if p != "" && r.checkReference(file, lineno, p, pairs) {
+			checked++
+		}
+	}
+	return checked, nil
+}
+
+// crCarry is whether a bold span is still open after line, given whether one
+// was open before it: a blank line ends the paragraph and every span in it.
+func crCarry(line string, open bool) bool {
+	if strings.TrimSpace(line) == "" {
+		return false
+	}
+	if strings.Count(crMaskCodeSpans(line), "**")%2 == 1 {
+		return !open
+	}
+	return open
+}
+
+// crSplitPairs is the (path, token) pairs a citation split across the break
+// between line and next associates — only those whose bold and path spans
+// straddle it. Neither line may be blank, a fence line or allow-marked. open
+// is whether a bold span from an earlier line is still open when line
+// starts: its closing "**" is dropped, so the pairing starts clean.
+func crSplitPairs(line, next string, open bool) [][2]string {
+	for _, l := range []string{line, next} {
+		if strings.TrimSpace(l) == "" || crIsFence(l) || strings.Contains(l, "refs-guard:allow") {
+			return nil
+		}
+	}
+	// A soft wrap continues a paragraph; a heading or a table row never
+	// wraps, and a list item on the next line starts a new block. A
+	// blockquote's `>` markers are dropped from the continuation, so a quoted
+	// paragraph joins as its reader sees it.
+	cont := crQuote.ReplaceAllString(strings.TrimLeft(next, " \t"), "")
+	if crBlockStart.MatchString(strings.TrimLeft(line, " \t>")) || crBlockStart.MatchString(cont) ||
+		strings.HasPrefix(cont, "- ") || strings.HasPrefix(cont, "* ") || strings.HasPrefix(cont, "+ ") ||
+		crNumbered.MatchString(cont) {
+		return nil
+	}
+	a := crMaskCodeSpans(line)
+	if open {
+		a = strings.Replace(a, "**", "", 1)
+	}
+	joined := a + " " + crMaskCodeSpans(cont)
+	if !strings.Contains(joined, "**") || !strings.Contains(joined, "`") {
+		return nil
+	}
+	across := crAssociationsAcross(joined, len(a))
+	if len(across) == 0 {
+		return nil
+	}
+	// A path a straddling pair names is judged as the single-line check
+	// judges one: any bold token the joined text associates with it may
+	// resolve. So "per **The shape** (`x.md`): **Run this as a fix of
+	// <wrap> `<name>`?**" passes on its live heading instead of failing on
+	// the wrapped prompt text beside it.
+	refs := map[string]bool{}
+	for _, p := range across {
+		refs[p[0]] = true
+	}
+	for _, p := range crAssociations(joined) {
+		if refs[p[0]] {
+			across = append(across, p)
+		}
+	}
+	return across
 }
 
 // checkReference checks one path a line associates tokens with, reporting

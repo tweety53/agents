@@ -282,8 +282,8 @@ nothing here.
 
 **Every `## apps` entry is resolved in this stage too, before any implementation runs — never
 improvised mid-run by a later stage in need of a commit destination.** Read
-`<project>/.flow/project.md`'s `## apps` table and resolve each entry per **Roots in `## apps`
-are main checkouts** (`skills/flow-contracts/project-configuration.md`): an entry whose
+`<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Where the agents repository is**
+(`skills/flow-contracts/project-configuration.md`): an entry whose
 repository already holds a worktree for this change — the kickoff worktree's repository, a
 peer's repository linked above, a second entry naming a repository already resolved by an
 earlier entry, or a repository where an earlier run of this change created one — records that
@@ -952,8 +952,7 @@ a fix that adds a file stages first) and commits on the route the branch's push 
 (**Panel re-runs**, `skills/flow/review-panel.md`). **A branch the remote already holds takes the fix as one
 new commit on top, never a rewrite** — the normal case, **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`) having pushed every commit as it was made: a plain
-`git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**A commit a
-run instructs defaults to the pathspec-scoped form**, `skills/flow-contracts/git-boundaries.md`)
+`git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**Branch backup**, `skills/flow-contracts/git-boundaries.md`)
 — pushed plain like any other commit, and no sha moves. **Rewrite-based folding is for unpushed
 history only**: the fix commits
 `git commit --fixup=<task-sha> -- <the changed paths>` and runs
@@ -969,8 +968,7 @@ while `tasks.md` still names shas it no longer reaches
 (`<agents repo>/scripts/guard-autosquash.sh`). A conflict
 there is
 between two of the branch's own commits, and the parent resolves it by hand, keeping both
-sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
-`skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
+sides — the resolve-in-place rule of a base-branch rebase (its Conflict case, under **Sync the branch onto the base**, `skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
 fold never crosses the run's own uncommitted planning edits —
 `aside-planning-artifacts.sh <aside|restore> <worktree>` around the rebase: set aside before it,
 restored once it has finished or aborted, never mid-way; restore refuses while the rebase is

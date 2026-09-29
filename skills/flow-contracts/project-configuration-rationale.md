@@ -176,8 +176,7 @@ the rule follows the read, not the section.
 
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
 ran".** The guard runs at the point this section is *read*: `/flow`'s implement phase runs it against each apply
-worktree before it resolves or exports a single row, per **Isolate the workspace** in
-`skills/flow/implement.md`,
+worktree before it resolves or exports a single row, per **2. Isolate the workspace** in `skills/flow/implement.md`,
 and a non-zero exit stops that run. That is what makes the enforcement reach every project flow is
 installed into, rather than only the repository the guard ships in — where it is *also* a lint step,
 which is a self-check on the agents repository's own configuration and nothing more. A project that
