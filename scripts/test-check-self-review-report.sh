@@ -300,11 +300,12 @@ case "$REAL_OUT" in
   *"SELF-REVIEW-REPORT-OK"*) pass "case 7: verdict line carries SELF-REVIEW-REPORT-OK" ;;
   *) fail "case 7: expected SELF-REVIEW-REPORT-OK in output, out=$REAL_OUT" ;;
 esac
+
 # ===========================================================================
-# Case 8 (KAN-197 regression shape): a report present in the corpus, absent
-# from the declared list, for which the guard performed zero section checks
-# at all (no recognizable angle heading anywhere in it) -> named as an
-# undeclared zero via scripts/lib/coverage.sh, exit 1. Distinct from case 2
+# Case 8 (KAN-197 regression shape): a report present in the corpus for
+# which the guard performed zero section checks at all (no recognizable angle
+# heading anywhere in it) -> named as a zero not declared expected-zero via
+# scripts/lib/coverage.sh, exit 1. Distinct from case 2
 # (a report that IS recognizable, just missing one section): this fixture
 # carries none of the five headings, so found_count is 0 and no per-section
 # "missing" findings fire at all — only the coverage mechanism names it,

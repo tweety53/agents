@@ -1001,8 +1001,8 @@ func splitInt64(v int64, weights []float64) []int64 {
 //
 // The interval rule underneath is not a legacy path and is not going away.
 // A harness that exposes no subagent identifier records every dispatch
-// without one, and the interval remains exactly correct for dispatches that do not overlap
-// -- which is every dispatch outside a panel.
+// without one, and the interval remains exactly correct for dispatches that
+// do not overlap -- which is every dispatch outside a panel.
 //
 // Both passes used to end in a tie-break -- latest StartedAt, and among
 // same-instant ties the lower DispatchID -- rather than in ambiguity. Both

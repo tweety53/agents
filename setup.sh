@@ -82,7 +82,7 @@ SKIPPED=0
 # Where "aside" is depends on what is being displaced, and the difference matters:
 #
 #   - A FILE goes to `<dest>.bak`. That is safe because the harness globs
-#     `commands/*.md` and `rules/*.mdc`, and `.bak` falls outside both globs.
+#     `commands/*.md`, and `.bak` falls outside that glob.
 #   - A DIRECTORY goes to a sibling `<parent>-backup/<name>-<timestamp>/`, OUTSIDE
 #     the scanned tree. `<dest>.bak` would not work here: a skills directory is
 #     discovered by walking the tree for SKILL.md, so `flow-start.bak/` stays

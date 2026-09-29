@@ -31,6 +31,18 @@
 #   23. Bash `cd <worktree>; git commit` (`;` touching the path) -> allow
 #   24. Bash `cd <worktree>; npx ... >$S/cap.log 2>&1` with cwd = main -> allow (unexpanded var)
 #   25. Bash `cd <main>;git reset HEAD~1` (separators touching)  -> deny
+#   26. Bash multi-line `cp`, then a later line's `git add <main>/...` -> allow (cp cannot swallow it)
+#   27. Bash multi-line, second line `cd <main> && git reset`  -> deny (each line judged on its own)
+#   28. Bash `C=<main>; echo x > $C/f.txt`                -> deny (assignment-set var expands)
+#   29. Bash `B=<main>; A=$B; echo x > $A/f.txt`          -> allow (nested var left unexpanded)
+#   30. Bash `cp ... <main>/.worktrees/new-landing/...`   -> allow (not-yet-existing worktree path)
+#   31. Write a loose file directly in <main>/.worktrees  -> allow
+#   32. Bash `cd <main>` newline `git reset HEAD~1`       -> deny (cd state threads across lines)
+#   33. Bash `CA=<main>; C=/tmp; echo x > $CA/f.txt`      -> deny (longest-name expansion wins)
+#   34. Bash `C=<main>; echo x > ${C}/f.txt`              -> deny (braced expansion)
+#   35. Bash `rm -rf <main>/.worktrees`                   -> deny
+#   36. Bash `D=<main>/docs; echo x > $Dy/f.txt`          -> allow (unset near-name var not expanded)
+#   37. Bash `echo x > $C/f.txt` newline `C=<main>`       -> allow (use before set not expanded)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"

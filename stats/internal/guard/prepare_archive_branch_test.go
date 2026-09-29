@@ -563,7 +563,7 @@ func TestPrepareArchiveBranch(t *testing.T) {
 		}},
 		// The four `port:` cases below deliberately diverge from the bash at
 		// d71a2327 (KAN-823): each fails at a step whose git stderr the bash
-		// discarded and the port now prints beneath the named line, so each
+		// discarded and the port now prints before the named line, so each
 		// asserts its own output instead of the bash's.
 		{"port: base cannot be checked out", func(t *testing.T) {
 			c := newCheckout(t)
@@ -638,7 +638,7 @@ func TestPrepareArchiveBranch(t *testing.T) {
 		// it, not the directory holding lnk: here the landing exists only
 		// under the lexical reading, so the main checkout above it cannot be
 		// resolved. KAN-823 divergence: git's own chdir refusal is printed
-		// beneath the named line, where the bash discarded it.
+		// before the named line, where the bash discarded it.
 		{"port: a landing path through a symlink's .. resolves physically", func(t *testing.T) {
 			c := newCheckout(t)
 			c.landing()
@@ -657,7 +657,7 @@ func TestPrepareArchiveBranch(t *testing.T) {
 			})
 		}},
 		// KAN-823: a failed `worktree add --force` stops the chain loudly —
-		// the named line carries git's own refusal beneath it, never a
+		// the named line carries git's own refusal before it, never a
 		// silent /dev/null.
 		{"creation failure names git's refusal", func(t *testing.T) {
 			c := newCheckout(t)
@@ -856,7 +856,7 @@ exec "$PAB_REAL" "$@"
 // captured by running scripts/prepare-archive-branch.sh over the same fixture.
 // Three pins deliberately diverge from that bash since KAN-823: cases 8, 10
 // and 11 fail at a step whose git stderr the bash discarded and the port now
-// prints beneath the named line, so their pins carry the port's own output.
+// prints before the named line, so their pins carry the port's own output.
 var pabPins = map[string]string{
 	"TestPrepareArchiveBranch/1_on-base-clean":                                          "main -> chore/archive-fixture\n--- stderr\n--- exit 0\n",
 	"TestPrepareArchiveBranch/10_base-diverged":                                         "--- stderr\nprepare-archive-branch: git: hint: Diverging branches can't be fast-forwarded, you need to either:\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: \tgit merge --no-ff\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: or:\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: \tgit rebase\nprepare-archive-branch: git: hint:\nprepare-archive-branch: git: hint: Disable this message with \"git config set advice.diverging false\"\nprepare-archive-branch: git: fatal: Not possible to fast-forward, aborting.\nprepare-archive-branch: 'main' cannot be fast-forwarded to origin/main — it has diverged\n--- exit 3\n",

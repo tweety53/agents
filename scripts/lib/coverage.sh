@@ -214,8 +214,9 @@ coverage_report() {
 # declaration list can only grow, never self-prune, as a renamed or deleted
 # member leaves a stale entry nobody notices. A legitimate declared-zero
 # member IS always also recorded (with count 0) by every guard's own scan —
-# see check-guard-symlinks.sh and check-references.sh, each of which records every corpus member it enumerates before checking
-# whether that member's declaration applies — so this second pass costs
+# see check-guard-symlinks.sh and check-references.sh, each of which records
+# every corpus member it enumerates before checking whether that member's
+# declaration applies — so this second pass costs
 # nothing on a healthy guard and only fires on a genuinely stale declaration.
 #
 # KAN-374 F9: the first pass above only ever reasons about a member recorded

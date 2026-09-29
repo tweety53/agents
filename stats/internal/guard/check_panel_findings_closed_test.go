@@ -10,8 +10,9 @@ import (
 	"testing"
 )
 
-// Every case of scripts/test-check-panel-findings-closed.sh, one subtest per
-// ok: label, plus the Minor-deferral cases (the rule in review-panel.md's
+// Every case of the retired bash harness
+// scripts/test-check-panel-findings-closed.sh, one subtest per ok: label it
+// printed, plus the Minor-deferral cases (the rule in review-panel.md's
 // **Panel re-runs**) and the fixed-without-clean-rerun cases (the ordering
 // rule in review-panel.md's **Recording findings**). The bash harness's stub
 // `flow` printed a canned JSON array for `record findings`; here that stub

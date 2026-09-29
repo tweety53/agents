@@ -4,9 +4,10 @@ package store
 // (kan-479): ZCode reports a single collapsed cacheWriteTokens with no
 // 5m/1h split, which lands in CacheCreationUnknown. Where the rate carries
 // exactly one cache-write rate -- a 1h rate equal to the 5m rate -- pricing
-// the unknown split at that one rate is exact, never a guess. Where the two rates differ (every seeded Claude row), the task-23
-// refusal stands: pricing the rest while dropping the unknown portion would
-// understate the total, and guessing a rate would invent one.
+// the unknown split at that one rate is exact, never a guess. Where the two
+// rates differ (every seeded Claude row), the task-23 refusal stands: pricing
+// the rest while dropping the unknown portion would understate the total, and
+// guessing a rate would invent one.
 
 import (
 	"math"

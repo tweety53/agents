@@ -56,10 +56,10 @@
 # class the since-deleted `scripts/lib/trim-glob-element.sh` already fixed
 # once (its Go port, trimGlobElement in stats/internal/guard/visualsection.go,
 # carries the history): a hostile `.flow/project.md` — tracked and editable in
-# any pull request, the same fact that file's header records — pads an
-# interior cell and the per-character loop pays for every byte of padding
-# again on every subsequent byte. This function ALONE, isolated from the
-# rest of the guard (called directly on one 120 KB row, old vs new body):
+# any pull request — pads an interior cell and the per-character loop pays
+# for every byte of padding again on every subsequent byte. This function
+# ALONE, isolated from the rest of the guard (called directly on one 120 KB
+# row, old vs new body):
 #
 #   char loop (old)     ~0.65s
 #   delimiter walk (new) ~0.01s

@@ -2,8 +2,9 @@
 """plan-dispatch-bundles.py — group a tasks.md's unchecked tasks into
 dispatch bundles by the overlap of their declared **Files:** paths.
 
-Rule (canonical definition: this repository's archived
-kan-109 change's
+Rule (canonical definition: the archived change
+openspec/changes/archive/2026-08-12-kan-109-optimize-myflow-agent-token-and-time-cost/,
+removed from the tree in 18feb597 and read from git history, its
 dispatch-economy requirement "Requirement:
 Implementer dispatches are bundled by declared file overlap" — do not
 restate it here, the same Single Source of Truth discipline check-task-

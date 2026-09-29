@@ -161,9 +161,10 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 // `.*` (spans `/`); a bare `*` becomes `[^/]*` (one segment); `?` becomes
 // `[^/]`; every listed metacharacter is escaped; anything else is literal.
 //
-// Byte-wise, as the bash matched under LC_ALL=C (c-locale-table-semantics):
-// both the glob and the path go through vtBytesAsRunes, one rune per byte,
-// so `?` is one byte and a non-UTF-8 byte is an ordinary character.
+// Byte-wise, as the bash matched under LC_ALL=C (byte-wise-trigger-globs):
+// the glob writes each byte as the rune of the same value and the caller
+// passes the path through vtBytesAsRunes, one rune per byte, so `?` is one
+// byte and a non-UTF-8 byte is an ordinary character.
 func vtGlobRegexp(glob string) *regexp.Regexp {
 	glob = strings.TrimPrefix(strings.TrimPrefix(glob, "./"), "/")
 	var b strings.Builder

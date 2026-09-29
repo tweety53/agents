@@ -8,11 +8,12 @@
 # paragraph, verbatim, at dispatch sites. Nothing then stops a LATER prose
 # edit from trimming a required paragraph away one line at a time — this
 # guard is what makes that loud instead of silent, the same role
-# check-guard-symlinks.sh plays for its own templates. KAN-217 added a second required paragraph — the VERBATIM
-# REPORT — THE FACT blockquote that tells the fix subagent its slot's
-# report file outranks the dispatcher's summary — and generalized this
-# guard from one hard-coded paragraph to a table of them so a third would
-# cost a table row, not a second copy of the machinery. KAN-263 added a
+# check-guard-symlinks.sh plays for its own templates. KAN-217 added a second
+# required paragraph — the VERBATIM REPORT — THE FACT blockquote that tells
+# the fix subagent its slot's report file outranks the dispatcher's summary —
+# and generalized this guard from one hard-coded paragraph to a table of them
+# so a third would cost a table row, not a second copy of the machinery.
+# KAN-263 added a
 # third required paragraph — FOREGROUND BUILDS, which forbids a dispatched
 # agent from ending its turn with a build/test/long-running command still
 # running in the background — at all four dispatch sites that can run one:

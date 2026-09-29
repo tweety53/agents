@@ -31,7 +31,7 @@
 #     bare `*` is supported for completeness, not because a declaration
 #     uses one.)
 #   - `?` matches exactly one byte except `/`, and `*`/`**` count bytes too: the
-#     port matches byte-wise whatever the caller's locale (c-locale-table-semantics).
+#     port matches byte-wise whatever the caller's locale (byte-wise-trigger-globs).
 #   - a leading `./` is stripped from BOTH the declared glob and the
 #     candidate path before matching — a habit either side might write.
 #   - a leading `/` on a DECLARED glob is stripped too: `.flow/project.md`

@@ -66,7 +66,8 @@ restated here. Stopping the dev stack is an operator action; the commands live i
 ## Project Skills (spectre / /flow workflow)
 
 These skills live in `skills/` next to this file (or in `<project>/.zcode/skills/` if installed there).
-To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
+To invoke a skill, type its slash command (`/flow`, `/flow-fast`, …); the harness loads its
+`SKILL.md`.
 
 Every skill below but `flow-plan` and `flow-contracts` requires the `spectre` CLI to be
 installed. Those two need none — reading a spectre tree, or a contract file, is reading markdown.
@@ -135,12 +136,8 @@ repeats finished work, and a gap found there routes back to a fix run anyway.
 
 ### How to invoke a skill
 
-Read the skill file, then follow it:
-
-```
-Read file: skills/flow/SKILL.md
-(then follow the instructions in that file)
-```
+Type its slash command. Each file in `commands-claude/` names one skill plus its accepted states;
+`setup.sh` installs that command set into `.zcode/commands/`, so the harness loads the skill by name.
 
 ### Superpowers general skills
 
@@ -150,4 +147,4 @@ subagent-driven-development, etc.). These are referenced by the `/flow` skill ab
 Install it per `<agents repo>/README.md`'s ZCode section.
 
 After install, general skills auto-trigger from their descriptions. Project-specific `/flow`
-skills are loaded on demand by reading their `SKILL.md` as described above.
+skills are loaded on demand by their slash commands as described above.

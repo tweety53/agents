@@ -28,8 +28,9 @@ only input is the operator's answers to the questions this skill asks interactiv
 CURRENT="$(flow settings get)"
 ```
 
-`flow settings get` prints one line of JSON: `reviewers` (an array of strings). A non-zero exit means the store could not be reached — report the CLI's stderr verbatim and stop;
-there is no per-harness fallback file for this record the way a per-change state file has one.
+`flow settings get` prints one line of JSON: `reviewers` (an array of strings). A non-zero exit
+means the store could not be reached — report the CLI's stderr verbatim and stop; there is no
+per-harness fallback file for this record the way a per-change state file has one.
 
 Print the current values plainly before asking anything:
 
@@ -54,13 +55,13 @@ from the current value read in step 1:
   it again, none held back as a fixed floor — resolution is canonical in `skills/flow/SKILL.md`'s
   Model resolution, dispatch in `skills/flow/review-panel.md`'s roster. A per-run operator
   instruction can add a slot for a single run without touching this list; an id's presence here is
-  what makes every run dispatch it. Offer the full
-  set as a multi-select seeded with the current list, plus "keep current", and say plainly when
-  asking that the selection made here becomes every subsequent run's panel, not just this one. The
-  CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags
-  check (`<agents repo>/stats/cmd/flow/settings.go`'s `-reviewers is required` check) exits 2, distinct from the store's own
-  exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero
-  slots fails at step 3 with exit 2, rather than turning review off.
+  what makes every run dispatch it. Offer the full set as a multi-select seeded with the current
+  list, plus "keep current", and say plainly when asking that the selection made here becomes every
+  subsequent run's panel, not just this one. The CLI itself refuses an empty `-reviewers` before
+  the store is ever contacted: its required-flags check (`<agents repo>/stats/cmd/flow/settings.go`'s
+  `-reviewers is required` check) exits 2, distinct from the store's own exit-1 rejection covered in
+  step 3 below — warn the operator before they try it that selecting zero slots fails at step 3
+  with exit 2, rather than turning review off.
 If the operator keeps the list unchanged, say so and stop — do not call `settings set` for a no-op
 write.
 
