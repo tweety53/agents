@@ -3,6 +3,7 @@
 > **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
+> **Tasks appended:** 1
 
 `design.md` is canonical for every decision; tasks cite them by ID.
 
@@ -174,7 +175,8 @@ rewrite.
 `stats/internal/guard/check_model_keys_test.go`,
 `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/lib/project-section.sh`,
 `.flow/project.md`, `.flow/project-rationale.md`, `KNOWN-BUGS.md`,
-`skills/flow-contracts/project-configuration-rationale.md`
+`skills/flow-contracts/project-configuration-rationale.md`,
+`stats/internal/guard/workspaceisolation.go`
 **Tests:** `TestShimSiblingsDeclared` — its sibling map loses the `check-model-keys.sh` entry
 **Regression:** reverting restores the map entry and the guard; `TestShimSiblingsDeclared` still passes with both, so the check is that it passes without them.
 **Baseline:** before=75 after=73
@@ -186,6 +188,14 @@ rewrite.
 **Decision:** remove-default-model
 **Decision:** remove-self-review-model
 **Decision:** self-review-deferred-only
+
+Correction (2026-09-29): the plan declared the five guard files deletable as-is; `modelkeys.go`
+also defined `mkSpace`, which `workspaceisolation.go` calls, so the helper moved there as
+`wiSpace` and that file joined **Files:**. `KNOWN-BUGS.md` lost ten entries, not three: every
+entry whose subject this change deletes — the two guards, `check_model_keys_test.go`, the
+`## self review model` wording at `project-configuration.md:91`, archive's self-review-key
+snippet at `archive.md:191`, and `SKILL.md:74`'s `MODEL_SOURCE` paragraph (Tasks 4 and 6 remove
+those subjects).
 
 - [ ] 4. The Decide step chooses every pair's model; DEFAULT_MODEL goes
 
@@ -302,8 +312,10 @@ rewrite.
 `commands-claude/flow-self-review.md`, `skills/flow-contracts/project-configuration.md`,
 `skills/flow-contracts/git-boundaries.md`, `skills/flow-contracts/handoff-blocks-rationale.md`,
 `skills/flow-settings/SKILL.md`, `commands-claude/flow-settings.md`, `CLAUDE.md`, `AGENTS.md`,
-`skills/README.md`
-**Tests:** none — prose contract; Task 7's sweep is the check
+`skills/README.md`, `skills/flow-contracts/jira-integration.md`,
+`scripts/check-self-review-report.sh`
+**Allowed-collateral:** `scripts/test-check-self-review-report.sh`
+**Tests:** none — prose contract plus comment-only harness edits; Task 7's sweep and the harness run are the check
 **Regression:** none — no executable behaviour.
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
@@ -315,25 +327,32 @@ rewrite.
 **Decision:** remove-self-review-model
 **Decision:** remove-default-model
 
-- [ ] 7. Live verification and the whole-tree sweep
+Correction (2026-09-29): moving the angles out of run 2 step 9 moved the five-angle table, the
+filing bounds, the explain-first rule and the prompt shape into `skills/flow-self-review/SKILL.md`,
+now canonical for them. `check-self-review-report.sh` parses that table at run time, so its default
+source path moved with it (its harness passes, and a broken table makes it refuse), and
+`jira-integration.md`'s citation of the table followed; the guard and the citation joined the
+task's declared files, the harness's comment-only edits its allowed collateral.
+
+- [x] 7. Live verification and the whole-tree sweep
 
 Reproduce before touching anything; do not guess.
 
-  - [ ] **Step 1: Before** (on the worktree's isolated store, `FLOWD_DSN`/`FLOW_ADDR` from
+  - [x] **Step 1: Before** (on the worktree's isolated store, `FLOWD_DSN`/`FLOW_ADDR` from
     `.flow/project.md` `## workspace isolation`): with the pre-change binary, `flow settings get`
     prints `defaultModel`, `selfReviewModel`, `reviewers`; record those figures.
-  - [ ] **Step 2: After** — rebuild `flowd` and `flow` from the worktree, restart the worktree's
+  - [x] **Step 2: After** — rebuild `flowd` and `flow` from the worktree, restart the worktree's
     own `flowd` (never the dev workspace's on 4173): `flow settings get` prints `{"reviewers":[…]}`
     with the same list; `flow settings set -model opus -reviewers primary` exits 2;
     `flow record decision` with a body whose `groups[0].model` is `haiku` exits non-zero naming
     that path; the same body on `sonnet` records. **Not working looks like:** a `defaultModel`
     key still printed, a `haiku` decision recorded, or reviewers lost by the migration.
-  - [ ] **Step 3: Sweep** — `grep -rn 'DEFAULT_MODEL\|MODEL_SOURCE\|SELF_REVIEW_MODEL\|
+  - [x] **Step 3: Sweep** — `grep -rn 'DEFAULT_MODEL\|MODEL_SOURCE\|SELF_REVIEW_MODEL\|
     selfReviewModel\|defaultModel\|settings models\|## self review\|## model\b\|check-model-keys\|
     check-model-resolution-shell\|default model\|self-review model' -i --exclude-dir=spectre --exclude-dir=docs --exclude-dir=node_modules
     --exclude-dir=dist .` prints nothing but the migrations' historical comments; any hit becomes an
     appended task.
-  - [ ] **Step 4:** the full `## lint` and `## test` lists pass.
+  - [x] **Step 4:** the full `## lint` and `## test` lists pass.
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -341,4 +360,23 @@ Reproduce before touching anything; do not guess.
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
 **After:** Task 2, 5, 6
+**Build:** green
+
+- [x] 8. Sweep hit: the self-review harness comment names the retired key
+
+Task 7's sweep found `scripts/test-check-self-review-report.sh:820` still saying the bundle is
+written "on `## self review: defer`"; it is written on every run now.
+
+  - [x] **Step 1:** reword the comment to "a bundle step 9 writes on every run".
+  - [x] **Step 2: Verify** — `scripts/test-check-self-review-report.sh` passes; Task 7's sweep
+    prints no hit outside migrations, the retirement tests and `## Model …` headings.
+  - [x] **Step 3: Commit.**
+
+**Files:** `scripts/test-check-self-review-report.sh`
+**Tests:** `Case 25` — the case whose comment this rewords
+**Regression:** none — no executable behaviour.
+**Baseline:** before=0 after=0
+<!-- predicted: no test is added by this task -->
+**Commit:** `docs(scripts): the self-review bundle is written on every run`
+**After:** Task 6, 7
 **Build:** green
