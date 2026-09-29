@@ -7,7 +7,7 @@ Loaded by `skills/flow/review-panel.md` only for a round whose roster carries
 ## Experimental slot
 
 When the decision's `panel.roster` carries an entry whose `slot` starts `exp-` — at most one, per
-design.md's **The rolls** — it is dispatched once, in pass 1 alongside the rest of the roster,
+**Decide** (`skills/flow/brainstorm-planner.md`) — it is dispatched once, in pass 1 alongside the rest of the roster,
 exactly like any other slot in **The roster** table (`skills/flow/review-panel.md`), carrying the same paragraphs every
 slot's dispatch already carries there.
 
@@ -25,7 +25,7 @@ file is `<abs-worktree>/.superpowers/sdd/panel-report-<round>-exp-<name>.md`, th
 substituted. The rendered panel record's Slot column therefore shows the `exp-` id unchanged, so the
 prefix survives into the archive.
 
-It is a diff-reading slot like Primary, Principles and Mutation: **Panel
+It is a diff-reading slot like Primary and Principles: **Panel
 re-runs** governs it unchanged. **The docs-only reduction** still narrows a
 docs-only branch to `primary` alone, and so does **The late-fix reduction**
 (`skills/flow/review-panel.md`) on a qualifying fix run: the experimental slot is never part of
@@ -34,11 +34,12 @@ reduction — a docs-only guard reclassification, or a late-fix round whose Crit
 voids the reduction for the rest of the run.
 
 It runs at most once per change, whether or not the roster is `compact` — the experimental roll and
-the compact roll are independent per design.md's **The rolls** — and never at all on a `default`
+the compact roll are independent per **Decide** (`skills/flow/brainstorm-planner.md`) — and never at all on a `default`
 panel (a `micro` class), or when the decision recorded `experimental: none available`.
 
-Per **Bundled dispatch**, it joins whichever group has room, last among the reading passes;
-when neither group has room for a third role it is skipped and recorded with
+Per **Decide** (`skills/flow/brainstorm-planner.md`), it never joins the floor bundle: it joins
+the second dispatch, last among the reading passes, only when one exists and has room; otherwise
+the decision already records it `skipped — bundle cap` and it is recorded with
 `flow record pass -round <round> -note 'experimental: skipped — bundle cap'` rather than displacing a persistent role.
 
 ## The throwaway worktree

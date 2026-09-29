@@ -3,7 +3,7 @@
 Loaded by `skills/flow/SKILL.md` immediately after `skills/flow/implement.md`'s `flow.sdd-tdd`
 stage closes, on every implementation run — creating, resumed, or fix. Dispatches the resolved
 roster: this run's decision's `panel.roster` (`<abs-worktree>/.superpowers/sdd/decision.json`, per
-design.md's **The `## Decision` block**), or — when the decision's `panel` is the string `default`,
+the `## Decision` block of **Decide**, `skills/flow/brainstorm-planner.md`), or — when the decision's `panel` is the string `default`,
 a `micro` class — `REVIEWERS`, which `skills/flow/SKILL.md`'s **Model resolution** resolves from the
 settings store and is canonical for. This file owns dispatch: mapping each resolved id to
 its slot and spawning it.
@@ -148,7 +148,7 @@ overrides:
 | `failure-modes` | **Failure-modes** — error return, timeout, partial write, concurrent re-entry | `flow-low` + `failure-modes-reviewer-prompt.md` |
 | `mutation` | **Mutation** — sabotage-proofing | `flow-low` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
-**A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
+**A subagent-facing file is passed by absolute path, never read into this context.** This repository's
 `primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
 `engineering-principles.md` (Principles),
 `failure-modes-reviewer-prompt.md` (Failure-modes), and
@@ -327,7 +327,7 @@ decided and `default` panels alike and in both execution modes. A dispatch carry
 two dispatches cannot hold shrinks to what they hold.
 
 **Grouping.** On a decided panel, the decision's `panel.grouping` is `static` — the class's row in
-design.md's **Bundled dispatch › Grouping** table, unchanged, no override — or `free` — the
+the tree of **Decide** (`skills/flow/brainstorm-planner.md`), unchanged, no override — or `free` — the
 planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On a `default` panel,
 the settings-store roster is grouped deterministically by the same static logic, no roll and no
 planner: the floor roles (`primary`, `principles`) fill the first
@@ -340,7 +340,7 @@ recorded with `flow record pass -round <round>`.
 bundle's `-dispatch-seq`.
 
 An incident a round's slot caused takes the same course (the incident rule of **4. Execute
-(SDD + TDD)** and **The parent orchestrates directly**, `skills/flow/implement.md`): recorded with `flow record incident`, and the next dispatch to that role — a
+(SDD + TDD)**, `skills/flow/implement.md`): recorded with `flow record incident`, and the next dispatch to that role — a
 re-run, or the panel-fix subagent — carries it verbatim.
 
 **The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
@@ -375,9 +375,9 @@ records for an implementer:
 
 ```bash
 flow record dispatch begin -change <name> -role reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
-  -diff-base <sha> -key panel-<round>-<that slot> \
+  -diff-base <sha> -key panel-<round>-<slot|slot+slot+slot> \
   -session-token mf-<literal-token>
-flow record dispatch end -change <name> -key panel-<round>-<that slot> \
+flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot> \
   -session-token mf-<literal-token> -outcome completed
 ```
 
@@ -392,7 +392,7 @@ parent makes the reviewer-dispatch planning commit (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`) and runs
 `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file
 exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any
-finding is recorded — the slots read those artifacts, and a flight that changed them has
+report is read or finding recorded — the slots read those artifacts, and a flight that changed them has
 invalidated the reviews that flew. Exit 1 or 2 stops the round the same way the per-task
 reviewer's stop works (the plan-tree rule of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this
@@ -401,8 +401,8 @@ itself with content markers beside that guard (the content-marker rule of **4. E
 (SDD + TDD)**, `skills/flow/implement.md`): the marker list names the plan
 artifacts and working notes the round reads, `check-tree-markers.sh snapshot <worktree>
 <markers-file> <snapshot-file>` runs with the plan-tree guard's own snapshot, and
-`check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>` runs before any finding
-is recorded — a slot's clean report is never the answer to what happened to the tree.
+`check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>` runs before any report
+is read or finding recorded — a slot's clean report is never the answer to what happened to the tree.
 
 `-slot` names the dispatch's roles from **The roster** table above. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
@@ -415,9 +415,9 @@ fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` l
 `low` on a `default` panel, and the dispatch's own effort on a decided panel,
 `panel.rerun_dispatch`'s `low` on a re-run.
 
-**`-agent-id` is never typed, never invented** — the daemon captures the launch identifier,
-pairing each launch with the begin whose command sits nearest it in the transcript;
-record `begin` immediately before its launch, and never reuse a `-key`.
+**`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier,
+pairing each launch with the begin nearest it in time;
+record the round's `begin`s in the one Bash call after its launch message, as above, and never reuse a `-key`.
 
 **Record a slot's dispatch before recording that slot's findings**, and carry the seq the command
 printed — `recorded: dispatch <seq>` — into each of that slot's `flow record finding` calls as
@@ -500,7 +500,7 @@ exit alone.
 
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape <!-- refs-guard:allow -->
 `skills/flow/implement.md`'s implementer dispatch carries; for every worktree in this run's
-resolved set, naming that worktree's own five-argument bundle
+resolved set, naming that worktree's own whole-plan bundle
 `<abs-worktree>/.superpowers/sdd/dispatch-context.md`, one path each. **For every worktree whose
 `<abs-worktree>/.superpowers/sdd/relocation-comparison.md` exists, every slot's dispatch prompt also
 names its absolute path**, framed as a review input to audit against the diff — never a substitute
@@ -534,8 +534,8 @@ for reading `final-review.diff` itself.
 
 The dispatcher compares that line against the model this slot was given and applies **The
 handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first mismatch
-is a fallback plus one retry under `panel-<round>-<slot>-retry`; a second is a fallback plus
-`## Question`.
+is a fallback plus one retry under `panel-<round>-<slot|slot+slot+slot>-retry`; a second is a fallback plus
+the **AskUserQuestion** it states.
 
 **Every slot's dispatch prompt also carries the REPRODUCE, DON'T READ paragraph**:
 
@@ -663,8 +663,8 @@ exists before spawning; if it does not, stop and report rather than dispatching 
 
 **Resolve `[STANDARDS_PATHS]` before dispatching the principles slot**, from the entries
 `project-get.sh <worktree> standards` prints (exit 1: none declared), resolved per the entry-form
-and containment rule the `[STANDARDS_PATHS]` step of `skills/flow/principles-reviewer-prompt.md`
-carries. Pass an **empty** value when none resolve.
+and containment rules of **Project configuration** (`skills/flow-contracts/project-configuration.md`),
+never by reading the template. Pass an **empty** value when none resolve.
 Record which standards files were passed, or that none resolved.
 
 ## Recording findings, and the record's format
@@ -679,9 +679,6 @@ yourself carrying the single line `no verbatim report captured — <reason>`.
 Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
 slot's report from this context** — record its `F<n>` rows and cite the file, per **Read
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
-
-When two independently dispatched slots raise the same defect, the dispatcher records it once,
-under a `+`-joined `-slot` value naming both, rather than as two `F<n>` rows.
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself. Every
@@ -791,7 +788,15 @@ ancestry guard: `guard-autosquash.sh targets <worktree> <task-sha>` before the a
 `guard-autosquash.sh after <worktree> <task-sha>^ <changeRoot>/tasks.md` once it lands — the
 post-check's base is the fold's own upstream, never `FIX_BASE`, which the fold deliberately holds
 stale as its diff endpoint, and a refusal from either stops the round before anything builds on
-the rewritten history (`<agents repo>/scripts/guard-autosquash.sh`).
+the rewritten history (`<agents repo>/scripts/guard-autosquash.sh`). A conflict there is between
+two of the branch's own commits, resolved by hand, keeping both sides — the resolve-in-place rule
+of a base-branch rebase (its Conflict case, under **Sync the branch onto the base**, `skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
+fold never crosses the run's own uncommitted planning edits —
+`aside-planning-artifacts.sh <aside|restore> <worktree>` around the rebase: set aside before it,
+restored once it has finished or aborted, never mid-way; restore refuses while the rebase is
+still unresolved, and the paths it sets aside are the spec tree's changes directory — the leaf
+`<agents repo>/scripts/lib/spec-root.sh` resolves — and `<project>/docs/superpowers/` only, never
+implementation WIP.
 
 **A clean `git rebase --autosquash` is not evidence the fix survived it.** Where the fixup and the
 commit it folds into touch nearby lines, git's 3-way auto-merge can resolve in favour of the
@@ -993,8 +998,8 @@ state record absent or unreadable, an ambiguous worktree — stops
 the run, the same as the lexical guard's exit 2.
 
 **For each open finding whose record carries a runnable `finding-reproducer:` command**, the
-parent runs it — every finding's run and every throwaway worktree
-removal in one Bash call, each run followed by `; echo "F<n>: exit $?"` so every exit code stays
+parent runs it — every finding's run in one Bash call (each throwaway copy is already
+gone, removed as its slot's dispatch closed), each run followed by `; echo "F<n>: exit $?"` so every exit code stays
 readable:
 
 ```bash
@@ -1234,15 +1239,16 @@ against its defect identity. **Inline no source excerpt.**
 Dispatched on `DEFAULT_MODEL` (below); the dispatcher compares that line against it and applies
 **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first
 mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a fallback plus
-`## Question`.
+the **AskUserQuestion** it states.
 
 **Every fix subagent's dispatch prompt also carries the TARGETED TESTS paragraph**:
 
-> **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
+> **TARGETED TESTS:** Run only the tests the `**Tests:**` fields of the tasks your fix folds into
+> name, and the tests your fix adds, through the build
 > tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
 > '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
-> run the module or repository suite mid-task: the full `## test` list runs once per worktree at
-> the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
+> run the module or repository suite mid-task: the full `## test` list runs again in
+> `flow.verify`. Pipe a test run's output through `tail` so a green
 > run costs lines of context, not a build log.
 
 **Every fix subagent's dispatch prompt also carries the OUTPUT BUDGET paragraph**:
@@ -1323,7 +1329,8 @@ when every key is well-formed. `check-panel-fix-single-dispatch.sh` holds every 
 to exactly this shape (**Before closing the stage**, below). Inline
 (`skills/flow/implement.md`'s **Inline — the parent implements**), the parent applies the fix
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
-panel-fix -agent-id inline`. Where a finding is
+panel-fix -model <parent model> -effort <parent effort> -agent-id inline`, `begin` before its first
+edit and `end` once the fix commit lands, as that section's **Records** bullet states. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
 writing its fix. **Dispatch it on `DEFAULT_MODEL`**. **On an `sdd` decision, dispatch it instead on the decision's
 `fixer` object** — its own model and effort, chosen apart from the implementer's, `subagent_type:
@@ -1358,8 +1365,10 @@ at a time, and does not ask:
   where the operator's would.
 - **Only a genuine inability reaches the operator:** a finding the run cannot judge either way, a
   fix that needs an irreversible or outward-facing action, or a defect identity still open after
-  two automatic rounds on it. Only then does the run ask, shape per Operator prompts
-  (`skills/flow-contracts/operator-prompts.md`):
+  two automatic rounds on it. Only then is the prompt below raised, shape per Operator prompts
+  (`skills/flow-contracts/operator-prompts.md`), and resolved per that contract's **Auto-resolution**
+  and **What still stops**: its recommended option is taken unasked, and asked only on a repeat for
+  the same finding or where the fix is irreversible or outward-facing:
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
 > - **Take another round on it** *(default, recommended)*
@@ -1401,7 +1410,7 @@ check-panel-findings-closed.sh <worktree> <change>
 Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` in the store,
 or a Minor reads `deferred` in a round that raised a Critical or Important not recorded
 `withdrawn` — the Minor-deferral default of **Panel re-runs** above, violated; the line names the refs and the round. It also
-fires on the class **Recording findings**' ordering above added: a finding recorded `fixed`
+fires on the class **Panel re-runs**' ordering above added: a finding recorded `fixed`
 whose slot has no clean re-run dispatch of it in any later round. Either way, return to the
 handback loop above for them. Exit 2 stops the run.
 

@@ -74,7 +74,7 @@ var Table = []Stage{
 	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.decide", Name: "Decide — execution, models, panel", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.isolate-workspace", Name: "Isolate the workspace (first run only)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.isolate-workspace", Name: "Isolate the workspace", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.sdd-tdd", Name: "SDD + TDD per task ▸", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.review-panel", Name: "The review panel ▸", Commands: []Command{Flow, FlowFast}},

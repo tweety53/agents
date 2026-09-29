@@ -72,10 +72,8 @@ closes `-outcome completed`.
 
 **Handshake.** Compare the `Model:` line against `opus` (never `DEFAULT_MODEL` or a session
 override) and apply **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**),
-unchanged: a first mismatch closes `<key>` `-outcome fallback` and re-dispatches once under
-`<key>-retry`; a second mismatch closes `<key>-retry` `-outcome fallback` too and ends the turn
-with `## Question` naming `opus` and both models that answered, options **Continue on `<the
-model the second handshake named>`** or **Stop the run**.
+unchanged — its first- and second-mismatch course and its single-model-harness case alike, `opus`
+the requested model it names.
 
 A verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`
 and blocks this handoff exactly as a failed command would, naming the death.

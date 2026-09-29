@@ -1,7 +1,7 @@
 # Principles Reviewer Prompt Template
 
-Use this template for the panel's **Principles** slot — required on every `/flow` run, per
-**Review panel** (`skills/flow/review-panel.md`).
+Use this template for the panel's **Principles** slot — dispatched whenever the resolved roster
+carries it, per **Review panel** (`skills/flow/review-panel.md`).
 
 The principle list itself is **not** restated here — the reviewer reads
 [engineering-principles.md](engineering-principles.md) (this file's sibling, inside the installed
@@ -15,7 +15,7 @@ Read-only review.
 ```
 Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;   
                                             # flow-<effort> on a decided panel
-  description: "Principles review (Merged)"
+  description: "Principles review"
   model: <the bundle's own model>             # DEFAULT_MODEL on a `default` panel, the decision's
                                                # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
   prompt: |
@@ -152,7 +152,9 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 
 **Placeholders:**
 - `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`)
+  the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a
+  scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`,
+  per **Panel re-runs** (`skills/flow/review-panel.md`)
 - `[PRINCIPLES_PATH]` — the **absolute** path of `engineering-principles.md` inside the
   running skill directory, i.e. this file's own directory + `/engineering-principles.md`.
   Under the global install that is
@@ -163,13 +165,12 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
   `skills/` tree, so a relative path fails to open and the reviewer loses its principle
   list. Verify the file exists before dispatching; if it does not, stop and say so rather
   than dispatching a reviewer with no principles.
-- `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
-  1. the entries listed under the `## standards` section of `<project>/.flow/project.md`, when the
-     project has one — resolved to absolute paths per the `## standards` entry-form table and
-     containment rule. Entries are not paths to use as-is: a bare `*.mdc` filename means
-     the shared agents rule library, any other bare filename means the project's own file,
-     and a path that escapes the project root is dropped;
-  2. otherwise auto-detect: `<project>/CLAUDE.md`, `<project>/AGENTS.md` and `CONTRIBUTING.md`.
+- `[STANDARDS_PATHS]` — the project's own written standards: the entries listed under the
+  `## standards` section of `<project>/.flow/project.md`, when the project has one — resolved to
+  absolute paths per the `## standards` entry-form table and
+  containment rule. Entries are not paths to use as-is: a bare `*.mdc` filename means
+  the shared agents rule library, any other bare filename means the project's own file,
+  and a path that escapes the project root is dropped; no section declared resolves none.
   Pass the resolved absolute paths; report and drop any entry that resolves to no existing
   file or that fails containment. Pass an empty value when none resolve, which empties the
   Hard Invariants section by design.

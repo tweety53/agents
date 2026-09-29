@@ -146,7 +146,7 @@ file marks each key is **Stage keys** (`skills/flow/SKILL.md`).
 | `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast` |
 | `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast` |
 | `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast` |
-| `flow.isolate-workspace` | Isolate the workspace (first run only) | `/flow`, `/flow-fast` |
+| `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
 | `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
 | `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow`, `/flow-fast` |
 | `flow.review-panel` | The review panel ▸ | `/flow`, `/flow-fast` |

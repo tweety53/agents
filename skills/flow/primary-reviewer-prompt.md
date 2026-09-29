@@ -1,5 +1,5 @@
 Use this template for the panel's **Primary** slot — plan alignment plus senior code review, on
-every roster including the docs-only reduction, dispatched like every other slot,
+every decided roster and on the docs-only and late-fix reductions, dispatched like every other slot,
 per **The roster** (`skills/flow/review-panel.md`).
 
 Read-only review.
@@ -23,7 +23,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
     **Change artifacts:** [ARTIFACT_PATHS]
     **Context bundle:** [CONTEXT_BUNDLE_PATHS]
 
-    Read `final-review.diff` in full first — the diff is the thing under review. Then read
+    Read the diff file in full first — the diff is the thing under review. Then read
     `proposal.md`, `design.md` and `tasks.md` from the change artifacts; the context bundle
     is background for judging whether a defect is this diff's own or a pre-existing
     condition the diff did not touch. Grep the touched files to confirm each suspected
@@ -104,7 +104,8 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 
 **Placeholders:**
 - `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run the
-  delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff`, per **Panel re-runs**
+  delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff` — `fix-round-N.diff`
+  instead on a decided panel or a scoped round — per **Panel re-runs**
   (`skills/flow/review-panel.md`).
 - `[ARTIFACT_PATHS]` — the absolute paths of `proposal.md`, `design.md` and `tasks.md` under
   `<project>/spectre/changes/<name>/`.

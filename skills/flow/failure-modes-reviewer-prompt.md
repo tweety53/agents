@@ -48,7 +48,7 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
     **Diff file:** [DIFF_PATH]
     **Context bundle:** [CONTEXT_BUNDLE_PATHS]
 
-    Read `final-review.diff` in full before reading the context bundle — the diff is the
+    Read the diff file in full before reading the context bundle — the diff is the
     thing under review; the bundle is background for judging whether a gap is this diff's
     own or a pre-existing condition the diff did not touch. Grep the touched files for the
     boundary calls a changed behaviour crosses (network, filesystem, subprocess, lock,
@@ -119,7 +119,8 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 
 **Placeholders:**
 - `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff`, per
+  the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff` —
+  `fix-round-N.diff` instead on a decided panel or a scoped round — per
   **Panel re-runs** (`skills/flow/review-panel.md`).
 - `[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
   (`skills/flow/review-panel.md`): one path per worktree in this run's resolved set.
