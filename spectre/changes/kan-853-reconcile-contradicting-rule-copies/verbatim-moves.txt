@@ -1,0 +1,2 @@
+# Sentences this change rewords on purpose: each corrects a drifted copy of a rule to its
+# canonical copy, per design.md. Nothing here is a trim.
