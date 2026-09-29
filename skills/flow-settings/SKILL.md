@@ -108,7 +108,7 @@ conductor depth, and when the type is absent print one line ahead of the write, 
 affected slot in roster order:
 
 ```
-⚠ roster: no `flow-low` agent type at conductor depth — primary, principles, bugbot will be substituted (general-purpose) at panel time
+⚠ roster: no `flow-low` agent type at conductor depth — primary, principles, failure-modes will be substituted (general-purpose) at panel time
 ```
 
 The write proceeds either way: never a gate. Never

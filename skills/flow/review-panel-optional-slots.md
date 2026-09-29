@@ -1,6 +1,6 @@
 # Review panel — optional slots
 
-Loaded by `skills/flow/review-panel.md` only for a round whose roster carries `bugbot`,
+Loaded by `skills/flow/review-panel.md` only for a round whose roster carries
 `mutation` or an `exp-` slot. Every section name below without a path is a section of
 `skills/flow/review-panel.md`.
 
@@ -43,23 +43,20 @@ when neither group has room for a third role it is skipped and recorded with
 
 ## The throwaway worktree
 
-Bugbot and Mutation both mutate code in place to run their brief; every other slot only reads the
+Mutation mutates code in place to run its brief; every other slot only reads the
 diff. Dispatching a mutating slot into the same worktree
 a reading slot concurrently reads is the
 collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched
 reading slot reads from `<worktree>` at that moment. **Independent multi-slot detection is the
-panel's core signal**: each of
-the two defect-hunting slots — Bugbot's and Mutation's dispatch, pass 1 and
-every fix-round re-run, both carrying the mutation-testing brief (Bugbot's own copy is
-`bugbot-reviewer-prompt.md`'s) — therefore runs
+panel's core signal**: Mutation's
+dispatch, pass 1 and every fix-round re-run, carrying the mutation-testing brief, therefore runs
 against its own throwaway worktree, never the
 shared `<worktree>` the other slots read, so every slot's findings are raised against the same
 pristine snapshot and no slot's view ever contains another slot's work:
 
 **The parent creates and removes every throwaway copy itself, in its own Bash calls — never a
 subagent.** Run the sequence below once per worktree in the resolved set per slot, producing one
-`<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`bugbot` or `mutation`),
-so a roster carrying both produces two copies per repository per round.
+`<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`mutation`).
 
 ```bash
 git -C <worktree> worktree add --detach <worktree>-<slot>-<round> HEAD
@@ -121,6 +118,4 @@ copied.
 
 Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
 reproducer still runs against the real `<worktree>` at verification time, never against any slot's
-throwaway copy. Security is **not** isolated this way — nothing in the review panel requires it to
-mutate anything, so it keeps sharing `<worktree>` with the reading slots. It too is dispatched
-once, its prompt naming every worktree in the resolved set.
+throwaway copy.

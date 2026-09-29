@@ -60,8 +60,8 @@ Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
 
     ## Do Not
 
-    - Do not duplicate the Principles, Security, Bugbot or Mutation slots' angles — a
-      principle-by-name violation, a security audit, a throwaway-worktree defect hunt or
+    - Do not duplicate the Principles, Failure-modes or Mutation slots' angles — a
+      principle-by-name violation, an error-return/timeout/partial-write/re-entry walk or
       sabotage-proofing are theirs; raise such a finding only when it is also a plain
       correctness defect you would bet on.
     - Do not flag formatting a formatter would fix silently, or a style preference with no

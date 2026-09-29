@@ -495,8 +495,8 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 |---|---|---|---|---|---|---|
 | micro | inline | — | none — defaults only | none — defaults only | — | — |
 | small | inline | — | primary; principles | primary; principles | delta | `primary+principles` |
-| regular | inline | — | primary; principles; mutation | primary; principles | delta | `primary+principles` · `mutation` |
-| big | sdd | chosen | primary; principles; mutation; bugbot; security | primary; principles | delta | `primary+principles` · `mutation+bugbot+security` |
+| regular | inline | — | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
+| big | sdd | chosen | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
 
 **The micro row** records defaults, never choices: what it skips is every roster, model/effort and
 grouping choice, and every roll the script printed; what it never skips is the decision record
@@ -519,9 +519,7 @@ between is a default. Each pair carries a one-line `reason` beside it in the JSO
 `## Decision` block's rule cell. **On harness `zcode` the chosen pair is recorded as chosen and
 replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
 
-A compact roster is the floor bundle alone, on the floor bundle's model/effort. `bugbot` and
-`security` are prompt-driven roles like every other slot, dispatched in whichever bundle carries
-them on that bundle's model/effort. Compact when `compact_roll < 90`
+A compact roster is the floor bundle alone, on the floor bundle's model/effort. Compact when `compact_roll < 90`
 (small, regular, big);
 experimental when `experimental_roll < 30` (every class, at most one slot), appended to whichever
 roster and run on the model/effort of the dispatch it joins.

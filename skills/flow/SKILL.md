@@ -38,7 +38,7 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
 | `skills/flow/review-panel.md` | `flow.review-panel` |
-| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `bugbot`, `mutation` or an `exp-` slot |
+| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded only for a round whose roster carries `mutation` or an `exp-` slot |
 | `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify` (steps 1–2), `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | `skills/flow/visual-verify.md` | `flow.visual-verify` from step 3 — loaded only when a worktree's diff matched a `ui paths` glob |
 | `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
@@ -115,7 +115,7 @@ never falls back, because it is never resolved — the point is a predictable mo
 verification runs regardless of what `DEFAULT_MODEL` resolved to.
 
 **`DEFAULT_MODEL` is the model for all four roles this run dispatches on** — the implementer
-(`skills/flow/implement.md`), every panel slot, Bugbot and Security included (every one a
+(`skills/flow/implement.md`), every panel slot (every one a
 prompt-driven role, per **The roster**, `skills/flow/review-panel.md`),
 the panel-fix subagent (`skills/flow/review-panel.md`), and the tooling analyst
 (**A missed defect — the tooling analysis**, `skills/flow/visual-verify.md`).

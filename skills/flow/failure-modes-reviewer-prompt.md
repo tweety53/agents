@@ -1,22 +1,24 @@
-description: What each changed behaviour does under error return, timeout, partial write and concurrent re-entry.
+# Failure-Modes Reviewer Prompt Template
 
-Use this template for the panel's experimental `exp-failure-modes` slot, dispatched only
-on a decided panel when the run's experimental roll picked this file —
-see **Experimental slot** (`skills/flow/review-panel-optional-slots.md`).
+Use this template for the panel's **Failure-modes** slot — what each changed behaviour does under
+error return, timeout, partial write and concurrent re-entry — dispatched like every other slot,
+per **The roster** (`skills/flow/review-panel.md`).
 
 Read-only review.
 
 ```
-Subagent (flow-<effort>):  # decided-panel-only slot
-  description: "Failure-modes review (exp-failure-modes)"
-  model: <the bundle's own model>         # the decision's panel.dispatches entry carrying this slot
+Subagent (<the dispatch's subagent_type>):  # flow-low on a `default` panel;
+                                            # flow-<effort> on a decided panel
+  description: "Failure-modes review (failure-modes)"
+  model: <the bundle's own model>             # DEFAULT_MODEL on a `default` panel, the decision's
+                                               # panel.dispatches (pass 1) / panel.rerun_dispatch (re-run) on a decided panel
   prompt: |
     You are a failure-modes reviewer. You are NOT doing a bug hunt, a security audit, a
     plan-alignment review, or a principles review — other panel slots own those and their
     findings are not yours to duplicate. Your job is to take every behaviour this diff
     changes or adds and ask, for each: what happens when the world does not cooperate?
 
-    No persistent slot systematically asks what a changed function does when the call it
+    No other slot systematically asks what a changed function does when the call it
     makes fails, hangs, or is interrupted partway. That is this slot's whole job.
 
     For every changed behaviour, walk it through each of these four lenses and report only
@@ -117,7 +119,7 @@ Subagent (flow-<effort>):  # decided-panel-only slot
 
 **Placeholders:**
 - `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-exp-failure-modes.diff`, per
+  the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff`, per
   **Panel re-runs** (`skills/flow/review-panel.md`).
 - `[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
   (`skills/flow/review-panel.md`): one path per worktree in this run's resolved set.

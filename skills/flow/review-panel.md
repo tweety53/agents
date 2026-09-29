@@ -145,21 +145,20 @@ overrides:
 |---|------|---------------|
 | `primary` | **Primary** — plan alignment and senior code review | `flow-low` + `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
 | `principles` | **Principles** | `flow-low` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
-| `bugbot` | **Bugbot** — defect hunt | `flow-low` + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
-| `security` | **Security** | `flow-low` + `security-reviewer-prompt.md` |
+| `failure-modes` | **Failure-modes** — error return, timeout, partial write, concurrent re-entry | `flow-low` + `failure-modes-reviewer-prompt.md` |
 | `mutation` | **Mutation** — sabotage-proofing | `flow-low` + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
 `primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
 `engineering-principles.md` (Principles),
-`bugbot-reviewer-prompt.md` (Bugbot), `security-reviewer-prompt.md` (Security), and
+`failure-modes-reviewer-prompt.md` (Failure-modes), and
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
 dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts.
 `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
-for this run. Every slot in this table,
-Bugbot and Security included, is dispatched on `flow-low` (`agents/flow-low.md`, on
+for this run. Every slot in this table
+is dispatched on `flow-low` (`agents/flow-low.md`, on
 a `default` panel) and carries the same model rule. The `flow-<effort>` definitions are
 this repository's own, whose `tools:` allowlist omits `Agent` — **No forking** below is backed by a
 capability the slot structurally does not have, not by the NO DELEGATION paragraph alone;
@@ -183,7 +182,7 @@ decision's `panel.rerun_dispatch` pair instead (**Panel re-runs**) — the dispa
 roster records `roster: full`.
 
 **Load `skills/flow/review-panel-optional-slots.md`** before dispatching any round whose roster
-carries `bugbot`, `mutation` or an `exp-` slot — it carries **Experimental slot** and **The throwaway
+carries `mutation` or an `exp-` slot — it carries **Experimental slot** and **The throwaway
 worktree**. A round whose roster carries none of them never reads it.
 
 **Before writing `final-review.diff`**, run
@@ -305,7 +304,7 @@ per-worktree sectioned shape as `final-review.diff`, each `# worktree:` header n
 since-close sha. On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch`
 pair under the fix-round re-run's 5-minute ceiling; on a `default` panel, which carries no
 decision to read a pair from, on `DEFAULT_MODEL` at `low` effort under the ordinary 15-minute
-ceiling. Bugbot, Mutation and Security are not dispatched, and each dropped slot is recorded
+ceiling. Mutation and Failure-modes are not dispatched, and each dropped slot is recorded
 with `flow record pass -round <round> -note 'not dispatched — late-fix reduction: <slot>'`, the
 docs-only reduction's own convention. Every entry check above still runs as any round's — base
 movement, the diff-size cap, the docs-only guard — and where both reductions fire, the late-fix
@@ -331,13 +330,13 @@ two dispatches cannot hold shrinks to what they hold.
 design.md's **Bundled dispatch › Grouping** table, unchanged, no override — or `free` — the
 planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On a `default` panel,
 the settings-store roster is grouped deterministically by the same static logic, no roll and no
-planner: reading roles (`primary`, `principles`, `security`) fill the first
-dispatch in that order up to three, the mutating roles (`bugbot`, `mutation`) the
-second, up to three; a list the two cannot hold is truncated in store order, and the truncation is
+planner: reading roles (`primary`, `principles`, `failure-modes`) fill the first
+dispatch in that order up to three, the mutating role (`mutation`) the
+second; a list the two cannot hold is truncated in store order, and the truncation is
 recorded with `flow record pass -round <round>`.
 
 **One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with
-`-slot` the bundle's roles `+`-joined in roster order (`primary+principles+security`) and
+`-slot` the bundle's roles `+`-joined in roster order (`primary+principles+failure-modes`) and
 `-model`/`-effort` the bundle's own, from the decision's `panel.dispatches` entry. Every finding still records its own single role in `-slot`, with the
 bundle's `-dispatch-seq`.
 
@@ -350,9 +349,9 @@ re-run, or the panel-fix subagent — carries it verbatim.
 BUILDS, REPRODUCE DON'T READ, CITATION CHECK, ENTRY CONTEXT, MODEL HANDSHAKE, the reproducer rule —
 once, then one
 **PASS `<id>`** section per role in roster order, each carrying exactly the brief that role's solo
-dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`. Mutating
-roles (`mutation`, `bugbot`) are always the last passes of a bundle and still work in their
-throwaway copies (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); the reading passes before them read the shared
+dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`. The mutating
+role (`mutation`) is always the last pass of a bundle and still works in its
+throwaway copy (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); the reading passes before them read the shared
 `<worktree>`. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
@@ -371,7 +370,7 @@ a decided panel a fix round's re-running roles are never bundled: one dispatch p
 role, its `-slot` that role alone (**Panel re-runs**).
 
 The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
-line name the dispatches as `+`-joined groups (`primary+principles · bugbot+mutation`).
+line name the dispatches as `+`-joined groups (`primary+principles · failure-modes+mutation`).
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
@@ -464,8 +463,8 @@ to `<abs-worktree>/.superpowers/sdd/reproducers/<round>-<id>-<n>.sh` — `<round
 number, `<id>` the slot's own resolved reviewer id, `<n>` that slot's own 1-based finding index —
 gives it a shebang and `chmod +x`, and records that same path, the path relative to the worktree —
 not the `<abs-worktree>/`-prefixed form above; `run-reproducer.sh` refuses an absolute token.
-Bugbot and Mutation write theirs into the canonical worktree, never their own
-`<worktree>-<slot>-<round>` copy, which is removed the moment their dispatch closes. The parent
+Mutation writes its own into the canonical worktree, never its
+`<worktree>-<slot>-<round>` copy, which is removed the moment its dispatch closes. The parent
 records the path the slot supplied verbatim — there is no rename step. **The cwd contract**: the
 reproducer always executes with its working directory set to the worktree the parent passes
 `run-reproducer.sh` — per finding, the worktree whose copy of the recorded relative path resolves:
@@ -640,7 +639,7 @@ pass.
 
 ### The mutation-testing brief
 
-Wherever the panel dispatches Bugbot or Mutation, the dispatch prompt carries a mutation-testing
+Wherever the panel dispatches Mutation, the dispatch prompt carries a mutation-testing
 brief: for each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a
 boundary, remove a branch, move an interaction off its target, overlay an earlier commit's tree and
 run the tests — and establish whether an existing test fails. A mutation only counts once its edit
@@ -724,7 +723,7 @@ The record carries a findings table, one row per finding:
 
 | ID | Slot | Severity | Location | Note |
 |---|---|---|---|---|
-| F1 | Bugbot | Minor | `src/Foo.kt:42` | replaced the silent catch |
+| F1 | Mutation | Minor | `src/Foo.kt:42` | replaced the silent catch |
 
 and, below it, the marker block — one line per row, plus the count:
 
@@ -867,8 +866,8 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   rule. A Minor, fixed or deferred, re-runs no slot: a fixed Minor closes on the verification
   below alone. A slot that raised nothing keeps the result it has;
   the round's own mutation-proof (below) covers what the fix changed;
-- **a diff-reading slot that re-runs reads its delta**; Bugbot, Mutation and Security read no diff
-  file and re-run in their pass-1 shape, throwaway worktree included. **A diff-reading slot whose
+- **a diff-reading slot that re-runs reads its delta**; Mutation reads no diff
+  file and re-runs in its pass-1 shape, throwaway worktree included. **A diff-reading slot whose
   delta is empty in every worktree is not dispatched** — record `not re-run —
   nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
@@ -887,7 +886,7 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
 
 **A fix-round re-run reviews the fix, never the branch** — and no pass after pass 1 re-reads the
 whole branch; the paragraph below is the one statement of a re-run's read scope. Every re-running slot's dispatch prompt —
-on every panel, Bugbot, Mutation and Security included — carries the FIX-ROUND SCOPE paragraph,
+on every panel, Mutation included — carries the FIX-ROUND SCOPE paragraph,
 with `<fix report>` the round's `panel-fix-report-<round>.md` (every chunk's file on a chunked
 round):
 
@@ -922,7 +921,7 @@ alongside the agents-ran/why/diff-path lines the fix pass records.
 reduced roster, and `primary` re-runs on its delta as above. A branch the fix round made no
 longer docs-only — exit 1 or 2 where pass 1 saw exit 0 — dispatches, in this round, every
 resolved slot not yet dispatched this run, each reading the whole `final-review.diff` under the
-no-last-reviewed-sha rule above; Bugbot, Mutation and Security among them take their pass-1 shape, throwaway
+no-last-reviewed-sha rule above; Mutation among them takes its pass-1 shape, throwaway
 worktree included. Record which slots joined this way and the path the guard printed.
 
 Handoff still requires **zero open findings at any severity** from every agent that has run, and
@@ -1158,7 +1157,7 @@ plan appended to mid-run to the tags it published under: tasks a fix round appen
 `**Build:** pending` keep the round open until every tag reads `green` or `red`.
 
 This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
-neither Bugbot nor Mutation is in the resolved roster or added this run is exactly where the round's own proof
+Mutation is not in the resolved roster or added this run is exactly where the round's own proof
 is the only mutation reasoning that happens at all.
 
 **Rebuild the dispatch context bundle before dispatching the fix subagent**, same as above,

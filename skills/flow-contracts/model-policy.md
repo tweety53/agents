@@ -29,8 +29,8 @@ guidance's cost savings do not apply here.
 
 **Two further instructions in that same upstream skill are also overridden: dispatching the final
 review on the most capable model, and escalating the model in fix rounds 4-5.** flow fixes every
-panel slot at the panel's model instead and escalates breadth (the conditional Security, Adversarial
-and extra-principle slots) rather than the model. See **Model policy**
+panel slot at the panel's model instead and escalates breadth (the conditional Failure-modes and
+Mutation slots) rather than the model. See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
 
 **The planner makes the choice.** The implementer, the fixer and each panel dispatch run on
@@ -73,7 +73,7 @@ exactly as above.
 
 **The ledger records what happened.** A recorded model choice does **not** replace the per-dispatch
 ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
-slot, Bugbot and Security included, is a prompt-driven role
+slot is a prompt-driven role
 (**The roster**, `skills/flow/review-panel.md`) and takes the panel's model the same way every other
 slot does.
 
