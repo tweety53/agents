@@ -124,7 +124,7 @@ description or Jira key, or fix instructions at `IN_PROGRESS`); anything else is
 
 | Command | What it does |
 |---------|-------------|
-| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive), ending at `STARTED` at the plan gate with a `/clear` handoff; re-run at `STARTED`, it runs implementation behind the review panel the recorded decision names (`skills/flow/review-panel.md` is canonical for the roster), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it lands the branch by the project's `## default landing route`, asking — open PR *(default)*, merge and push, or manual — only when none is declared, and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage**, beyond the two exceptions under **No verification gate** (`skills/flow/integrate.md`) |
+| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive), ending at `STARTED` at the plan gate with a `/clear` handoff; re-run at `STARTED`, it runs implementation behind the review panel the recorded decision names (`skills/flow/review-panel.md` is canonical for the roster), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it lands the branch by the project's `## default landing route`, asking — open PR *(default)*, merge and push, or manual — only when none is declared, and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage**, beyond the two exceptions its no-verification-gate rule names under **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) |
 | *(gate)* | **You** — creating run or fix: review the staged diff — the stack is running; integrate with open PR or manual: wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
 | `/flow-status <name>` | Read-only state report for open changes |
 
@@ -132,7 +132,7 @@ The branch's merge status alone decides which `/flow` integrate/archive run happ
 merged on the forge and a merge it performed itself are indistinguishable to it, which is correct.
 
 **Verification runs during `/flow`'s implementation phase and nowhere else**, beyond the two exceptions under
-**No verification gate** (`skills/flow/integrate.md`). The integrate/archive phase has no verification gate: re-running tests immediately before the one irreversible step
+**No verification gate** — **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`). The integrate/archive phase has no verification gate: re-running tests immediately before the one irreversible step
 repeats finished work, and a gap found there routes back to a fix run anyway.
 
 ### How to invoke a skill

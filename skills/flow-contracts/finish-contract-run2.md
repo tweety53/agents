@@ -4,11 +4,14 @@
 
 bare `/flow` is the only command that loads this file whole; `/flow-self-review` reads its step 9.
 
+**Load `skills/flow-contracts/finish-hand-fallbacks.md` only when** the guard presence check named
+one of the scripts this file calls missing, or a call finds the script absent — every by-hand
+procedure for them is there.
+
 ### Run 2 — the branch is merged
 
 1. **Verify the merge.** Use a PR CLI when one is usable for the host; otherwise
-   `git merge-base --is-ancestor`. That fallback must stay reachable on its own — it is the only
-   merge evidence available on a non-GitHub forge. **Not merged → this is not run 2.**
+   `git merge-base --is-ancestor`. **Not merged → this is not run 2.**
    **On the merge-and-push continuation, the evidence is local**: run 1 merged into `<base>` in
    `<landing-worktree>` without pushing it, so neither a PR CLI nor `origin/<base>` can see the
    merge yet — `git -C <landing-worktree> merge-base --is-ancestor spectre/<name> <base>` is the
@@ -45,40 +48,16 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    asset stays untracked, so the guard's refusal stands until the run settles it — prompted
    to the operator once, **delete** removes it in place, **commit** moves it to the scratchpad so
    positioning can proceed, then restores and commits it onto `chore/archive-<name>` as its own
-   commit immediately after positioning, so it cannot ride step 4's `add -A` unremarked. When the
-   script is absent, classify by hand to the same three classes and say so in the handoff.
+   commit immediately after positioning, so it cannot ride step 4's `add -A` unremarked.
 
-   **When the script is absent** — a harness whose repository does not carry it — perform the same
-   positioning by hand, in this order, against `<landing-worktree>`, creating it via `git -C
-   <main-checkout> worktree add --force <landing-worktree> <base>` when it does not already exist
-   (`--force` because the main checkout is ordinarily already on `<base>` at this point, per
-   `check-finish-preflight.sh`'s own main-checkout assertion (**Finish contract**,
-   `skills/flow-contracts/finish-contract-run1.md`), and git otherwise refuses a second worktree on
-   a branch already checked out), and say in the handoff that it was done manually. The guard is never
-   skipped for want of the script.
-   Run the wrapped, credential-free fetch first, so an
-   unreachable remote refuses quickly rather than hanging. Then read `HEAD`: **refuse a detached
-   `HEAD`.** Then read the working tree with `git -C <landing-worktree> status --porcelain` — the
-   same test the preflight's signal 3 uses — and **refuse a dirty tree wherever it is found, on
-   `<base>` as well as off it**, naming both the branch found and `<base>`; uncommitted changes
-   would otherwise ride onto the archive branch unremarked. On a clean tree, check out `<base>` if
-   the checkout is not already on it, then fast-forward it to `origin/<base>`, **refusing a base
-   that cannot fast-forward** rather than merging or resetting it. Finally create
-   `chore/archive-<name>` from that base and check it out — or, when it already exists, **reuse it
-   only if it is descended from `origin/<base>`** and refuse it otherwise. Apply each refusal in
-   that order and never accept a guess in place of any of them.
 3. **Archive the change** — `spectre archive <name>` moves it into
-   `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**, because
-   `spectre archive` adds none: a prefix re-added here would describe a move the tool does not
-   perform.
+   `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**.
    **One call per change, parent and sub-change alike.** A `<name>-fix-N` sub-change is a flat
    sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
    refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
    each sub-change is archived by its own call in this same step. Never left behind, never archived
    alone. **There is nothing to sync into
-   `<project>/spectre/specs/` first**: a change edits that
-   tree directly on its own branch, so its spec edits reached the base branch with the merge step 1
-   proved.
+   `<project>/spectre/specs/` first**.
 4. **Commit the archive on `chore/archive-<name>` — no push.** There is no merge to do: the change
    branch was already merged, which step 1 proved. Run 2 merges nothing into the base branch before step 10 lands the archive,
    and never commits the archive on the base branch itself. Every commit run 2 makes after step 2 —
@@ -91,10 +70,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    **The staging is `git add -A`, and this commit's diff is verified scoped to
    `<project>/spectre/changes/`
    before it is made** — `check-archive-scope.sh <landing-worktree> "spectre/changes/"`, run between
-   the add and the commit. `add -A` stages the whole landing worktree, not only the archive move, so
-   a landing worktree step 2 failed to actually fast-forward — silently, or by a skipped guard run
-   by hand and gotten wrong — stages and commits whatever else that stale tree carried right
-   alongside it. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
+   the add and the commit. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
    rather than let a stray path land on `chore/archive-<name>` unremarked. **An exit 2 with
    nothing on stdout** — a landing worktree that is not a readable git worktree, or no
    allowed-prefix given — refuses the commit the same way: the guard's header is
@@ -106,10 +82,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    and `<abs-worktree>/.superpowers/sdd/reviews/<name>-panel.md` are copied into
    `<project>/spectre/changes/archive/<name>/` as `ledger.md` and `panel.md` — each when
    present, an absent file copying nothing — where they ride the archive commit under the scope
-   the check above verifies. The store's rows are the terminal record, but rows that never
-   reached it leave the worktree renders the only copies, and step 5 destroys those with the
-   worktree; the committed copies are what step 9's bundle serves when the store renders report
-   skipped. `<canonical-worktree>` is the resolved set's own canonical member
+   the check above verifies. `<canonical-worktree>` is the resolved set's own canonical member
    (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`), and
    still exists here — its removal is step 5, after this step.
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
@@ -117,26 +90,11 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    (`skills/flow-contracts/finish-contract-run2.md`) below.
 
    **`BASE` is resolved per worktree, inside the cleanup loop below — never once for the whole
-   change.** A multi-repo change has one `origin` and one default branch per repository, so a name
-   resolved against one worktree can be the wrong ref, or no ref at all, against another
-   repository's `origin`. Worktree cleanup's check 3 below is where this resolution actually runs:
-   for each worktree in the resolved set it invokes `resolve-base-branch.sh` against that same
-   worktree, immediately before that worktree's own removal — the same call and exit contract as
-   the resolve-the-base-branch step of Run 1's **Sync the branch onto the base**
-   (`skills/flow-contracts/finish-contract-run1.md`), run again here because this is a separate
-   invocation and nothing carries `BASE` over from run 1's. Step 4's archive commit runs before this
-   step, so every worktree in the set is still present when its own resolution runs, which is what
-   "before cleanup removes it" means per worktree. Anything but exit `0` for a given worktree — stop and ask, exactly as
+   change.** Anything but exit `0` for a given worktree — stop and ask, exactly as
    Run 1 does, and leave every worktree alone, per **Any failed check leaves every worktree alone**
    below.
 
-   The removal runs the project's `remove` command, read from the command table below, with the workspace id substituted into its text by the token rule below it. **Run 2
-   is not handed that id and does not need to be**: it is derived from the change name and from
-   nothing else, deterministically and without ever being recorded, per
-   **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — so run 2 runs `flow
-   workspace-id <name>` for it, rather than re-deriving it by hand from that contract's own
-   derivation, and arrives at the same id `/flow`'s implement phase used, in a session that shared nothing with
-   it.
+   The removal runs the project's `remove` command, read from the command table below, with the workspace id substituted into its text by the token rule below it.
 
    The command table has three rows and two columns:
 
@@ -175,10 +133,6 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    project names is the project's own decision**, reusing one
    it already ships or adding one, per **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 
-   **A project declaring no `## workspace isolation` section, or no `remove` command in it, has this
-   half skipped rather than failed** — a step whose artifact is already absent is a success, which is
-   the same re-entrancy rule every other removal in run 2 follows.
-
    **A failed removal does not stop run 2 here; it is reported, and step 7 decides the verdict** —
    from the project's survivor report and never from this command's exit code, per
    **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
@@ -200,8 +154,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    symmetric for that reason.** The guard appends its notes to the verdict after ` — `, and a
    `SKIPPED:` note there says a registry row was *not* verified — reached, for instance, as
    `COMPLETE: <repo> — … — SKIPPED: the workspace survivor verification — '<cmd>' exited 7, so the
-   service could not be reached`. A run that reported only "cleanup verified" would have told the
-   operator the opposite of what the guard said, while following this table to the letter. **A skip
+   service could not be reached`. **A skip
    is never a pass**: `<agents repo>/scripts/check-cleanup-complete.sh`'s own header is canonical for why, and it
    is the reason the clause is quoted rather than summarised — the row it leaves unverified and the
    reason it could not be verified are both inside it. The relay does **not** block step 8; why an
@@ -213,19 +166,9 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    unverified cleanup is not a verified one. The exit code is checked as well as the line, because a
    caller that greps for `COMPLETE` in empty output finds nothing.
 
-   **None of this is a cue to bring the stack back up.** Once check 5 in **Worktree cleanup** below
-   has stopped the project's declared stack, every later run-2 step that touches it — a
-   reported-and-continued removal failure at step 5 above, or a `SKIPPED:` clause on a `COMPLETE:`
-   line here — is that same stack's absence showing up again, correctly, one step later. Restarting
-   it to make one of those steps succeed undoes what check 5 was for and answers a question this
-   procedure never asked.
+   **None of this is a cue to bring the stack back up.**
 
    **A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**
-   `FINISHED` is terminal: bare `/flow` stops at it and `/flow-status` does not list it, so a
-   change written `FINISHED` over a known leftover has exactly one record of that leftover — the
-   console line — which is the transcript-only record this pipeline refuses everywhere else. Left at
-   `IN_PROGRESS` instead, the change stays listed, stays re-runnable, and the state file it already
-   has is the durable record; no new field is invented to carry a fact the state itself carries.
 
    **Run 2 is re-entrant, which is what makes that safe.** Every step is remove-or-move *if present*
    and a step whose artifact is already gone is success, not an error — so a re-run after the
@@ -233,22 +176,13 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    directory means step 3 is already done: the archive move is skipped, not repeated, and the run
    continues to cleanup and verification.
 
-   **When the script is absent** — a repository that does not carry it — check the same registry rows
-   by hand, in the same order, and say in the handoff that the verification was done manually. The
-   check is never skipped for want of the script, and "not verified" is never reported as verified.
-
-   **Load `skills/flow-contracts/project-configuration-isolation.md`** only when the script is absent.
-
-   **A `/flow-fast` run skips this step entirely** — cleanup itself (step 5) still runs; only its
-   separate verification pass does not, per that command's own reduced guard set.
 8. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** — see **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
 9. **Save the self-review context bundle** — after `FINISHED` is written. Self-review is always
    deferred: no reasoning pass and no prompt run here, and a failure never moves the change off
-   `FINISHED`. **A `/flow-fast` run saves the bundle on its own branch before landing** (**5.
-   Verify**, `skills/flow-fast/SKILL.md`, canonical for it). Otherwise the session fetches the
+   `FINISHED`. The session fetches the
    bundle with
    `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
    panel record rendered from the store, or, when the store yields no render for that record, read
@@ -314,20 +248,13 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
     refresh-main-checkout.sh <main-checkout> <base>
     ```
 
-    No step above checks out, stages or commits the main checkout — but step 2 positioned
-    `<landing-worktree>` on `<base>` itself, and fast-forwarding and merging there moved the
-    `<base>` pointer the main checkout's HEAD names while its index and worktree stayed at the
-    old tip. Left alone, `git status` there shows the landing in reverse as staged changes, and
-    a later session that trusts it commits, stashes or resets the ghost. The script hard-resets
+    The script hard-resets
     only when the index is byte-for-byte the tree of an earlier `<base>` tip and the worktree
     equals the index — pure staleness, nothing to lose; anything else is refused by name and
     reported, never reset. `REFRESH-REFUSED` is reported in the handoff and does not move the
     change off `FINISHED`.
 
-**The Jira `Done` transition fires before step 9, not after it.** Per **Jira integration**
-(`skills/flow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
-archive move and the state write — that transition has already happened by the time step 9 begins,
-so self-review has nothing to delay: there is no Jira write left in run 2 for it to sit in front of.
+**The Jira `Done` transition fires before step 9, not after it.**
 
 ### Worktree cleanup
 
@@ -358,13 +285,6 @@ git -C "$WT" ls-files --others --exclude-standard
 BASE="$(resolve-base-branch.sh "$WT")" || { echo "cannot resolve the base branch for $WT — stop and ask"; false; }
 #    `@{upstream}` ERRORS when no upstream is configured, and an empty capture would read as
 #    "nothing unpushed" — so resolve it explicitly and never let a failed lookup pass as success.
-#
-#    Step 1 already proved the branch is an ancestor of the base branch, which is STRICTLY
-#    STRONGER evidence than "pushed to its own upstream": the commits are in the base branch.
-#    Accept that first. Requiring the upstream regardless would lock out the ordinary
-#    squash-merge workflow — GitHub's "delete head branch on merge" plus `fetch.prune=true`
-#    removes the tracking ref, after which no upstream can ever resolve and the branch cannot be
-#    re-pushed because it no longer exists on the remote.
 if git -C "$WT" merge-base --is-ancestor HEAD "origin/$BASE" 2>/dev/null; then
   :                                            # already merged into base — nothing can be lost
 elif UP="$(git -C "$WT" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
@@ -391,16 +311,12 @@ check-worktree-processes.sh "$WT"
 ```
 
 **Check 6 requires the orchestrating shell's own cwd to be outside every worktree in the resolved
-set before it runs.** `check-worktree-processes.sh`'s own header treats a process whose working
-directory is at or under the worktree as held, and a shell that is itself `cd`'d into `$WT` (or into
-another worktree in the same set) is exactly such a process — it would report `HELD:` against
-itself, not against the stack this check exists to catch. `cd` out first, for every worktree, before
+set before it runs.** `cd` out first, for every worktree, before
 this check runs for any of them.
 
 **Check 6 is a gate, and both of its bad outcomes are failures.** `HELD:` names each process
 holding the worktree, and exit 2 says the guard could not answer at all — the scanning tool is
-absent, or the worktree path is not readable. Neither is a pass: an inability that proceeded to
-removal would be the failure this check exists to prevent, arrived at more quietly. On either, stop
+absent, or the worktree path is not readable. On either, stop
 at `IN_PROGRESS`, leave every worktree alone, and report each pid, its working directory, and the
 command that reaches it:
 
@@ -408,10 +324,7 @@ command that reaches it:
 ps -o pid,command -p <pid>
 ```
 
-**There is no confirmation to proceed past check 6**, unlike check 4's one ask. That ask is safe
-because the operator sees exactly the irreplaceable entry at stake and decides; a live process is
-different in kind. Confirming it destroys the only records that can reach the process afterwards,
-and the resulting orphan holds ports shared across every workspace. The remedy is to clear the
+**There is no confirmation to proceed past check 6**, unlike check 4's one ask. The remedy is to clear the
 process and re-run, while
 the worktree still exists and the project's own stop command can still read what it started.
 
@@ -432,9 +345,7 @@ Split what it found into two buckets by path, never by guessing intent:
   the doubt is for.
 
 An empty unclassified bucket → **show the regeneratable bucket's count and proceed without
-asking** — every entry in it is reproduced identically by the next run of whatever wrote it, so
-confirming its loss adds nothing the operator can act on, and asking every single time a routine
-archive leaves nothing but build output behind is a prompt with no real decision behind it. A
+asking**. A
 non-empty unclassified bucket → **show that bucket in full** (the regeneratable one named only by
 count), saying of each entry whether it is irreplaceable and whether it was already preserved,
 **and proceed without asking** — by this point the change's own work is committed and step 1
@@ -461,9 +372,6 @@ git -C "$REPO" worktree prune
   prevent it: it lists exactly what will die, and asks only about an irreplaceable, unpreserved entry. Claiming the checks make
   `--force` safe would be false: a gitignored `.env` passes checks 1 and 2 and is
   destroyed silently.
-- **Neither check sees a file whose `assume-unchanged` bit is set.** `git status` is blind to it
-  by design. Rare, operator-inflicted, and named here so it is a known limit rather than a
-  surprise.
 - **`git branch -d`, never `-D`.** It must be free to refuse an unmerged branch.
 - **An already-removed worktree is success**, not an error.
 - **Any failed check leaves every worktree alone** and reports why. There is no partial cleanup.
@@ -472,8 +380,7 @@ git -C "$REPO" worktree prune
   a bounded wait rather than letting it hang the run.
 - **Verify each removal actually succeeded** before writing state. If any `git worktree remove`
   fails for a reason the checks did not predict — a file lock, a permission error — report it and
-  leave that worktree's entry in `worktrees`. Writing `worktrees: {}` regardless would drop it from
-  the only authoritative list, and nothing would ever find it again.
+  leave that worktree's entry in `worktrees`.
 
 **Wave-group copies go with the apply worktree they were copied from.** For each `$WT`, every
 entry `git -C "$REPO" worktree list --porcelain` lists as `detached` at `$WT-wave-group-<g>` is a
@@ -492,11 +399,6 @@ No, or a failed check 5 or 6, every worktree is left alone, exactly as above.
 Then the change's **remote** branch:
 
 ```bash
-# `push --delete` exits non-zero BOTH when the branch was already gone and when the push was
-# refused, so the two are told apart by git's message and never by the exit code alone. Measured
-# against a scratch remote on 2026-08-31 (git 2.50.1): an already-absent branch prints
-# `error: unable to delete 'spectre/<name>': remote ref does not exist` and exits 1, and the
-# stale remote-tracking ref SURVIVES that failure.
 OUT="$(git -C "$REPO" push origin --delete "spectre/<name>" 2>&1)"; RC=$?
 if [ "$RC" -eq 0 ]; then
   echo "remote branch deleted: origin/spectre/<name>"
@@ -510,21 +412,14 @@ else
 fi
 ```
 
-- **The remote branch is deleted without a further prompt.** Run 2 is reached only by proving the
-  branch is an ancestor of the base branch, so its commits are in the base branch and nothing can be
-  lost — on the merge-and-push continuation the local `<base>`, not yet pushed until step 10, whose
-  failure step 10 reports with the push command — which is why this is not gated the way check 4's disclosure is.
+- **The remote branch is deleted without a further prompt.**
 - **An already-absent remote branch is success**, not an error, and the outcome is reported either
   way: deleted, already gone, or refused.
-- **A refused push is reported, never swallowed.** A bare `|| true` would make an expired
-  credential indistinguishable from a branch the forge already removed, and leave the remote branch
-  standing with nothing said about it.
-- **The remote delete is not gated on the local one succeeding.** Gating it would leave the remote
-  branch behind whenever anything unrelated failed, which is the state this step exists to end.
+- **A refused push is reported, never swallowed.**
+- **The remote delete is not gated on the local one succeeding.**
 
 The stack-stopped check reads the optional `## stop` key from `<project>/.flow/project.md` —
 see **Project configuration** in `skills/flow-contracts/project-configuration.md`. When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
-the other checks — check 6 among them, which is what makes an undeclared `## stop` key survivable:
-a project that declares nothing to stop is still checked for a process running from its worktree.
+the other checks.
 

@@ -47,7 +47,7 @@ post-check's base is the fold's own upstream, never `FIX_BASE`, which the fold d
 stale as its diff endpoint, and a refusal from either stops the round before anything builds on
 the rewritten history (`<agents repo>/scripts/guard-autosquash.sh`). A conflict there is between
 two of the branch's own commits, resolved by hand, keeping both sides — the resolve-in-place rule
-of a base-branch rebase (its Conflict case, under **Sync the branch onto the base**, `skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
+of a base-branch rebase (its Conflict case, under **Sync the branch onto the base**, `skills/flow/sync-onto-base.md`) concerns the operator's base, never this one. The
 fold never crosses the run's own uncommitted planning edits —
 `aside-planning-artifacts.sh <aside|restore> <worktree>` around the rebase: set aside before it,
 restored once it has finished or aborted, never mid-way; restore refuses while the rebase is

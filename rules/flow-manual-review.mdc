@@ -56,6 +56,7 @@ first time a contract is added, nothing checks it against the table, and that is
 | **Project configuration** (`skills/flow-contracts/project-configuration.md`) | resolving `<project>/.flow/project.md` |
 | **Jira integration** (`skills/flow-contracts/jira-integration.md`) | any Jira-related step |
 | **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1 |
+| **Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`) | joining a follow-up the search found — only when that search returned a candidate |
 | **Plan provenance** (`skills/flow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
 | **Plan provenance — the guard** (`skills/flow-contracts/plan-provenance-guard.md`) | what the plan-provenance guard enforces |
 | **The build-green tag** (`skills/flow-contracts/build-green.md`) | writing or checking a task's build tag |

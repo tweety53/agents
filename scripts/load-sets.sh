@@ -59,10 +59,10 @@ row "  TOTAL worst case" "${ALWAYS[@]}" "${ROUTER[@]}" "${ID[@]}" "${IC[@]}" "${
 echo "--- finish session (merge-and-push: run 1 chained into run 2) ---"
 FD=("$F/integrate.md" "$C/worktree-resolution.md" "$C/finish-contract-run1.md" "$C/git-boundaries.md" "$C/git-boundaries-commit-chain.md" "$C/session-records.md" "$C/jira-integration.md" "$C/jira-integration-finish.md" "$F/archive.md" "$C/artifacts-registry.md" "$C/finish-contract-run2.md")
 FC=("$C/operator-prompts.md" "$C/model-policy.md")
-FX=("$C/jira-followups.md" "$C/state-file.md" "$C/project-configuration.md" "$C/guard-verdict-verification.md")
+FX=("$F/unfinished-work-gate.md" "$F/sync-onto-base.md" "$C/finish-hand-fallbacks.md" "$C/jira-followups.md" "$C/jira-followups-join.md" "$C/state-file.md" "$C/project-configuration.md" "$C/guard-verdict-verification.md")
 row "  phase files + load directives" "${FD[@]}"
 row "  + cited" "${FC[@]}"
-row "  + conditional (follow-ups, state file, config, verdicts)" "${FX[@]}"
+row "  + conditional (gate, base moved, hand fallbacks, follow-ups, state file, config, verdicts)" "${FX[@]}"
 row "  TOTAL definite" "${ALWAYS[@]}" "${ROUTER[@]}" "${FD[@]}"
 row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${FD[@]}" "${FC[@]}"
 

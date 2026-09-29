@@ -20,8 +20,9 @@ flow's pipeline and its contract definitions.
 | File | Load it when you need to |
 |------|--------------------------|
 | [pipeline.md](pipeline.md) | **Run any `/flow*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, the handoff output shape, IntelliJ commands, guard resolution and stage marks |
-| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure, base-branch resolution, and resolving a change's worktrees. **Loaded by `skills/flow/integrate.md`; `/flow-status` and `/flow-fast` also read single sections of it** |
+| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure, base-branch resolution, and resolving a change's worktrees. **Loaded by `skills/flow/integrate.md`; `/flow-status` also reads single sections of it** |
 | [finish-contract-run2.md](finish-contract-run2.md) | `/flow`'s archive run: run 2's procedure and worktree cleanup. **Loaded by `skills/flow/archive.md`; `/flow-self-review` also reads its step 9** |
+| [finish-hand-fallbacks.md](finish-hand-fallbacks.md) | The by-hand procedure for each script the two finish contracts call. **Loaded by either contract only when the guard presence check named one of its scripts missing** |
 | [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/flow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its full shape, monotonic state writes, carry-forward |
 | [state-file-internals.md](state-file-internals.md) | How the CLI and daemon keep the record: the fallback paths, the project-key derivation, write ordering and journal replay. **Loaded by no `/flow*` command** |
@@ -31,7 +32,8 @@ flow's pipeline and its contract definitions.
 | [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.visual-verify` begins** |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-integration-finish.md](jira-integration-finish.md) | The In Review timing, the join carve-out and echo, and labels on created issues. **Cited by every command that creates an issue; loaded by `/flow`'s integrate run 1 at the In Review transition** |
-| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/flow`'s integrate run** |
+| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, and the create path. **Loaded by `/flow`'s integrate run** |
+| [jira-followups-join.md](jira-followups-join.md) | Join the follow-up the search found: the confirmation, the append and its per-write guards, and the three ordered writes a join makes. **Loaded by jira-followups.md only when the join search returned a candidate** |
 | [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty |
 | [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan. **Cited by `/flow`'s implementer dispatch** |
 | [plan-provenance-guard.md](plan-provenance-guard.md) | What check-plan-provenance.sh enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |

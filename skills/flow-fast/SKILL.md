@@ -336,7 +336,7 @@ git -C <worktree> rebase origin/<default-branch>
 ```
 
 A rebase that conflicts is resolved in place, automatically, per the **Conflict** bullet of **Sync
-the branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`) — its resolution
+the branch onto the base** (`skills/flow/sync-onto-base.md`) — its resolution
 rule, its stop-and-ask cases and its handoff line apply as written. A rebase that moved the
 branch re-runs section 5's lint and targeted tests before continuing; one that needed resolution
 runs the project's whole `## lint` and `## test` lists instead.

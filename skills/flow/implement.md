@@ -215,7 +215,7 @@ already carries**. A collision is reconciled before task 1 runs, under **A pivot
 three artifacts together** (section 4 below) — never discovered mid-task; an unmoved base
 records one line saying so. The step names, it never rebases: the change branch is synced onto
 the base at integrate (**Sync the branch onto the base**,
-`skills/flow-contracts/finish-contract-run1.md`).
+`skills/flow/sync-onto-base.md`).
 
 **Whether there is anything left to implement is read off the task checkboxes**, from
 `spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change:

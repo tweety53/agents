@@ -22,4 +22,4 @@ the plan, the store, git — and never rewrites the verdict line or the exit cod
 the courses the gate offers. A verification that upholds the verdict leaves the operator exactly
 where they were. A verdict the verification confirms structural is recorded where the call site
 provides a recording — today, `flow record verdict false-positive` at the unfinished-work gate in
-`skills/flow/integrate.md`, with the operator's reason, verbatim.
+`skills/flow/unfinished-work-gate.md`, with the operator's reason, verbatim.

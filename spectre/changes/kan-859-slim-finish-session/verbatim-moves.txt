@@ -1,0 +1,158 @@
+# Sentences KAN-859 cuts, repoints or adds on purpose. Every entry is one of:
+# - a declared duplicate cut, its canonical copy named in design.md (I02, I03, I04, I06c, I07, I09,
+#   I11, I12, I15, A01, A02, A04, A06, A07, A09, A10, A17, A18, A19b, R1i, R1k, R1r1, R1s, R1ab,
+#   R2j, R2k, R2l);
+# - a misplaced /flow-fast sentence cut from finish-contract-run2.md (R2r, R2s), and the sentence
+#   R2s's cut leaves ("Otherwise the session fetches" → "The session fetches");
+# - the remainder of a sentence whose reason clause moved verbatim to a -rationale.md (R1g, R2f,
+#   R2g, R2af, R2ao, J03a, J12, J30), or a bold sentence that now closes its block, so the guard
+#   reads its closing `**` (R1x, R1ae, R2o, R2p, R2y, R2al, R2am, R2an, R1m's kept sentence);
+#   the whole original sentence is the moved/REVIEW line, not listed here;
+# - a list item's first line whose continuation moved, which the guard splits line by line;
+# - a citation repointed to the file its section moved to (Sync the branch onto the base, the
+#   unfinished-work gate, the hand fallbacks, the join file), or a load directive, "Loaded by"
+#   header, heading, index row or Stage-keys row the new split files need.
+**Every filing ask explains before it asks** — stated where the filing prompt fires, under **1. Check for unfinished work** (`skills/flow/integrate.md`).
+**Fold every character in Unicode categories `Cc`, `Cf`, `Zl` and `Zp` to a single space.
+**Fold every run of three or more backtick or tilde characters to two of that character.
+**The item comparison is per item, by membership, over the union of those sections — never list equality and never section existence.
+**The join confirmation** is the other carve-out from **Never blocking** (`skills/flow-contracts/jira-integration.md`), stated under **Follow-up issues** (`jira-followups.md`), and bounded identically: asked once, only when a candidate was actually found, with anything but an explicit yes taking the safe course and the run continuing regardless.
+What is echoed there instead, and why, is under **Follow-up issues** (`jira-followups.md`).
+Without that, an issue
+holding a second change's outstanding work is invisible to anyone filtering by the change that put it there.
+is the control class — newlines, carriage returns, tabs, NEXT LINE `U+0085`, and the escape character that begins a terminal sequence.
+this is not cosmetic is the paragraph below.
+| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes.
+\# Follow-up issues — joining a follow-up
+\### Joining a follow-up
+**Fold every character in Unicode categories `Cc`, `Cf`, `Zl` and `Zp` to a single space.**
+**Fold every run of three or more backtick or tilde characters to two of that character.**
+**Loaded by jira-followups.md only when the join search returned a candidate** |
+**The item comparison is per item, by membership, over the union of those sections — never list equality and never section existence.**
+A partial append writes a new dated section rather than editing an existing one.
+Render it in a block of its own, never interpolated into the bolded question.
+The clause is joined to the rest of the query with a top-level `AND`, and any alternation among the remaining terms is parenthesised.
+| [jira-followups-join.md](jira-followups-join.md) | Join the follow-up the search found: the confirmation, the append and its per-write guards, and the three ordered writes a join makes.
+| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, and the create path.
+Every rule below — the join search, the append guard's per-item matching, the three writes, the outcome rows — reads "this run's items" and "this run's `<m>` outstanding items" as that list.
+# --- the finish-file moves (integrate.md, archive.md, finish-contract-run1/run2.md) and their citers
+\## No verification gate
+\#### Sync the branch onto the base
+**A `/flow-fast` run saves the bundle on its own branch before landing** (**5. Verify**, `skills/flow-fast/SKILL.md`, canonical for it).
+**A `/flow-fast` run skips this step entirely** — cleanup itself (step 5) still runs; only its separate verification pass does not, per that command's own reduced guard set.
+**A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.
+**A project declaring no `## workspace isolation` section, or no `remove` command in it, has this half skipped rather than failed** — a step whose artifact is already absent is a success, which is the same re-entrancy rule every other removal in run 2 follows.
+**An exit 2 with nothing on stdout** — a landing worktree that cannot be read — stops the commit the same way: the guard's header makes an inability to answer a non-verdict, so it is never read as `SCOPE-OK`.
+**Continue** carries the outstanding list into **3**'s planning commit and into the handoff.
+**First, surface the foreign staged work and the main checkouts' drift** — **Surface foreign staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`) is canonical for it: resolve each affected repository's main checkout from the worktree set, then run `check-foreign-staged.sh` and `check-main-checkout-drift.sh` once per distinct main checkout, and on any `STAGED-FOREIGN`, `DRIFT-BRANCH` or `DRIFT-DIRTY` stop and ask the two courses that section states before anything else in this file runs — an exit 2 with no verdict stops and asks the same way, never reading as `STAGED-CLEAN` or `DRIFT-CLEAN`.
+**Never fall back to `HEAD@{upstream}`.
+**Never** archive a change whose branch has not reached the base branch.
+**Never** ask how the branch should land before the unfinished-work gate has been answered, and
+**Never** hardcode `main` or `develop`, and **never** resolve the base branch from `HEAD`'s
+**Never** let a Jira call block the archive — one skipped-with-reason line.
+**Never** let a git failure pass silently.
+**Never** merge the change branch in run 2; step 1 already proved it.
+**Never** mix the implementation and the planning artifacts in one commit.
+**Never** report a cleanup as done without the verdict that says so, and **never write
+**Never** stage past a symlinked planning path with a bare `git add -A`.
+**No verdict line at all, and a non-zero exit** → report it, leave the affected `worktrees` entries in the state file, and treat it as `LEFTOVER`.
+**None of this is a cue to bring the stack back up.
+**Run 1 itself only starts from a fresh bare `/flow` (or `/flow <name>`) invocation — never inline, mid-turn, off something the operator said while a prior turn was still running.
+**Run 2 is not handed that id and does not need to be**: it is derived from the change name and from nothing else, deterministically and without ever being recorded, per **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — so run 2 runs `flow workspace-id <name>` for it, rather than re-deriving it by hand from that contract's own derivation, and arrives at the same id `/flow`'s implement phase used, in a session that shared nothing with it.
+**Run no tests, no linters, and no spec-coverage check** — see **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`).
+**Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.
+**Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed.
+**Sub-step: transition the issue to In Review**, whichever route was taken — pull request, merge and push, or manual — per **Transitions** (`skills/flow-contracts/jira-integration.md`): after the state write, never before, never blocking.
+**The Jira `Done` transition fires before step 9, not after it.
+**The copy loop runs before the `add -A`, so the preserved copies ride the archive commit under the scope `check-archive-scope.sh` verifies.
+**The path is taken with `substr`, never `$2`.
+**Use this invocation's session token at this first mark** — the one the router (`skills/flow/SKILL.md`) generates once per run, never a second one minted here.
+**When the guard is absent**, perform the same positioning by hand, in the same order, against `<landing-worktree>`.
+**When the script cannot be located**, do not fall back to `reset --soft` — it folds the planning commits away; stop and report the missing guard.
+**`check-archive-scope.sh`** refuses a `git add -A` that staged more than the archive move — see step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) for why.
+A `SCOPE-VIOLATION` stops the commit exactly as a branch mismatch does.
+A merge conflict here means the base moved after the sync: `git -C <landing-worktree> merge --abort`, remove the landing worktree, and re-run **Sync the branch onto the base** and this route once |
+A multi-repo change has one `origin` and one default branch per repository, so a name resolved against one worktree can be the wrong ref, or no ref at all, against another repository's `origin`.
+A rebase that conflicts is resolved in place, automatically, per the **Conflict** bullet of **Sync the branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`) — its resolution rule, its stop-and-ask cases and its handoff line apply as written.
+A resolved set that comes back empty stops the run rather than passing as `CLEAR` from every worktree.
+A run that stopped on a failed push does **not** transition.
+A verdict the verification confirms structural is recorded where the call site provides a recording — today, `flow record verdict false-positive` at the unfinished-work gate in `skills/flow/integrate.md`, with the operator's reason, verbatim.
+All three routes then commit — implementation, then the `<project>/spectre/changes/` planning delta the planning commits left — as **two** commits on top of the kept planning commits, never one.
+Anything else stops run 2 here, with nothing staged, committed, pushed or removed.
+Correctness was established during `skills/flow/review-panel.md` and by the human gate.
+Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`), which is canonical for the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above.
+Every worktree's verdict is reported, and none is prompted: a `MOVED` verdict, overlapping or not, is what **Sync the branch onto the base** below consumes.
+Exit `0` → `<landing-worktree>` is on `chore/archive-<name>`, cut from a fast-forwarded `<base>`; continue to step 3.
+If there is no remote at all, say exactly that ("this repository has no remote, so there is nothing to push to or merge into"), not that the base branch failed to resolve.
+On the merge-and-push continuation the merge is still local, so the test is `git -C <landing-worktree> merge-base --is-ancestor spectre/<name> <base>`.
+Only then decide, **before any git action**, how the branch should land.
+Otherwise the session fetches the bundle with `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the panel record rendered from the store, or, when the store yields no render for that record, read from the copies step 4 committed onto the archive branch, the archived `tasks.md`, `design.md` and `narrative.md` read out of the `chore/archive-<name>` branch of the repository the command resolves from its own location (the main checkout its working directory sits in — the store carries no repository roots for the pipeline's changes), and the `git log --stat` of the implementation, planning and archive commits — and prints it as one Markdown document.
+Read `<project>/.flow/project.md`'s `## default landing route` (canonical in **Project configuration**, `skills/flow-contracts/project-configuration.md`); a resolved default is taken without asking, stated in the handoff as coming from the configured default rather than an operator choice.
+Run `reshape-branch.sh <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map for this worktree — the same merge base **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or `<rebased-merge-base>`, for a worktree **Sync the branch onto the base** above rebased**.
+Step 4's archive commit runs before this step, so every worktree in the set is still present when its own resolution runs, which is what "before cleanup removes it" means per worktree.
+The refresh, and why the main checkout needs one although no step edited it, are step 11 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`); a `REFRESH-REFUSED` line goes into the handoff verbatim.
+The session records stay uncommitted under `<abs-worktree>/.superpowers/sdd/`.
+The step names, it never rebases: the change branch is synced onto the base at integrate (**Sync the branch onto the base**, `skills/flow-contracts/finish-contract-run1.md`).
+Then run to completion without asking again.
+This is bare `/flow`'s own application of the rule stated once under **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`) — that a step needing "the worktrees" resolves the set rather than reading the state file's `worktrees` map directly, and that a resolved set which comes back empty is never a vacuous pass.
+Two exceptions exist, both under **Sync the branch onto the base** above: a rebase that needed conflict resolution runs the whole `## lint` and `## test` lists, and a clean rebase that changed a file this change also touches runs the scoped re-verification `skills/flow/integrate.md`'s step 2 is canonical for.
+Uncommitted planning artifacts are set aside before this rebase and restored after it — the calling stage runs `aside-planning-artifacts.sh` (`aside`, then `restore` once the rebase has finished or aborted) against this worktree — so a run's own `tasks.md`/`design.md` edits never block the sync nor turn a stopped rebase into an improvised stash dance; the helper sets the planning paths aside and nothing else, and on a stop-and-ask exit its aside stays set aside, named in the handoff.
+What is specific to *executing* it here: `flow self-review bundle -change <name>` fetches the whole bundle — flowd serves the ledger and panel record from the store, falling back, per record, to the copies step 4 committed onto the archive branch when the store yields no render for it, reads the archived change's files out of the `chore/archive-<name>` branch of the repository the command resolves from its own location (the main checkout its working directory sits in), and derives the finish-run commits' git log — so nothing is rendered into the landing worktree first and no landing-worktree path is passed in or baked into the bundle.
+When the operator's answer says the verdict was verified structural — the plan held in another worktree with every task ticked and no open finding — run, once per worktree that reported `OUTSTANDING` and before proceeding to **2**:
+Why the preservation exists — step 5 destroys the worktree the renders live in, and step 9's bundle serves the copies when the store renders report skipped — is step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), canonical for it.
+Worktree cleanup's check 3 below is where this resolution actually runs: for each worktree in the resolved set it invokes `resolve-base-branch.sh` against that same worktree, immediately before that worktree's own removal — the same call and exit contract as the resolve-the-base-branch step of Run 1's **Sync the branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`), run again here because this is a separate invocation and nothing carries `BASE` over from run 1's.
+`<canonical-worktree>` is the one member of the resolved set whose own `<project>/<spec-root>/changes/<name>/tasks.md` exists — the same worktree for every call in this run, so a satellite worktree's call still resolves its plan through the link instead of reporting an absence.
+`COMPLETE:` → report the cleanup as verified, **relay every clause the line carries after ` — ` word for word**, and go on to step 8 — a `SKIPPED:` clause there is never a pass.
+`FINISHED` over a leftover or an unverified cleanup**.
+`LEFTOVER:` → name what remains and **stop without writing `FINISHED`**, leaving the change at `IN_PROGRESS`.
+`origin/$BASE`'s resolved tip at rebase time — `<rebased-merge-base>`, a this-run-only value never written to the state file, which every later reader of this worktree's recorded merge base in this run means instead — most concretely the reshape below.
+never run a git command before it either.
+repository, after every removal above.
+| **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the planning commit's message and the handoff — and, where the operator called the verdict structural, records it as a guard false positive per **1. Check for unfinished work** (`skills/flow/integrate.md`) |
+| `OUTSTANDING` | show the breakdown and offer the three courses below |
+\# Finish contract — hand fallbacks
+\# Sync the branch onto the base
+\# The unfinished-work gate (run 1)
+\## A verdict the operator calls structural
+\## The prompt
+\## The three courses
+\## `check-archive-scope.sh` — Run 2, step 4
+\## `check-base-moved.sh` — Run 1 — the branch is not merged
+\## `check-cleanup-complete.sh` — Run 2, step 7
+\## `check-finish-preflight.sh` — Finish contract
+\## `check-foreign-staged.sh` and `check-main-checkout-drift.sh` — Surface foreign staged work before the preflight
+\## `classify-untracked.sh` and `prepare-archive-branch.sh` — Run 2, step 2
+\## `resolve-base-branch.sh` — Run 1 — the branch is not merged
+**A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**
+**A refused push is reported, never swallowed.**
+**Loaded by `finish-contract-run1.md` and `finish-contract-run2.md` only when** the guard presence check named one of their scripts missing, or a call finds the script absent.
+**Loaded by `skills/flow/integrate.md`'s step 1 only when** a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`.
+**Loaded by `skills/flow/integrate.md`'s step 2 only when** `check-base-moved.sh` reported `MOVED` for a worktree.
+**Loaded by `skills/flow/integrate.md`; `/flow-status` also reads single sections of it** |
+**Loaded by either contract only when the guard presence check named one of its scripts missing** |
+**Never fall back to `HEAD@{upstream}`.**
+**None of this is a cue to bring the stack back up.**
+**Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.**
+**The Jira `Done` transition fires before step 9, not after it.**
+**The archived leaf carries no date prefix**.
+**The path is taken with `substr`, never `$2`.**
+**The remote branch is deleted without a further prompt.**
+**The remote delete is not gated on the local one succeeding.**
+**There is nothing to sync into `<project>/spectre/specs/` first**.
+**When absent**, run `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside `<project>/spectre/changes/`, the prefix step 4's guard call passes.
+A conflict there is between two of the branch's own commits, resolved by hand, keeping both sides — the resolve-in-place rule of a base-branch rebase (its Conflict case, under **Sync the branch onto the base**, `skills/flow/sync-onto-base.md`) concerns the operator's base, never this one.
+A verdict the verification confirms structural is recorded where the call site provides a recording — today, `flow record verdict false-positive` at the unfinished-work gate in `skills/flow/unfinished-work-gate.md`, with the operator's reason, verbatim.
+An empty unclassified bucket → **show the regeneratable bucket's count and proceed without asking**.
+Each section is the by-hand procedure for one script, moved verbatim from the contract that calls it; the script's verdicts and exit contract stay there.
+Only then decide, **before any git action**, how the branch should land — the default, the prompt and its parse are step 2 of `skills/flow/integrate.md`.
+The session fetches the bundle with `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the panel record rendered from the store, or, when the store yields no render for that record, read from the copies step 4 committed onto the archive branch, the archived `tasks.md`, `design.md` and `narrative.md` read out of the `chore/archive-<name>` branch of the repository the command resolves from its own location (the main checkout its working directory sits in — the store carries no repository roots for the pipeline's changes), and the `git log --stat` of the implementation, planning and archive commits — and prints it as one Markdown document.
+The step names, it never rebases: the change branch is synced onto the base at integrate (**Sync the branch onto the base**, `skills/flow/sync-onto-base.md`).
+When the key or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of the other checks.
+When the operator's answer says the verdict was verified structural — the plan held in another worktree with every task ticked and no open finding — run, once per worktree that reported `OUTSTANDING` and before the landing question:
+`/flow-fast` and the review panel's fix round cite its **Conflict** bullet.
+`check-main-checkout-drift.sh` runs once per distinct main checkout, and its header is canonical for the verdict grammar it prints: a `DRIFT-BRANCH` line names a checkout on any other branch than the one `refs/remotes/origin/HEAD` points at, a `DRIFT-DIRTY` line counts tracked entries.
+bare `/flow` is the only command that loads this file whole; `/flow-status` cites single sections of it.
+three-course prompt and what each course does are there.
+| [finish-hand-fallbacks.md](finish-hand-fallbacks.md) | The by-hand procedure for each script the two finish contracts call.
+| `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when a worktree's `check-base-moved.sh` verdict is `MOVED`; marks nothing itself |
+| `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`; marks nothing itself |

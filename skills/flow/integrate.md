@@ -15,11 +15,8 @@ already run at the top of this invocation.
 
 **First, surface the foreign staged work and the main checkouts' drift** — **Surface foreign
 staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`) is canonical
-for it: resolve each affected repository's main checkout from the worktree set, then
-run `check-foreign-staged.sh` and `check-main-checkout-drift.sh` once per distinct main
-checkout, and on any `STAGED-FOREIGN`, `DRIFT-BRANCH` or `DRIFT-DIRTY` stop and ask the two
-courses that section states before anything else in this file runs — an exit 2 with no verdict
-stops and asks the same way, never reading as `STAGED-CLEAN` or `DRIFT-CLEAN`.
+for it: run `check-foreign-staged.sh` and `check-main-checkout-drift.sh` once per distinct main
+checkout.
 
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
 worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw read of the state file's
@@ -46,10 +43,7 @@ flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <har
 ## 1. Check for unfinished work
 
 Run `check-unfinished-work.sh <worktree> <name> <canonical-worktree>` once per worktree in the
-resolved set — before the landing question and before any git action. `<canonical-worktree>` is the
-one member of the resolved set whose own `<project>/<spec-root>/changes/<name>/tasks.md` exists — the same
-worktree for every call in this run, so a satellite worktree's call still resolves its plan through
-the link instead of reporting an absence.
+resolved set — before the landing question and before any git action.
 
 Then run `check-visual-verify-dispatched.sh <worktree> <name> <recorded-merge-base>` once per
 worktree in the same set, per **Run 1 — the branch is not merged**
@@ -58,44 +52,9 @@ worktree in the same set, per **Run 1 — the branch is not merged**
 
 - **`CLEAR:` from every worktree** → continue to **2** with no extra prompt.
 - **A resolved set that comes back empty** → stop and ask the operator.
-- **`OUTSTANDING:`** → show the breakdown — and the guard's
-  `prior false positives for this guard on this project` stderr line when it printed — relay the
-  guard's hand-verification procedure per **Hand-verifying a guard verdict**
-  (`skills/flow-contracts/pipeline.md`), and offer exactly three courses, shape per Operator
-  prompts (`skills/flow-contracts/operator-prompts.md`):
-
-  > **This change carries unfinished work — how should integration proceed?**
-  > - **Stop — I'll finish it first** *(recommended)*
-  > - **Continue — integrate anyway**
-  > - **File or join a Jira follow-up, then continue**
-
-  There is no fourth.
+- **`OUTSTANDING:`** → **Load `skills/flow/unfinished-work-gate.md`** — the breakdown, the
+  three-course prompt and what each course does are there.
 - **No verdict line at all, and a non-zero exit** → stop and ask.
-
-**The `OUTSTANDING:` prompt above is a filing ask** — its third course files exactly these items,
-per **Follow-up issues** (`skills/flow-contracts/jira-followups.md`).
-**Every filing ask explains before it asks.** Before the filing prompt fires, the message body
-explains each item the run would file — what was observed, what breaks because of it, and what the
-fix would be — never leaving that explanation to the prompt's option text. The prompt itself follows
-the shape **Operator prompts** (`skills/flow-contracts/operator-prompts.md`) defines and records
-only the decision. A filed issue is durable and already on the board; an explanation reaching the
-operator afterward would describe something they never agreed to.
-
-**Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed.
-**Continue** carries the outstanding list into **3**'s planning commit and into the handoff. When
-the operator's answer says the verdict was verified structural — the plan held in another worktree
-with every task ticked and no open finding — run, once per worktree that reported `OUTSTANDING`
-and before proceeding to **2**:
-
-```bash verified:the flag set is design.md §5's; the call shape mirrors the `flow record verdict` invocation in scripts/check-unfinished-work.sh
-flow record verdict false-positive -change <name> -guard check-unfinished-work \
-  -reason "<the operator's reason, verbatim>" -C <worktree>
-```
-
-A write that falls back to the journal is one warning line and the run continues. **File or join a
-Jira follow-up** puts the outstanding items on a follow-up issue and continues. See **Follow-up
-issues** (`skills/flow-contracts/jira-followups.md`) for the search, the confirmation, and how it
-is labelled; a filing that fails is one skipped-with-reason line and the run still continues.
 
 ```bash
 flow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome completed <name>
@@ -119,30 +78,10 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <n
 ```
 
 Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the
-branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`), which is canonical for
+branch onto the base** (`skills/flow/sync-onto-base.md`), which is canonical for
 the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the
-after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. The
-rebase never meets the run's own uncommitted planning artifacts:
-`aside-planning-artifacts.sh <aside|restore> <worktree>` around each `MOVED` worktree's rebase —
-set aside before it, restored once that worktree's rebase has finished or aborted; never
-mid-way, restore refuses while the rebase is still unresolved, and on a stop-and-ask exit the
-aside stays set aside, named in the handoff with `git stash list` as the recovery path. The
-helper sets the planning paths aside — the spec tree's changes directory (the leaf
-`<agents repo>/scripts/lib/spec-root.sh` resolves) and `<project>/docs/superpowers/` — and
-nothing else: implementation WIP stays exactly where the unfinished-work gate owns it. A
-clean rebase runs **Scoped re-verification** below, then proceeds to the landing question. No
+after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`. No
 `MOVED` verdict anywhere → report the counts and go straight to the landing question.
-
-**Scoped re-verification**: for each path
-`check-base-moved.sh` reported under `overlaps:`, look for a discoverable guard test —
-`<agents repo>/scripts/test-<basename-without-ext>.sh` beside `<agents repo>/scripts/<name>.sh`,
-the same naming `<agents repo>/scripts/run-guard-tests.sh` already discovers by glob — and run it
-if found. A path with none is
-stated in the handoff as having no verification to run, not silently skipped. A non-zero exit from
-any discovered test blocks this stage exactly like any other verify-stage failure: report it, leave
-the change `IN_PROGRESS`, stop before the landing question, and close the mark `stopped`. **Never**
-re-run the project's whole `## lint`/`## test` list here. A clean rebase whose overlap set clears
-this stage proceeds to the landing question and closes the mark `completed`.
 
 Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), take the body's
 first non-blank line — trimmed, backticks removed — and resolve it against the three literals
@@ -191,17 +130,6 @@ reshape-branch.sh <worktree> <name> <recorded-merge-base>
 `<recorded-merge-base>` is the merge base recorded in the state
 file's `worktrees` map for this worktree — **or `<rebased-merge-base>` from step 2 above, for a
 worktree this run rebased**, never the state file's now-stale pre-rebase value for that worktree.
-This keeps every planning commit as its own commit on the merge base and collapses every per-task
-and fixup commit back into the working tree, uncommitted; using the
-stale value here would also collapse in the upstream commits the rebase just brought in, silently
-smuggling them into the implementation commit below. **When the script cannot be located**, do
-not fall back to `reset --soft` — it folds the planning commits away; stop and report the missing
-guard.
-
-All three routes then commit — implementation, then the `<project>/spectre/changes/` planning
-delta the planning commits left — as **two** commits on top of the kept planning commits, never
-one. The session records stay uncommitted under
-`<abs-worktree>/.superpowers/sdd/`.
 
 **Load `skills/flow-contracts/session-records.md`** before rendering, below.
 
@@ -258,9 +186,6 @@ the branch has an upstream.
 conflict, a commit blocked by a hook, or `gh pr create` erroring must be **reported with the
 command's own output**, and the run must **stop** leaving the change at `IN_PROGRESS`.
 
-If there is no remote at all, say exactly that ("this repository has no remote, so there is nothing
-to push to or merge into"), not that the base branch failed to resolve.
-
 **Human confirmation is a legitimate substitute for an API probe** on a forge with no usable CLI. If
 the answer is No, leave `prUrl` null and say what to do next.
 
@@ -271,22 +196,13 @@ opened, and every other field carried forward.
 
 **Load `skills/flow-contracts/jira-integration-finish.md`** too — its **In Review is not tied to a pull request** governs the transition below.
 
-**Sub-step: transition the issue to In Review**, whichever route was taken — pull request, merge and
-push, or manual — per **Transitions** (`skills/flow-contracts/jira-integration.md`): after the
-state write, never before, never blocking. A run that stopped on a failed push does **not**
-transition.
+**Sub-step: transition the issue to In Review** per **Transitions**
+(`skills/flow-contracts/jira-integration.md`): after the state write, never before, never
+blocking.
 
 ```bash
 flow stage end -command '/flow' -stage flow.landing-routes -outcome completed <name>
 ```
-
-## No verification gate
-
-**Run no tests, no linters, and no spec-coverage check** — see **Finish contract**
-(`skills/flow-contracts/finish-contract-run1.md`). Correctness was established during
-`skills/flow/review-panel.md` and by the human gate. **Two exceptions**, both in step 2 above and
-both triggered only by a rebase this stage itself performed, never a general re-opening of this
-rule: the after-resolution lint and test run, and the scoped re-verification.
 
 ## Handoff
 
@@ -326,16 +242,3 @@ Continue, within the same invocation and without a further command from the oper
 Stop after the route completes, printing the handoff above. Each of these two routes needs an
 action outside this command's control before archiving can happen. The next bare `/flow <name>`
 call, once the branch is integrated, runs the archive phase.
-
-## Guardrails
-
-- **Never** ask how the branch should land before the unfinished-work gate has been answered, and
-  never run a git command before it either.
-- **Never** mix the implementation and the planning artifacts in one commit.
-- **Never** archive a change whose branch has not reached the base branch.
-- **Never** run tests, linters, or a coverage check beyond the two exceptions under **No verification gate** above.
-- **Never** hardcode `main` or `develop`, and **never** resolve the base branch from `HEAD`'s
-  upstream.
-- **Never** let a git failure pass silently.
-- **Never** stage past a symlinked planning path with a bare `git add -A`.
-- **Never** let a Jira call block the archive — one skipped-with-reason line.

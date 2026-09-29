@@ -65,7 +65,7 @@ records.
 > operator picks this option, and only against the worktree(s) that actually moved
 
 Superseded: the rebase now runs with no prompt on every `MOVED` worktree — **Sync the branch onto
-the base** (`skills/flow-contracts/finish-contract-run1.md`).
+the base** (`skills/flow/sync-onto-base.md`).
 
 > , per design.md's `never-auto-abort`
 
@@ -920,3 +920,23 @@ skill directory), which is the single source of truth. Never paste the list into
 prompt. The relative link above resolves only for a reader of *this* file; the dispatched
 subagent's working directory is the **project worktree**, which has no `skills/` tree of its own,
 so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path before spawning.
+
+## Moved by KAN-859 — integrate and archive
+
+### integrate.md — 3. Commit the staged work (reshape)
+
+Moved verbatim from the paragraph after the `reshape-branch.sh` call, where it followed "never the state file's now-stale pre-rebase value for that worktree."; the duplicate `reset --soft` sentence after it was cut, **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) being canonical for it:
+
+This keeps every planning commit as its own commit on the merge base and collapses every per-task
+and fixup commit back into the working tree, uncommitted; using the
+stale value here would also collapse in the upstream commits the rebase just brought in, silently
+smuggling them into the implementation commit below.
+
+### archive.md — 4. Commit the archive, the `bash -c` pin (KAN-859)
+
+Moved verbatim from the paragraph after step 4's shell block; the duplicate sentences around it were cut, step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) being canonical for them:
+
+The loop is invoked through `bash -c` (KAN-816):
+its `set -- $pair` relies on word-splitting an unquoted parameter, which zsh — the shell an
+executing session may run — does not do, leaving `$2` empty and both records uncopied; the pin
+fixes the loop's bash semantics rather than rewriting it in zsh-only splitting syntax.

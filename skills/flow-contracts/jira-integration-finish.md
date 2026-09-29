@@ -14,7 +14,7 @@ rejected push, a merge conflict, a failed PR creation — transitions nothing.
 ### The join confirmation
 
 **The join confirmation** is the other carve-out from **Never blocking** (`skills/flow-contracts/jira-integration.md`), stated under
-**Follow-up issues** (`jira-followups.md`), and bounded identically: asked once,
+**Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`), and bounded identically: asked once,
 only when a candidate was actually found, with anything but an explicit yes taking the safe course
 and the run continuing regardless. Both exist for the same reason — a write aimed at an issue this
 pipeline did not choose — and neither ever gates a state write.
@@ -22,8 +22,9 @@ pipeline did not choose — and neither ever gates a state write.
 ### The join echo — the exception to Description sync's pre-edit echo
 
 **A join is the one write this echo does not cover**, because the description it would reproduce
-belongs to another change's issue and this pipeline never authored it. What is echoed there instead,
-and why, is under **Follow-up issues** (`jira-followups.md`).
+belongs to another change's issue and this pipeline never authored it. What is echoed there instead
+is under **Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`), and why under
+**Moved by KAN-859 — jira-followups.md** (`skills/flow-contracts/jira-integration-rationale.md`).
 
 ### Labels on issues the pipeline creates
 

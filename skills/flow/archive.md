@@ -12,18 +12,12 @@ mark of the step before: step 2 (positioning) inside step 3's `flow.sync-archive
 the proposal artifact source) inside step 5's `flow.cleanup`; step 11 (remove the landing
 worktree) inside step 10's `flow.push-archive`. **Eleven steps, eight marks.**
 
-**Use this invocation's session token at this first mark** — the one the router
-(`skills/flow/SKILL.md`) generates once per run, never a second one minted here. A standalone run 2 is a separate invocation
-from the integrate phase above and so has its own; chained straight through from merge-and-push, it
-is that same run's token.
-
 ```bash
 flow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor`. Fetch
-   first. On the merge-and-push continuation the merge is still local, so the test is
-   `git -C <landing-worktree> merge-base --is-ancestor spectre/<name> <base>`. Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **archive
+   first. Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **archive
    nothing** — end this mark `-outcome not-run-2` and stop.
 
 ```bash
@@ -38,15 +32,8 @@ flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -s
    merged** (`skills/flow-contracts/finish-contract-run2.md`), step 2, canonical for the classes
    and for settling a reported asset through the operator — then invoke
    `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> chore/archive-<name>`.
-   Exit `0` → `<landing-worktree>` is on `chore/archive-<name>`, cut from a fast-forwarded `<base>`;
-   continue to step 3. Anything else stops run 2 here, with nothing staged, committed, pushed or
-   removed. The four exit codes are **Run 2 — the branch is merged**
-   (`skills/flow-contracts/finish-contract-run2.md`), step 2. The main checkout itself is never
-   checked out, staged or committed by this step — the guard creates `<landing-worktree>` under it when
-   absent and positions it when present, per its own header.
-
-   **When the guard is absent**, perform the same positioning by hand, in the same order, against
-   `<landing-worktree>`.
+   The four exit codes are **Run 2 — the branch is merged**
+   (`skills/flow-contracts/finish-contract-run2.md`), step 2.
 
 3. **Archive the change** — under the mark `flow.sync-archive`. Run `spectre archive "<name>"` in
    `<landing-worktree>`. It `git mv`s `<project>/spectre/changes/<name>/` into
@@ -86,25 +73,6 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
           || git -C <landing-worktree> commit -m "chore(spectre): archive <name>"; }
    ```
 
-   **The copy loop runs before the `add -A`, so the preserved copies ride the archive commit under
-   the scope `check-archive-scope.sh` verifies.** The loop is invoked through `bash -c` (KAN-816):
-   its `set -- $pair` relies on word-splitting an unquoted parameter, which zsh — the shell an
-   executing session may run — does not do, leaving `$2` empty and both records uncopied; the pin
-   fixes the loop's bash semantics rather than rewriting it in zsh-only splitting syntax.
-   Why the preservation exists — step 5 destroys
-   the worktree the renders live in, and step 9's bundle serves the copies when the store renders
-   report skipped — is step 4 of **Run 2 — the branch is merged**
-   (`skills/flow-contracts/finish-contract-run2.md`), canonical for it.
-
-   **`check-archive-scope.sh`** refuses a `git add -A` that staged more than the archive move — see
-   step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) for
-   why. A `SCOPE-VIOLATION` stops the commit exactly as a branch mismatch does. **An exit 2 with
-   nothing on stdout** — a landing worktree that cannot be read — stops the commit the same way:
-   the guard's header makes an inability to answer a non-verdict, so it is never read
-   as `SCOPE-OK`. **When absent**, run
-   `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside
-   `<project>/spectre/changes/`, the prefix the guard call above passes.
-
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
    at `IN_PROGRESS`. The subject is the fixed literal shown, per **Commit scopes name the module**
    (`<agents repo>/rules/commit-scope-is-the-module.mdc`). The self-review bundle (`flow
@@ -138,12 +106,8 @@ flow stage begin -command '/flow' -stage flow.verify-cleanup -harness <harness> 
 ```
 
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once per
-   repository, after every removal above. `COMPLETE:` → report the cleanup as verified, **relay
-   every clause the line carries after ` — ` word for word**, and go on to step 8 — a `SKIPPED:`
-   clause there is never a pass. `LEFTOVER:` → name what remains and **stop without writing
-   `FINISHED`**, leaving the change at `IN_PROGRESS`. **No verdict line at all, and a non-zero
-   exit** → report it, leave the affected `worktrees` entries in the state file, and treat it as
-   `LEFTOVER`.
+   repository, after every removal above; its verdicts are step 7 of **Run 2 — the branch is merged**
+   (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```bash
 flow stage end -command '/flow' -stage flow.verify-cleanup -outcome completed <name>
@@ -172,14 +136,6 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
 9. **Save the self-review context bundle.** Self-review is always deferred: this step writes and
    lands the bundle, and `/flow-self-review` is the only reasoning pass — **Run 2 — the branch is
    merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it.
-   What is specific to *executing* it here: `flow self-review bundle -change <name>` fetches the
-   whole bundle — flowd serves the ledger and panel record from the store, falling back, per
-   record, to the copies step 4 committed onto the archive branch when the store yields no render
-   for it, reads the
-   archived change's files out of the `chore/archive-<name>` branch of the repository the command
-   resolves from its own location (the main checkout its working directory sits in), and derives
-   the finish-run commits' git log — so nothing is rendered into the landing worktree first and no
-   landing-worktree path is passed in or baked into the bundle.
 
    Write the bundle's stdout, then `## Session narrative` (one paragraph this session writes for
    run 2 itself — the archived `design.md` and `narrative.md` are bundle sections now, and a change
@@ -221,8 +177,7 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
     refresh-main-checkout.sh <main-checkout> <base>
     ```
 
-    Runs inside step 10's mark. The refresh, and why the main checkout needs one although no step
-    edited it, are step 11 of **Run 2 — the branch is merged**
+    Runs inside step 10's mark. The refresh is step 11 of **Run 2 — the branch is merged**
     (`skills/flow-contracts/finish-contract-run2.md`); a `REFRESH-REFUSED` line goes into the
     handoff verbatim.
 
@@ -276,10 +231,6 @@ record, so `HELD:` and the guard's exit 2 both stop `/flow`.
 
 ## Guardrails
 
-- **Never** merge the change branch in run 2; step 1 already proved it. Step 10's only merge lands `chore/archive-<name>`.
-- **Never** report a cleanup as done without the verdict that says so, and **never write
-  `FINISHED` over a leftover or an unverified cleanup**.
 - **Never** `git add` the state file, and never move it into the archive.
-- **Never** let a Jira call block the archive — one skipped-with-reason line.
 - **Never** let self-review block, delay, or undo the `FINISHED` write.
 - **Never** fetch or write the self-review context bundle before `FINISHED` has been written.
