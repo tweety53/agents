@@ -44,12 +44,12 @@ against the migrated schema and records before/after.
 
 ---
 
-- [ ] 1. Settings store, API, client and CLI carry reviewers only
+- [x] 1. Settings store, API, client and CLI carry reviewers only
 
 Drop both model settings from the whole settings stack in one green commit (they compile
 together).
 
-  - [ ] **Step 1: Write the failing tests.**
+  - [x] **Step 1: Write the failing tests.**
     - `stats/internal/store/settings_test.go`: delete `TestSettingsStore_RejectsUnknownModel` and
       `TestSettingsStore_RejectsUnknownSelfReviewModel`; add
       `TestSettingsStore_MigrationDropsModelColumns` — against the test DB after migrations, query
@@ -71,9 +71,9 @@ together).
       -reviewers primary` → exit 2, stderr names `-model`) and `TestSettingsCmd_ModelsIsUnknown`
       (`settings models` → exit 2, `unknown settings command "models"`). `Set_Valid`/`Get` use
       `-reviewers` alone.
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/store ./internal/api
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/store ./internal/api
     ./internal/client ./cmd/flow -run 'Settings' -count=1`.
-  - [ ] **Step 3: Implement.**
+  - [x] **Step 3: Implement.**
     - New `stats/internal/store/migrations/0034_flow_settings_drop_model_columns.sql`:
       `ALTER TABLE flow_settings DROP COLUMN default_model, DROP COLUMN self_review_model;` with a
       header comment citing `remove-default-model` and `remove-self-review-model`.
@@ -89,8 +89,8 @@ together).
     - `stats/cmd/flow/settings.go`: usage `flow settings get …` / `flow settings set … -reviewers
       a,b,c`; delete `-model`, `-self-review-model`, `runSettingsModels` and the `models` case;
       `-reviewers` alone is required. `stats/cmd/flow/main.go`: drop `settings models` from help.
-  - [ ] **Step 4: Run the tests; they pass**, then `cd stats && gofmt -l . && go vet ./...`.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Run the tests; they pass**, then `cd stats && gofmt -l . && go vet ./...`.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/store/migrations/0034_flow_settings_drop_model_columns.sql`,
 `stats/internal/store/settings.go`, `stats/internal/store/settings_test.go`,
@@ -205,9 +205,9 @@ entry whose subject this change deletes — the two guards, `check_model_keys_te
 snippet at `archive.md:191`, and `SKILL.md:74`'s `MODEL_SOURCE` paragraph (Tasks 4 and 6 remove
 those subjects).
 
-- [ ] 4. The Decide step chooses every pair's model; DEFAULT_MODEL goes
+- [x] 4. The Decide step chooses every pair's model; DEFAULT_MODEL goes
 
-  - [ ] **Step 1:** `skills/flow/brainstorm-planner.md` —
+  - [x] **Step 1:** `skills/flow/brainstorm-planner.md` —
     - step 2: records the **fixer** pair on every non-micro class; the implementer pair only when
       step 1 is `sdd` (else `skipped — inline`);
     - step 3: rerun pair's `model` chosen per **Model and effort**, `effort` `low`;
@@ -217,27 +217,27 @@ those subjects).
       the literal `opus`; `flow record decision` refuses any other model;
     - JSON shape: drop `resolved`; the `## Decision` block's `↳ fixer` row shows the pair on inline
       runs; the preamble's `models:` line becomes `reviewers <REVIEWERS>`.
-  - [ ] **Step 2:** `skills/flow/SKILL.md` **Model resolution** — the block keeps
+  - [x] **Step 2:** `skills/flow/SKILL.md` **Model resolution** — the block keeps
     `SETTINGS_JSON`, `REVIEWERS`, `VERIFY_MODEL=opus`; delete `PROJECT_MODEL`/`DEFAULT_MODEL`/
     `MODEL_SOURCE`, the `SELF_REVIEW_MODEL` paragraph, and "DEFAULT_MODEL is the model for all four
     roles"; the session-override paragraph overrides "the decision's pair(s)" for this run.
     `skills/flow/SKILL-rationale.md`: delete what explains the removed resolution.
-  - [ ] **Step 3:** `skills/flow-contracts/model-policy.md` — every role runs on its decision pair;
+  - [x] **Step 3:** `skills/flow-contracts/model-policy.md` — every role runs on its decision pair;
     delete **Where `DEFAULT_MODEL` comes from**; micro/unrecorded → `opus`; keep `VERIFY_MODEL`,
     zcode mapping; drop `SELF_REVIEW_MODEL` from the mapping list. `model-policy-rationale.md`:
     same deletions.
-  - [ ] **Step 4:** readers — `skills/flow/brainstorm.md` (line ~61 "models are resolved per run
+  - [x] **Step 4:** readers — `skills/flow/brainstorm.md` (line ~61 "models are resolved per run
     from the settings store" → "chosen per dispatch by the Decide step"; line ~207 drop
     `DEFAULT_MODEL`), `skills/flow-plan/SKILL.md` (~186), `skills/flow-contracts/pipeline.md`
     (~280: the summary names the decision's models, not a resolved default), `README.md` (~52, ~130,
     ~250: `/flow-settings` manages reviewer slots; the Decide step picks models),
     `commands-claude/flow.md` (~13: slots dispatched on the decision's models).
-  - [ ] **Step 5: Verify** — `grep -n 'DEFAULT_MODEL\|MODEL_SOURCE\|SELF_REVIEW_MODEL' <files>`
+  - [x] **Step 5: Verify** — `grep -n 'DEFAULT_MODEL\|MODEL_SOURCE\|SELF_REVIEW_MODEL' <files>`
     prints nothing; `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`,
     `scripts/check-guard-symlinks.sh`, `scripts/check-installed-citations.sh`,
     `scripts/check-normative-inventory.sh` diffed against a capture taken before the first edit
     (differences only where a sentence was about the removed mechanism).
-  - [ ] **Step 6: Commit.**
+  - [x] **Step 6: Commit.**
 
 **Files:** `skills/flow/brainstorm-planner.md`, `skills/flow/SKILL.md`,
 `skills/flow/SKILL-rationale.md`, `skills/flow-contracts/model-policy.md`,
@@ -262,22 +262,22 @@ so the operator superseded it with `fixer-pair-sdd-only` and the fix round resto
 sdd-only fixer pair. The same round cut the README's restated model bounds to a citation of
 **Model and effort**.
 
-- [ ] 5. Dispatch sites read the decision's pair
+- [x] 5. Dispatch sites read the decision's pair
 
-  - [ ] **Step 1:** `skills/flow/implement.md` (~31, ~98, ~499, ~726, ~928): the handshake compares
+  - [x] **Step 1:** `skills/flow/implement.md` (~31, ~98, ~499, ~726, ~928): the handshake compares
     against the dispatch's recorded model (or this run's override); ~31 resolves `REVIEWERS` only;
     the gate-fired bundle at ~928 runs on the decision's implementer pair, `opus`/`default` when
     none is recorded.
-  - [ ] **Step 2:** `skills/flow/review-panel.md` (~159, ~306, ~412, ~1236, ~1330): a `default`
+  - [x] **Step 2:** `skills/flow/review-panel.md` (~159, ~306, ~412, ~1236, ~1330): a `default`
     panel and the no-decision dispatch run on `opus`; panel-fix runs on the decision's fixer pair
     (every non-micro class), `opus` on micro; `-model` in records is the dispatch's model.
-  - [ ] **Step 3:** the three reviewer prompts' `model:` comment
+  - [x] **Step 3:** the three reviewer prompts' `model:` comment
     (`primary-`, `principles-`, `failure-modes-reviewer-prompt.md`): "`opus` on a `default` panel,
     the decision's dispatch model otherwise". `skills/flow/visual-verify.md` (~16, ~73, ~142,
     ~145): drop the `DEFAULT_MODEL` contrasts; the tooling analyst runs on `opus`.
-  - [ ] **Step 4: Verify** — the grep of Task 4 step 5 over these files prints nothing; the
+  - [x] **Step 4: Verify** — the grep of Task 4 step 5 over these files prints nothing; the
     Markdown lint lines.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `skills/flow/implement.md`, `skills/flow/review-panel.md`,
 `skills/flow/primary-reviewer-prompt.md`, `skills/flow/principles-reviewer-prompt.md`,
