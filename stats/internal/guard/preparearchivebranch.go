@@ -60,11 +60,12 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	// names, stash entries); the git stderr passed through (show-ref, the
 	// tree snapshot and recompute) is in the caller's locale, where the bash
 	// printed it in C's -- visible only with a localized git.
+	gitDir := liveDir(env.Dir)
 	git := func(stdout, stderr io.Writer, a ...string) (string, int) {
-		return gitExec(env.Dir, stdout, stderr, a...)
+		return gitExec(gitDir, stdout, stderr, a...)
 	}
 	fsPath := func(p string) string { return smcAbs(env, p) }
-	// gitLoud is git with the stderr captured and printed beneath the guard's
+	// gitLoud is git with the stderr captured and printed with the guard's
 	// prefix when the call fails: no step that stops the chain fails silently
 	// (KAN-823 — a landing-chain step whose output went to /dev/null let every
 	// later step act on the wrong tree). Steps whose failure is not this
@@ -98,7 +99,10 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 			return say(2, "cannot resolve the main checkout above %s", landing)
 		}
 		mainCheckout := strings.TrimRight(top, "\n")
-		if _, rc := gitLoud("-C", mainCheckout, "worktree", "add", "--force", "--quiet", "--", landing, base); rc != 0 {
+		// `worktree add` runs from the main checkout, so a relative landing
+		// is made absolute against the caller's directory first — the bash
+		// handed it over as given, creating it under the main checkout.
+		if _, rc := gitLoud("-C", mainCheckout, "worktree", "add", "--force", "--quiet", "--", fsPath(landing), base); rc != 0 {
 			return say(2, "could not create the landing worktree %s from '%s' in %s", landing, base, mainCheckout)
 		}
 	}
@@ -189,12 +193,14 @@ func prepareArchiveBranch(args []string, env Env, stdout, stderr io.Writer) int 
 	// would otherwise ride onto the archive branch unremarked — naming every
 	// dirty entry, classified against the change's own branch. A status call
 	// that fails stops the chain (KAN-823): a failed read is never a clean
-	// tree.
-	dirty, rc := gitLoud("-C", landing, "-c", "core.quotePath=false", "status", "--porcelain", "--untracked-files=normal")
+	// tree. `-z`, because porcelain v1 otherwise quotes a path with a control
+	// character, or a rename's path with a space, and a quoted path never
+	// matches the change's own names.
+	dirty, rc := gitLoud("-C", landing, "-c", "core.quotePath=false", "status", "--porcelain", "-z", "--untracked-files=normal")
 	if rc != 0 {
 		return say(2, "cannot read the working tree state of %s", landing)
 	}
-	if dirty = strings.TrimRight(dirty, "\n"); dirty != "" {
+	if dirty != "" {
 		if cur == base {
 			say(1, "%s has a dirty working tree on '%s' — refusing", landing, base)
 		} else {
@@ -296,10 +302,10 @@ func pabReportDirty(landing, base, dirty string, git func(io.Writer, io.Writer, 
 			if _, rc := git(io.Discard, io.Discard, "-C", apply, "rev-parse", "--git-dir"); rc == 0 {
 				if _, rc := git(io.Discard, io.Discard, "-C", apply, "rev-parse", "-q", "--verify", "refs/heads/"+name); rc == 0 {
 					if mb, rc := git(nil, io.Discard, "-C", apply, "merge-base", name, base); rc == 0 {
-						diff, rc := git(nil, io.Discard, "-C", apply, "-c", "core.quotePath=false", "diff", "--no-renames",
+						diff, rc := git(nil, io.Discard, "-C", apply, "diff", "-z", "--no-renames",
 							"--name-only", strings.TrimRight(mb, "\n"), name)
 						if rc == 0 {
-							branch, changed = name, strings.Split(diff, "\n")
+							branch, changed = name, strings.Split(diff, "\x00")
 						}
 					}
 				}
@@ -310,7 +316,12 @@ func pabReportDirty(landing, base, dirty string, git func(io.Writer, io.Writer, 
 	if branch == "" {
 		fmt.Fprintf(stderr, "prepare-archive-branch:   (cannot classify -- no change worktree with a branch beside %s)\n", landing)
 	}
-	for _, entry := range strings.Split(dirty, "\n") {
+	// `status --porcelain -z`: each record is `XY <path>`, NUL-terminated, and
+	// a rename or copy's record is followed by one more holding the source
+	// path. The entry is printed as porcelain v1 prints it unquoted.
+	records := strings.Split(dirty, "\x00")
+	for i := 0; i < len(records); i++ {
+		entry := records[i]
 		if entry == "" {
 			continue
 		}
@@ -318,8 +329,9 @@ func pabReportDirty(landing, base, dirty string, git func(io.Writer, io.Writer, 
 		if len(entry) > 3 {
 			path = entry[3:]
 		}
-		if i := strings.LastIndex(path, " -> "); i >= 0 {
-			path = path[i+len(" -> "):]
+		if strings.ContainsAny(entry[:min(2, len(entry))], "RC") && i+1 < len(records) {
+			i++
+			entry = entry[:3] + records[i] + " -> " + path
 		}
 		switch {
 		case branch != "" && pabPathChanged(path, changed):

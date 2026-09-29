@@ -29,14 +29,26 @@ func envGit(env Env, extra ...string) func(args ...string) *exec.Cmd {
 	if p, ok := lookPath(env, "git"); ok {
 		git = p
 	}
+	dir := liveDir(env.Dir)
 	return func(args ...string) *exec.Cmd {
 		cmd := exec.Command(git, args...)
-		cmd.Dir = env.Dir
+		cmd.Dir = dir
 		if len(extra) > 0 {
 			cmd.Env = append(os.Environ(), extra...)
 		}
 		return cmd
 	}
+}
+
+// liveDir is dir, or "" when dir no longer exists: a child then inherits
+// this process's working directory, deleted or not, as the bash's children
+// did, where a Dir naming a deleted directory fails every child before it
+// starts.
+func liveDir(dir string) string {
+	if _, err := os.Stat(dir); err != nil {
+		return ""
+	}
+	return dir
 }
 
 // capture is `VAR="$(cmd 2>/dev/null)"`: stdout with trailing newlines

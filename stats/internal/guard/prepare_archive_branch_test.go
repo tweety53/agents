@@ -737,13 +737,12 @@ func TestPrepareArchiveBranch(t *testing.T) {
 			l := c.wt + "/.worktrees/_landing-fixture"
 			mkdir(t, l)
 			writeFile(t, l+"/gradle-output.txt", "daemon residue\n")
-			mainBefore := c.branch(c.wt)
+			c.snap(c.wt)
 			r := c.run(l, "main", pabArchive)
 			c.refused(r, "landing-directory-walks-up-to-the-main-checkout", 2, "not itself a git worktree")
 			gsCheck(t, "landing-directory-walks-up-to-the-main-checkout: names where git resolved it",
 				strings.Contains(r.err, c.wt), "got %q", r.err)
-			gsCheck(t, "landing-directory-walks-up-to-the-main-checkout: main checkout branch unchanged",
-				c.branch(c.wt) == mainBefore, "on %q", c.branch(c.wt))
+			c.unchanged("landing-directory-walks-up-to-the-main-checkout")
 		}},
 		{"24 landing-is-another-repositorys-worktree", func(t *testing.T) {
 			c := newCheckout(t)
@@ -754,8 +753,10 @@ func TestPrepareArchiveBranch(t *testing.T) {
 			c.git(foreign, "commit", "-qm", "base")
 			l := c.wt + "/.worktrees/_landing-fixture"
 			c.git(foreign, "worktree", "add", "-q", l)
+			c.snap(l)
 			r := c.run(l, "main", pabArchive)
 			c.refused(r, "landing-is-another-repositorys-worktree", 2, "different repository")
+			c.unchanged("landing-is-another-repositorys-worktree")
 		}},
 		// A working-tree read that fails must stop the guard, not read as
 		// clean: today the empty output positions the archive branch on top
@@ -769,8 +770,89 @@ func TestPrepareArchiveBranch(t *testing.T) {
 			}
 			gitdir := strings.TrimSpace(strings.TrimPrefix(string(dotGit), "gitdir:"))
 			writeFile(t, gitdir+"/index", "not an index\n")
+			// The landing's own state is what cannot be read; the main
+			// checkout's is readable, and no refusal may move it.
+			c.snap(c.wt)
 			r := c.run(l, "main", pabArchive)
 			c.refused(r, "unreadable-working-tree-state", 2, "cannot read the working tree state")
+			c.unchanged("unreadable-working-tree-state")
+		}},
+		// The post-run recompute failing is exit 2, never a silent no-drift.
+		// Only a PATH-shim git can fail the second `status --porcelain=v2`
+		// (the first is the snapshot's), so this runs the real shim.
+		{"recompute failure after the branch moves", func(t *testing.T) {
+			c := newCheckout(t)
+			l := c.landing()
+			shim := t.TempDir()
+			writeExec(t, shim+"/git", pabRecomputeFailShim)
+			cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/prepare-archive-branch.sh", l, "main", pabArchive)
+			cmd.Env = append(os.Environ(), "PAB_REAL="+fixtureGit, "PAB_COUNT="+shim+"/count",
+				"PATH="+shim+":"+os.Getenv("PATH"), "FLOW_GUARD_CACHE_DIR="+shimCache)
+			var out, errb bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &out, &errb
+			_ = cmd.Run()
+			rc := cmd.ProcessState.ExitCode()
+			gsCheck(t, "recompute failure after the branch moves: exit 2, stdout empty, the recompute named",
+				rc == 2 && out.String() == "" && has(errb.String(), "shim: recompute exploded",
+					"cannot read the working tree state of "+l+" after the branch moves"),
+				"rc=%d out=%q err=%s", rc, out.String(), errb.String())
+		}},
+		// A relative landing path is the caller's, not the main checkout's:
+		// `worktree add` runs from the main checkout, so the path is made
+		// absolute against the caller's directory before it is handed over.
+		{"relative landing path from outside the main checkout", func(t *testing.T) {
+			c := newCheckout(t)
+			r := c.run("wt/.worktrees/_landing-fixture", "main", pabArchive)
+			c.positioned(r, "relative landing path from outside the main checkout", "main", pabArchive)
+			gsCheck(t, "relative landing path from outside the main checkout: created where the caller named it",
+				c.branch(c.wt+"/.worktrees/_landing-fixture") == pabArchive, "on %q", c.branch(c.wt+"/.worktrees/_landing-fixture"))
+			gsCheck(t, "relative landing path from outside the main checkout: nothing created under the main checkout",
+				!isDir(c.wt+"/wt"), "stray %s/wt", c.wt)
+		}},
+		// Porcelain v1 quotes a path with a space in a rename, or a control
+		// character anywhere; `-z` never quotes, so both still classify.
+		{"a quoted porcelain rename path classifies by its real name", func(t *testing.T) {
+			c := newCheckout(t)
+			c.changeWorktree("new dir.txt")
+			l := c.landing()
+			c.git(l, "mv", "file.txt", "new dir.txt")
+			c.snap(l)
+			r := c.run(l, "main", pabArchive)
+			c.refused(r, "a quoted porcelain rename path", 1,
+				"R  file.txt -> new dir.txt -- looks like this change's output (changed on 'fixture')")
+			c.unchanged("a quoted porcelain rename path")
+		}},
+		{"a quoted porcelain control-character path classifies by its real name", func(t *testing.T) {
+			c := newCheckout(t)
+			c.changeWorktree("tab\tname.txt")
+			l := c.landing()
+			writeFile(t, l+"/tab\tname.txt", "stray\n")
+			c.snap(l)
+			r := c.run(l, "main", pabArchive)
+			c.refused(r, "a quoted porcelain control-character path", 1,
+				"?? tab\tname.txt -- looks like this change's output (changed on 'fixture')")
+			c.unchanged("a quoted porcelain control-character path")
+		}},
+		// Run from a working directory deleted under it, every git child
+		// inherits that directory rather than failing to enter it, as the
+		// bash's did. The real process: the shim's own cwd is gone.
+		{"run from a deleted working directory", func(t *testing.T) {
+			c := newCheckout(t)
+			l := c.landing()
+			gone := t.TempDir() + "/gone"
+			mkdir(t, gone)
+			cmd := exec.Command("/bin/bash", "-c", `cd "$1" && rmdir "$1" && exec /bin/bash "$2" "$3" main "$4"`,
+				"bash", gone, tcfScriptsDir(t)+"/prepare-archive-branch.sh", l, pabArchive)
+			cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+shimCache)
+			var out, errb bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &out, &errb
+			_ = cmd.Run()
+			// bash itself warns on stderr that it cannot read the cwd; only
+			// the guard's own lines are this case's to pin.
+			rc := cmd.ProcessState.ExitCode()
+			gsCheck(t, "run from a deleted working directory: exit 0, the one success line, no guard line on stderr",
+				rc == 0 && out.String() == "main -> "+pabArchive+"\n" && !strings.Contains(errb.String(), "prepare-archive-branch:"),
+				"rc=%d out=%q err=%s", rc, out.String(), errb.String())
 		}},
 	}
 	for _, c := range cases {
@@ -848,6 +930,22 @@ exec "$PAB_REAL" "$@"
 const pabStatusFailShim = `#!/usr/bin/env bash
 for a in "$@"; do
   [ "$a" = "core.quotePath=false" ] && { echo "shim: status exploded" >&2; exit 99; }
+done
+exec "$PAB_REAL" "$@"
+`
+
+// pabRecomputeFailShim fails the second `status --porcelain=v2` — the
+// post-run check's recompute; the first is the snapshot's — and forwards
+// every other call to the real git. Go's own VCS stamping reads v1 status,
+// so the shim-script build is never the call it fails.
+const pabRecomputeFailShim = `#!/usr/bin/env bash
+for a in "$@"; do
+  if [ "$a" = "--porcelain=v2" ]; then
+    n="$(cat "$PAB_COUNT" 2>/dev/null || echo 0)"
+    n=$((n + 1))
+    printf '%s\n' "$n" > "$PAB_COUNT"
+    [ "$n" = "2" ] && { echo "shim: recompute exploded" >&2; exit 99; }
+  fi
 done
 exec "$PAB_REAL" "$@"
 `

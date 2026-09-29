@@ -125,6 +125,7 @@ func TestResolveBaseBranch(t *testing.T) {
 		label   string
 		args    []string
 		pathDir string // prepended to PATH; "" for none
+		deadDir bool   // run from a working directory deleted before the guard runs
 		code    int
 		out     string // the harness's expected branch; "" for a refusal
 		err     string
@@ -216,6 +217,12 @@ func TestResolveBaseBranch(t *testing.T) {
 			}
 			return r
 		}},
+		// Run from a deleted working directory, git's children inherit it as
+		// the bash's did, instead of failing to enter it.
+		{"14", func(t *testing.T, fx rbbFixture) res {
+			wt := rbbCopy(t, fx.wt)
+			return res{label: "run from a deleted working directory", args: []string{wt}, deadDir: true, out: "main"}
+		}},
 	}
 	fn := Registry["resolve-base-branch"]
 	for _, c := range cases {
@@ -233,6 +240,9 @@ func TestResolveBaseBranch(t *testing.T) {
 				t.Skip(r.skip)
 			}
 			env := Env{Dir: t.TempDir(), Getenv: os.Getenv}
+			if r.deadDir {
+				env.Dir += "/gone"
+			}
 			if r.pathDir != "" {
 				env.Getenv = pathEnv(r.pathDir)
 			}
