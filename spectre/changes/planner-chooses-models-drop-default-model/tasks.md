@@ -161,6 +161,7 @@ Correction (2026-09-29): the panel's round-1 fix added `TestRecordDecisionReject
 (the check reads exact keys — `encoding/json` struct decoding folds case) and
 `TestRecordDecisionRefusalNamesValidModels` (the refusal lists `store.ValidModels`), on top of
 this task's commit; `records_test.go` carries 51 tests after them.
+<!-- measured: grep -c '^func Test' stats/internal/api/records_test.go @ 95c9967f -->
 
 - [x] 3. Retire the model-key and model-resolution guards and the three project keys
 
