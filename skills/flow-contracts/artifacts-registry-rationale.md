@@ -16,11 +16,11 @@ the wrong thing.
 never left unaccounted for on the grounds that something probably removes it — that assumption is
 exactly how the remote branch went unremoved until it was given a row here.
 
-Run 2 is terminal
-and the pull request it opens outlives the run, so no later run exists to delete the branch it was
+Run 2 is terminal, and before step 10 merged its own pull request with `--delete-branch` that pull
+request outlived the run, so no later run existed to delete the branch it was
 opened from — this repository already carries five such leftovers, chore/archive-kan-197,
 chore/archive-kan-200, chore/archive-kan-209, chore/self-review-kan-201 and chore/self-review-kan-236,
-which is the evidence, not a guess, that nothing removes them today. Whether some future run should
+which is the evidence, not a guess, that nothing removed them. The local archive branch is still removed by nothing. Whether some future run should
 gain that duty is design.md's open question `archive-branch-cleanup`, deliberately left open rather
 than decided here.
 

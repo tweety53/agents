@@ -2,7 +2,7 @@
 
 **This file is canonical for `/flow`'s archive run** — run 2's procedure and worktree cleanup.
 
-bare `/flow` is the only command that loads this file.
+bare `/flow` is the only command that loads this file whole; `/flow-self-review` reads its step 9.
 
 ### Run 2 — the branch is merged
 
@@ -29,7 +29,7 @@ bare `/flow` is the only command that loads this file.
    not a git worktree, `HEAD`'s own ref cannot be read, or a checkout the guard performs fails; `3`
    `<base>` cannot be reconciled with `origin` — it has diverged, `origin/<base>` does not resolve,
    or there is no `origin` remote at all. Anything but exit `0` stops run 2 here, with nothing
-   staged, committed, pushed or removed, and the main checkout untouched throughout.
+   staged, committed, pushed or removed, and the main checkout never checked out, staged or committed.
    On the merge-and-push continuation, `<base>` already holds run 1's unpushed merge: the
    fast-forward is a no-op, and `chore/archive-<name>` is cut on top of that merge.
 
@@ -80,7 +80,7 @@ bare `/flow` is the only command that loads this file.
    tree directly on its own branch, so its spec edits reached the base branch with the merge step 1
    proved.
 4. **Commit the archive on `chore/archive-<name>` — no push.** There is no merge to do: the change
-   branch was already merged, which step 1 proved. Run 2 never merges anything into the base branch,
+   branch was already merged, which step 1 proved. Run 2 merges nothing into the base branch before step 10 lands the archive,
    and never commits the archive on the base branch itself. Every commit run 2 makes after step 2 —
    this one and the self-review report at step 9 alike — asserts `chore/archive-<name>` rather than
    assuming it: naming the directory with `git -C <landing-worktree>` fixes the directory, not the
@@ -373,7 +373,7 @@ git -C "$WT" status --porcelain --untracked-files=no
 
 # 2. no untracked files that git does not already ignore — must be empty.
 #    `--others --exclude-standard` lists exactly the files `--force` would destroy and
-#    `.gitignore` does NOT cover. This is the check that makes `--force` safe.
+#    `.gitignore` does NOT cover. It does not make `--force` safe: ignored files are check 4's.
 git -C "$WT" ls-files --others --exclude-standard
 
 # 3. no commits that exist only here. Resolve `BASE` fresh for THIS worktree — never reused from
@@ -465,12 +465,9 @@ non-empty unclassified bucket → **stop, show that bucket in full** (the regene
 only by count), and ask for explicit confirmation before removing that worktree, exactly as
 before — the ask exists for the entries that are actually in doubt.
 
-**`/flow-fast` overrides the ask a level further, and only the ask.** Its own guardrails list
-(`skills/flow-fast/SKILL.md`) state that override and why it is safe there: that command reports
-what `--force` will destroy and proceeds regardless of which bucket an entry falls in, having
-already preserved and committed the records worth keeping before it reaches cleanup. It reaches
-nothing else — checks 1, 2, 3, 5 and 6 stay gates under every command, and an irreplaceable
-**unpreserved** entry still stops the run and asks, under `/flow-fast` as much as here.
+**`/flow-fast` runs none of these checks.** Its cleanup (**8. Clean up**, `skills/flow-fast/SKILL.md`)
+removes its worktree without `--force`, so git itself refuses one holding modified or untracked
+files.
 
 Then, and only then:
 

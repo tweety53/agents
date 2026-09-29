@@ -38,11 +38,6 @@
   injected `Env` but `setup.sh` gets `os.Environ()` — breaks: a test injecting an
   environment does not reach `setup.sh` — fix: build `setup.sh`'s environment from `Env` —
   deferred: other.
-- `skills/flow-contracts/jira-followups.md:17` — F13, Minor, kan-778-agents-port-the-next-five-slowest-guards-to-the
-  — still frames integrate run 1 as one of several filing sites ("every site that files a
-  follow-up", the heading `### The filing site's outstanding items`, "that site's list") —
-  breaks: a reader looks for a second filing site that no longer exists — fix: reduce the three
-  passages to the integrate run's outstanding items — deferred: doc-only.
 - `stats/internal/guard/panelexitcontract.go:98`, `stats/internal/guard/panelreproducers.go:87` — task-9 review F4, Minor, kan-841-agents-port-the-next-ten-slowest-bash-scripts-to — both guards canonicalise the worktree with `filepath.EvalSymlinks`, which succeeds on a directory the caller cannot search, where the bash's `cd … && pwd -P` failed and refused it as vanished — breaks: a `chmod 000` worktree passes the check instead of exiting 2 — fix: also require search permission (`syscall.Access(…, 1)`) as `panelfixsingledispatch.go` now does — deferred: out-of-scope (ports from earlier changes).
 - `stats/internal/guard/preparearchivebranch.go:76` — task-7 review, Minor, kan-841-agents-port-the-next-ten-slowest-bash-scripts-to — a relative landing path given from outside the main checkout is resolved by `git -C <main> worktree add` against the main checkout, as the bash did — breaks: it creates `<main>/<path>`, exits 2 ("is not a directory") and leaves that stray worktree registered — fix: absolutise the landing path against the caller's directory before `worktree add` — deferred: out-of-scope (the port keeps the bash's behaviour).
 - `stats/internal/guard/preparearchivebranch.go:209` — task-7 review, Minor, kan-841-agents-port-the-next-ten-slowest-bash-scripts-to — porcelain v1 quotes some paths (a rename's `"new dir.txt"`, `"tab\tname"`), which never match the unquoted `diff --name-only` names, as in the bash — breaks: such entries are always classified "does not look like" this change's — fix: read `status --porcelain -z` — deferred: out-of-scope (the port keeps the bash's behaviour).

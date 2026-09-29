@@ -17,6 +17,6 @@ that `/flow`'s integrate run called the copy script *before* staging while `/flo
 *after*, and that the asymmetry was what kept the copied records out of the implement phase's staged-only
 path. Neither call exists: the records live in the store, the script is retired, and what keeps
 `<project>/docs/superpowers/` out of a staged-only run is now a **condition rather than an
-ordering** — `/flow`'s implement phase renders on its `prUrl` commit path alone, and run 1 renders before staging
+ordering** — `/flow`'s implement phase renders only into the gitignored `<abs-worktree>/.superpowers/sdd/`, and run 1 renders before staging
 so the record lands in the same commit as the implementation it describes. Reading a rule back out
 of where the two call sites now sit would be reading an accident as a design.

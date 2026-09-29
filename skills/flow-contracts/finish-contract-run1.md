@@ -3,7 +3,7 @@
 **This file is canonical for `/flow`'s integrate run** — the preflight-signal decision, run 1's
 procedure, and resolving a change's worktrees.
 
-bare `/flow` is the only command that loads this file.
+bare `/flow` is the only command that loads this file whole; `/flow-fast` and `/flow-status` cite single sections of it.
 
 ## Finish contract
 
@@ -316,11 +316,11 @@ the worktree at run 2; the store is the terminal record, and run 2 renders from 
 self-review bundle needs (**Temporary artifacts registry**, `artifacts-registry.md`). The proposal
 artifact source stays in the state directory until run 2 removes it; run 1 copies nothing.
 
-Those two planning paths are cleared from the index before the first `add` and excluded from it by
+The planning path, `<project>/spectre/changes/`, is cleared from the index before the first `add` and excluded from it by
 pathspec — the same clearing pass **Git boundaries** (`git-boundaries.md`) gives `/flow`'s implement phase, and
 for the same reason: an exclusion cannot retract what an earlier step staged, and at this gate that
 step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
-picks the two paths up; `<abs-worktree>/.superpowers/sdd/` is gitignored, so it never does. The sequence itself — the guarded commits, the skipped-empty rule, the
+picks that path up; `<abs-worktree>/.superpowers/sdd/` is gitignored, so it never does. The sequence itself — the guarded commits, the skipped-empty rule, the
 failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives;
 `<agents repo>/scripts/commit-split.sh` is what runs it, at both this
 call site and the implement phase's PR-exception path.
@@ -409,9 +409,9 @@ git -C "$REPO" worktree list --porcelain \
   | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/spectre/<name>") print w}'
 ```
 
-**Never guess a path.** Worktree layout differs per repository — this repo keeps worktrees under
-`<agents repo>/.worktrees/` (git-ignored, per **2. Isolate the workspace** in `skills/flow/implement.md`), which is not where every
-repository this pipeline is installed into keeps them.
+**Never guess a path.** The kickoff creates every worktree at `<project>/.worktrees/<name>`
+(**Git boundaries**, `skills/flow-contracts/git-boundaries.md`), but a worktree made by hand or by
+an older run can sit anywhere, so the set is read, never composed.
 
 **Here, a resolved set that is still empty means the map was absent or empty *and* the scan found no
 worktree on the change's branch in any affected repository.** Per **Resolving a change's worktrees**

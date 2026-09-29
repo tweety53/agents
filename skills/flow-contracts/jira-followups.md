@@ -14,15 +14,15 @@ A **follow-up** is an issue the pipeline files for work a run left outstanding. 
 `flow follow-up`. Labelling is governed by **Labels on issues the pipeline creates**
 (`jira-integration.md`) — a follow-up is not special.
 
-**This naming governs every site that files a follow-up.**
+**This naming governs every follow-up the integrate run files.**
 
-### The filing site's outstanding items
+### The integrate run's outstanding items
 
-**The outstanding items are the filing site's own.** At `/flow`'s integrate run they are that
+**The outstanding items are the integrate run's own** — that
 run's outstanding work (**Run 1 — the branch is not merged**,
 `skills/flow-contracts/finish-contract-run1.md`). Every rule below — the join search, the append guard's per-item matching, the three writes,
 the outcome rows — reads "this run's items" and "this run's `<m>` outstanding items" as that
-site's list.
+list.
 
 **Every filing ask explains before it asks.** Before the filing prompt fires, the message body
 explains each item the run would file — what was observed, what breaks because of it, and what the
@@ -234,9 +234,8 @@ this feature exists to prevent — and it does so silently, because a created is
 success. A failed search instead emits one `⚠ Jira: skipped — <reason>` line naming the search
 failure, files nothing, and lets the run continue and write its state as it would have, per
 **Never blocking** (`jira-integration.md`). What that costs is one tracker entry, and the cost
-is bounded because each site's items are already recorded durably outside the tracker — the
-outstanding list in the planning commit's message and the handoff, the round's deferred findings
-in the store's finding rows and the panel record — which is where this pipeline requires the
+is bounded because the run's items are already recorded durably outside the tracker — the
+outstanding list in the planning commit's message and the handoff — which is where this pipeline requires the
 durable record to be; and the integrate run is re-entrant, so a later run files or joins once
 the tracker answers again.
 
@@ -395,11 +394,10 @@ neither:
 whose forged section already carries every item still gets a join that writes nothing to the
 description, and this contract cannot detect that — closing it needs provenance the tracker does not
 offer, and inventing a marker this pipeline signs would be a trust model neither the tools nor this
-contract has. The residue is bounded by where the durable record actually lives: each site's
+contract has. The residue is bounded by where the durable record actually lives: the run's
 items reach a durable record outside the tracker — the outstanding list in the planning commit's
 message and the handoff, per **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract-run1.md`), the round's deferred findings in the store's
-finding rows — so what a forged
+(`skills/flow-contracts/finish-contract-run1.md`) — so what a forged
 section can cost is the tracker copy of work that is recorded either way — never the record
 itself.
 

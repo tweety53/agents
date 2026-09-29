@@ -218,7 +218,8 @@ commit-split.sh <worktree> <name> \
 ```
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff. The
-planning message is a **fixed literal**.
+planning message's subject is the fixed literal `chore(spectre): plan`; on **Continue** at **1** its
+message also lists the outstanding work, as below.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all under **Git boundaries**
@@ -270,9 +271,9 @@ flow stage end -command '/flow' -stage flow.landing-routes -outcome completed <n
 
 **Run no tests, no linters, and no spec-coverage check** — see **Finish contract**
 (`skills/flow-contracts/finish-contract-run1.md`). Correctness was established during
-`skills/flow/review-panel.md` and by the human gate. **One exception:** the scoped
-re-verification in step 2 above, triggered only by a rebase this stage itself performed, never a
-general re-opening of this rule.
+`skills/flow/review-panel.md` and by the human gate. **Two exceptions**, both in step 2 above and
+both triggered only by a rebase this stage itself performed, never a general re-opening of this
+rule: the after-resolution lint and test run, and the scoped re-verification.
 
 ## Handoff
 
@@ -319,7 +320,7 @@ call, once the branch is integrated, runs the archive phase.
   never run a git command before it either.
 - **Never** mix the implementation and the planning artifacts in one commit.
 - **Never** archive a change whose branch has not reached the base branch.
-- **Never** run tests, linters, or a coverage check.
+- **Never** run tests, linters, or a coverage check beyond the two exceptions under **No verification gate** above.
 - **Never** hardcode `main` or `develop`, and **never** resolve the base branch from `HEAD`'s
   upstream.
 - **Never** let a git failure pass silently.

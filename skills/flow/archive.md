@@ -12,9 +12,10 @@ mark of the step before: step 2 (positioning) inside step 3's `flow.sync-archive
 the proposal artifact source) inside step 5's `flow.cleanup`; step 11 (remove the landing
 worktree) inside step 10's `flow.push-archive`. **Eleven steps, eight marks.**
 
-**Generate this run's own session token here, before this first mark** — a separate invocation from
-the integrate phase above (unless chained straight through from merge-and-push, in which case reuse
-that same run's token — see **Model resolution** and the token note in `skills/flow/SKILL.md`).
+**Use this invocation's session token at this first mark** — the one the router
+(`skills/flow/SKILL.md`) generates once per run, never a second one minted here. A standalone run 2 is a separate invocation
+from the integrate phase above and so has its own; chained straight through from merge-and-push, it
+is that same run's token.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
@@ -41,7 +42,7 @@ flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -s
    continue to step 3. Anything else stops run 2 here, with nothing staged, committed, pushed or
    removed. The four exit codes are **Run 2 — the branch is merged**
    (`skills/flow-contracts/finish-contract-run2.md`), step 2. The main checkout itself is never
-   read, checked out, or written by this step — the guard creates `<landing-worktree>` under it when
+   checked out, staged or committed by this step — the guard creates `<landing-worktree>` under it when
    absent and positions it when present, per its own header.
 
    **When the guard is absent**, perform the same positioning by hand, in the same order, against
@@ -155,8 +156,8 @@ flow stage begin -command '/flow' -stage flow.write-finished -harness <harness> 
 ```
 
 8. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the
-   entries whose removal actually succeeded**. Carry `artifactUrl` (`null`), `jiraIssue`,
-   `planningEffort` (`null`), `models.default` (`null`) and `prUrl` forward. This is the terminal
+   entries whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`,
+   `planningEffort`, `models.default` and `prUrl` forward as recorded. This is the terminal
    write.
 
 ```bash
@@ -203,8 +204,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    member, wins over the store's `selfReviewModel` field; when both are empty, or `flow settings
    get` cannot reach the store at all, `SELF_REVIEW_MODEL` falls back to the literal `fable`, named
    as a fallback rather than a resolved value exactly as `DEFAULT_MODEL`'s own `opus` literal is.
-   On harness `zcode` the dispatch runs on `glm-5.3-flash` / `high` regardless (**Harness
-   mapping**, `skills/flow-contracts/model-policy.md`).
+   On harness `zcode` no mapping applies: the pass below is inline, with no dispatch.
 
    Run `project-get.sh <main-checkout> "self review"` (exit 1: absent), take the body's first
    non-blank line — trimmed, backticks removed — and match it against the three literals `run` /
@@ -356,8 +356,8 @@ Next:
 
 ## Worktree cleanup
 
-For each worktree, run **every** check below before removing anything — the six-check sequence is
-**Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), canonical for it:
+For each worktree, run **every** check of the six-check sequence in **Worktree cleanup**
+(`skills/flow-contracts/finish-contract-run2.md`), canonical for it, before removing anything:
 
 **Never ask check 4's ignored-files confirmation before removing a worktree.** Report what
 `--force` will destroy — how many ignored files, which are build output, and which are irreplaceable
@@ -373,7 +373,7 @@ irreplaceable and *unpreserved* is not this override's case: stop and ask.
 
 ## Guardrails
 
-- **Never** merge the change branch in run 2; step 1 already proved it.
+- **Never** merge the change branch in run 2; step 1 already proved it. Step 10's only merge lands `chore/archive-<name>`.
 - **Never** report a cleanup as done without the verdict that says so, and **never write
   `FINISHED` over a leftover or an unverified cleanup**.
 - **Never** `git add` the state file, and never move it into the archive.

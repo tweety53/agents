@@ -3,7 +3,7 @@
 Which git actions each command may take, the planning commits, and the guarded two-commit chain
 that enforces the split between implementation and planning artifacts.
 
-**Loaded by `/flow`'s implement phase, bare `/flow` and `/flow-fast`** — at the step that commits or stages.
+**Loaded by `/flow`'s creating run and implement phase, bare `/flow`, `/flow-plan` and `/flow-fast`** — at the step that commits or stages.
 
 This file is **canonical** for everything in it.
 
@@ -21,7 +21,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | bare `/flow` | run 1 | **Reshapes** — keeps every planning commit, collapses task and fixup commits — then **commits twice** — implementation, then the planning delta — and pushes `--force-with-lease`; opens a PR or merges, by the operator's choice |
 | bare `/flow` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — in the landing worktree, and removes worktrees and branches |
 | bare `/flow` | run 2, during self-review | **Commits** the self-review report, or the context bundle on `## self review: defer`, on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
-| bare `/flow` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, from the landing worktree, and opens its pull request — never pushes `<base>` |
+| bare `/flow` | run 2, after self-review | **Pushes** once, carrying both commits, from the landing worktree, per step 10 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`): `<base>`, fast-forwarded to `chore/archive-<name>`, on the merge-and-push continuation; otherwise `chore/archive-<name>`, whose pull request it opens and merges |
 | `/flow-status` | — | None — read-only |
 | `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
 
@@ -89,7 +89,7 @@ push is plain.
 pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
 rule hold rather than merely assert it. Its staging area therefore carries implementation only;
-planning reaches the branch through **Planning commits** below and nothing else.
+planning reaches the branch through **Planning commits** above and nothing else.
 
 **A capability spec is implementation, not planning.** `<project>/spectre/specs/<capability>.md`
 states what the system must do, so changing it changes the product exactly as code does: the
@@ -134,8 +134,10 @@ git -C <abs-worktree> reset -q -- spectre/changes/ \
 `<module>` is derived from the reshaped diff — the module carrying the change's substance, or a
 broader area where it spans several, never a list. That is the same rule the creating run's
 writing-plans stage applies to each task's `**Commit:**` field. The
-planning message is a **fixed literal**, never derived — every planning commit stages the same two
-trees in every change, so there is nothing about it that varies.
+planning message's subject is a **fixed literal**, never derived — every planning commit stages the
+same planning path in every change, so there is nothing about it that varies. At integrate its
+message also lists anything the operator integrated over
+(**1. Check for unfinished work**, `skills/flow/integrate.md`).
 
 **A skipped commit is reported, and a FAILED commit — one a hook rejects — is a git failure: report
 git's own output and stop.** See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale.md`)

@@ -26,7 +26,7 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 | Worktree | `/flow`'s `flow.kickoff` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
-| Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it |
+| Archive branch | finish run 2 | the repository, and `origin` on the standalone route only | on `origin`, run 2 step 10's `--delete-branch` merge; in the repository, nothing in this pipeline — `flow self-review bundle` reads the archive from it |
 | Change directory | `/flow`'s creating run | `<project>/spectre/changes/<name>/` | moved to the archive, never deleted |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/flow`'s implement phase, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
@@ -71,7 +71,8 @@ the report's output and exit-code contract under **Project configuration**
 skipped rather than failed. See **Temporary artifacts registry**
 (`skills/flow-contracts/artifacts-registry-rationale.md`) for why asking, not looking, is required here.
 
-**Nothing removes the archive branch either, on `origin` or in the repository.** See **Temporary
+**Nothing removes the archive branch in the repository.** On `origin` the merge-and-push route never
+pushes it and the standalone route's merge deletes it, per step 10 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`). See **Temporary
 artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for why, and for
 design.md's open question `archive-branch-cleanup`.
 

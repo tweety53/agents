@@ -79,7 +79,7 @@ known-failures case of **Inline verify — a failing command** below being the o
 ```text verified:design.md section 2 of this change
 ## Report
 - `<command>` — exit <n>[ — known failures only]  # the bracketed marker only when the command's failing tests are all known
-  <the command's output, verbatim, or its last 40 lines when longer, stated as truncated>
+  <the command's output, verbatim, or its last 20 lines when longer, stated as truncated>
   known failures: <identifier> — <reason>[; …]  # only under an exit line carrying the marker
 ```
 
@@ -262,7 +262,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
 
   **Never the flow dev stack.** `flowd` on `127.0.0.1:4173`, its `flow-postgres` container and the
   `flow` database inside it are never stopped, restarted or dropped by any run —
-  `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
+  the dev workspace's `<agents repo>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
   own `## run` names that service, the prohibition wins over this start rule, never the reverse.
   This is separate from the visual-verification procedure's own start/stop rule (step 13, `skills/flow/visual-verify.md`): that stage
   stops only the stack it started for its own probe, and that rule is not restated here. This rule
@@ -274,7 +274,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   why:
 
   ```
-  Not started: <app> (<url>) — protected, see <project>/CLAUDE.md.
+  Not started: <app> (<url>) — protected, see <agents repo>/CLAUDE.md.
   ```
 
   **A start that fails blocks this stage**, naming the application and what the command printed —
@@ -291,7 +291,7 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   verdict: `Stale: <app> (<url>) — <the guard's reason>; restart the stack before testing.`
   Exit 2 adds `Freshness: unverified — <the guard's stderr reason>` instead, the same
   visible-gap rule the visual-verification procedure's own step 6 (`skills/flow/visual-verify.md`) runs on a missing row. A refused start
-  above already ends the run, so this check only ever runs on a start that succeeded or was
+  (below) already ends the run, so this check only ever runs on a start that succeeded or was
   skipped by the protected-service rule.
 
 - **The `Running:` block is the start command's own output.** Once the start above succeeds, its
@@ -337,7 +337,8 @@ than deferring to here — so this step re-reads the current record and
 confirms every resolved worktree is present rather than reconstructing the map from scratch;
 add any entry still missing (a worktree added after the last incremental write) before
 proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort`
-(always `null`), `models.default` (always `null` — `/flow` resolves models from the settings
+(never written — `null` unless a legacy record holds a level), `models.default` (a legacy field,
+likewise never written — `/flow` resolves models from the settings
 store per run, never records a value into the per-change state) and `prUrl` forward verbatim.
 The state file lives outside the repo — never `git add` it.
 
@@ -412,8 +413,8 @@ uncommitted" spelling covers a run resuming before any task committed. **The `Pa
 dispatched this run: the resolved roster, its docs-only reduction to `primary` (**The docs-only
 reduction**, `skills/flow/review-panel.md`), or its late-fix reduction (**The late-fix
 reduction**, `skills/flow/review-panel.md`); any slot an explicit operator instruction added
-beyond the resolved list; and, per **Bundled dispatch** (`skills/flow/review-panel.md`) and the `## Decision` block of **Decide**
-(`skills/flow/brainstorm-planner.md`), whether the decision's panel was
+beyond the resolved list; and, per **Bundled dispatch** (`skills/flow/review-panel.md`) and the `## Decision` block
+of **Decide** (`skills/flow/brainstorm-planner.md`), whether the decision's panel was
 `default` (a `micro` class) or decided, the run's class, whether the roster was `compact` or `full`, its rerun
 policy (`delta`), the dispatch groups as `+`-joined roles and, on a decided panel, the
 rerun pair — the same fields and
