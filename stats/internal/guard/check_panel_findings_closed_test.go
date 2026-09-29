@@ -182,6 +182,16 @@ func TestCheckPanelFindingsClosed(t *testing.T) {
 		{label: "case 28: unreadable dispatch rows cannot be judged, exits 2",
 			json: cfcJSON(cfcFinding{Ref: "F1", Status: "fixed", Slot: "primary"}), disp: `[{"key":`,
 			want: 2, needle: []string{"jq failed — cannot determine anything"}},
+		{label: "case 29: a slotless fixed finding is not covered by a slotless re-run",
+			json: cfcJSON(cfcFinding{Ref: "F1", Status: "fixed"}),
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-1-", Role: "reviewer", Slot: "", Outcome: "completed"}),
+			want: 1, needle: []string{"no clean re-run dispatch of their slot in any later round: F1 ()\n"}},
+		{label: "case 29b: a slotless fixed finding is not covered by a slotted re-run",
+			json: cfcJSON(cfcFinding{Ref: "F1", Status: "fixed"}),
+			want: 1, needle: []string{"no clean re-run dispatch of their slot in any later round: F1 ()\n"}},
+		{label: "case 30: unreadable dispatch rows beside an open finding keep exit 1",
+			json: cfcJSON(cfcFinding{Ref: "F1", Status: "open"}), disp: `[{"key":`,
+			want: 1, needle: []string{"finding(s) still open: F1\n", "jq failed — cannot determine anything"}},
 	}
 	for _, c := range cases {
 		t.Run(c.label, func(t *testing.T) {
@@ -228,6 +238,26 @@ exit 0
 `)
 		rc, _, errs := cfcRun(t, bin, wt, "demo")
 		if rc != 2 || errs != "check-panel-findings-closed: cannot read dispatches for 'demo' from the store — cannot determine anything: flow: connect: connection refused\n" {
+			t.Fatalf("got exit %d, stderr %q", rc, errs)
+		}
+	})
+
+	t.Run("case 6c: an unreachable dispatches read beside an open finding keeps exit 1", func(t *testing.T) {
+		t.Parallel()
+		bin := t.TempDir()
+		writeFile(t, filepath.Join(bin, "findings.json"), cfcJSON(cfcFinding{Ref: "F1", Status: "open"}))
+		writeExec(t, filepath.Join(bin, "flow"), `#!/usr/bin/env bash
+dir="$(dirname -- "$0")"
+case "$*" in
+  *"record dispatches"*) echo "flow: connect: connection refused" >&2; exit 1 ;;
+  *) cat "$dir/findings.json" ;;
+esac
+exit 0
+`)
+		rc, _, errs := cfcRun(t, bin, wt, "demo")
+		want := "check-panel-findings-closed: finding(s) still open: F1\n" +
+			"check-panel-findings-closed: cannot read dispatches for 'demo' from the store — cannot determine anything: flow: connect: connection refused\n"
+		if rc != 1 || errs != want {
 			t.Fatalf("got exit %d, stderr %q", rc, errs)
 		}
 	})

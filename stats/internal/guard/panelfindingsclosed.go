@@ -86,34 +86,6 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		return 2
 	}
 
-	// THE DISPATCHES READ CARRIES THE FINDINGS READ'S POSTURE, unchanged:
-	// read unconditionally -- a store that cannot answer the correlation
-	// below cannot pronounce FINDINGS-CLOSED, the same blindness rule the
-	// findings read's exit 2 exists for -- and a failed or unreadable read
-	// is exit 2, never "no rows". Env.Dispatches is the hook
-	// check-panel-fix-single-dispatch shares, nil meaning the CLI on PATH.
-	var dispatchesJSON []byte
-	if env.Dispatches != nil {
-		dispatchesJSON, err = env.Dispatches(name)
-		if err != nil {
-			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %v\n", cfcPrefix, name, err)
-			return 2
-		}
-	} else {
-		var errOut []byte
-		var rc int
-		dispatchesJSON, errOut, rc = pcFlow(env, false, "record", "dispatches", "-change", name, "-C", worktree)
-		if rc != 0 {
-			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
-			return 2
-		}
-	}
-	dispatches, ok := cfcParseDispatches(dispatchesJSON)
-	if !ok {
-		fmt.Fprintln(stderr, cfcJQFailed)
-		return 2
-	}
-
 	// An open finding is any finding whose status is neither `fixed` nor a
 	// `withdrawn <reason>` or `deferred <reason>` value -- each prefix covers
 	// its whole family, reason text included.
@@ -157,6 +129,41 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		violated = true
 	}
 
+	// THE DISPATCHES READ RUNS AFTER THE PREDICATES ABOVE, and carries the
+	// findings read's posture only where nothing was already found: a store
+	// that cannot answer the correlation below cannot pronounce
+	// FINDINGS-CLOSED -- the same blindness rule the findings read's exit 2
+	// exists for -- so a failed or unreadable read is exit 2, never "no
+	// rows", in place of a would-be exit 0. An exit 1 the predicates above
+	// already earned stands, naming what they found, rather than being lost
+	// to a run stop that names nothing. Env.Dispatches is the hook
+	// check-panel-fix-single-dispatch shares, nil meaning the CLI on PATH.
+	unanswered := func(format string, a ...any) int {
+		fmt.Fprintf(stderr, format, a...)
+		if violated {
+			return 1
+		}
+		return 2
+	}
+	var dispatchesJSON []byte
+	if env.Dispatches != nil {
+		dispatchesJSON, err = env.Dispatches(name)
+		if err != nil {
+			return unanswered("%scannot read dispatches for '%s' from the store — cannot determine anything: %v\n", cfcPrefix, name, err)
+		}
+	} else {
+		var errOut []byte
+		var rc int
+		dispatchesJSON, errOut, rc = pcFlow(env, false, "record", "dispatches", "-change", name, "-C", worktree)
+		if rc != 0 {
+			return unanswered("%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
+		}
+	}
+	dispatches, ok := cfcParseDispatches(dispatchesJSON)
+	if !ok {
+		return unanswered("%s\n", cfcJQFailed)
+	}
+
 	// A FINDING IS RECORDED `fixed` ONLY AFTER THE RE-RUN THAT VERIFIES IT
 	// (review-panel.md's **Recording findings**, KAN-770), and the store's
 	// only witness of that re-run is the raising slot's own dispatch row at
@@ -170,7 +177,8 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	// `completed` -- a timed-out or never-ended dispatch is not a clean
 	// re-run -- and a slot whose `+`-components cover every component of the
 	// finding's: a bundled re-run covers its members, a solo re-run of one
-	// member does not cover a joined finding. Withdrawn and deferred
+	// member does not cover a joined finding, and an empty component covers
+	// nothing, so a finding recorded with no slot is never verified. Withdrawn and deferred
 	// findings claim no verification and check nothing here.
 	var unverified []string
 	for _, f := range findings {
@@ -183,7 +191,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			if d.role != "reviewer" || d.outcome != "completed" || d.round <= f.round {
 				continue
 			}
-			provides := strings.Split(d.slot, "+")
+			provides := slices.DeleteFunc(strings.Split(d.slot, "+"), func(s string) bool { return s == "" })
 			all := true
 			for _, r := range required {
 				if !slices.Contains(provides, r) {
