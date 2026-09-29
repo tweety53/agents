@@ -313,7 +313,7 @@ nothing here.
 
 **Every `## apps` entry is resolved in this stage too, before any implementation runs — never
 improvised mid-run by a later stage in need of a commit destination.** Read
-`<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Project configuration**
+`<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Where the agents repository is**
 (`skills/flow-contracts/project-configuration.md`): an entry whose
 repository already holds a worktree for this change — the kickoff worktree's repository, a
 peer's repository linked above, a second entry naming a repository already resolved by an

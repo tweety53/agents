@@ -130,9 +130,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    Run 1 does, and leave every worktree alone, per **Any failed check leaves every worktree alone**
    below.
 
-   The removal runs the project's `remove` command, read from the command table
-   **Project configuration** (`skills/flow-contracts/project-configuration.md`) is canonical for,
-   with the workspace id substituted into its text by the mechanism that same file defines. **Run 2
+   The removal runs the project's `remove` command, read from the command table below, with the workspace id substituted into its text by the token rule below it. **Run 2
    is not handed that id and does not need to be**: it is derived from the change name and from
    nothing else, deterministically and without ever being recorded, per
    **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — so run 2 runs `flow
@@ -190,8 +188,7 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
    behind. `<state-dir>` is the path `flow state dir` prints for this repository — the same
-   resolution serving step 6's removal, and the one resolvable place for the state directory
-   (`skills/flow-contracts/state-file.md`); a run that has not recently resolved it guesses, and
+   resolution serving step 6's removal; a run that has not recently resolved it guesses, and
    a guessed path is how this guard answers exit 2 with no verdict at all.
 
    | Verdict | What run 2 does |
@@ -239,6 +236,8 @@ bare `/flow` is the only command that loads this file whole; `/flow-self-review`
    **When the script is absent** — a repository that does not carry it — check the same registry rows
    by hand, in the same order, and say in the handoff that the verification was done manually. The
    check is never skipped for want of the script, and "not verified" is never reported as verified.
+
+   **Load `skills/flow-contracts/project-configuration-isolation.md`** only when the script is absent.
 
    **A `/flow-fast` run skips this step entirely** — cleanup itself (step 5) still runs; only its
    separate verification pass does not, per that command's own reduced guard set.

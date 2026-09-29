@@ -141,8 +141,8 @@ a stage began under.
 ## Handoff output
 
 Every invocation re-enters from the state file and the change's own artifacts, so the
-  next run needs nothing this session carries — while a run started in this session re-reads all of
-  it on every turn.
+next run needs nothing this session carries — while a run started in this session re-reads all of
+it on every turn.
 
 ### The block each state renders
 

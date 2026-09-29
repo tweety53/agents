@@ -24,9 +24,18 @@ convention change the audit itself lists under **Not slimmable**. Rejected: dele
 G1–G3 went to a new `project-configuration-isolation.md`, not into
 `project-configuration-authoring.md`. That file opens "nothing here is consulted by any run", and a
 run still reads G1–G3 when `prepare-workspace.sh` cannot be located, so appending there would
-make its first sentence false. G6 → `project-configuration-visual.md`, G8–G9 →
+make its first sentence false. G6 → `project-configuration-visual.md`, G8 →
 `project-configuration-standards.md`. The core carries a `**Load …** only when …` directive for
-each. The citers that mean the moved text are repointed: `workspace-isolation.md` (4),
+each:
+- standards: when resolving a `## standards` entry;
+- isolation: when `prepare-workspace.sh` or `check-cleanup-complete.sh` cannot be located, since
+  run 2 step 7's by-hand check applies the `survivors` contract, and step 7 carries its own
+  directive;
+- visual: when `flow.visual-verify` begins, because steps 1–2 already read the section's shape.
+
+G9, **Where the agents repository is**, stays in the core. It is the single definition of
+`<agents repo>`, and the planning (Decide's experimental listing) and finish (integrate's
+scoped re-verification) sessions resolve `<agents repo>` paths outside standards resolution. The citers that mean the moved text are repointed: `workspace-isolation.md` (4),
 `artifacts-registry.md` (2), `visual-verify.md` (3), `brainstorm-planner.md`, `verify-and-handoff.md`
 and `review-panel.md`. The `**Project configuration**` citers that mean the key table or the
 optional-file rule still cite the core.
@@ -82,7 +91,13 @@ K11 is not in the issue's list and stays in SKILL.md.
 or cuts. A leading `\` is now dropped and the rest read literally. Two new cases cover it: an escaped
 heading acknowledges; an unescaped one is still a comment. The first fails against the old code.
 
-### D11 — `templates/CLAUDE.md` trimmed with `CLAUDE.md`
+### D11 — model-policy.md keeps its override paragraph
+
+M4 and M6 were cut as duplicates of SKILL.md, but they were `model-policy.md`'s only override
+text, while its header and SKILL.md's "per **Model policy**" citation promise it. Both are kept;
+only M5 is cut.
+
+### D12 — `templates/CLAUDE.md` trimmed with `CLAUDE.md`
 
 The template carries the same L2–L4 rationale and duplicates and seeds every new project's
 always-loaded file, so it gets the same cut.
@@ -97,21 +112,42 @@ under implementation; visual, isolation and verdict files conditional).
 |---|---:|---:|
 | always-on (global block + CLAUDE.md) | 19,072 | 18,620 |
 | router (command + SKILL.md + pipeline.md) | 46,133 | 32,350 |
-| `project-configuration.md` | 51,536 | 11,189 |
+| `project-configuration.md` | 51,536 | 13,096 |
 | `state-file.md` | 21,311 | 14,398 |
 | planning, incl. cited | 190,961 | 177,188 |
-| implementation, incl. cited | 359,415 | 350,422 |
-| finish, incl. cited | 220,402 | 203,361 |
+| implementation, incl. cited | 359,415 | 349,169 |
+| finish, incl. cited | 220,402 | 203,696 |
 
 Per session, including both contracts as `pipeline.md` directs:
-- planning: 263,808 → 202,775 (−61.0 KB);
-- implementation: 432,262 → 376,009 (−56.3 KB);
-- finish: 293,249 → 228,948 (−64.3 KB).
+- planning: 263,808 → 204,682 (−59.1 KB);
+- implementation: 432,262 → 376,663 (−55.6 KB);
+- finish: 293,249 → 231,190 (−62.1 KB).
 
-Without the contract loads the savings are 13.8, 9.0 and 17.0 KB, below the issue's 19–24 KB
+Without the contract loads the savings are 13.8, 10.2 and 16.7 KB, below the issue's 19–24 KB
 estimate because main had already cut part of the router before this change. The implementation
 figure also absorbs the moves into `implement.md`, the standards file and the auto-resolution file,
 which that session still reads.
+
+## Review
+
+An independent review pass found no Critical findings and two Important ones. Both were fixed
+before landing, and are recorded above in D3:
+- G9 left the core;
+- the isolation directive missed run 2 step 7's by-hand path.
+
+Of its Minor findings, these were fixed:
+- the model-policy override (D11);
+- run 2's dangling `state-file.md` citation, and its command-table wording;
+- the two key rows' "specified below";
+- `verify-and-handoff.md`'s by-hand citation;
+- the visual directive's timing;
+- a stray indent in `pipeline-rationale.md`.
+
+These stay as they are:
+- `state-file.md`'s "(`mainCheckoutPath` aside)": the field is defined in `state-file-internals.md`,
+  and the exception still reads correctly;
+- the multi-select section's "This contract fixes the shape": a verbatim move;
+- `SKILL-rationale.md`'s "SKILL.md — Stage keys" heading: a rationale file no run loads.
 
 ## Verification
 

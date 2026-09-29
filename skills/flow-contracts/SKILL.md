@@ -26,9 +26,9 @@ flow's pipeline and its contract definitions.
 | [state-file.md](state-file.md) | Read or write a change's state file: its full shape, monotonic state writes, carry-forward |
 | [state-file-internals.md](state-file-internals.md) | How the CLI and daemon keep the record: the fallback paths, the project-key derivation, write ordering and journal replay. **Loaded by no `/flow*` command** |
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys. Resolution rules only — see below for authoring guidance |
-| [project-configuration-standards.md](project-configuration-standards.md) | Resolve a `## standards` entry: the three entry forms, containment, and where `<agents repo>` is. **Loaded at the principles dispatch** |
-| [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, the `survivors` output and exit contract, row validation and what is left to the agent. **Loaded only when `prepare-workspace.sh` cannot be located** |
-| [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded with `skills/flow/visual-verify.md`** |
+| [project-configuration-standards.md](project-configuration-standards.md) | Resolve a `## standards` entry: the three entry forms and containment. **Loaded at the principles dispatch** |
+| [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, the `survivors` output and exit contract, row validation and what is left to the agent. **Loaded only when `prepare-workspace.sh` or `check-cleanup-complete.sh` cannot be located** |
+| [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.visual-verify` begins** |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/flow`'s integrate run** |
 | [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty, and what to do when a measurement contradicts the plan |

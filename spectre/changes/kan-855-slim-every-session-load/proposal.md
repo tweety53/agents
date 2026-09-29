@@ -16,7 +16,7 @@ one condition, or no run at all.
 Verbatim moves and declared-duplicate cuts only; nothing reworded but the lines in
 `verbatim-moves.txt`.
 
-1. `project-configuration.md` → a 11.2 KB core. Standards and `<agents repo>` → `-standards.md`
+1. `project-configuration.md` → a 13.1 KB core. Standards → `-standards.md`
    (principles dispatch); workspace-isolation authoring/validator spec → `-isolation.md` (only when
    `prepare-workspace.sh` is missing); visual verification → `-visual.md` (with
    `visual-verify.md`); the `create`/`remove`/`survivors` command table and token rule → run 2
@@ -34,8 +34,7 @@ Verbatim moves and declared-duplicate cuts only; nothing reworded but the lines 
    **Bundled dispatch**.
 5. `commands-claude/flow.md`: C1–C5 cut, leaving the accepted states and the input rule.
 6. `operator-prompts.md`: auto-resolution → `operator-prompts-auto-resolution.md` behind a
-   directive; multi-select → `flow-self-review/SKILL.md` (its one call site). `model-policy.md`:
-   three duplicate paragraphs cut. `CLAUDE.md` and `templates/CLAUDE.md`: rationale and two
+   directive; multi-select → `flow-self-review/SKILL.md` (its one call site). `model-policy.md`: one duplicate paragraph cut. `CLAUDE.md` and `templates/CLAUDE.md`: rationale and two
    duplicates cut.
 7. `check-verbatim-moves`: a leading `\` in `verbatim-moves.txt` escapes a heading, which `#`
    otherwise comments out (with tests).

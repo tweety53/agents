@@ -32,16 +32,16 @@ exactly what that row specifies and nothing else. The row is authoritative.
 | `## default landing route` | Optional. One of the literals `pull request`, `merge and push` or `manual` — the body's first non-blank line is the value, whitespace-trimmed and de-backticked; lines below it are documentation for the reader, never read. Used as `skills/flow/integrate.md`'s landing question's own `(default, recommended)` option; absent, or a head matching none of the three literals exactly, is reported by name and dropped, falling back to `pull request`. |
 | `## handoff` | Optional. One of the literals `required` or `none` — the body's first non-blank line is the value, whitespace-trimmed and de-backticked; lines below it are documentation for the reader, never read. Read by `/flow-fast` alone (`skills/flow-fast/SKILL.md`): `none` lands the change in the same invocation, straight after the change summary; `required`, or absent, stops after the summary so the operator reviews the branch first and re-runs `/flow-fast <name>` bare to land it. `/flow` always hands off at `IN_PROGRESS` and never reads this key. A head matching neither literal exactly is reported by name and dropped, resolving as if the key were absent. |
 | `## decisions` | Optional. The literal `recommended` — the body's first non-blank line is the value, whitespace-trimmed and de-backticked; lines below it are documentation for the reader, never read. `recommended` widens the run's recommended-defaults mode to the planning asks — never the pivot, an outward-facing or irreversible action, or an integrate or archive prompt (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`, canonical for what the mode covers and how a taken default is recorded); absent, the key is dormant and every prompt behaves exactly as its call site states. A head matching none of the literals exactly is reported by name and dropped, resolving as if the key were absent. |
-| `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). |
-| `## visual verification` | Optional. What the `flow.visual-verify` stage validates before it runs: which UI paths in a change's diff trigger it, where captured screenshots land, the `setup`/`verify`/`capture`/`fingerprint`/`specs` commands, and an optional `regression checkout` naming the repository the spec and its PNGs commit to, with `regression repo` recording the identity — never an authorisation — that checkout's real `origin` must equal. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader. Absent means the stage is not configured for this project, a supported state and not a misconfiguration. Mechanically enforced by `<agents repo>/scripts/check-visual-verification.sh`, canonical for what it checks. |
+| `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified in `skills/flow-contracts/project-configuration-isolation.md` are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). |
+| `## visual verification` | Optional. What the `flow.visual-verify` stage validates before it runs: which UI paths in a change's diff trigger it, where captured screenshots land, the `setup`/`verify`/`capture`/`fingerprint`/`specs` commands, and an optional `regression checkout` naming the repository the spec and its PNGs commit to, with `regression repo` recording the identity — never an authorisation — that checkout's real `origin` must equal. Its rows are resolved and validated rather than read, so the two tables specified in `skills/flow-contracts/project-configuration-visual.md` are the whole of what this body means to the resolver — prose beside them is for the reader. Absent means the stage is not configured for this project, a supported state and not a misconfiguration. Mechanically enforced by `<agents repo>/scripts/check-visual-verification.sh`, canonical for what it checks. |
 | `## review panel citation check` | Optional. A single fenced command block and nothing else in the section — unlike `## workspace isolation` and `## visual verification` above, this key gets no dedicated parsing guard: the whole of what it means to the resolver is "a fenced block exists, read literally". **Absent means the whole pre-panel step is skipped**, exactly like every other optional key. The command runs from the apply worktree only when `check-panel-citation-trigger.sh` exits 0 (**Guard resolution**, `skills/flow-contracts/pipeline.md`, is how `skills/flow/review-panel.md` names it, which is also canonical for the full wiring procedure); its combined stdout+stderr is captured verbatim and its exit code is never gating. |
 | `## known failures` | Optional. The known-failures baseline `flow.verify` consults when a lint or test command fails (**Verify**, `skills/flow/verify-and-handoff.md`, canonical for how the baseline is applied): one list entry per failing test that may fail on an unmodified tree, so its failure is reported separately instead of spending a verify attempt on it. The body's list items (lines beginning `- `) are the entries and every other line is prose for the reader, never read. Each entry is `- <test identifier> — <why it is known>`; an entry matches a failing test only when the entry's identifier — the entry's text before ` — `, trimmed — equals the failing test's own printed name in the failing command's output: the identifier must appear bounded on both sides by a character that cannot belong to a test identifier (line start or end, whitespace, `:`, `(` or `)`), so an entry `TestSubmit` never matches a failing `TestSubmitPayload`. Absent means no baseline, the ordinary case. A malformed entry matches nothing and is never an error — the baseline can only ever narrow what blocks, never widen it. |
 
 **Load `skills/flow-contracts/project-configuration-standards.md`** only when resolving a `## standards` entry.
 
-**Load `skills/flow-contracts/project-configuration-isolation.md`** only when `prepare-workspace.sh` cannot be located, or when writing or reviewing a `## workspace isolation` section.
+**Load `skills/flow-contracts/project-configuration-isolation.md`** only when `prepare-workspace.sh` or `check-cleanup-complete.sh` cannot be located, or when writing or reviewing a `## workspace isolation` section.
 
-**Load `skills/flow-contracts/project-configuration-visual.md`** only when `skills/flow/visual-verify.md` loads, or when writing or reviewing a `## visual verification` section.
+**Load `skills/flow-contracts/project-configuration-visual.md`** only when `flow.visual-verify` begins, or when writing or reviewing a `## visual verification` section.
 
 **A single-line-literal key's value is its body's first non-blank line — whitespace-trimmed,
 surrounding backticks removed — and that head is matched byte-for-byte against the vocabulary
@@ -50,6 +50,40 @@ Lines below the head are documentation for the reader, never read. A head that d
 exactly one literal is a malformed row: report it by name (quoting what was found) and drop it,
 resolving as if the key were absent. The keys matched this way are `## default landing route`, `## decisions`
 and `## handoff`.
+
+## Where the agents repository is
+
+`<agents repo>` is the root of the flow agents repository on this machine — the checkout flow
+is authored in and installed from. Everything that resolves against it is named here so that no
+skill has to work it out for itself.
+
+**`AGENTS_DATA` wins when it is set.** Take it as the root and go no further; it exists so a
+machine with an unusual layout can state the answer instead of having one derived.
+
+**Otherwise derive it from the skill you are reading, in two steps.**
+
+1. Take the directory holding that `SKILL.md` — `skills/flow/`, `skills/flow-status/`,
+   whichever one you are in — and resolve **that directory** to its physical path, following it if
+   it is a symlink.
+2. `<agents repo>` is **two levels above** the resolved directory: up out of the skill's own
+   directory, then up out of `skills/`.
+
+**The link to resolve is the per-skill one, never the `skills/` directory above it.** See
+**The per-skill link, not the `skills/` directory**
+(`skills/flow-contracts/project-configuration-rationale.md`)
+for the measured global-install layout this guards against.
+
+The same two steps are correct for a project-local install, where nothing is a symlink at all. See
+**Project-local installs need no link**
+(`skills/flow-contracts/project-configuration-rationale.md`)
+for why.
+
+**Confirm the derived root before using it, and treat a miss as an absence rather than a nearer
+guess.** Check that the path you are about to use exists under it. That is never a licence to skip
+the step, and never a reason to search the filesystem for a checkout that might be one. See
+**Confirm the derived root before using it**
+(`skills/flow-contracts/project-configuration-rationale.md`)
+for the copied-directory case this guards against.
 
 **Roots in `## apps` are main checkouts.** When an apply worktree exists for the change, resolve
 that app's root from `git worktree list` in its repo and use the worktree root instead — never a

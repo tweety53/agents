@@ -46,7 +46,7 @@ project's cache here, claim a free index atomically, and record that claim in th
 an entry naming this workspace, per **The cache index**
 (`skills/flow-contracts/workspace-isolation.md`).
 
-**When the script cannot be located**, apply the same rules by hand from **Project configuration** (`skills/flow-contracts/project-configuration.md`)
+**When the script cannot be located**, apply the same rules by hand from **Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`)
 and **Workspace isolation** (`skills/flow-contracts/workspace-isolation.md`), and say in the handoff that the validation and
 export were performed manually and why.
 
