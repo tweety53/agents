@@ -13,7 +13,7 @@ verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/impl
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
 tooling analysis** below. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
-literal `opus`, never `DEFAULT_MODEL` and never a session override — mapped on harness `zcode` per
+literal `opus`, never a decision pair and never a session override — mapped on harness `zcode` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
 compares against. Its prompt carries, verbatim:
 
@@ -70,7 +70,7 @@ failed; `missing-fixture` — a fixture or baseline the verify needed and the wo
 carry. A report with every exit zero still
 closes `-outcome completed`.
 
-**Handshake.** Compare the `Model:` line against `opus` (never `DEFAULT_MODEL` or a session
+**Handshake.** Compare the `Model:` line against `opus` (never a decision pair or a session
 override) and apply **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**),
 unchanged — its first- and second-mismatch course and its single-model-harness case alike, `opus`
 the requested model it names.
@@ -90,7 +90,7 @@ verifier**, and that verifier runs the sweeps it writes. A worktree with no miss
 none.
 
 `subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model`
-parameter set to `DEFAULT_MODEL` (**Model resolution**, `skills/flow/SKILL.md`), mapped on harness
+parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harness
 `zcode` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt carries,
 verbatim:
 
@@ -137,10 +137,9 @@ this task, as written:
 `<n>` is this fix run's ordinal, the one `flow.document-fix` recorded.
 
 **Recording.** The parent records the dispatch `-role planner`, `-task` omitted, `-model
-<DEFAULT_MODEL> -effort high`, `-key tooling-analysis-<n>`, suffixed `-<worktree basename>` under
+opus -effort high`, `-key tooling-analysis-<n>`, suffixed `-<worktree basename>` under
 the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here,
-not restated. **Handshake** as **The verifier dispatch** above states it, compared against
-`DEFAULT_MODEL` instead of `opus`.
+not restated. **Handshake** as **The verifier dispatch** above states it, compared against `opus`.
 
 **The re-run.** The verifier's prompt then carries `sweeps-<n>.md`'s path, and the verifier runs
 its sweeps in step 10 beside the sweeps listed there, on every view and frame the change touches

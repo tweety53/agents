@@ -1,8 +1,8 @@
 # scripts/lib/project-section.sh — project_section, defined once.
 #
 # Sourced by scripts/project-get.sh, as it was by
-# scripts/gather-dispatch-context.sh and scripts/check-model-keys.sh until
-# their Go ports (KAN-760, KAN-841), which share its twin (projectSection,
+# scripts/gather-dispatch-context.sh until its Go port (KAN-760), which
+# shares its twin (projectSection,
 # stats/internal/guard/projectsection.go) — three inline copies of the identical
 # heading-to-next-heading awk used to live one in each, the same drift
 # hazard gather-dispatch-context.sh's and the retired self-review gather's

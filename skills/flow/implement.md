@@ -28,7 +28,7 @@ sdd-tdd on the same session, with no dispatch in between. A fix run's stage orde
 document-fix → decide → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated
 after the fix's edit.
 
-**Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and
+**Resolve `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and
 run the guard-presence check, before this run's first dispatch — on a fix run, before section
 **3**'s re-decision. Read the decision JSON
 (`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `execution`, `implementer`,
@@ -97,7 +97,8 @@ verifier and tooling-analyst rows.
 pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst — opens its first reply with the `Model:`
 line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
 this pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
-requested (`DEFAULT_MODEL`, or the run's session override). A match proceeds. A **first** mismatch
+requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or
+the run's session override. A match proceeds. A **first** mismatch
 closes the open dispatch row `-outcome fallback` and re-dispatches once, on the same requested
 model and `subagent_type`, under `<key>-retry`:
 
@@ -542,8 +543,8 @@ never a shell substitution. The start and end instants are the daemon's own — 
 caller inputs.
 
 **`-model` is the model this dispatch was actually given — the group's own `model` from the
-decision's `groups` entry** (`DEFAULT_MODEL`, `skills/flow/SKILL.md`'s **Model resolution**, or
-the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is
+decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brainstorm-planner.md`,
+or the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is
 `flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
 omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A slot whose model the dispatcher cannot
@@ -770,8 +771,8 @@ Every implementer dispatch **must** also carry:
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
-The parent compares that line against `DEFAULT_MODEL` (or the run's session override) and
-applies **The handshake** stated above, unchanged.
+The parent compares that line against the group's recorded model (or the run's session override)
+and applies **The handshake** stated above, unchanged.
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
@@ -968,14 +969,13 @@ re-validated — `spectre validate` and `check-plan-shape.sh` — before the nex
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
 the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
-goes out in one reviewer Agent call beside group N+2's implementer, on that group's
-`model`/`effort` pair from the decision's `groups` entry, `high` in place of an `xhigh` effort,
-which is the implementer's alone. **Groups join into one bundle by the
+goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at that group's
+effort from the decision's `groups` entry, `high` in place of an `xhigh` effort, which is the
+implementer's alone — a first-pass review, per **Model and effort**
+(`skills/flow/brainstorm-planner.md`). **Groups join into one bundle by the
 decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `regular`, every gate-fired
-task of the run waits and goes out in one bundle at the last boundary, on `subagent_type: flow-low`
-with `DEFAULT_MODEL` (or the run's session override) as the Agent tool's own `model` parameter,
-recorded `-model <that model> -effort low` — the `default`-panel reviewer's pair, since these
-classes record no group pair to take; on harness `zcode`, **Harness mapping**
+task of the run waits and goes out in one bundle at the last boundary, on `opus` at the
+implementer pair's effort, or `default` when none is recorded; on harness `zcode`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. **Never one reviewer dispatch per gate-fired task, and never one per
 group on `small`/`regular`** (the review-dispatch count tracks the
 change's size, never its task count). Each task inside the bundle keeps its own pass: its own

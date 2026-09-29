@@ -1,7 +1,6 @@
 # Model policy
 
-Which model each role runs on, their defaults, how an override applies, and per-harness
-enforcement.
+Which model each role runs on, how an override applies, and per-harness enforcement.
 
 **Loaded by `/flow`'s creating run, `/flow`'s implement phase and `/flow-fast`** — at
 each implementer and panel dispatch.
@@ -18,50 +17,35 @@ See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`).
 Planning — brainstorming, design and writing-plans — runs in the current session, on its own
 model; see **Model resolution** (`skills/flow/SKILL.md`), canonical for what the session's model
 prices. The parent session runs on the harness's own model for the whole of `/flow`, and **every
-review-panel reviewer runs on the panel's model — `DEFAULT_MODEL` from the settings store** — regardless of the
-parent model; what never varies is that the panel's model is *chosen*, not inherited from the parent
-session.
+review-panel reviewer runs on its dispatch's decision pair** — regardless of the parent model; what
+never varies is that the panel's model is *chosen*, not inherited from the parent session.
 
-**Implementer subagents dispatched by `/flow`'s implement phase run on `DEFAULT_MODEL`**, which
-**explicitly overrides** superpowers:subagent-driven-development's model
+**Implementer subagents dispatched by `/flow`'s implement phase run on their group's decision
+pair**, which **explicitly overrides** superpowers:subagent-driven-development's model
 guidance. See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why that
 guidance's cost savings do not apply here.
 
 **Two further instructions in that same upstream skill are also overridden: dispatching the final
 review on the most capable model, and escalating the model in fix rounds 4-5.** flow fixes every
-panel slot at the panel's model instead and escalates breadth (the conditional Failure-modes and
+panel slot at its dispatch's decision pair instead and escalates breadth (the conditional Failure-modes and
 Mutation slots) rather than the model. See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
 
-**The planner makes the choice.** The implementer, the fixer and each panel dispatch run on
-`DEFAULT_MODEL` at the effort the Decide step chose for them, per **Model and effort**
-(`skills/flow/brainstorm-planner.md`). The fixer's pair is its own, not the implementer's; a
-fix-round re-run runs on the decision's `panel.rerun_dispatch` pair.
+**The planner makes the choice.** The implementer, the fixer and each panel dispatch run on the
+model and effort the Decide step chose for them, per **Model and effort**
+(`skills/flow/brainstorm-planner.md`), canonical for the choice's bounds. The fixer's pair is its
+own, not the implementer's; a fix-round re-run runs on the decision's `panel.rerun_dispatch` pair.
+Which model a dispatch with no recorded pair runs on — a micro panel, the no-decision dispatch,
+the tooling analyst — is **Model and effort** (`skills/flow/brainstorm-planner.md`) as well.
 
-**Where `DEFAULT_MODEL` comes from: the project key, then the store, then the literal.**
-`DEFAULT_MODEL` resolves per run in this order: `<project>/.flow/project.md`'s `## model` key
-(**Project configuration**, `skills/flow-contracts/project-configuration.md`, canonical for the
-key's shape and its match-and-drop rule), then the settings store's `defaultModel`, then the
-literal `opus`. The resolution records model + source — `project`, `store` or `fallback` — in
-`decision.json`'s `resolved` object, and reports both in the Decide preamble's `models:` line and
-the run summary; an operator instruction that overrides the resolved value lands in `overrides`
-beside a named source, as it always did. Nothing blocks on what the key declares: it makes the
-operator's policy machine-readable and visible before a dispatch goes out, it does not police
-one. The governed roles are every role above that reads `DEFAULT_MODEL` — the implementer, the
-fixer, every panel dispatch, the fix-round re-run pair, the tooling analyst; `VERIFY_MODEL` stays the fixed literal,
-and every effort choice belongs to the
-Decide step, never to the key. On harness `zcode` the key governs the pre-mapping value
-(**Harness mapping** below): resolution and every record name the resolved policy model, while
-the dispatch's ledger line records the mapped model that actually ran.
-
-**An explicit operator instruction overrides either default, in either direction** — raising the
-panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical
-work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
+**An explicit operator instruction overrides a decision's pair, in either direction** — raising
+the implementer to Opus for a change that warrants it, or lowering it to Sonnet for genuinely
+mechanical work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
 from a mistake.
 
-**The model each role runs on is resolved per run from the settings store, never recorded per
-change.** `DEFAULT_MODEL` and `REVIEWERS` resolve once near the top of every run, per **Model
-resolution** (`skills/flow/SKILL.md`). The state file's `models.default` is a legacy field no run
+**The model each role runs on is chosen per dispatch by the Decide step, never configured.**
+`REVIEWERS` resolves once near the top of every run, per **Model resolution**
+(`skills/flow/SKILL.md`). The state file's `models.default` is a legacy field no run
 writes a value into — no run asks a model question — carried forward verbatim. See **State file** (`skills/flow-contracts/state-file.md`).
 
 **A subagent that repairs panel findings is implementer work, so the implementer rule above governs
@@ -73,8 +57,8 @@ exactly as above.
 **The ledger records what happened.** A recorded model choice does **not** replace the per-dispatch
 ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
 slot is a prompt-driven role
-(**The roster**, `skills/flow/review-panel.md`) and takes the panel's model the same way every other
-slot does.
+(**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every
+other slot does.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history
@@ -104,8 +88,8 @@ neither the write into the store nor the render out of it invents a model slug. 
 ## Harness mapping
 
 **On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
-`DEFAULT_MODEL`, `VERIFY_MODEL`, a decision's implementer, group and panel
-pairs, and an operator override alike resolve and are recorded as they would be on Claude Code,
+`VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer,
+fixer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code,
 and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
 `subagent_type` is `flow-high` (or the site's own non-flow type, unchanged), and the dispatch's
 ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran

@@ -194,10 +194,6 @@ caught before it can be used, and never at the point where reporting it would st
 
 `The row is authoritative` — this paragraph names no list, because a list here goes stale the first time a key is added and nothing checks it.
 
-### The literal-body keys
-
-`<agents repo>/scripts/check-model-keys.sh` is not extended.
-
 ### How a `## workspace isolation` section is written
 
 **The workspace id** and **What the id derives** (`skills/flow-contracts/workspace-isolation.md`): those are two different sections and the split is not incidental: one makes the id, the other makes the values taken from it.

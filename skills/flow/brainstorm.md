@@ -58,7 +58,7 @@ flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -sessio
 ```
 
 `planningEffort` and `models.default` are written `null` and stay `null` for the life of the
-change: `/flow` asks no planning-effort or model question on a creating run, and models are resolved per run from the settings store, not recorded per change. `artifactUrl` stays `null` —
+change: `/flow` asks no planning-effort or model question on a creating run, and models are chosen per dispatch by the Decide step, not recorded per change. `artifactUrl` stays `null` —
 `/flow` publishes no proposal artifact.
 
 **Nothing is written before this point on a creating run** but the In Progress transition
@@ -205,7 +205,7 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 ```
 
 Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow -->
-directly — `DEFAULT_MODEL` and `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) are
+directly — `REVIEWERS` (**Model resolution**, `skills/flow/SKILL.md`) is
 already in scope from this run's own earlier resolution.
 
 **Questions are the session's own direct `AskUserQuestion` calls**, batched per **The checklist**
@@ -244,6 +244,11 @@ flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session
 flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
+
+**A refused `flow record decision`** — exit non-zero naming a pair's JSON path and model — is a
+Decide defect, not a store failure: correct that pair in `decision.json` per **Model and effort**
+(`skills/flow/brainstorm-planner.md`) and record again before the gate; no dispatch reads a
+decision the store refused.
 
 **The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`)
 — the prose summary of the logic to be implemented, the `## Decision` block, **Proceed to implementation?** with **Yes** /

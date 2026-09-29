@@ -49,45 +49,16 @@ The full key list, in the order each phase file marks them:
 
 ```bash
 SETTINGS_JSON="$(flow settings get 2>/dev/null || true)"
-MODEL_ROOT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
-PROJECT_MODEL="$(project-get.sh "$MODEL_ROOT" 'model' 2>&1)"; rc=$?
-case "$rc" in
-  0) PROJECT_MODEL="$(printf '%s' "$PROJECT_MODEL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^`\(.*\)`$/\1/')" ;;
-  1) PROJECT_MODEL="" ;;
-  *) echo "⛔ flow: project-get.sh exited $rc: $PROJECT_MODEL — stop the run" >&2; exit 2 ;;
-esac
-DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
-MODEL_SOURCE=store
-if [ -n "$PROJECT_MODEL" ]; then
-  if flow settings models | grep -qx -- "$PROJECT_MODEL"; then
-    DEFAULT_MODEL="$PROJECT_MODEL"
-    MODEL_SOURCE=project
-  else
-    echo "⚠ flow: .flow/project.md '## model' body '$PROJECT_MODEL' is not a valid model — dropped" >&2
-  fi
-fi
-[ -n "$DEFAULT_MODEL" ] && [ "$DEFAULT_MODEL" != "null" ] || { DEFAULT_MODEL=opus; MODEL_SOURCE=fallback; }
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 VERIFY_MODEL=opus
 ```
 
-`MODEL_SOURCE` names where `DEFAULT_MODEL` resolved from — `project` when the project's own
-`## model` key supplied it (**Project configuration**, `skills/flow-contracts/project-configuration.md`,
-validated against the same `ValidModels` set `flow settings models` prints), `store` when the
-settings store's `defaultModel` did, `fallback` when neither did — and is reported beside the
-model everywhere this run records it: the Decide preamble's `models:` line, the run summary, and
-`decision.json`'s `resolved` object.
-
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
-no per-change fallback file for this record. The project's `## model` key still resolves in that
-case: it is read from the repository, not the store, and `MODEL_SOURCE` then reads `project`.
-Only when neither the key nor the store answers does `MODEL_SOURCE` read `fallback` and the
-literal `opus` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`)
-stand in, naming that this is a fallback rather than a resolved value. Settings unreachable is
-never a reason to block implementation.
+no per-change fallback file for this record. Settings unreachable is never a reason to block
+implementation.
 
-**Execution mode, implementer effort and the review panel are decided per change, never
-configured.** The plan's class and rolls decide all three — **Decide**
+**Execution mode, every dispatch's model and effort, and the review panel are decided per change,
+never configured.** The plan's class and rolls decide them — **Decide**
 (`skills/flow/brainstorm-planner.md`) — and the run reads them from the recorded
 `decision.json`.
 
@@ -99,7 +70,7 @@ is canonical for what dispatching it means):
 |-------------|-----------------|
 | Reachable, list non-empty | exactly the list |
 | Reachable, list empty | `primary` alone |
-| Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
+| Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value |
 
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
@@ -107,20 +78,19 @@ and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatch
 `low` through `subagent_type: flow-low`, read from neither the settings store nor
 `<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
 never falls back, because it is never resolved — the point is a predictable model for mechanical
-verification runs regardless of what `DEFAULT_MODEL` resolved to.
+verification runs regardless of what the decision chose for any other dispatch.
 
-**`DEFAULT_MODEL` is the model for all four roles this run dispatches on** — the implementer <!-- refs-guard:allow -->
-(`skills/flow/implement.md`), every panel slot (every one a
-prompt-driven role, per **The roster**, `skills/flow/review-panel.md`),
-the panel-fix subagent (`skills/flow/review-panel.md`), and the tooling analyst
-(**A missed defect — the tooling analysis**, `skills/flow/visual-verify.md`).
+**Every other dispatch runs on its decision pair** — the implementer, every panel slot and the
+panel-fix subagent — or, with no pair recorded, on the literal `opus`. **Model and effort**
+(`skills/flow/brainstorm-planner.md`) is canonical for that no-pair `opus`, the tooling analyst's
+included, and for how each pair's model is chosen.
 
-**A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — "use opus for
-the panel", "implement on haiku" — per **Model policy** (`skills/flow-contracts/model-policy.md`).
+**A plain-language session instruction overrides the pair(s) it names for this run only** —
+"use opus for the panel", "implement on sonnet" — per **Model policy**
+(`skills/flow-contracts/model-policy.md`).
 Record the instruction with the dispatch it changes; an override nobody wrote down is
-indistinguishable from a mistake. The override is **never** written back to the settings store —
-`/flow-settings` is the only command that changes a global default, per that command's own
-guardrails.
+indistinguishable from a mistake. The override never rewrites the settings store or the decision's
+pairs; it lands in the decision's `overrides`.
 
 ## Reading the state
 

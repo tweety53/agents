@@ -91,15 +91,6 @@ stale again on the next.
 `because a rule can merge and stay unreadable by every session` — which is how KAN-202's
 commit-scope rule spent a day with a dangling pointer.
 
-## .flow/project.md — self review
-
-The report series ended at kan-380: the six changes after it all answered "No" to a prompt that
-fires after `FINISHED`, when the operator has walked away, and the 30 reports before it yielded 9
-Jira tickets. This key ratifies that and ends the series; set `run` to bring it back.
-
-Recorded when the body was `skip` (3db66bf, 2026-09-05). The body has been `defer` since ff4ca7d
-(2026-09-11), which saves the context bundle for `/flow-self-review` rather than ending the series.
-
 ## .flow/project.md — workspace isolation
 
 `after `scripts/workspace.sh remove` has dropped the `database` row's resource` — the exact loss

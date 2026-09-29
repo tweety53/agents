@@ -18,21 +18,16 @@ import (
 )
 
 const settingsUsage = `usage: flow settings get    [-addr url] [-timeout dur]
-       flow settings set    [-addr url] [-timeout dur] -model name -reviewers a,b,c [-self-review-model name]
-       flow settings models
+       flow settings set    [-addr url] [-timeout dur] -reviewers a,b,c
 
-settings get prints the harness-wide settings record (default model and
-reviewer slots) as one line of JSON.
+settings get prints the harness-wide settings record (the default reviewer
+slots) as one line of JSON.
 
 settings set writes the whole record, replacing whatever was recorded
 before. Unlike state/stage's never-block-on-store-failure pattern, a
-rejected -model or -reviewers value is a caller mistake, not a store
-failure: there is no fallback value to record for an invalid one, so this
-prints the store's rejection reason and exits non-zero.
-
-settings models prints the harness's fixed set of valid model
-identifiers, sorted, one per line. It takes no flags and makes no store
-call.
+rejected -reviewers value is a caller mistake, not a store failure: there
+is no fallback value to record for an invalid one, so this prints the
+store's rejection reason and exits non-zero.
 `
 
 func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -46,8 +41,6 @@ func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		return runSettingsGet(ctx, args[1:], stdout, stderr)
 	case "set":
 		return runSettingsSet(ctx, args[1:], stdout, stderr)
-	case "models":
-		return runSettingsModels(stdout)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown settings command %q\n", args[0])
 		fmt.Fprint(stderr, settingsUsage)
@@ -114,9 +107,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	fset.SetOutput(stderr)
 	var f settingsConnFlags
 	registerSettingsConnFlags(fset, &f)
-	model := fset.String("model", "", "the default model, e.g. opus (required)")
 	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from "+strings.Join(slices.Sorted(maps.Keys(store.ValidReviewers)), ",")+" (required)")
-	selfReviewModel := fset.String("self-review-model", "", "self-review's model, e.g. opus; empty resolves to the store's default")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -131,17 +122,13 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
-	if *model == "" || *reviewers == "" {
-		fmt.Fprintln(stderr, "flow: -model and -reviewers are both required")
+	if *reviewers == "" {
+		fmt.Fprintln(stderr, "flow: -reviewers is required")
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
 
-	in := client.Settings{
-		DefaultModel:    *model,
-		SelfReviewModel: *selfReviewModel,
-		Reviewers:       strings.Split(*reviewers, ","),
-	}
+	in := client.Settings{Reviewers: strings.Split(*reviewers, ",")}
 	s, err := putSettings(ctx, f.addr, f.timeout, in)
 	switch {
 	case err == nil:
@@ -153,24 +140,6 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprintf(stderr, "flow: settings set: %v\n", err)
 		return 1
 	}
-}
-
-// runSettingsModels implements `flow settings models`: the fixed
-// vocabulary skills/flow/SKILL.md's model-resolution block validates a
-// project's `## self review model` body against, so a project value the
-// store would refuse is reported and dropped before it ever reaches a
-// dispatch. No flags, no store call -- store.ValidModels is a compiled-in
-// constant, not something a running store could change.
-func runSettingsModels(stdout io.Writer) int {
-	names := make([]string, 0, len(store.ValidModels))
-	for name := range store.ValidModels {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, name := range names {
-		fmt.Fprintln(stdout, name)
-	}
-	return 0
 }
 
 // writeSettingsOutput encodes s as one line of JSON to stdout, mirroring

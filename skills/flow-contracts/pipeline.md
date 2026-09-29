@@ -282,9 +282,9 @@ covers:
 - **what this changes for a user of the app, and why** — the feature or fix in product terms
   (what was added, changed, fixed or removed, and the purpose stated in the plan's own `## Why`),
   never only the mechanics of the run. A reader who never opens the diff still learns what shipped.
-- the run's resolved `DEFAULT_MODEL` and where it resolved from — the `project`/`store`/
-  `fallback` source **Model resolution** (`skills/flow/SKILL.md`) named at resolution — so the
-  operator reads the run's model policy off the summary without opening the ledger;
+- the models the recorded decision chose for this run's dispatches — each pair, per **Model and
+  effort** (`skills/flow/brainstorm-planner.md`) — so the operator reads the run's model policy
+  off the summary without opening the ledger;
 - findings fixed, and findings deferred or withdrawn;
 - commits made — repo and a one-line description each;
 - any decision recorded along the way — an automatic rebase onto a moved base, a diff-size cap

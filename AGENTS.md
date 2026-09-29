@@ -79,8 +79,8 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | `skills/flow-fast/` | `/flow-fast` | Minimal-ceremony `/flow` variant: one invocation from Jira key to landed change. A git worktree for isolation only, implementation and review panel as the plan's class decides, project lint plus targeted tests, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks and keeps the Jira transitions; no spectre artifacts or state file |
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-plan/` | `/flow-plan` | Thinking-partner mode — explore ideas, investigate, no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
-| `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
-| `skills/flow-self-review/` | `/flow-self-review` | Runs a self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle. Standalone, not a pipeline stage |
+| `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
+| `skills/flow-self-review/` | `/flow-self-review` | Runs a change's self-review pass, inline on this session's model, from the context bundle `/flow` saved. Standalone, not a pipeline stage |
 | `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract-run1.md`/`finish-contract-run2.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
 ### /flow commands summary

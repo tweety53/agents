@@ -9,13 +9,13 @@ import (
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-// ValidateSettings validates s against the harness's fixed model and
-// reviewer-slot enums, re-exporting store.ValidateSettings rather than
+// ValidateSettings validates s against the harness's fixed reviewer-slot
+// vocabulary, re-exporting store.ValidateSettings rather than
 // redefining the vocabularies here a second time -- so the PUT
 // /api/v1/settings handler below and store.PutSettings itself can never
 // silently diverge on what counts as a valid value. It returns
-// store.ErrInvalidModel or store.ErrInvalidReviewer, wrapped with the
-// specific bad value, for the first violation found.
+// store.ErrInvalidReviewer, wrapped with the specific bad value, for the
+// first violation found.
 func ValidateSettings(s store.Settings) error {
 	return store.ValidateSettings(s)
 }
@@ -47,17 +47,11 @@ type settingsHandler struct {
 // shape GET and PUT exchange. Field names match store.Settings' own
 // field-for-field, following changeDTO's own precedent.
 type settingsDTO struct {
-	DefaultModel    string   `json:"defaultModel"`
-	SelfReviewModel string   `json:"selfReviewModel"`
-	Reviewers       []string `json:"reviewers"`
+	Reviewers []string `json:"reviewers"`
 }
 
 func toSettingsDTO(s store.Settings) settingsDTO {
-	return settingsDTO{
-		DefaultModel:    s.DefaultModel,
-		SelfReviewModel: s.SelfReviewModel,
-		Reviewers:       s.Reviewers,
-	}
+	return settingsDTO{Reviewers: s.Reviewers}
 }
 
 // get serves GET /api/v1/settings.
@@ -73,9 +67,10 @@ func (h *settingsHandler) get(w http.ResponseWriter, r *http.Request) {
 
 // put serves PUT /api/v1/settings. It sends the whole record to the
 // store -- store.PutSettings validates before writing anything, so an
-// invalid defaultModel or reviewers entry is refused with 400, naming the
-// rejected value, and never partially applied: PutSettings either writes
-// the complete row or writes nothing at all.
+// invalid reviewers entry is refused with 400, naming the rejected value,
+// and never partially applied: PutSettings either writes the complete row
+// or writes nothing at all. A retired key an old flow binary still sends
+// (defaultModel, selfReviewModel) fails the strict decoder with 400 too.
 func (h *settingsHandler) put(w http.ResponseWriter, r *http.Request) {
 	var dto settingsDTO
 	if err := decodeJSONBody(w, r, &dto); err != nil {
@@ -83,13 +78,9 @@ func (h *settingsHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s := store.Settings{
-		DefaultModel:    dto.DefaultModel,
-		SelfReviewModel: dto.SelfReviewModel,
-		Reviewers:       dto.Reviewers,
-	}
+	s := store.Settings{Reviewers: dto.Reviewers}
 	if err := h.store.PutSettings(r.Context(), s); err != nil {
-		if errors.Is(err, store.ErrInvalidModel) || errors.Is(err, store.ErrInvalidReviewer) {
+		if errors.Is(err, store.ErrInvalidReviewer) {
 			// A caller mistake, not a store failure -- mapStoreError's
 			// generic default (500 "internal error") would swallow the
 			// rejected value, exactly the failure mode stages.go's

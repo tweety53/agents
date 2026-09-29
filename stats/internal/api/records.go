@@ -1,10 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -232,7 +235,95 @@ func ApplyDecisionRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 	if in.SessionToken == "" || len(in.Decision) == 0 {
 		return records.Decision{}, false, fmt.Errorf("%w: sessionToken and decision are both required", ErrInvalidRecord)
 	}
+	if err := checkDecisionModels(in.Decision); err != nil {
+		return records.Decision{}, false, err
+	}
 	return rw.RecordDecision(ctx, projectKey, change, in)
+}
+
+// checkDecisionModels refuses a decision body naming a model outside
+// store.ValidModels in any pair the Decide step records --
+// implementer.model, fixer.model, panel.dispatches[].model,
+// panel.rerun_dispatch.model, groups[].model -- naming the JSON path and
+// the value (refuse-off-policy-models). A pair recorded as a JSON string
+// ("skipped — inline", "default") or null carries no model and passes; an
+// object pair with no model key is refused as the empty model. Writes
+// only: historical rows are never re-checked.
+func checkDecisionModels(body json.RawMessage) error {
+	// A map, not a struct: encoding/json matches struct fields
+	// case-insensitively, so "Implementer" could stand in for the
+	// "implementer" key the stored jsonb actually carries.
+	var d map[string]json.RawMessage
+	if err := json.Unmarshal(body, &d); err != nil {
+		return fmt.Errorf("%w: decision is not a JSON object: %v", ErrInvalidRecord, err)
+	}
+	if err := checkPairModel("implementer", d["implementer"]); err != nil {
+		return err
+	}
+	if err := checkPairModel("fixer", d["fixer"]); err != nil {
+		return err
+	}
+	if isObject(d["panel"]) {
+		var panel map[string]json.RawMessage
+		if err := json.Unmarshal(d["panel"], &panel); err != nil {
+			return fmt.Errorf("%w: panel: %v", ErrInvalidRecord, err)
+		}
+		if raw := panel["dispatches"]; len(raw) > 0 && string(raw) != "null" {
+			var dispatches []json.RawMessage
+			if err := json.Unmarshal(raw, &dispatches); err != nil {
+				return fmt.Errorf("%w: panel.dispatches: %v", ErrInvalidRecord, err)
+			}
+			for i, p := range dispatches {
+				if err := checkPairModel(fmt.Sprintf("panel.dispatches[%d]", i), p); err != nil {
+					return err
+				}
+			}
+		}
+		if err := checkPairModel("panel.rerun_dispatch", panel["rerun_dispatch"]); err != nil {
+			return err
+		}
+	}
+	if raw := d["groups"]; len(raw) > 0 && string(raw) != "null" {
+		var groups []json.RawMessage
+		if err := json.Unmarshal(raw, &groups); err != nil {
+			return fmt.Errorf("%w: groups: %v", ErrInvalidRecord, err)
+		}
+		for i, g := range groups {
+			if err := checkPairModel(fmt.Sprintf("groups[%d]", i), g); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// checkPairModel checks one recorded pair: absent, null or a JSON string
+// passes; an object's model must be a store.ValidModels member.
+func checkPairModel(path string, raw json.RawMessage) error {
+	if !isObject(raw) {
+		return nil
+	}
+	var pair map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &pair); err != nil {
+		return fmt.Errorf("%w: %s: %v", ErrInvalidRecord, path, err)
+	}
+	var model string
+	if m, ok := pair["model"]; ok {
+		if err := json.Unmarshal(m, &model); err != nil {
+			return fmt.Errorf("%w: %s.model: %v", ErrInvalidRecord, path, err)
+		}
+	}
+	if !store.ValidModels[model] {
+		return fmt.Errorf("%w: %s.model %q is not one of %s", ErrInvalidRecord, path, model,
+			strings.Join(slices.Sorted(maps.Keys(store.ValidModels)), ", "))
+	}
+	return nil
+}
+
+// isObject reports whether raw holds a JSON object.
+func isObject(raw json.RawMessage) bool {
+	t := bytes.TrimSpace(raw)
+	return len(t) > 0 && t[0] == '{'
 }
 
 // ApplyChangeSummaryRecord records a change's summary against rw,

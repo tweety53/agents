@@ -43,7 +43,6 @@ commands:
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
   settings set         write the harness-wide settings record
-  settings models      print the harness's fixed set of valid model identifiers
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
   tasks count <change> record one observation of a plan's task count
   hazard add/remove    record, or retire, one per-project hazard (see: flow hazard)

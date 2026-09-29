@@ -47,8 +47,8 @@ still apply.
 | `/flow-fast <name>` | `flow-fast` | Minimal-ceremony `/flow` variant — one invocation from Jira key to landed change: a git worktree for isolation only, implementation and review panel as the plan's class decides, project lint plus the tests the change touches, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks; no spectre artifacts or state file. |
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
-| `/flow-settings` | `flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from |
-| `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` or `/flow-fast` run deferred, inline on this session's model, from the saved context bundle. Standalone, not a pipeline stage. |
+| `/flow-settings` | `flow-settings` | Reads/writes the harness-wide reviewer slots every `/flow` run reads from |
+| `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved. Standalone, not a pipeline stage. |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
 **Level 1 — the stages of each command** (`README.md`) and are deliberately not
@@ -63,7 +63,7 @@ skills/
 ├── flow-status/         ← /flow-status (read-only)
 ├── flow-plan/       ← /flow-plan
 ├── flow-settings/       ← /flow-settings
-├── flow-self-review/   ← /flow-self-review (deferred self-review pass)
+├── flow-self-review/   ← /flow-self-review (self-review pass)
 └── flow-contracts/    ← on-demand contracts; `pipeline.md` is canonical for the state machine
 ```
 

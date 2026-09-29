@@ -1,6 +1,6 @@
 ---
 model: opus
-description: View and change the harness-wide flow defaults — default model, reviewer slots and the stored self-review model
+description: View and change the harness-wide flow defaults — the reviewer slots
 ---
 
 Use the **flow-settings** skill — installed globally, so let your harness resolve it by name
@@ -8,8 +8,7 @@ rather than assuming a project-local path.
 
 Follow that skill exactly. **Standalone, not a pipeline stage** — it takes no change name, reads
 and writes no per-change state file, and marks no `flow stage` call. It reads and writes the
-harness-wide settings record (`flow settings get`/`set`): the default model, the reviewer slots,
-and the stored self-review model, which no run reads.
+harness-wide settings record (`flow settings get`/`set`): the reviewer slots.
 
 **Input:** none — this command takes no arguments and no flags. Any argument given is reported
 rather than ignored.

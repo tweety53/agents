@@ -6,11 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"testing"
-
-	"github.com/tweety53/agents/stats/internal/store"
 )
 
 // TestSettingsCmd_Get asserts `flow settings get` prints the store's
@@ -23,7 +20,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"defaultModel":"opus","selfReviewModel":"haiku","reviewers":["primary","principles","mutation"]}`))
+		_, _ = w.Write([]byte(`{"reviewers":["primary","principles","mutation"]}`))
 	}))
 	defer srv.Close()
 
@@ -36,18 +33,10 @@ func TestSettingsCmd_Get(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
 	}
 	var got struct {
-		DefaultModel    string   `json:"defaultModel"`
-		SelfReviewModel string   `json:"selfReviewModel"`
-		Reviewers       []string `json:"reviewers"`
+		Reviewers []string `json:"reviewers"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
 		t.Fatalf("decode stdout %q: %v", stdout.String(), err)
-	}
-	if got.DefaultModel != "opus" {
-		t.Errorf("defaultModel = %q, want %q", got.DefaultModel, "opus")
-	}
-	if got.SelfReviewModel != "haiku" {
-		t.Errorf("selfReviewModel = %q, want %q", got.SelfReviewModel, "haiku")
 	}
 	want := []string{"primary", "principles", "mutation"}
 	if len(got.Reviewers) != len(want) {
@@ -61,7 +50,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 }
 
 // TestSettingsCmd_Set_PrintsRejectionReason asserts `flow settings set`
-// against an invalid -model/-reviewers value surfaces the API's 400
+// against an invalid -reviewers value surfaces the API's 400
 // rejection reason on stderr and exits non-zero -- unlike `state`/`stage`'s
 // never-block-on-store-failure pattern, this is a caller mistake with no
 // fallback value to record, per the task's own instruction.
@@ -71,21 +60,21 @@ func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"store: invalid model: \"gpt-5\""}`))
+		_, _ = w.Write([]byte(`{"error":"store: invalid reviewer: \"not-a-slot\""}`))
 	}))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
-			"-model", "gpt-5", "-reviewers", "primary,principles,mutation"},
+			"-reviewers", "primary,not-a-slot"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero")
 	}
-	if !strings.Contains(stderr.String(), "gpt-5") {
-		t.Errorf("stderr = %q, want it to name the rejected value %q", stderr.String(), "gpt-5")
+	if !strings.Contains(stderr.String(), "not-a-slot") {
+		t.Errorf("stderr = %q, want it to name the rejected value %q", stderr.String(), "not-a-slot")
 	}
 }
 
@@ -99,14 +88,13 @@ func TestSettingsCmd_Set_Valid(t *testing.T) {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		var body struct {
-			DefaultModel string   `json:"defaultModel"`
-			Reviewers    []string `json:"reviewers"`
+			Reviewers []string `json:"reviewers"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode request body: %v", err)
 		}
-		if body.DefaultModel != "sonnet" {
-			t.Errorf("request defaultModel = %q, want %q", body.DefaultModel, "sonnet")
+		if strings.Join(body.Reviewers, ",") != "primary,principles,mutation" {
+			t.Errorf("request reviewers = %v, want primary,principles,mutation", body.Reviewers)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(body)
@@ -116,77 +104,51 @@ func TestSettingsCmd_Set_Valid(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
-			"-model", "sonnet", "-reviewers", "primary,principles,mutation"},
+			"-reviewers", "primary,principles,mutation"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "sonnet") {
+	if !strings.Contains(stdout.String(), "mutation") {
 		t.Errorf("stdout = %q, want it to echo back the written settings", stdout.String())
 	}
 }
 
-// TestSettingsCmd_Set_WithSelfReviewModel asserts `settings set` passes
-// -self-review-model through to the store when given -- unlike -model and
-// -reviewers, it is optional (TestSettingsCmd_Set_Valid above already
-// proves a run succeeds with it omitted).
-func TestSettingsCmd_Set_WithSelfReviewModel(t *testing.T) {
+// TestSettingsCmd_Set_RejectsModelFlag asserts the retired -model flag is
+// a usage error (exit 2, stderr naming it) and never reaches the store.
+func TestSettingsCmd_Set_RejectsModelFlag(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut || r.URL.Path != "/api/v1/settings" {
-			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
-		}
-		var body struct {
-			DefaultModel    string   `json:"defaultModel"`
-			SelfReviewModel string   `json:"selfReviewModel"`
-			Reviewers       []string `json:"reviewers"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode request body: %v", err)
-		}
-		if body.SelfReviewModel != "opus" {
-			t.Errorf("request selfReviewModel = %q, want %q", body.SelfReviewModel, "opus")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(body)
+		t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 	}))
 	defer srv.Close()
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
-			"-model", "sonnet", "-reviewers", "primary,principles,mutation",
-			"-self-review-model", "opus"},
+			"-model", "opus", "-reviewers", "primary"},
 		strings.NewReader(""), &stdout, &stderr)
 
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "opus") {
-		t.Errorf("stdout = %q, want it to echo back selfReviewModel", stdout.String())
+	if !strings.Contains(stderr.String(), "-model") {
+		t.Errorf("stderr = %q, want it to name -model", stderr.String())
 	}
 }
 
-// TestSettingsCmd_Models asserts `flow settings models` prints
-// store.ValidModels' keys, sorted, one per line, with no store call and
-// no flags -- the fixed vocabulary skills/flow/SKILL.md's model-resolution
-// block validates a project's model keys against (task 6).
-func TestSettingsCmd_Models(t *testing.T) {
+// TestSettingsCmd_ModelsIsUnknown asserts the retired `settings models`
+// subcommand is refused as an unknown settings command.
+func TestSettingsCmd_ModelsIsUnknown(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "models"},
 		strings.NewReader(""), &stdout, &stderr)
 
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr=%s", code, stderr.String())
 	}
-	names := make([]string, 0, len(store.ValidModels))
-	for name := range store.ValidModels {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	want := strings.Join(names, "\n") + "\n"
-	if stdout.String() != want {
-		t.Errorf("stdout = %q, want %q", stdout.String(), want)
+	if !strings.Contains(stderr.String(), `unknown settings command "models"`) {
+		t.Errorf("stderr = %q, want it to name the unknown command", stderr.String())
 	}
 }
