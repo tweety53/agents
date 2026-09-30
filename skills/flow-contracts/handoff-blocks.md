@@ -134,13 +134,13 @@ still sitting in the journal because the store could not be reached. **The numbe
 command, and from nowhere else:**
 
 ```bash
-flow record journal-count -change <name> -C <worktree>
+flow record handoff-lines -change <name> -C <worktree>
 ```
 
-**Never derive the journal's path and count its lines by hand.** The command prints one decimal
-count on stdout — or the single word `unknown` where no count could be produced — and exits 0
+**Never derive the journal's path and count its lines by hand.** The command prints the `Records:`
+line — `unknown — the journal could not be counted` where no count could be produced — and exits 0
 either way, because it exists to make this line honest and must never become the reason the line
-does not print. `unknown` is rendered as the third alternative above, exactly as it comes: a count
+does not print. That third alternative is rendered exactly as it comes: a count
 that failed is not zero, and reporting it as zero would turn a filesystem problem into a claim that
 every write reached the store.
 
@@ -167,7 +167,7 @@ stack's liveness is not re-checked. Both commands resolve those lines the same w
 the run instructions** (`skills/flow/verify-and-handoff.md`).
 
 **`Deferred` and `### Deferred minors` are on-disk, not `(run-only)`.** Both are filled from `flow
-record findings -change <name>` filtered on a status that starts with `deferred` — see **Write
+record handoff-lines -change <name>`, which counts the findings whose status starts with `deferred` — see **Write
 `IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`). `Deferred` is that count; the list below it
 is one row per such finding, `F<n> <location> — <note> — <reason>`, and reads `none` when the count
 is `0`. A deferred Minor is not an open finding — it does not block the handoff, and

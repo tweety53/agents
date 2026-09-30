@@ -80,6 +80,7 @@ var smcCandidates = map[string]bool{
 
 const (
 	smcBegin    = "flow stage begin"
+	smcMark     = "flow stage mark"
 	smcDispatch = "flow record dispatch"
 )
 
@@ -89,6 +90,7 @@ const (
 // alternative, as it did in the bash.
 var (
 	smcBeginLine    = regexp.MustCompile(`^[[:space:]]*flow stage begin([[:space:]]|\\|$)`)
+	smcMarkLine     = regexp.MustCompile(`^[[:space:]]*flow stage mark([[:space:]]|\\|$)`)
 	smcDispatchLine = regexp.MustCompile(`^[[:space:]]*flow record dispatch([[:space:]]|\\|$)`)
 	smcContinued    = regexp.MustCompile(`\\[[:space:]]*$`)
 	smcHasToken     = regexp.MustCompile(`(^|[[:space:]])-session-token([[:space:]]|=)`)
@@ -96,6 +98,7 @@ var (
 	smcTokenValue   = smcValueRe("session-token")
 	smcHarnessValue = smcValueRe("harness")
 	smcStageValue   = smcValueRe("stage")
+	smcStagesValue  = smcValueRe("stages")
 	smcVarRef       = regexp.MustCompile(`\$[A-Za-z_]`)
 	smcPlaceholder  = regexp.MustCompile(`^<[^<>]+>$`)
 	// guess_placeholder — the first bracketed placeholder whose own text
@@ -175,6 +178,8 @@ func smcAssemble(body string) []smcCall {
 		switch {
 		case smcBeginLine.MatchString(line):
 			verb = smcBegin
+		case smcMarkLine.MatchString(line):
+			verb = smcMark
 		case smcDispatchLine.MatchString(line):
 			verb = smcDispatch
 		}
@@ -363,9 +368,9 @@ func (s *smcScan) checkCall(f string, c smcCall) {
 	// a dispatch row inherits its harness from the stage run it belongs to,
 	// so requiring one here would demand a flag the CLI would reject. The
 	// rule is applied to the verb that takes it, not to every scanned call.
-	if c.verb == smcBegin {
+	if c.verb != smcDispatch {
 		if !smcHasHarness.MatchString(c.cmd) {
-			s.finding("%s:%d: `flow stage begin` carries no -harness -- required so a recorded run states which harness marked it", f, c.line)
+			s.finding("%s:%d: `%s` carries no -harness -- required so a recorded run states which harness marked it", f, c.line, c.verb)
 		} else if h := smcValue(smcHarnessValue, c.cmd); !smcPlaceholder.MatchString(h) {
 			s.finding("%s:%d: -harness %s is a hardcoded literal, not a placeholder -- this skill source is one file installed into `~/.claude/skills/` and `~/.zcode/skills/` alike, so a fixed value mislabels every harness but the one it names; write a bracketed placeholder (e.g. -harness <harness>) that the agent fills in with the harness actually running the command", f, c.line, smcQuote(h, s.utf8))
 		}
@@ -382,20 +387,40 @@ func (s *smcScan) checkCall(f string, c smcCall) {
 		}
 	}
 
-	if c.verb != smcBegin {
+	if c.verb == smcDispatch {
 		return
 	}
+	short := strings.TrimPrefix(c.verb, "flow ")
 	if guess := smcGuess.FindString(c.cmd); guess != "" {
-		s.finding("%s:%d: `stage begin` names a guess, not a resolved change (%s) -- a mark writes, so a guessed name bootstraps a change row that outlives the run; wait until the change name is resolved before marking", f, c.line, guess)
+		s.finding("%s:%d: `%s` names a guess, not a resolved change (%s) -- a mark writes, so a guessed name bootstraps a change row that outlives the run; wait until the change name is resolved before marking", f, c.line, short, guess)
+	}
+	// A `stage mark` names its keys comma-separated in -stages; each is
+	// checked exactly as a `stage begin`'s one -stage key is.
+	if c.verb == smcMark {
+		v := smcValue(smcStagesValue, c.cmd)
+		if v == "" {
+			s.finding("%s:%d: `stage mark` carries no -stages key", f, c.line)
+			return
+		}
+		for _, key := range strings.Split(v, ",") {
+			s.checkKey(f, c, key)
+		}
+		return
 	}
 	// An unlisted key -- a typo, a rename that missed a call site -- is a
 	// violation here rather than a caller-mistake exit at run time, when the
 	// mark silently prints one line and the stage goes unrecorded. The
 	// membership test is an exact whole-line, fixed-string match (grep -qxF).
-	switch key := smcValue(smcStageValue, c.cmd); {
-	case key == "":
+	key := smcValue(smcStageValue, c.cmd)
+	if key == "" {
 		s.finding("%s:%d: `stage begin` carries no -stage key", f, c.line)
-	case !smcListed(s.keys, key):
+		return
+	}
+	s.checkKey(f, c, key)
+}
+
+func (s *smcScan) checkKey(f string, c smcCall, key string) {
+	if !smcListed(s.keys, key) {
 		s.finding("%s:%d: -stage %s is not a key of the served stage-key vocabulary (flow stage keys) -- a mark under an unknown key is refused by the daemon as a caller mistake and the stage goes unrecorded; use a listed key or add the row first", f, c.line, smcQuote(key, s.utf8))
 	}
 }

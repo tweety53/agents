@@ -24,12 +24,14 @@ const usage = `usage: flow <command> [arguments]
 commands:
   state get <name>    print the change's current state
   state set <name>    write the change's whole state, reading it from stdin
+  state add-worktree <name> <abs-path> <merge-base>  merge one worktree into the change's record
   state list          enumerate every change the store holds for this project
   state resolve       print the change-name candidate set: source, complete, candidates, unreadable
   state dir           print the resolved project's state directory (one line, no store contact)
   stage begin <name>  record the start of one documented pipeline stage
   stage end <name>    record the end, outcome and metrics of a stage
   stage wrap <name>   mark begin, run the work named after --, mark end
+  stage mark <name>   mark begin then end completed for each -stages key, in order
   stage keys          print every documented stage key, one per line
   record dispatch     record one subagent dispatch of a change's run record
   record finding      record one review-panel finding, or replace it
@@ -38,8 +40,10 @@ commands:
   record render       render a change's run record from the store
   record journal-count  count a change's record writes still pending in the journal
   record cost-status  print how many of a change's dispatches carry no cost figure, and why
+  record handoff-lines  print the handoff's Records, Deferred and Costs lines and Deferred minors
   record decision     record one run's dynamic decision, or replace it
   record decisions    print a change's recorded decisions as a JSON array
+  decision render     print the ## Decision block for a decision.json (see: flow decision)
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
   settings set         write the harness-wide settings record
@@ -83,6 +87,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runStage(ctx, args[1:], stdin, stdout, stderr)
 	case "record":
 		return runRecord(ctx, args[1:], stdin, stdout, stderr)
+	case "decision":
+		return runDecision(ctx, args[1:], stdout, stderr)
 	case "hazard":
 		return runHazard(ctx, args[1:], stdout, stderr)
 	case "hazards":

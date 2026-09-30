@@ -1,0 +1,1 @@
+../../../scripts/remove-change-worktrees.sh

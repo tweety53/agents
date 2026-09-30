@@ -266,48 +266,19 @@ This section resolves and removes the change's own **apply** worktree(s) — the
 `<project>/.worktrees/_landing-<name>` that steps 2–4, 9 and 10 above used in the main checkout's
 place; step 11, which this section's own call site (step 5) precedes, is what removes that one.
 
-For each worktree, run **every** check below before removing anything:
+Once per repository, from outside every worktree in the set, with `<merge-base>` the one the state
+file's `worktrees` map records for it (`-` when none):
 
 ```bash
-# 1. no uncommitted tracked changes — must be empty
-git -C "$WT" status --porcelain --untracked-files=no
-
-# 2. no untracked files that git does not already ignore — must be empty.
-#    `--others --exclude-standard` lists exactly the files `--force` would destroy and
-#    `.gitignore` does NOT cover. It does not make `--force` safe: ignored files are check 4's.
-git -C "$WT" ls-files --others --exclude-standard
-
-# 3. no commits that exist only here. Resolve `BASE` fresh for THIS worktree — never reused from
-#    another worktree in the set. A multi-repo change has one `origin` and one default branch per
-#    repository, so a name resolved against one worktree's `origin` can be the wrong ref, or absent
-#    entirely, in another repository. Resolve it here, before this worktree's own removal below.
-BASE="$(resolve-base-branch.sh "$WT")" || { echo "cannot resolve the base branch for $WT — stop and ask"; false; }
-#    `@{upstream}` ERRORS when no upstream is configured, and an empty capture would read as
-#    "nothing unpushed" — so resolve it explicitly and never let a failed lookup pass as success.
-if git -C "$WT" merge-base --is-ancestor HEAD "origin/$BASE" 2>/dev/null; then
-  :                                            # already merged into base — nothing can be lost
-elif UP="$(git -C "$WT" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
-  git -C "$WT" log --oneline "$UP..HEAD"       # must be empty
-else
-  echo "not merged, and no upstream — cannot prove these commits exist anywhere else"; false
-fi
-
-# 4. what `--force` WILL destroy: ignored files, split into what a next build, test or
-#    dev-stack run regenerates byte-for-byte and everything else. `--exclude-standard` in check 2 hides
-#    everything matched by .gitignore, <project>/.git/info/exclude or the global excludes file,
-#    and "ignored" is NOT "disposable" in general — a deliberately-ignored .env or a local
-#    override config is ignored and irreplaceable. The split below is what tells the two apart.
-git -C "$WT" ls-files --others --ignored --exclude-standard
-
-# 5. the project's local stack is stopped — run its `## stop` command if declared. Give it a
-#    bounded wait — 60 seconds — and treat a timeout as a FAILED check.
-
-# 6. no process is still running FROM this worktree. Runs whether or not `## stop` is declared,
-#    and whatever that command exited: a project that declares no stop command can still have a
-#    stack running from its worktree, and a stop command that exits 0 is not evidence that it
-#    worked. Verifying that is the whole of what this check adds.
-check-worktree-processes.sh "$WT"
+remove-change-worktrees.sh <repo> <name> <merge-base|->   # --proceed on the second call only
 ```
+
+Exit 0: every check passed; each `REMOVED:` entry is one step 8 clears, and each `REMOTE-*` line is
+the handoff's **Remote branch:** — deleted, already gone, or not deleted. Exit 1: a `REFUSED:` or
+`HELD:` line — a failed check, nothing removed; or a failed removal, whose entry stays in
+`worktrees`. Exit 2: stop and report. Exit 3: the disclosure stop — nothing removed and nothing
+run; relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the wave-group copies below,
+ask only what they ask, then call again with `--proceed`.
 
 **Check 6 requires the orchestrating shell's own cwd to be outside every worktree in the resolved
 set before it runs.** `cd` out first, for every worktree, before
@@ -328,20 +299,6 @@ process and re-run, while
 the worktree still exists and the project's own stop command can still read what it started.
 
 **Check 4 is a disclosure, not a gate — it asks only about an irreplaceable entry nothing preserved.**
-Split what it found into two buckets by path, never by guessing intent:
-
-- **Regeneratable** — a path under a build/cache/log/test-output location a fresh build, test run
-  or `devStart` recreates with identical content the next time it runs: any path component named
-  `build`, `.gradle`, `.kotlin`, `node_modules`, `dist`, `.next`, `target`, `out`, `coverage` or
-  `test-results`; any `*.log`; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
-  `<abs-worktree>/.dev-stack/` trees, which a session's own next run writes fresh. A `.png`/`.jpg`
-  capture is regeneratable only when it sits under a `test-results` directory (or an equivalent
-  declared screenshot-output directory) a test run owns end to end — never a capture sitting loose at a
-  project root, which could be a hand-saved reference nothing re-creates.
-- **Everything else** — unclassified, and it stays unclassified: no allowlist of *names* is
-  trusted here, because the operator decides what they ignore, and a path this list does not
-  recognize (a `.env`, a local override config, a stray file at the worktree root) is exactly what
-  the doubt is for.
 
 An empty unclassified bucket → **show the regeneratable bucket's count and proceed without
 asking**. A
@@ -356,23 +313,6 @@ before removing that worktree.
 removes its worktree without `--force`, so git itself refuses one holding modified or untracked
 files.
 
-Then, and only then:
-
-```bash
-git -C "$REPO" worktree remove --force "$WT"
-git -C "$REPO" branch -d "spectre/<name>"
-git -C "$REPO" worktree prune
-```
-
-- **`--force` destroys every ignored file in the worktree, and no check prevents that.** Checks 1
-  and 2 establish only that nothing *tracked-and-modified* and nothing *untracked-and-unignored*
-  is at risk. They say nothing about ignored files, because `--exclude-standard` is what hides
-  them — and "ignored" is not "disposable". Check 4 exists to make that visible rather than to
-  prevent it: it lists exactly what will die, and asks only about an irreplaceable, unpreserved entry. Claiming the checks make
-  `--force` safe would be false: a gitignored `.env` passes checks 1 and 2 and is
-  destroyed silently.
-- **`git branch -d`, never `-D`.** It must be free to refuse an unmerged branch.
-- **An already-removed worktree is success**, not an error.
 - **Any failed check leaves every worktree alone** and reports why. There is no partial cleanup.
   This includes check 5: a `## stop` command that **exits non-zero, is not found, or has to be
   interrupted** is a *failed* check, not an absent one — only an undeclared key is skipped. Give it
@@ -395,30 +335,9 @@ diagnostic, not work. On Yes each copy is removed before `$WT`, with
 `git -C "$REPO" worktree remove --force "$COPY"` and no `git branch -d` (a copy has no branch); on
 No, or a failed check 5 or 6, every worktree is left alone, exactly as above.
 
-Then the change's **remote** branch:
-
-```bash
-OUT="$(git -C "$REPO" push origin --delete "spectre/<name>" 2>&1)"; RC=$?
-if [ "$RC" -eq 0 ]; then
-  echo "remote branch deleted: origin/spectre/<name>"
-elif printf '%s' "$OUT" | grep -q 'remote ref does not exist'; then
-  # The forge deleted it on merge. Prune the ref it left behind: check-cleanup-complete.sh reads a
-  # surviving refs/remotes/origin/spectre/<name> as a leftover, and it would be a real one.
-  git -C "$REPO" fetch --prune --quiet origin
-  echo "remote branch already gone — the forge deleted it on merge"
-else
-  echo "remote branch NOT deleted: $OUT"
-fi
-```
-
-- **The remote branch is deleted without a further prompt.**
-- **An already-absent remote branch is success**, not an error, and the outcome is reported either
-  way: deleted, already gone, or refused.
-- **A refused push is reported, never swallowed.**
-- **The remote delete is not gated on the local one succeeding.**
-
 The stack-stopped check reads the optional `## stop` key from `<project>/.flow/project.md` —
 see **Project configuration** in `skills/flow-contracts/project-configuration.md`. When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
-the other checks.
+the other checks. A body with no fenced command is that key's same skip, and prints
+`SKIPPED: check 5 — ## stop declares no fenced command`; relay the line word for word.
 

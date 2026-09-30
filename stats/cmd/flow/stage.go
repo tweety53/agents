@@ -42,6 +42,8 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
        flow stage wrap [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
                         -command cmd -stage key -session-token token (<change> | -jira-key KEY)
                         -- <work command and args...>
+       flow stage mark [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
+                        -command cmd -stages key,key,... -session-token token (<change> | -jira-key KEY)
        flow stage keys
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
@@ -84,6 +86,8 @@ func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStageEnd(ctx, args[1:], stderr)
 	case "wrap":
 		return runStageWrap(ctx, args[1:], stdin, stdout, stderr)
+	case "mark":
+		return runStageMark(ctx, args[1:], stderr)
 	case "keys":
 		return runStageKeys(args[1:], stdout, stderr)
 	default:
@@ -828,4 +832,70 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		journalStageMark(projectKey, journalName(f), "end", endReq, stderr)
 	}
 	return exitCode
+}
+
+// runStageMark implements `flow stage mark`: for each -stages key in order,
+// a `stage begin` then a `stage end -outcome completed` -- the marks of a
+// stage the caller has nothing to run for. Every key is validated before
+// any store call, so one bad key leaves no earlier key half-marked; every
+// other flag is checked by the first begin, still before any store call.
+// Each half runs through runStageBegin/runStageEnd themselves, so the
+// journal fallback, the never-block exits and the refusals are theirs; the
+// first nonzero exit stops the run and is returned.
+func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow stage mark", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f stageIdentityFlags
+	registerStageIdentityFlags(fset, &f)
+	stagesFlag := fset.String("stages", "", "comma-separated stage keys, each marked begin then end completed, in order")
+	fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
+	fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
+	fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (required)")
+	if err := fset.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	noteAddrUsage(fset, stderr, f.addr)
+	if *stagesFlag == "" || f.stage != "" {
+		fmt.Fprintln(stderr, "flow: stage mark takes -stages, never -stage")
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	keys := strings.Split(*stagesFlag, ",")
+	for _, key := range keys {
+		if err := stages.Validate(stages.Command(f.command), key); err != nil {
+			fmt.Fprintf(stderr, "flow: %v\n", err)
+			return 2
+		}
+	}
+
+	// The halves get this call's explicit flags back, plus the resolved
+	// -addr so neither repeats the FLOW_ADDR note printed above.
+	beginArgs := []string{"-addr=" + f.addr}
+	endArgs := []string{"-addr=" + f.addr, "-outcome=" + stages.OutcomeCompleted}
+	fset.Visit(func(fl *flag.Flag) {
+		arg := "-" + fl.Name + "=" + fl.Value.String()
+		switch fl.Name {
+		case "addr", "stages":
+		case "harness", "session", "session-token":
+			beginArgs = append(beginArgs, arg)
+		default:
+			beginArgs = append(beginArgs, arg)
+			endArgs = append(endArgs, arg)
+		}
+	})
+	for _, key := range keys {
+		stage := []string{"-stage=" + key}
+		if rc := runStageBegin(ctx, append(append(stage, beginArgs...), fset.Args()...), stderr); rc != 0 {
+			return rc
+		}
+		if rc := runStageEnd(ctx, append(append(stage, endArgs...), fset.Args()...), stderr); rc != 0 {
+			return rc
+		}
+	}
+	return 0
 }

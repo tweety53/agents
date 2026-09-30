@@ -1,0 +1,1 @@
+../../../scripts/kickoff-worktree.sh

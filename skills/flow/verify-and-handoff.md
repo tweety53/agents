@@ -152,19 +152,19 @@ Reads the `## visual verification` section, canonical in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 
-1. **Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
-   its own shape and closed vocabulary. A project declaring no section → this worktree prints
-   `Visual: not configured` and is skipped for the rest of this stage.
-2. **Match the diff — with the guard, not by eye.** Run
+1. **Resolve the section — with the guard, not by eye.** Run
 
    ```bash
    git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>
    ```
 
+   Exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr → this worktree prints
+   `Visual: not configured` and is skipped for the rest of this stage.
+2. **Match the diff** — the same call's verdict.
    Exit 0 → at least one changed path matched a declared `ui paths` glob; continue. Exit 1 → this
-   worktree prints `Visual: no UI paths touched` and is skipped for the rest of this stage. Exit 2 →
-   the guard could not answer (this should not happen here, since step 1 already confirmed the
-   section resolves) — report its stderr and skip this worktree the same way exit 1 does.
+   worktree prints `Visual: no UI paths touched` and is skipped for the rest of this stage. Exit 2
+   with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line → report its stderr and skip this worktree the same
+   way exit 1 does.
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
 
@@ -342,31 +342,15 @@ The state file lives outside the repo — never `git add` it.
 flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
 ```
 
-**Produce the handoff's `Records:` count**, one call per affected worktree:
+**Produce the handoff's `Records:`, `Deferred:` and `Costs:` lines and `### Deferred minors` list with
+one call**, `-C` the canonical worktree the ledger render above targets, one `-worktree` per other
+affected worktree:
 
 ```bash
-flow record journal-count -change <name> -C <abs-worktree>
+flow record handoff-lines -change <name> -C <canonical-worktree> [-worktree <abs-worktree> ...]
 ```
 
-**Produce the handoff's `Costs:` line with one call**, against the canonical worktree the ledger
-render above targets — the store keys a change's dispatches by project, and `Costs:` is one line:
-
-```bash
-flow record cost-status -change <name> -C <canonical-worktree>
-```
-
-It exits 0 always — `unknown` included. Render exactly what it printed.
-
-**Produce the handoff's `Deferred:` count and `### Deferred minors` list the same way**, one call
-per affected worktree:
-
-```bash
-flow record findings -change <name> -C <abs-worktree>
-```
-
-Filter the result on a `status` that starts with `deferred`. `Deferred:` is the count of matches;
-`### Deferred minors` lists one row per match, `F<n> <location> — <note> — <reason>` (the reason is
-the text following `deferred ` in that finding's status), and reads `none` when the count is `0`.
+It exits 0 always; render each line exactly as printed.
 
 ```
 ## Implementation staged — review and test | Implementation committed — review and test
@@ -377,8 +361,8 @@ the text following `deferred ` in that finding's status), and reads `none` when 
 **Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md? | aborted — verified without added sweeps
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
-**Deferred:** <count of deferred Minors>
-**Costs:** <the line `flow record cost-status` printed>
+**Deferred:** <count of deferred Minors> | unknown — the findings could not be read
+**Costs:** <the line `flow record handoff-lines` printed>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Auto-resolved:** none | ⚠ <question> → <the recommended option taken>[; ⚠ <question> → <option> …]
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description

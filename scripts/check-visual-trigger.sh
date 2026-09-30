@@ -22,6 +22,12 @@
 # "Not configured" (2) and "configured and unmatched" (1) are deliberately
 # different answers — flow.visual-verify's step 1 and step 2 print two
 # different messages and skip the stage for two different reasons.
+# Every exit 2 ends its stderr with one cause token line, so a caller tells
+# the two exit-2 answers apart without reading the prose above it:
+#   VISUAL-TRIGGER-NOT-CONFIGURED: <root> — no visual verification section
+#      `.flow/project.md` is missing, or declares no `## visual verification`
+#   VISUAL-TRIGGER-CANNOT-ANSWER: <root> — <short cause>
+#      every other exit 2 (a usage error prints `(no root)` as <root>)
 #
 # GLOB SEMANTICS, pinned because they already caused disagreement once:
 #   - `**` matches any run of characters INCLUDING `/`, so it spans

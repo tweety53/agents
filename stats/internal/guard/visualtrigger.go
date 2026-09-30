@@ -21,10 +21,28 @@ func init() {
 
 const vtPrefix = "check-visual-trigger: "
 
+// The two exit-2 cause tokens (VH-25). NOT-CONFIGURED is the project
+// declaring no section at all -- `Visual: not configured` to a caller;
+// CANNOT-ANSWER is every other refusal. Each exit 2 ends its stderr with one
+// token line after the refusal it already printed, so a caller branches on
+// the token and never on the prose.
+const (
+	vtNotConfigured = "VISUAL-TRIGGER-NOT-CONFIGURED"
+	vtCannotAnswer  = "VISUAL-TRIGGER-CANNOT-ANSWER"
+	vtNoSection     = "no visual verification section"
+)
+
+// vtRefuse prints the cause token line and returns exit 2. root is printed
+// as given, as the verdict lines print it.
+func vtRefuse(stderr io.Writer, token, root, cause string) int {
+	fmt.Fprintf(stderr, "%s: %s — %s\n", token, root, cause)
+	return 2
+}
+
 func checkVisualTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintf(stderr, "%susage: check-visual-trigger.sh <project root> (changed paths on stdin)\n", vtPrefix)
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, "(no root)", "usage")
 	}
 	// `while IFS= read -r changed || [ -n "$changed" ]`: a final line with
 	// no newline is still read, a CR is kept, and bash's read drops a NUL
@@ -57,7 +75,7 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 	}
 	if root == "" || !isDir(fsRoot) {
 		fmt.Fprintf(stderr, "%s%s is not a directory — cannot tell whether it declares a visual verification section\n", vtPrefix, root)
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, "not a directory")
 	}
 	cfg, fsCfg := root+"/.flow/project.md", fsRoot+"/.flow/project.md"
 
@@ -67,30 +85,30 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 	// symlink exists, and falls to "not a regular file".
 	if _, err := os.Lstat(fsCfg); err != nil {
 		fmt.Fprintf(stderr, "%s%s has no .flow/project.md — not configured, so nothing was matched\n", vtPrefix, root)
-		return 2
+		return vtRefuse(stderr, vtNotConfigured, root, vtNoSection)
 	}
 	if !isFile(fsCfg) {
 		fmt.Fprintf(stderr, "%s%s is not a regular file — cannot resolve what it declares\n", vtPrefix, cfg)
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, ".flow/project.md is not a regular file")
 	}
 	if syscall.Access(fsCfg, 4) != nil {
 		fmt.Fprintf(stderr, "%s%s exists but is not readable — cannot resolve what it declares\n", vtPrefix, cfg)
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, ".flow/project.md is not readable")
 	}
 	b, err := os.ReadFile(fsCfg)
 	if err != nil {
 		// The bash's grep exiting 2: a failure to look, not an absence.
 		fmt.Fprintf(stderr, "%sgrep exited 2 while looking for the '## visual verification' heading in %s — that is a failure to look, not an absence\n", vtPrefix, cfg)
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, ".flow/project.md could not be read")
 	}
 	text := string(b)
 	switch n := vvHeadingCount(text); {
 	case n == 0:
 		fmt.Fprintf(stderr, "%s%s declares no '## visual verification' section — not configured, so nothing was matched\n", vtPrefix, cfg)
-		return 2
+		return vtRefuse(stderr, vtNotConfigured, root, vtNoSection)
 	case n > 1:
 		fmt.Fprintf(stderr, "%s%s declares %d '## visual verification' sections — a second declaration is ambiguous, so neither was read\n", vtPrefix, cfg, n)
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, "the section is declared more than once")
 	}
 
 	// The whole of the "ui paths" extraction: the first two-cell `ui paths`
@@ -106,7 +124,7 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 	}
 	if value == "" {
 		fmt.Fprint(stderr, sanitizeDisplay(vtPrefix+"`ui paths` is absent or empty in "+cfg+" — cannot resolve what to match against\n"))
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, "`ui paths` is absent or empty")
 	}
 
 	// Split on comma first, then strip each element's own backticks and
@@ -123,7 +141,7 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 	}
 	if len(globs) == 0 {
 		fmt.Fprint(stderr, sanitizeDisplay(vtPrefix+"`ui paths` in "+cfg+" resolved to no usable glob\n"))
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, "`ui paths` resolved to no usable glob")
 	}
 	res := make([]*regexp.Regexp, len(globs))
 	for i, g := range globs {
@@ -133,7 +151,7 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 	paths, err := changed()
 	if err != nil {
 		fmt.Fprintf(stderr, "%scannot read stdin: %v\n", vtPrefix, err)
-		return 2
+		return vtRefuse(stderr, vtCannotAnswer, root, "stdin could not be read")
 	}
 	matched := false
 	for _, path := range paths {

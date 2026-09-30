@@ -70,13 +70,22 @@ flow_guard_key() {
   )
 }
 
+# flow_guard_root — print the physical root of the checkout this file sits
+# in, reached through any skill's scripts/lib symlink (`cd -P` resolves it,
+# so a shim called through skills/<skill>/scripts/ still answers the
+# repository, never the skill directory). A shim that exports
+# FLOW_GUARD_REPO_ROOT derives it here rather than re-typing the walk.
+flow_guard_root() {
+  (cd -P "$(dirname -- "${BASH_SOURCE[0]}")" && cd ../.. && pwd)
+}
+
 # flow_guard_exec <name> <cannot-answer-code> <opening> [guard arguments...]
 # — exec the checkout-built flow-guard as guard <name>, or print
 # "<opening> <cause>" to stderr and exit <cannot-answer-code>.
 flow_guard_exec() {
   local name="$1" code="$2" opening="$3" stats cache key bin tmp
   shift 3
-  stats="$(cd -P "$(dirname -- "${BASH_SOURCE[0]}")" && cd ../../stats 2>/dev/null && pwd)" || {
+  stats="$(root="$(flow_guard_root)" && cd "$root/stats" 2>/dev/null && pwd)" || {
     echo "$opening cannot build flow-guard — no stats/ source tree beside ${BASH_SOURCE[0]}" >&2
     exit "$code"
   }

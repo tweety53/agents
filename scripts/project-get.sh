@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # project-get.sh — print the body of one `## <key>` heading from a project's
-# `.flow/project.md`, over the shared scripts/lib/project-section.sh
-# extractor, so every /flow phase file resolves a project-configured key
-# through one script instead of loading a contract file to read one value.
+# `.flow/project.md`, so every /flow phase file resolves a project-configured
+# key through one script instead of loading a contract file to read one value.
 #
 # Usage: project-get.sh <project-root> <key>
+#        project-get.sh <project-root> <key> --enum <literal>...
 #
 # <project-root> is the directory holding `.flow/project.md`, never the file
 # itself. <key> is the heading text after `## `, quoted when it carries
@@ -20,6 +20,16 @@
 #      ambiguity refusal check-visual-trigger.sh makes: a second
 #      declaration is ambiguous, so neither is read.
 #
+# --enum RESOLVES A SINGLE-LINE-LITERAL KEY (skills/flow-contracts/
+# project-configuration.md). The body's head — its first non-blank line,
+# whitespace-trimmed, surrounding backticks removed, trimmed again — is
+# matched byte-for-byte against each <literal>:
+#   0  the head matches; the literal alone is on stdout.
+#   1  unchanged: the file or the key is absent.
+#   2  unchanged; also `--enum` given no literal.
+#   3  the key is declared but its head matches no literal — one stderr
+#      line quotes the head; the caller reports it and resolves as absent.
+#
 # Derives no repository root by walking a fixed number of directory levels
 # above its own location (check-guard-symlinks.sh rule 4) — the project
 # root is always an argument, never inferred from where this script lives.
@@ -33,38 +43,16 @@
 # behavior, unchanged there. When the working tree's file exists and diverges
 # from HEAD on the key being resolved, one stderr warning names the file, the
 # key, and that HEAD won.
+#
+# The logic lives in stats/internal/guard/projectget.go, a byte-for-byte port
+# of this script's bash (ae805186); flow-guard is built from this checkout,
+# never taken from PATH — scripts/lib/flow-guard.sh derives it, and exits 2
+# with the cause when it cannot.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/project-section.sh"
-
-[ "$#" -eq 2 ] || { echo "usage: project-get.sh <project-root> <key>" >&2; exit 2; }
-ROOT="$1"; KEY="$2"
-[ -d "$ROOT" ] || { echo "project-get: $ROOT is not a directory" >&2; exit 2; }
-CFG="$ROOT/.flow/project.md"
-
-# A caller's ambient GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE — a hook, a
-# rebase --exec — would hijack which repository the git calls below read;
-# pin them to $ROOT alone.
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
-
-SRC="$CFG"
-if REL="$(git -C "$ROOT" rev-parse --show-prefix 2>/dev/null)"; then
-  if git -C "$ROOT" cat-file -e "HEAD:${REL}.flow/project.md" 2>/dev/null; then
-    SRC="$(mktemp "${TMPDIR:-/tmp}/project-get.XXXXXX")"
-    trap 'rm -f "$SRC"' EXIT
-    git -C "$ROOT" show "HEAD:${REL}.flow/project.md" > "$SRC"
-    if [ -f "$CFG" ] && \
-       [ "$(project_section "$SRC" "$KEY")" != "$(project_section "$CFG" "$KEY")" ]; then
-      echo "project-get: WARNING: $CFG diverges from HEAD on '## $KEY' — resolving from HEAD; commit or restore the working tree to silence this" >&2
-    fi
-  fi
-fi
-
-[ -f "$SRC" ] || { echo "project-get: $CFG does not exist" >&2; exit 1; }
-COUNT="$(strip_bom_cat "$SRC" | awk -v key="## $KEY" '$0 == key { n++ } END { print n + 0 }')"
-case "$COUNT" in
-  0) echo "project-get: $CFG declares no '## $KEY' section" >&2; exit 1 ;;
-  1) project_section "$SRC" "$KEY" ;;
-  *) echo "project-get: $CFG declares $COUNT '## $KEY' sections — a second declaration is ambiguous, so neither was read" >&2; exit 2 ;;
-esac
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "project-get: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
+}
+flow_guard_exec project-get 2 "project-get:" "$@"

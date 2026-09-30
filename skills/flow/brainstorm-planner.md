@@ -393,9 +393,14 @@ number of distinct repository roots the plan's `**Files:**` fall under (the proj
 table; `1` when every path is in this one), `<abs-worktree>` the worktree `flow.kickoff` created, and
 `<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the
 script classify `micro` (**Micro** below), and the two-argument form stays valid and never
-classifies `micro`. Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls.
+classifies `micro`. Its `inputs:`, `class:` and `rolls:` lines carry `class_mechanical` and the
+four rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that
+class — execution, implementer, roster, rerun policy, grouping, dispatches and the experimental
+slot, printed rather than derived by hand (the rules are the script's header).
 **You may raise `class_mechanical` one step, never lower it** — `micro`→`small`, `small`→`regular`
 or `regular`→`big` — with a one-line reason recorded as `override`; the raised value is `class`.
+On a raise, re-run the script with `-class <class>` first, so its tree lines are the raised
+class's; it exits 2 on any other step.
 Leave `override` `null` and `class = class_mechanical` otherwise. `red` and `unverified` are
 recorded from the same output and move no class.
 
@@ -415,20 +420,11 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    recorded `skipped — inline` when step 1 is inline, where the parent applies panel fixes on its
    own model (`skills/flow/implement.md`).
 3. **review panel** — roster, compact/experimental, rerun policy, the **rerun pair**, and its
-   **grouping** —
-   `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a
-   one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
+   **grouping** — as the script's `panel:`, `grouping:` and `experimental:` lines print them, a
+   free grouping with a one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
    slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
    static and a free grouping alike assign each dispatch its own pair per **Model and effort**
-   below; `primary` + `principles`, bundled as one
-   dispatch, is the universal floor for every roster this tree assigns — compact or full, every
-   class — its `-slot` `primary+principles`, deterministic, no roll. Its spare seat under the
-   bundle cap stays empty: nothing else ever joins the floor bundle. A
-   compact roster's two roles are the floor bundle itself, nothing more to group. A full roster's
-   remaining roles form the second dispatch entirely — there is no overflow case left, since the
-   floor already holds every reading/judgment role; a rolled experimental slot joins the second
-   dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree**
-   below, keyed on `class` and the rolls. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
+   below. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
    fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
    findings that role raised (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
    chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
@@ -449,15 +445,6 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    group carrying the change's hardest seam one step up), the reason in that group's own `reason`.
    `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
-
-**The tree**, one row per `class`:
-
-| class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster) |
-|---|---|---|---|---|---|---|
-| micro | inline | — | none — defaults only | none — defaults only | — | — |
-| small | inline | — | primary; principles | primary; principles | delta | `primary+principles` |
-| regular | inline | — | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
-| big | sdd | chosen | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
 
 **The micro row** records defaults, never choices: what it skips is every roster, model/effort and
 grouping choice, and every roll the script printed; what it never skips is the decision record
@@ -493,17 +480,8 @@ between is a default. Each pair carries a one-line `reason` beside it in the JSO
 `## Decision` block's rule cell. **On harness `zcode` the chosen pair is recorded as chosen and
 replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
 
-A compact roster is the floor bundle alone, on the floor bundle's model/effort. Compact when `compact_roll < 90`
-(small, regular, big);
-experimental when `experimental_roll < 30` (every class, at most one slot), appended to whichever
-roster and run on the model/effort of the dispatch it joins.
-
-**Which prompt, when experimental rolled true:** `ls <agents repo>/skills/flow/experimental/*.md`,
-sorted, is the ordered set of candidates; the picked file is the one at index `experimental_roll mod
-count` into that sorted list. `<name>` is its basename with `.md` dropped, and its own `prompt` /
-`description` fields for the roster entry are that file's path (`skills/flow/experimental/<name>.md`)
-and its line-1 `description:` value. An absent directory or one holding no `*.md` file (`count = 0`)
-records `experimental: none available` and adds nothing — never a division by zero. `delta`
+An experimental slot runs on the model/effort of the dispatch it joins; its roster entry's
+`prompt` and `description` are the path and description the `experimental:` line prints. `delta`
 is **Panel re-runs**' own rerun policy (`skills/flow/review-panel-fix-round.md`); the docs-only reduction
 there still applies and still only removes.
 
@@ -525,60 +503,18 @@ sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
 overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was
-given). Print this exact shape as the
-run's own output once the Decide step completes, filling every cell from what was just decided:
+given).
 
-```markdown
-## Decision
+Once the Decide step completes, render the run's own output from that file and print its output
+verbatim — the `planning:`/`reviewers:` lines above the `## Decision` block, the one place these
+choices appear in a run, never printed twice:
 
-| Input              | Rule             | Value |
-|--------------------|------------------|-------|
-| class              | mechanical <class_mechanical> | <class> (override: <reason or "none">) |
-| inputs             | plan-class.sh    | tasks <N> · files <N> · repos <N> · migration <yes\|no> · spec <yes\|no> · red <yes\|no> · unverified <yes\|no> |
-| roll: compact      | <N> <"<" or "≥"> <threshold> | <compact\|full> |
-| roll: experimental | <N> <"<" or "≥"> 30 | <slot name\|"no slot"\|"none available"> |
-| roll: bundle       | <N> <"<" or "≥"> 30 | <static\|free> grouping |
-| roll: effort       | <N> <"<" or "≥"> 80 | <medium\|free> effort |
-
-| Setting            | Rule             | Result |
-|--------------------|------------------|--------|
-| execution mode     | class <class>    | <inline\|sdd> |
-| implementer model  | <reason>         | <"skipped — inline"\|model/effort> |
-| ↳ fixer            | <model> / <effort> — <reason> | <"skipped — inline"\|model/effort> |
-| review panel       | class <class>    | <"default"\|<compact\|full> · delta rerun> |
-| ↳ dispatch <n>     | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
-| ↳ rerun            | <model> / low — <reason> | every fix-round re-run, one role per dispatch |
-| ↳ grouping         | free             | <grouping_reason> |
-| implementer groups | —                | <"skipped — inline"\|"mechanical"\|<groups_reason>> |
-| ↳ group <bundle ids> | <model> / <effort> — <reason> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |
+```bash
+flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>' -reviewers '<REVIEWERS>'
 ```
 
-One fact per row, every reason in the middle column, nothing printed outside the two tables. The
-first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/
-`repos`, and the four rolls, each roll's rule cell the roll against its threshold and its value
-cell the interpretation. On a micro run the four roll rows' value cells read `not consulted —
-micro`, and the decision table records the micro row's values, so no `↳` row appears anywhere
-in it. The second is the decision side. `↳` rows are sub-rows of the setting
-above them: a `↳ fixer` row under the implementer row, its cells the `fixer` value in the
-implementer row's own shape; one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that
-dispatch's model and effort with its `reason` and its value cell the roles `+`-joined in roster order; a `↳ rerun`
-row after the last dispatch row, its rule cell the rerun pair with its `reason`; a `↳ grouping`
-row only on a free grouping (omitted on a static one); an experimental slot skipped for the cap
-adds `· experimental: skipped — bundle cap` to the review-panel value cell. The implementer-groups
-row is `skipped — inline` on an inline run, else `groups_reason`, followed by one `↳ group` row per
-object in `groups`, its rule cell the group's model and effort with its `reason` and its value cell the bundle ids
-(`plan-dispatch-bundles.sh`'s ids), the `(mechanical: …; override: …)` suffix only on a split
-(`groups_override` non-`null`) — mirroring the `class` row's own `override` shape. When `panel` is
-the string `default` the review-panel value cell is `default` and no `↳` row follows it; when
-`implementer` is a string the `↳ fixer` row carries the same string and no pair.
-
-Prepend these two lines directly above the `## Decision` block — the one place these choices
-appear in a run, never printed twice:
-
-```text
-planning:  inline, this session (<the model named in this session's own system prompt>)
-reviewers: <REVIEWERS>
-```
+It exits 0 on a printed block and 2 on a usage error, an unreadable file or a `decision.json`
+missing a required field — correct the file and render again.
 
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>

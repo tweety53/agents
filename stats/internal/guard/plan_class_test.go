@@ -2,7 +2,8 @@ package guard
 
 import (
 	"fmt"
-	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -77,7 +78,7 @@ func TestPlanClass(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: t.TempDir()}
+	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + t.TempDir()})
 	run := func(args ...string) guardResult { return runGuard("plan-class", args, env) }
 
 	// repo is a copy of the template; commit stages and commits everything
@@ -266,7 +267,7 @@ func TestPlanClass(t *testing.T) {
 			want := "inputs: tasks=2 files=4 repos=1 migration=yes spec=yes red=yes unverified=yes\n" +
 				"class: regular\n" +
 				"rolls: compact 71 · experimental 0 · bundle 75 · effort 21\n"
-			if r.rc != 0 || r.stdout != want || r.err != "" {
+			if r.rc != 0 || !strings.HasPrefix(r.stdout, want) || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}
 		}},
@@ -275,7 +276,7 @@ func TestPlanClass(t *testing.T) {
 			want := "inputs: tasks=1 files=1 repos=1 migration=no spec=no red=no unverified=no\n" +
 				"class: micro\n" +
 				"rolls: compact 65 · experimental 0 · bundle 43 · effort 96\n"
-			if r.rc != 0 || r.stdout != want || r.err != "" {
+			if r.rc != 0 || !strings.HasPrefix(r.stdout, want) || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}
 		}},
@@ -305,7 +306,7 @@ func TestPlanClass(t *testing.T) {
 				{"en_US.UTF-8", "-ish", "red=yes"}, {"C", "dish", "red=no"}, {"C", "_x", "red=no"}, {"C", "", "red=yes"},
 			} {
 				p := pcTasks(t, "red-locale", "**Build:** red"+c.tail+"\n")
-				e := envWith(t, []string{"LC_ALL=" + c.locale})
+				e := envWith(t, []string{"LC_ALL=" + c.locale, "FLOW_GUARD_REPO_ROOT=" + t.TempDir()})
 				r := runGuard("plan-class", []string{p, "1"}, e)
 				if r.rc != 0 || !strings.Contains(r.out, " "+c.want+" ") {
 					t.Errorf("%s %q: rc=%d out=%s", c.locale, c.tail, r.rc, r.out)
@@ -319,7 +320,7 @@ func TestPlanClass(t *testing.T) {
 				args []string
 				want string
 			}{
-				{[]string{"a"}, "usage: plan-class.sh <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+				{[]string{"a"}, "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
 				{[]string{"/nonexistent/tasks.md", "1"}, "plan-class.sh: no such file: /nonexistent/tasks.md\n"},
 				{[]string{docs, "0x1"}, "plan-class.sh: <repos> must be a non-negative integer, got: 0x1\n"},
 				{[]string{docs, "", repo, mb}, "plan-class.sh: <repos> must be a non-negative integer, got: \n"},
@@ -336,5 +337,230 @@ func TestPlanClass(t *testing.T) {
 			t.Parallel()
 			tc.fn(t)
 		})
+	}
+}
+
+// TestPlanClassTree pins the four decision-tree lines plan-class appends
+// under its first three: pcTree across every class × roll side × candidate
+// state, then the whole guard against real experimental directories —
+// absent, empty, two candidates — with the first three lines compared as a
+// prefix so they stay byte for byte what they were.
+func TestPlanClassTree(t *testing.T) {
+	t.Parallel()
+	two := []pcExp{{"a", "first probe"}, {"b", "second probe"}}
+	// Per class: the tree line, the full roster, whether a full roster has a
+	// second dispatch the experimental slot can join.
+	classes := []struct {
+		class, tree, full string
+		second            bool
+	}{
+		{"small", "tree: class small · execution inline · implementer skipped — inline", "primary; principles", false},
+		{"regular", "tree: class regular · execution inline · implementer skipped — inline", "primary; principles; failure-modes; mutation", true},
+		{"big", "tree: class big · execution sdd · implementer chosen", "primary; principles; failure-modes; mutation", true},
+	}
+	for _, c := range classes {
+		for _, compact := range []uint64{89, 90} {
+			for _, bundle := range []uint64{29, 30} {
+				for _, exp := range []uint64{29, 30} {
+					for _, cands := range [][]pcExp{nil, two} {
+						shape, roster, dispatches := "compact", "primary; principles", "primary+principles"
+						room := false
+						if compact >= 90 {
+							shape, roster = "full", c.full
+							room = c.second
+							if c.second {
+								dispatches += " · failure-modes+mutation"
+							}
+						}
+						grouping := "free"
+						if bundle < 30 {
+							grouping = "static"
+						}
+						experimental := "no slot"
+						if exp < 30 && cands == nil {
+							experimental = "none available"
+						} else if exp < 30 {
+							// 29 mod 2 = 1: the second candidate in byte order.
+							experimental = "exp-b · skills/flow/experimental/b.md · second probe"
+							if room {
+								roster += "; exp-b"
+								dispatches += "+exp-b"
+							} else {
+								experimental += " · skipped — bundle cap"
+							}
+						}
+						want := c.tree + "\n" +
+							"panel: " + shape + " · roster " + roster + " · rerun delta\n" +
+							"grouping: " + grouping + " · dispatches " + dispatches + "\n" +
+							"experimental: " + experimental + "\n"
+						if got := pcTree(c.class, compact, exp, bundle, cands); got != want {
+							t.Errorf("%s compact=%d bundle=%d exp=%d cands=%d:\ngot  %q\nwant %q", c.class, compact, bundle, exp, len(cands), got, want)
+						}
+					}
+				}
+			}
+		}
+	}
+	// micro records defaults: no roll and no candidate is consulted.
+	microWant := "tree: class micro · execution inline · implementer skipped — inline\n" +
+		"panel: default\n" +
+		"grouping: not consulted — micro\n" +
+		"experimental: not consulted — micro\n"
+	for _, cands := range [][]pcExp{nil, two} {
+		for _, roll := range []uint64{0, 99} {
+			if got := pcTree("micro", roll, roll, roll, cands); got != microWant {
+				t.Errorf("micro roll=%d cands=%d: got %q", roll, len(cands), got)
+			}
+		}
+	}
+
+	// The guard end to end. plan-class-pin rolls compact 71 · experimental 0
+	// · bundle 75 on a regular plan (compact, so the slot has no room);
+	// tree-192 rolls compact 91 · experimental 4 · bundle 16 (full, static,
+	// 4 mod 2 = 0 picks a.md, which joins the second dispatch).
+	pin := "- [ ] 1. First\n" +
+		"**Files:** `docs/a.md`, `spectre/specs/x/spec.md`, `src/b.go`\n" +
+		"**Build:** red\n" +
+		"- [x] 2. Second\n" +
+		"**Files:** `src/b.go`, `stats/internal/store/migrations/0001_x.sql`\n" +
+		"unverified: maybe\n"
+	pinHead := "inputs: tasks=2 files=4 repos=1 migration=yes spec=yes red=yes unverified=yes\n" +
+		"class: regular\n" +
+		"rolls: compact 71 · experimental 0 · bundle 75 · effort 21\n"
+	pinTree := func(experimental string) string {
+		return "tree: class regular · execution inline · implementer skipped — inline\n" +
+			"panel: compact · roster primary; principles · rerun delta\n" +
+			"grouping: free · dispatches primary+principles\n" +
+			"experimental: " + experimental + "\n"
+	}
+	expDir := func(t *testing.T, files map[string]string) string {
+		root := t.TempDir()
+		if files != nil {
+			mkdir(t, root+"/skills/flow/experimental")
+		}
+		for n, body := range files {
+			writeFile(t, root+"/skills/flow/experimental/"+n, body)
+		}
+		return root
+	}
+	twoFiles := map[string]string{
+		"b.md":       "description: second probe\nbody\n",
+		"a.md":       "description:  first probe \nbody\n",
+		"notes.txt":  "not a candidate\n",
+		".hidden.md": "description: never a candidate\n",
+	}
+	for _, c := range []struct {
+		label, name, body string
+		files             map[string]string
+		want              string
+	}{
+		{"absent directory", "plan-class-pin", pin, nil, pinHead + pinTree("none available")},
+		{"empty directory", "plan-class-pin", pin, map[string]string{}, pinHead + pinTree("none available")},
+		{"two candidates, no room", "plan-class-pin", pin, twoFiles,
+			pinHead + pinTree("exp-a · skills/flow/experimental/a.md · first probe · skipped — bundle cap")},
+		{"two candidates, joins the second dispatch", "tree-192", pcMake(9, false), twoFiles,
+			"inputs: tasks=9 files=9 repos=1 migration=no spec=no red=no unverified=no\n" +
+				"class: regular\n" +
+				"rolls: compact 91 · experimental 4 · bundle 16 · effort 93\n" +
+				"tree: class regular · execution inline · implementer skipped — inline\n" +
+				"panel: full · roster primary; principles; failure-modes; mutation; exp-a · rerun delta\n" +
+				"grouping: static · dispatches primary+principles · failure-modes+mutation+exp-a\n" +
+				"experimental: exp-a · skills/flow/experimental/a.md · first probe\n"},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + expDir(t, c.files)})
+			r := runGuard("plan-class", []string{pcTasks(t, c.name, c.body), "1"}, env)
+			if r.rc != 0 || r.stdout != c.want || r.err != "" {
+				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
+			}
+		})
+	}
+
+	t.Run("a candidate whose line 1 is no description exits 2", func(t *testing.T) {
+		t.Parallel()
+		root := expDir(t, map[string]string{"a.md": "# no description\n"})
+		r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", pin), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + root}))
+		want := "plan-class.sh: " + root + "/skills/flow/experimental/a.md: line 1 is not a description: line\n"
+		if r.rc != 2 || r.stdout != "" || r.err != want {
+			t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
+		}
+	})
+	t.Run("FLOW_GUARD_REPO_ROOT unset exits 2", func(t *testing.T) {
+		t.Parallel()
+		r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", pin), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT="}))
+		want := "plan-class.sh: FLOW_GUARD_REPO_ROOT is unset — run scripts/plan-class.sh, which sets it\n"
+		if r.rc != 2 || r.stdout != "" || r.err != want {
+			t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
+		}
+	})
+}
+
+// TestPlanClassOverrideFlag pins -class: the mechanical class or one step
+// above it is taken as the tree's class, and the class: line stays
+// mechanical; two steps up, any step down or an unknown class is exit 2.
+func TestPlanClassOverrideFlag(t *testing.T) {
+	t.Parallel()
+	tmpl := t.TempDir() + "/repo"
+	var g fxGit
+	g.git("", "init", "-q", tmpl)
+	g.git(tmpl, "commit", "-q", "--allow-empty", "-m", "init")
+	mb := g.git(tmpl, "rev-parse", "HEAD")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + t.TempDir()})
+	small := pcTasks(t, "override-small", pcMake(4, false))
+	micro := pcTasks(t, "override-micro", pcDocs)
+	for _, c := range []struct {
+		args        []string
+		rc          int
+		class, tree string
+		stderr      string
+	}{
+		{[]string{"-class", "small", small, "1"}, 0, "small", "small", ""},
+		{[]string{"-class", "regular", small, "1"}, 0, "small", "regular", ""},
+		{[]string{"-class", "small", micro, "1", tmpl, mb}, 0, "micro", "small", ""},
+		{[]string{"-class", "micro", micro, "1", tmpl, mb}, 0, "micro", "micro", ""},
+		{[]string{"-class", "big", small, "1"}, 2, "", "", "plan-class.sh: -class big must be small or one step above it\n"},
+		{[]string{"-class", "micro", small, "1"}, 2, "", "", "plan-class.sh: -class micro must be small or one step above it\n"},
+		{[]string{"-class", "regular", micro, "1", tmpl, mb}, 2, "", "", "plan-class.sh: -class regular must be micro or one step above it\n"},
+		{[]string{"-class", "huge", small, "1"}, 2, "", "", "plan-class.sh: unknown class: huge\n"},
+		{[]string{"-class"}, 2, "", "", "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+		{[]string{"-class", "small", small}, 2, "", "", "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+	} {
+		r := runGuard("plan-class", c.args, env)
+		if r.rc != c.rc {
+			t.Errorf("%q: rc=%d out=%s", c.args, r.rc, r.out)
+			continue
+		}
+		if c.rc != 0 {
+			if r.stdout != "" || r.err != c.stderr {
+				t.Errorf("%q: stdout=%q stderr=%q", c.args, r.stdout, r.err)
+			}
+			continue
+		}
+		if !strings.Contains(r.stdout, "\nclass: "+c.class+"\n") || !strings.Contains(r.stdout, "\ntree: class "+c.tree+" · ") {
+			t.Errorf("%q: stdout=%q", c.args, r.stdout)
+		}
+	}
+}
+
+// TestFlowGuardRootThroughSkillSymlink pins flow_guard_root (KAN-860 F10),
+// the one derivation plan-class.sh and sync-onto-base.sh export as
+// FLOW_GUARD_REPO_ROOT: sourced through a skill's scripts/lib symlink, it
+// still answers the repository, never the skill directory.
+func TestFlowGuardRootThroughSkillSymlink(t *testing.T) {
+	t.Parallel()
+	repo, err := filepath.EvalSymlinks(filepath.Dir(tcfScriptsDir(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("bash", "-c", `. "$1/skills/flow/scripts/lib/flow-guard.sh" && flow_guard_root`, "_", repo).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(out)); got != repo {
+		t.Errorf("flow_guard_root through skills/flow/scripts/lib = %q, want the repository %q", got, repo)
 	}
 }

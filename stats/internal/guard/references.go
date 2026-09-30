@@ -102,6 +102,9 @@ var crExpectedZero = []struct {
 		[]string{
 			"skills/flow/engineering-principles.md",
 			"skills/flow/reviewer-calibration.md",
+			"skills/flow/primary-reviewer-prompt.md",
+			"skills/flow/principles-reviewer-prompt.md",
+			"skills/flow/failure-modes-reviewer-prompt.md",
 		}},
 	{"rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all",
 		[]string{

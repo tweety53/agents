@@ -396,3 +396,37 @@ func TestCheckStageMarkCalls(t *testing.T) {
 		}
 	})
 }
+
+// TestStageMarkCallsChecksStageMark pins that the guard checks a `flow
+// stage mark` line by the `stage begin` rules -- a -session-token, a
+// placeholder -harness, no guessed name -- and checks every comma-separated
+// -stages key against the served vocabulary.
+func TestStageMarkCallsChecksStageMark(t *testing.T) {
+	t.Parallel()
+	const mark = "flow stage mark -command '/flow-fast' "
+	cases := []struct {
+		name, line string
+		rc         int
+		want       string
+	}{
+		{"compliant", mark + "-stages flow.preflight,flow.unfinished-work-gate -harness <harness> -session-token ff-abc <name>", 0, "clean (1 call site(s) checked)"},
+		{"missing token", mark + "-stages flow.preflight -harness <harness> <name>", 1, "`flow stage mark` carries no -session-token"},
+		{"hardcoded harness", mark + "-stages flow.preflight -harness claude-code -session-token ff-abc <name>", 1, "-harness claude-code is a hardcoded literal"},
+		{"missing harness", mark + "-stages flow.preflight -session-token ff-abc <name>", 1, "`flow stage mark` carries no -harness"},
+		{"guessed name", mark + "-stages flow.preflight -harness <harness> -session-token ff-abc <guessed-name>", 1, "`stage mark` names a guess"},
+		{"unserved key", mark + "-stages flow.preflight,flow.no-such-stage -harness <harness> -session-token ff-abc <name>", 1, "-stage flow.no-such-stage is not a key of the served stage-key vocabulary"},
+		{"no -stages", mark + "-harness <harness> -session-token ff-abc <name>", 1, "`stage mark` carries no -stages key"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeFile(t, smcFile(dir), "```bash\n"+c.line+"\n```\n")
+			var out bytes.Buffer
+			rc := checkStageMarkCalls([]string{dir}, smcEnv(smcRepoRoot, false), &out, &out)
+			if rc != c.rc || !strings.Contains(out.String(), c.want) {
+				t.Fatalf("rc=%d, want %d; output lacks %q:\n%s", rc, c.rc, c.want, out.String())
+			}
+		})
+	}
+}

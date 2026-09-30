@@ -3267,3 +3267,19 @@ func TestWatcherDeniedBeginNeverClaimsLaterLaunch(t *testing.T) {
 		t.Errorf("stamps = %+v, want %+v", deps.stamps, want)
 	}
 }
+
+// TestWatcherMatchesStageMark pins that a `flow stage mark` invocation
+// binds its -session-token exactly as `stage begin` does: /flow-fast marks
+// its empty stages with it, and where CLAUDE_CODE_SESSION_ID is unset the
+// token search is the only thing that attributes those runs to a session.
+func TestWatcherMatchesStageMark(t *testing.T) {
+	const token = "ff-kan860-stage-mark"
+	command := "flow stage mark -command '/flow-fast' -stages flow.preflight,flow.unfinished-work-gate -harness claude-code -session-token " + token + " kan-860"
+	binder := runMarkCommand(t, token, 860, "session-stage-mark", command)
+	if binder.bindCalls != 1 {
+		t.Fatalf("bindCalls = %d, want 1: a `stage mark` must bind its token like `stage begin`", binder.bindCalls)
+	}
+	if binder.bound[860] != "session-stage-mark" {
+		t.Fatalf("bound session = %q, want session-stage-mark", binder.bound[860])
+	}
+}

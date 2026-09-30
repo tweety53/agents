@@ -58,10 +58,9 @@
 # whose review gate in skills/flow/implement.md fires — as implement.md's
 # fifth dispatch site, raising that file's minimums by one for REPRODUCE,
 # DON'T READ (the reviewer variant now required twice there), FOREGROUND
-# BUILDS, TOOLS, MODEL HANDSHAKE and NO DELEGATION. implement.md's gate
-# definition is the one statement of the gate's threshold and risk arm,
-# and the one site to re-tune; this file pins only the paragraphs the
-# gated reviewer dispatch carries, never the gate's own numbers. KAN-496
+# BUILDS, TOOLS, MODEL HANDSHAKE and NO DELEGATION. This file pins only the
+# paragraphs the gated reviewer dispatch carries, never the gate's own
+# numbers. KAN-496
 # added a tenth required paragraph — PIXEL PROBE, which requires any fix
 # the panel-fix round lands to draw/geometry code to carry a probe
 # assertion against the actual rendered pixels or geometry, and rejects a

@@ -27,7 +27,7 @@ flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -s
 ```
 
 2. **Position the landing worktree on the archive branch**, before anything else touches it.
-   Resolve `<base>` with `resolve-base-branch.sh` against the apply worktree, run
+   Run `resolve-base-branch.sh` against the apply worktree for `<base>`, run
    `classify-untracked.sh <project>/.worktrees/_landing-<name>` first when the worktree already
    exists — the archive pre-flight settling its untracked entries, **Run 2 — the branch is
    merged** (`skills/flow-contracts/finish-contract-run2.md`), step 2, canonical for the classes
@@ -56,29 +56,16 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
 ```
 
 4. **Commit the archive** on `chore/archive-<name>` in `<landing-worktree>` — no push here; step 10
-   carries it. The rendered ledger and panel record are preserved into this commit first — each
-   when present, an absent file copying nothing; `<canonical-worktree>` resolves as run 1 resolves
-   it (**Finish contract**, `skills/flow-contracts/finish-contract-run1.md`):
+   carries it. `<canonical-worktree>` resolves as run 1 resolves it (**Finish contract**,
+   `skills/flow-contracts/finish-contract-run1.md`):
 
    ```bash
-   bash -c 'for pair in "ledgers/<name>.md ledger.md" "reviews/<name>-panel.md panel.md"; do
-     set -- $pair
-     [ -f "<canonical-worktree>/.superpowers/sdd/$1" ] \
-       && cp "<canonical-worktree>/.superpowers/sdd/$1" \
-             "<landing-worktree>/spectre/changes/archive/<name>/$2"
-   done'
-   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
-     && git -C <landing-worktree> add -A \
-     && check-archive-scope.sh <landing-worktree> "spectre/changes/" \
-     && { git -C <landing-worktree> diff --cached --quiet \
-          || git -C <landing-worktree> commit -m "chore(spectre): archive <name>"; }
+   commit-archive.sh <landing-worktree> <canonical-worktree> <name>
    ```
 
-   A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
-   at `IN_PROGRESS`. The subject is the fixed literal shown, per **Commit scopes name the module**
-   (`<agents repo>/rules/commit-scope-is-the-module.mdc`). The self-review bundle (`flow
-   self-review bundle`, step 9) resolves this commit by matching that subject line whole —
-   **reproduce it exactly.**
+   `ARCHIVE-COMMITTED: <sha>` or `ARCHIVE-NOTHING-STAGED` (exit 0) continue.
+   `ARCHIVE-WRONG-BRANCH: <found>` or the scope guard's `SCOPE-VIOLATION` lines (exit 1), or exit
+   2, stop the commit and leave the change at `IN_PROGRESS`.
 
 ```bash
 flow stage end   -command '/flow' -stage flow.commit-archive -outcome completed <name>
@@ -220,8 +207,8 @@ Next:
 
 ## Worktree cleanup
 
-For each worktree, run **every** check of the six-check sequence in **Worktree cleanup**
-(`skills/flow-contracts/finish-contract-run2.md`), canonical for it, before removing anything:
+Run `remove-change-worktrees.sh` once per repository per **Worktree cleanup**
+(`skills/flow-contracts/finish-contract-run2.md`), canonical for its checks, exit codes and relay:
 
 **Check 4 asks only about an irreplaceable, unpreserved entry**, per check 4 of **Worktree cleanup**
 (`skills/flow-contracts/finish-contract-run2.md`), canonical for the buckets and that one ask;

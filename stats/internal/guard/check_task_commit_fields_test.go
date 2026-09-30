@@ -2936,6 +2936,13 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			ok(t, "case 155: the summed counts miss the declared baseline", res.rc == 1, res)
 			ok(t, "case 155: it reports the summed counts", has(res.out, "count @Test before=1 after=3"), res)
 		}},
+		{"case 156", func(t *testing.T) {
+			r := fx.repo(t, "change-a")
+			r.plan("- [ ] 1. Live verification\n\n**Files:** none\n**Tests:** none — live run\n**Regression:** none — verification only.\n")
+			r.git("commit", "-q", "--allow-empty", "-m", "live-verify")
+			res := r.run("1", r.head())
+			ok(t, "case 156: Files: none declares no path, so an empty commit passes", res.rc == 0, res)
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

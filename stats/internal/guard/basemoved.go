@@ -28,21 +28,46 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, baseRefUsage("check-base-moved.sh"))
 		return 2
 	}
+	v := baseMoved(env, worktree, baseRef, recorded, stderr)
+	if v.line != "" {
+		fmt.Fprintln(stdout, v.line)
+	}
+	return v.code
+}
+
+// bmVerdict is one check-base-moved answer. code is the guard's exit code:
+// 0 a verdict was reached, 2 the tree cannot be read (the cause already on
+// stderr, line and kind empty). line is the verdict line the guard prints,
+// without its newline; kind is its CLEAR/MOVED/REFUSE token; ref is the base
+// ref the answer was about, once resolved; overlap is the full sorted overlap
+// a MOVED line names -- the line itself cuts it at 10 paths.
+type bmVerdict struct {
+	code       int
+	line, kind string
+	ref        string
+	overlap    []string
+}
+
+// baseMoved is check-base-moved's whole answer for an in-process caller.
+func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bmVerdict {
+	cannot := bmVerdict{code: 2}
+	verdict := func(kind, ref string, overlap []string, format string, a ...any) bmVerdict {
+		return bmVerdict{line: kind + ": " + fmt.Sprintf(format, a...), kind: kind, ref: ref, overlap: overlap}
+	}
 	if !isDir(smcAbs(env, worktree)) {
 		fmt.Fprintf(stderr, "check-base-moved: %s is not a directory — cannot determine anything\n", worktree)
-		return 2
+		return cannot
 	}
 	// The bash exported LC_ALL=C for its whole run; git inherits it here too.
 	git := envGit(env, "LC_ALL=C")
 	if git("-C", worktree, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-base-moved: %s is not a git worktree — cannot determine anything\n", worktree)
-		return 2
+		return cannot
 	}
 
 	// No recorded merge base: an honest unknown, never an inferred verdict.
 	if recorded == "-" {
-		fmt.Fprintf(stdout, "REFUSE: no merge base recorded for %s — cannot tell whether the base has moved\n", worktree)
-		return 0
+		return verdict("REFUSE", "", nil, "no merge base recorded for %s — cannot tell whether the base has moved", worktree)
 	}
 
 	// Every ref this guard did not choose itself is passed after
@@ -50,14 +75,12 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	// rejected rather than parsed as a git option.
 	recordedSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", recorded+"^{commit}"))
 	if !ok {
-		fmt.Fprintf(stdout, "REFUSE: recorded merge base '%s' does not resolve in %s\n", recorded, worktree)
-		return 0
+		return verdict("REFUSE", "", nil, "recorded merge base '%s' does not resolve in %s", recorded, worktree)
 	}
 
 	ref := resolveRemoteBase(git, worktree, baseRef)
 	if git("-C", worktree, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}").Run() != nil {
-		fmt.Fprintf(stdout, "REFUSE: base ref '%s' does not resolve in %s — cannot tell whether the base has moved\n", ref, worktree)
-		return 0
+		return verdict("REFUSE", ref, nil, "base ref '%s' does not resolve in %s — cannot tell whether the base has moved", ref, worktree)
 	}
 
 	// Every git invocation whose failure would otherwise be read as an
@@ -70,11 +93,10 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	count, ok := capture(git("-C", worktree, "rev-list", "--count", "--end-of-options", rng))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot count commits between %s and %s in %s\n", recordedSHA, ref, worktree)
-		return 2
+		return cannot
 	}
 	if count == "0" {
-		fmt.Fprintf(stdout, "CLEAR: %s — %s has not moved since the recorded merge base\n", worktree, ref)
-		return 0
+		return verdict("CLEAR", ref, nil, "%s — %s has not moved since the recorded merge base", worktree, ref)
 	}
 
 	// Movement entirely satisfied by commits this branch already carries
@@ -86,17 +108,16 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	uncarried, ok := capture(git("-C", worktree, "rev-list", "--count", "--end-of-options", rng, "^HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot count uncarried commits between %s and %s in %s\n", recordedSHA, ref, worktree)
-		return 2
+		return cannot
 	}
 	if uncarried == "0" {
-		fmt.Fprintf(stdout, "CLEAR: %s — the %s commits %s gained since the recorded merge base are all already carried by this branch — nothing to rebase\n", worktree, count, ref)
-		return 0
+		return verdict("CLEAR", ref, nil, "%s — the %s commits %s gained since the recorded merge base are all already carried by this branch — nothing to rebase", worktree, count, ref)
 	}
 
 	moved, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--end-of-options", rng))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list paths changed on %s in %s\n", ref, worktree)
-		return 2
+		return cannot
 	}
 
 	// The change's own paths (design.md: touched-paths-include-index-and-worktree):
@@ -109,17 +130,17 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	committed, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--end-of-options", recordedSHA+"..HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list this change's committed paths in %s\n", worktree)
-		return 2
+		return cannot
 	}
 	staged, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--cached"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list this change's staged paths in %s\n", worktree)
-		return 2
+		return cannot
 	}
 	unstaged, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list this change's unstaged paths in %s\n", worktree)
-		return 2
+		return cannot
 	}
 
 	// `sort -u` and `comm -12` under the bash's LC_ALL=C: byte order, which
@@ -139,13 +160,11 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	sort.Strings(overlap)
 
 	if len(overlap) == 0 {
-		fmt.Fprintf(stdout, "MOVED: %s — %s commits on %s since the recorded merge base; no overlap with this change's paths\n", worktree, count, ref)
-		return 0
+		return verdict("MOVED", ref, nil, "%s — %s commits on %s since the recorded merge base; no overlap with this change's paths", worktree, count, ref)
 	}
 	shown := strings.Join(overlap, ", ")
 	if len(overlap) > 10 {
 		shown = fmt.Sprintf("%s (+%d more)", strings.Join(overlap[:10], ", "), len(overlap)-10)
 	}
-	fmt.Fprintf(stdout, "MOVED: %s — %s commits on %s since the recorded merge base; overlaps: %s\n", worktree, count, ref, shown)
-	return 0
+	return verdict("MOVED", ref, overlap, "%s — %s commits on %s since the recorded merge base; overlaps: %s", worktree, count, ref, shown)
 }

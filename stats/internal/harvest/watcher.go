@@ -1547,8 +1547,8 @@ func (w *Watcher) matchSessionTokens(pending map[int64]string, commands []Comman
 	return matchedHere
 }
 
-// stageMarkInvocationPattern matches the `stage begin` / `stage end`
-// subcommand shape as two adjacent words -- design.md's and stage.go's
+// stageMarkInvocationPattern matches the `stage begin` / `stage end` /
+// `stage mark` subcommand shape as two adjacent words -- design.md's and stage.go's
 // own usage string (`flow stage begin ...` / `flow stage end ...`),
 // with whatever whitespace (including a newline, inside a multi-line
 // shell block) separates them. It deliberately imposes no flag ordering
@@ -1560,7 +1560,7 @@ func (w *Watcher) matchSessionTokens(pending map[int64]string, commands []Comman
 // same line or a later one (design.md, "recognise a mark by its
 // invocation, not by its position"; isSessionMarkCommand's own doc
 // comment has the fuller history).
-var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end)\b`)
+var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end|mark)\b`)
 
 // isSessionMarkCommand reports whether command is genuinely a stage mark
 // carrying sessionToken as the value of its own -session-token flag --

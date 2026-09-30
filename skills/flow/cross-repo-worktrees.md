@@ -40,7 +40,7 @@ branch tracking that remote one; otherwise `git worktree add <project>/.worktree
 spectre/<name> origin/<default-branch>` — after `check-worktree-location.sh <that repo>`, with
 the merge base
 `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees`
-map by the read-merge-write at the top of this stage, and
+map by `flow state add-worktree <name> <that worktree> <merge-base>`, and
 `git -C <that worktree> push -u origin spectre/<name>` per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`). No `spectre link` runs for these worktrees — they
 are declared apps, not peers — and each of them joins this run's resolved worktree set. **A

@@ -72,29 +72,23 @@ out, staged, committed or written by any phase of `/flow`; every path below reso
 `<project>/.worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the
 plan and the decision JSON.
 
-1. `check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
-2. `git check-ignore -q .worktrees` from the project root. Where it exits non-zero, append
-   `<project>/.worktrees/` to `<project>/.git/info/exclude` — never a commit on any branch.
-3. `git -C <project> fetch origin`, then — when `git -C <project> rev-parse -q --verify
-   origin/spectre/<name>` succeeds, the branch already exists on the remote (a `/flow-plan`
-   capture pushed it, or an earlier run's worktree was removed) — `git worktree add
-   <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise
-   `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — the
-   default branch by name, never HEAD: the main checkout may be on any branch and is never moved.
-   **Persist the worktree into the state record before this step returns**, by the read-merge-write
-   **2. Isolate the workspace** (`skills/flow/implement.md`) applies to each additional worktree:
-   merge the entry `"<abs-worktree>": "<merge-base>"` into the record's `worktrees` map and write
-   it back, where `<merge-base>` is the sha `git -C <worktree> rev-parse HEAD` prints immediately
-   after the add — the commit the worktree starts from in either case above.
-4. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
-   root, in order, in the foreground — the printed body can carry fence markers and trailing prose
-   outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
-   the fenced command lines, not those. Exit 1: the project declares no `## worktree setup`; say so
-   and continue. Exit 2: stop the run, relaying the script's own line. **A command's non-zero exit
-   ends your turn** naming the command and its output. The key is canonical in
-   **Project configuration** (`skills/flow-contracts/project-configuration.md`).
-5. `git -C <worktree> push -u origin spectre/<name>` — the branch exists on the remote from its
-   first minute, per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+Run the kickoff steps 1–5 in one call — 1 `check-worktree-location.sh <project>`; 2 `.worktrees`
+ignored through `<project>/.git/info/exclude`, never a commit on any branch; 3 the worktree add, on
+`spectre/<name>` tracking the remote branch when a `/flow-plan` capture or an earlier run pushed
+it, else a new `spectre/<name>` from `origin/<default-branch>` — never HEAD: the main checkout may
+be on any branch and is never moved; 4 the project's `## worktree setup` commands (**Project
+configuration**, `skills/flow-contracts/project-configuration.md`); 5 the push, per **Branch
+backup** (`skills/flow-contracts/git-boundaries.md`):
+
+```bash
+kickoff-worktree.sh <project> <name>
+```
+
+Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. **Persist the worktree into the
+state record before this step returns** — the script does, through `flow state add-worktree` right
+after the add, so a later step's failure leaves the worktree recorded. Exit 1 or 2 stops the run
+with the script's own lines: **a command's non-zero exit ends your turn** naming the command and
+its output.
 
 ```bash
 flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
@@ -116,7 +110,7 @@ paragraph — show that prose to the operator as ordinary text before the **AskU
 not only the bare question and options.
 
 Once the Decide step finishes, print the `## Decision`
-block verbatim — the two-table shape (input side, then decision side) **Decide** (`skills/flow/brainstorm-planner.md`) prints — then run the record
+block verbatim — the output of `flow decision render` (**Decide**, `skills/flow/brainstorm-planner.md`) — then run the record
 sequence below:
 
 ```bash

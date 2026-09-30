@@ -2034,3 +2034,176 @@ func TestStateDirRejectsNonRepository(t *testing.T) {
 		t.Errorf("stderr line count = %d, want exactly 1:\n%s", got, stderr.String())
 	}
 }
+
+// --- state add-worktree: read-merge-write of one worktrees entry ---
+
+const (
+	awSha  = "0123456789abcdef0123456789abcdef01234567"
+	awPeer = "89abcdef0123456789abcdef0123456789abcdef"
+)
+
+// awStore is a genuine-daemon fake holding one change record: GET answers
+// it (404 when nil), PUT captures the body it was sent.
+func awStore(t *testing.T, record []byte) (*httptest.Server, *[][]byte) {
+	t.Helper()
+	var puts [][]byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			if record == nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_, _ = w.Write(record)
+		case http.MethodPut:
+			b, _ := io.ReadAll(r.Body)
+			puts = append(puts, b)
+			_, _ = w.Write(b)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &puts
+}
+
+// awRun runs `flow state add-worktree` with args after the fixed flags.
+func awRun(t *testing.T, addr, repo string, args ...string) (int, string, string) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	full := append([]string{"state", "add-worktree", "-addr", addr, "-timeout", "500ms", "-C", repo}, args...)
+	code := run(context.Background(), full, strings.NewReader(""), &stdout, &stderr)
+	return code, stdout.String(), stderr.String()
+}
+
+// awDecode decodes a written record into its fields.
+func awDecode(t *testing.T, body []byte) map[string]json.RawMessage {
+	t.Helper()
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(body, &m); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	return m
+}
+
+func awWorktrees(t *testing.T, m map[string]json.RawMessage) map[string]*string {
+	t.Helper()
+	var w map[string]*string
+	if err := json.Unmarshal(m["worktrees"], &w); err != nil {
+		t.Fatalf("decode worktrees %s: %v", m["worktrees"], err)
+	}
+	return w
+}
+
+func TestStateAddWorktreeMergesEntry(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	srv, puts := awStore(t, []byte(`{"state":"STARTED","updatedBy":"/flow","updatedAt":"2026-09-30T10:00:00Z"}`))
+
+	code, stdout, stderr := awRun(t, srv.URL, repo, "kan-16", "/abs/wt", awSha)
+	if code != 0 || stdout != "" || stderr != "" {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	if len(*puts) != 1 {
+		t.Fatalf("PUTs = %d, want 1", len(*puts))
+	}
+	got := awWorktrees(t, awDecode(t, (*puts)[0]))
+	if len(got) != 1 || got["/abs/wt"] == nil || *got["/abs/wt"] != awSha {
+		t.Errorf("worktrees = %v, want {/abs/wt: %s}", got, awSha)
+	}
+}
+
+func TestStateAddWorktreePreservesPeersAndState(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	srv, puts := awStore(t, []byte(`{"state":"IN_PROGRESS","updatedBy":"/flow","updatedAt":"2026-09-30T10:00:00Z",`+
+		`"jira":"KAN-16","worktrees":{"/abs/peer":"`+awPeer+`","/abs/unbased":null,"/abs/wt":"`+awPeer+`"}}`))
+
+	if code, _, stderr := awRun(t, srv.URL, repo, "kan-16", "/abs/wt", awSha); code != 0 {
+		t.Fatalf("code=%d stderr=%q", code, stderr)
+	}
+	if len(*puts) != 1 {
+		t.Fatalf("PUTs = %d, want 1", len(*puts))
+	}
+	m := awDecode(t, (*puts)[0])
+	if string(m["state"]) != `"IN_PROGRESS"` || string(m["jira"]) != `"KAN-16"` || string(m["updatedBy"]) != `"/flow"` {
+		t.Errorf("state/jira/updatedBy changed: %s", (*puts)[0])
+	}
+	w := awWorktrees(t, m)
+	if len(w) != 3 || w["/abs/peer"] == nil || *w["/abs/peer"] != awPeer || w["/abs/unbased"] != nil ||
+		w["/abs/wt"] == nil || *w["/abs/wt"] != awSha {
+		t.Errorf("worktrees = %s", m["worktrees"])
+	}
+}
+
+func TestStateAddWorktreeFallback(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statePath := fallback.StateFilePath(projectKey, "kan-16")
+	if err := fallback.WriteStateFile(statePath, []byte(`{"state":"STARTED","updatedBy":"/flow","worktrees":{"/abs/peer":"`+awPeer+`"}}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	code, _, stderr := awRun(t, deadPortAddr(t), repo, "kan-16", "/abs/wt", awSha)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q", code, stderr)
+	}
+	if want := "⚠ flow: store unreachable — read local fallback\n⚠ flow: store unreachable — wrote local journal\n"; stderr != want {
+		t.Errorf("stderr = %q, want %q", stderr, want)
+	}
+	body, err := fallback.ReadStateFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := awDecode(t, body)
+	w := awWorktrees(t, m)
+	if string(m["state"]) != `"STARTED"` || len(w) != 2 || *w["/abs/peer"] != awPeer || *w["/abs/wt"] != awSha {
+		t.Errorf("fallback record = %s", body)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	if err != nil || len(entries) != 1 || !jsonEqual(t, entries[0].Body, body) {
+		t.Errorf("journal = %v, err %v", entries, err)
+	}
+}
+
+func TestStateAddWorktreeRefusals(t *testing.T) {
+	synthetic := []byte(`{"state":"STARTED","updatedBy":"` + stages.SyntheticChangeUpdatedBy + `"}`)
+	real := []byte(`{"state":"STARTED","updatedBy":"/flow"}`)
+	for _, c := range []struct {
+		name   string
+		record []byte
+		args   []string
+		code   int
+		stderr string
+	}{
+		{"relative path", real, []string{"kan-16", "rel/wt", awSha}, 2, "flow: worktree path \"rel/wt\" is not absolute\n"},
+		{"short sha", real, []string{"kan-16", "/abs/wt", "abc123"}, 2, "flow: merge base \"abc123\" is not a 40-character lowercase hex sha\n"},
+		{"uppercase sha", real, []string{"kan-16", "/abs/wt", strings.ToUpper(awSha)}, 2, "flow: merge base \"" + strings.ToUpper(awSha) + "\" is not a 40-character lowercase hex sha\n"},
+		{"two arguments", real, []string{"kan-16", "/abs/wt"}, 2, "flow: expected three arguments: the change name, the worktree's absolute path and its merge base\n" + stateUsage},
+		{"no record", nil, []string{"kan-16", "/abs/wt", awSha}, 1, "flow: no state recorded for <key>/kan-16 -- write STARTED before adding a worktree\n"},
+		{"synthetic-only record", synthetic, []string{"kan-16", "/abs/wt", awSha}, 1, "flow: only a synthetic record for <key>/kan-16 -- write STARTED before adding a worktree\n"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			root := isolatedStateRoot(t)
+			srv, puts := awStore(t, c.record)
+			projectKey, _, err := fallback.ProjectKey(repo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			code, stdout, stderr := awRun(t, srv.URL, repo, c.args...)
+			want := strings.ReplaceAll(c.stderr, "<key>", projectKey)
+			if code != c.code || stdout != "" || stderr != want {
+				t.Fatalf("code=%d stdout=%q\nstderr=%q\nwant  =%q", code, stdout, stderr, want)
+			}
+			if len(*puts) != 0 {
+				t.Errorf("PUTs = %d, want none", len(*puts))
+			}
+			if entries, _ := os.ReadDir(root); len(entries) != 0 {
+				t.Errorf("state root holds %d entries, want nothing written", len(entries))
+			}
+		})
+	}
+}

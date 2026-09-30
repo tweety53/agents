@@ -1,0 +1,1 @@
+../../../scripts/write-panel-diff.sh

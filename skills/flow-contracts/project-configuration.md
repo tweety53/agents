@@ -22,7 +22,7 @@ exactly what that row specifies and nothing else. The row is authoritative.
 |-----|----------|
 | `## apps` | Every application in the change's blast radius: display name, **absolute** repo root of the main checkout, kind/stack, local URL, and when to consider it in scope. |
 | `## run` | How to start the stack and individual services locally — the actual commands, including any parameter that must point at another app's root. |
-| `## stop` | Optional. The command that stops the project's local stack, run by bare `/flow` before its stack-stopped check so nothing holds a port or file handle open in a worktree about to be removed. **Absent means that check is skipped, not failed** — cleanup proceeds on the strength of the other two checks. A project with no stack should say so here rather than omit the key, so its absence is a recorded fact rather than an oversight. |
+| `## stop` | Optional. The command that stops the project's local stack, run by bare `/flow` before its stack-stopped check so nothing holds a port or file handle open in a worktree about to be removed. Same shape as `## worktree setup`: one command per line inside a fence, read literally and run in order from the worktree; prose outside a fence is never run. **Absent means that check is skipped, not failed** — cleanup proceeds on the strength of the other two checks. A body with no fenced command declares no command and is skipped the same way. A project with no stack should say so here rather than omit the key, so its absence is a recorded fact rather than an oversight. |
 | `## credentials` | Local-development-only sign-in credentials (which app, user, password) and what seeds them. Never deployed-environment secrets. |
 | `## test` | The command(s) that run the project's tests. |
 | `## worktree setup` | Optional. A fenced command block run once per worktree, from the worktree root, immediately after **2. Isolate the workspace** (`skills/flow/implement.md`) creates it and before anything else touches the tree — the place for a build that a gitignored, embedded artifact needs before the project's first `go test`/`go build` can succeed. Absent means nothing runs. Same shape as `## lint` and `## test`: one command per line inside the fence, read literally and run in order; resolved through `project-get.sh <worktree> "worktree setup"`, whose exit 1 is the absent case. |
@@ -49,7 +49,9 @@ the key's own row above states, nothing else normalized** — no case-folding, n
 Lines below the head are documentation for the reader, never read. A head that does not match
 exactly one literal is a malformed row: report it by name (quoting what was found) and drop it,
 resolving as if the key were absent. The keys matched this way are `## default landing route`, `## decisions`
-and `## handoff`.
+and `## handoff`. `project-get.sh <root> <key> --enum <literal>...` performs this resolution: exit 0 prints the
+matched literal, exit 1 the key is absent, exit 3 the head matches no literal — its one stderr line
+quotes the head.
 
 ## Where the agents repository is
 

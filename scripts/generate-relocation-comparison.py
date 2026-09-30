@@ -50,7 +50,8 @@ Algorithm
    no-op case: exit 0, write nothing.
 2. On `yes`, parse every task in the plan (via `parse_tasks`, checked and
    unchecked alike — the header is plan-level, not scoped to open work) and
-   union every task's `**Files:**` paths, plan order preserved, duplicates
+   union every task's `**Files:**` paths — read through
+   `check-task-commit-fields.py`'s `parse_task_fields`, inline or bulleted — plan order preserved, duplicates
    dropped. An empty union is the same no-op case as step 1.
 3. For each scoped path, extract PASSAGES from two texts: the blob at
    `<merge-base>:<path>` (via `git show`, gated by `git cat-file -t
@@ -144,6 +145,21 @@ _pdb_spec.loader.exec_module(_pdb)
 
 parse_tasks = _pdb.parse_tasks
 
+# check-task-commit-fields.py's parse_task_fields reads a task's **Files:**
+# in every form a plan writes it — inline (`**Files:** `a`, `b``, wrapped
+# or not) and bulleted — where parse_tasks reads bullets alone (KAN-860 F5:
+# an inline-form plan scoped no file and the comparison was never written).
+# parse_tasks still supplies the task ids. Loaded and registered the way
+# check-plan-shape.py loads it.
+_CFG_PATH = SCRIPT_DIR / "check-task-commit-fields.py"
+_cfg_spec = importlib.util.spec_from_file_location("cfg", str(_CFG_PATH))
+if not _CFG_PATH.is_file() or _cfg_spec is None or _cfg_spec.loader is None:
+    print(f"generate-relocation-comparison.py: cannot load module: {_CFG_PATH}", file=sys.stderr)
+    sys.exit(2)
+_cfg = importlib.util.module_from_spec(_cfg_spec)
+sys.modules["cfg"] = _cfg
+_cfg_spec.loader.exec_module(_cfg)
+
 # RELOCATION_RE — the plan-level header line. Scanned line by line; the
 # first match wins. Anything that never matches (missing header, `no`, or a
 # malformed value) is the no-op case.
@@ -181,7 +197,7 @@ def scoped_files(lines: List[str]) -> List[str]:
     plan-level), plan order preserved, duplicates dropped."""
     seen: Dict[str, None] = {}
     for task in parse_tasks(lines):
-        for path in task.files:
+        for path in _cfg.parse_task_fields(lines, task.id).files:
             if path not in seen:
                 seen[path] = None
     return list(seen.keys())

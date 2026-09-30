@@ -10,30 +10,27 @@ section name below without a path is a section of `skills/flow/review-panel.md`.
 to `primary` alone reading the delta only** — the narrow late-fix review path. Like the docs-only reduction this only ever removes, and
 it fires only on a **fix run** — a `/flow` invocation whose argument is fix instructions — never
 on a creating run, whose pass 1 is always the full resolved roster. Every condition must hold,
-checked once when this stage opens its first round on the fix run:
+checked once when this stage opens its first round on the fix run, by one call — the canonical
+worktree's triple first:
 
-1. **Already clean, already verified** — the change's store findings carry no `open` row
-   (`check-panel-findings-closed.sh <worktree> <change>` exits 0), and this stage has closed
-   clean before on this change, the pass log or the rendered panel record naming that close;
-2. **the base has not moved since that close** — every worktree's `Check base movement first`
-   verdict this round was `CLEAR`, so no rebase has invalidated the reviewed state;
-3. **the delta is small** — per worktree, `git diff --numstat` from the sha that close reviewed
-   there to the current tree, insertions and deletions summed across the resolved set, is at
-   most **40 changed lines**; the `-diff-base` its clean dispatches recorded names the canonical
-   worktree's sha, and a peer worktree's since-close sha comes from the panel record's
-   per-worktree sha list;
-4. **no scope growth** — the delta adds no task line to the change's plan `tasks.md`;
-5. **the panel's own machinery is untouched** — the delta names no path under
-   `skills/flow/review-panel*.md`, no `scripts/check-panel-*.sh` guard, and no reviewer-prompt or
-   principles file the panel's own slots read as their instructions
-   (`skills/flow/*-reviewer-prompt.md`, `skills/flow/engineering-principles.md`) — of the
-   repository the change edits.
+```bash
+check-late-fix-trigger.sh <change> <changeRoot>/tasks.md <worktree> <since-close-sha|-> <base-verdict> [<worktree> <since-close-sha|-> <base-verdict>…]
+```
+
+Its header (`<agents repo>/scripts/check-late-fix-trigger.sh`) is canonical for the five
+conditions. `<since-close-sha>` is the sha this stage's last clean close on this change reviewed
+in that worktree, the pass log or the rendered panel record naming that close — `-` where it has
+none; the `-diff-base` its clean dispatches recorded names the canonical worktree's sha, and a
+peer worktree's since-close sha comes from the panel record's per-worktree sha list.
+`<base-verdict>` is that worktree's **Check base movement first** line this round. Exit 0 → the
+reduction fires; exit 1 → the full path, each failed condition on its own line; exit 2 → it cannot
+answer, read as the full path.
 
 **On trigger, pass 1 is one dispatch: `primary` alone**, plus every slot the operator named at
-this stage's start, reading not the whole `final-review.diff` but only a
-`<abs-worktree>/.superpowers/sdd/late-fix.diff` written from the since-close range — the same
-per-worktree sectioned shape as `final-review.diff`, each `# worktree:` header naming the
-since-close sha. On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch`
+this stage's start, reading not the whole `final-review.diff` but only
+`<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by
+`write-panel-diff.sh late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`,
+whose exits read as the pass-1 write's. On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch`
 pair under the fix-round re-run's 5-minute ceiling; on a `default` panel, which carries no
 decision to read a pair from, on `opus` at `low` effort under the ordinary 15-minute
 ceiling. Mutation and Failure-modes are not dispatched, and each dropped slot is recorded

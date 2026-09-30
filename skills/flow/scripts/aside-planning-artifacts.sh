@@ -1,1 +1,0 @@
-../../../scripts/aside-planning-artifacts.sh

@@ -50,114 +50,13 @@
 # is called with a rebase/merge/cherry-pick/am still in progress — an
 # inability is never reported as a verdict.
 #
-# Bash 3.2 is the floor: indexed arrays only, no associative arrays.
+# The guard is Go: stats/internal/guard/asideplanningartifacts.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/spec-root.sh"
-
-MARKER="aside-planning-artifacts"
-STASH_MESSAGE="$MARKER: planning paths set aside for a rebase"
-
-usage() {
-  echo "usage: aside-planning-artifacts.sh aside <worktree>" >&2
-  echo "       aside-planning-artifacts.sh restore <worktree>" >&2
+. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "aside-planning-artifacts.sh: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-refuse() {
-  echo "aside-planning-artifacts.sh: $1" >&2
-  exit 2
-}
-
-[ "$#" -eq 2 ] || usage
-ACTION="$1"
-WT="$2"
-
-[ -d "$WT" ] || refuse "not a readable directory: $WT"
-git -C "$WT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
-  refuse "not a git repository: $WT"
-
-# The planning pathspec, built by existing-directory probes: repositioning
-# the positional parameters keeps the paths as separate arguments for both
-# the status call and the stash call, with no word-splitting of a joined
-# string. Neither path existing is answered as CLEAN before anything runs —
-# a project with neither a spec tree nor docs/superpowers/ has nothing this
-# helper could set aside.
-leaf="$(spec_root_leaf "$WT")"
-have_spec=0; [ -d "$WT/$leaf/changes" ] && have_spec=1
-have_docs=0; [ -d "$WT/docs/superpowers" ] && have_docs=1
-if [ "$have_spec" -eq 1 ] && [ "$have_docs" -eq 1 ]; then
-  set -- "$leaf/changes" "docs/superpowers"
-elif [ "$have_spec" -eq 1 ]; then
-  set -- "$leaf/changes"
-elif [ "$have_docs" -eq 1 ]; then
-  set -- "docs/superpowers"
-else
-  if [ "$ACTION" = "aside" ]; then
-    printf 'PLANNING-ARTIFACTS-CLEAN: %s — nothing to set aside\n' "$WT"
-    exit 0
-  fi
-  set --
-fi
-
-case "$ACTION" in
-  aside)
-    dirt="$(git -C "$WT" status --porcelain --untracked-files=normal -- "$@")" ||
-      refuse "git status refused the planning-path check in: $WT"
-    if [ -z "$dirt" ]; then
-      printf 'PLANNING-ARTIFACTS-CLEAN: %s — nothing to set aside\n' "$WT"
-      exit 0
-    fi
-    # git's own "Saved working directory..." line goes to stderr so the
-    # stdout protocol above stays the helper's alone.
-    git -C "$WT" stash push --include-untracked -m "$STASH_MESSAGE" -- "$@" 1>&2 ||
-      refuse "git stash push refused in: $WT"
-    sha="$(git -C "$WT" rev-parse --verify --short 'stash@{0}')" ||
-      refuse "the stash it just pushed does not resolve in: $WT"
-    printf 'PLANNING-ARTIFACTS-ASIDE: %s — %s\n' "$WT" "${sha:0:12}"
-    exit 0
-    ;;
-  restore)
-    # Refuse over an unresolved sequencer state. --git-path answers
-    # relative to <worktree> here, so the existence probe prefixes it.
-    for f in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD; do
-      p="$(git -C "$WT" rev-parse --git-path "$f")" || refuse "git rev-parse --git-path refused: $f"
-      case "$p" in /*) ;; *) p="$WT/$p" ;; esac
-      [ -e "$p" ] && refuse "restore refused — a rebase/merge/cherry-pick is still in progress in: $WT"
-    done
-    # The list is captured whole and cut to its first line afterwards, never
-    # piped through `head -n 1`: under `set -o pipefail` git's SIGPIPE when
-    # head exits before the list's last chunk is written reads as a refusal
-    # (exit 2, nothing on stdout) on any repo whose stash list spans several
-    # pipe writes.
-    top="$(git -C "$WT" stash list --format='%H %gs')" ||
-      refuse "git stash list refused in: $WT"
-    top="${top%%$'\n'*}"
-    if [ -z "$top" ]; then
-      printf 'PLANNING-ARTIFACTS-NONE: %s — no aside stash on top\n' "$WT"
-      exit 0
-    fi
-    sha="${top%% *}"
-    subject="${top#* }"
-    case "$subject" in
-      *"$MARKER"*)
-        if git -C "$WT" stash pop 1>&2; then
-          printf 'PLANNING-ARTIFACTS-RESTORED: %s — %s\n' "$WT" "${sha:0:12}"
-          exit 0
-        fi
-        # git keeps the stash entry on a conflicted pop; report it and
-        # leave the recovery to the caller through git stash list.
-        printf 'PLANNING-ARTIFACTS-CONFLICT: %s — %s kept\n' "$WT" "${sha:0:12}"
-        exit 1
-        ;;
-      *)
-        printf 'PLANNING-ARTIFACTS-NONE: %s — no aside stash on top\n' "$WT"
-        exit 0
-        ;;
-    esac
-    ;;
-  *)
-    usage
-    ;;
-esac
+flow_guard_exec aside-planning-artifacts 2 "aside-planning-artifacts.sh:" "$@"

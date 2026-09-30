@@ -10,7 +10,7 @@ there.
 ## Panel re-runs
 
 **Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same
-per-worktree `resolve-base-branch.sh` then `check-base-moved.sh` pair, with that section's
+per-worktree `sync-panel-base.sh` call, with that section's
 verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED`
 with no overlap rebases unasked at a round boundary just as at entry.** **Continue** at a round
 boundary proceeds into the round's own remaining steps — the citation pre-check that follows the
@@ -20,8 +20,10 @@ entry check is an entry step, and the round does not re-run it.
 resolved roster, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
 where the reduction's trigger holds — plus every slot the operator named at this stage's start
 that it did not already carry.** Only re-runs after a fix are scoped. Record
-`FIX_BASE` — the branch tip the fix round starts from — commit the fix, then write
-`<abs-worktree>/.superpowers/sdd/fix-round-N.diff` from `git diff "$FIX_BASE"..HEAD`.
+`FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
+`<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
+`write-panel-diff.sh fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
+whose exits read as the pass-1 write's (**The docs-only reduction**, `skills/flow/review-panel.md`).
 
 **A branch the remote already holds takes the fix as one new commit on top, never a rewrite.**
 This is the normal case: the branch is pushed with every commit (**Branch backup**,
@@ -30,30 +32,25 @@ This is the normal case: the branch is pushed with every commit (**Branch backup
 `git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**Branch backup**, `skills/flow-contracts/git-boundaries.md`),
 so it carries only the paths the finding named, whatever else the index holds — pushed
 plain like any other commit, and every downstream commit keeps its sha.
-**Rewrite-based folding is for unpushed history only**: the fixup — stage first
-(`git add -- <the changed paths>`), then `git commit --fixup=<task-sha> -- <the changed paths>`,
-scoped by the same default — targets the **original** task
-commit (`<task-sha>`), and the autosquash folds it in immediately, before anything pushes. That
-rebase's upstream is the parent of the task commit it targets (`<task-sha>^`), never the base
-branch re-resolved — replaying only the branch's own commits after `<task-sha>^` is what keeps
-commits that landed on the base mid-panel out of the fold, where an `origin/$BASE` upstream would
-carry them straight into the round's delta. The route's own diff is
-`git diff "$FIX_BASE"..HEAD`, read once the fold has landed — the same held pre-fix sha to HEAD
-as the plain route; the fold rewrites `<task-sha>` in place, so no diff endpoint is ever
-re-resolved, and a movable base can never leak into the delta. The fold is bracketed by the
-ancestry guard: `guard-autosquash.sh targets <worktree> <task-sha>` before the autosquash,
-`guard-autosquash.sh after <worktree> <task-sha>^ <changeRoot>/tasks.md` once it lands — the
-post-check's base is the fold's own upstream, never `FIX_BASE`, which the fold deliberately holds
-stale as its diff endpoint, and a refusal from either stops the round before anything builds on
-the rewritten history (`<agents repo>/scripts/guard-autosquash.sh`). A conflict there is between
-two of the branch's own commits, resolved by hand, keeping both sides — the resolve-in-place rule
-of a base-branch rebase (its Conflict case, under **Sync the branch onto the base**, `skills/flow/sync-onto-base.md`) concerns the operator's base, never this one. The
-fold never crosses the run's own uncommitted planning edits —
-`aside-planning-artifacts.sh <aside|restore> <worktree>` around the rebase: set aside before it,
-restored once it has finished or aborted, never mid-way; restore refuses while the rebase is
-still unresolved, and the paths it sets aside are the spec tree's changes directory — the leaf
-`<agents repo>/scripts/lib/spec-root.sh` resolves — and `<project>/docs/superpowers/` only, never
-implementation WIP.
+**Rewrite-based folding is for unpushed history only**: the fixup targets the **original** task
+commit (`<task-sha>`), and the autosquash folds it in immediately, before anything pushes — one
+call, with the changed paths:
+
+```bash
+fold-fixup.sh <worktree> <task-sha> <changeRoot>/tasks.md <the changed paths>
+```
+
+Its header (`<agents repo>/scripts/fold-fixup.sh`) is canonical for the sequence it runs. The
+route's own diff is `git diff "$FIX_BASE"..HEAD`, read once the fold has landed. Exit 0 → folded
+(`FOLDED:`), or, where the fold emptied its target commit, that commit dropped (`DROPPED:`) — the
+plan's task entry stays, the record of the mistake the branch no longer carries.
+`git diff "$FIX_BASE"..HEAD` then reads the restoration itself, and the round's reproducer
+re-runs and diff check close on it unchanged. Exit 1 → a `guard-autosquash.sh` refusal: the round stops before anything
+builds on the rewritten history; exit 2 → it cannot answer: report its stderr and stop the round;
+exit 3 → a conflict between two of the branch's own commits is left in progress (`CONFLICT:`):
+resolve it by hand, keeping both sides, run `git rebase --continue`, then
+`fold-fixup.sh --finish <worktree> <task-sha> <changeRoot>/tasks.md`, whose exits read as the
+first call's.
 
 **A clean `git rebase --autosquash` is not evidence the fix survived it.** Where the fixup and the
 commit it folds into touch nearby lines, git's 3-way auto-merge can resolve in favour of the
@@ -61,13 +58,6 @@ pre-fix side — it exits 0, prints no conflict marker, and leaves no `fixup!` c
 reproducer rerun and diff check below (**Once the fix subagent reports…**) are what catch this;
 they must run against the post-rebase file content, never be satisfied by the fixup commit's
 presence or the rebase's own exit code.
-
-**A fixup whose fold empties its target commit is dropped, never kept as a no-op commit.** When the
-fold leaves the task commit it targeted with an empty diff against its own parent, the fix exactly
-undid what it folded into: `git reset --hard <the folded commit's parent>` takes the pair off the
-unpushed branch, and the plan's task entry stays — the record of the mistake the branch no longer
-carries. `git diff "$FIX_BASE"..HEAD` then reads the restoration itself, and the round's reproducer
-re-runs and diff check close on it unchanged.
 
 **Which slots re-run, and on what, follows from the severities the round raised — never from a
 mode table, a trigger list, or a round count.**
@@ -83,11 +73,10 @@ below, and the working code stands.
 **When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
 was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
-`<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), combined with the same
-per-worktree sections as `final-review.diff`, without its semantics first line — one `# worktree:`
-header per worktree, followed by that worktree's `git
-diff <held-sha> HEAD`; a worktree in which the slot holds no sha contributes its whole `git diff
-<merge-base>` section. Every slot's dispatch prompt names the path it was given and, for a delta,
+`<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), written
+with `write-panel-diff.sh slot-delta <round> <slot> <abs-worktree> <worktree> <merge-base> <held-sha|-> […]`
+— `-` where the slot holds no sha in that worktree, which then contributes its whole
+`git diff <merge-base>` section — whose exits read as the pass-1 write's. Every slot's dispatch prompt names the path it was given and, for a delta,
 each worktree's starting sha. **Check base movement first** above clears every slot's held sha in
 the rebased worktree on a clean rebase, whether taken at panel entry or at a round boundary, so
 that worktree's section falls under the no-held-sha rule in the next round. Then:

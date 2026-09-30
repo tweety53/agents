@@ -24,22 +24,18 @@ Once per worktree in this run's resolved set (**Resolving a change's worktrees**
 `skills/flow-contracts/worktree-resolution.md`), on every panel run — creating, resumed, or fix:
 
 ```bash
-BASE="$(resolve-base-branch.sh <worktree>)"
-check-base-moved.sh <worktree> "origin/$BASE" <working-notes-merge-base>
+sync-panel-base.sh [--rebase] <worktree> <working-notes-merge-base>
 ```
 
 `<working-notes-merge-base>` is the merge base `skills/flow/implement.md`'s isolate-workspace step
 recorded in this run's working notes — never the state file's `worktrees` map, which a creating run
-has not written yet. `check-base-moved.sh` performs no fetch of its own; `resolve-base-branch.sh` is
-what fetches, so this order — resolve, then check — is load-bearing.
-
-Report every worktree's verdict: `MOVED` with no overlap is confirmed conflict-free and rebases
-that worktree automatically — `git -C <worktree> rebase origin/$BASE` runs at once, with no
-prompt, and the run reports that it happened rather than asking whether it should; its outcome
-takes the **Clean** and **Conflict** sub-bullets below exactly as an operator-chosen **Rebase**
-would. `REFUSE`, an exit 2, or an empty resolved set stops and asks; an overlap from any worktree
-means the rebase is not confirmed conflict-free, so the run never takes that risk on itself — one
-prompt for the whole change, shape per Operator prompts
+has not written yet. The script fetches, prints `BASE: <base>` and every `check-base-moved.sh`
+verdict, and rebases a worktree whose verdict is `MOVED` with no overlap automatically, with no
+prompt — the run reports that it happened rather than asking whether it should. Its header
+(`<agents repo>/scripts/sync-panel-base.sh`) is the full contract. Exit 0 is settled; 3 is an overlap: the rebase
+is not confirmed conflict-free, so the run never takes that risk on itself; 1 is `CONFLICT`; 2 — a
+`REFUSE`, or anything it cannot answer — and an empty resolved set stop and ask. An exit 3 from any
+worktree is one prompt for the whole change, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on
 its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction:
 
@@ -53,16 +49,16 @@ its recommended **Stop**; **Rebase** and **Continue** run only on an explicit op
 state with nothing committed by this stage. **Continue** carries the reported movement into the
 handoff and proceeds to the citation pre-check below.
 
-**Rebase** runs `git -C <worktree> rebase origin/$BASE` only in a worktree whose own verdict was
-`MOVED` — never one whose verdict was `CLEAR`, even though the prompt above is asked once for the
-whole change. The automatic no-overlap rebase above is the same mechanism with nobody asked, and
-the two sub-bullets that follow govern both:
+**Rebase** re-runs the script with `--rebase` only for a worktree that exited 3 — never one whose
+verdict was `CLEAR`, even though the prompt above is asked once for the whole change. The automatic
+no-overlap rebase above is the same mechanism with nobody asked, and the two outcomes that follow
+govern both:
 
-- **Clean** (exit 0): that worktree's working-notes merge base becomes `origin/$BASE`'s resolved
-  tip at rebase time; every later `<merge-base>` this file and the `worktrees` map
+- **Clean** (`REBASED:`): that worktree's working-notes merge base becomes the sha the last
+  `REBASED:` line names; every later `<merge-base>` this file and the `worktrees` map
   `skills/flow/verify-and-handoff.md` writes read the working notes, so nothing else needs
-  plumbing. Re-run `check-base-moved.sh` once more against the new value; a fresh overlap re-offers
-  the prompt above rather than looping silently. The rebase clears every slot's held last-reviewed
+  plumbing. A fresh overlap on the script's own re-check is exit 3 again and re-offers the prompt
+  above rather than looping silently. The rebase clears every slot's held last-reviewed
   sha, so a re-run after it reads the whole `final-review.diff` under **Panel re-runs**' existing
   no-held-sha rule (`skills/flow/review-panel-fix-round.md`). No re-verification runs here — the panel reads the rebased tree, and
   `flow.verify` follows. End the clean-rebase report with the fixed literal:
@@ -70,11 +66,11 @@ the two sub-bullets that follow govern both:
   > If this change's verification compares against a recorded baseline, recapture it now — a
   > proof taken against the pre-rebase base is void.
 
-- **Conflict** (non-zero exit): never auto-abort, and never resolve the conflict — by editing the
+- **Conflict** (exit 1): never auto-abort, and never resolve the conflict — by editing the
   conflicting files or otherwise. An automatic rebase lands here too — no reported overlap does
   not rule out two commits touching one file incompatibly outside this change's own touched paths
-  — and is handled identically. Leave the worktree mid-rebase exactly as `git rebase` left it,
-  report the conflicting file(s) from `git status`, and hand off `git -C <worktree> rebase
+  — and is handled identically. The worktree is left mid-rebase exactly as `git rebase` left it;
+  report the conflicting file(s) the `CONFLICT:` line names, and hand off `git -C <worktree> rebase
   --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the
   next manual step. State stays as it was; this stage stops here and closes the mark `stopped`.
 
@@ -255,24 +251,18 @@ size, touched area, or any other automatic trigger: beyond the reduced or resolv
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
 
-Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every**
-worktree in the change's resolved set (**Resolving a change's worktrees**,
-`skills/flow-contracts/worktree-resolution.md`), in resolved order — one first line naming the
-file's own semantics, then each worktree's section, opened by a header naming it and its own
-working-notes merge base, followed by that worktree's `git diff <merge-base>` (staged and
-unstaged):
+Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) and its
+`[TOUCHED_FILES]` list once per round from **every** worktree in the change's resolved set
+(**Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`), in resolved
+order, with one call:
 
-```sh
-: > <abs-worktree>/.superpowers/sdd/final-review.diff
-printf '# final-review.diff — working tree vs merge-base, unstaged changes included\n' \
-  >> <abs-worktree>/.superpowers/sdd/final-review.diff
-# for each <worktree> in the resolved set, in order:
-printf '# worktree: %s — merge base %s\n' "<worktree>" "<merge-base>" \
-  >> <abs-worktree>/.superpowers/sdd/final-review.diff
-git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-review.diff
+```bash
+write-panel-diff.sh final <abs-worktree> <worktree> <merge-base> [<worktree> <merge-base>…]
 ```
 
-A single-worktree change writes the same shape with one header. Then dispatch the round's
+Its header (`<agents repo>/scripts/write-panel-diff.sh`) is canonical for both files' shape. Exit 0
+prints the two paths; exit 2 — it cannot answer, and nothing was written — stops the run with its
+stderr. Then dispatch the round's
 `panel.dispatches` in the canonical worktree, each reading the whole combined file; a role is
 never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view. **Bundled dispatch** below states how the roster is
 grouped into those dispatches.
@@ -310,11 +300,26 @@ An incident a round's slot caused takes the same course (the incident rule of **
 (SDD + TDD)**, `skills/flow/implement.md`): recorded with `flow record incident`, and the next dispatch to that role — a
 re-run, or the panel-fix subagent — carries it verbatim.
 
-**The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
-BUILDS, REPRODUCE DON'T READ, CITATION CHECK, ENTRY CONTEXT, MODEL HANDSHAKE, the reproducer rule —
-once, then one
-**PASS `<id>`** section per role in roster order, each carrying exactly the brief that role's solo
-dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`. The return message carries one findings summary per role under a heading naming the
+**Every dispatch's brief is rendered, never hand-assembled** — one call per dispatch, a one-role
+dispatch included, once the round's diff is written:
+
+```bash
+render-slot-prompt.sh <skill-dir> <round> <abs-worktree> <plan-dir> <slot>[+<slot>…] \
+  -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>…] [-fix-report <path>…] -- <worktree> …
+```
+
+`<skill-dir>` is the directory this file was read from and `<plan-dir>` the plan directory the
+context bundle reads; `-standard` carries **Principles**' resolved `[STANDARDS_PATHS]`,
+`-fix-report` a re-run's `<fix report>`, and `-no-bundle` the CONTEXT BUNDLE FAILURE continue
+path. Its header (`<agents repo>/scripts/render-slot-prompt.sh`) is canonical for the file it
+writes: the shared paragraphs below, then one **PASS `<id>`** section per role in roster order,
+each with its own REPORT FILE line. Exit 0 prints the rendered path; exit 1 names a placeholder it
+could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
+`mutation`'s pass is never rendered: its brief and its throwaway copy stay typed by the parent,
+beside the rendered path where a dispatch bundles it — the render still carries every other
+role's pass and the INDEPENDENT PASSES paragraph. The Agent call's prompt carries only the baseline
+pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
+reproducer rule, and `read <rendered path> in full first — it is your brief`. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
 Every bundle prompt also carries this paragraph verbatim:
@@ -540,13 +545,10 @@ one path each**, naming its absolute path alongside `final-review.diff`:
 > your report: which touched files you read in full, which you read only at the diff's hunks, and
 > which you deliberately did not read.
 
-**Resolve `[TOUCHED_FILES]` before dispatching any slot**, once per round beside the
-`final-review.diff` write above: per worktree in the resolved set, that worktree's
-`git diff --name-status <merge-base>` under a `# worktree: <path> — merge base <sha>` header of
-its own — the same sectioning the diff file uses. The paths under `skills/flow-contracts/` in
-that list are the change's **named contracts**. A diff-reading re-run computes the list from the
-delta's own range instead — `git diff --name-status <held-sha> HEAD` per worktree — so the named context
-narrows with the read.
+**Resolve `[TOUCHED_FILES]` before dispatching any slot**: it is the `.touched` file the
+round's `write-panel-diff.sh` call wrote beside the diff the slot reads, over that diff's own
+range, so a diff-reading re-run's named context narrows with the read. The paths under
+`skills/flow-contracts/` in that list are the change's **named contracts**.
 
 ### No forking, and a wall-clock ceiling on every slot
 
