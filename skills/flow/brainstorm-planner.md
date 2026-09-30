@@ -432,7 +432,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 4. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
    `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
-   most five implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
+   most three implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
    is `groups_mechanical` verbatim unless the planner **splits** a mechanical group into more
    groups — a chain judged too long for one implementer's context, or a real parallel-wave benefit
    the mechanical grouping's fold pass declined — with a one-line `groups_override` reason;

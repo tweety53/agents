@@ -22,11 +22,11 @@ Two passes, both in plan order:
      group g such that deps(k) intersects members(g) and deps(k) is a
      subset of members(g) union ready(g); otherwise it opens a new group.
      Joining never changes ready(g).
-  2. Fold to at most MAX_IN_FLIGHT (five) per ready-set — the
+  2. Fold to at most MAX_IN_FLIGHT (three) per ready-set — the
      implementer in-flight cap. Among the chain-merged groups, those
-     sharing an identical ready set are folded down to exactly five,
-     dealt round-robin in plan order (1st and 6th together, 2nd and 7th
-     together, ..., 5th and 10th together, ...).
+     sharing an identical ready set are folded down to exactly three,
+     dealt round-robin in plan order (1st and 4th together, 2nd and 5th
+     together, 3rd and 6th together, ...).
 
 Scope is a single file per invocation, matching plan-dispatch-bundles.py's
 own scope. `plan-dispatch-groups.sh` is the thin wrapper, one-argument
@@ -77,7 +77,7 @@ check_file = _load_check_file()
 
 # The implementer in-flight cap (skills/flow/sdd-dispatch.md's **Waves**
 # paragraph): a ready-set folds to this many groups, never more.
-MAX_IN_FLIGHT = 5
+MAX_IN_FLIGHT = 3
 
 
 class _Group:
