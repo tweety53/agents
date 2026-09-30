@@ -339,23 +339,23 @@ Correction (2026-09-30): the plan declared the empty-fold drop as `reset --hard`
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 9. write-panel-diff.sh writes every panel diff and its touched list
+- [x] 9. write-panel-diff.sh writes every panel diff and its touched list
 
 Row RP35 — `design-panel.md` § "RP35".
 
-  - [ ] **Step 1: Write the failing tests** in new `stats/internal/guard/write_panel_diff_test.go`:
+  - [x] **Step 1: Write the failing tests** in new `stats/internal/guard/write_panel_diff_test.go`:
     `TestWritePanelDiffParity` (each of `final`, `slot-delta` held and `-`, `late-fix`,
     `fix-round`, over one and two worktrees: byte-equal to the hand recipe's output, `.touched`
     equal to `git diff --name-status` sections) and `TestWritePanelDiffRefusals` (usage, a pair
     failing `panelValidateWorktree`, a git failure → exit 2, nothing written).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestWritePanelDiff' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/writepaneldiff.go` (reusing
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestWritePanelDiff' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/writepaneldiff.go` (reusing
     `paneltouchedpaths.go`), shim `scripts/write-panel-diff.sh`, symlink
     `skills/flow/scripts/write-panel-diff.sh`; replace the diff-writing recipes in
     `skills/flow/review-panel.md` and the `fix-round-N.diff` recipe in
     `skills/flow/review-panel-fix-round.md` with call lines.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/writepaneldiff.go`, `stats/internal/guard/write_panel_diff_test.go`,
 `scripts/write-panel-diff.sh`, `skills/flow/scripts/write-panel-diff.sh`,
@@ -495,25 +495,25 @@ Row VH-25 — `design-verify.md` § "VH-25".
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 14. flow record handoff-lines prints the handoff's record lines
+- [x] 14. flow record handoff-lines prints the handoff's record lines
 
 Row VH-24 — `design-verify.md` § "VH-24".
 
-  - [ ] **Step 1: Write the failing tests** in `stats/cmd/flow/record_test.go`:
+  - [x] **Step 1: Write the failing tests** in `stats/cmd/flow/record_test.go`:
     `TestRecordHandoffLinesFormat` (the three Records spellings, the Deferred filter — `deferred`
     prefix only — and `none`), `TestRecordHandoffLinesDedupByProject` (two worktrees of one project
     count once) and `TestRecordHandoffLinesUnknown` (a failed findings read → `**Deferred:** unknown
     — the findings could not be read`, exit 0).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow -run 'TestRecordHandoffLines' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/cmd/flow/record.go` (extract the helpers from
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow -run 'TestRecordHandoffLines' -count=1`.
+  - [x] **Step 3: Implement** in `stats/cmd/flow/record.go` (extract the helpers from
     `runRecordJournalCount`, `runRecordCostStatus`, `runRecordFindings` so both paths share them)
     plus the usage line in `stats/cmd/flow/main.go`; in `skills/flow/verify-and-handoff.md`,
     "**Produce the handoff's `Records:` count** …" through "… reads `none` when the count is `0`."
     becomes the call line plus "exits 0 always; render each line exactly as printed"; update the
     `journal-count` citation in `skills/flow-contracts/handoff-blocks.md`.
-  - [ ] **Step 4: Verify** — targeted run plus `go test ./cmd/flow -run 'TestRecord' -count=1`;
+  - [x] **Step 4: Verify** — targeted run plus `go test ./cmd/flow -run 'TestRecord' -count=1`;
     lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/cmd/flow/main.go`,
 `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/handoff-blocks.md`
@@ -614,7 +614,7 @@ Row MI1/MA2, second half — `design-finish.md` § "MI1/MA2" (the enum shape).
 **Baseline:** before=1 after=2
 <!-- measured: cat stats/internal/guard/project_get_test.go 2>/dev/null | awk '/^func Test/{n++} END{print n+0}' @ 67a082a6 -->
 **Commit:** `feat(guard): project-get.sh --enum resolves a single-line literal key`
-**After:** Task 16
+**After:** Task 1, 16
 **Build:** green
 
 **Decision:** all-designed-rows-in-scope
@@ -696,26 +696,26 @@ Correction (2026-09-30): the guard runs `worktree prune` before `branch -d`, so 
 
 **Decision:** remove-change-worktrees-included
 
-- [ ] 20. flow stage mark marks several stages at once
+- [x] 20. flow stage mark marks several stages at once
 
 Row FF1 — `design-finish.md` § "FF1".
 
-  - [ ] **Step 1: Write the failing tests**: in `stats/cmd/flow/stage_test.go`
+  - [x] **Step 1: Write the failing tests**: in `stats/cmd/flow/stage_test.go`
     `TestStageMarkBeginsAndEndsEachKey`, `TestStageMarkValidatesAllKeysFirst` (one bad key → exit
     2, no store call) and `TestStageMarkJournalFallback`; in
     `stats/internal/harvest/watcher_test.go` `TestWatcherMatchesStageMark`; in
     `stats/internal/guard/check_stage_mark_calls_test.go` `TestStageMarkCallsChecksStageMark`
     (missing token, placeholder harness, an unserved key in `-stages`).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow ./internal/harvest ./internal/guard -run 'TestStageMark|TestWatcherMatchesStageMark' -count=1`.
-  - [ ] **Step 3: Implement** `stage mark` in `stats/cmd/flow/stage.go` (usage line in
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow ./internal/harvest ./internal/guard -run 'TestStageMark|TestWatcherMatchesStageMark' -count=1`.
+  - [x] **Step 3: Implement** `stage mark` in `stats/cmd/flow/stage.go` (usage line in
     `stats/cmd/flow/main.go`), extend `stageMarkInvocationPattern` in
     `stats/internal/harvest/watcher.go` and the detection in
     `stats/internal/guard/stagemarkcalls.go`; replace the empty begin/end pairs in
     `skills/flow-fast/SKILL.md` with `flow stage mark` lines, leaving its **Stage keys** table
     untouched.
-  - [ ] **Step 4: Verify** — targeted run plus `go test ./internal/guard -run 'TestStageKeysMatchFlowFastSkillTable' -count=1`;
+  - [x] **Step 4: Verify** — targeted run plus `go test ./internal/guard -run 'TestStageKeysMatchFlowFastSkillTable' -count=1`;
     lint lines incl. `check-stage-mark-calls.sh`; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/cmd/flow/stage.go`, `stats/cmd/flow/stage_test.go`, `stats/cmd/flow/main.go`,
 `stats/internal/harvest/watcher.go`, `stats/internal/harvest/watcher_test.go`,
@@ -728,7 +728,7 @@ test's `stage mark` line binds no session, and the guard test's bad call passes.
 **Baseline:** before=77 after=82
 <!-- measured: cat stats/cmd/flow/stage_test.go stats/internal/harvest/watcher_test.go stats/internal/guard/check_stage_mark_calls_test.go 2>/dev/null | awk '/^func Test/{n++} END{print n+0}' @ 67a082a6 -->
 **Commit:** `feat(stats): flow stage mark marks several stages at once`
-**After:** Task 2, 3, 14, 17
+**After:** Task 1, 2, 3, 14, 17
 **Build:** green
 
 Correction (2026-09-30): Step 4's command names `./internal/guard`, where no such test exists; `TestStageKeysMatchFlowFastSkillTable` lives in `stats/internal/stages/names_test.go` — `go test ./internal/stages -run 'TestStageKeysMatchFlowFastSkillTable' -count=1`, measured passing. Reported by the group-9 implementer.
@@ -819,21 +819,21 @@ Correction (2026-09-30): Step 4's command names `./internal/guard`, where no suc
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 24. sync-panel-base.sh brings the panel's worktree onto the base
+- [x] 24. sync-panel-base.sh brings the panel's worktree onto the base
 
 Row RP34 — `design-basesync.md` item 5 (no aside).
 
-  - [ ] **Step 1: Write the failing test** `TestSyncPanelBase` in new
+  - [x] **Step 1: Write the failing test** `TestSyncPanelBase` in new
     `stats/internal/guard/sync_panel_base_test.go` (`BASE:` line; MOVED without overlap → rebased,
     `REBASED: … merge base <sha>`; MOVED with overlap → no rebase unless `--rebase`; a fresh overlap
     on re-check stops; conflict → exit 1; no aside taken).
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestSyncPanelBase' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/syncpanelbase.go`, shim
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestSyncPanelBase' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/syncpanelbase.go`, shim
     `scripts/sync-panel-base.sh`, symlink `skills/flow/scripts/sync-panel-base.sh`; replace the
     base-movement recipe in `skills/flow/review-panel.md` with the call line, keeping the operator's
     **Rebase** prompt.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/syncpanelbase.go`, `stats/internal/guard/sync_panel_base_test.go`,
 `scripts/sync-panel-base.sh`, `skills/flow/scripts/sync-panel-base.sh`, `skills/flow/review-panel.md`, `skills/flow/archive.md`, `skills/flow/review-panel-fix-round.md`
@@ -842,28 +842,28 @@ Row RP34 — `design-basesync.md` item 5 (no aside).
 **Baseline:** before=0 after=1
 <!-- measured: cat stats/internal/guard/sync_panel_base_test.go 2>/dev/null | awk '/^func Test/{n++} END{print n+0}' @ 67a082a6 -->
 **Commit:** `feat(guard): sync-panel-base.sh brings the panel worktree onto the base`
-**After:** Task 9, 10, 11, 22
+**After:** Task 8, 9, 10, 11, 18, 19, 22
 **Build:** green
 
 Correction (2026-09-30): removing the fenced call from `review-panel.md` left `skills/flow/scripts/resolve-base-branch.sh` with no citation `check-guard-symlinks.sh` counts (rule 6), though `archive.md` and three other files still use it in prose; `archive.md:30` now names it as an imperative call. `review-panel-fix-round.md` still described the retired `resolve-base-branch.sh` then `check-base-moved.sh` pair and now names the `sync-panel-base.sh` call. Both files join `**Files:**`. The guard also adds exit 3 (overlap, ask the operator) beside the design's 0/1/2, and prints a `REBASED:` line after every clean rebase so a later exit 2 or 3 never loses the new merge base. Reported by the group-10 implementer; the two prose edits were applied by the parent at pick, the recommended answers under the operator's standing instruction.
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 25. refresh-plan-base.sh reports what moved under the plan
+- [x] 25. refresh-plan-base.sh reports what moved under the plan
 
 Row MX6 — `design-basesync.md` item 6.
 
-  - [ ] **Step 1: Write the failing test** `TestRefreshPlanBase` in new
+  - [x] **Step 1: Write the failing test** `TestRefreshPlanBase` in new
     `stats/internal/guard/refresh_plan_base_test.go` (UNMOVED one line; MOVED intersected with the
     plan's `**Files:**` by exact and leading-directory match; a spec printed at `origin/<base>`
     between delimiters, or reported absent; never rebases).
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestRefreshPlanBase' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/refreshplanbase.go`, shim
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestRefreshPlanBase' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/refreshplanbase.go`, shim
     `scripts/refresh-plan-base.sh`, symlink `skills/flow/scripts/refresh-plan-base.sh`; replace the
     base-refresh recipe in `skills/flow/implement.md` with the call line, keeping the collision
     judgment and "never rebases" as prose.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/refreshplanbase.go`, `stats/internal/guard/refresh_plan_base_test.go`,
 `scripts/refresh-plan-base.sh`, `skills/flow/scripts/refresh-plan-base.sh`, `skills/flow/implement.md`
