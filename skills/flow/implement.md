@@ -695,8 +695,8 @@ reports the deviation, the parent transcribes it; inline, the session is both ha
 discovered mid-run (a route already taken on the base, a capability spec another change already
 moved, a premise a measurement disproved) has remaining tasks redesigned rather than implemented
 as written — the pivot is resolved **before the colliding code is written**: the run stops at the
-discovery, and the parent asks the operator, because the redesign alters scope the operator
-approved and proceeds only on the answer, never on the parent's own judgment. Only then does the
+discovery, and the redesign is a prompt resolved per **Auto-resolution**
+(`skills/flow-contracts/operator-prompts.md`). Only then does the
 parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never
 `tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, the
 capability spec the plan edits (`<project>/spectre/specs/<capability>.md`) is rewritten to the pivoted

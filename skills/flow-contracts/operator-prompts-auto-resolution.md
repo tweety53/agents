@@ -12,14 +12,16 @@ option costs them a stop for nothing.
 
 It holds for a call site's own prompt and for any question the run frames itself in those phases —
 a finding that seems to need a product decision, a departure from a mockup, a
-question an implementer's report carries. Frame it with the option the pipeline's own rules favour
-marked recommended (for a mockup departure, matching the mockup, per `rules/design-mockups-are-specs.mdc`),
+question an implementer's report carries, a pivot (`skills/flow/implement.md`).
+A pivot is auto-resolved although it alters approved scope: the operator asked that a recommended
+option be taken even when it reopens an earlier choice of theirs. Frame it with the option the
+pipeline's own rules favour marked recommended (for a mockup departure, matching the mockup, per `rules/design-mockups-are-specs.mdc`),
 and take that option.
 
 **The `## decisions: recommended` mode widens the scope to planning.** When the project's
 `## decisions` key resolves to `recommended` (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`), the paragraph above holds for the whole run:
-the planning asks the Planning bullet of **What still stops** below names — its pivot excepted —
+the planning asks the Planning bullet of **What still stops** below names
 are auto-resolved exactly as the implementation phases are. The key absent, or a head that
 resolves to nothing, leaves the scope exactly as the paragraph above states it. The remaining
 **What still stops** bullets are the mode's limits: a prompt with no recommended option, nothing
@@ -45,10 +47,8 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
 - **Planning.** Brainstorm and design questions, the convergence-and-approval confirm, the
   third-round offer, the plan
   review gate, every `/flow-plan` prompt, a fix run's own planning pass (the re-plan-budget and
-  where-the-fix-goes prompts in `skills/flow/document-fix.md`), and a pivot, which alters scope the
-  operator approved. The operator scoped auto-resolution to implementation and fix options, not
-  planning. The `## decisions: recommended` mode lifts the planning asks in this bullet — never
-  the pivot, which stays asked under the mode because it alters approved scope — and lifts no
+  where-the-fix-goes prompts in `skills/flow/document-fix.md`). The operator scoped
+  auto-resolution to implementation and fix options, not planning. The `## decisions: recommended` mode lifts the planning asks in this bullet and lifts no
   other bullet here; the withdrawal offers in `skills/flow/withdrawal.md` stay asked under the
   mode too, deleting a change being irreversible and the bullet below governing.
 - **No recommended option.** The second model-handshake mismatch, a multiple-match pick, a finding
