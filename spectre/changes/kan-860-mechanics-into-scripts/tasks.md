@@ -324,7 +324,8 @@ Row MX7 — `design-implement.md` item 4. `guard-autosquash.sh` stays bash and i
 
 **Files:** `stats/internal/guard/foldfixup.go`, `stats/internal/guard/fold_fixup_test.go`,
 `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/fold-fixup.sh`,
-`skills/flow/scripts/fold-fixup.sh`, `skills/flow/review-panel-fix-round.md`
+`skills/flow/scripts/fold-fixup.sh`, `skills/flow/review-panel-fix-round.md`,
+`skills/flow/scripts/aside-planning-artifacts.sh`
 **Tests:** `TestFoldFixupFolds`, `TestFoldFixupEmptyDrop`, `TestFoldFixupConflictLeftInProgress`,
 `TestFoldFixupGuardRefusal`
 **Regression:** reverting removes the guard: every test finds no `fold-fixup`.
@@ -333,6 +334,8 @@ Row MX7 — `design-implement.md` item 4. `guard-autosquash.sh` stays bash and i
 **Commit:** `feat(guard): fold-fixup.sh folds a fixup into its task commit`
 **After:** Task 4
 **Build:** green
+
+Correction (2026-09-30): the plan declared the empty-fold drop as `reset --hard` at the tip, `rebase --onto` below it; on git 2.50.1 a fixup that empties its target stops the rebase at the fixup instead, so the drop is `git reset --soft HEAD^` then `git rebase --continue` at that stop, and it runs before the planning paths are restored (a reset after the restore would wipe them). The fold recipe was `skills/flow`'s last citation of `aside-planning-artifacts.sh`, so its symlink there was deleted and joins `**Files:**`. Reported by the group-3 implementer, transcribed by the parent.
 
 **Decision:** all-designed-rows-in-scope
 
@@ -356,7 +359,8 @@ Row RP35 — `design-panel.md` § "RP35".
 
 **Files:** `stats/internal/guard/writepaneldiff.go`, `stats/internal/guard/write_panel_diff_test.go`,
 `scripts/write-panel-diff.sh`, `skills/flow/scripts/write-panel-diff.sh`,
-`skills/flow/review-panel.md`, `skills/flow/review-panel-fix-round.md`
+`skills/flow/review-panel.md`, `skills/flow/review-panel-fix-round.md`,
+`skills/flow/review-panel-late-fix.md`
 **Tests:** `TestWritePanelDiffParity`, `TestWritePanelDiffRefusals`
 **Regression:** reverting removes the guard: both tests find no `write-panel-diff`.
 **Baseline:** before=0 after=2
@@ -364,6 +368,8 @@ Row RP35 — `design-panel.md` § "RP35".
 **Commit:** `feat(guard): write-panel-diff.sh writes every panel diff and its touched list`
 **After:** Task 8
 **Build:** green
+
+Correction (2026-09-30): the `late-fix.diff` recipe lives in `skills/flow/review-panel-late-fix.md` after KAN-857, so that file joins `**Files:**`. Reported by the group-3 implementer, transcribed by the parent.
 
 **Decision:** all-designed-rows-in-scope
 
@@ -387,7 +393,7 @@ Row RP35 — `design-panel.md` § "RP35".
 
 **Files:** `stats/internal/guard/latefixtrigger.go`,
 `stats/internal/guard/check_late_fix_trigger_test.go`, `scripts/check-late-fix-trigger.sh`,
-`skills/flow/scripts/check-late-fix-trigger.sh`, `skills/flow/review-panel.md`
+`skills/flow/scripts/check-late-fix-trigger.sh`, `skills/flow/review-panel-late-fix.md`
 **Tests:** `TestCheckLateFixTrigger`
 **Regression:** reverting removes the guard: the test finds no `check-late-fix-trigger`.
 **Baseline:** before=0 after=1
@@ -395,6 +401,8 @@ Row RP35 — `design-panel.md` § "RP35".
 **Commit:** `feat(guard): check-late-fix-trigger.sh decides the late-fix reduction`
 **After:** Task 9
 **Build:** green
+
+Correction (2026-09-30): the five late-fix conditions live in `skills/flow/review-panel-late-fix.md`, not `skills/flow/review-panel.md`, which this task leaves unchanged; `**Files:**` names the file the commit edits. Reported by the group-3 implementer, transcribed by the parent.
 
 **Decision:** all-designed-rows-in-scope
 
