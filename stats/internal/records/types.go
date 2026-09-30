@@ -84,7 +84,7 @@ import (
 // Effort is recorded intent too, but unlike Model it can never be
 // handshaken back from the dispatched role -- a model cannot report its
 // own effort -- so it carries only what the dispatcher itself set:
-// `low`, `medium`, `high`, `xhigh`, or `default` where none was set.
+// `low`, `medium`, `high`, or `default` where none was set.
 type Dispatch struct {
 	ID           int64           `json:"id"`
 	AgentID      string          `json:"agentId,omitempty"`

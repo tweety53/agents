@@ -80,8 +80,8 @@ implements** below already states; a re-review is a fresh dispatch.
 Every row's own prompt carries the NO DELEGATION paragraph (section **4** below,
 `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`) — a leaf never dispatches, so
 nothing exists below these rows.
-**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`,
-`agents/flow-xhigh.md` — four definitions, one per effort, each carrying `effort:` and no
+**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
+— three definitions, one per effort, each carrying `effort:` and no
 `model:`) carries a `tools:` allowlist that omits
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
 structurally does not have, not by prompt text alone. This covers the panel bundle and
@@ -697,8 +697,7 @@ code quality together — but **one dispatch per bundle of gate-fired tasks, nev
 the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
 goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at that group's
-effort from the decision's `groups` entry, `high` in place of an `xhigh` effort, which is the
-implementer's alone — a first-pass review, per **Model and effort**
+effort from the decision's `groups` entry — a first-pass review, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`). **Groups join into one bundle by the
 decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `regular`, every gate-fired
 task of the run waits and goes out in one bundle at the last boundary, on `opus` at the
