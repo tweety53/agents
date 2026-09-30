@@ -18,3 +18,12 @@
   in KNOWN-BUGS.md). The second verifier's capture was denied by the permission classifier; the
   operator approved it, and the parent ran capture, created the full app suite, and refreshed the
   stale Reviewers baseline (old copy passing within tolerance).
+
+## 2026-09-30 — integrate run
+
+- Preflight: guards present, STAGED-CLEAN, DRIFT-CLEAN, RUN1. Base not moved; no rebase.
+- Unfinished-work gate: `check-unfinished-work.sh` CLEAR; `check-visual-verify-dispatched.sh`
+  VISUAL-VERIFY-MISSING — no closed `visual-verify*` verifier row, because the parent ran capture
+  after the verifier's capture was denied (see visual-verification.md). Operator chose
+  **Continue — integrate anyway**.
+- Route: merge and push, from the project's default.
