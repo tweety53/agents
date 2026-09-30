@@ -20,15 +20,15 @@ Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls.
 **grouping** — as the script's `panel:`, `grouping:` and `experimental:` lines print them, a free grouping with a one-line `grouping_reason`.
 A static and a free grouping alike assign each dispatch its own pair per **Model and effort** below.
 An experimental slot runs on the model/effort of the dispatch it joins; its roster entry's `prompt` and `description` are the path and description the `experimental:` line prints.
-Its `inputs:`, `class:` and `rolls:` lines carry `class_mechanical` and the three rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that class — execution, implementer, roster, rerun policy, grouping, dispatches and the experimental slot, printed rather than derived by hand (the rules are the script's header).
+Its `inputs:`, `class:` and `rolls:` lines carry `class_mechanical` and the four rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that class — execution, implementer, roster, rerun policy, grouping, dispatches and the experimental slot, printed rather than derived by hand (the rules are the script's header).
 On a raise, re-run the script with `-class <class>` first, so its tree lines are the raised class's; it exits 2 on any other step.
 # Task 2 — flow decision render prints the Decision block (brainstorm-planner.md Decide, brainstorm.md)
-On a micro run the three roll rows' value cells read `not consulted — micro`, and the decision table records the micro row's values, so no `↳` row appears anywhere in it.
+On a micro run the four roll rows' value cells read `not consulted — micro`, and the decision table records the micro row's values, so no `↳` row appears anywhere in it.
 Once the Decide step finishes, print the `## Decision` block verbatim — the two-table shape (input side, then decision side) **Decide** (`skills/flow/brainstorm-planner.md`) prints — then run the record sequence below:
 One fact per row, every reason in the middle column, nothing printed outside the two tables.
 Prepend these two lines directly above the `## Decision` block — the one place these choices appear in a run, never printed twice:
 Print this exact shape as the run's own output once the Decide step completes, filling every cell from what was just decided:
-The first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/ `repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value cell the interpretation.
+The first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/ `repos`, and the four rolls, each roll's rule cell the roll against its threshold and its value cell the interpretation.
 The implementer-groups row is `skipped — inline` on an inline run, else `groups_reason`, followed by one `↳ group` row per object in `groups`, its rule cell the group's model and effort with its `reason` and its value cell the bundle ids (`plan-dispatch-bundles.sh`'s ids), the `(mechanical: …; override: …)` suffix only on a split (`groups_override` non-`null`) — mirroring the `class` row's own `override` shape.
 The second is the decision side.
 When `panel` is the string `default` the review-panel value cell is `default` and no `↳` row follows it; when `implementer` is a string the `↳ fixer` row carries the same string and no pair.
@@ -44,6 +44,7 @@ reviewers: <REVIEWERS>
 | inputs | plan-class.sh | tasks <N> · files <N> · repos <N> · migration <yes\|no> · spec <yes\|no> · red <yes\|no> · unverified <yes\|no> |
 | review panel | class <class> | <"default"\|<compact\|full> · delta rerun> |
 | roll: bundle | <N> <"<" or "≥"> 30 | <static\|free> grouping |
+| roll: effort | <N> <"<" or "≥"> 80 | <medium\|free> effort |
 | roll: compact | <N> <"<" or "≥"> <threshold> | <compact\|full> |
 | roll: experimental | <N> <"<" or "≥"> 30 | <slot name\|"no slot"\|"none available"> |
 | ↳ dispatch <n> | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |

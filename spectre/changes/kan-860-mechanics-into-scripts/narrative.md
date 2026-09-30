@@ -37,3 +37,20 @@ generated for symlinked Files under an existing rule — the generator now fails
 silently writing nothing). The fixes were plain commits on the pushed branch, so their plan-field
 changes are Correction paragraphs rather than field edits, which would have failed
 `check-task-records` and `check-plan-shape`. Both sonnet/low re-runs came back clean.
+
+## 2026-09-30 — integrate run
+
+Preflight, foreign-staged and drift checks were clean; the unfinished-work gate returned `CLEAR`
+and no UI path was touched. `check-base-moved.sh` reported `MOVED` — six commits on `main`, nine
+overlapping paths. The sync used the installed (main) `sync-onto-base.md`, since this change's own
+`sync-onto-base.sh` is not installed yet; reading the worktree's copy first cost one failed call.
+
+The rebase of 62 commits onto `5d022b50` stopped twice. Task 1's plan-class commit conflicted in
+`plan-class.sh`, `planclass.go` and `plan_class_test.go`: resolved keeping both the effort roll
+and the four tree lines, with the pins' prefix match kept. The decision-render commit conflicted in
+`brainstorm-planner.md`, where main had added a `roll: effort` row to the inline table spec this
+change moves into `flow decision render`: resolved to the render command, and the effort row
+carried into the renderer (`decision.go`, its tests) in a new fix commit, with the two
+`TestPlanClassTree` pins and the `brainstorm-planner.md` "three rolls" wording brought to four.
+`check-verbatim-moves.sh` then flagged main's three reworded sentences; `verbatim-moves.txt` was
+updated to list them. The full `## lint` and `## test` lists passed afterwards.
