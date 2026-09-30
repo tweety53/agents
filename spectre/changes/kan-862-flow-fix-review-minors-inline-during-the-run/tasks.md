@@ -56,11 +56,11 @@ API against the worktree's own isolated stack, recording before (merge-base buil
 
 ---
 
-- [ ] 1. check-panel-findings-closed reads `deferred` as open and needs no re-run for a fixed Minor
+- [x] 1. check-panel-findings-closed reads `deferred` as open and needs no re-run for a fixed Minor
 
 `design.md` § 3.
 
-  - [ ] **Step 1: Write the failing cases** in `stats/internal/guard/check_panel_findings_closed_test.go`
+  - [x] **Step 1: Write the failing cases** in `stats/internal/guard/check_panel_findings_closed_test.go`
     (table in `TestCheckPanelFindingsClosed`):
     - case 4b becomes `"case 4b: a deferred finding is open, exits 1, naming it"` — `want: 1`,
       needle `"check-panel-findings-closed: finding(s) still open: F1\n"`.
@@ -79,9 +79,9 @@ API against the worktree's own isolated stack, recording before (merge-base buil
       no dispatch rows; `want: 1`, needle
       `"with no clean re-run dispatch of their slot in any later round: F1 (failure-modes)\n"`,
       and assert stderr does not contain `F2`.
-  - [ ] **Step 2: Run them; they fail** —
+  - [x] **Step 2: Run them; they fail** —
     `cd stats && go test ./internal/guard -run 'TestCheckPanelFindingsClosed' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/internal/guard/panelfindingsclosed.go`:
+  - [x] **Step 3: Implement** in `stats/internal/guard/panelfindingsclosed.go`:
     - an open finding is one whose status is neither `fixed` nor a `withdrawn` value; drop the
       `deferred` prefix from that condition and from its comment;
     - delete the "A MINOR IS NEVER DEFERRED BESIDE A CRITICAL OR IMPORTANT" block (`fixRound`,
@@ -94,9 +94,9 @@ API against the worktree's own isolated stack, recording before (merge-base buil
     dispatch of its slot in a later round". Exit 1 becomes "a finding is open or `deferred`, or
     a Critical or Important is recorded `fixed` with no clean re-run dispatch of its slot in any
     later round …". Drop the "wrongly deferred ref with its round" clause.
-  - [ ] **Step 4: Verify** — the targeted run passes; `cd stats && gofmt -l . && go vet ./...`
+  - [x] **Step 4: Verify** — the targeted run passes; `cd stats && gofmt -l . && go vet ./...`
     is clean; `scripts/check-references.sh` is clean.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/panelfindingsclosed.go`,
 `stats/internal/guard/check_panel_findings_closed_test.go`, `scripts/check-panel-findings-closed.sh`
@@ -112,11 +112,11 @@ re-run rule. Cases 4b, 13 and 29 fail, and case 30's stderr names F2.
 **Decision:** no-deferral-withdraw-only
 **Decision:** store-keeps-deferred-vocabulary
 
-- [ ] 2. flow record handoff-lines prints Records and Costs only
+- [x] 2. flow record handoff-lines prints Records and Costs only
 
 `design.md` § 4, "Handoff".
 
-  - [ ] **Step 1: Rewrite the tests** in `stats/cmd/flow/record_test.go`:
+  - [x] **Step 1: Rewrite the tests** in `stats/cmd/flow/record_test.go`:
     - `handoffDaemon(t)` takes no findings arguments. It answers `/cost-status` as now, and
       fails the test (`t.Errorf("handoff-lines requested %s; it reads cost-status only", r.URL.Path)`)
       on any other path.
@@ -132,9 +132,9 @@ re-run rule. Cases 4b, 13 and 29 fail, and case 30's stderr names F2.
       whose `/cost-status` answers as `handoffDaemon` does; the verb exits 0, prints exactly
       `"**Records:** all writes reached the store\n**Costs:** 0 unattributed\n"`, and the records
       endpoint's hit counter reads 0.
-  - [ ] **Step 2: Run them; they fail** —
+  - [x] **Step 2: Run them; they fail** —
     `cd stats && go test ./cmd/flow -run 'TestRecordHandoffLines' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/cmd/flow/record.go`'s `runRecordHandoffLines`:
+  - [x] **Step 3: Implement** in `stats/cmd/flow/record.go`'s `runRecordHandoffLines`:
     - delete the `deferred`/`findingsOK` block and the `**Deferred:**` and `### Deferred minors`
       prints, and the now-unused `handoffFindingsUnknown`, `handoffDeferredPrefix` and
       `handoffDeferredMinorsNone` constants;
@@ -143,9 +143,9 @@ re-run rule. Cases 4b, 13 and 29 fail, and case 30's stderr names F2.
       findings read;
     - `stats/cmd/flow/main.go`'s usage line becomes
       `record handoff-lines  print the handoff's Records and Costs lines`.
-  - [ ] **Step 4: Verify** — the targeted run and `cd stats && go test ./cmd/flow -count=1` pass;
+  - [x] **Step 4: Verify** — the targeted run and `cd stats && go test ./cmd/flow -count=1` pass;
     `cd stats && gofmt -l . && go vet ./...` is clean.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/cmd/flow/main.go`
 **Tests:** `TestRecordHandoffLinesReadsNoFindings`
@@ -160,11 +160,11 @@ the records endpoint hit.
 
 **Decision:** handoff-drops-deferred-line
 
-- [ ] 3. The dashboard drops its deferred metrics
+- [x] 3. The dashboard drops its deferred metrics
 
 `design.md` § 6.
 
-  - [ ] **Step 1: Update the tests first**:
+  - [x] **Step 1: Update the tests first**:
     - `stats/internal/store/aggregate_test.go` (`TestReviewersCountsBySeverityAndMarksExperimental`):
       delete the two `DeferredShare` assertions. Keep the deferred-finding fixture row, since it
       still counts toward `total` and `withdrawnShare`.
@@ -180,11 +180,11 @@ the records endpoint hit.
       hoist, its `vi.mock` entry, its `beforeEach` reset and default) and `runRecordEnvelope`.
     - `stats/web/src/api.test.ts`: delete `it("fetchRunRecord requests the change's run record
       endpoint", …)` and its import.
-  - [ ] **Step 2: Run them; they fail** —
+  - [x] **Step 2: Run them; they fail** —
     `cd stats && go test ./internal/api -run 'TestReviewersWireCarriesNoDeferredShare' -count=1`
     (fails while the field exists), and `cd stats/web && npx tsc -b`
     (`deferredShare` is missing from the fixtures).
-  - [ ] **Step 3: Implement**:
+  - [x] **Step 3: Implement**:
     - `stats/internal/store/aggregate.go`: delete the `deferred` count in `finding_agg`, the
       `DeferredShare` `CASE` column and its `Scan` target, and `ReviewerRow.DeferredShare`. Its
       doc comment reads "…what it found by severity, and how much of it was withdrawn rather than
@@ -199,11 +199,11 @@ the records endpoint hit.
       comment; the line-43 comment drops "deferred and".
     - `stats/web/src/hooks/useRunDetail.ts`: delete `DeferredMinorRatio`, `deferredMinorOf`, the
       `fetchRunRecord(...)` entry of the `Promise.all`, and the `deferredMinor` state field.
-  - [ ] **Step 4: Verify** — `cd stats && go test ./internal/store ./internal/api -count=1`
+  - [x] **Step 4: Verify** — `cd stats && go test ./internal/store ./internal/api -count=1`
     (the store tests need the `flow-postgres` compose stack and skip without it: say so if they
     skipped); `cd stats/web && npx vitest run src/api.test.ts src/views && npx tsc -b`;
     `cd stats && gofmt -l . && go vet ./...`.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/store/aggregate.go`, `stats/internal/store/aggregate_test.go`,
 `stats/internal/api/stats.go`, `stats/internal/api/stats_test.go`, `stats/web/src/api.ts`,
@@ -227,11 +227,11 @@ against `ReviewerRow`, so dropping `deferredShare` from them compiles either way
 user-visible `ViewFrame` description drops "deferred or", and `RunDetail.tsx`'s local
 `formatShare` and its comment are deleted, their only caller having been the removed panel.
 
-- [ ] 4. The parent fixes Minors inline; the KNOWN-BUGS deferral goes
+- [x] 4. The parent fixes Minors inline; the KNOWN-BUGS deferral goes
 
 `design.md` § 2 and § 4. One commit, because these files cite each other's deferral sections.
 
-  - [ ] **Step 1: `skills/flow/review-panel.md`, `## Panel re-runs`** — replace the paragraph
+  - [x] **Step 1: `skills/flow/review-panel.md`, `## Panel re-runs`** — replace the paragraph
     opening "**Every Critical and Important goes to the fix; whether a Minor does follows…**"
     and the paragraph "**A deferral's reason is one clause naming the mechanism…**" with:
 
@@ -263,7 +263,7 @@ user-visible `ViewFrame` description drops "deferred or", and `RunDetail.tsx`'s 
     default above included —" becomes "— the Minor rule above included —". In the ROUND SCOPE
     paragraph, delete the sentence "Deferral rationale is written nowhere — a Minor is deferred
     with its one-clause reason in the store."
-  - [ ] **Step 2: `skills/flow/review-panel.md`, the close** — delete the heading
+  - [x] **Step 2: `skills/flow/review-panel.md`, the close** — delete the heading
     `### Deferred findings go to KNOWN-BUGS.md at round close` and the paragraph under it,
     "**A round close that leaves findings newly recorded `deferred` records them in…**", so that
     "**Before closing the stage**…" continues `## Panel re-runs`. Replace the guard's exit-1
@@ -273,7 +273,7 @@ user-visible `ViewFrame` description drops "deferred or", and `RunDetail.tsx`'s 
     the refs. It also fires on the class **Panel re-runs**' ordering above added: a Critical or
     Important recorded `fixed` whose slot has no clean re-run dispatch of it in any later round —
     a fixed Minor needs none."
-  - [ ] **Step 3: `skills/flow/review-panel-fix-round.md`**:
+  - [x] **Step 3: `skills/flow/review-panel-fix-round.md`**:
     - "A Minor, fixed or deferred, re-runs no slot: a fixed Minor closes on the verification
       below alone." becomes "A Minor re-runs no slot: one fixed beside a Critical or Important
       closes on the verification below alone, and one the parent fixed inline (**Panel
@@ -284,12 +284,12 @@ user-visible `ViewFrame` description drops "deferred or", and `RunDetail.tsx`'s 
     - "…with none, it is deferred under the round's Minor-deferral default above." becomes
       "…with none, the parent fixes it inline, as **Panel re-runs**
       (`skills/flow/review-panel.md`) fixes a Minor-only round's Minors."
-  - [ ] **Step 4: `skills/flow/review-panel-late-fix.md`** — "and Minors defer under the standing
+  - [x] **Step 4: `skills/flow/review-panel-late-fix.md`** — "and Minors defer under the standing
     rule" → "and a Minor-only result is fixed inline under the standing rule"; "or raises only
     Minors that defer under the standing rule," → "or raises only Minors, fixed inline under the
     standing rule,"; "or with every finding it raised a deferred Minor under the standing rule:"
     → "or with every finding it raised a Minor the parent fixed inline under the standing rule:".
-  - [ ] **Step 5: the per-task pass, the contract, the follow-up file**:
+  - [x] **Step 5: the per-task pass, the contract, the follow-up file**:
     - `skills/flow/implement.md`, **The gated per-task reviewer**: replace from "**A pass whose
       findings are all Minor is `clean`**" through "…`task-<n>` in place of `F<n>`." with:
       "**A pass whose findings are all Minor is `clean`** — no fix round and no re-review; before
@@ -306,14 +306,14 @@ user-visible `ViewFrame` description drops "deferred or", and `RunDetail.tsx`'s 
     - `skills/flow-contracts/jira-followups.md`: delete the sentence "The review panel's deferred
       findings go to `<project>/KNOWN-BUGS.md` instead (**Deferred review findings**,
       `skills/flow-contracts/known-bugs.md`)."
-  - [ ] **Step 6: Verify** —
+  - [x] **Step 6: Verify** —
     `grep -rn -i "defer" skills/flow/review-panel.md skills/flow/review-panel-fix-round.md skills/flow/review-panel-late-fix.md skills/flow-contracts/known-bugs.md skills/flow-contracts/jira-followups.md`
     prints only the kept "`deferred`"-as-open wording from Steps 2 and 3. Next,
     `awk '/^## /{h=$0} /inline, at the round.s close/{print h}' skills/flow/review-panel.md`
     prints `## Panel re-runs`, which is the `/flow-fast` reach. Then run the Markdown lint lines,
     and record `scripts/check-verbatim-moves.sh`'s FAIL sentences in `verbatim-moves.txt` until it
     exits 0.
-  - [ ] **Step 7: Commit.**
+  - [x] **Step 7: Commit.**
 
 **Files:** `skills/flow/review-panel.md`, `skills/flow/review-panel-fix-round.md`,
 `skills/flow/review-panel-late-fix.md`, `skills/flow/implement.md`,
@@ -424,17 +424,17 @@ outstanding work, never deferred findings. Step 3's rationale paragraph cites
 `<project>/KNOWN-BUGS.md` rather than a bare `KNOWN-BUGS.md`, which `check-installed-citations.sh`
 refuses as rootless.
 
-- [ ] 7. KNOWN-BUGS.md loses its deferred Minors
+- [x] 7. KNOWN-BUGS.md loses its deferred Minors
 
 `design.md` § 4 and § 7.
 
-  - [ ] **Step 1: Delete** the `## Deferred review findings` heading and every entry under it
+  - [x] **Step 1: Delete** the `## Deferred review findings` heading and every entry under it
     from `KNOWN-BUGS.md`. Keep the `# Known bugs` title and the sweep entry for
     `scripts/test-check-cleanup-complete.sh`.
-  - [ ] **Step 2: Verify** — `grep -c '^- ' KNOWN-BUGS.md` prints `1`;
+  - [x] **Step 2: Verify** — `grep -c '^- ' KNOWN-BUGS.md` prints `1`;
     `grep -c 'Deferred review findings' KNOWN-BUGS.md` prints `0`; `scripts/check-references.sh`
     is clean.
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 3: Commit.**
 
 **Files:** `KNOWN-BUGS.md`
 **Tests:** none — a record file

@@ -72,3 +72,4 @@ A finding about the project's own product code is offered only when it is Import
 It holds for a call site's own prompt and for any question the run frames itself in those phases — a finding that seems to need a product decision, a departure from a mockup, a question an implementer's report carries.
 every Jira write — the follow-up filing and the self-review filing included.
 findings fixed, and findings withdrawn;
+**The parent's inline Minor commit leaves every slot's result current** — a source change after a slot's last read that does not make that result stale.
