@@ -436,6 +436,8 @@ Correction (2026-09-30): the five late-fix conditions live in `skills/flow/revie
 **After:** Task 9, 10
 **Build:** green
 
+Correction (2026-09-30): Step 1 says CITATION CHECK once per `-standard` file; the design's rule — once per worktree whose `citation-check.md` exists — is what shipped, `-standard` filling `[STANDARDS_PATHS]`. The first cut refused any slot list naming `mutation`, which dropped INDEPENDENT PASSES from the real `failure-modes+mutation` bundle; the review fix renders every other role and the shared paragraph and refuses only `mutation` alone. Reported by the group-3 implementer and the gated reviewer.
+
 **Decision:** all-designed-rows-in-scope
 
 - [x] 12. Cut the reviewer templates' Placeholders lists
