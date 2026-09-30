@@ -338,3 +338,87 @@ refresh-plan-base.sh <worktree> <merge-base> <changeRoot>/tasks.md <spec-path>�
 delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
 the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
 the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`, per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`)
+# Task 18 — commit-archive.sh makes the archive commit (archive.md step 4)
+\## `commit-archive.sh` — Run 2, step 4
+`<canonical-worktree>` resolves as run 1 resolves it (**Finish contract**, `skills/flow-contracts/finish-contract-run1.md`):
+`ARCHIVE-COMMITTED: <sha>` or `ARCHIVE-NOTHING-STAGED` (exit 0) continue.
+`ARCHIVE-WRONG-BRANCH: <found>` or the scope guard's `SCOPE-VIOLATION` lines (exit 1), or exit 2, stop the commit and leave the change at `IN_PROGRESS`.
+commit-archive.sh <landing-worktree> <canonical-worktree> <name>
+# Task 19 — remove-change-worktrees.sh runs the worktree cleanup (finish-contract-run2.md Worktree cleanup, archive.md)
+For each worktree, run **every** check of the six-check sequence in **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), canonical for it, before removing anything:
+\## `remove-change-worktrees.sh` — Worktree cleanup
+**Check 4 is a disclosure, not a gate — it asks only about an irreplaceable entry nothing preserved.**
+Exit 0: every check passed; each `REMOVED:` entry is one step 8 clears, and each `REMOTE-*` line is the handoff's **Remote branch:** — deleted, already gone, or not deleted.
+Exit 1: a `REFUSED:` or `HELD:` line — a failed check, nothing removed; or a failed removal, whose entry stays in `worktrees`.
+Exit 2: stop and report.
+Exit 3: the disclosure stop — nothing removed and nothing run; relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the wave-group copies below, ask only what they ask, then call again with `--proceed`.
+Once per repository, from outside every worktree in the set, with `<merge-base>` the one the state file's `worktrees` map records for it (`-` when none):
+The command is the body's first fenced block; a body with none declares no command, and the check is skipped the same way.
+remove-change-worktrees.sh <repo> <name> <merge-base|-> # --proceed on the second call only
+# Task 20 — flow stage mark replaces the empty begin/end pairs (flow-fast/SKILL.md)
+Two adjacent lines with nothing between them mark a stage `/flow-fast` has nothing to run for; the mark stays so the run's stage set matches `/flow`'s.
+`<harness>` is this harness's name, `ff-<literal-token>` is one token generated once at the start of the run and typed the same at every `stage begin` — never a shell substitution, per the CLI's own usage text.
+flow stage begin -command '/flow-fast' -stage flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.preserve-sessions -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.sync-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.write-finished -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end -command '/flow-fast' -stage flow.commit-archive -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.commit-two -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.document-fix -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.isolate-workspace -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.kickoff -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.preflight -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.preserve-sessions -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.push-archive -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.stage-diff -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.sync-archive -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.write-finished -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.write-in-progress -outcome completed <name>
+A `flow stage mark` line marks each `-stages` key begun and ended `completed`, in order: the stages `/flow-fast` has nothing to run for; the mark stays so the run's stage set matches `/flow`'s.
+`<harness>` is this harness's name, `ff-<literal-token>` is one token generated once at the start of the run and typed the same at every `stage begin` and `stage mark` — never a shell substitution, per the CLI's own usage text.
+flow stage mark -command '/flow-fast' -stages flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.preserve-sessions,flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.sync-archive,flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.write-finished,flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
+
+# Task 24 — sync-panel-base.sh replaces the base-movement recipe (review-panel.md Check base movement first)
+**Clean** (exit 0): that worktree's working-notes merge base becomes `origin/$BASE`'s resolved
+**Conflict** (non-zero exit): never auto-abort, and never resolve the conflict — by editing the
+**Rebase** runs `git -C <worktree> rebase origin/$BASE` only in a worktree whose own verdict was `MOVED` — never one whose verdict was `CLEAR`, even though the prompt above is asked once for the whole change.
+BASE="$(resolve-base-branch.sh <worktree>)"
+Leave the worktree mid-rebase exactly as `git rebase` left it, report the conflicting file(s) from `git status`, and hand off `git -C <worktree> rebase --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the next manual step.
+Re-run `check-base-moved.sh` once more against the new value; a fresh overlap re-offers the prompt above rather than looping silently.
+Report every worktree's verdict: `MOVED` with no overlap is confirmed conflict-free and rebases that worktree automatically — `git -C <worktree> rebase origin/$BASE` runs at once, with no prompt, and the run reports that it happened rather than asking whether it should; its outcome takes the **Clean** and **Conflict** sub-bullets below exactly as an operator-chosen **Rebase** would.
+The automatic no-overlap rebase above is the same mechanism with nobody asked, and the two sub-bullets that follow govern both:
+`REFUSE`, an exit 2, or an empty resolved set stops and asks; an overlap from any worktree means the rebase is not confirmed conflict-free, so the run never takes that risk on itself — one prompt for the whole change, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction:
+`check-base-moved.sh` performs no fetch of its own; `resolve-base-branch.sh` is what fetches, so this order — resolve, then check — is load-bearing.
+check-base-moved.sh <worktree> "origin/$BASE" <working-notes-merge-base>
+tip at rebase time; every later `<merge-base>` this file and the `worktrees` map `skills/flow/verify-and-handoff.md` writes read the working notes, so nothing else needs plumbing.
+**Clean** (`REBASED:`): that worktree's working-notes merge base becomes the sha the last
+**Conflict** (exit 1): never auto-abort, and never resolve the conflict — by editing the
+**Rebase** re-runs the script with `--rebase` only for a worktree that exited 3 — never one whose verdict was `CLEAR`, even though the prompt above is asked once for the whole change.
+A fresh overlap on the script's own re-check is exit 3 again and re-offers the prompt above rather than looping silently.
+Exit 0 is settled; 3 is an overlap: the rebase is not confirmed conflict-free, so the run never takes that risk on itself; 1 is `CONFLICT`; 2 — a `REFUSE`, or anything it cannot answer — and an empty resolved set stop and ask.
+Its header (`<agents repo>/scripts/sync-panel-base.sh`) is the full contract.
+The automatic no-overlap rebase above is the same mechanism with nobody asked, and the two outcomes that follow govern both:
+The script fetches, prints `BASE: <base>` and every `check-base-moved.sh` verdict, and rebases a worktree whose verdict is `MOVED` with no overlap automatically, with no prompt — the run reports that it happened rather than asking whether it should.
+The worktree is left mid-rebase exactly as `git rebase` left it; report the conflicting file(s) the `CONFLICT:` line names, and hand off `git -C <worktree> rebase --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the next manual step.
+`REBASED:` line names; every later `<merge-base>` this file and the `worktrees` map `skills/flow/verify-and-handoff.md` writes read the working notes, so nothing else needs plumbing.
+sync-panel-base.sh [--rebase] <worktree> <working-notes-merge-base>
+# Task 24 (parent at pick): archive.md names resolve-base-branch.sh as a call; the fix-round re-check names sync-panel-base.sh
+**Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same per-worktree `resolve-base-branch.sh` then `check-base-moved.sh` pair, with that section's verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED` with no overlap rebases unasked at a round boundary just as at entry.
+Resolve `<base>` with `resolve-base-branch.sh` against the apply worktree, run `classify-untracked.sh <project>/.worktrees/_landing-<name>` first when the worktree already exists — the archive pre-flight settling its untracked entries, **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 2, canonical for the classes and for settling a reported asset through the operator — then invoke `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> chore/archive-<name>`.
+**Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same per-worktree `sync-panel-base.sh` call, with that section's verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED` with no overlap rebases unasked at a round boundary just as at entry.

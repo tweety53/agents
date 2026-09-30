@@ -648,6 +648,8 @@ Row MA1 — `design-finish.md` § "MA1".
 **After:** Task 4, 8
 **Build:** green
 
+Correction (2026-09-30): the guard checks the branch before copying the ledger and panel record (the recipe copied first, so a wrong branch now leaves the landing worktree untouched), stops with exit 2 when an existing ledger or record cannot be copied (the recipe ignored the failed copy), and prints only its own verdict, passing on the scope guard's lines only when that guard refuses. Reported by the group-5 implementer.
+
 **Decision:** all-designed-rows-in-scope
 
 - [ ] 19. remove-change-worktrees.sh runs the worktree cleanup
@@ -688,6 +690,8 @@ Row MR2 — `design-finish.md` § "MR2".
 **After:** Task 4, 8, 18
 **Build:** green
 
+Correction (2026-09-30): the guard runs `worktree prune` before `branch -d`, so a leftover registration cannot block the delete; runs checks 1–4 before the disclosure stop, so the stop command never runs on an exit-3 call; treats a `## stop` section with no code fence as no command (check 5 skipped, per `design-finish.md`); and lists a screenshot in a declared screenshot-output directory as unclassified rather than regeneratable. Exit codes: 0 all passed (the remote-branch outcome reported, step 7 verifies it), 1 a check failed and nothing was removed or a removal failed, 2 cannot answer, 3 the disclosure stop. Reported by the group-5 implementer.
+
 **Decision:** remove-change-worktrees-included
 
 - [ ] 20. flow stage mark marks several stages at once
@@ -724,6 +728,8 @@ test's `stage mark` line binds no session, and the guard test's bad call passes.
 **Commit:** `feat(stats): flow stage mark marks several stages at once`
 **After:** Task 2, 3, 14, 17
 **Build:** green
+
+Correction (2026-09-30): Step 4's command names `./internal/guard`, where no such test exists; `TestStageKeysMatchFlowFastSkillTable` lives in `stats/internal/stages/names_test.go` — `go test ./internal/stages -run 'TestStageKeysMatchFlowFastSkillTable' -count=1`, measured passing. Reported by the group-9 implementer.
 
 **Decision:** all-designed-rows-in-scope
 
@@ -828,7 +834,7 @@ Row RP34 — `design-basesync.md` item 5 (no aside).
   - [ ] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/syncpanelbase.go`, `stats/internal/guard/sync_panel_base_test.go`,
-`scripts/sync-panel-base.sh`, `skills/flow/scripts/sync-panel-base.sh`, `skills/flow/review-panel.md`
+`scripts/sync-panel-base.sh`, `skills/flow/scripts/sync-panel-base.sh`, `skills/flow/review-panel.md`, `skills/flow/archive.md`, `skills/flow/review-panel-fix-round.md`
 **Tests:** `TestSyncPanelBase`
 **Regression:** reverting removes the guard: the test finds no `sync-panel-base`.
 **Baseline:** before=0 after=1
@@ -836,6 +842,8 @@ Row RP34 — `design-basesync.md` item 5 (no aside).
 **Commit:** `feat(guard): sync-panel-base.sh brings the panel worktree onto the base`
 **After:** Task 9, 10, 11, 22
 **Build:** green
+
+Correction (2026-09-30): removing the fenced call from `review-panel.md` left `skills/flow/scripts/resolve-base-branch.sh` with no citation `check-guard-symlinks.sh` counts (rule 6), though `archive.md` and three other files still use it in prose; `archive.md:30` now names it as an imperative call. `review-panel-fix-round.md` still described the retired `resolve-base-branch.sh` then `check-base-moved.sh` pair and now names the `sync-panel-base.sh` call. Both files join `**Files:**`. The guard also adds exit 3 (overlap, ask the operator) beside the design's 0/1/2, and prints a `REBASED:` line after every clean rebase so a later exit 2 or 3 never loses the new merge base. Reported by the group-10 implementer; the two prose edits were applied by the parent at pick, the recommended answers under the operator's standing instruction.
 
 **Decision:** all-designed-rows-in-scope
 
