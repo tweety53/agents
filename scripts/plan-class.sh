@@ -6,7 +6,7 @@
 # Prints exactly three lines to stdout:
 #   inputs: tasks=N files=N repos=N migration=yes|no spec=yes|no red=yes|no unverified=yes|no
 #   class: micro|small|regular|big
-#   rolls: compact N · experimental N · bundle N
+#   rolls: compact N · experimental N · bundle N · effort N
 #
 # Exit 0 on a printed answer, exit 2 on a missing <tasks.md>, a
 # non-integer <repos>, an argument count that is neither 2 nor 4, or — with
@@ -59,7 +59,8 @@
 # Rolls are reproducible per change name (basename of the directory holding
 # <tasks.md>): compact_roll = sha256("<name>") mod 100, experimental_roll =
 # sha256("<name>exp") mod 100, bundle_roll = sha256("<name>bundle") mod 100,
-# each over the first 8 hex digits of the digest read as an integer —
+# effort_roll = sha256("<name>effort") mod 100 (added by
+# medium-effort-default), each over the first 8 hex digits of the digest read as an integer —
 # hashed by stats/internal/guard/sha256.go's sha256Hex.
 #
 # The logic is the Go port in stats/internal/guard/planclass.go. flow-guard

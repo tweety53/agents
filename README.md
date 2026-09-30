@@ -110,9 +110,11 @@ then prints a `## Decision` table and asks **Proceed to implementation?** before
    migrations, spec edits, tasks that leave the build red, and `unverified:` plan claims. It prints
    a class — `micro`, `small`, `regular` or `big`. The planner may raise the class one step with
    a recorded reason, never lower it.
-2. **Roll.** The same script prints three rolls, hashed from the change name so they repeat on
+2. **Roll.** The same script prints four rolls, hashed from the change name so they repeat on
    every run of that change: `compact` (a smaller review roster), `experimental` (add one
-   reviewer prompt from `skills/flow/experimental/`) and `bundle` (fixed or free reviewer grouping).
+   reviewer prompt from `skills/flow/experimental/`), `bundle` (fixed or free reviewer grouping)
+   and `effort` (below 80, every implementer, fixer and reviewer dispatch runs at `medium`, a
+   hard seam alone at `high`; otherwise the planner picks each effort freely).
 3. **Decide.** The class and rolls always decide all three. Nothing in a project configures them:
 
    | Class | Execution | Implementer effort | Review panel |
@@ -120,7 +122,7 @@ then prints a `## Decision` table and asks **Proceed to implementation?** before
    | `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
    | `small` | inline | — | `primary`+`principles`, delta re-runs |
    | `regular` | inline | — | adds `failure-modes`+`mutation`, delta re-runs |
-   | `big` | `sdd`: subagent implementers, one per task group | `low`/`medium`/`high` per group, from how hard its tasks are | same roster as `regular`, full re-runs |
+   | `big` | `sdd`: subagent implementers, one per task group | `medium` on an `effort` roll below 80, else `low`/`medium`/`high` per group, from how hard its tasks are | same roster as `regular`, full re-runs |
 
    A `compact` roll shrinks any roster except `micro`'s to `primary`+`principles`. A round runs at
    most two review dispatches, with up to three roles each. A `micro` change (at most two tasks,

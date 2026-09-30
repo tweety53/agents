@@ -187,6 +187,6 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "inputs: tasks=%d files=%d repos=%s migration=%s spec=%s red=%s unverified=%s\n",
 		tasks, len(files), repos, yn(migration), yn(spec), yn(red), yn(unverified))
 	fmt.Fprintf(stdout, "class: %s\n", class)
-	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"))
+	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d · effort %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"), roll(name+"effort"))
 	return 0
 }

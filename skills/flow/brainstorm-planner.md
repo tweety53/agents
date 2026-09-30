@@ -481,7 +481,9 @@ A micro decision records no pair, and a dispatch with no recorded pair — a mic
 **review-panel.md**'s no-decision dispatch, the tooling analyst — runs on the literal `opus`. `flow record
 decision` refuses a decision whose pairs name any other model. Pairs may repeat — two dispatches,
 or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. The rerun
-pair's effort is fixed at `low` (step 3); every other `effort` is the
+pair's effort is fixed at `low` (step 3). **When `effort_roll < 80`, every other `effort` is
+`medium`**, save a pair carrying a hard seam, which may take `high`, its `reason` naming the seam.
+When `effort_roll ≥ 80`, every other `effort` is the
 planner's own choice, one of `low`/`medium`/`high`, decided from what that dispatch will actually
 do: the complexity of its tasks, the time and space
 complexity of the code it writes or reviews, and the scalability the change has to hold up under.
@@ -509,7 +511,7 @@ Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — o
 run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
 (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `class`, `classMechanical`,
 `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
-(`compact`, `experimental`, `bundle`), `execution`, `implementer` and `fixer` (each an object
+(`compact`, `experimental`, `bundle`, `effort`), `execution`, `implementer` and `fixer` (each an object
 `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
 [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
 `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster
@@ -536,6 +538,7 @@ run's own output once the Decide step completes, filling every cell from what wa
 | roll: compact      | <N> <"<" or "≥"> <threshold> | <compact\|full> |
 | roll: experimental | <N> <"<" or "≥"> 30 | <slot name\|"no slot"\|"none available"> |
 | roll: bundle       | <N> <"<" or "≥"> 30 | <static\|free> grouping |
+| roll: effort       | <N> <"<" or "≥"> 80 | <medium\|free> effort |
 
 | Setting            | Rule             | Result |
 |--------------------|------------------|--------|
@@ -552,8 +555,8 @@ run's own output once the Decide step completes, filling every cell from what wa
 
 One fact per row, every reason in the middle column, nothing printed outside the two tables. The
 first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/
-`repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value
-cell the interpretation. On a micro run the three roll rows' value cells read `not consulted —
+`repos`, and the four rolls, each roll's rule cell the roll against its threshold and its value
+cell the interpretation. On a micro run the four roll rows' value cells read `not consulted —
 micro`, and the decision table records the micro row's values, so no `↳` row appears anywhere
 in it. The second is the decision side. `↳` rows are sub-rows of the setting
 above them: a `↳ fixer` row under the implementer row, its cells the `fixer` value in the

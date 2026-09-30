@@ -164,13 +164,13 @@ func TestPlanClass(t *testing.T) {
 				t.Fatalf("first=%s second=%s", first, second)
 			}
 		}},
-		{"rolls line carries compact, experimental and bundle", func(t *testing.T) {
+		{"rolls line carries compact, experimental, bundle and effort", func(t *testing.T) {
 			r := run(pcTasks(t, "bundle-shape", pcMake(4, false)), "1")
-			if r.rc != 0 || !regexp.MustCompile(`(?m)^rolls: compact [0-9]+ · experimental [0-9]+ · bundle [0-9]+$`).MatchString(r.out) {
+			if r.rc != 0 || !regexp.MustCompile(`(?m)^rolls: compact [0-9]+ · experimental [0-9]+ · bundle [0-9]+ · effort [0-9]+$`).MatchString(r.out) {
 				t.Fatalf("rc=%d out=%s", r.rc, r.out)
 			}
 		}},
-		{"all three rolls are reproducible for a fixed change name", func(t *testing.T) {
+		{"all four rolls are reproducible for a fixed change name", func(t *testing.T) {
 			p := pcTasks(t, "roll-stability-name-three", pcMake(4, false))
 			first, second := rolls(run(p, "1")), rolls(run(p, "1"))
 			if first == "" || first != second {
@@ -180,14 +180,14 @@ func TestPlanClass(t *testing.T) {
 		// sha256("bundle-static-2bundle") mod 100 = 26.
 		{"bundle-static-2 rolls bundle 26 (<30 -> static)", func(t *testing.T) {
 			r := run(pcTasks(t, "bundle-static-2", pcMake(4, false)), "1")
-			if r.rc != 0 || !strings.HasSuffix(rolls(r), "bundle 26") {
+			if r.rc != 0 || !strings.Contains(rolls(r), "bundle 26 ·") {
 				t.Fatalf("rc=%d out=%s", r.rc, r.out)
 			}
 		}},
 		// sha256("bundle-free-1bundle") mod 100 = 46.
 		{"bundle-free-1 rolls bundle 46 (>=30 -> free)", func(t *testing.T) {
 			r := run(pcTasks(t, "bundle-free-1", pcMake(4, false)), "1")
-			if r.rc != 0 || !strings.HasSuffix(rolls(r), "bundle 46") {
+			if r.rc != 0 || !strings.Contains(rolls(r), "bundle 46 ·") {
 				t.Fatalf("rc=%d out=%s", r.rc, r.out)
 			}
 		}},
@@ -253,7 +253,8 @@ func TestPlanClass(t *testing.T) {
 		}},
 
 		// Pins: each expected value is what the bash printed at c5379c0a for
-		// the same fixture.
+		// the same fixture, plus the effort roll the bash never printed --
+		// sha256("<name>effort") mod 100, added by medium-effort-default.
 		{"pin: every input, class and rolls byte for byte against the bash at c5379c0a", func(t *testing.T) {
 			p := pcTasks(t, "plan-class-pin", "- [ ] 1. First\n"+
 				"**Files:** `docs/a.md`, `spectre/specs/x/spec.md`, `src/b.go`\n"+
@@ -264,7 +265,7 @@ func TestPlanClass(t *testing.T) {
 			r := run(p, "1")
 			want := "inputs: tasks=2 files=4 repos=1 migration=yes spec=yes red=yes unverified=yes\n" +
 				"class: regular\n" +
-				"rolls: compact 71 · experimental 0 · bundle 75\n"
+				"rolls: compact 71 · experimental 0 · bundle 75 · effort 21\n"
 			if r.rc != 0 || r.stdout != want || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}
@@ -273,7 +274,7 @@ func TestPlanClass(t *testing.T) {
 			r := run(pcTasks(t, "plan-class-micro-pin", "- [ ] 1. Docs\n**Files:** `docs/note.md`\n"), "1", newRepo(t).dir, mb)
 			want := "inputs: tasks=1 files=1 repos=1 migration=no spec=no red=no unverified=no\n" +
 				"class: micro\n" +
-				"rolls: compact 65 · experimental 0 · bundle 43\n"
+				"rolls: compact 65 · experimental 0 · bundle 43 · effort 96\n"
 			if r.rc != 0 || r.stdout != want || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}

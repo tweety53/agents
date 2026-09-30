@@ -940,3 +940,17 @@ The loop is invoked through `bash -c` (KAN-816):
 its `set -- $pair` relies on word-splitting an unquoted parameter, which zsh — the shell an
 executing session may run — does not do, leaving `$2` empty and both records uncopied; the pin
 fixes the loop's bash semantics rather than rewriting it in zsh-only splitting syntax.
+
+## brainstorm-planner.md — Model and effort, the effort roll (medium-effort-default)
+
+The operator asked for `medium` effort on about 80% of implementer and reviewer dispatches. A free
+per-dispatch choice gave no share at all to hold to, so the split rides on a fourth name-derived
+roll, `effort_roll = sha256("<name>effort") mod 100`, the `compact`/`experimental`/`bundle` rolls'
+own mechanism: below 80, every planner-chosen effort is `medium`; at or above it, the free choice
+that existed before. It is per change, not per dispatch, so the 80% holds across changes rather
+than inside one. A hard seam keeps `high` in the rolled 80% too, and those dispatches count toward
+the non-`medium` share, which is why the target is "about" 80% rather than exactly. **Rejected — a
+new per-dispatch roll:** the planner would have to hash each dispatch's own key, a ceremony the
+per-change roll avoids. **Rejected — reusing an existing roll with a different threshold:** it
+would tie effort to roster size or grouping. The rerun pair stays at its fixed `low`, since a
+re-run reads a delta and is outside what the operator asked to change.
