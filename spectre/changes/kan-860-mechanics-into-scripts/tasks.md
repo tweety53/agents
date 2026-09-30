@@ -94,7 +94,7 @@ Rows BP-21/BP-22 — `design-planning.md` § "BP-21 + BP-22".
   - [ ] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/planclass.go`, `stats/internal/guard/plan_class_test.go`,
-`scripts/plan-class.sh`, `skills/flow/brainstorm-planner.md`
+`scripts/plan-class.sh`, `skills/flow/brainstorm-planner.md`, `skills/flow-fast/SKILL.md`
 **Tests:** `TestPlanClassTree`, `TestPlanClassOverrideFlag`
 **Regression:** reverting drops the tree lines and the flag: `TestPlanClassTree` finds no `tree:`
 line and `-class` is an unknown argument.
@@ -103,6 +103,8 @@ line and `-class` is an unknown argument.
 **Commit:** `feat(guard): plan-class prints the decision tree and takes -class`
 **After:** none
 **Build:** green
+
+Correction (2026-09-30): the plan declared four files; `skills/flow-fast/SKILL.md:82` still cited "its tree table", which this task removes from `brainstorm-planner.md`, so the line now names "the tree `plan-class.sh` prints" and the file joins `**Files:**` — reported by the group-1 implementer, applied by the parent at pick.
 
 **Decision:** all-designed-rows-in-scope
 

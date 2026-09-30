@@ -1,0 +1,198 @@
+# Task 1 — plan-class prints the decision tree (brainstorm-planner.md Decide)
+**The tree**, one row per `class`:
+**Which prompt, when experimental rolled true:** `ls <agents repo>/skills/flow/experimental/*.md`, sorted, is the ordered set of candidates; the picked file is the one at index `experimental_roll mod count` into that sorted list.
+**grouping** — `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a one-line `grouping_reason`.
+A compact roster is the floor bundle alone, on the floor bundle's model/effort.
+A compact roster's two roles are the floor bundle itself, nothing more to group.
+A full roster's remaining roles form the second dispatch entirely — there is no overflow case left, since the floor already holds every reading/judgment role; a rolled experimental slot joins the second dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree** below, keyed on `class` and the rolls.
+A static and a free grouping alike assign each dispatch its own pair per **Model and effort** below; `primary` + `principles`, bundled as one dispatch, is the universal floor for every roster this tree assigns — compact or full, every class — its `-slot` `primary+principles`, deterministic, no roll.
+An absent directory or one holding no `*.md` file (`count = 0`) records `experimental: none available` and adds nothing — never a division by zero.
+Compact when `compact_roll < 90` (small, regular, big); experimental when `experimental_roll < 30` (every class, at most one slot), appended to whichever roster and run on the model/effort of the dispatch it joins.
+Its spare seat under the bundle cap stays empty: nothing else ever joins the floor bundle.
+Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls.
+`<name>` is its basename with `.md` dropped, and its own `prompt` / `description` fields for the roster entry are that file's path (`skills/flow/experimental/<name>.md`) and its line-1 `description:` value.
+| big | sdd | chosen | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
+| class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster) |
+| micro | inline | — | none — defaults only | none — defaults only | — | — |
+| regular | inline | — | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
+| small | inline | — | primary; principles | primary; principles | delta | `primary+principles` |
+|---|---|---|---|---|---|---|
+**grouping** — as the script's `panel:`, `grouping:` and `experimental:` lines print them, a free grouping with a one-line `grouping_reason`.
+A static and a free grouping alike assign each dispatch its own pair per **Model and effort** below.
+An experimental slot runs on the model/effort of the dispatch it joins; its roster entry's `prompt` and `description` are the path and description the `experimental:` line prints.
+Its `inputs:`, `class:` and `rolls:` lines carry `class_mechanical` and the three rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that class — execution, implementer, roster, rerun policy, grouping, dispatches and the experimental slot, printed rather than derived by hand (the rules are the script's header).
+On a raise, re-run the script with `-class <class>` first, so its tree lines are the raised class's; it exits 2 on any other step.
+# Task 2 — flow decision render prints the Decision block (brainstorm-planner.md Decide, brainstorm.md)
+On a micro run the three roll rows' value cells read `not consulted — micro`, and the decision table records the micro row's values, so no `↳` row appears anywhere in it.
+Once the Decide step finishes, print the `## Decision` block verbatim — the two-table shape (input side, then decision side) **Decide** (`skills/flow/brainstorm-planner.md`) prints — then run the record sequence below:
+One fact per row, every reason in the middle column, nothing printed outside the two tables.
+Prepend these two lines directly above the `## Decision` block — the one place these choices appear in a run, never printed twice:
+Print this exact shape as the run's own output once the Decide step completes, filling every cell from what was just decided:
+The first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/ `repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value cell the interpretation.
+The implementer-groups row is `skipped — inline` on an inline run, else `groups_reason`, followed by one `↳ group` row per object in `groups`, its rule cell the group's model and effort with its `reason` and its value cell the bundle ids (`plan-dispatch-bundles.sh`'s ids), the `(mechanical: …; override: …)` suffix only on a split (`groups_override` non-`null`) — mirroring the `class` row's own `override` shape.
+The second is the decision side.
+When `panel` is the string `default` the review-panel value cell is `default` and no `↳` row follows it; when `implementer` is a string the `↳ fixer` row carries the same string and no pair.
+`↳` rows are sub-rows of the setting above them: a `↳ fixer` row under the implementer row, its cells the `fixer` value in the implementer row's own shape; one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that dispatch's model and effort with its `reason` and its value cell the roles `+`-joined in roster order; a `↳ rerun` row after the last dispatch row, its rule cell the rerun pair with its `reason`; a `↳ grouping` row only on a free grouping (omitted on a static one); an experimental slot skipped for the cap adds `· experimental: skipped — bundle cap` to the review-panel value cell.
+planning: inline, this session (<the model named in this session's own system prompt>)
+reviewers: <REVIEWERS>
+| Input | Rule | Value |
+| Setting | Rule | Result |
+| class | mechanical <class_mechanical> | <class> (override: <reason or "none">) |
+| execution mode | class <class> | <inline\|sdd> |
+| implementer groups | — | <"skipped — inline"\|"mechanical"\|<groups_reason>> |
+| implementer model | <reason> | <"skipped — inline"\|model/effort> |
+| inputs | plan-class.sh | tasks <N> · files <N> · repos <N> · migration <yes\|no> · spec <yes\|no> · red <yes\|no> · unverified <yes\|no> |
+| review panel | class <class> | <"default"\|<compact\|full> · delta rerun> |
+| roll: bundle | <N> <"<" or "≥"> 30 | <static\|free> grouping |
+| roll: compact | <N> <"<" or "≥"> <threshold> | <compact\|full> |
+| roll: experimental | <N> <"<" or "≥"> 30 | <slot name\|"no slot"\|"none available"> |
+| ↳ dispatch <n> | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
+| ↳ fixer | <model> / <effort> — <reason> | <"skipped — inline"\|model/effort> |
+| ↳ group <bundle ids> | <model> / <effort> — <reason> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |
+| ↳ grouping | free | <grouping_reason> |
+| ↳ rerun | <model> / low — <reason> | every fix-round re-run, one role per dispatch |
+|--------------------|------------------|--------|
+|--------------------|------------------|-------|
+It exits 0 on a printed block and 2 on a usage error, an unreadable file or a `decision.json` missing a required field — correct the file and render again.
+Once the Decide step completes, render the run's own output from that file and print its output verbatim — the `planning:`/`reviewers:` lines above the `## Decision` block, the one place these choices appear in a run, never printed twice:
+Once the Decide step finishes, print the `## Decision` block verbatim — the output of `flow decision render` (**Decide**, `skills/flow/brainstorm-planner.md`) — then run the record sequence below:
+flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>' -reviewers '<REVIEWERS>'
+# Task 3 — flow state add-worktree (implement.md, cross-repo-worktrees.md)
+Every other entry gets the kickoff recipe in its own repository — `<project>` in the commands below is that entry's repository root, not this change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 3): when `git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — after `check-worktree-location.sh <that repo>`, with the merge base `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees` map by the read-merge-write at the top of this stage, and `git -C <that worktree> push -u origin spectre/<name>` per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+Read the current record with `flow state get`, merge in this worktree's `<abs-path>: <merge-base-sha>` entry (never drop an existing peer's entry already present from an earlier worktree in this same run), and write the merged record back with `flow state set` — `state` stays exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still the only step entitled to flip it to `IN_PROGRESS`).
+It exits 2 on a relative path or a malformed sha, and 1 when no `STARTED` record exists yet, writing nothing either way.
+Record it with one call, which keeps every peer's entry and leaves `state` exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still the only step entitled to flip it to `IN_PROGRESS`):
+flow state add-worktree <name> <abs-path> <merge-base-sha>
+# Task 4 — kickoff-worktree.sh runs the five kickoff steps (brainstorm.md A, flow-plan/SKILL.md)
+**A command's non-zero exit ends your turn** naming the command and its output.
+**Persist the worktree into the state record before this step returns**, by the read-merge-write **2. Isolate the workspace** (`skills/flow/implement.md`) applies to each additional worktree: merge the entry `"<abs-worktree>": "<merge-base>"` into the record's `worktrees` map and write it back, where `<merge-base>` is the sha `git -C <worktree> rev-parse HEAD` prints immediately after the add — the commit the worktree starts from in either case above.
+Every guard those sections invoke resolves per **Guard resolution** (`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries each one those sections run: `check-planning-commit-location.sh <worktree> <name>` (the commit below), `check-worktree-location.sh <project>` and `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate), `plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and `plan-dispatch-groups.sh <tasks.md>` (Decide).
+Exit 0: run every printed line from the worktree
+Exit 1: the project declares no `## worktree setup`; say so and continue.
+Exit 2: stop the run, relaying the script's own line.
+The key is canonical in **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+Where it exits non-zero, append
+`<project>/.worktrees/` to `<project>/.git/info/exclude` — never a commit on any branch.
+`check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
+`git -C <project> fetch origin`, then — when `git -C <project> rev-parse -q --verify
+`git -C <worktree> push -u origin spectre/<name>` — the branch exists on the remote from its
+`git check-ignore -q .worktrees` from the project root.
+`project-get.sh <worktree> "worktree setup"`.
+first minute, per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+origin/spectre/<name>` succeeds, the branch already exists on the remote (a `/flow-plan` capture pushed it, or an earlier run's worktree was removed) — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — the default branch by name, never HEAD: the main checkout may be on any branch and is never moved.
+root, in order, in the foreground — the printed body can carry fence markers and trailing prose outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only the fenced command lines, not those.
+**Persist the worktree into the state record before this step returns** — the script does, through `flow state add-worktree` right after the add, so a later step's failure leaves the worktree recorded.
+Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`.
+Exit 1 or 2 stops the run with the script's own lines: **a command's non-zero exit ends your turn** naming the command and its output.
+kickoff-worktree.sh <project> <name>
+# Task 7 — throwaway-worktree.sh
+"$f" -nt "$c" ] && continue
+\# for each copy:
+<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh; do
+A fourth or later ready group queues in plan order and launches, into its own throwaway worktree by the same sequence, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in flight, never how many groups may be ready at once:
+A group alone in its wave, with no other group ready alongside it, dispatches into the canonical worktree and commits directly; two or three ready groups launch together in one message, each into its own throwaway worktree created by the sequence below, each copy then running the project's resolved `## worktree setup` command once before its implementer dispatches.
+Run the sequence below once per worktree in the resolved set per slot, producing one `<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`mutation`).
+[ "$st" = "??
+[ -s "$c" ] && [ !
+[ -s "$f" ] || continue
+] || continue
+b="${f#<worktree>-<slot>-<round>/.superpowers/sdd/}"
+c="<worktree>/.superpowers/sdd/$b"
+cp -a "$f" "$c"
+cp -a "<worktree>/$f" "<worktree>-<slot>-<round>/$f"
+cp -a "<worktree>/$f" "<worktree>-wave-group-<g>/$f"
+cp -a "<worktree>/.superpowers/sdd" "<worktree>-<slot>-<round>/.superpowers/sdd"
+for f in <worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md \
+git -C <worktree> diff HEAD --binary | git -C <worktree>-<slot>-<round> apply --allow-empty
+git -C <worktree> diff HEAD --binary | git -C <worktree>-wave-group-<g> apply --allow-empty
+git -C <worktree> status --porcelain -z | \
+git -C <worktree> worktree add --detach <worktree>-<slot>-<round> HEAD
+git -C <worktree> worktree add --detach <worktree>-wave-group-<g> HEAD
+git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
+if [ -d "<worktree>/.superpowers/sdd" ]; then
+mkdir -p "<worktree>-<slot>-<round>/$(dirname "$f")"
+mkdir -p "<worktree>-<slot>-<round>/.superpowers"
+mkdir -p "<worktree>-wave-group-<g>/$(dirname "$f")"
+mkdir -p "<worktree>/.superpowers/sdd/$(dirname "$b")"
+st="${entry:0:2}"; f="${entry:3}"
+while IFS= read -r -d '' entry; do
+A copy is removed once its group is picked — `throwaway-worktree.sh remove <worktree> <worktree>-wave-group-<g>`.
+A fourth or later ready group queues in plan order and launches, into its own throwaway worktree by the same call, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in flight, never how many groups may be ready at once.
+A group alone in its wave, with no other group ready alongside it, dispatches into the canonical worktree and commits directly; two or three ready groups launch together in one message, each into its own throwaway worktree created by `throwaway-worktree.sh create <worktree> <worktree>-wave-group-<g>`, each copy then running the project's resolved `## worktree setup` command once before its implementer dispatches.
+Exit 2 means a step failed, named on stderr, and nothing is dispatched into that copy.
+Exit 2 means a step failed, named on stderr: that slot is not dispatched against that copy.
+Run `throwaway-worktree.sh create <worktree> <worktree>-<slot>-<round> --sdd` once per worktree in the resolved set per slot, producing one `<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`mutation`).
+Remove every copy unconditionally once that slot's dispatch closes — completed, timed out (including after the wall-clock re-dispatch), or the run stopped:
+Remove every copy unconditionally once that slot's dispatch closes — completed, timed out (including after the wall-clock re-dispatch), or the run stopped — with `throwaway-worktree.sh remove <worktree> <worktree>-<slot>-<round> --fold-back`, which first copies each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md` and `<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
+
+# Task 17 — project-get.sh --enum
+A head matching none of them exactly is reported by name and dropped, resolving as absent.
+Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, each read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first three, and `## handoff` says whether the run stops between them.
+Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), take the body's first non-blank line — trimmed, backticks removed — and resolve it against the three literals `pull request` / `merge and push` / `manual`, byte-for-byte per **Project configuration** (`skills/flow-contracts/project-configuration.md`); lines below it are documentation.
+The route is `## default landing route` when the project declares one (`pull request`, `merge and push` or `manual`), matched byte-for-byte per **Project configuration** (`skills/flow-contracts/project-configuration.md`) and read without asking.
+When the project declares none: with `## handoff` `required`, ask once through **AskUserQuestion** with those three options, `pull request` recommended; with `## handoff` `none`, take `pull request` without asking.
+Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, the first two read with `project-get.sh <project> <key>`, `## handoff` with `project-get.sh <project> handoff --enum required none` and `## default landing route` with `project-get.sh <project> "default landing route" --enum "pull request" "merge and push" manual` (exit 1 absent; exit 3 malformed — report its stderr line by name and resolve as absent): sections 5 and 7 take their commands from the first three, and `## handoff` says whether the run stops between them.
+Run `project-get.sh <main-checkout> "default landing route" --enum "pull request" "merge and push" manual`: exit 0 prints the resolved route; exit 1 means absent; exit 3 means the head matches none of the three — report its stderr line by name and resolve as absent.
+The route is what section 4's `## default landing route` `--enum` call resolved, taken without asking.
+When it resolved none (exit 1 or 3): with `## handoff` `required`, ask once through **AskUserQuestion** with the options `pull request`, `merge and push` and `manual`, `pull request` recommended; with `## handoff` `none`, take `pull request` without asking.
+`project-get.sh <root> <key> --enum <literal>...
+performs this resolution: exit 0 prints the matched literal, exit 1 the key is absent, exit 3 the head matches no literal — its one stderr line quotes the head.
+# Task 13 (VH-25): verify-and-handoff.md visual steps 1–2 become one check-visual-trigger.sh call
+**Match the diff — with the guard, not by eye.
+**Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
+A project declaring no section → this worktree prints `Visual: not configured` and is skipped for the rest of this stage.
+Exit 2 → the guard could not answer (this should not happen here, since step 1 already confirmed the section resolves) — report its stderr and skip this worktree the same way exit 1 does.
+its own shape and closed vocabulary.
+**Match the diff** — the same call's verdict.
+**Resolve the section — with the guard, not by eye.
+Exit 2 with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line → report its stderr and skip this worktree the same way exit 1 does.
+Exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr → this worktree prints `Visual: not configured` and is skipped for the rest of this stage.
+# Task 23 (basesync item 4): sync-onto-base.md recipe becomes sync-onto-base.sh plus its exit contract
+**Clean** (exit 0): the merge base carried forward for the rest of **this run** becomes
+**Conflict** (non-zero exit): **resolve it in place, automatically.
+**Scoped re-verification**: for each path `check-base-moved.sh` reported under `overlaps:`, look for a discoverable guard test — `<agents repo>/scripts/test-<basename-without-ext>.sh` beside `<agents repo>/scripts/<name>.sh`, the same naming `<agents repo>/scripts/run-guard-tests.sh` already discovers by glob — and run it if found.
+A clean rebase runs **Scoped re-verification** below, then proceeds to the landing question.
+A path with none is stated in the handoff as having no verification to run, not silently skipped.
+Re-run `check-base-moved.sh` once against it; anything but `CLEAR` is a base that moved during the rebase, and the rebase runs once more.
+The helper sets the planning paths aside — the spec tree's changes directory (the leaf `<agents repo>/scripts/lib/spec-root.sh` resolves) and `<project>/docs/superpowers/` — and nothing else: implementation WIP stays exactly where the unfinished-work gate owns it.
+The rebase never meets the run's own uncommitted planning artifacts: `aside-planning-artifacts.sh <aside|restore> <worktree>` around each `MOVED` worktree's rebase — set aside before it, restored once that worktree's rebase has finished or aborted; never mid-way, restore refuses while the rebase is still unresolved, and on a stop-and-ask exit the aside stays set aside, named in the handoff with `git stash list` as the recovery path.
+`origin/$BASE`'s resolved tip at rebase time — `<rebased-merge-base>`, a this-run-only value never written to the state file, which every later reader of this worktree's recorded merge base in this run means instead — most concretely the reshape in **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
+git -C <worktree> rebase origin/$BASE
+**Clean** (exit 0, `REBASED: <worktree> — onto <sha>`): the merge base carried forward for the
+**Conflict** (exit 1, `CONFLICT: <worktree> — onto <sha>; unmerged: <paths>`): **resolve it in place, automatically.
+**Scoped re-verification**: run the test every `GUARD-TEST: <path> — <test>` line names.
+**Stop and ask** (exit 2): a `REFUSE`, a base still moving after three rebases, or anything the
+A `NO-GUARD-TEST: <path>` is stated in the handoff as having no verification to run, not silently skipped.
+On every stop-and-ask, an aside still set aside is named in the handoff with `git stash list` as the recovery path.
+Run **Scoped re-verification** below, then proceed to the landing question.
+The guard sets the run's own uncommitted planning artifacts aside around the rebase, rebases onto the base's tip, and re-checks until the base holds still; its header (`<agents repo>/scripts/sync-onto-base.sh`) is canonical for the exit contract.
+Then run `sync-onto-base.sh --resume <worktree> $BASE <sha>`, `<sha>` from the `CONFLICT:` line; it restores the aside and re-checks, and its exits read as the first call's.
+guard could not answer — report its output and stop before the landing question.
+sync-onto-base.sh <worktree> $BASE <recorded-merge-base>
+# Task 15 (VV-18): visual-verify.md step 3 — the four pre-flight bullets become the check-visual-preflight.sh call line plus its exit contract.
+**One Playwright checkout per workspace.
+**Origin allowed.
+**Ports held only by their own app.
+**The app's base-URL configuration resolves to the workspace's port** — `ApiBaseUrl`, where
+A held port whose probe answers nothing — a foreign holder, a sibling workspace, yesterday's orphan — fails the pre-flight (`lsof -nP -iTCP:<port> -sTCP:LISTEN`, the probe **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) defines), naming the port, the holder `lsof` prints, and the probe that went unanswered.
+A resolution landing in a sibling worktree or a machine-global checkout is the cross-worktree module conflict; name the path, and install this worktree's own before re-running.
+An answering listener is the already-running stack steps 5 and 6 probe and fingerprint and step 13 leaves alone — the pipeline's own run-instructions rule starts that stack on every run and hands it running to the operator, so a fix run re-entering on a held port is the ordinary case, never a failure.
+For every `## workspace isolation` row whose resolved value (the `KEY=value` line **Verify** exported) differs from the row's declared default, the application configuration under the matched `ui paths`' roots must take that value from the exported variable or from the `start`/`## run` command — a literal naming the declared default there, which neither the exported variables nor that command overrides, is the hardcoded-port failure; name the file and the line.
+For every port this worktree's resolved environment
+Resolve the Playwright module from each matched
+The probe is the app's worktree-resolved URL where the port reaches this check through one; where it arrives only through a `port` row, the probe is the port itself — a listener that accepts a connection is answering, one that accepts nothing is a dead holder.
+The worktree's allowed-origins configuration (`ALLOWED_ORIGINS`, where
+With the parent's own Bash calls, before the dispatch below, check the environment this worktree will verify in:
+app's package root (`node -e "console.log(require.resolve('@playwright/test/package.json', {paths: [root]}))"`) — the resolved absolute path must sit inside this worktree.
+carries — the `port` row's resolved value and the port in each matched app's worktree-resolved URL — a listener is a pre-flight failure only when nothing answers it.
+this failure was measured) must include the worktree-resolved URL of every matched app — an origin list pinned to the declared default URL fails; name the file.
+this failure was measured.
+Exit 0 → every check passed.
+Exit 1 → each `FAIL:` line names a failing check and its evidence.
+Exit 2 → it cannot answer; treat it as a failing check, carrying its stderr.
+One `<app-root>=<resolved-url>` argument per app `ui paths` matched: its package root relative to the worktree and its worktree-resolved URL.
+The guard's header is canonical for each check's rule.
+With the parent's own Bash call, before the dispatch below, run the four checks — ports held only by their own app, the base-URL configuration resolving to the workspace's values, origin allowed, one Playwright checkout per workspace — against this worktree:
+prepare-workspace.sh <worktree> | check-visual-preflight.sh <worktree> <app-root>=<resolved-url> ...
+# Task 1 (parent at pick): flow-fast decide line names the printed tree
+**decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
