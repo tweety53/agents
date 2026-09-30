@@ -30,43 +30,18 @@ shared `<worktree>` the other slots read, so every slot's findings are raised ag
 pristine snapshot and no slot's view ever contains another slot's work:
 
 **The parent creates and removes every throwaway copy itself, in its own Bash calls — never a
-subagent.** Run the sequence below once per worktree in the resolved set per slot, producing one
-`<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`mutation`).
-
-```bash
-git -C <worktree> worktree add --detach <worktree>-<slot>-<round> HEAD
-git -C <worktree> diff HEAD --binary | git -C <worktree>-<slot>-<round> apply --allow-empty
-git -C <worktree> status --porcelain -z | \
-  while IFS= read -r -d '' entry; do
-    st="${entry:0:2}"; f="${entry:3}"
-    [ "$st" = "??" ] || continue
-    mkdir -p "<worktree>-<slot>-<round>/$(dirname "$f")"
-    cp -a "<worktree>/$f" "<worktree>-<slot>-<round>/$f"
-  done
-mkdir -p "<worktree>-<slot>-<round>/.superpowers"
-if [ -d "<worktree>/.superpowers/sdd" ]; then
-  cp -a "<worktree>/.superpowers/sdd" "<worktree>-<slot>-<round>/.superpowers/sdd"
-fi
-```
+subagent.** Run `throwaway-worktree.sh create <worktree> <worktree>-<slot>-<round> --sdd` once per
+worktree in the resolved set per slot, producing one `<worktree>-<slot>-<round>` per repository per
+slot — `<slot>` is the id (`mutation`). Exit 2 means a step failed, named on stderr: that slot is
+not dispatched against that copy.
 
 Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
 that slot as the repository paths to mutate and test in, in place of `<worktree>`.
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
-(including after the wall-clock re-dispatch), or the run stopped:
-
-```bash
-# for each copy:
-for f in <worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md \
-         <worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh; do
-  [ -s "$f" ] || continue
-  b="${f#<worktree>-<slot>-<round>/.superpowers/sdd/}"
-  mkdir -p "<worktree>/.superpowers/sdd/$(dirname "$b")"
-  c="<worktree>/.superpowers/sdd/$b"
-  [ -s "$c" ] && [ ! "$f" -nt "$c" ] && continue
-  cp -a "$f" "$c"
-done
-git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
-```
+(including after the wall-clock re-dispatch), or the run stopped — with
+`throwaway-worktree.sh remove <worktree> <worktree>-<slot>-<round> --fold-back`, which first copies
+each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md` and
+`<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
 
 The fold-back runs inside the removal step itself — on every path that removes a copy,
 completed, timed out or run stopped — because a report the slot resolved onto its dispatched root

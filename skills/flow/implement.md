@@ -143,7 +143,7 @@ these substitutions:
 
 - **No implementer, no panel-fix dispatch.** The parent does each bundle's TDD work in the
   canonical worktree, commits per task with the same `Task-Id:` trailer and declared `**Commit:**`
-  subject, runs `check-task-commit-fields.sh` and ticks the task exactly as section **4** states.
+  subject, and runs `close-task.sh` exactly as section **4** states.
   Waves are not parallel inline: bundles run in plan order, one at a time, never launched into a
   throwaway worktree.
 - **Every dispatch-prompt paragraph that instructs an implementer or fixer in its work** — FLOW —
@@ -204,18 +204,22 @@ stops the run.
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
 
 **The plan is refreshed against the base before task 1 runs.** Before the
-first task dispatches — inline or as an implementer — `git -C <worktree> fetch origin` and
-compare this run's working-notes merge base against `origin/<default-branch>`. On a moved base,
-re-read at the moved base every capability spec the proposal names —
-`git show origin/<default-branch>:<spec-path>`, `<spec-path>` the spec's
-`<project>/spectre/specs/<capability>.md` — run
-`git diff --name-only <merge-base> origin/<default-branch> -- <the paths the tasks' **Files:**
-fields name>`, and **name every route or requirement the plan adds that the moved base now
-already carries**. A collision is reconciled before task 1 runs, under **A pivot reconciles the
-three artifacts together** (section 4 below) — never discovered mid-task; an unmoved base
-records one line saying so. The step names, it never rebases: the change branch is synced onto
-the base at integrate (**Sync the branch onto the base**,
-`skills/flow/sync-onto-base.md`).
+first task dispatches — inline or as an implementer — run, with this run's working-notes merge
+base and every capability spec the proposal names as `<spec-path>` — the spec's
+`<project>/spectre/specs/<capability>.md`, relative to `<project>`:
+
+```bash
+refresh-plan-base.sh <worktree> <merge-base> <changeRoot>/tasks.md <spec-path>…
+```
+
+Exit 0 prints `UNMOVED:` — record that one line — or `MOVED:` followed by the `CHANGED:` paths
+the plan's `**Files:**` declares and each spec's text at the moved base (`SPEC-ABSENT:` when it is
+gone there); exit 2 stops the run. The script's header (`<agents repo>/scripts/refresh-plan-base.sh`)
+is canonical for its output. On `MOVED:`, **name every route or requirement the plan adds that the
+moved base now already carries**. A collision is reconciled before task 1 runs, under **A pivot
+reconciles the three artifacts together** (section 4 below) — never discovered mid-task. The step
+names, it never rebases: the change branch is synced onto the base at integrate (**Sync the branch
+onto the base**, `skills/flow/sync-onto-base.md`).
 
 **Whether there is anything left to implement is read off the task checkboxes**, from
 `spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change:
@@ -247,11 +251,16 @@ default branch without explicit consent.
 exists — never defer this to the end of the run.** A run that stops, is interrupted, or is
 resumed after a context compaction anywhere between here and `flow.write-in-progress`
 (`skills/flow/verify-and-handoff.md`) must not leave the state record looking like a creating run
-with no worktrees, when real worktrees, branches and commits already exist. Read the current record with `flow state get`, merge in this worktree's
-`<abs-path>: <merge-base-sha>` entry (never drop an existing peer's entry already present from an
-earlier worktree in this same run), and write the merged record back with `flow state set` —
-`state` stays exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still
-the only step entitled to flip it to `IN_PROGRESS`). Do this once per worktree, immediately after
+with no worktrees, when real worktrees, branches and commits already exist. Record it with one
+call, which keeps every peer's entry and leaves `state` exactly as read (a creating run stays
+`STARTED`; `flow.write-in-progress` is still the only step entitled to flip it to `IN_PROGRESS`):
+
+```bash
+flow state add-worktree <name> <abs-path> <merge-base-sha>
+```
+
+It exits 2 on a relative path or a malformed sha, and 1 when no `STARTED` record exists yet,
+writing nothing either way. Do this once per worktree, immediately after
 `spectre link` succeeds for it (or immediately after resuming it, on a fix or resumed run), not
 batched at the end. The kickoff worktree's own entry never waits for this stage: it is recorded
 where the worktree is created — `skills/flow/brainstorm.md` step 3 — so on a first creating run
@@ -579,48 +588,44 @@ under `full-suite-fix-<n>`, and re-runs the list. Any other failure is the last 
 entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
 
 1. **Group N+1's implementer commits** and writes its report; the wait above ends.
-2. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
-   is new, the gate on every commit the guard passed, `flow tasks tick` for every task the guard
-   passed and the gate left unfired, and group N+2's gather.** The guard,
-   the gate, the tick and the gather are the parent's own Bash calls. The
-   guard takes the canonical worktree's absolute path (the worktree created or resumed in
-   **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
-   its sixth; the fourth is the empty placeholder that skips the parent-sha — the guard derives
-   the commit's parent itself:
+2. **One Bash call: `close-task.sh` and group N+2's gather.** Both are the parent's own Bash calls.
+   `close-task.sh` runs the implementer's `record dispatch end`, the guard on every commit
+   whose sha is new and `check-task-commit-planning-paths.sh <canonical-worktree> <merge-base>`
+   over every commit since the merge base recorded in this run's working notes; only when both
+   pass, the **review gate** on every
+   task, `flow tasks tick` for every task the gate left `QUIET`, and
+   `git -C <worktree> push origin spectre/<name>` per **Branch backup**
+   (`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer.
 
    ```bash
-   check-task-commit-fields.sh <worktree> <task-id> <task-sha> "" <canonical-worktree> <name>
+   close-task.sh -end-key <key> -session-token mf-<literal-token> -end-commit <sha> \
+     [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>:<task-sha> …
    ```
 
-   **On a change whose resolved worktree set spans more than one repository, the third argument
-   is the per-repository commit map instead of one sha** — `"<worktree>=<sha>[,<worktree>=<sha>…]"`,
-   one pair per repository carrying any of the task's commits, the fourth argument still empty
-   (the map derives each commit's parent in its own repository) — so every task's
-   `**Commit:**`/`**Files:**`/`**Tests:**`/`**Baseline:**` fields are guard-checked regardless
-   of how many repositories the change spans. The verdict merges across the listed
-   repositories; the guard's own header (`<agents repo>/scripts/check-task-commit-fields.sh`,
+   `<canonical-worktree>` is the worktree created or resumed in **2. Isolate the workspace**
+   above, `<name>` this run's resolved name. **On a change whose resolved worktree set spans more
+   than one repository, a task's sha is the per-repository commit map instead** —
+   `<task-id>:<worktree>=<sha>[,<worktree>=<sha>…]`, one pair per repository carrying any of the
+   task's commits; the guard's own header (`<agents repo>/scripts/check-task-commit-fields.sh`,
    THE COMMIT MAP) is canonical for the form. A task that landed in one repository passes that repository's
    pair alone, which is the single-sha form; skipping the guard on a cross-repo change and
    checking fields by hand is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
+   `-undeclared` carries the paths a fields refusal named for that task (**The record carries
+   its own corrections**, below). The script's header (`<agents repo>/scripts/close-task.sh`) is
+   canonical for its arguments and its order.
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
-   launches: **exit 1** is the parent's own fix — it re-commits that task itself and
-   re-runs the guard before anything below; **exit 2 — the guard's not-a-verdict close (an
-   unreadable plan, a task it cannot resolve, a commit range git cannot resolve, a usage error) —
+   launches: **exit 1** — a fields refusal, or a task commit whose diff touches
+   `<project>/spectre/changes/` (leaf resolved per project) or `<project>/docs/superpowers/` —
+   is the parent's own fix, with nothing ticked or pushed: it re-commits that task itself,
+   without the swept paths, and re-runs `close-task.sh` without the `-end-*` flags before
+   anything below; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
+   cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
-   the re-commit loop; exit 0 computes that commit's **review gate** (two
-   sentences down) and ticks the task in the same call only when the gate does not fire — a fired
-   gate defers the tick to the task's reviewer, below — and, either way, the same call then runs
-   `git -C <worktree> push origin spectre/<name>` per **Branch backup**
-   (`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer.
-   The same Bash call also runs `check-task-commit-planning-paths.sh <worktree> <merge-base>`
-   — the merge base recorded in this run's working notes — over every commit since it: exit 1
-   names each task commit whose diff touches `<project>/spectre/changes/` (leaf resolved per
-   project) or `<project>/docs/superpowers/` and is the same parent fix as a fields refusal, the
-   parent re-committing without the swept paths before either guard re-runs; exit 2
-   stops the run.
+   the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line; a fired
+   gate defers the tick to the task's reviewer, below.
 
    **A guard call that times out is inspected before it is retried.** Run
    `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A
@@ -635,14 +640,19 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 
-**The review gate.** After the guard passes a task's commit, the parent computes that commit's
-gate from two facts, both read in the same Bash call as the guard's verdict:
-`git diff --numstat <task-sha>^..<task-sha>` summed over its inserted and deleted lines, and
-`git diff --name-only <task-sha>^..<task-sha>` set against the task's own declared surface — the
-paths in its `**Files:**` field plus everything its optional `**Allowed-collateral:**` glob
-covers. **The gate fires when the commit changes more than 40 lines, or touches any path outside
-that declared set.** Forty changed lines is the boundary below which a diff still is one glance;
-apply it as stated, never argue it away per run.
+**The review gate.** After the guard passes a task's commit, `close-task.sh` judges that commit's
+gate through `check-review-gate.sh`, with every path the guard's refusal named for that task —
+the paths its `-undeclared` flag carries:
+
+```bash
+check-review-gate.sh <worktree> <task-id> <task-sha|map> <canonical-worktree> <name> [<refused-path>…]
+```
+
+**The gate fires when the commit changes more than 40 lines, or touches any path outside
+the task's declared set** — its `**Files:**` plus its `**Allowed-collateral:**` globs; the
+script's header (`<agents repo>/scripts/check-review-gate.sh`) is canonical for how both are
+counted. It prints `FIRE: task <id> — …` or `QUIET: task <id> — …` and exits 0; **exit 2 — it
+could not judge — stops the run**, as the guard's own exit 2 does.
 
 **The guard's pass ticks an ungated task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
 once `check-task-commit-fields.sh` exits 0 on its commit and the gate does not fire — no reviewer

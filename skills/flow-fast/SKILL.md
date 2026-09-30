@@ -21,10 +21,10 @@ database, bucket, ports and cache index of **Workspace isolation**
 instructions on a re-run; report anything else rather than ignoring it.
 
 **Every mark is a literal call.** `<harness>` is this harness's name, `ff-<literal-token>` is one
-token generated once at the start of the run and typed the same at every `stage begin` — never a
-shell substitution, per the CLI's own usage text. Two adjacent lines with nothing between them
-mark a stage `/flow-fast` has nothing to run for; the mark stays so the run's stage set matches
-`/flow`'s.
+token generated once at the start of the run and typed the same at every `stage begin` and
+`stage mark` — never a shell substitution, per the CLI's own usage text. A `flow stage mark` line
+marks each `-stages` key begun and ended `completed`, in order: the stages `/flow-fast` has nothing
+to run for; the mark stays so the run's stage set matches `/flow`'s.
 
 **Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
 an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never
@@ -79,14 +79,14 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
   fixed by editing the plan. A re-run replaces the file with
   the fix's own tasks.
-- **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and its tree table
+- **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
   (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block under its `planning:`/`reviewers:` lines.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
-  written except that `check-task-commit-fields.sh` is not run and no task is ticked:
-  section 5's lint and tests are what close a group. On `inline`, section 4 as this file states
-  it.
+  written except its task close: `close-task.sh` is not run — its fields guard, gate and tick read a spectre plan,
+  and its planning-paths guard a planning tree, neither of which flow-fast writes. A group closes on the implementer's
+  `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests. On `inline`, section 4 as this file states it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
   written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs no panel.
 
@@ -101,8 +101,7 @@ constraints on a summary-derived name. Then transition the issue to **In Progres
 **Transitions** there. Then:
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.kickoff -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 **A re-run is detected, never recorded**: `<project>/.worktrees/<name>` already existing means an
@@ -180,21 +179,23 @@ flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harnes
 
 The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
 Claude Code, `<project>/AGENTS.md` on ZCode); never read either one here. Read
-`<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, each
-read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first
-three, and `## handoff` says whether the run stops between them.
+`<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, the
+first two read with `project-get.sh <project> <key>`, `## handoff` with
+`project-get.sh <project> handoff --enum required none` and `## default landing route` with
+`project-get.sh <project> "default landing route" --enum "pull request" "merge and push" manual`
+(exit 1 absent; exit 3 malformed — report its stderr line by name and resolve as absent): sections
+5 and 7 take their commands from the first three, and `## handoff` says whether the run stops
+between them.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.load-context -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.isolate-workspace -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 On a re-run only:
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.document-fix -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 Then:
@@ -270,8 +271,7 @@ on `<default-branch>` and deletes the bundle in its report commit.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.stage-diff -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
 flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
@@ -288,15 +288,13 @@ re-run, not by this one.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.run-instructions -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.write-in-progress -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 ## 6. Preflight
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.preflight -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
 flow stage begin -command '/flow-fast' -stage flow.unfinished-work-gate -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
@@ -308,18 +306,14 @@ flow stage end   -command '/flow-fast' -stage flow.unfinished-work-gate -outcome
 flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-The route is `## default landing route` when the project declares one (`pull request`,
-`merge and push` or `manual`), matched byte-for-byte per **Project configuration**
-(`skills/flow-contracts/project-configuration.md`) and read without asking. When the project
-declares none: with `## handoff` `required`, ask once through **AskUserQuestion** with those three
-options, `pull request` recommended; with `## handoff` `none`, take `pull request` without asking.
+The route is what section 4's `## default landing route` `--enum` call resolved, taken without
+asking. When it resolved none (exit 1 or 3): with `## handoff` `required`, ask once through
+**AskUserQuestion** with the options `pull request`, `merge and push` and `manual`, `pull request`
+recommended; with `## handoff` `none`, take `pull request` without asking.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.landing-question -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.preserve-sessions -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.preserve-sessions -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.commit-two -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.preserve-sessions,flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 ## 7. Land
@@ -378,10 +372,7 @@ nothing.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.sync-archive -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.sync-archive -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.commit-archive -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.sync-archive,flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
 flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
@@ -397,10 +388,7 @@ why.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.cleanup -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.write-finished -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.write-finished -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
-flow stage end   -command '/flow-fast' -stage flow.push-archive -outcome completed <name>
+flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 Transition the Jira issue to **Done**, the same way as before. End by naming the landed commit

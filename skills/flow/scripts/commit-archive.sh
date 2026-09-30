@@ -1,0 +1,1 @@
+../../../scripts/commit-archive.sh

@@ -101,7 +101,7 @@ check "case 2: a cached flow-guard answers with no go on PATH" $?
 
 # 3. Reached through a skills/flow/scripts/ symlink, the shim still finds the
 #    checkout's stats/ (the lib symlink resolves physically) and the cache.
-run env PATH="$NOGO_PATH" "$REPO/skills/flow/scripts/check-task-commit-fields.sh"
+run env PATH="$NOGO_PATH" "$REPO/skills/flow/scripts/check-cleanup-complete.sh"
 [ "$RC" -eq 2 ] && [[ "$OUT" == *usage* ]] && [[ "$OUT" != *"cannot build flow-guard"* ]]
 check "case 3: a shim reached through a skill's scripts/ symlink runs the checkout's cached flow-guard" $?
 

@@ -156,31 +156,10 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "check-cleanup-complete: cannot list the worktrees of %s — cannot determine anything\n", repo)
 		return 2
 	}
-	var wts, copies []string
-	wt := ""
-	// The path is the whole rest of the `worktree ` line, never a
-	// whitespace-split field: `worktree list --porcelain` emits the path raw, so
-	// a worktree under a TMPDIR or a home directory containing a space is
-	// truncated at the first one by a field reference, and the operator is then
-	// sent to a path that does not exist. The branch is a ref name and cannot
-	// contain a space, so its first field is right for it — and the comparison
-	// is for EQUALITY, so a neighbouring change's spectre/<name>-something is
-	// not reported as this change's leftover.
-	//
 	// A worktree still listed after `git worktree prune` should have run is a
 	// leftover whether or not its directory survives: the registration is what
 	// run 2 is required to remove.
-	for _, l := range strings.Split(string(porcelain), "\n") {
-		if p, ok := strings.CutPrefix(l, "worktree "); ok {
-			wt = p
-		} else if b, ok := strings.CutPrefix(l, "branch "); ok {
-			if f := strings.Fields(b); len(f) > 0 && f[0] == "refs/heads/spectre/"+name {
-				wts = append(wts, wt)
-			}
-		} else if l == "detached" && ccWaveGroupCopy(wt, name) {
-			copies = append(copies, wt)
-		}
-	}
+	wts, copies := changeWorktrees(porcelain, name)
 	if len(wts) > 0 {
 		add(fmt.Sprintf("worktree(s) still registered for spectre/%s at %s", name, strings.Join(wts, ", ")))
 	}
@@ -924,6 +903,36 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 	}
 	out, _ = os.ReadFile(scratch.Name())
 	return out, rrExitCode(cmd.ProcessState), timedOut, true
+}
+
+// changeWorktrees reads `git worktree list --porcelain` output: the
+// worktrees checked out on refs/heads/spectre/<name>, and the detached
+// wave-group copies of that change's apply worktree (ccWaveGroupCopy), each
+// in git's listed order. check-cleanup-complete reports them as leftovers;
+// remove-change-worktrees removes them.
+//
+// The path is the whole rest of the `worktree ` line, never a
+// whitespace-split field: `worktree list --porcelain` emits the path raw, so
+// a worktree under a TMPDIR or a home directory containing a space is
+// truncated at the first one by a field reference, and the operator is then
+// sent to a path that does not exist. The branch is a ref name and cannot
+// contain a space, so its first field is right for it — and the comparison
+// is for EQUALITY, so a neighbouring change's spectre/<name>-something is
+// not taken for this change's worktree.
+func changeWorktrees(porcelain []byte, name string) (wts, copies []string) {
+	wt := ""
+	for _, l := range strings.Split(string(porcelain), "\n") {
+		if p, ok := strings.CutPrefix(l, "worktree "); ok {
+			wt = p
+		} else if b, ok := strings.CutPrefix(l, "branch "); ok {
+			if f := strings.Fields(b); len(f) > 0 && f[0] == "refs/heads/spectre/"+name {
+				wts = append(wts, wt)
+			}
+		} else if l == "detached" && ccWaveGroupCopy(wt, name) {
+			copies = append(copies, wt)
+		}
+	}
+	return wts, copies
 }
 
 // ccWaveGroupCopy reports whether path is a wave-group throwaway copy of

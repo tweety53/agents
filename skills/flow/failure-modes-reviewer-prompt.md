@@ -104,11 +104,3 @@
     **Ready for the human gate?** [Yes | No | With fixes]
     **Reasoning:** [why]
 ```
-
-**Placeholders:**
-- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff` —
-  `fix-round-N.diff` instead on a decided panel or a scoped round — per
-  **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
-- `[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
-  (`skills/flow/review-panel.md`): one path per worktree in this run's resolved set.

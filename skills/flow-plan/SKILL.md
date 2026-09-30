@@ -199,8 +199,8 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
 Every guard those sections invoke resolves per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries
 each one those sections run: `check-planning-commit-location.sh <worktree> <name>` (the commit
-below), `check-worktree-location.sh <project>` and
-`project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate),
+below), `kickoff-worktree.sh <project> <name>` with its siblings
+`check-worktree-location.sh <project>` and `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate),
 `plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and
 `plan-dispatch-groups.sh <tasks.md>` (Decide).
 

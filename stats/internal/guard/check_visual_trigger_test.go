@@ -28,7 +28,10 @@ const (
 	vtNoRoot = "check-visual-trigger: "
 	vtMatch  = "VISUAL-TRIGGER-MATCH: $ROOT — at least one changed path matched `ui paths`\n"
 	vtNone   = "VISUAL-TRIGGER-NO-MATCH: $ROOT — no changed path matched `ui paths`\n"
-	vtAbsent = vtNoRoot + "`ui paths` is absent or empty in $ROOT/.flow/project.md — cannot resolve what to match against\n"
+	vtAbsent = vtNoRoot + "`ui paths` is absent or empty in $ROOT/.flow/project.md — cannot resolve what to match against\n" + vtCannot + "`ui paths` is absent or empty\n"
+	vtNotCfg = "VISUAL-TRIGGER-NOT-CONFIGURED: $ROOT — no visual verification section\n"
+	vtCannot = "VISUAL-TRIGGER-CANNOT-ANSWER: $ROOT — "
+	vtUsage  = vtNoRoot + "usage: check-visual-trigger.sh <project root> (changed paths on stdin)\nVISUAL-TRIGGER-CANNOT-ANSWER: (no root) — usage\n"
 )
 
 // vtSection is the harness's section with cell as the `ui paths` value cell.
@@ -106,9 +109,9 @@ func TestCheckVisualTrigger(t *testing.T) {
 	noSection := "# Project\n\n## run\n\necho hi\n"
 	cases := map[string]vtCase{
 		"case 1": {paths: []string{"stats/web/src/App.tsx"}, code: 2,
-			err: vtNoRoot + "$ROOT has no .flow/project.md — not configured, so nothing was matched\n"},
+			err: vtNoRoot + "$ROOT has no .flow/project.md — not configured, so nothing was matched\n" + vtNotCfg},
 		"case 2": {cfg: &noSection, paths: []string{"stats/web/src/App.tsx"}, code: 2,
-			err: vtNoRoot + "$ROOT/.flow/project.md declares no '## visual verification' section — not configured, so nothing was matched\n"},
+			err: vtNoRoot + "$ROOT/.flow/project.md declares no '## visual verification' section — not configured, so nothing was matched\n" + vtNotCfg},
 		"case 3": {cfg: vtStr(vtPre + vtPost), paths: []string{"stats/web/src/App.tsx"}, code: 2, err: vtAbsent},
 		"case 4": {cfg: vtStr(vtPre + "| `ui paths` | |\n" + vtPost), paths: []string{"stats/web/src/App.tsx"}, code: 2, err: vtAbsent},
 		"case 5": {cfg: &vtMinimal, paths: []string{"stats/web/src/App.tsx"}, code: 0,
@@ -125,11 +128,11 @@ func TestCheckVisualTrigger(t *testing.T) {
 		"case 15": {cfg: vtStr(vtSection("`gymie-frontend/**, gymie-admin-frontend/**`")), paths: []string{"gymie-admin-frontend/src/App.tsx"}, code: 0,
 			out: vtMatched("gymie-admin-frontend/src/App.tsx", "gymie-admin-frontend/**") + vtMatch},
 		"case 16": {root: "/nonexistent/check-visual-trigger-test", paths: []string{"stats/web/src/App.tsx"}, code: 2,
-			err: vtNoRoot + "$ROOT is not a directory — cannot tell whether it declares a visual verification section\n"},
+			err: vtNoRoot + "$ROOT is not a directory — cannot tell whether it declares a visual verification section\n" + vtCannot + "not a directory\n"},
 		"case 17": {setup: func(t *testing.T, root string) { mkdir(t, root+"/.flow/project.md") }, paths: []string{"stats/web/src/App.tsx"}, code: 2,
-			err: vtNoRoot + "$ROOT/.flow/project.md is not a regular file — cannot resolve what it declares\n"},
+			err: vtNoRoot + "$ROOT/.flow/project.md is not a regular file — cannot resolve what it declares\n" + vtCannot + ".flow/project.md is not a regular file\n"},
 		"case 18": {cfg: vtStr(vtMinimal + "\n\n" + vtMinimal), paths: []string{"stats/web/src/App.tsx"}, code: 2,
-			err: vtNoRoot + "$ROOT/.flow/project.md declares 2 '## visual verification' sections — a second declaration is ambiguous, so neither was read\n"},
+			err: vtNoRoot + "$ROOT/.flow/project.md declares 2 '## visual verification' sections — a second declaration is ambiguous, so neither was read\n" + vtCannot + "the section is declared more than once\n"},
 		"case 19": {cfg: &vtMinimal, bom: true, paths: []string{"stats/web/src/App.tsx"}, code: 0,
 			out: vtMatched("stats/web/src/App.tsx", "stats/web/src/**") + vtMatch, contains: []string{"MATCH"}, omits: []string{"not configured"}},
 		"case 19b": {cfg: &vtMinimal, bom: true, paths: []string{"README.md"}, code: 1, out: vtNone, omits: []string{"not configured"}},
@@ -222,12 +225,10 @@ func TestCheckVisualTrigger(t *testing.T) {
 		args  []string // nil: the temp root
 		c     vtCase
 	}{
-		{"no root argument is a usage error", []string{}, vtCase{code: 2,
-			err: vtNoRoot + "usage: check-visual-trigger.sh <project root> (changed paths on stdin)\n"}},
-		{"two arguments is a usage error", []string{"a", "b"}, vtCase{code: 2,
-			err: vtNoRoot + "usage: check-visual-trigger.sh <project root> (changed paths on stdin)\n"}},
+		{"no root argument is a usage error", []string{}, vtCase{code: 2, err: vtUsage}},
+		{"two arguments is a usage error", []string{"a", "b"}, vtCase{code: 2, err: vtUsage}},
 		{"an empty root is not a directory", []string{""}, vtCase{code: 2,
-			err: vtNoRoot + " is not a directory — cannot tell whether it declares a visual verification section\n"}},
+			err: vtNoRoot + " is not a directory — cannot tell whether it declares a visual verification section\nVISUAL-TRIGGER-CANNOT-ANSWER:  — not a directory\n"}},
 		{"a final stdin line without a newline is read", nil, vtCase{cfg: &vtMinimal, stdin: "README.md\nstats/web/src/App.tsx", code: 0,
 			out: vtMatched("stats/web/src/App.tsx", "stats/web/src/**") + vtMatch}},
 		{"a NUL byte in a stdin line is dropped, as bash's read drops it", nil, vtCase{cfg: &vtMinimal, stdin: "stats/web/src/A\x00pp.tsx\n", code: 0,
@@ -245,7 +246,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 		{"a control byte in a matched path is escaped", nil, vtCase{cfg: vtStr(vtSection("`a/**`")), paths: []string{"a/\x1b[31mx"}, code: 0,
 			out: vtMatched(`a/\x1b[31mx`, "a/**") + vtMatch}},
 		{"a ui paths cell of separators and backticks alone resolves to no usable glob", nil, vtCase{cfg: vtStr(vtSection("` , `")), code: 2,
-			err: vtNoRoot + "`ui paths` in $ROOT/.flow/project.md resolved to no usable glob\n"}},
+			err: vtNoRoot + "`ui paths` in $ROOT/.flow/project.md resolved to no usable glob\n" + vtCannot + "`ui paths` resolved to no usable glob\n"}},
 		{"a NUL byte in the cell ends the row, as awk ends a record at it", nil, vtCase{cfg: vtStr(vtSection("`a/**\x00zz`, `b/**`")), paths: []string{"b/x"}, code: 1, out: vtNone}},
 		{"a ui paths row outside the section is not read", nil, vtCase{cfg: vtStr("| `ui paths` | `a/**` |\n\n" + vtPre + vtPost), paths: []string{"a/x"}, code: 2, err: vtAbsent}},
 		{"a deeper heading keeps the section open", nil, vtCase{cfg: vtStr(vtPre + "### sub\n| `ui paths` | `a/**` |\n"), paths: []string{"a/x"}, code: 0, out: vtMatched("a/x", "a/**") + vtMatch}},
@@ -253,16 +254,16 @@ func TestCheckVisualTrigger(t *testing.T) {
 			if err := os.Symlink(root+"/nowhere", root+"/.flow/project.md"); err != nil {
 				t.Fatal(err)
 			}
-		}, code: 2, err: vtNoRoot + "$ROOT/.flow/project.md is not a regular file — cannot resolve what it declares\n"}},
+		}, code: 2, err: vtNoRoot + "$ROOT/.flow/project.md is not a regular file — cannot resolve what it declares\n" + vtCannot + ".flow/project.md is not a regular file\n"}},
 		{"an unreadable project.md is cannot-answer", nil, vtCase{cfg: &vtMinimal, setup: func(t *testing.T, root string) {
 			if err := os.Chmod(root+"/.flow/project.md", 0); err != nil {
 				t.Fatal(err)
 			}
-		}, code: 2, err: vtNoRoot + "$ROOT/.flow/project.md exists but is not readable — cannot resolve what it declares\n"}},
+		}, code: 2, err: vtNoRoot + "$ROOT/.flow/project.md exists but is not readable — cannot resolve what it declares\n" + vtCannot + ".flow/project.md is not readable\n"}},
 		// $ROOT reaches this line through sanitize_display; the other
 		// refusals and the verdict line print it raw.
 		{"a control byte in the root reaches the sanitized refusal escaped", nil, vtCase{sub: "/x\x1b", cfg: vtStr(vtPre + vtPost), code: 2,
-			err: vtNoRoot + "`ui paths` is absent or empty in $SROOT/.flow/project.md — cannot resolve what to match against\n"}},
+			err: vtNoRoot + "`ui paths` is absent or empty in $SROOT/.flow/project.md — cannot resolve what to match against\n" + vtCannot + "`ui paths` is absent or empty\n"}},
 		{"a control byte in the root reaches the verdict line raw", nil, vtCase{sub: "/x\x1b", cfg: &vtMinimal, code: 1, out: vtNone}},
 	}
 	for _, e := range extra {
@@ -292,7 +293,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 		writeFile(t, root+"/.flow/project.md", vtMinimal+"\n")
 		var out, errb bytes.Buffer
 		code := Registry["check-visual-trigger"]([]string{root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
-		if code != 2 || out.Len() != 0 || errb.String() != vtPrefix+"cannot read stdin: boom\n" {
+		if code != 2 || out.Len() != 0 || errb.String() != vtPrefix+"cannot read stdin: boom\nVISUAL-TRIGGER-CANNOT-ANSWER: "+root+" — stdin could not be read\n" {
 			t.Fatalf("got exit %d stdout %q stderr %q", code, out.String(), errb.String())
 		}
 	})
@@ -303,7 +304,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 		var out, errb bytes.Buffer
 		missing := t.TempDir() + "/missing"
 		code := Registry["check-visual-trigger"]([]string{missing}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: vtUnreadable{t}}, &out, &errb)
-		if code != 2 || out.Len() != 0 || errb.String() != vtPrefix+missing+" is not a directory — cannot tell whether it declares a visual verification section\n" {
+		if code != 2 || out.Len() != 0 || errb.String() != vtPrefix+missing+" is not a directory — cannot tell whether it declares a visual verification section\nVISUAL-TRIGGER-CANNOT-ANSWER: "+missing+" — not a directory\n" {
 			t.Fatalf("got exit %d stdout %q stderr %q", code, out.String(), errb.String())
 		}
 	})
@@ -315,4 +316,68 @@ type vtUnreadable struct{ t *testing.T }
 func (u vtUnreadable) Read([]byte) (int, error) {
 	u.t.Error("stdin was read before the refusal")
 	return 0, io.EOF
+}
+
+// TestVisualTriggerExit2Tokens pins the cause token every exit 2 ends its
+// stderr with (design-verify.md, VH-25): NOT-CONFIGURED for the two
+// "no section" answers a caller turns into `Visual: not configured`,
+// CANNOT-ANSWER for every other refusal, and neither token on exit 0 or 1.
+func TestVisualTriggerExit2Tokens(t *testing.T) {
+	t.Parallel()
+	const notCfg, cannot = "VISUAL-TRIGGER-NOT-CONFIGURED: ", "VISUAL-TRIGGER-CANNOT-ANSWER: "
+	cases := []struct {
+		label string
+		c     vtCase
+		token string // "" on exit 0/1: no token line at all
+	}{
+		{"no .flow/project.md", vtCase{paths: []string{"a"}}, notCfg},
+		{"no visual verification section", vtCase{cfg: vtStr("# Project\n")}, notCfg},
+		{"not a directory", vtCase{root: "/nonexistent/vt-token"}, cannot},
+		{"project.md not a regular file", vtCase{setup: func(t *testing.T, root string) { mkdir(t, root+"/.flow/project.md") }}, cannot},
+		{"project.md unreadable", vtCase{cfg: &vtMinimal, setup: func(t *testing.T, root string) {
+			if err := os.Chmod(root+"/.flow/project.md", 0); err != nil {
+				t.Fatal(err)
+			}
+		}}, cannot},
+		{"duplicate section", vtCase{cfg: vtStr(vtMinimal + "\n\n" + vtMinimal)}, cannot},
+		{"ui paths absent", vtCase{cfg: vtStr(vtPre + vtPost)}, cannot},
+		{"ui paths no usable glob", vtCase{cfg: vtStr(vtSection("` , `"))}, cannot},
+		{"matched", vtCase{cfg: &vtMinimal, paths: []string{"stats/web/src/App.tsx"}}, ""},
+		{"unmatched", vtCase{cfg: &vtMinimal, paths: []string{"README.md"}}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.label, func(t *testing.T) {
+			t.Parallel()
+			code, out, errOut, root := vtRun(t, tc.c)
+			vtAssertToken(t, code, out+errOut, errOut, tc.token, root)
+		})
+	}
+	for _, args := range [][]string{{}, {"a", "b"}} {
+		var out, errb bytes.Buffer
+		code := Registry["check-visual-trigger"](args, Env{Getenv: os.Getenv, Dir: t.TempDir()}, &out, &errb)
+		vtAssertToken(t, code, out.String()+errb.String(), errb.String(), cannot, "(no root)")
+	}
+	root := t.TempDir()
+	writeFile(t, root+"/.flow/project.md", vtMinimal+"\n")
+	var out, errb bytes.Buffer
+	code := Registry["check-visual-trigger"]([]string{root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
+	vtAssertToken(t, code, out.String()+errb.String(), errb.String(), cannot, root)
+}
+
+// vtAssertToken: token "" wants exit 0/1 and no token anywhere; otherwise
+// exit 2 with exactly one token line, stderr's last, naming root.
+func vtAssertToken(t *testing.T, code int, all, errOut, token, root string) {
+	t.Helper()
+	if token == "" {
+		if code == 2 || strings.Contains(all, "VISUAL-TRIGGER-NOT-CONFIGURED") || strings.Contains(all, "VISUAL-TRIGGER-CANNOT-ANSWER") {
+			t.Fatalf("exit %d output %q: want a verdict and no exit-2 token", code, all)
+		}
+		return
+	}
+	lines := strings.Split(strings.TrimSuffix(errOut, "\n"), "\n")
+	last := lines[len(lines)-1]
+	if code != 2 || !strings.HasPrefix(last, token+root+" — ") ||
+		strings.Count(all, "VISUAL-TRIGGER-NOT-CONFIGURED")+strings.Count(all, "VISUAL-TRIGGER-CANNOT-ANSWER") != 1 {
+		t.Fatalf("exit %d stderr %q: want exit 2 ending in one %q line for %q", code, errOut, token, root)
+	}
 }

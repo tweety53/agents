@@ -122,6 +122,7 @@ const maxStdinBytes = 1 << 20
 
 const stateUsage = `usage: flow state get     [-addr url] [-timeout dur] [-C dir] <name>
        flow state set     [-addr url] [-timeout dur] [-C dir] <name>
+       flow state add-worktree [-addr url] [-timeout dur] [-C dir] <name> <abs-path> <merge-base>
        flow state list    [-addr url] [-timeout dur] [-C dir]
        flow state find    [-addr url] [-timeout dur] [-C dir] <name>
        flow state resolve [-addr url] [-timeout dur] [-C dir]
@@ -140,6 +141,13 @@ silently guessed. This retry never runs against the fallback path: a
 degraded, partial candidate set is worse than the plain "no state" miss it
 would otherwise replace.
 state set reads the change's whole state as JSON from stdin.
+state add-worktree records one worktree in the change's record: it reads the
+record (exact name; the on-disk fallback when the store is unreachable), sets
+worktrees[<abs-path>] to <merge-base>, keeps every other field and every peer
+worktree -- state is never touched -- and writes it back as state set does.
+It exits 2 on a relative path or a merge base that is not a 40-character
+lowercase hex sha, and 1 when no record, or only a stage mark's synthetic
+record, exists yet -- writing nothing in either case.
 state find prints every project's record for one change name -- records
 are keyed by project and name together, so the answer is an array of
 matching records, never one. On any store failure it falls back to
@@ -183,6 +191,8 @@ func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStateGet(ctx, args[1:], stdout, stderr)
 	case "set":
 		return runStateSet(ctx, args[1:], stdin, stdout, stderr)
+	case "add-worktree":
+		return runStateAddWorktree(ctx, args[1:], stderr)
 	case "list":
 		return runStateList(ctx, args[1:], stdout, stderr)
 	case "find":
@@ -232,9 +242,17 @@ type stateFlags struct {
 	timeout time.Duration
 	dir     string
 	name    string
+	// args is every positional argument; name is args[0].
+	args []string
 }
 
 func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateFlags, error) {
+	return parseStateFlagsN(fset, args, stderr, 1, "expected exactly one argument, the change name")
+}
+
+// parseStateFlagsN is parseStateFlags for a verb taking n positional
+// arguments, the first the change name; wrong names the refusal.
+func parseStateFlagsN(fset *flag.FlagSet, args []string, stderr io.Writer, n int, wrong string) (stateFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateFlags{}
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
@@ -244,10 +262,11 @@ func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (state
 		return stateFlags{}, err
 	}
 	noteAddrUsage(fset, stderr, f.addr)
-	if fset.NArg() != 1 {
-		return stateFlags{}, fmt.Errorf("expected exactly one argument, the change name")
+	if fset.NArg() != n {
+		return stateFlags{}, errors.New(wrong)
 	}
-	f.name = fset.Arg(0)
+	f.args = fset.Args()
+	f.name = f.args[0]
 	dir, err := resolveFlagDir(f.dir)
 	if err != nil {
 		return stateFlags{}, err
@@ -394,10 +413,17 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 		return 2
 	}
 
+	return writeState(ctx, f, body, stderr)
+}
+
+// writeState is state set's write tail, shared with state add-worktree:
+// stamp, validate, put, and on a store that cannot answer the on-disk file
+// plus the journal entry.
+func writeState(ctx context.Context, f stateFlags, body []byte, stderr io.Writer) int {
 	// Stamp before anything reads body: the store request, the on-disk
 	// fallback file and the journal entry are all derived from this
 	// variable further down, so one clock read reaches all three.
-	body, err = stampUpdatedAt(body)
+	body, err := stampUpdatedAt(body)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: stamp updatedAt: %v\n", err)
 		return 1
@@ -436,6 +462,76 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 		fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal")
 		return 0
 	}
+}
+
+// runStateAddWorktree implements `flow state add-worktree <name> <abs-path>
+// <merge-base>`: read the change's record, set worktrees[<abs-path>] to
+// <merge-base>, write it back through writeState. The merge is over the raw
+// JSON object, so every other field -- state included -- and every peer
+// worktree reaches the write unchanged. Both arguments are validated before
+// anything is read, and a missing or synthetic-only record is refused
+// before anything is written: a worktree is recorded only onto a change
+// whose STARTED write has happened.
+func runStateAddWorktree(ctx context.Context, args []string, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow state add-worktree", flag.ContinueOnError)
+	f, err := parseStateFlagsN(fset, args, stderr, 3,
+		"expected three arguments: the change name, the worktree's absolute path and its merge base")
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stateUsage)
+		return 2
+	}
+	path, mergeBase := f.args[1], f.args[2]
+	if !filepath.IsAbs(path) {
+		fmt.Fprintf(stderr, "flow: worktree path %q is not absolute\n", path)
+		return 2
+	}
+	if !mergeBasePattern.MatchString(mergeBase) {
+		fmt.Fprintf(stderr, "flow: merge base %q is not a 40-character lowercase hex sha\n", mergeBase)
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	body, getErr := getChange(ctx, f.addr, f.timeout, projectKey, f.name)
+	switch {
+	case getErr == nil:
+	case errors.Is(getErr, client.ErrNotFound):
+		body = nil
+	default:
+		fmt.Fprintln(stderr, "⚠ flow: store unreachable — read local fallback")
+		body, _ = fallback.ReadStateFile(fallback.StateFilePath(projectKey, f.name))
+	}
+	var record map[string]json.RawMessage
+	if len(body) == 0 || json.Unmarshal(body, &record) != nil || record == nil {
+		fmt.Fprintf(stderr, "flow: no state recorded for %s/%s -- write STARTED before adding a worktree\n", projectKey, f.name)
+		return 1
+	}
+	var updatedBy string
+	_ = json.Unmarshal(record["updatedBy"], &updatedBy)
+	if updatedBy == stages.SyntheticChangeUpdatedBy {
+		fmt.Fprintf(stderr, "flow: only a synthetic record for %s/%s -- write STARTED before adding a worktree\n", projectKey, f.name)
+		return 1
+	}
+
+	var worktrees map[string]json.RawMessage
+	if err := json.Unmarshal(record["worktrees"], &worktrees); err != nil || worktrees == nil {
+		worktrees = map[string]json.RawMessage{}
+	}
+	worktrees[path], _ = json.Marshal(mergeBase)
+	record["worktrees"], _ = json.Marshal(worktrees)
+	merged, err := json.Marshal(record)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode merged state: %v\n", err)
+		return 1
+	}
+	return writeState(ctx, f, merged, stderr)
 }
 
 // stateListFlags is parseStateFlags' sibling for `state list`, which takes

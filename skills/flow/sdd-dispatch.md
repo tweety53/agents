@@ -20,33 +20,22 @@ landed — committed and guard-passed, by direct commit or pick.
 **At most three implementer dispatches are in flight per wave**, on every `sdd` decision.
 A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
 worktree and commits directly; two or three ready groups launch together in one message,
-each into its own throwaway worktree created by the sequence below, each copy then running the
+each into its own throwaway worktree created by
+`throwaway-worktree.sh create <worktree> <worktree>-wave-group-<g>`, each copy then running the
 project's resolved `## worktree setup` command once before its implementer dispatches. A fourth or
 later ready group queues in plan order and launches, into its own throwaway worktree by the same
-sequence, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in
-flight, never how many groups may be ready at once:
-
-```bash
-git -C <worktree> worktree add --detach <worktree>-wave-group-<g> HEAD
-git -C <worktree> diff HEAD --binary | git -C <worktree>-wave-group-<g> apply --allow-empty
-git -C <worktree> status --porcelain -z | \
-  while IFS= read -r -d '' entry; do
-    st="${entry:0:2}"; f="${entry:3}"
-    [ "$st" = "??" ] || continue
-    mkdir -p "<worktree>-wave-group-<g>/$(dirname "$f")"
-    cp -a "<worktree>/$f" "<worktree>-wave-group-<g>/$f"
-  done
-```
+call, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in
+flight, never how many groups may be ready at once. Exit 2 means a step failed, named on stderr, and
+nothing is dispatched into that copy.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its wave is picked. The same
-`check-task-commit-fields.sh` call the task-close step below runs (empty fourth argument, canonical
-worktree fifth, resolved `<name>` sixth) runs on each picked commit, and the dispatch `end` records
-the picked sha. A pick conflict or a
+`close-task.sh` call the task-close step (`skills/flow/implement.md`) runs covers each picked
+commit, its `-end-commit` recording the picked sha. A pick conflict or a
 guard failure is the parent's own to fix — it resolves the conflict or re-commits in the canonical
 worktree itself and re-runs the guard — while sibling members, queued groups and
 already-ready later waves are unaffected. A copy is removed once its group is picked —
-`git -C <worktree> worktree remove --force <worktree>-wave-group-<g>`. A member reporting BLOCKED follows the existing BLOCKED handback. The
+`throwaway-worktree.sh remove <worktree> <worktree>-wave-group-<g>`. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
 **Gather one context bundle per group, immediately before that group's implementer goes out.**

@@ -126,10 +126,3 @@
     **Principles-compliant?** [Yes | No | With fixes]
     **Reasoning:** [why]
 ```
-
-**Placeholders:**
-- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a
-  scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`,
-  per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`)
-- `[GLOBAL_CONSTRAINTS]` — verbatim constraints from design/specs

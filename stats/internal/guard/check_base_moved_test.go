@@ -500,3 +500,92 @@ func TestCheckBaseMoved(t *testing.T) {
 		})
 	}
 }
+
+// bmNewFx is new_repo in its own directory: main with base.txt and
+// shared.txt in one commit, demo checked out at it.
+func bmNewFx(t *testing.T) *bmFx {
+	t.Helper()
+	fx := &bmFx{dir: t.TempDir()}
+	fx.repo = fx.dir + "/repo"
+	fx.g.git("", "init", "-q", "-b", "main", fx.repo)
+	fx.g.write(fx.repo+"/base.txt", "base")
+	fx.g.write(fx.repo+"/shared.txt", "shared-base")
+	fx.g.git(fx.repo, "add", "base.txt", "shared.txt")
+	fx.g.git(fx.repo, "commit", "-qm", "base")
+	fx.recorded = fx.g.git(fx.repo, "rev-parse", "HEAD")
+	fx.g.git(fx.repo, "checkout", "-q", "-b", "demo")
+	return fx
+}
+
+// TestBaseMovedFullOverlap pins every line check-base-moved prints, exactly,
+// as it printed them before baseMoved was split out of it -- the printed line
+// keeps its 10-path cut -- and that the verdict a caller reads carries the
+// full sorted overlap the line cuts.
+func TestBaseMovedFullOverlap(t *testing.T) {
+	t.Parallel()
+	var wide []string
+	for i := 1; i <= 11; i++ {
+		wide = append(wide, fmt.Sprintf("wide%02d.txt", i))
+	}
+	cases := []struct {
+		label    string
+		setup    func(fx *bmFx)
+		args     func(fx *bmFx) []string // nil: {repo, main, recorded}
+		code     int
+		out, err string // $REPO is the repository, $DIR its parent
+		kind     string // the verdict's kind; "" on exit 2
+		ref      string // the verdict's resolved base ref; "" before it is resolved
+		overlap  []string
+	}{
+		{"unmoved", nil, nil, 0, "CLEAR: $REPO — main has not moved since the recorded merge base\n", "", "CLEAR", "main", nil},
+		{"moved but carried", func(fx *bmFx) {
+			fx.advanceBase("unrelated1.txt")
+			fx.g.git(fx.repo, "merge", "-q", "--ff-only", "main")
+		}, nil, 0, "CLEAR: $REPO — the 1 commits main gained since the recorded merge base are all already carried by this branch — nothing to rebase\n", "", "CLEAR", "main", nil},
+		{"moved, no overlap", func(fx *bmFx) { fx.advanceBase("unrelated1.txt", "unrelated2.txt") }, nil, 0,
+			"MOVED: $REPO — 2 commits on main since the recorded merge base; no overlap with this change's paths\n", "", "MOVED", "main", nil},
+		{"moved, one overlap", func(fx *bmFx) {
+			fx.advanceBase("shared.txt")
+			fx.g.appendLine(fx.repo+"/shared.txt", "demo-unstaged")
+		}, nil, 0, "MOVED: $REPO — 1 commits on main since the recorded merge base; overlaps: shared.txt\n", "", "MOVED", "main", []string{"shared.txt"}},
+		{"moved, eleven overlaps", func(fx *bmFx) { fx.wide(11) }, nil, 0,
+			"MOVED: $REPO — 11 commits on main since the recorded merge base; overlaps: " + strings.Join(wide[:10], ", ") + " (+1 more)\n", "", "MOVED", "main", wide},
+		{"no recorded merge base", nil, func(fx *bmFx) []string { return []string{fx.repo, "main", "-"} }, 0,
+			"REFUSE: no merge base recorded for $REPO — cannot tell whether the base has moved\n", "", "REFUSE", "", nil},
+		{"unresolvable recorded merge base", nil, func(fx *bmFx) []string { return []string{fx.repo, "main", "nope"} }, 0,
+			"REFUSE: recorded merge base 'nope' does not resolve in $REPO\n", "", "REFUSE", "", nil},
+		{"unresolvable base ref", nil, func(fx *bmFx) []string { return []string{fx.repo, "no-such-base", fx.recorded} }, 0,
+			"REFUSE: base ref 'no-such-base' does not resolve in $REPO — cannot tell whether the base has moved\n", "", "REFUSE", "no-such-base", nil},
+		{"not a directory", nil, func(fx *bmFx) []string { return []string{fx.repo + "/missing", "main", fx.recorded} }, 2,
+			"", "check-base-moved: $REPO/missing is not a directory — cannot determine anything\n", "", "", nil},
+		{"not a git worktree", func(fx *bmFx) { mkdir(t, fx.dir+"/plain") }, func(fx *bmFx) []string { return []string{fx.dir + "/plain", "main", fx.recorded} }, 2,
+			"", "check-base-moved: $DIR/plain is not a git worktree — cannot determine anything\n", "", "", nil},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			fx := bmNewFx(t)
+			if c.setup != nil {
+				c.setup(fx)
+			}
+			if fx.g.err != nil {
+				t.Fatal(fx.g.err)
+			}
+			args := []string{fx.repo, "main", fx.recorded}
+			if c.args != nil {
+				args = c.args(fx)
+			}
+			subst := strings.NewReplacer("$REPO", fx.repo, "$DIR", fx.dir, "$REC", fx.recorded)
+			env := Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
+			r := runGuard("check-base-moved", args, env)
+			if r.rc != c.code || r.stdout != subst.Replace(c.out) || r.err != subst.Replace(c.err) {
+				t.Fatalf("got exit %d stdout %q stderr %q\nwant exit %d stdout %q stderr %q", r.rc, r.stdout, r.err, c.code, subst.Replace(c.out), subst.Replace(c.err))
+			}
+			v := baseMoved(env, args[0], args[1], args[2], io.Discard)
+			if line := strings.TrimSuffix(subst.Replace(c.out), "\n"); v.code != c.code || v.line != line || v.kind != c.kind || v.ref != c.ref ||
+				strings.Join(v.overlap, ",") != strings.Join(c.overlap, ",") {
+				t.Fatalf("verdict %+v, want code %d line %q kind %q ref %q overlap %v", v, c.code, line, c.kind, c.ref, c.overlap)
+			}
+		})
+	}
+}

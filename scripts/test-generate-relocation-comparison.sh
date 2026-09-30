@@ -1103,6 +1103,35 @@ else
 fi
 
 # ===========================================================================
+# Case (ii): KAN-860 F5 — the inline `**Files:** `a`, `b`` form, wrapped onto
+# a second line, scopes its paths exactly as the bullet form does. The
+# bullet-only grammar read it as no path and wrote nothing.
+# ===========================================================================
+new_fixture
+printf '## Source\n\nA paragraph that moves verbatim between files.\n\n' > "$FIXTURE/src_ii.md"
+printf '## Dest\n\nUnrelated content.\n' > "$FIXTURE/dst_ii.md"
+git -C "$FIXTURE" add src_ii.md dst_ii.md
+git -C "$FIXTURE" commit -qm base
+BASE_II="$(git -C "$FIXTURE" rev-parse HEAD)"
+
+printf '## Source\n\nUnrelated content.\n' > "$FIXTURE/src_ii.md"
+printf '## Dest\n\nA paragraph that moves verbatim between files.\n\n' > "$FIXTURE/dst_ii.md"
+git -C "$FIXTURE" add src_ii.md dst_ii.md
+git -C "$FIXTURE" commit -qm move
+
+printf '# fixture plan\n\n> **Relocation:** yes\n\n- [ ] 1. Only task\n\n**Files:** `src_ii.md`,\n`dst_ii.md`\n**Tests:** none\n' > "$FIXTURE/tasks.md"
+run_generator "$FIXTURE" "$FIXTURE" "$BASE_II"
+if [ "$RC" -ne 0 ]; then
+  fail "case ii: generator exited $RC: $ERR"
+elif [ ! -f "$OUTPUT_PATH" ]; then
+  fail "case ii: no output file written — the inline **Files:** form scoped no path (KAN-860 F5)"
+elif ! grep -q 'moved' "$OUTPUT_PATH"; then
+  fail "case ii: no 'moved' row in output:"$'\n'"$(cat "$OUTPUT_PATH")"
+else
+  pass "case ii: an inline, wrapped **Files:** field scopes its paths (KAN-860 F5)"
+fi
+
+# ===========================================================================
 # Summary
 # ===========================================================================
 if [ "$FAILURES" -eq 0 ]; then

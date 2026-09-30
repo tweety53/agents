@@ -272,6 +272,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -kind ledger|panel|all -repo dir
        flow record journal-count [-C dir] -change name
        flow record cost-status [-addr url] [-timeout dur] [-C dir] -change name
+       flow record handoff-lines [-addr url] [-timeout dur] [-C dir] -change name
+                             [-worktree dir ...]
        flow record decision  [-addr url] [-timeout dur] [-C dir]
                              -change name -session-token token -file path
        flow record decisions [-addr url] [-timeout dur] [-C dir]
@@ -322,6 +324,15 @@ what it holds -- but it carries the identical never-block guarantee for the
 identical reason: on any failure to reach or read the store it prints
 "unknown" and exits 0, rather than putting a handoff's own output behind a
 store that has no other reason to be up.
+
+handoff-lines prints the verify handoff's record lines, block-ready:
+"**Records:**", "**Deferred:**" and "**Costs:**", then "### Deferred minors"
+with one "F<n> <location> — <note> — <reason>" row per finding whose status
+starts with "deferred" (or "none"). -C is the canonical worktree; each
+-worktree adds another affected one. Worktrees of one project are read once.
+Costs is the canonical worktree's cost-status line. It never blocks: a
+journal it cannot count or findings it cannot read print their "unknown"
+spelling, and it exits 0.
 
 findings prints one change's findings as a JSON array on stdout -- ref,
 status, and reproducer among the fields -- for a guard to query instead of
@@ -543,6 +554,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordJournalCount(args[1:], stdout, stderr)
 	case "cost-status":
 		return runRecordCostStatus(ctx, args[1:], stdout, stderr)
+	case "handoff-lines":
+		return runRecordHandoffLines(ctx, args[1:], stdout, stderr)
 	case "decision":
 		return runRecordDecision(ctx, args[1:], stdin, stdout, stderr)
 	case "decisions":
@@ -1407,16 +1420,27 @@ func runRecordCostStatus(ctx context.Context, args []string, stdout, stderr io.W
 		return 0
 	}
 
-	cs, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.CostStatus, error) {
-		return cl.GetCostStatus(ctx, projectKey, f.change)
-	})
+	line, callErr := readCostStatusLine(ctx, f, projectKey)
 	if callErr != nil {
 		fmt.Fprintln(stdout, costStatusUnknown)
 		fmt.Fprintf(stderr, "flow: cost-status: %v\n", callErr)
 		return 0
 	}
-	fmt.Fprintln(stdout, formatCostStatusLine(cs))
+	fmt.Fprintln(stdout, line)
 	return 0
+}
+
+// readCostStatusLine reads projectKey's cost status for f.change from the
+// store and renders it with formatCostStatusLine -- shared by cost-status
+// and handoff-lines so both print the same line.
+func readCostStatusLine(ctx context.Context, f recordIdentityFlags, projectKey string) (string, error) {
+	cs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.CostStatus, error) {
+		return cl.GetCostStatus(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return "", err
+	}
+	return formatCostStatusLine(cs), nil
 }
 
 // formatCostStatusLine renders cs as the one line cost-status prints.
@@ -1447,6 +1471,132 @@ func formatCostStatusLine(cs records.CostStatus) string {
 		clauses[i] = fmt.Sprintf("%s: %d", reason, cs.Reasons[reason])
 	}
 	return fmt.Sprintf("%d unattributed — %s", cs.Unattributed, strings.Join(clauses, ", "))
+}
+
+// Handoff-line spellings. A count that could not be produced is never
+// rendered as zero: that would turn a failure into a clean-run claim.
+const (
+	handoffRecordsClean       = "all writes reached the store"
+	handoffRecordsJournalled  = "%d write(s) journalled — the store was unreachable"
+	handoffRecordsUnknown     = "unknown — the journal could not be counted"
+	handoffFindingsUnknown    = "unknown — the findings could not be read"
+	handoffDeferredPrefix     = "deferred"
+	handoffDeferredMinorsNone = "none"
+)
+
+// runRecordHandoffLines implements `flow record handoff-lines`: the
+// handoff's Records, Deferred and Costs lines plus the Deferred minors list,
+// from journal-count's, findings' and cost-status's own helpers.
+//
+// The journal and the findings are keyed per project, so the canonical
+// worktree (-C) and every -worktree are deduplicated by fallback.ProjectKey
+// before either is read -- two worktrees of one project count once.
+//
+// IT NEVER BLOCKS, like journal-count and cost-status: every failure prints
+// its "unknown" spelling, the diagnostic goes to stderr, and it exits 0.
+// The only non-zero exit is a caller mistake.
+func runRecordHandoffLines(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record handoff-lines", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	var worktrees []string
+	fset.Func("worktree", "another affected worktree (repeatable)", func(v string) error {
+		worktrees = append(worktrees, v)
+		return nil
+	})
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	var keys []string
+	keysOK := true
+	canonicalKey := ""
+	for i, dir := range append([]string{f.dir}, worktrees...) {
+		key, _, err := fallback.ProjectKey(dir)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+			keysOK = false
+			continue
+		}
+		if i == 0 {
+			canonicalKey = key
+		}
+		if !slices.Contains(keys, key) {
+			keys = append(keys, key)
+		}
+	}
+
+	recordsLine := handoffRecordsUnknown
+	if keysOK {
+		total := 0
+		for _, key := range keys {
+			path := recordJournalPath(key, f.change)
+			n, err := countRecordJournalEntries(path)
+			if err != nil {
+				fmt.Fprintf(stderr, "flow: count %s: %v\n", path, err)
+				total = -1
+				break
+			}
+			total += n
+		}
+		switch {
+		case total == 0:
+			recordsLine = handoffRecordsClean
+		case total > 0:
+			recordsLine = fmt.Sprintf(handoffRecordsJournalled, total)
+		}
+	}
+
+	var deferred []records.Finding
+	findingsOK := keysOK
+	for _, key := range keys {
+		if !findingsOK {
+			break
+		}
+		found, err := readFindings(ctx, f, key)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: findings: %v\n", err)
+			findingsOK = false
+			break
+		}
+		for _, fd := range found {
+			if strings.HasPrefix(fd.Status, handoffDeferredPrefix) {
+				deferred = append(deferred, fd)
+			}
+		}
+	}
+
+	costs := costStatusUnknown
+	if canonicalKey != "" {
+		line, err := readCostStatusLine(ctx, f, canonicalKey)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: cost-status: %v\n", err)
+		} else {
+			costs = line
+		}
+	}
+
+	fmt.Fprintf(stdout, "**Records:** %s\n", recordsLine)
+	if findingsOK {
+		fmt.Fprintf(stdout, "**Deferred:** %d\n", len(deferred))
+	} else {
+		fmt.Fprintf(stdout, "**Deferred:** %s\n", handoffFindingsUnknown)
+	}
+	fmt.Fprintf(stdout, "**Costs:** %s\n", costs)
+	fmt.Fprintln(stdout, "### Deferred minors")
+	switch {
+	case !findingsOK:
+		fmt.Fprintln(stdout, handoffFindingsUnknown)
+	case len(deferred) == 0:
+		fmt.Fprintln(stdout, handoffDeferredMinorsNone)
+	}
+	for _, fd := range deferred {
+		reason := strings.TrimPrefix(strings.TrimPrefix(fd.Status, handoffDeferredPrefix), " ")
+		fmt.Fprintf(stdout, "%s %s — %s — %s\n", fd.Ref, fd.Location, fd.Note, reason)
+	}
+	return 0
 }
 
 // recordStatusRequest is the journalled form of a status write. The wire
@@ -1632,33 +1782,37 @@ func runRecordFindings(ctx context.Context, args []string, stdout, stderr io.Wri
 		return 1
 	}
 
-	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	switch {
-	case callErr == nil:
-	case errors.Is(callErr, client.ErrNotFound):
-		// The store was reached and has never heard of this change --
-		// "no rows" is a fact, not a failure, and prints as an empty
-		// array below exactly as runRecordRender treats it as MISSING
-		// rather than an error.
-		run = records.Run{Change: f.change, Findings: []records.Finding{}}
-	default:
+	findings, callErr := readFindings(ctx, f, projectKey)
+	if callErr != nil {
 		fmt.Fprintf(stderr, "flow: findings: %v\n", callErr)
 		return 1
 	}
 
-	if run.Findings == nil {
-		run.Findings = []records.Finding{}
-	}
-
-	body, err := json.Marshal(run.Findings)
+	body, err := json.Marshal(findings)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: encode findings: %v\n", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))
 	return 0
+}
+
+// readFindings reads projectKey's findings for f.change from the store,
+// shared by findings and handoff-lines. A change the store has never heard
+// of (404) is no findings -- "no rows" is a fact, not a failure, exactly as
+// runRecordRender treats it as MISSING rather than an error. The result is
+// never nil, so it marshals as "[]".
+func readFindings(ctx context.Context, f recordIdentityFlags, projectKey string) ([]records.Finding, error) {
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil && !errors.Is(err, client.ErrNotFound) {
+		return nil, err
+	}
+	if run.Findings == nil || err != nil {
+		return []records.Finding{}, nil
+	}
+	return run.Findings, nil
 }
 
 // runRecordFindingPatterns implements `flow record finding-patterns`: the

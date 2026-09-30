@@ -118,37 +118,19 @@ its loaded file states, as written; and to read the absolute path of
 worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
 
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
-   cannot repair an environment that cannot pass. With the parent's own Bash calls, before the dispatch below, check the environment
-   this worktree will verify in:
+   cannot repair an environment that cannot pass. With the parent's own Bash call, before the
+   dispatch below, run the four checks — ports held only by their own app, the base-URL
+   configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
+   workspace — against this worktree:
 
-   - **Ports held only by their own app.** For every port this worktree's resolved environment
-     carries — the `port` row's resolved value and the port in each matched app's
-     worktree-resolved URL — a listener is a pre-flight failure only when nothing answers it. The
-     probe is the app's worktree-resolved URL where the port reaches this check through one;
-     where it arrives only through a `port` row, the probe is the port itself — a listener that
-     accepts a connection is answering, one that accepts nothing is a dead holder. An answering
-     listener is the already-running stack steps 5 and 6 probe and fingerprint and step 13 leaves
-     alone — the pipeline's own run-instructions rule starts that stack on every run and hands it
-     running to the operator, so a fix run re-entering on a held port is the ordinary case, never
-     a failure. A held port whose probe answers nothing — a foreign holder, a sibling workspace,
-     yesterday's orphan — fails the pre-flight (`lsof -nP -iTCP:<port> -sTCP:LISTEN`, the probe
-     **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) defines), naming
-     the port, the holder `lsof` prints, and the probe that went unanswered.
-   - **The app's base-URL configuration resolves to the workspace's port** — `ApiBaseUrl`, where
-     this failure was measured. For every `## workspace isolation` row whose resolved value (the
-     `KEY=value` line **Verify** exported) differs from the row's declared default, the
-     application configuration under the matched `ui paths`' roots must take that value from the
-     exported variable or from the `start`/`## run` command — a literal naming the declared
-     default there, which neither the exported variables nor that command overrides, is the
-     hardcoded-port failure; name the file and the line.
-   - **Origin allowed.** The worktree's allowed-origins configuration (`ALLOWED_ORIGINS`, where
-     this failure was measured) must include the worktree-resolved URL of every matched app — an
-     origin list pinned to the declared default URL fails; name the file.
-   - **One Playwright checkout per workspace.** Resolve the Playwright module from each matched
-     app's package root (`node -e "console.log(require.resolve('@playwright/test/package.json',
-     {paths: [root]}))"`) — the resolved absolute path must sit inside this worktree. A resolution
-     landing in a sibling worktree or a machine-global checkout is the cross-worktree module
-     conflict; name the path, and install this worktree's own before re-running.
+   ```bash
+   prepare-workspace.sh <worktree> | check-visual-preflight.sh <worktree> <app-root>=<resolved-url> ...
+   ```
+
+   One `<app-root>=<resolved-url>` argument per app `ui paths` matched: its package root relative
+   to the worktree and its worktree-resolved URL. The guard's header is canonical for
+   each check's rule. Exit 0 → every check passed. Exit 1 → each `FAIL:` line names a failing check
+   and its evidence. Exit 2 → it cannot answer; treat it as a failing check, carrying its stderr.
 
    **Any failing check ends the stage here**: no verifier is dispatched, the stage's `end` mark
    carries `-outcome stopped`, and the report names every failing check with the evidence above.

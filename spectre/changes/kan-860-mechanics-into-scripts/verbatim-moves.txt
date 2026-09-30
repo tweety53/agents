@@ -1,0 +1,435 @@
+# Task 1 — plan-class prints the decision tree (brainstorm-planner.md Decide)
+**The tree**, one row per `class`:
+**Which prompt, when experimental rolled true:** `ls <agents repo>/skills/flow/experimental/*.md`, sorted, is the ordered set of candidates; the picked file is the one at index `experimental_roll mod count` into that sorted list.
+**grouping** — `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a one-line `grouping_reason`.
+A compact roster is the floor bundle alone, on the floor bundle's model/effort.
+A compact roster's two roles are the floor bundle itself, nothing more to group.
+A full roster's remaining roles form the second dispatch entirely — there is no overflow case left, since the floor already holds every reading/judgment role; a rolled experimental slot joins the second dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree** below, keyed on `class` and the rolls.
+A static and a free grouping alike assign each dispatch its own pair per **Model and effort** below; `primary` + `principles`, bundled as one dispatch, is the universal floor for every roster this tree assigns — compact or full, every class — its `-slot` `primary+principles`, deterministic, no roll.
+An absent directory or one holding no `*.md` file (`count = 0`) records `experimental: none available` and adds nothing — never a division by zero.
+Compact when `compact_roll < 90` (small, regular, big); experimental when `experimental_roll < 30` (every class, at most one slot), appended to whichever roster and run on the model/effort of the dispatch it joins.
+Its spare seat under the bundle cap stays empty: nothing else ever joins the floor bundle.
+Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls.
+`<name>` is its basename with `.md` dropped, and its own `prompt` / `description` fields for the roster entry are that file's path (`skills/flow/experimental/<name>.md`) and its line-1 `description:` value.
+| big | sdd | chosen | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
+| class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster) |
+| micro | inline | — | none — defaults only | none — defaults only | — | — |
+| regular | inline | — | primary; principles; failure-modes; mutation | primary; principles | delta | `primary+principles` · `failure-modes+mutation` |
+| small | inline | — | primary; principles | primary; principles | delta | `primary+principles` |
+|---|---|---|---|---|---|---|
+**grouping** — as the script's `panel:`, `grouping:` and `experimental:` lines print them, a free grouping with a one-line `grouping_reason`.
+A static and a free grouping alike assign each dispatch its own pair per **Model and effort** below.
+An experimental slot runs on the model/effort of the dispatch it joins; its roster entry's `prompt` and `description` are the path and description the `experimental:` line prints.
+Its `inputs:`, `class:` and `rolls:` lines carry `class_mechanical` and the four rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that class — execution, implementer, roster, rerun policy, grouping, dispatches and the experimental slot, printed rather than derived by hand (the rules are the script's header).
+On a raise, re-run the script with `-class <class>` first, so its tree lines are the raised class's; it exits 2 on any other step.
+# Task 2 — flow decision render prints the Decision block (brainstorm-planner.md Decide, brainstorm.md)
+On a micro run the four roll rows' value cells read `not consulted — micro`, and the decision table records the micro row's values, so no `↳` row appears anywhere in it.
+Once the Decide step finishes, print the `## Decision` block verbatim — the two-table shape (input side, then decision side) **Decide** (`skills/flow/brainstorm-planner.md`) prints — then run the record sequence below:
+One fact per row, every reason in the middle column, nothing printed outside the two tables.
+Prepend these two lines directly above the `## Decision` block — the one place these choices appear in a run, never printed twice:
+Print this exact shape as the run's own output once the Decide step completes, filling every cell from what was just decided:
+The first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/ `repos`, and the four rolls, each roll's rule cell the roll against its threshold and its value cell the interpretation.
+The implementer-groups row is `skipped — inline` on an inline run, else `groups_reason`, followed by one `↳ group` row per object in `groups`, its rule cell the group's model and effort with its `reason` and its value cell the bundle ids (`plan-dispatch-bundles.sh`'s ids), the `(mechanical: …; override: …)` suffix only on a split (`groups_override` non-`null`) — mirroring the `class` row's own `override` shape.
+The second is the decision side.
+When `panel` is the string `default` the review-panel value cell is `default` and no `↳` row follows it; when `implementer` is a string the `↳ fixer` row carries the same string and no pair.
+`↳` rows are sub-rows of the setting above them: a `↳ fixer` row under the implementer row, its cells the `fixer` value in the implementer row's own shape; one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that dispatch's model and effort with its `reason` and its value cell the roles `+`-joined in roster order; a `↳ rerun` row after the last dispatch row, its rule cell the rerun pair with its `reason`; a `↳ grouping` row only on a free grouping (omitted on a static one); an experimental slot skipped for the cap adds `· experimental: skipped — bundle cap` to the review-panel value cell.
+planning: inline, this session (<the model named in this session's own system prompt>)
+reviewers: <REVIEWERS>
+| Input | Rule | Value |
+| Setting | Rule | Result |
+| class | mechanical <class_mechanical> | <class> (override: <reason or "none">) |
+| execution mode | class <class> | <inline\|sdd> |
+| implementer groups | — | <"skipped — inline"\|"mechanical"\|<groups_reason>> |
+| implementer model | <reason> | <"skipped — inline"\|model/effort> |
+| inputs | plan-class.sh | tasks <N> · files <N> · repos <N> · migration <yes\|no> · spec <yes\|no> · red <yes\|no> · unverified <yes\|no> |
+| review panel | class <class> | <"default"\|<compact\|full> · delta rerun> |
+| roll: bundle | <N> <"<" or "≥"> 30 | <static\|free> grouping |
+| roll: effort | <N> <"<" or "≥"> 80 | <medium\|free> effort |
+| roll: compact | <N> <"<" or "≥"> <threshold> | <compact\|full> |
+| roll: experimental | <N> <"<" or "≥"> 30 | <slot name\|"no slot"\|"none available"> |
+| ↳ dispatch <n> | <model> / <effort> — <reason> | <roles `+`-joined in roster order> |
+| ↳ fixer | <model> / <effort> — <reason> | <"skipped — inline"\|model/effort> |
+| ↳ group <bundle ids> | <model> / <effort> — <reason> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |
+| ↳ grouping | free | <grouping_reason> |
+| ↳ rerun | <model> / low — <reason> | every fix-round re-run, one role per dispatch |
+|--------------------|------------------|--------|
+|--------------------|------------------|-------|
+It exits 0 on a printed block and 2 on a usage error, an unreadable file or a `decision.json` missing a required field — correct the file and render again.
+Once the Decide step completes, render the run's own output from that file and print its output verbatim — the `planning:`/`reviewers:` lines above the `## Decision` block, the one place these choices appear in a run, never printed twice:
+Once the Decide step finishes, print the `## Decision` block verbatim — the output of `flow decision render` (**Decide**, `skills/flow/brainstorm-planner.md`) — then run the record sequence below:
+flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>' -reviewers '<REVIEWERS>'
+# Task 3 — flow state add-worktree (implement.md, cross-repo-worktrees.md)
+Every other entry gets the kickoff recipe in its own repository — `<project>` in the commands below is that entry's repository root, not this change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 3): when `git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — after `check-worktree-location.sh <that repo>`, with the merge base `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees` map by the read-merge-write at the top of this stage, and `git -C <that worktree> push -u origin spectre/<name>` per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+Read the current record with `flow state get`, merge in this worktree's `<abs-path>: <merge-base-sha>` entry (never drop an existing peer's entry already present from an earlier worktree in this same run), and write the merged record back with `flow state set` — `state` stays exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still the only step entitled to flip it to `IN_PROGRESS`).
+It exits 2 on a relative path or a malformed sha, and 1 when no `STARTED` record exists yet, writing nothing either way.
+Record it with one call, which keeps every peer's entry and leaves `state` exactly as read (a creating run stays `STARTED`; `flow.write-in-progress` is still the only step entitled to flip it to `IN_PROGRESS`):
+flow state add-worktree <name> <abs-path> <merge-base-sha>
+# Task 4 — kickoff-worktree.sh runs the five kickoff steps (brainstorm.md A, flow-plan/SKILL.md)
+**A command's non-zero exit ends your turn** naming the command and its output.
+**Persist the worktree into the state record before this step returns**, by the read-merge-write **2. Isolate the workspace** (`skills/flow/implement.md`) applies to each additional worktree: merge the entry `"<abs-worktree>": "<merge-base>"` into the record's `worktrees` map and write it back, where `<merge-base>` is the sha `git -C <worktree> rev-parse HEAD` prints immediately after the add — the commit the worktree starts from in either case above.
+Every guard those sections invoke resolves per **Guard resolution** (`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries each one those sections run: `check-planning-commit-location.sh <worktree> <name>` (the commit below), `check-worktree-location.sh <project>` and `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate), `plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and `plan-dispatch-groups.sh <tasks.md>` (Decide).
+Exit 0: run every printed line from the worktree
+Exit 1: the project declares no `## worktree setup`; say so and continue.
+Exit 2: stop the run, relaying the script's own line.
+The key is canonical in **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+Where it exits non-zero, append
+`<project>/.worktrees/` to `<project>/.git/info/exclude` — never a commit on any branch.
+`check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
+`git -C <project> fetch origin`, then — when `git -C <project> rev-parse -q --verify
+`git -C <worktree> push -u origin spectre/<name>` — the branch exists on the remote from its
+`git check-ignore -q .worktrees` from the project root.
+`project-get.sh <worktree> "worktree setup"`.
+first minute, per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+origin/spectre/<name>` succeeds, the branch already exists on the remote (a `/flow-plan` capture pushed it, or an earlier run's worktree was removed) — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — the default branch by name, never HEAD: the main checkout may be on any branch and is never moved.
+root, in order, in the foreground — the printed body can carry fence markers and trailing prose outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only the fenced command lines, not those.
+**Persist the worktree into the state record before this step returns** — the script does, through `flow state add-worktree` right after the add, so a later step's failure leaves the worktree recorded.
+Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`.
+Exit 1 or 2 stops the run with the script's own lines: **a command's non-zero exit ends your turn** naming the command and its output.
+kickoff-worktree.sh <project> <name>
+# Task 7 — throwaway-worktree.sh
+"$f" -nt "$c" ] && continue
+\# for each copy:
+<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh; do
+A fourth or later ready group queues in plan order and launches, into its own throwaway worktree by the same sequence, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in flight, never how many groups may be ready at once:
+A group alone in its wave, with no other group ready alongside it, dispatches into the canonical worktree and commits directly; two or three ready groups launch together in one message, each into its own throwaway worktree created by the sequence below, each copy then running the project's resolved `## worktree setup` command once before its implementer dispatches.
+Run the sequence below once per worktree in the resolved set per slot, producing one `<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`mutation`).
+[ "$st" = "??
+[ -s "$c" ] && [ !
+[ -s "$f" ] || continue
+] || continue
+b="${f#<worktree>-<slot>-<round>/.superpowers/sdd/}"
+c="<worktree>/.superpowers/sdd/$b"
+cp -a "$f" "$c"
+cp -a "<worktree>/$f" "<worktree>-<slot>-<round>/$f"
+cp -a "<worktree>/$f" "<worktree>-wave-group-<g>/$f"
+cp -a "<worktree>/.superpowers/sdd" "<worktree>-<slot>-<round>/.superpowers/sdd"
+for f in <worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md \
+git -C <worktree> diff HEAD --binary | git -C <worktree>-<slot>-<round> apply --allow-empty
+git -C <worktree> diff HEAD --binary | git -C <worktree>-wave-group-<g> apply --allow-empty
+git -C <worktree> status --porcelain -z | \
+git -C <worktree> worktree add --detach <worktree>-<slot>-<round> HEAD
+git -C <worktree> worktree add --detach <worktree>-wave-group-<g> HEAD
+git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
+if [ -d "<worktree>/.superpowers/sdd" ]; then
+mkdir -p "<worktree>-<slot>-<round>/$(dirname "$f")"
+mkdir -p "<worktree>-<slot>-<round>/.superpowers"
+mkdir -p "<worktree>-wave-group-<g>/$(dirname "$f")"
+mkdir -p "<worktree>/.superpowers/sdd/$(dirname "$b")"
+st="${entry:0:2}"; f="${entry:3}"
+while IFS= read -r -d '' entry; do
+A copy is removed once its group is picked — `throwaway-worktree.sh remove <worktree> <worktree>-wave-group-<g>`.
+A fourth or later ready group queues in plan order and launches, into its own throwaway worktree by the same call, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in flight, never how many groups may be ready at once.
+A group alone in its wave, with no other group ready alongside it, dispatches into the canonical worktree and commits directly; two or three ready groups launch together in one message, each into its own throwaway worktree created by `throwaway-worktree.sh create <worktree> <worktree>-wave-group-<g>`, each copy then running the project's resolved `## worktree setup` command once before its implementer dispatches.
+Exit 2 means a step failed, named on stderr, and nothing is dispatched into that copy.
+Exit 2 means a step failed, named on stderr: that slot is not dispatched against that copy.
+Run `throwaway-worktree.sh create <worktree> <worktree>-<slot>-<round> --sdd` once per worktree in the resolved set per slot, producing one `<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`mutation`).
+Remove every copy unconditionally once that slot's dispatch closes — completed, timed out (including after the wall-clock re-dispatch), or the run stopped:
+Remove every copy unconditionally once that slot's dispatch closes — completed, timed out (including after the wall-clock re-dispatch), or the run stopped — with `throwaway-worktree.sh remove <worktree> <worktree>-<slot>-<round> --fold-back`, which first copies each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md` and `<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
+
+# Task 17 — project-get.sh --enum
+A head matching none of them exactly is reported by name and dropped, resolving as absent.
+Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, each read with `project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first three, and `## handoff` says whether the run stops between them.
+Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), take the body's first non-blank line — trimmed, backticks removed — and resolve it against the three literals `pull request` / `merge and push` / `manual`, byte-for-byte per **Project configuration** (`skills/flow-contracts/project-configuration.md`); lines below it are documentation.
+The route is `## default landing route` when the project declares one (`pull request`, `merge and push` or `manual`), matched byte-for-byte per **Project configuration** (`skills/flow-contracts/project-configuration.md`) and read without asking.
+When the project declares none: with `## handoff` `required`, ask once through **AskUserQuestion** with those three options, `pull request` recommended; with `## handoff` `none`, take `pull request` without asking.
+Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, the first two read with `project-get.sh <project> <key>`, `## handoff` with `project-get.sh <project> handoff --enum required none` and `## default landing route` with `project-get.sh <project> "default landing route" --enum "pull request" "merge and push" manual` (exit 1 absent; exit 3 malformed — report its stderr line by name and resolve as absent): sections 5 and 7 take their commands from the first three, and `## handoff` says whether the run stops between them.
+Run `project-get.sh <main-checkout> "default landing route" --enum "pull request" "merge and push" manual`: exit 0 prints the resolved route; exit 1 means absent; exit 3 means the head matches none of the three — report its stderr line by name and resolve as absent.
+The route is what section 4's `## default landing route` `--enum` call resolved, taken without asking.
+When it resolved none (exit 1 or 3): with `## handoff` `required`, ask once through **AskUserQuestion** with the options `pull request`, `merge and push` and `manual`, `pull request` recommended; with `## handoff` `none`, take `pull request` without asking.
+`project-get.sh <root> <key> --enum <literal>...
+performs this resolution: exit 0 prints the matched literal, exit 1 the key is absent, exit 3 the head matches no literal — its one stderr line quotes the head.
+# Task 13 (VH-25): verify-and-handoff.md visual steps 1–2 become one check-visual-trigger.sh call
+**Match the diff — with the guard, not by eye.
+**Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
+A project declaring no section → this worktree prints `Visual: not configured` and is skipped for the rest of this stage.
+Exit 2 → the guard could not answer (this should not happen here, since step 1 already confirmed the section resolves) — report its stderr and skip this worktree the same way exit 1 does.
+its own shape and closed vocabulary.
+**Match the diff** — the same call's verdict.
+**Resolve the section — with the guard, not by eye.
+Exit 2 with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line → report its stderr and skip this worktree the same way exit 1 does.
+Exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr → this worktree prints `Visual: not configured` and is skipped for the rest of this stage.
+# Task 23 (basesync item 4): sync-onto-base.md recipe becomes sync-onto-base.sh plus its exit contract
+**Clean** (exit 0): the merge base carried forward for the rest of **this run** becomes
+**Conflict** (non-zero exit): **resolve it in place, automatically.
+**Scoped re-verification**: for each path `check-base-moved.sh` reported under `overlaps:`, look for a discoverable guard test — `<agents repo>/scripts/test-<basename-without-ext>.sh` beside `<agents repo>/scripts/<name>.sh`, the same naming `<agents repo>/scripts/run-guard-tests.sh` already discovers by glob — and run it if found.
+A clean rebase runs **Scoped re-verification** below, then proceeds to the landing question.
+A path with none is stated in the handoff as having no verification to run, not silently skipped.
+Re-run `check-base-moved.sh` once against it; anything but `CLEAR` is a base that moved during the rebase, and the rebase runs once more.
+The helper sets the planning paths aside — the spec tree's changes directory (the leaf `<agents repo>/scripts/lib/spec-root.sh` resolves) and `<project>/docs/superpowers/` — and nothing else: implementation WIP stays exactly where the unfinished-work gate owns it.
+The rebase never meets the run's own uncommitted planning artifacts: `aside-planning-artifacts.sh <aside|restore> <worktree>` around each `MOVED` worktree's rebase — set aside before it, restored once that worktree's rebase has finished or aborted; never mid-way, restore refuses while the rebase is still unresolved, and on a stop-and-ask exit the aside stays set aside, named in the handoff with `git stash list` as the recovery path.
+`origin/$BASE`'s resolved tip at rebase time — `<rebased-merge-base>`, a this-run-only value never written to the state file, which every later reader of this worktree's recorded merge base in this run means instead — most concretely the reshape in **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
+git -C <worktree> rebase origin/$BASE
+**Clean** (exit 0, `REBASED: <worktree> — onto <sha>`): the merge base carried forward for the
+**Conflict** (exit 1, `CONFLICT: <worktree> — onto <sha>; unmerged: <paths>`): **resolve it in place, automatically.
+**Scoped re-verification**: run the test every `GUARD-TEST: <path> — <test>` line names.
+**Stop and ask** (exit 2): a `REFUSE`, a base still moving after three rebases, or anything the
+A `NO-GUARD-TEST: <path>` is stated in the handoff as having no verification to run, not silently skipped.
+On every stop-and-ask, an aside still set aside is named in the handoff with `git stash list` as the recovery path.
+Run **Scoped re-verification** below, then proceed to the landing question.
+The guard sets the run's own uncommitted planning artifacts aside around the rebase, rebases onto the base's tip, and re-checks until the base holds still; its header (`<agents repo>/scripts/sync-onto-base.sh`) is canonical for the exit contract.
+Then run `sync-onto-base.sh --resume <worktree> $BASE <sha>`, `<sha>` from the `CONFLICT:` line; it restores the aside and re-checks, and its exits read as the first call's.
+guard could not answer — report its output and stop before the landing question.
+sync-onto-base.sh <worktree> $BASE <recorded-merge-base>
+# Task 15 (VV-18): visual-verify.md step 3 — the four pre-flight bullets become the check-visual-preflight.sh call line plus its exit contract.
+**One Playwright checkout per workspace.
+**Origin allowed.
+**Ports held only by their own app.
+**The app's base-URL configuration resolves to the workspace's port** — `ApiBaseUrl`, where
+A held port whose probe answers nothing — a foreign holder, a sibling workspace, yesterday's orphan — fails the pre-flight (`lsof -nP -iTCP:<port> -sTCP:LISTEN`, the probe **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) defines), naming the port, the holder `lsof` prints, and the probe that went unanswered.
+A resolution landing in a sibling worktree or a machine-global checkout is the cross-worktree module conflict; name the path, and install this worktree's own before re-running.
+An answering listener is the already-running stack steps 5 and 6 probe and fingerprint and step 13 leaves alone — the pipeline's own run-instructions rule starts that stack on every run and hands it running to the operator, so a fix run re-entering on a held port is the ordinary case, never a failure.
+For every `## workspace isolation` row whose resolved value (the `KEY=value` line **Verify** exported) differs from the row's declared default, the application configuration under the matched `ui paths`' roots must take that value from the exported variable or from the `start`/`## run` command — a literal naming the declared default there, which neither the exported variables nor that command overrides, is the hardcoded-port failure; name the file and the line.
+For every port this worktree's resolved environment
+Resolve the Playwright module from each matched
+The probe is the app's worktree-resolved URL where the port reaches this check through one; where it arrives only through a `port` row, the probe is the port itself — a listener that accepts a connection is answering, one that accepts nothing is a dead holder.
+The worktree's allowed-origins configuration (`ALLOWED_ORIGINS`, where
+With the parent's own Bash calls, before the dispatch below, check the environment this worktree will verify in:
+app's package root (`node -e "console.log(require.resolve('@playwright/test/package.json', {paths: [root]}))"`) — the resolved absolute path must sit inside this worktree.
+carries — the `port` row's resolved value and the port in each matched app's worktree-resolved URL — a listener is a pre-flight failure only when nothing answers it.
+this failure was measured) must include the worktree-resolved URL of every matched app — an origin list pinned to the declared default URL fails; name the file.
+this failure was measured.
+Exit 0 → every check passed.
+Exit 1 → each `FAIL:` line names a failing check and its evidence.
+Exit 2 → it cannot answer; treat it as a failing check, carrying its stderr.
+One `<app-root>=<resolved-url>` argument per app `ui paths` matched: its package root relative to the worktree and its worktree-resolved URL.
+The guard's header is canonical for each check's rule.
+With the parent's own Bash call, before the dispatch below, run the four checks — ports held only by their own app, the base-URL configuration resolving to the workspace's values, origin allowed, one Playwright checkout per workspace — against this worktree:
+prepare-workspace.sh <worktree> | check-visual-preflight.sh <worktree> <app-root>=<resolved-url> ...
+# Task 1 (parent at pick): flow-fast decide line names the printed tree
+**decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
+# Task 5 — check-review-gate.sh judges the review gate (implement.md The review gate)
+**The gate fires when the commit changes more than 40 lines, or touches any path outside that declared set.
+After the guard passes a task's commit, the parent computes that commit's gate from two facts, both read in the same Bash call as the guard's verdict: `git diff --numstat <task-sha>^..<task-sha>` summed over its inserted and deleted lines, and `git diff --name-only <task-sha>^..<task-sha>` set against the task's own declared surface — the paths in its `**Files:**` field plus everything its optional `**Allowed-collateral:**` glob covers.
+Forty changed lines is the boundary below which a diff still is one glance; apply it as stated, never argue it away per run.
+**The gate fires when the commit changes more than 40 lines, or touches any path outside the task's declared set** — its `**Files:**` plus its `**Allowed-collateral:**` globs; the script's header (`<agents repo>/scripts/check-review-gate.sh`) is canonical for how both are counted.
+After the guard passes a task's commit, the parent judges that commit's gate in the same Bash call as the guard's verdict, with the guard's own arguments less the empty placeholder, plus every path the guard's refusal named for that task:
+It prints `FIRE: task <id> — …` or `QUIET: task <id> — …` and exits 0; **exit 2 — it could not judge — stops the run**, as the guard's own exit 2 does.
+check-review-gate.sh <worktree> <task-id> <task-sha|map> <canonical-worktree> <name> [<refused-path>…]
+# Task 6 — close-task.sh runs the task-close sequence (implement.md The next implementer overlaps the guard, step 2)
+**On a change whose resolved worktree set spans more than one repository, the third argument is the per-repository commit map instead of one sha** — `"<worktree>=<sha>[,<worktree>=<sha>…]"`, one pair per repository carrying any of the task's commits, the fourth argument still empty (the map derives each commit's parent in its own repository) — so every task's `**Commit:**`/`**Files:**`/`**Tests:**`/`**Baseline:**` fields are guard-checked regardless of how many repositories the change spans.
+**One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
+Every verdict is printed and read before anything launches: **exit 1** is the parent's own fix — it re-commits that task itself and re-runs the guard before anything below; **exit 2 — the guard's not-a-verdict close (an unreadable plan, a task it cannot resolve, a commit range git cannot resolve, a usage error) — stops the run**: re-committing cannot repair an inability, so it is never folded into the re-commit loop; exit 0 computes that commit's **review gate** (two sentences down) and ticks the task in the same call only when the gate does not fire — a fired gate defers the tick to the task's reviewer, below — and, either way, the same call then runs `git -C <worktree> push origin spectre/<name>` per **Branch backup** (`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer.
+The guard takes the canonical worktree's absolute path (the worktree created or resumed in **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as its sixth; the fourth is the empty placeholder that skips the parent-sha — the guard derives the commit's parent itself:
+The guard, the gate, the tick and the gather are the parent's own Bash calls.
+The same Bash call also runs `check-task-commit-planning-paths.sh <worktree> <merge-base>` — the merge base recorded in this run's working notes — over every commit since it: exit 1 names each task commit whose diff touches `<project>/spectre/changes/` (leaf resolved per project) or `<project>/docs/superpowers/` and is the same parent fix as a fields refusal, the parent re-committing without the swept paths before either guard re-runs; exit 2 stops the run.
+The verdict merges across the listed repositories; the guard's own header (`<agents repo>/scripts/check-task-commit-fields.sh`, THE COMMIT MAP) is canonical for the form.
+check-task-commit-fields.sh <worktree> <task-id> <task-sha> "" <canonical-worktree> <name>
+is new, the gate on every commit the guard passed, `flow tasks tick` for every task the guard passed and the gate left unfired, and group N+2's gather.
+**On a change whose resolved worktree set spans more than one repository, a task's sha is the per-repository commit map instead** — `<task-id>:<worktree>=<sha>[,<worktree>=<sha>…]`, one pair per repository carrying any of the task's commits; the guard's own header (`<agents repo>/scripts/check-task-commit-fields.sh`, THE COMMIT MAP) is canonical for the form.
+**One Bash call: `close-task.sh` and group N+2's gather.
+Both are the parent's own Bash calls.
+Every verdict is printed and read before anything launches: **exit 1** — a fields refusal, or a task commit whose diff touches `<project>/spectre/changes/` (leaf resolved per project) or `<project>/docs/superpowers/` — is the parent's own fix, with nothing ticked or pushed: it re-commits that task itself, without the swept paths, and re-runs `close-task.sh` without the `-end-*` flags before anything below; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push — stops the run**: re-committing cannot repair an inability, so it is never folded into the re-commit loop.
+Exit 0 prints every task's `FIRE:` or `QUIET:` gate line; a fired gate defers the tick to the task's reviewer, below.
+The script's header (`<agents repo>/scripts/close-task.sh`) is canonical for its arguments and its order.
+[-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>:<task-sha> …
+`-undeclared` carries the paths a fields refusal named for that task (**The record carries its own corrections**, below).
+`<canonical-worktree>` is the worktree created or resumed in **2. Isolate the workspace** above, `<name>` this run's resolved name.
+close-task.sh -end-key <key> -session-token mf-<literal-token> -end-commit <sha> \
+# Task 6 review fix (parent): the gate paragraph and inline bullet name close-task.sh
+canonical worktree, commits per task with the same `Task-Id:` trailer and declared `**Commit:**` subject, runs `check-task-commit-fields.sh` and ticks the task exactly as section **4** states.
+After the guard passes a task's commit, `close-task.sh` judges that commit's gate through `check-review-gate.sh`, with every path the guard's refusal named for that task — the paths its `-undeclared` flag carries:
+canonical worktree, commits per task with the same `Task-Id:` trailer and declared `**Commit:**` subject, and runs `close-task.sh` exactly as section **4** states.
+# Task 8 (MX7): review-panel-fix-round.md — the fold recipe becomes the fold-fixup.sh call line plus its exit contract.
+**A fixup whose fold empties its target commit is dropped, never kept as a no-op commit.
+**Rewrite-based folding is for unpushed history only**: the fixup — stage first (`git add -- <the changed paths>`), then `git commit --fixup=<task-sha> -- <the changed paths>`, scoped by the same default — targets the **original** task commit (`<task-sha>`), and the autosquash folds it in immediately, before anything pushes.
+A conflict there is between two of the branch's own commits, resolved by hand, keeping both sides — the resolve-in-place rule of a base-branch rebase (its Conflict case, under **Sync the branch onto the base**, `skills/flow/sync-onto-base.md`) concerns the operator's base, never this one.
+That rebase's upstream is the parent of the task commit it targets (`<task-sha>^`), never the base branch re-resolved — replaying only the branch's own commits after `<task-sha>^` is what keeps commits that landed on the base mid-panel out of the fold, where an `origin/$BASE` upstream would carry them straight into the round's delta.
+The fold is bracketed by the ancestry guard: `guard-autosquash.sh targets <worktree> <task-sha>` before the autosquash, `guard-autosquash.sh after <worktree> <task-sha>^ <changeRoot>/tasks.md` once it lands — the post-check's base is the fold's own upstream, never `FIX_BASE`, which the fold deliberately holds stale as its diff endpoint, and a refusal from either stops the round before anything builds on the rewritten history (`<agents repo>/scripts/guard-autosquash.sh`).
+The fold never crosses the run's own uncommitted planning edits — `aside-planning-artifacts.sh <aside|restore> <worktree>` around the rebase: set aside before it, restored once it has finished or aborted, never mid-way; restore refuses while the rebase is still unresolved, and the paths it sets aside are the spec tree's changes directory — the leaf `<agents repo>/scripts/lib/spec-root.sh` resolves — and `<project>/docs/superpowers/` only, never implementation WIP.
+The route's own diff is `git diff "$FIX_BASE"..HEAD`, read once the fold has landed — the same held pre-fix sha to HEAD as the plain route; the fold rewrites `<task-sha>` in place, so no diff endpoint is ever re-resolved, and a movable base can never leak into the delta.
+When the fold leaves the task commit it targeted with an empty diff against its own parent, the fix exactly undid what it folded into: `git reset --hard <the folded commit's parent>` takes the pair off the unpushed branch, and the plan's task entry stays — the record of the mistake the branch no longer carries.
+**Rewrite-based folding is for unpushed history only**: the fixup targets the **original** task commit (`<task-sha>`), and the autosquash folds it in immediately, before anything pushes — one call, with the changed paths:
+Exit 0 → folded (`FOLDED:`), or, where the fold emptied its target commit, that commit dropped (`DROPPED:`) — the plan's task entry stays, the record of the mistake the branch no longer carries.
+Exit 1 → a `guard-autosquash.sh` refusal: the round stops before anything builds on the rewritten history; exit 2 → it cannot answer: report its stderr and stop the round; exit 3 → a conflict between two of the branch's own commits is left in progress (`CONFLICT:`): resolve it by hand, keeping both sides, run `git rebase --continue`, then `fold-fixup.sh --finish <worktree> <task-sha> <changeRoot>/tasks.md`, whose exits read as the first call's.
+Its header (`<agents repo>/scripts/fold-fixup.sh`) is canonical for the sequence it runs.
+The route's own diff is `git diff "$FIX_BASE"..HEAD`, read once the fold has landed.
+fold-fixup.sh <worktree> <task-sha> <changeRoot>/tasks.md <the changed paths>
+# Task 9 (RP35): review-panel.md, review-panel-fix-round.md, review-panel-late-fix.md — the diff and [TOUCHED_FILES] recipes become write-panel-diff.sh call lines.
+\# for each <worktree> in the resolved set, in order:
+**On trigger, pass 1 is one dispatch: `primary` alone**, plus every slot the operator named at this stage's start, reading not the whole `final-review.diff` but only a `<abs-worktree>/.superpowers/sdd/late-fix.diff` written from the since-close range — the same per-worktree sectioned shape as `final-review.diff`, each `# worktree:` header naming the since-close sha.
+**Resolve `[TOUCHED_FILES]` before dispatching any slot**, once per round beside the `final-review.diff` write above: per worktree in the resolved set, that worktree's `git diff --name-status <merge-base>` under a `# worktree: <path> — merge base <sha>` header of its own — the same sectioning the diff file uses.
+: > <abs-worktree>/.superpowers/sdd/final-review.diff
+>> <abs-worktree>/.superpowers/sdd/final-review.diff
+A delta is `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), combined with the same per-worktree sections as `final-review.diff`, without its semantics first line — one `# worktree:` header per worktree, followed by that worktree's `git diff <held-sha> HEAD`; a worktree in which the slot holds no sha contributes its whole `git diff <merge-base>` section.
+A diff-reading re-run computes the list from the delta's own range instead — `git diff --name-status <held-sha> HEAD` per worktree — so the named context narrows with the read.
+A single-worktree change writes the same shape with one header.
+Record `FIX_BASE` — the branch tip the fix round starts from — commit the fix, then write `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` from `git diff "$FIX_BASE"..HEAD`.
+Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every** worktree in the change's resolved set (**Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`), in resolved order — one first line naming the file's own semantics, then each worktree's section, opened by a header naming it and its own working-notes merge base, followed by that worktree's `git diff <merge-base>` (staged and unstaged):
+git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-review.diff
+printf '# final-review.diff — working tree vs merge-base, unstaged changes included\n' \
+printf '# worktree: %s — merge base %s\n' "<worktree>" "<merge-base>" \
+**On trigger, pass 1 is one dispatch: `primary` alone**, plus every slot the operator named at this stage's start, reading not the whole `final-review.diff` but only `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by `write-panel-diff.sh late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`, whose exits read as the pass-1 write's.
+**Resolve `[TOUCHED_FILES]` before dispatching any slot**: it is the `.touched` file the round's `write-panel-diff.sh` call wrote beside the diff the slot reads, over that diff's own range, so a diff-reading re-run's named context narrows with the read.
+A delta is `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), written with `write-panel-diff.sh slot-delta <round> <slot> <abs-worktree> <worktree> <merge-base> <held-sha|-> […]` — `-` where the slot holds no sha in that worktree, which then contributes its whole `git diff <merge-base>` section — whose exits read as the pass-1 write's.
+Exit 0 prints the two paths; exit 2 — it cannot answer, and nothing was written — stops the run with its stderr.
+Its header (`<agents repo>/scripts/write-panel-diff.sh`) is canonical for both files' shape.
+Record `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with `write-panel-diff.sh fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`, whose exits read as the pass-1 write's (**The docs-only reduction**, `skills/flow/review-panel.md`).
+Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) and its `[TOUCHED_FILES]` list once per round from **every** worktree in the change's resolved set (**Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`), in resolved order, with one call:
+write-panel-diff.sh final <abs-worktree> <worktree> <merge-base> [<worktree> <merge-base>…]
+# Task 10 (late-fix trigger): review-panel-late-fix.md — conditions 1–5 become the check-late-fix-trigger.sh call line plus its exit contract.
+(`check-panel-findings-closed.sh <worktree> <change>` exits 0), and this stage has closed clean before on this change, the pass log or the rendered panel record naming that close;
+**Already clean, already verified** — the change's store findings carry no `open` row
+**no scope growth** — the delta adds no task line to the change's plan `tasks.md`;
+**the base has not moved since that close** — every worktree's `Check base movement first`
+**the delta is small** — per worktree, `git diff --numstat` from the sha that close reviewed
+**the panel's own machinery is untouched** — the delta names no path under
+Every condition must hold, checked once when this stage opens its first round on the fix run:
+`skills/flow/review-panel*.md`, no `scripts/check-panel-*.sh` guard, and no reviewer-prompt or principles file the panel's own slots read as their instructions (`skills/flow/*-reviewer-prompt.md`, `skills/flow/engineering-principles.md`) — of the repository the change edits.
+there to the current tree, insertions and deletions summed across the resolved set, is at most **40 changed lines**; the `-diff-base` its clean dispatches recorded names the canonical worktree's sha, and a peer worktree's since-close sha comes from the panel record's per-worktree sha list;
+verdict this round was `CLEAR`, so no rebase has invalidated the reviewed state;
+Every condition must hold, checked once when this stage opens its first round on the fix run, by one call — the canonical worktree's triple first:
+Exit 0 → the reduction fires; exit 1 → the full path, each failed condition on its own line; exit 2 → it cannot answer, read as the full path.
+Its header (`<agents repo>/scripts/check-late-fix-trigger.sh`) is canonical for the five conditions.
+`<base-verdict>` is that worktree's **Check base movement first** line this round.
+`<since-close-sha>` is the sha this stage's last clean close on this change reviewed in that worktree, the pass log or the rendered panel record naming that close — `-` where it has none; the `-diff-base` its clean dispatches recorded names the canonical worktree's sha, and a peer worktree's since-close sha comes from the panel record's per-worktree sha list.
+check-late-fix-trigger.sh <change> <changeRoot>/tasks.md <worktree> <since-close-sha|-> <base-verdict> [<worktree> <since-close-sha|-> <base-verdict>…]
+# Task 11 (renderer): review-panel.md — the bundle-prompt recipe becomes the render-slot-prompt.sh call plus the items still typed in the Agent call.
+**The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND BUILDS, REPRODUCE DON'T READ, CITATION CHECK, ENTRY CONTEXT, MODEL HANDSHAKE, the reproducer rule — once, then one **PASS `<id>`** section per role in roster order, each carrying exactly the brief that role's solo dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`.
+**Every dispatch's brief is rendered, never hand-assembled** — one call per dispatch, a one-role dispatch included, once the round's diff is written:
+-diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>…] [-fix-report <path>…] -- <worktree> …
+Exit 0 prints the rendered path; exit 1 names a placeholder it could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
+Its header (`<agents repo>/scripts/render-slot-prompt.sh`) is canonical for the file it writes: the shared paragraphs below, then one **PASS `<id>`** section per role in roster order, each with its own REPORT FILE line.
+The Agent call's prompt carries only the baseline pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the reproducer rule, and `read <rendered path> in full first — it is your brief`.
+`<skill-dir>` is the directory this file was read from and `<plan-dir>` the plan directory the context bundle reads; `-standard` carries **Principles**' resolved `[STANDARDS_PATHS]`, `-fix-report` a re-run's `<fix report>`, and `-no-bundle` the CONTEXT BUNDLE FAILURE continue path.
+`mutation` is never rendered: its brief and its throwaway copy stay typed by the parent, beside the rendered path where a dispatch bundles it.
+render-slot-prompt.sh <skill-dir> <round> <abs-worktree> <plan-dir> <slot>[+<slot>…] \
+# Task 14 — flow record handoff-lines prints the handoff's record lines (verify-and-handoff.md, handoff-blocks.md)
+**Costs:** <the line `flow record cost-status` printed>
+**Deferred:** <count of deferred Minors>
+**Produce the handoff's `Deferred:` count and `### Deferred minors` list the same way**, one call per affected worktree:
+**Produce the handoff's `Records:` count**, one call per affected worktree:
+Both are filled from `flow record findings -change <name>` filtered on a status that starts with `deferred` — see **Write `IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`).
+Filter the result on a `status` that starts with `deferred`.
+It exits 0 always — `unknown` included.
+Render exactly what it printed.
+The command prints one decimal count on stdout — or the single word `unknown` where no count could be produced — and exits 0 either way, because it exists to make this line honest and must never become the reason the line does not print.
+`Deferred:` is the count of matches; `### Deferred minors` lists one row per match, `F<n> <location> — <note> — <reason>` (the reason is the text following `deferred ` in that finding's status), and reads `none` when the count is `0`.
+`unknown` is rendered as the third alternative above, exactly as it comes: a count that failed is not zero, and reporting it as zero would turn a filesystem problem into a claim that every write reached the store.
+flow record findings -change <name> -C <abs-worktree>
+flow record journal-count -change <name> -C <abs-worktree>
+flow record journal-count -change <name> -C <worktree>
+**Costs:** <the line `flow record handoff-lines` printed>
+**Deferred:** <count of deferred Minors> | unknown — the findings could not be read
+**Produce the handoff's `Records:`, `Deferred:` and `Costs:` lines and `### Deferred minors` list with one call**, `-C` the canonical worktree the ledger render above targets, one `-worktree` per other affected worktree:
+It exits 0 always; render each line exactly as printed.
+That third alternative is rendered exactly as it comes: a count that failed is not zero, and reporting it as zero would turn a filesystem problem into a claim that every write reached the store.
+The command prints the `Records:` line — `unknown — the journal could not be counted` where no count could be produced — and exits 0 either way, because it exists to make this line honest and must never become the reason the line does not print.
+flow record handoff-lines -change <name> -C <canonical-worktree> [-worktree <abs-worktree> ...]
+flow record handoff-lines -change <name> -C <worktree>
+# Task 25 (MX6): refresh-plan-base.sh
+A collision is reconciled before task 1 runs, under **A pivot reconciles the three artifacts together** (section 4 below) — never discovered mid-task; an unmoved base records one line saying so.
+Before the first task dispatches — inline or as an implementer — `git -C <worktree> fetch origin` and compare this run's working-notes merge base against `origin/<default-branch>`.
+On a moved base, re-read at the moved base every capability spec the proposal names — `git show origin/<default-branch>:<spec-path>`, `<spec-path>` the spec's `<project>/spectre/specs/<capability>.md` — run `git diff --name-only <merge-base> origin/<default-branch> -- <the paths the tasks' **Files:** fields name>`, and **name every route or requirement the plan adds that the moved base now already carries**.
+A collision is reconciled before task 1 runs, under **A pivot reconciles the three artifacts together** (section 4 below) — never discovered mid-task.
+Before the first task dispatches — inline or as an implementer — run, with this run's working-notes merge base and every capability spec the proposal names as `<spec-path>` — the spec's `<project>/spectre/specs/<capability>.md`, relative to `<project>`:
+Exit 0 prints `UNMOVED:` — record that one line — or `MOVED:` followed by the `CHANGED:` paths the plan's `**Files:**` declares and each spec's text at the moved base (`SPEC-ABSENT:` when it is gone there); exit 2 stops the run.
+On `MOVED:`, **name every route or requirement the plan adds that the moved base now already carries**.
+The script's header (`<agents repo>/scripts/refresh-plan-base.sh`) is canonical for its output.
+refresh-plan-base.sh <worktree> <merge-base> <changeRoot>/tasks.md <spec-path>…
+# Task 12 (parent, inline): the reviewer templates' Placeholders lists cut
+(`skills/flow/review-panel.md`): one path per worktree in this run's resolved set.
+**Placeholders:**
+`<project>/spectre/changes/<name>/`.
+`[ARTIFACT_PATHS]` — the absolute paths of `proposal.md`, `design.md` and `tasks.md` under
+`[CALIBRATION_PATH]` — the absolute path of `reviewer-calibration.md` beside this file.
+`[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
+`[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
+`[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run the
+`[GLOBAL_CONSTRAINTS]` — verbatim constraints from design/specs
+delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`, per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`)
+# Task 18 — commit-archive.sh makes the archive commit (archive.md step 4)
+\## `commit-archive.sh` — Run 2, step 4
+`<canonical-worktree>` resolves as run 1 resolves it (**Finish contract**, `skills/flow-contracts/finish-contract-run1.md`):
+`ARCHIVE-COMMITTED: <sha>` or `ARCHIVE-NOTHING-STAGED` (exit 0) continue.
+`ARCHIVE-WRONG-BRANCH: <found>` or the scope guard's `SCOPE-VIOLATION` lines (exit 1), or exit 2, stop the commit and leave the change at `IN_PROGRESS`.
+commit-archive.sh <landing-worktree> <canonical-worktree> <name>
+# Task 19 — remove-change-worktrees.sh runs the worktree cleanup (finish-contract-run2.md Worktree cleanup, archive.md)
+For each worktree, run **every** check of the six-check sequence in **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), canonical for it, before removing anything:
+\## `remove-change-worktrees.sh` — Worktree cleanup
+**Check 4 is a disclosure, not a gate — it asks only about an irreplaceable entry nothing preserved.**
+Exit 0: every check passed; each `REMOVED:` entry is one step 8 clears, and each `REMOTE-*` line is the handoff's **Remote branch:** — deleted, already gone, or not deleted.
+Exit 1: a `REFUSED:` or `HELD:` line — a failed check, nothing removed; or a failed removal, whose entry stays in `worktrees`.
+Exit 2: stop and report.
+Exit 3: the disclosure stop — nothing removed and nothing run; relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the wave-group copies below, ask only what they ask, then call again with `--proceed`.
+Once per repository, from outside every worktree in the set, with `<merge-base>` the one the state file's `worktrees` map records for it (`-` when none):
+The command is the body's first fenced block; a body with none declares no command, and the check is skipped the same way.
+remove-change-worktrees.sh <repo> <name> <merge-base|-> # --proceed on the second call only
+# Task 20 — flow stage mark replaces the empty begin/end pairs (flow-fast/SKILL.md)
+Two adjacent lines with nothing between them mark a stage `/flow-fast` has nothing to run for; the mark stays so the run's stage set matches `/flow`'s.
+`<harness>` is this harness's name, `ff-<literal-token>` is one token generated once at the start of the run and typed the same at every `stage begin` — never a shell substitution, per the CLI's own usage text.
+flow stage begin -command '/flow-fast' -stage flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.preserve-sessions -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.sync-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.write-finished -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end -command '/flow-fast' -stage flow.commit-archive -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.commit-two -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.document-fix -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.isolate-workspace -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.kickoff -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.preflight -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.preserve-sessions -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.push-archive -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.stage-diff -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.sync-archive -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.write-finished -outcome completed <name>
+flow stage end -command '/flow-fast' -stage flow.write-in-progress -outcome completed <name>
+A `flow stage mark` line marks each `-stages` key begun and ended `completed`, in order: the stages `/flow-fast` has nothing to run for; the mark stays so the run's stage set matches `/flow`'s.
+`<harness>` is this harness's name, `ff-<literal-token>` is one token generated once at the start of the run and typed the same at every `stage begin` and `stage mark` — never a shell substitution, per the CLI's own usage text.
+flow stage mark -command '/flow-fast' -stages flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.preserve-sessions,flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.sync-archive,flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.write-finished,flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark -command '/flow-fast' -stages flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
+
+# Task 24 — sync-panel-base.sh replaces the base-movement recipe (review-panel.md Check base movement first)
+**Clean** (exit 0): that worktree's working-notes merge base becomes `origin/$BASE`'s resolved
+**Conflict** (non-zero exit): never auto-abort, and never resolve the conflict — by editing the
+**Rebase** runs `git -C <worktree> rebase origin/$BASE` only in a worktree whose own verdict was `MOVED` — never one whose verdict was `CLEAR`, even though the prompt above is asked once for the whole change.
+BASE="$(resolve-base-branch.sh <worktree>)"
+Leave the worktree mid-rebase exactly as `git rebase` left it, report the conflicting file(s) from `git status`, and hand off `git -C <worktree> rebase --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the next manual step.
+Re-run `check-base-moved.sh` once more against the new value; a fresh overlap re-offers the prompt above rather than looping silently.
+Report every worktree's verdict: `MOVED` with no overlap is confirmed conflict-free and rebases that worktree automatically — `git -C <worktree> rebase origin/$BASE` runs at once, with no prompt, and the run reports that it happened rather than asking whether it should; its outcome takes the **Clean** and **Conflict** sub-bullets below exactly as an operator-chosen **Rebase** would.
+The automatic no-overlap rebase above is the same mechanism with nobody asked, and the two sub-bullets that follow govern both:
+`REFUSE`, an exit 2, or an empty resolved set stops and asks; an overlap from any worktree means the rebase is not confirmed conflict-free, so the run never takes that risk on itself — one prompt for the whole change, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction:
+`check-base-moved.sh` performs no fetch of its own; `resolve-base-branch.sh` is what fetches, so this order — resolve, then check — is load-bearing.
+check-base-moved.sh <worktree> "origin/$BASE" <working-notes-merge-base>
+tip at rebase time; every later `<merge-base>` this file and the `worktrees` map `skills/flow/verify-and-handoff.md` writes read the working notes, so nothing else needs plumbing.
+**Clean** (`REBASED:`): that worktree's working-notes merge base becomes the sha the last
+**Conflict** (exit 1): never auto-abort, and never resolve the conflict — by editing the
+**Rebase** re-runs the script with `--rebase` only for a worktree that exited 3 — never one whose verdict was `CLEAR`, even though the prompt above is asked once for the whole change.
+A fresh overlap on the script's own re-check is exit 3 again and re-offers the prompt above rather than looping silently.
+Exit 0 is settled; 3 is an overlap: the rebase is not confirmed conflict-free, so the run never takes that risk on itself; 1 is `CONFLICT`; 2 — a `REFUSE`, or anything it cannot answer — and an empty resolved set stop and ask.
+Its header (`<agents repo>/scripts/sync-panel-base.sh`) is the full contract.
+The automatic no-overlap rebase above is the same mechanism with nobody asked, and the two outcomes that follow govern both:
+The script fetches, prints `BASE: <base>` and every `check-base-moved.sh` verdict, and rebases a worktree whose verdict is `MOVED` with no overlap automatically, with no prompt — the run reports that it happened rather than asking whether it should.
+The worktree is left mid-rebase exactly as `git rebase` left it; report the conflicting file(s) the `CONFLICT:` line names, and hand off `git -C <worktree> rebase --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the next manual step.
+`REBASED:` line names; every later `<merge-base>` this file and the `worktrees` map `skills/flow/verify-and-handoff.md` writes read the working notes, so nothing else needs plumbing.
+sync-panel-base.sh [--rebase] <worktree> <working-notes-merge-base>
+# Task 24 (parent at pick): archive.md names resolve-base-branch.sh as a call; the fix-round re-check names sync-panel-base.sh
+**Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same per-worktree `resolve-base-branch.sh` then `check-base-moved.sh` pair, with that section's verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED` with no overlap rebases unasked at a round boundary just as at entry.
+Resolve `<base>` with `resolve-base-branch.sh` against the apply worktree, run `classify-untracked.sh <project>/.worktrees/_landing-<name>` first when the worktree already exists — the archive pre-flight settling its untracked entries, **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 2, canonical for the classes and for settling a reported asset through the operator — then invoke `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> chore/archive-<name>`.
+**Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same per-worktree `sync-panel-base.sh` call, with that section's verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED` with no overlap rebases unasked at a round boundary just as at entry.
+# Task 11 review fix (parent): a bundle naming mutation still renders the other roles and INDEPENDENT PASSES
+`mutation`'s pass is never rendered: its brief and its throwaway copy stay typed by the parent, beside the rendered path where a dispatch bundles it — the render still carries every other role's pass and the INDEPENDENT PASSES paragraph.
+# Panel round 1 fix (F4/F7/F9): the `## stop` shape lives in its canonical row; run2 cites it and relays the SKIPPED line
+Same shape as `## worktree setup`: one command per line inside a fence, read literally and run in order from the worktree; prose outside a fence is never run.
+A body with no fenced command declares no command and is skipped the same way.
+A body with no fenced command is that key's same skip, and prints `SKIPPED: check 5 — ## stop declares no fenced command`; relay the line word for word.
+# Panel round 1 fix (F2): flow-fast's sdd close states its own calls, since section 4's close is now one close-task.sh call
+written except that `check-task-commit-fields.sh` is not run and no task is ticked: section 5's lint and tests are what close a group.
+written except its task close: `close-task.sh` is not run — its fields guard, gate and tick read a spectre plan, and its planning-paths guard a planning tree, neither of which flow-fast writes.
+A group closes on the implementer's `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests.

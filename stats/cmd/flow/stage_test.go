@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1328,5 +1329,155 @@ func TestRunStageBeginWarnsOnSupersededRuns(t *testing.T) {
 	w := stderr.String()
 	if !strings.Contains(w, "superseded") || !strings.Contains(w, "flow.review-panel") {
 		t.Errorf("stderr = %q, want a supersede warning naming flow.review-panel", w)
+	}
+}
+
+// --- stage mark: begin then end completed, per key, in order (FF1) ---
+
+// TestStageMarkBeginsAndEndsEachKey pins `flow stage mark`'s whole
+// contract on a live store: every -stages key is begun and then ended
+// `completed`, key by key in the order given, each begin carrying the
+// session token and harness a `stage begin` would.
+func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var mu sync.Mutex
+	var calls []string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		mu.Lock()
+		switch r.URL.Path {
+		case "/api/v1/stages/begin":
+			calls = append(calls, fmt.Sprintf("begin %v %v %v %v", body["stage"], body["sessionToken"], body["harness"], body["changeName"]))
+		case "/api/v1/stages/end":
+			calls = append(calls, fmt.Sprintf("end %v %v %v", body["stage"], body["outcome"], body["changeName"]))
+		default:
+			calls = append(calls, r.URL.Path)
+		}
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate", "-harness", "zcode",
+			"-session-token", "ff-session-token-mark-happy", "kan-860"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
+	}
+	want := []string{
+		"begin flow.preflight ff-session-token-mark-happy zcode kan-860",
+		"end flow.preflight completed kan-860",
+		"begin flow.unfinished-work-gate ff-session-token-mark-happy zcode kan-860",
+		"end flow.unfinished-work-gate completed kan-860",
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if strings.Join(calls, "\n") != strings.Join(want, "\n") {
+		t.Errorf("store calls =\n%s\nwant\n%s", strings.Join(calls, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestStageMarkValidatesAllKeysFirst pins that every -stages key is
+// validated before any store call: one undocumented key anywhere in the
+// list is a usage error (exit 2) and the store is never contacted, so no
+// earlier key is left half-marked. A missing -stages, a stray -stage and a
+// missing -session-token are usage errors the same way.
+func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
+	cases := map[string][]string{
+		"bad second key":  {"-stages", "flow.preflight,flow.no-such-stage", "-session-token", "ff-mark-bad-key"},
+		"bad first key":   {"-stages", "flow.no-such-stage,flow.preflight", "-session-token", "ff-mark-bad-key"},
+		"empty key":       {"-stages", "flow.preflight,", "-session-token", "ff-mark-empty-key"},
+		"missing -stages": {"-session-token", "ff-mark-no-stages"},
+		"stray -stage":    {"-stage", "flow.preflight", "-stages", "flow.preflight", "-session-token", "ff-mark-stray"},
+		"missing token":   {"-stages", "flow.preflight"},
+	}
+	for name, extra := range cases {
+		t.Run(name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			var mu sync.Mutex
+			hits := 0
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				mu.Lock()
+				hits++
+				mu.Unlock()
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+			}))
+			defer srv.Close()
+
+			args := append([]string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-command", "/flow-fast", "-harness", "zcode"}, extra...)
+			args = append(args, "kan-860")
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if hits != 0 {
+				t.Errorf("store calls = %d, want 0 -- every key is validated before any store call", hits)
+			}
+		})
+	}
+}
+
+// TestStageMarkJournalFallback pins the never-block guarantee `stage
+// begin`/`stage end` hold, carried by `stage mark`: a dead store journals
+// every half of every key, in order, into the stage journal, and exits 0.
+func TestStageMarkJournalFallback(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "mark", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate",
+			"-session-token", "ff-session-token-mark-dead", "kan-860"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
+	}
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-860") + ".stage")
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	var got []string
+	for _, e := range entries {
+		var body struct {
+			Kind    string `json:"kind"`
+			Request struct {
+				Stage string `json:"stage"`
+			} `json:"request"`
+		}
+		if err := json.Unmarshal(e.Body, &body); err != nil {
+			t.Fatalf("decode journalled body: %v", err)
+		}
+		got = append(got, body.Kind+" "+body.Request.Stage)
+	}
+	want := "begin flow.preflight,end flow.preflight,begin flow.unfinished-work-gate,end flow.unfinished-work-gate"
+	if strings.Join(got, ",") != want {
+		t.Errorf("journalled marks = %v, want %s", got, want)
 	}
 }

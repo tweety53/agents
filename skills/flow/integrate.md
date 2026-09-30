@@ -83,11 +83,9 @@ the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases 
 after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`, or the merge-and-push route's merge conflicted and the sync is re-run. No
 `MOVED` verdict anywhere → report the counts and go straight to the landing question.
 
-Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), take the body's
-first non-blank line — trimmed, backticks removed — and resolve it against the three literals
-`pull request` / `merge and push` / `manual`, byte-for-byte per **Project configuration**
-(`skills/flow-contracts/project-configuration.md`); lines below it are documentation. A head
-matching none of them exactly is reported by name and dropped, resolving as absent.
+Run `project-get.sh <main-checkout> "default landing route" --enum "pull request" "merge and push" manual`:
+exit 0 prints the resolved route; exit 1 means absent; exit 3 means the head matches none of the
+three — report its stderr line by name and resolve as absent.
 
 **A resolved default skips the question entirely** — take that route without asking, and say so
 in the handoff (`Route: <route> — from this project's configured default, not asked`). Only an

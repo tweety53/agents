@@ -527,9 +527,14 @@ func gsCitations(b []byte, guards map[string]bool) (cited, unknown [][2]string) 
 				break
 			}
 			start := pos + m + 1
+			// An unclosed span wraps onto the next line: its first line
+			// carries the name and usage, so it is classified to the line's
+			// end rather than dropped (KAN-860 F6 — a wrapped invocation
+			// read GUARD-SYMLINKS-OK with its symlink deleted).
 			m2 := strings.IndexByte(raw[start:], '`')
-			if m2 < 0 {
-				break
+			last := m2 < 0
+			if last {
+				m2 = len(raw) - start
 			}
 			span := raw[start : start+m2]
 			if loc := gsNameRun.FindStringIndex(span); loc != nil && loc[0] == 0 {
@@ -565,6 +570,9 @@ func gsCitations(b []byte, guards map[string]bool) (cited, unknown [][2]string) 
 			// retries from the very next backtick as a fresh opening
 			// candidate, so one stray mark costs at most one empty non-match
 			// rather than a real citation (F7).
+			if last {
+				break
+			}
 			pos = start
 		}
 	}, func(raw string, n int) {

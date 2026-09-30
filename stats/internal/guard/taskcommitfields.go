@@ -173,7 +173,6 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	if !isDir(worktree) {
 		return refuse("worktree not found: " + worktree)
 	}
-	changes := worktree + "/" + specRootLeaf(worktree, stderr) + "/changes"
 
 	// judge is dispatch_python_guard: the check against tasksMD, parent sha
 	// forwarded. Shared by all three resolution paths (named change, satellite
@@ -197,9 +196,28 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		return 0
 	}
 
+	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-task-commit-fields.sh", worktree, name, canonical)
+	switch {
+	case tasksMD != "":
+		return judge(tasksMD)
+	case detail == "":
+		return 2
+	}
+	return refuse(detail)
+}
+
+// tcfResolveTasksMD is the plan resolution check-task-commit-fields and
+// check-review-gate share, so the two cannot drift: the tasks.md the named
+// change, a satellite link or the glob-path resolves to. An empty path is a
+// refusal -- detail is its could-not-judge text, or empty when stderr
+// already carries the reason (an ambiguous state-record answer). label
+// names the calling guard in that relayed reason.
+func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonical string) (string, string) {
+	changes := worktree + "/" + specRootLeaf(worktree, stderr) + "/changes"
+
 	if name != "" {
 		if name == "." || name == ".." || strings.Trim(name, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-") != "" {
-			return refuse("invalid change name: " + name)
+			return "", "invalid change name: " + name
 		}
 		tasksMD := ""
 		if isFile(changes + "/" + name + "/tasks.md") {
@@ -222,16 +240,16 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 			// refusal below. tcfResolvePlan adds one thing (KAN-267): an
 			// ambiguous state-record answer is relayed and refused outright,
 			// never read as an ordinary absence.
-			p, rc := tcfResolvePlan(env, stderr, worktree, name, canonical)
+			p, rc := tcfResolvePlan(env, stderr, label, worktree, name, canonical)
 			if rc == 3 {
-				return 2
+				return "", ""
 			}
 			tasksMD = p
 		}
 		if tasksMD == "" || !isFile(tasksMD) {
-			return refuse(fmt.Sprintf("no tasks.md found for change '%s' under %s", name, changes))
+			return "", fmt.Sprintf("no tasks.md found for change '%s' under %s", name, changes)
 		}
-		return judge(tasksMD)
+		return tasksMD, ""
 	}
 
 	var matches, names []string
@@ -257,16 +275,16 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		}
 		tasksMD := ""
 		if len(satellites) == 1 {
-			p, rc := tcfResolvePlan(env, stderr, worktree, satellites[0], canonical)
+			p, rc := tcfResolvePlan(env, stderr, label, worktree, satellites[0], canonical)
 			if rc == 3 {
-				return 2
+				return "", ""
 			}
 			tasksMD = p
 		}
 		if tasksMD == "" || !isFile(tasksMD) {
-			return refuse("no tasks.md found under " + changes)
+			return "", "no tasks.md found under " + changes
 		}
-		return judge(tasksMD)
+		return tasksMD, ""
 	}
 
 	// A <name>-fix-N SUB-CHANGE IS NOT AMBIGUITY. Under spectre a sub-change is
@@ -287,7 +305,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	// which is the other's fix sibling is the genuine ambiguity this check has
 	// always existed to catch, and nothing here may guess between them.
 	if len(roots) != 1 {
-		return refuse(fmt.Sprintf("more than one tasks.md found under %s, cannot resolve which change: %s", changes, strings.Join(matches, " ")))
+		return "", fmt.Sprintf("more than one tasks.md found under %s, cannot resolve which change: %s", changes, strings.Join(matches, " "))
 	}
 	// THE HIGHEST-NUMBERED FIX SIBLING WINS, and the root wins when there is
 	// none. A fix round creates <name>-fix-N and implements THAT plan; an
@@ -305,7 +323,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	// intended plan's files. Passing the change name as an argument would
 	// remove both; that changes a call signature skills/flow/implement.md
 	// documents, and was judged not worth it.
-	return judge(changes + "/" + tcfHighestFix(changes, roots[0], names) + "/tasks.md")
+	return changes + "/" + tcfHighestFix(changes, roots[0], names) + "/tasks.md", ""
 }
 
 // tcfEntries is the names a "$dir"/*/... glob expands through: dotfiles
@@ -377,12 +395,12 @@ func tcfIsFixSiblingOf(name string, names []string) bool {
 // into this guard's outright exit-2 refusal (KAN-267). Checking one task's
 // fields against a plan the record names twice would make the verdict a coin
 // flip, which is the one thing a commit-fields guard must never be.
-func tcfResolvePlan(env Env, stderr io.Writer, worktree, name, canonical string) (string, int) {
+func tcfResolvePlan(env Env, stderr io.Writer, label, worktree, name, canonical string) (string, int) {
 	var captured bytes.Buffer
 	p, rc := changePlanPath(env, &captured, worktree, name, canonical)
 	if rc == 3 {
 		stderr.Write(captured.Bytes())
-		fmt.Fprintf(stderr, "check-task-commit-fields.sh: the state record resolves change '%s' to more than one project's plan — cannot determine which\n", name)
+		fmt.Fprintf(stderr, "%s: the state record resolves change '%s' to more than one project's plan — cannot determine which\n", label, name)
 	}
 	return p, rc
 }
@@ -727,7 +745,10 @@ func tcfParseTask(lines []string, taskID string) (tcfTask, bool) {
 		task.unclosedFenceLine = found.taskLine + off + 1
 	}
 	shorthand := tcfPathShorthand(lines)
-	task.files = shorthand.expand(tcfBacktickTokens(joined("Files")))
+	// `Files: none` declares no path, as `Tests: none` declares no test.
+	if files := joined("Files"); !tcfNoneOpenRE.MatchString(files) {
+		task.files = shorthand.expand(tcfBacktickTokens(files))
+	}
 	task.allowedCollateral = shorthand.expand(tcfBacktickTokens(joined("Allowed-collateral")))
 	task.tests = tcfParseTestSpecs(task.testsValue)
 	return task, true
