@@ -96,7 +96,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       important: 1,
       minor: 1,
       findingsPerDispatch: 1.5,
-      deferredShare: 0.3333,
       withdrawnShare: 0,
     },
     {
@@ -109,7 +108,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       important: 0,
       minor: 1,
       findingsPerDispatch: 2.0,
-      deferredShare: 0,
       withdrawnShare: 0.5,
     },
   ]),
@@ -286,7 +284,6 @@ describe("views render their fixture response's actual values", () => {
     const primaryRow = screen.getByRole("cell", { name: /primary/ }).closest("tr")!;
     expect(within(primaryRow).getByText("2")).toBeInTheDocument(); // dispatches
     expect(within(primaryRow).getByText("1.50")).toBeInTheDocument(); // findings/dispatch
-    expect(within(primaryRow).getByText("33%")).toBeInTheDocument(); // deferred share
 
     const expRow = screen.getByRole("cell", { name: /exp-failure-modes/ }).closest("tr")!;
     const badge = within(expRow).getByRole("img", { name: "experimental reviewer" });

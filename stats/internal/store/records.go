@@ -587,8 +587,8 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 	// the update path's Minor-only rule (SetFindingStatus's ILIKE clause)
 	// is checkable here before the statement runs: a deferral raised
 	// beside any other severity is refused with the same sentinel the
-	// update refuses with, or the SPA's deferred-Minor numerator would
-	// silently count a Critical the caller called deferred.
+	// update refuses with, so no row ever carries a Critical the caller
+	// called deferred.
 	if strings.HasPrefix(in.Status, "deferred") && !severityIsMinor(in.Severity) {
 		return records.Finding{}, false, fmt.Errorf("%w: %s in %s/%s has severity %s, not Minor", ErrDeferredNotMinor, in.Ref, projectKey, change, in.Severity)
 	}

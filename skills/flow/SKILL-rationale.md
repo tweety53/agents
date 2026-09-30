@@ -461,6 +461,14 @@ that pass was **Rerun policy `full`**'s. **Rejected — keeping the whole-branch
 it re-read about 24k lines of branch diff and found only Minors; the catches recorded above
 (F10, F14) are the cost this trade accepts.
 
+*Minors are fixed inline, never deferred (KAN-862).* The Minor-deferral default — a Minor-only
+round deferred its Minors to `<project>/KNOWN-BUGS.md`, because a fix round cost more than they were worth
+— had left 96 entries by `0b7e1c58`, 30 of them from kan-860 alone. Fixing them later took whole
+`/flow` runs: KAN-861 planned 17 tasks at opus/high over 67 of them. What made a fix round
+expensive was its subagent, reproducers, mutation proof and slot re-runs, never the edits. The
+parent's inline fix drops all four, so a Minor now costs about what writing its
+`<project>/KNOWN-BUGS.md` entry did.
+
 ### review-panel.md — The fix round mutation-proves what it changed
 
 > The

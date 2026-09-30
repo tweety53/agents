@@ -3,9 +3,7 @@
 **This file is the canonical definition of follow-up issues.** Skills reference it by name; none of
 them restate the contract. If a rule below and a skill ever disagree, this file wins.
 
-`/flow`'s integrate run loads this file for its follow-up option — its one loading site. The
-review panel's deferred findings go to `<project>/KNOWN-BUGS.md` instead (**Deferred review findings**,
-`skills/flow-contracts/known-bugs.md`).
+`/flow`'s integrate run loads this file for its follow-up option — its one loading site.
 
 ### Follow-up issues
 

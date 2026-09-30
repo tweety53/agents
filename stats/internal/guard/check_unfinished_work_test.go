@@ -249,8 +249,8 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	// 1. The whole point of the CLEAR verdict: a finished change is not interrupted.
 	each(demo(nil), uwVerdict("a finished change is CLEAR", "CLEAR:"))
 	// 1b. The other closed statuses are closed, not open.
-	each(demo(findings("fixed", "withdrawn retracted, the guard already covers it", "fixed", "deferred cosmetic, not worth a fix round")),
-		uwVerdict("fixed, withdrawn and deferred findings are closed, not open", "CLEAR:"))
+	each(demo(findings("fixed", "withdrawn retracted, the guard already covers it", "fixed")),
+		uwVerdict("fixed and withdrawn findings are closed, not open", "CLEAR:"))
 	// 2. docs/manual-test/ is not a signal at all, even when a leftover guide
 	//    is still in the worktree when the guard runs.
 	each(demo(file("docs/manual-test/guide.md", "a leftover guide\n")),
@@ -299,7 +299,8 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	each(demo(findings("withdrawn the operator retracted it: the guard already covers this")),
 		uwVerdict("a withdrawal with a reason is closed", "CLEAR:"))
 	each(demo(findings("deferred cosmetic, not worth a fix round")),
-		uwVerdict("a deferred finding is closed", "CLEAR:"))
+		uwVerdict("a deferred finding is open", "OUTSTANDING:"),
+		uwReason("a deferred finding is counted open", "1 open finding(s)"))
 	each(demo(findings()), uwVerdict("a store with no findings for this run is CLEAR", "CLEAR:"))
 	// 4e. The store is unreachable: exit 2, never 0 or 1.
 	each(demo(func(t *testing.T, f *uwFix) {

@@ -977,9 +977,6 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	if diff := primary.FindingsPerDispatch - 1.5; diff > eps || diff < -eps {
 		t.Errorf("primary FindingsPerDispatch = %v, want 1.5 (3 findings / 2 dispatches)", primary.FindingsPerDispatch)
 	}
-	if diff := primary.DeferredShare - (1.0 / 3.0); diff > eps || diff < -eps {
-		t.Errorf("primary DeferredShare = %v, want 1/3", primary.DeferredShare)
-	}
 	if primary.WithdrawnShare != 0 {
 		t.Errorf("primary WithdrawnShare = %v, want 0", primary.WithdrawnShare)
 	}
@@ -1006,9 +1003,6 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	}
 	if diff := exp.FindingsPerDispatch - 2.0; diff > eps || diff < -eps {
 		t.Errorf("exp-failure-modes FindingsPerDispatch = %v, want 2.0", exp.FindingsPerDispatch)
-	}
-	if exp.DeferredShare != 0 {
-		t.Errorf("exp-failure-modes DeferredShare = %v, want 0", exp.DeferredShare)
 	}
 	if diff := exp.WithdrawnShare - 0.5; diff > eps || diff < -eps {
 		t.Errorf("exp-failure-modes WithdrawnShare = %v, want 0.5", exp.WithdrawnShare)

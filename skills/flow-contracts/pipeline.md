@@ -234,7 +234,7 @@ covers:
 - the models the recorded decision chose for this run's dispatches — each pair, per **Model and
   effort** (`skills/flow/brainstorm-planner.md`) — so the operator reads the run's model policy
   off the summary without opening the ledger;
-- findings fixed, and findings deferred or withdrawn;
+- findings fixed, and findings withdrawn;
 - commits made — repo and a one-line description each;
 - any decision recorded along the way — an automatic rebase onto a moved base, a diff-size cap
   exceeded and proceeded past, and the like.

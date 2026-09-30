@@ -353,7 +353,6 @@ export interface ReviewerRow {
   important: number;
   minor: number;
   findingsPerDispatch: number;
-  deferredShare: number;
   withdrawnShare: number;
 }
 
@@ -681,35 +680,6 @@ export async function listStageRuns(query: ListQuery = {}, init?: RequestInit): 
 /** GET /api/v1/changes/{project}/{name} */
 export async function getChange(project: string, name: string, init?: RequestInit): Promise<ChangeDTO> {
   return getJSON<ChangeDTO>(`/api/v1/changes/${encodeURIComponent(project)}/${encodeURIComponent(name)}`, init);
-}
-
-/** One finding of a change's run record, narrowed to what the run detail
- * dashboard reads from it. The deferral category (KAN-508) rides beside a
- * `deferred <reason>` status and is absent for every other status and for
- * deferrals recorded without naming one. */
-export interface RunRecordFindingDTO {
-  ref: string;
-  status: string;
-  category?: string;
-}
-
-/** The change's whole derived run record (internal/records.Run), narrowed
- * to what this client reads: the findings the review panel raised, in the
- * order the server orders them. The wire really does carry `findings:
- * null` for a change with none -- the server marshals its nil slice
- * unomitemptyed -- so the array is typed nullable and every consumer
- * handles the null rather than `!!`-ing it away. Dispatches, passes and
- * mutations ride the same response and are deliberately not typed here --
- * a consumer that needs them widens this type rather than fetching a
- * second envelope. */
-export interface RunRecordDTO {
-  change: string;
-  findings: RunRecordFindingDTO[] | null;
-}
-
-/** GET /api/v1/records/{project}/{change} */
-export async function fetchRunRecord(project: string, change: string, init?: RequestInit): Promise<RunRecordDTO> {
-  return getJSON<RunRecordDTO>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
 }
 
 /**

@@ -147,8 +147,8 @@ these substitutions:
   Waves are not parallel inline: bundles run in plan order, one at a time, never launched into a
   throwaway worktree.
 - **Every dispatch-prompt paragraph that instructs an implementer or fixer in its work** — FLOW —
-  COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND
-  BUILDS, PROJECT HAZARDS, and the rest section **4** and `skills/flow/review-panel.md` list —
+  COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, DRIFT CHECK, MUTATION PROOF, PLAN FIELDS,
+  FOREGROUND BUILDS, PROJECT HAZARDS, and the rest section **4** and `skills/flow/review-panel.md` list —
   **binds the parent in the same words**, as if the parent had dispatched itself. **Five
   paragraphs govern only a dispatched child's own channel and never bind the parent**: NO
   DELEGATION (inline, the parent keeps the dispatch rows the closed list above leaves it), MODEL
@@ -539,6 +539,12 @@ and applies **The handshake** stated above, unchanged.
 > the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
 > run costs lines of context, not a build log.
 
+> **DRIFT CHECK:** Before you commit, read your own diff once for what it leaves behind. For
+> every behaviour, name, path, flag or exit code the diff changes, grep for the comments, file
+> headers, usage lines, docs and cross-file citations that describe it, and bring each one in
+> line in this same commit. Every refusal or exit path the diff adds gets a test case of its
+> own.
+
 > **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size
 > the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per
 > step. Your report states the measured rate and the run count. Sizing the runs never replaces
@@ -721,12 +727,13 @@ with the task ids `+`-joined in plan order, the same convention as `panel-<round
 `-task <n>` only on a one-task bundle, omitted otherwise) and close it with **`-outcome clean`
 when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's own verdict is
 its report file's `## Verdict`, so per-task review yield stays measurable against the gate.
-**A pass whose findings are all Minor is `clean`** — the Minor-deferral default of **Panel
-re-runs** (`skills/flow/review-panel.md`) applied per pass: no fix round and no re-review; before
-ticking the task the parent appends each such Minor to `<project>/KNOWN-BUGS.md` in the entry
-shape of **Deferred review findings** (`skills/flow-contracts/known-bugs.md`), `task-<n>` in place
-of `F<n>`. A `fix` pass sends its Minors to the same fix. **A
-mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
+**A pass whose findings are all Minor is `clean`** — no fix round and no re-review; before
+ticking the task the parent fixes each such Minor itself, inline, exactly as **Panel re-runs**
+(`skills/flow/review-panel.md`) fixes a Minor-only round's Minors — one commit at the branch tip,
+pushed, no dispatch, no dispatch record and no `flow record status` — and only while no
+implementer dispatch is writing that worktree. A Minor no change to the tree can resolve is named,
+one clause, in the parent's output; nothing is written to `<project>/KNOWN-BUGS.md`. A `fix` pass
+sends its Minors to the same fix. **A mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
 closes the record, and every `fix` task takes the fix path below on its own sha, independently
 of its bundle-mates.
 

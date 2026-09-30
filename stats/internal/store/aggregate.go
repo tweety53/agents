@@ -468,13 +468,12 @@ func (s *Store) ListModels(ctx context.Context, period Period, project *string) 
 
 // ReviewerRow is one review-panel slot's record across a period: how often
 // it was dispatched, across how many changes, what it found by severity,
-// and how much of what it found was deferred or withdrawn rather than
-// fixed. Experimental is true for a slot whose id carries the "exp-"
-// prefix (design.md's exp-slot-prefix decision -- no schema flag, the id
-// itself is the fact); Description is that slot's newest recorded
-// decision roster entry naming it, empty when no decision ever named it
-// (a default-panel run, or a slot whose roster entry carries no
-// description at all).
+// and how much of it was withdrawn rather than fixed. Experimental is true
+// for a slot whose id carries the "exp-" prefix (design.md's
+// exp-slot-prefix decision -- no schema flag, the id itself is the fact);
+// Description is that slot's newest recorded decision roster entry naming
+// it, empty when no decision ever named it (a default-panel run, or a slot
+// whose roster entry carries no description at all).
 type ReviewerRow struct {
 	Slot         string
 	Experimental bool
@@ -487,7 +486,6 @@ type ReviewerRow struct {
 	Minor      int
 
 	FindingsPerDispatch float64
-	DeferredShare       float64
 	WithdrawnShare      float64
 }
 
@@ -558,7 +556,6 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 				COUNT(*) FILTER (WHERE severity ILIKE 'important') AS important,
 				COUNT(*) FILTER (WHERE severity ILIKE 'minor') AS minor,
 				COUNT(*) AS total,
-				COUNT(*) FILTER (WHERE status ILIKE 'deferred%') AS deferred,
 				COUNT(*) FILTER (WHERE status ILIKE 'withdrawn%') AS withdrawn
 			FROM scoped_findings
 			GROUP BY slot
@@ -589,7 +586,6 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			COALESCE(fa.important, 0),
 			COALESCE(fa.minor, 0),
 			CASE WHEN da.dispatches > 0 THEN COALESCE(fa.total, 0)::float8 / da.dispatches ELSE 0 END,
-			CASE WHEN COALESCE(fa.total, 0) > 0 THEN fa.deferred::float8 / fa.total ELSE 0 END,
 			CASE WHEN COALESCE(fa.total, 0) > 0 THEN fa.withdrawn::float8 / fa.total ELSE 0 END
 		FROM dispatch_agg da
 		JOIN roster_slots rs ON rs.slot = da.slot
@@ -607,7 +603,7 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		if err := rows.Scan(
 			&row.Slot, &row.Experimental, &row.Description,
 			&row.Dispatches, &row.Changes, &row.Critical, &row.Important, &row.Minor,
-			&row.FindingsPerDispatch, &row.DeferredShare, &row.WithdrawnShare,
+			&row.FindingsPerDispatch, &row.WithdrawnShare,
 		); err != nil {
 			return nil, fmt.Errorf("store: reviewers: scan: %w", err)
 		}

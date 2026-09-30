@@ -4350,27 +4350,21 @@ func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
 
 // --- handoff-lines ------------------------------------------------------
 
-// handoffDaemon serves the two reads `record handoff-lines` makes: the run
-// record (findings) and the cost status. findingsStatus != 200 answers the
-// run-record read with that status and no body.
-func handoffDaemon(t *testing.T, findingsStatus int, findingsBody string, runReads *int) http.HandlerFunc {
+// handoffDaemon serves the one read `record handoff-lines` makes: the cost
+// status. Any other request fails the test.
+func handoffDaemon(t *testing.T) http.HandlerFunc {
 	t.Helper()
 	return genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("handoff-lines sent a %s request; it only reads", r.Method)
 		}
-		if strings.HasSuffix(r.URL.Path, "/cost-status") {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"unattributed":0,"reasons":{}}`))
+		if !strings.HasSuffix(r.URL.Path, "/cost-status") {
+			t.Errorf("handoff-lines requested %s; it reads cost-status only", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		if runReads != nil {
-			*runReads++
-		}
-		w.WriteHeader(findingsStatus)
-		if findingsStatus == http.StatusOK {
-			_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"findings":` + findingsBody + `}`))
-		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"unattributed":0,"reasons":{}}`))
 	})
 }
 
@@ -4400,30 +4394,17 @@ func runHandoffLines(t *testing.T, args ...string) (int, string, string) {
 	return code, stdout.String(), stderr.String()
 }
 
-// TestRecordHandoffLinesFormat pins the block the verb prints against the
-// prose it replaces: the three Records spellings, the Deferred filter (a
-// status starting with "deferred", nothing else) and the `none` list.
+// TestRecordHandoffLinesFormat pins the block the verb prints: the three
+// Records spellings and the Costs line, nothing else.
 func TestRecordHandoffLinesFormat(t *testing.T) {
-	mixed := `[
-	  {"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"deferred out of scope"},
-	  {"ref":"F2","round":0,"slot":"Bugbot","severity":"Minor","location":"b.go:2","note":"n2","status":"open"},
-	  {"ref":"F3","round":0,"slot":"Bugbot","severity":"Minor","location":"c.go:3","note":"n3","status":"fixed"},
-	  {"ref":"F4","round":0,"slot":"Bugbot","severity":"Minor","location":"d.go:4","note":"n4","status":"withdrawn deferred later"},
-	  {"ref":"F5","round":0,"slot":"Bugbot","severity":"Minor","location":"e.go:5","note":"n5","status":"deferred cosmetic"}
-	]`
 	cases := []struct {
-		name     string
-		journal  int // -1: make the journal unreadable
-		findings string
-		want     string
+		name    string
+		journal int // -1: make the journal unreadable
+		want    string
 	}{
-		{"clean", 0, `[]`,
-			"**Records:** all writes reached the store\n**Deferred:** 0\n**Costs:** 0 unattributed\n### Deferred minors\nnone\n"},
-		{"journalled", 2, mixed,
-			"**Records:** 2 write(s) journalled — the store was unreachable\n**Deferred:** 2\n**Costs:** 0 unattributed\n### Deferred minors\n" +
-				"F1 a.go:1 — n1 — out of scope\nF5 e.go:5 — n5 — cosmetic\n"},
-		{"uncountable", -1, `[]`,
-			"**Records:** unknown — the journal could not be counted\n**Deferred:** 0\n**Costs:** 0 unattributed\n### Deferred minors\nnone\n"},
+		{"clean", 0, "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n"},
+		{"journalled", 2, "**Records:** 2 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n"},
+		{"uncountable", -1, "**Records:** unknown — the journal could not be counted\n**Costs:** 0 unattributed\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -4441,7 +4422,7 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			srv := httptest.NewServer(handoffDaemon(t, http.StatusOK, tc.findings, nil))
+			srv := httptest.NewServer(handoffDaemon(t))
 			defer srv.Close()
 
 			code, out, errOut := runHandoffLines(t, "-addr", srv.URL, "-C", repo, "-change", "demo")
@@ -4455,9 +4436,9 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 	}
 }
 
-// TestRecordHandoffLinesDedupByProject pins the aggregation: the journal
-// and the findings are keyed per project, so two worktrees of one project
-// are read once, never double-counted.
+// TestRecordHandoffLinesDedupByProject pins the aggregation: the journal is
+// keyed per project, so two worktrees of one project are counted once, never
+// double-counted.
 func TestRecordHandoffLinesDedupByProject(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -4467,42 +4448,45 @@ func TestRecordHandoffLinesDedupByProject(t *testing.T) {
 	}
 	writeRecordJournal(t, repo, "demo", 3)
 
-	reads := 0
-	srv := httptest.NewServer(handoffDaemon(t, http.StatusOK,
-		`[{"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"deferred later"}]`, &reads))
+	srv := httptest.NewServer(handoffDaemon(t))
 	defer srv.Close()
 
 	code, out, errOut := runHandoffLines(t, "-addr", srv.URL, "-C", repo, "-change", "demo", "-worktree", wt)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
-	want := "**Records:** 3 write(s) journalled — the store was unreachable\n**Deferred:** 1\n**Costs:** 0 unattributed\n### Deferred minors\nF1 a.go:1 — n1 — later\n"
+	want := "**Records:** 3 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n"
 	if out != want {
 		t.Errorf("stdout =\n%s\nwant\n%s", out, want)
 	}
-	if reads != 1 {
-		t.Errorf("run-record reads = %d, want 1 (one per project)", reads)
-	}
 }
 
-// TestRecordHandoffLinesUnknown pins decision handoff-deferred-unknown: a
-// failed findings read renders as unknown, never as zero deferred, and the
-// verb still exits 0.
-func TestRecordHandoffLinesUnknown(t *testing.T) {
+// TestRecordHandoffLinesReadsNoFindings pins that the verb makes no findings
+// read: a records endpoint that fails is never hit, and both lines print.
+func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
-	srv := httptest.NewServer(handoffDaemon(t, http.StatusInternalServerError, "", nil))
+	recordReads := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/cost-status") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"unattributed":0,"reasons":{}}`))
+			return
+		}
+		recordReads++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
 	defer srv.Close()
 
 	code, out, errOut := runHandoffLines(t, "-addr", srv.URL, "-C", repo, "-change", "demo")
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
-	want := "**Records:** all writes reached the store\n**Deferred:** unknown — the findings could not be read\n**Costs:** 0 unattributed\n### Deferred minors\nunknown — the findings could not be read\n"
+	want := "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n"
 	if out != want {
 		t.Errorf("stdout =\n%s\nwant\n%s", out, want)
 	}
-	if errOut == "" {
-		t.Error("stderr is empty; the failed read's diagnostic belongs there")
+	if recordReads != 0 {
+		t.Errorf("records endpoint hit %d time(s), want 0 -- handoff-lines reads no findings", recordReads)
 	}
 }

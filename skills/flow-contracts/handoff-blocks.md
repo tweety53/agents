@@ -95,7 +95,7 @@ rule the open-questions count reads through are stated once under
 **Change:** <name>
 **Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired"> · <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
-**Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted"> · **Deferred:** <count of deferred Minors>
+**Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted">
 **Guards:** (run-only) <all present, or how many were missing and checked by hand>
 **Auto-resolved:** (run-only) <each prompt the run took on its recommended option, ⚠-marked, question and option taken, or "none">
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
@@ -109,9 +109,6 @@ Running:
 Review the diff, then run it:
   <the review command that matches the git state on the Staged line — see below>
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
-
-### Deferred minors
-<one row per deferred Minor, `F<n> <location> — <note> — <reason>`, or `none` when there are none>
 
 <what the operator does next>
 
@@ -165,13 +162,6 @@ project's own configuration — not remembered from the run that printed them �
 resulting commands without re-probing whether the stack is still actually up — it states that the
 stack's liveness is not re-checked. Both commands resolve those lines the same way — see **Resolve
 the run instructions** (`skills/flow/verify-and-handoff.md`).
-
-**`Deferred` and `### Deferred minors` are on-disk, not `(run-only)`.** Both are filled from `flow
-record handoff-lines -change <name>`, which counts the findings whose status starts with `deferred` — see **Write
-`IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`). `Deferred` is that count; the list below it
-is one row per such finding, `F<n> <location> — <note> — <reason>`, and reads `none` when the count
-is `0`. A deferred Minor is not an open finding — it does not block the handoff, and
-`/flow-status <name>` regenerates both by re-running the same query.
 
 **The `Staged` line's git state has a third option, and the review command follows it.**
 `/flow`'s implement phase itself only ever emits the first two — it stages, or it commits and pushes to a PR
