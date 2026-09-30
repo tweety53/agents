@@ -325,3 +325,16 @@ Exit 0 prints `UNMOVED:` — record that one line — or `MOVED:` followed by th
 On `MOVED:`, **name every route or requirement the plan adds that the moved base now already carries**.
 The script's header (`<agents repo>/scripts/refresh-plan-base.sh`) is canonical for its output.
 refresh-plan-base.sh <worktree> <merge-base> <changeRoot>/tasks.md <spec-path>…
+# Task 12 (parent, inline): the reviewer templates' Placeholders lists cut
+(`skills/flow/review-panel.md`): one path per worktree in this run's resolved set.
+**Placeholders:**
+`<project>/spectre/changes/<name>/`.
+`[ARTIFACT_PATHS]` — the absolute paths of `proposal.md`, `design.md` and `tasks.md` under
+`[CALIBRATION_PATH]` — the absolute path of `reviewer-calibration.md` beside this file.
+`[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
+`[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
+`[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run the
+`[GLOBAL_CONSTRAINTS]` — verbatim constraints from design/specs
+delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-primary.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-failure-modes.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`) on a decided panel or a scoped round, else the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-principles.diff`, per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`)

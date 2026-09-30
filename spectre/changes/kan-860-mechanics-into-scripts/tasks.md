@@ -451,7 +451,8 @@ Correction (2026-09-30): the five late-fix conditions live in `skills/flow/revie
   - [ ] **Step 3: Commit.**
 
 **Files:** `skills/flow/primary-reviewer-prompt.md`, `skills/flow/principles-reviewer-prompt.md`,
-`skills/flow/failure-modes-reviewer-prompt.md`
+`skills/flow/failure-modes-reviewer-prompt.md`, `stats/internal/guard/references.go`,
+`stats/internal/guard/installedcitations.go`
 **Tests:** none — prose cut; Task 11's renderer test is the check
 **Regression:** none — a revert restores lists the renderer ignores.
 **Baseline:** before=0 after=0
@@ -459,6 +460,8 @@ Correction (2026-09-30): the five late-fix conditions live in `skills/flow/revie
 **Commit:** `refactor(flow): cut the reviewer templates' placeholder lists`
 **After:** Task 11
 **Build:** green
+
+Correction (2026-09-30): Step 2 predicted primary keeps 3 citations in its body; measured, every citation `check-installed-citations.sh` and `check-references.sh` counted in all three templates sat inside the **Placeholders:** list, so each drops to 0 and both guards refuse an undeclared zero. The three templates are declared expected-zero in `crExpectedZero` (`references.go`) and `cicExpectedZero` (`installedcitations.go`), which join `**Files:**` — option (a) of the group-3 implementer's BLOCKED report, taken as the recommended answer under the operator's standing instruction; the parent implemented the task inline (a finished child is never resumed).
 
 **Decision:** all-designed-rows-in-scope
 
