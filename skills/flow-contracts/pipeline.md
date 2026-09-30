@@ -190,6 +190,13 @@ Next:
 /flow <name>
 ```
 
+- **A block is printed as rendered Markdown, never inside a code fence.** The fence around every
+  block shape in a skill or contract file — this one, `## Finished`, `## Branch integrated`, the
+  wrong-state block and every other — delimits the template, not the output: printed fenced, its
+  `**Field:**` markup reaches the operator as literal asterisks. Each `**Field:** value` line is
+  printed as a list item (`- **Field:** value`), since consecutive plain lines fold into one
+  paragraph, and a path, branch or change name inside a value is inline code. The next command
+  and `/clear` stay bare lines, per the next rule.
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
 - **A handoff that leaves the change at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
