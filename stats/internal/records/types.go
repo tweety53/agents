@@ -208,8 +208,8 @@ type TokenReport struct {
 //
 // Category is the structured deferral category (`doc-only`, `pre-existing`,
 // `cosmetic`, `coverage-gap`, `out-of-scope`, `other`) that rides beside a
-// `deferred <reason>` status, so a deferred-Minor rate is a query rather
-// than a hand-read of every reason. It is empty for every other status and
+// `deferred <reason>` status, kept for the historical rows and migration
+// 0025 that carry it -- nothing is deferred now (KAN-862). It is empty for every other status and
 // for deferrals recorded without naming one -- absence, never a guessed
 // word.
 //

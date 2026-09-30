@@ -342,8 +342,7 @@ The state file lives outside the repo — never `git add` it.
 flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
 ```
 
-**Produce the handoff's `Records:`, `Deferred:` and `Costs:` lines and `### Deferred minors` list with
-one call**, `-C` the canonical worktree the ledger render above targets, one `-worktree` per other
+**Produce the handoff's `Records:` and `Costs:` lines with one call**, `-C` the canonical worktree the ledger render above targets, one `-worktree` per other
 affected worktree:
 
 ```bash
@@ -361,7 +360,6 @@ It exits 0 always; render each line exactly as printed.
 **Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md? | aborted — verified without added sweeps
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
-**Deferred:** <count of deferred Minors> | unknown — the findings could not be read
 **Costs:** <the line `flow record handoff-lines` printed>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Auto-resolved:** none | ⚠ <question> → <the recommended option taken>[; ⚠ <question> → <option> …]
@@ -376,9 +374,6 @@ Running:
 Review the diff, then run it:
   git -C <absolute worktree path> diff <merge base>..HEAD
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
-
-### Deferred minors
-<one row per deferred Minor, `F<n> <location> — <note> — <reason>`, or `none` when there are none>
 
 Re-run this command to fix anything you find, or bare to move on to integrating it.
 

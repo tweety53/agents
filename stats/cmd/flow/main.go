@@ -40,7 +40,7 @@ commands:
   record render       render a change's run record from the store
   record journal-count  count a change's record writes still pending in the journal
   record cost-status  print how many of a change's dispatches carry no cost figure, and why
-  record handoff-lines  print the handoff's Records, Deferred and Costs lines and Deferred minors
+  record handoff-lines  print the handoff's Records and Costs lines
   record decision     record one run's dynamic decision, or replace it
   record decisions    print a change's recorded decisions as a JSON array
   decision render     print the ## Decision block for a decision.json (see: flow decision)

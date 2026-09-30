@@ -154,9 +154,8 @@ func validateFindingStatus(status string) error {
 }
 
 // findingCategories is the closed set `-category` accepts beside a
-// `deferred <reason>` status: the vocabulary the dashboard's deferred-Minor
-// breakdown counts on, so a rate over it is a query rather than a
-// hand-read of every reason. doc-only, the finding is a wording or comment
+// `deferred <reason>` status, kept for the historical rows and migration
+// 0025 that carry it -- nothing is deferred now (KAN-862). doc-only, the finding is a wording or comment
 // fix; pre-existing, it predates this change's base; cosmetic, style,
 // naming or dead code with no behavioural risk; coverage-gap, a test gap
 // not worth blocking the change; out-of-scope, real but belonging to
@@ -326,13 +325,11 @@ identical reason: on any failure to reach or read the store it prints
 store that has no other reason to be up.
 
 handoff-lines prints the verify handoff's record lines, block-ready:
-"**Records:**", "**Deferred:**" and "**Costs:**", then "### Deferred minors"
-with one "F<n> <location> — <note> — <reason>" row per finding whose status
-starts with "deferred" (or "none"). -C is the canonical worktree; each
--worktree adds another affected one. Worktrees of one project are read once.
-Costs is the canonical worktree's cost-status line. It never blocks: a
-journal it cannot count or findings it cannot read print their "unknown"
-spelling, and it exits 0.
+"**Records:**" and "**Costs:**". It reads no findings. -C is the canonical
+worktree; each -worktree adds another affected one. Worktrees of one project
+are counted once. Costs is the canonical worktree's cost-status line. It
+never blocks: a journal it cannot count prints its "unknown" spelling, and it
+exits 0.
 
 findings prints one change's findings as a JSON array on stdout -- ref,
 status, and reproducer among the fields -- for a guard to query instead of
@@ -1476,21 +1473,18 @@ func formatCostStatusLine(cs records.CostStatus) string {
 // Handoff-line spellings. A count that could not be produced is never
 // rendered as zero: that would turn a failure into a clean-run claim.
 const (
-	handoffRecordsClean       = "all writes reached the store"
-	handoffRecordsJournalled  = "%d write(s) journalled — the store was unreachable"
-	handoffRecordsUnknown     = "unknown — the journal could not be counted"
-	handoffFindingsUnknown    = "unknown — the findings could not be read"
-	handoffDeferredPrefix     = "deferred"
-	handoffDeferredMinorsNone = "none"
+	handoffRecordsClean      = "all writes reached the store"
+	handoffRecordsJournalled = "%d write(s) journalled — the store was unreachable"
+	handoffRecordsUnknown    = "unknown — the journal could not be counted"
 )
 
 // runRecordHandoffLines implements `flow record handoff-lines`: the
-// handoff's Records, Deferred and Costs lines plus the Deferred minors list,
-// from journal-count's, findings' and cost-status's own helpers.
+// handoff's Records and Costs lines, from journal-count's and cost-status's
+// own helpers.
 //
-// The journal and the findings are keyed per project, so the canonical
-// worktree (-C) and every -worktree are deduplicated by fallback.ProjectKey
-// before either is read -- two worktrees of one project count once.
+// The journal is keyed per project, so the canonical worktree (-C) and every
+// -worktree are deduplicated by fallback.ProjectKey before it is counted --
+// two worktrees of one project count once.
 //
 // IT NEVER BLOCKS, like journal-count and cost-status: every failure prints
 // its "unknown" spelling, the diagnostic goes to stderr, and it exits 0.
@@ -1549,25 +1543,6 @@ func runRecordHandoffLines(ctx context.Context, args []string, stdout, stderr io
 		}
 	}
 
-	var deferred []records.Finding
-	findingsOK := keysOK
-	for _, key := range keys {
-		if !findingsOK {
-			break
-		}
-		found, err := readFindings(ctx, f, key)
-		if err != nil {
-			fmt.Fprintf(stderr, "flow: findings: %v\n", err)
-			findingsOK = false
-			break
-		}
-		for _, fd := range found {
-			if strings.HasPrefix(fd.Status, handoffDeferredPrefix) {
-				deferred = append(deferred, fd)
-			}
-		}
-	}
-
 	costs := costStatusUnknown
 	if canonicalKey != "" {
 		line, err := readCostStatusLine(ctx, f, canonicalKey)
@@ -1579,23 +1554,7 @@ func runRecordHandoffLines(ctx context.Context, args []string, stdout, stderr io
 	}
 
 	fmt.Fprintf(stdout, "**Records:** %s\n", recordsLine)
-	if findingsOK {
-		fmt.Fprintf(stdout, "**Deferred:** %d\n", len(deferred))
-	} else {
-		fmt.Fprintf(stdout, "**Deferred:** %s\n", handoffFindingsUnknown)
-	}
 	fmt.Fprintf(stdout, "**Costs:** %s\n", costs)
-	fmt.Fprintln(stdout, "### Deferred minors")
-	switch {
-	case !findingsOK:
-		fmt.Fprintln(stdout, handoffFindingsUnknown)
-	case len(deferred) == 0:
-		fmt.Fprintln(stdout, handoffDeferredMinorsNone)
-	}
-	for _, fd := range deferred {
-		reason := strings.TrimPrefix(strings.TrimPrefix(fd.Status, handoffDeferredPrefix), " ")
-		fmt.Fprintf(stdout, "%s %s — %s — %s\n", fd.Ref, fd.Location, fd.Note, reason)
-	}
 	return 0
 }
 
@@ -1798,7 +1757,7 @@ func runRecordFindings(ctx context.Context, args []string, stdout, stderr io.Wri
 }
 
 // readFindings reads projectKey's findings for f.change from the store,
-// shared by findings and handoff-lines. A change the store has never heard
+// for the findings verb. A change the store has never heard
 // of (404) is no findings -- "no rows" is a fact, not a failure, exactly as
 // runRecordRender treats it as MISSING rather than an error. The result is
 // never nil, so it marshals as "[]".

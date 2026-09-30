@@ -115,45 +115,17 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	}
 
 	// An open finding is any finding whose status is neither `fixed` nor a
-	// `withdrawn <reason>` or `deferred <reason>` value -- each prefix covers
-	// its whole family, reason text included.
+	// `withdrawn <reason>` value -- the prefix covers the whole family,
+	// reason text included.
 	var open []string
 	for _, f := range findings {
-		if f.status != "fixed" && !strings.HasPrefix(f.status, "withdrawn") && !strings.HasPrefix(f.status, "deferred") {
+		if f.status != "fixed" && !strings.HasPrefix(f.status, "withdrawn") {
 			open = append(open, f.ref)
 		}
 	}
 	violated := false
 	if len(open) > 0 {
 		fmt.Fprintf(stderr, "%sfinding(s) still open: %s\n", cfcPrefix, strings.Join(open, " "))
-		violated = true
-	}
-
-	// A MINOR IS NEVER DEFERRED BESIDE A CRITICAL OR IMPORTANT OF ITS OWN
-	// ROUND -- review-panel.md's **Panel re-runs** is canonical for the rule.
-	// A withdrawn Critical or Important does not count: it takes no fix
-	// round for a Minor to join, and the handback loop's own text defers a
-	// Minor "with none" taking one.
-	fixRound := map[int]bool{}
-	for _, f := range findings {
-		sev := strings.ToLower(f.severity)
-		if (sev == "critical" || sev == "important") && !strings.HasPrefix(f.status, "withdrawn") {
-			fixRound[f.round] = true
-		}
-	}
-	misdeferred := map[int][]string{}
-	for _, f := range findings {
-		if strings.EqualFold(f.severity, "minor") && strings.HasPrefix(f.status, "deferred") && fixRound[f.round] {
-			misdeferred[f.round] = append(misdeferred[f.round], f.ref)
-		}
-	}
-	rounds := make([]int, 0, len(misdeferred))
-	for r := range misdeferred {
-		rounds = append(rounds, r)
-	}
-	slices.Sort(rounds)
-	for _, r := range rounds {
-		fmt.Fprintf(stderr, "%sround %d raised a Critical or Important, so its Minor finding(s) go to that same fix, never deferred: %s\n", cfcPrefix, r, strings.Join(misdeferred[r], " "))
 		violated = true
 	}
 
@@ -170,11 +142,15 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	// `completed` -- a timed-out or never-ended dispatch is not a clean
 	// re-run -- and a slot whose `+`-components cover every component of the
 	// finding's: a bundled re-run covers its members, a solo re-run of one
-	// member does not cover a joined finding. Withdrawn and deferred
-	// findings claim no verification and check nothing here.
+	// member does not cover a joined finding. Withdrawn findings claim no
+	// verification and check nothing here.
 	var unverified []string
 	for _, f := range findings {
 		if f.status != "fixed" {
+			continue
+		}
+		// A fixed Minor closes on its fix alone (review-panel.md's **Panel re-runs**).
+		if strings.EqualFold(f.severity, "minor") {
 			continue
 		}
 		required := strings.Split(f.slot, "+")

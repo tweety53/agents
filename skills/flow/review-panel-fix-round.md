@@ -84,8 +84,9 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
 - **a slot re-runs only when it raised a Critical or Important in the previous round, or the
   previous round raised a new Critical** — every slot in the resolved roster, Primary included,
   and every operator-added slot already dispatched in an earlier pass of this run, on that one
-  rule. A Minor, fixed or deferred, re-runs no slot: a fixed Minor closes on the verification
-  below alone. A slot that raised nothing keeps the result it has;
+  rule. A Minor re-runs no slot: one fixed beside a Critical or Important closes on the
+  verification below alone, and one the parent fixed inline (**Panel re-runs**,
+  `skills/flow/review-panel.md`) on its commit. A slot that raised nothing keeps the result it has;
   the round's own mutation-proof (below) covers what the fix changed;
 - **a diff-reading slot that re-runs reads its delta**; Mutation reads no diff
   file and re-runs in its pass-1 shape, throwaway worktree included. **A diff-reading slot whose
@@ -398,14 +399,15 @@ every pass with `flow record pass -round <round>`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.
 
-A Minor either fixed or deferred blocks nothing; a Minor left `open` blocks exactly as a Critical
-does. When fix rounds do not converge, the run decides each unresolved finding itself, one finding
+A Minor fixed or withdrawn blocks nothing; a Minor left `open` or `deferred` blocks exactly as a
+Critical does. When fix rounds do not converge, the run decides each unresolved finding itself, one finding
 at a time, and does not ask:
 
 - **A defect a code or document change can resolve takes another fix round** — at Critical or
   Important, and even where the fix reaches past the change's original scope. A Minor that reached
-  this loop joins that round only beside a Critical or Important taking one; with none, it is
-  deferred under the round's Minor-deferral default above.
+  this loop joins that round only beside a Critical or Important taking one; with none, the parent
+  fixes it inline, as **Panel re-runs** (`skills/flow/review-panel.md`) fixes a Minor-only round's
+  Minors.
 - **A finding no change to the tree can resolve is withdrawn** — a verification-only ask, a proof
   that needs an environment the run does not have, a defect something already covers — recorded
   `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. That reason stands

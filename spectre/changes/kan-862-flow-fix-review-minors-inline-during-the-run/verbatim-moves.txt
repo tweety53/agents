@@ -1,0 +1,75 @@
+# Sentences KAN-862 deletes, rewords or adds on purpose: the Minor-deferral rule, its
+# KNOWN-BUGS contract section and the handoff's Deferred surface retire (design.md §§ 2, 4, 5).
+# Known bugs — the KNOWN-BUGS.md sweep and deferred review findings
+## Deferred review findings
+### Deferred findings go to KNOWN-BUGS.md at round close
+**A deferral's reason is one clause naming the mechanism — never a rationale essay, in the store row or in the round's output.**
+**A pass whose findings are all Minor is `clean`** — the Minor-deferral default of **Panel re-runs** (`skills/flow/review-panel.md`) applied per pass: no fix round and no re-review; before ticking the task the parent appends each such Minor to `<project>/KNOWN-BUGS.md` in the entry shape of **Deferred review findings** (`skills/flow-contracts/known-bugs.md`), `task-<n>` in place of `F<n>`.
+**A round close that leaves findings newly recorded `deferred` records them in `<project>/KNOWN-BUGS.md`, unasked, before the close guards below run** — **Deferred review findings** (`skills/flow-contracts/known-bugs.md`) is canonical for the entry and its commit.
+**A round that raised no Critical and no Important defers every Minor** — a fix round costs more time than its Minors are worth — with `flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>`, the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query rather than a hand-read.
+**Every Critical and Important goes to the fix; whether a Minor does follows from the rest of the round, and a Minor never causes a fix round of its own.
+**Review panel round close** — deferred findings only, per **Deferred review findings** above.
+**This file is canonical for `<project>/KNOWN-BUGS.md`: the sweep that records pre-existing test failures, and the review panel's deferred findings.
+- `<location>` — F<n>, <severity>, <change name> — <the defect, as the raising slot named it> —
+A Minor either fixed or deferred blocks nothing; a Minor left `open` blocks exactly as a Critical does.
+A Minor that reached this loop joins that round only beside a Critical or Important taking one; with none, it is deferred under the round's Minor-deferral default above.
+A Minor, fixed or deferred, re-runs no slot: a fixed Minor closes on the verification below alone.
+A finding the targeted dispatch raises feeds the ordinary fix-round loop unchanged, and Minors defer under the standing rule — but **any Critical or Important it raises voids the reduction for the rest of the run**: a delta that small producing a defect that severe means the narrow read's context was not enough, so every later round this run opens takes the full path.
+Deferral rationale is written nowhere — a Minor is deferred with its one-clause reason in the store.
+Delete an entry only in the commit that fixes its finding.
+Exit 1 means a finding still reads `open` in the store, or a Minor reads `deferred` in a round that raised a Critical or Important not recorded `withdrawn` — the Minor-deferral default of **Panel re-runs** above, violated; the line names the refs and the round.
+No Jira issue is filed and no prompt fires at this close.
+No Jira issue is filed for it.
+Nothing in that round is fixed, inline or otherwise, and no slot re-runs: proceed to **Deferred findings go to KNOWN-BUGS.md at round close**, below, and then to `check-panel-findings-closed.sh` and the stage close.
+The entry is the durable record the archived panel record alone is not: what is wrong, why it matters, and how to fix it, where the next change reads it.
+The review panel's deferred findings go to `<project>/KNOWN-BUGS.md` instead (**Deferred review findings**, `skills/flow-contracts/known-bugs.md`).
+The same holds for a delta the late-fix reduction's targeted dispatch read — clean, or with every finding it raised a deferred Minor under the standing rule: `primary`'s read on the since-close range leaves every slot it did not dispatch current — the reduction's own conditions, already clean and already verified with the machinery untouched, being what the full roster's coverage rests on for that delta.
+When a review-panel round close leaves findings newly recorded `deferred` (**Deferred findings go to KNOWN-BUGS.md at round close**, `skills/flow/review-panel.md`), the parent appends one entry per finding, in ref order, under a `## Deferred review findings` heading of `<project>/KNOWN-BUGS.md` — creating the file with a one-line title, and the heading, when absent — and commits it on the change's own branch, asking nothing:
+When the targeted dispatch reads the delta clean, or raises only Minors that defer under the standing rule, the close sha moves to the round's HEAD and the stage closes under the existing rules — the reduction is a read-scope decision, never a weaker close.
+When the wording of a rule this file states — the Minor-deferral default above included — changes while a panel is in flight, by an operator instruction or by an edit to this file, the new wording governs from the first round decided after it lands: a round the old rule already closed stands as closed, never re-decided retroactively.
+breaks: <what it breaks> — fix: <what fixing it would be> — deferred: <category>.
+# Known bugs — the KNOWN-BUGS.md sweep
+**A Minor is never deferred**: one no change to the tree can resolve, or that names no defect, is withdrawn with `-status 'withdrawn <reason>'`, the reason one clause naming the mechanism — out of scope, pre-existing and cosmetic are not reasons.
+**A round that raised no Critical and no Important has its Minors fixed by the parent, inline, at the round's close** — no fix subagent, no reproducer run, no mutation proof, no slot re-run and no dispatch record.
+**Every Critical and Important goes to the fix; every Minor is fixed too, and a Minor never causes a fix round of its own.
+**The parent's inline Minor commit leaves every slot's result current** — the one source change after a slot's last read that does not make that result stale.
+**This file is canonical for `<project>/KNOWN-BUGS.md`: the sweep that records pre-existing test failures.
+A Minor fixed or withdrawn blocks nothing; a Minor left `open` or `deferred` blocks exactly as a Critical does.
+A Minor no change to the tree can resolve is named, one clause, in the parent's output; nothing is written to `<project>/KNOWN-BUGS.md`.
+A Minor re-runs no slot: one fixed beside a Critical or Important closes on the verification below alone, and one the parent fixed inline (**Panel re-runs**, `skills/flow/review-panel.md`) on its commit.
+A finding the targeted dispatch raises feeds the ordinary fix-round loop unchanged, and a Minor-only result is fixed inline under the standing rule — but **any Critical or Important it raises voids the reduction for the rest of the run**: a delta that small producing a defect that severe means the narrow read's context was not enough, so every later round this run opens takes the full path.
+Exit 1 means a finding still reads `open` or `deferred` in the store — nothing is deferred (**Panel re-runs** above); the line names the refs.
+It also fires on the class **Panel re-runs**' ordering above added: a Critical or Important recorded `fixed` whose slot has no clean re-run dispatch of it in any later round — a fixed Minor needs none.
+The same holds for a delta the late-fix reduction's targeted dispatch read — clean, or with every finding it raised a Minor the parent fixed inline under the standing rule: `primary`'s read on the since-close range leaves every slot it did not dispatch current — the reduction's own conditions, already clean and already verified with the machinery untouched, being what the full roster's coverage rests on for that delta.
+Then proceed to `check-panel-findings-closed.sh` and the stage close.
+When the targeted dispatch reads the delta clean, or raises only Minors, fixed inline under the standing rule, the close sha moves to the round's HEAD and the stage closes under the existing rules — the reduction is a read-scope decision, never a weaker close.
+When the wording of a rule this file states — the Minor rule above included — changes while a panel is in flight, by an operator instruction or by an edit to this file, the new wording governs from the first round decided after it lands: a round the old rule already closed stands as closed, never re-decided retroactively.
+`flow.verify`'s lint and tests, which run after this stage, are that fix's verification.
+\# Known bugs — the KNOWN-BUGS.md sweep and deferred review findings
+\## Deferred review findings
+\### Deferred findings go to KNOWN-BUGS.md at round close
+\# Known bugs — the KNOWN-BUGS.md sweep
+**DRIFT CHECK:** Before you commit, read your own diff once for what it leaves behind.
+COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, DRIFT CHECK, MUTATION PROOF, PLAN FIELDS, FOREGROUND BUILDS, PROJECT HAZARDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent in the same words**, as if the parent had dispatched itself.
+Every refusal or exit path the diff adds gets a test case of its own.
+For every behaviour, name, path, flag or exit code the diff changes, grep for the comments, file headers, usage lines, docs and cross-file citations that describe it, and bring each one in line in this same commit.
+\### Deferred minors
+**Deferred:** <count of deferred Minors> | unknown — the findings could not be read
+**Produce the handoff's `Records:`, `Deferred:` and `Costs:` lines and `### Deferred minors` list with one call**, `-C` the canonical worktree the ledger render above targets, one `-worktree` per other affected worktree:
+**Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted"> · **Deferred:** <count of deferred Minors>
+**`Deferred` and `### Deferred minors` are on-disk, not `(run-only)`.
+<one row per deferred Minor, `F<n> <location> — <note> — <reason>`, or `none` when there are none>
+A deferred Minor is not an open finding — it does not block the handoff, and `/flow-status <name>` regenerates both by re-running the same query.
+A finding about the project's own product code is offered only when it is Important or worse — something a user or the data would suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a missing test over already-correct code) is left out of the prompt, and so is every finding the review panel deferred, since the panel already decided its disposition.
+Both are filled from `flow record handoff-lines -change <name>`, which counts the findings whose status starts with `deferred` — see **Write `IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`).
+It holds for a call site's own prompt and for any question the run frames itself in those phases — a finding that seems to need a product decision, a Minor's disposition, a departure from a mockup, a question an implementer's report carries.
+`Deferred` is that count; the list below it is one row per such finding, `F<n> <location> — <note> — <reason>`, and reads `none` when the count is `0`.
+every Jira write — the deferred-findings follow-up filing and the self-review filing included.
+findings fixed, and findings deferred or withdrawn;
+**Produce the handoff's `Records:` and `Costs:` lines with one call**, `-C` the canonical worktree the ledger render above targets, one `-worktree` per other affected worktree:
+**Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted">
+A finding about the project's own product code is offered only when it is Important or worse — something a user or the data would suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a missing test over already-correct code) is left out of the prompt.
+It holds for a call site's own prompt and for any question the run frames itself in those phases — a finding that seems to need a product decision, a departure from a mockup, a question an implementer's report carries.
+every Jira write — the follow-up filing and the self-review filing included.
+findings fixed, and findings withdrawn;
+**The parent's inline Minor commit leaves every slot's result current** — a source change after a slot's last read that does not make that result stale.

@@ -1,8 +1,7 @@
 // Reviewers -- per review-panel slot's dispatch and finding record across
 // a period: how often each slot ran, what it found by severity, and how
-// much of what it found was deferred or withdrawn rather than fixed. An
-// experimental slot (an "exp-" id) is badged and its roster description
-// shown behind an info icon (design.md's "Stats views › reviewers").
+// much of it was withdrawn rather than fixed. An experimental slot (an
+// "exp-" id) is badged and its roster description shown behind an info icon (design.md's "Stats views › reviewers").
 import { DataTable, type Column } from "../components/DataTable";
 import { Panel } from "../components/Panel";
 import { StatPanel } from "../components/StatPanel";
@@ -52,13 +51,6 @@ const columns: Column<ReviewerRow>[] = [
     render: (r) => r.findingsPerDispatch.toFixed(2),
   },
   {
-    key: "deferredShare",
-    header: "Deferred",
-    sortable: true,
-    accessor: (r) => r.deferredShare,
-    render: (r) => formatShare(r.deferredShare),
-  },
-  {
     key: "withdrawnShare",
     header: "Withdrawn",
     sortable: true,
@@ -76,7 +68,7 @@ export function Reviewers({ period, onPeriodChange, project, model }: ViewProps)
   });
 
   return (
-    <ViewFrame title="Reviewers" description="Per review-panel slot: how often it ran, what it found, and how much of that was deferred or withdrawn.">
+    <ViewFrame title="Reviewers" description="Per review-panel slot: how often it ran, what it found, and how much of that was withdrawn.">
       <div className="dashboard-stat-row">
         <Panel title="Slots" state={state}>
           {(data) => <StatPanel label="Slots" value={data.rows.length} format={formatInt} />}

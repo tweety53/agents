@@ -11,7 +11,7 @@ asked for this once, for every flow run: a mid-run question they would answer wi
 option costs them a stop for nothing.
 
 It holds for a call site's own prompt and for any question the run frames itself in those phases —
-a finding that seems to need a product decision, a Minor's disposition, a departure from a mockup, a
+a finding that seems to need a product decision, a departure from a mockup, a
 question an implementer's report carries. Frame it with the option the pipeline's own rules favour
 marked recommended (for a mockup departure, matching the mockup, per `rules/design-mockups-are-specs.mdc`),
 and take that option.
@@ -56,7 +56,7 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
 - **Nothing to choose.** A guard's exit 2 (it cannot answer), a command that failed twice, and every
   other `## Question` handback that carries no options.
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, archiving, deleting, and
-  every Jira write — the deferred-findings follow-up filing and the self-review filing included.
+  every Jira write — the follow-up filing and the self-review filing included.
   The global rules require these confirmed.
 - **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity
   prompt that decides whether a fix run starts at all, and every integrate and archive prompt.

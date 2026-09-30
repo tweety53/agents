@@ -408,6 +408,27 @@ func TestEveryViewAcceptsAPeriod(t *testing.T) {
 	}
 }
 
+// TestReviewersWireCarriesNoDeferredShare pins that the reviewers view no
+// longer carries a deferred share: nothing is deferred (KAN-862).
+func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
+	sts := &statsFake{reviewers: []store.ReviewerRow{
+		{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
+			Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
+			FindingsPerDispatch: 2.0, WithdrawnShare: 0.125},
+	}}
+	ts := newStatsTestServer(t, sts)
+	status, _, body := getStats(t, ts, periodPath("reviewers"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if strings.Contains(string(body), "deferredShare") {
+		t.Errorf("reviewers body carries deferredShare: %s", body)
+	}
+	if !strings.Contains(string(body), "withdrawnShare") {
+		t.Errorf("reviewers body lost withdrawnShare: %s", body)
+	}
+}
+
 // --- TestEveryViewCarriesItsRealNumbersThrough (post-commit review F2) ---
 //
 // TestEveryViewAcceptsAPeriod, above, asserts only status and view name --
@@ -505,7 +526,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		sts := &statsFake{reviewers: []store.ReviewerRow{
 			{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
 				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
-				FindingsPerDispatch: 2.0, DeferredShare: 0.25, WithdrawnShare: 0.125},
+				FindingsPerDispatch: 2.0, WithdrawnShare: 0.125},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("reviewers"))
@@ -522,7 +543,6 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			Important           int     `json:"important"`
 			Minor               int     `json:"minor"`
 			FindingsPerDispatch float64 `json:"findingsPerDispatch"`
-			DeferredShare       float64 `json:"deferredShare"`
 			WithdrawnShare      float64 `json:"withdrawnShare"`
 		}
 		mustDecodeRows(t, env, body, &rows)
@@ -533,7 +553,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		if got.Slot != "exp-failure-modes" || !got.Experimental ||
 			got.Description != "What the diff does under error, timeout and partial write" ||
 			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 ||
-			got.FindingsPerDispatch != 2.0 || got.DeferredShare != 0.25 || got.WithdrawnShare != 0.125 {
+			got.FindingsPerDispatch != 2.0 || got.WithdrawnShare != 0.125 {
 			t.Errorf("got %+v, want the seeded exp-failure-modes row unchanged", got)
 		}
 	})

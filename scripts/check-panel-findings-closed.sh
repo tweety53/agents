@@ -30,19 +30,15 @@
 # verdict; the existing handback is where the operator resolves it.
 #
 # Exit codes:
-#   0  no finding's status is open, no Minor is wrongly deferred, and every
-#      finding recorded `fixed` has a clean re-run dispatch of its slot in
-#      a later round
-#   1  one or more findings are open, or a Minor is recorded `deferred`
-#      in a round that raised a Critical or Important not recorded
-#      `withdrawn` (review-panel.md's **Panel re-runs** sends such a
-#      Minor to that round's fix), or a finding is recorded `fixed`
-#      with no clean re-run dispatch of its slot in any later round —
-#      the ordering review-panel.md's **Recording findings** requires,
-#      violated, the store's only witness of that re-run being the
-#      slot's own dispatch row (KAN-770); each still-open ref, each
-#      wrongly deferred ref with its round, and each unverified ref
-#      with its slot is named on stderr
+#   0  no finding is open or deferred, and every Critical or Important
+#      recorded `fixed` has a clean re-run dispatch of its slot in a later
+#      round
+#   1  a finding is open or `deferred`, or a Critical or Important is
+#      recorded `fixed` with no clean re-run dispatch of its slot in any
+#      later round — the ordering review-panel.md's **Recording findings**
+#      requires, violated, the store's only witness of that re-run being
+#      the slot's own dispatch row (KAN-770); each still-open ref and each
+#      unverified ref with its slot is named on stderr
 #   2  cannot answer at all — no worktree, no change name, a change name
 #      outside the allowlist, a worktree that is not a directory, the store
 #      unreachable, or its answer unreadable (empty output included)

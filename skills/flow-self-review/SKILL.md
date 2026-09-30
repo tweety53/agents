@@ -53,8 +53,7 @@ skipped angle are indistinguishable to a reader, which is why an empty angle say
 about the pipeline itself is offered under its angle. A finding about the project's own product
 code is offered only when it is Important or worse — something a user or the data would
 suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a
-missing test over already-correct code) is left out of the prompt, and so is every finding the
-review panel deferred, since the panel already decided its disposition. The report carries no
+missing test over already-correct code) is left out of the prompt. The report carries no
 section beyond the five angles and the rating. The filing prompt is never waived: a pass with
 no operator to answer it files nothing and records every finding `declined`.
 

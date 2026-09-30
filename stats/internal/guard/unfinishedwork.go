@@ -232,8 +232,9 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		findingsJSON = out
 	}
 	// An open finding is any finding whose status is neither `fixed` nor a
-	// `withdrawn <reason>` or `deferred <reason>` value -- a prefix test
-	// covers each family, reason text included, without comparing the reason.
+	// `withdrawn <reason>` value -- a prefix test covers the family, reason
+	// text included, without comparing the reason. A `deferred <reason>`
+	// row is open: nothing is deferred (KAN-862).
 	open, ok := uwOpenFindings(findingsJSON)
 	if !ok {
 		fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
@@ -344,7 +345,7 @@ func uwOpenFindings(b []byte) (int, bool) {
 		if f == nil || !pcIsString(f["status"]) || json.Unmarshal(f["status"], &status) != nil {
 			return 0, false
 		}
-		if status != "fixed" && !strings.HasPrefix(status, "withdrawn") && !strings.HasPrefix(status, "deferred") {
+		if status != "fixed" && !strings.HasPrefix(status, "withdrawn") {
 			n++
 		}
 	}

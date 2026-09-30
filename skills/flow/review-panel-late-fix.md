@@ -41,11 +41,11 @@ one governs the read scope, the roster being `primary` alone either way. The red
 recorded with `flow record pass -round <round>`:
 `late-fix reduction: <n> changed lines since <sha>`.
 
-A finding the targeted dispatch raises feeds the ordinary fix-round loop unchanged, and Minors
-defer under the standing rule — but **any Critical or Important it raises voids the reduction
+A finding the targeted dispatch raises feeds the ordinary fix-round loop unchanged, and a Minor-only
+result is fixed inline under the standing rule — but **any Critical or Important it raises voids the reduction
 for the rest of the run**: a delta that small producing a defect that severe means the narrow
 read's context was not enough, so every later round this run opens takes the full path. When the
-targeted dispatch reads the delta clean, or raises only Minors that defer under the standing
+targeted dispatch reads the delta clean, or raises only Minors, fixed inline under the standing
 rule, the close sha moves to the round's HEAD and the stage closes under the existing rules —
 the reduction is a read-scope decision, never a weaker close.
 
@@ -53,7 +53,7 @@ the reduction is a read-scope decision, never a weaker close.
 raised no finding leaves that slot's result current (**Panel re-runs**, `skills/flow/review-panel.md`):
 
 The same holds for a delta the late-fix reduction's targeted dispatch read — clean,
-or with every finding it raised a deferred Minor under the standing rule:
+or with every finding it raised a Minor the parent fixed inline under the standing rule:
 `primary`'s read on the since-close range leaves every slot it did not dispatch current —
 the reduction's own conditions, already clean and already verified with the machinery untouched,
 being what the full roster's coverage rests on for that delta.

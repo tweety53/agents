@@ -1,7 +1,7 @@
-# Known bugs — the KNOWN-BUGS.md sweep and deferred review findings
+# Known bugs — the KNOWN-BUGS.md sweep
 
 **This file is canonical for `<project>/KNOWN-BUGS.md`: the sweep that records pre-existing test
-failures, and the review panel's deferred findings.** Skills reference it by name; none of them
+failures.** Skills reference it by name; none of them
 restate it. If a rule below and a skill ever disagree, this file wins.
 
 ## The sweep
@@ -50,29 +50,11 @@ did not introduce. The record is what keeps that from being silent: the entry, a
 line when rule 3 wrote one, are committed on the change's branch, visible in its diff, and the
 verify report names them.
 
-## Deferred review findings
-
-When a review-panel round close leaves findings newly recorded `deferred` (**Deferred findings go
-to KNOWN-BUGS.md at round close**, `skills/flow/review-panel.md`), the parent appends one entry
-per finding, in ref order, under a `## Deferred review findings` heading of
-`<project>/KNOWN-BUGS.md` — creating the file with a one-line title, and the heading, when absent —
-and commits it on the change's own branch, asking nothing:
-
-```markdown
-- `<location>` — F<n>, <severity>, <change name> — <the defect, as the raising slot named it> —
-  breaks: <what it breaks> — fix: <what fixing it would be> — deferred: <category>.
-```
-
-The entry is the durable record the archived panel record alone is not: what is wrong, why it
-matters, and how to fix it, where the next change reads it. No Jira issue is filed for it. Delete
-an entry only in the commit that fixes its finding.
-
 ## Where it runs
 
 - **Verify** — the failing-command classification consults the sweep before the inline re-run: a
   failing test the sweep proves pre-existing takes the known-failure course above.
 - **Visual verification** — the stage's `verify` and the full-suite runs a baseline regeneration
   forces consult it the same way.
-- **Review panel round close** — deferred findings only, per **Deferred review findings** above.
 - **Every `/flow*` command that runs those stages**, `/flow-fast` included — the sweep is stage
   behavior, not one command's.

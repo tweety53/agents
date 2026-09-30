@@ -684,27 +684,30 @@ reproducer guards and re-runs, the fix's mutation proof and round close, the fix
 non-convergence loop, while the fix subagent's dispatch paragraphs and dispatch record stay in
 this file.
 
-**Every Critical and Important goes to the fix; whether a Minor does follows from the rest of the
-round, and a Minor never causes a fix round of its own.** Every Critical and Important the round
-raised goes to the fix subagent below, closed by the verification that follows it — the reproducer
-re-run exits 0 *and* the fix diff touches a path the finding named, or one of the path condition's
-accepted alternatives below closes the finding. **A round that raised a
-Critical or Important sends every Minor it raised to that same fix**, closed by the same
-verification. **A round that raised no Critical and no Important defers every Minor** — a fix round
-costs more time than its Minors are worth — with
-`flow record status -change <name> -ref F<n> -status 'deferred <reason>' -category <doc-only|pre-existing|cosmetic|coverage-gap|out-of-scope|other>`,
-the category naming the mechanism the reason clause states, so the deferred-Minor rate is a query
-rather than a hand-read. Nothing in that round is fixed, inline or otherwise, and no slot re-runs:
-proceed to **Deferred findings go to KNOWN-BUGS.md at round close**, below, and then to
-`check-panel-findings-closed.sh` and the stage close. A fixed finding that fails
-verification takes the handback below, and that loop re-runs no slot either.
-
-**A deferral's reason is one clause naming the mechanism — never a rationale essay, in the store
-row or in the round's output.**
+**Every Critical and Important goes to the fix; every Minor is fixed too, and a Minor never
+causes a fix round of its own.** Every Critical and Important the round raised goes to the fix
+subagent below, closed by the verification that follows it — the reproducer re-run exits 0 *and*
+the fix diff touches a path the finding named, or one of the path condition's accepted
+alternatives below closes the finding. **A round that raised a Critical or Important sends every
+Minor it raised to that same fix**, closed by the same verification. **A round that raised no
+Critical and no Important has its Minors fixed by the parent, inline, at the round's close** — no
+fix subagent, no reproducer run, no mutation proof, no slot re-run and no dispatch record. The
+parent edits each Minor's named location, stages the changed paths and makes one commit per
+worktree at the branch tip —
+`git -C <worktree> commit -m "fix(<module>): review Minors" -- <the changed paths>`, the scope
+naming the module the edits moved — pushed per **Branch backup**
+(`skills/flow-contracts/git-boundaries.md`), then records each finding
+`flow record status -change <name> -ref F<n> -status fixed`. `flow.verify`'s lint and tests,
+which run after this stage, are that fix's verification. **A Minor is never deferred**: one no
+change to the tree can resolve, or that names no defect, is withdrawn with
+`-status 'withdrawn <reason>'`, the reason one clause naming the mechanism — out of scope,
+pre-existing and cosmetic are not reasons. Then proceed to `check-panel-findings-closed.sh` and
+the stage close. A fixed finding that fails verification takes the handback below, and that loop
+re-runs no slot either.
 
 **A rule that changes mid-run governs from the round it lands in, and each round's pass log names
-the rule it decided under.** When the wording of a rule this file states — the Minor-deferral
-default above included — changes while a panel is in flight, by an operator instruction or by an
+the rule it decided under.** When the wording of a rule this file states — the Minor
+rule above included — changes while a panel is in flight, by an operator instruction or by an
 edit to this file, the new wording governs from the first round decided after it lands: a round
 the old rule already closed stands as closed, never re-decided retroactively. Each round decided
 under wording that changed during the run records that wording beside its decisions, with the
@@ -717,8 +720,9 @@ re-run and it has not, or when any commit or working-tree change to source lande
 last read, from any stage — `flow.verify` included**. An unrecorded edit after the panel closes is
 stale by definition, not only one a fix round produced. A fix against which a slot raised no
 finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
-fix changed. A delta the late-fix reduction read has its own carve-out
-(`skills/flow/review-panel-late-fix.md`).
+fix changed. **The parent's inline Minor commit leaves every slot's result current** — a source change
+after a slot's last read that does not make that result stale. A delta the late-fix
+reduction read has its own carve-out (`skills/flow/review-panel-late-fix.md`).
 
 **Every fix subagent's dispatch prompt also carries the VERBATIM REPORT — THE FACT paragraph**:
 
@@ -755,8 +759,7 @@ fix changed. A delta the late-fix reduction read has its own carve-out
 > **ROUND SCOPE:** your round's output is the diff and the report, nothing else. Do not rewrite
 > `proposal.md` or `design.md`: unaffected sections are never restated, and a decision your fix
 > genuinely overturns is superseded by one appended entry under `## Decisions`, never a per-round
-> rewrite of the file. Deferral rationale is written nowhere — a Minor is deferred with its
-> one-clause reason in the store. Your report names what you fixed, the behaviours you changed,
+> rewrite of the file. Your report names what you fixed, the behaviours you changed,
 > and the task commits your fixups folded into, then stops.
 
 **Every fix subagent's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
@@ -876,24 +879,17 @@ flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
 
 `-commit` is the task commit the fixup was folded into.
 
-### Deferred findings go to KNOWN-BUGS.md at round close
-
-**A round close that leaves findings newly recorded `deferred` records them in
-`<project>/KNOWN-BUGS.md`, unasked, before the close guards below run** — **Deferred review
-findings** (`skills/flow-contracts/known-bugs.md`) is canonical for the entry and its commit. No
-Jira issue is filed and no prompt fires at this close.
-
 **Before closing the stage**, the parent runs both close guards:
 
 ```bash
 check-panel-findings-closed.sh <worktree> <change>
 ```
 
-Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` in the store,
-or a Minor reads `deferred` in a round that raised a Critical or Important not recorded
-`withdrawn` — the Minor-deferral default of **Panel re-runs** above, violated; the line names the refs and the round. It also
-fires on the class **Panel re-runs**' ordering above added: a finding recorded `fixed`
-whose slot has no clean re-run dispatch of it in any later round. Either way, return to the
+Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` or `deferred`
+in the store — nothing is deferred (**Panel re-runs** above); the line names the refs. It also
+fires on the class **Panel re-runs**' ordering above added: a Critical or Important recorded
+`fixed` whose slot has no clean re-run dispatch of it in any later round — a fixed Minor needs
+none. Either way, return to the
 handback loop above for them. Exit 2 stops the run.
 
 Beside it, run
