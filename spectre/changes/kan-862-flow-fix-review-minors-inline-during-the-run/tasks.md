@@ -221,6 +221,12 @@ the records endpoint hit.
 
 **Decision:** drop-deferred-metrics
 
+Correction (2026-09-30): Step 2's `npx tsc -b` did not fail — the view fixtures are not typed
+against `ReviewerRow`, so dropping `deferredShare` from them compiles either way; the Go
+`TestReviewersWireCarriesNoDeferredShare` run was the RED. Beyond Step 3, the Reviewers view's
+user-visible `ViewFrame` description drops "deferred or", and `RunDetail.tsx`'s local
+`formatShare` and its comment are deleted, their only caller having been the removed panel.
+
 - [ ] 4. The parent fixes Minors inline; the KNOWN-BUGS deferral goes
 
 `design.md` § 2 and § 4. One commit, because these files cite each other's deferral sections.
@@ -327,11 +333,11 @@ contradicts.
 **Decision:** minor-rule-inside-panel-reruns
 **Decision:** minor-commit-at-tip
 
-- [ ] 5. The implementer's DRIFT CHECK paragraph
+- [x] 5. The implementer's DRIFT CHECK paragraph
 
 `design.md` § 5.
 
-  - [ ] **Step 1: Add the paragraph** to `skills/flow/implement.md`'s "Every implementer dispatch
+  - [x] **Step 1: Add the paragraph** to `skills/flow/implement.md`'s "Every implementer dispatch
     **must** carry" list, directly after the **TARGETED TESTS** paragraph, verbatim:
 
     > **DRIFT CHECK:** Before you commit, read your own diff once for what it leaves behind. For
@@ -342,10 +348,10 @@ contradicts.
 
     Add `DRIFT CHECK` to **Inline — the parent implements**' list of implementer paragraphs that
     bind the parent ("FLOW — COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, …").
-  - [ ] **Step 2: Verify** — `grep -c '^> \*\*DRIFT CHECK:\*\*' skills/flow/implement.md` prints
+  - [x] **Step 2: Verify** — `grep -c '^> \*\*DRIFT CHECK:\*\*' skills/flow/implement.md` prints
     `1`. Run the Markdown lint lines, and record the new paragraph's sentences in
     `verbatim-moves.txt` as `check-verbatim-moves.sh` prints them.
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 3: Commit.**
 
 **Files:** `skills/flow/implement.md`
 **Tests:** none — a dispatch paragraph
@@ -358,11 +364,11 @@ contradicts.
 
 **Decision:** drift-check-paragraph
 
-- [ ] 6. The handoff and every stray mention stop describing a deferral
+- [x] 6. The handoff and every stray mention stop describing a deferral
 
 `design.md` § 4.
 
-  - [ ] **Step 1: The handoff**:
+  - [x] **Step 1: The handoff**:
     - `skills/flow/verify-and-handoff.md`: "**Produce the handoff's `Records:`, `Deferred:` and
       `Costs:` lines and `### Deferred minors` list with one call**" becomes "**Produce the
       handoff's `Records:` and `Costs:` lines with one call**". In the `## Implementation staged`
@@ -372,7 +378,7 @@ contradicts.
       Minors>` from the `**Records:**` line; delete the `### Deferred minors` heading and its row
       line; delete the paragraph "**`Deferred` and `### Deferred minors` are on-disk, not
       `(run-only)`.**…".
-  - [ ] **Step 2: Stray mentions**:
+  - [x] **Step 2: Stray mentions**:
     - `skills/flow-contracts/pipeline.md`: "- findings fixed, and findings deferred or
       withdrawn;" → "- findings fixed, and findings withdrawn;".
     - `skills/flow-contracts/operator-prompts-auto-resolution.md`: delete "a Minor's disposition, ".
@@ -381,7 +387,7 @@ contradicts.
       out of the prompt."
     - `README.md`: the `check-panel-findings-closed.sh` bullet becomes "no handoff while any
       finding is open or deferred, whatever its severity."
-  - [ ] **Step 3: The rationale** — append to `skills/flow/SKILL-rationale.md`'s
+  - [x] **Step 3: The rationale** — append to `skills/flow/SKILL-rationale.md`'s
     `### review-panel.md — Panel re-runs` section, verbatim:
 
     > *Minors are fixed inline, never deferred (KAN-862).* The Minor-deferral default — a
@@ -393,11 +399,11 @@ contradicts.
     > about what writing its `KNOWN-BUGS.md` entry did.
 
     History stays as it is: `docs/**`, archived changes and the other `-rationale.md` records.
-  - [ ] **Step 4: Verify** — `grep -rn -i "deferred minor\|Deferred:\*\*" skills README.md`
+  - [x] **Step 4: Verify** — `grep -rn -i "deferred minor\|Deferred:\*\*" skills README.md`
     prints nothing outside `skills/flow-self-review/SKILL.md`'s own self-review `**Deferred:**`
     line, which is about deferred self-review. Run the Markdown lint lines, and record
     `check-verbatim-moves.sh`'s FAIL sentences in `verbatim-moves.txt` until it exits 0.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `skills/flow/verify-and-handoff.md`, `skills/flow-contracts/handoff-blocks.md`,
 `skills/flow-contracts/pipeline.md`, `skills/flow-contracts/operator-prompts-auto-resolution.md`,
@@ -411,6 +417,12 @@ contradicts.
 **Build:** green
 
 **Decision:** handoff-drops-deferred-line
+
+Correction (2026-09-30): beyond Step 2, `operator-prompts-auto-resolution.md`'s "the
+deferred-findings follow-up filing" became "the follow-up filing" — the integrate follow-up files
+outstanding work, never deferred findings. Step 3's rationale paragraph cites
+`<project>/KNOWN-BUGS.md` rather than a bare `KNOWN-BUGS.md`, which `check-installed-citations.sh`
+refuses as rootless.
 
 - [ ] 7. KNOWN-BUGS.md loses its deferred Minors
 
@@ -436,15 +448,15 @@ contradicts.
 **Decision:** delete-known-bugs-minors
 **Decision:** kan-861-withdrawn
 
-- [ ] 8. Live verification against the worktree's own isolated stack
+- [x] 8. Live verification against the worktree's own isolated stack
 
-  - [ ] **Step 1: Stack.** Bring up the worktree's isolated stack per `.flow/project.md`
+  - [x] **Step 1: Stack.** Bring up the worktree's isolated stack per `.flow/project.md`
     `## workspace isolation` (`scripts/workspace.sh create <id>`, its derived `flow_<id>` database
     and port), never the dev workspace's `flowd` on 4173 or its `flow` database. Export
     **both** `FLOW_ADDR` and `FLOW_RECORDS_ADDR` to the isolated port. `FLOW_RECORDS_ADDR` is
     deliberately not isolated by default, so leaving it unset writes the scratch findings into
     the persistent store.
-  - [ ] **Step 2: Before**, from binaries built in a throwaway detached worktree at the merge
+  - [x] **Step 2: Before**, from binaries built in a throwaway detached worktree at the merge
     base (`git worktree add --detach <tmp> 0b7e1c58`; `go build` `flowd`, `flow` and
     `flow-guard`):
     1. Create a scratch change `kan-862-live-check`.
@@ -456,19 +468,19 @@ contradicts.
     4. Run `flow record handoff-lines -change kan-862-live-check -C <worktree>`, which prints a
        `**Deferred:** 1` line.
     5. `curl` the reviewers stats endpoint, whose rows carry `deferredShare`.
-  - [ ] **Step 3: After**, with the worktree HEAD's binaries against the same records: the guard
+  - [x] **Step 3: After**, with the worktree HEAD's binaries against the same records: the guard
     exits 1 naming F1 as still open and nothing as unverified; `handoff-lines` prints exactly the
     `**Records:**` and `**Costs:**` lines; the reviewers response carries no `deferredShare`.
-  - [ ] **Step 4: Record** the before and after figures in the commit message body.
+  - [x] **Step 4: Record** the before and after figures in the commit message body.
     **Not working looks like:**
     - the guard still passing F1, or still naming F2;
     - a `**Deferred:**` line or `### Deferred minors` in the after output;
     - `deferredShare` still in the after response;
     - any scratch row landing in the dev workspace's `flow` database — checked with
       `flow record findings -change kan-862-live-check` against 4173, which must print `[]`.
-  - [ ] **Step 5: Clean up** — remove the throwaway worktree and run
+  - [x] **Step 5: Clean up** — remove the throwaway worktree and run
     `scripts/workspace.sh remove <id>`; the scratch change lived only in `flow_<id>`.
-  - [ ] **Step 6: Commit** (an empty commit carrying the record).
+  - [x] **Step 6: Commit** (an empty commit carrying the record).
 
 **Tests:** none — live run; the figures are the record
 **Files:** none
