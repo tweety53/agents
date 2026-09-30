@@ -258,7 +258,7 @@ user-visible `ViewFrame` description drops "deferred or", and `RunDetail.tsx`'s 
 
     In the stale-result paragraph ("Handoff still requires **zero open findings at any
     severity**…"), after "…covers what the fix changed.", insert: "**The parent's inline Minor
-    commit leaves every slot's result current** — the one source change after a slot's last read
+    commit leaves every slot's result current** — a source change after a slot's last read
     that does not make that result stale." In the rule-change paragraph, "— the Minor-deferral
     default above included —" becomes "— the Minor rule above included —". In the ROUND SCOPE
     paragraph, delete the sentence "Deferral rationale is written nowhere — a Minor is deferred
@@ -332,6 +332,13 @@ contradicts.
 **Decision:** no-deferral-withdraw-only
 **Decision:** minor-rule-inside-panel-reruns
 **Decision:** minor-commit-at-tip
+
+Correction (2026-09-30): the gated per-task review found two plan-verbatim defects, fixed in the
+`fix(flow): review Minors` commit at the tip. Step 1's carve-out said "the one source change",
+false beside the no-finding and late-fix carve-outs; it now reads "a source change", here and in
+`design.md` § 2. Step 5's per-task path said "exactly as **Panel re-runs**", whose procedure ends
+in a `flow record status` write for a ref the store never holds on a per-task pass; the dash
+clause now adds "no `flow record status`".
 
 - [x] 5. The implementer's DRIFT CHECK paragraph
 

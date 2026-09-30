@@ -38,7 +38,7 @@ One change, because the guard, the review prose, the handoff and the dashboard a
 - **Verification:** none of the fix's own. Per-task fixes are read by the panel, which reads the
   whole branch diff later. Panel fixes are covered by `flow.verify`'s lint and tests, which run
   after the panel.
-- **Staleness carve-out:** the inline Minor commit leaves every slot's result current — the one
+- **Staleness carve-out:** the inline Minor commit leaves every slot's result current — a
   source change after a slot's last read that does not make that result stale. Without it, a
   Minor fix would force the re-runs this path exists to avoid.
 - **The only exit is `withdrawn`:** a Minor no tree change can resolve, or one that is not a
