@@ -73,25 +73,25 @@ store and the new guards against scratch fixtures, recording before/after.
 
 ---
 
-- [ ] 1. plan-class prints the tree defaults and takes a class override
+- [x] 1. plan-class prints the tree defaults and takes a class override
 
 Rows BP-21/BP-22 — `design-planning.md` § "BP-21 + BP-22".
 
-  - [ ] **Step 1: Write the failing tests** in `stats/internal/guard/plan_class_test.go`:
+  - [x] **Step 1: Write the failing tests** in `stats/internal/guard/plan_class_test.go`:
     `TestPlanClassTree` (table over every class × compact/bundle/experimental roll side × candidate
     state: absent dir, empty dir, two candidates; asserts the appended `tree:`, `panel:`,
     `grouping:`, `experimental:` lines, and a prefix compare that the first three lines are
     unchanged) and `TestPlanClassOverrideFlag` (`-class` equal to mechanical and one step up
     accepted; two steps up, any step down, an unknown class → exit 2).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestPlanClass' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/internal/guard/planclass.go` (pure `pcTree` plus the
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestPlanClass' -count=1`.
+  - [x] **Step 3: Implement** in `stats/internal/guard/planclass.go` (pure `pcTree` plus the
     `-class` flag, experimental dir under `FLOW_GUARD_REPO_ROOT`); export `FLOW_GUARD_REPO_ROOT` in
     `scripts/plan-class.sh` and update its usage/exit header; in `skills/flow/brainstorm-planner.md`
     **Decide**, replace the tree-derivation prose the script now prints with the call line, keeping
     the "raise one step, never lower" reason requirement and the micro-row sentence.
-  - [ ] **Step 4: Verify** — the targeted run passes; lint lines per the header; verbatim-moves
+  - [x] **Step 4: Verify** — the targeted run passes; lint lines per the header; verbatim-moves
     lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/planclass.go`, `stats/internal/guard/plan_class_test.go`,
 `scripts/plan-class.sh`, `skills/flow/brainstorm-planner.md`, `skills/flow-fast/SKILL.md`
@@ -108,23 +108,23 @@ Correction (2026-09-30): the plan declared four files; `skills/flow-fast/SKILL.m
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 2. flow decision render prints the Decision block
+- [x] 2. flow decision render prints the Decision block
 
 Row BP-23 — `design-planning.md` § "BP-23".
 
-  - [ ] **Step 1: Write the failing tests** in new `stats/cmd/flow/decision_test.go`:
+  - [x] **Step 1: Write the failing tests** in new `stats/cmd/flow/decision_test.go`:
     `TestDecisionRenderGolden` (golden cases taken from the worked format in
     `brainstorm-planner.md` **Decide**: micro, small inline, regular free grouping, big sdd with a
     split group, experimental skipped for the bundle cap, `default` panel) and
     `TestDecisionRenderRefusals` (usage, unreadable file, missing required field → exit 2).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow -run 'TestDecisionRender' -count=1`.
-  - [ ] **Step 3: Implement** `stats/cmd/flow/decision.go` and the `decision` command plus usage
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow -run 'TestDecisionRender' -count=1`.
+  - [x] **Step 3: Implement** `stats/cmd/flow/decision.go` and the `decision` command plus usage
     line in `stats/cmd/flow/main.go`; in `skills/flow/brainstorm-planner.md` **Decide** replace
     the two-table format rules and the preamble lines with the `flow decision render` call line and
     "print its output verbatim"; in `skills/flow/brainstorm.md` keep the record sequence and point
     its "print the `## Decision` block" sentence at the render call.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/cmd/flow/decision.go`, `stats/cmd/flow/decision_test.go`,
 `stats/cmd/flow/main.go`, `skills/flow/brainstorm-planner.md`, `skills/flow/brainstorm.md`
@@ -138,24 +138,24 @@ Row BP-23 — `design-planning.md` § "BP-23".
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 3. flow state add-worktree merges one worktree into the record
+- [x] 3. flow state add-worktree merges one worktree into the record
 
 Row MX4 — `design-planning.md` § "MX4".
 
-  - [ ] **Step 1: Write the failing tests** in `stats/cmd/flow/state_test.go`, reusing its
+  - [x] **Step 1: Write the failing tests** in `stats/cmd/flow/state_test.go`, reusing its
     `genuineDaemon`/`deadPortAddr`/`isolatedStateRoot` fakes: `TestStateAddWorktreeMergesEntry`,
     `TestStateAddWorktreePreservesPeersAndState`, `TestStateAddWorktreeFallback` (store down: read
     and write through the on-disk path) and `TestStateAddWorktreeRefusals` (relative path,
     non-40-hex sha → exit 2; no record, synthetic-only record → exit 1; nothing written).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow -run 'TestStateAddWorktree' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/cmd/flow/state.go` (factor `state set`'s stamp → validate
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./cmd/flow -run 'TestStateAddWorktree' -count=1`.
+  - [x] **Step 3: Implement** in `stats/cmd/flow/state.go` (factor `state set`'s stamp → validate
     → put → journal-fallback tail into a helper both use) plus the usage line in
     `stats/cmd/flow/main.go`; replace the "Read the current record with `flow state get`, merge in
     this…" sentence at `skills/flow/implement.md:250` and its twin in
     `skills/flow/cross-repo-worktrees.md` with the call line, keeping the timing sentence.
-  - [ ] **Step 4: Verify** — targeted run plus `go test ./cmd/flow -run 'TestState' -count=1` (the
+  - [x] **Step 4: Verify** — targeted run plus `go test ./cmd/flow -run 'TestState' -count=1` (the
     refactored tail); lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/cmd/flow/state.go`, `stats/cmd/flow/state_test.go`, `stats/cmd/flow/main.go`,
 `skills/flow/implement.md`, `skills/flow/cross-repo-worktrees.md`
@@ -170,27 +170,27 @@ Row MX4 — `design-planning.md` § "MX4".
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 4. kickoff-worktree.sh runs the five kickoff steps
+- [x] 4. kickoff-worktree.sh runs the five kickoff steps
 
 Row BR-M1 — `design-planning.md` § "BR-M1", including its cross-file impact on `/flow-plan`.
 
-  - [ ] **Step 1: Write the failing test** `TestKickoffWorktree` in new
+  - [x] **Step 1: Write the failing test** `TestKickoffWorktree` in new
     `stats/internal/guard/kickoff_worktree_test.go` (fixture repo with a local bare `origin`: fresh
     branch, existing remote branch, `.worktrees` not ignored → appended to `info/exclude`, a
     `## worktree setup` command failing → exit 1 naming it with the worktree already persisted,
     `flow` absent from PATH → exit 2 before any add, location guard refusal → exit 1); add
     `kickoff-worktree.sh` → `{"lib", "check-worktree-location.sh", "project-get.sh"}` to
     `TestShimSiblingsDeclared`.
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestKickoffWorktree|TestShimSiblingsDeclared' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/kickoffworktree.go` (step 3 calls `flow state
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestKickoffWorktree|TestShimSiblingsDeclared' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/kickoffworktree.go` (step 3 calls `flow state
     add-worktree`), shim `scripts/kickoff-worktree.sh`, symlinks
     `skills/flow/scripts/kickoff-worktree.sh` and `skills/flow-plan/scripts/kickoff-worktree.sh`;
     in `skills/flow/brainstorm.md` **A**, steps 1–5 become the call line plus exit contract,
     keeping the phrase "kickoff steps 1–5", the stop rule and the persist-before-return sentence;
     add the guard to `skills/flow-plan/SKILL.md`'s guard list.
-  - [ ] **Step 4: Verify** — targeted run; lint lines (incl. `check-guard-symlinks.sh`);
+  - [x] **Step 4: Verify** — targeted run; lint lines (incl. `check-guard-symlinks.sh`);
     verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/kickoffworktree.go`, `stats/internal/guard/kickoff_worktree_test.go`,
 `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/kickoff-worktree.sh`,
@@ -207,26 +207,26 @@ the registry, and the sibling test finds no shim.
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 5. check-review-gate.sh judges the per-task review gate
+- [x] 5. check-review-gate.sh judges the per-task review gate
 
 Row MX1 — `design-implement.md` item 1.
 
-  - [ ] **Step 1: Write the failing test** `TestCheckReviewGate` in new
+  - [x] **Step 1: Write the failing test** `TestCheckReviewGate` in new
     `stats/internal/guard/check_review_gate_test.go` (≤40 lines all declared → `QUIET`; >40 lines;
     <!-- measured: grep -n 'more than 40 lines' skills/flow/implement.md → line 643 @ 67a082a6 -->
     an undeclared path; a refused path that a `Files:` widening would otherwise declare; the map
     form summed across worktrees; a binary `-` counted as 0; unreadable plan → exit 2).
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCheckReviewGate' -count=1`.
-  - [ ] **Step 3: Implement** — factor the plan resolution out of `checkTaskCommitFields` in
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCheckReviewGate' -count=1`.
+  - [x] **Step 3: Implement** — factor the plan resolution out of `checkTaskCommitFields` in
     `stats/internal/guard/taskcommitfields.go` into one helper both call; add
     `stats/internal/guard/reviewgate.go`, shim `scripts/check-review-gate.sh`, symlink
     `skills/flow/scripts/check-review-gate.sh`; replace the "**The review gate.** After the guard
     passes a task's commit…" recipe in `skills/flow/implement.md` with the call line plus exit
     contract; drop the "one site to re-tune" wording from `scripts/check-dispatch-paragraphs.sh`'s
     header.
-  - [ ] **Step 4: Verify** — targeted run plus `go test ./internal/guard -run 'TestCheckTaskCommitFields' -count=1`
+  - [x] **Step 4: Verify** — targeted run plus `go test ./internal/guard -run 'TestCheckTaskCommitFields' -count=1`
     (the factored helper); lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/reviewgate.go`, `stats/internal/guard/check_review_gate_test.go`,
 `stats/internal/guard/taskcommitfields.go`, `scripts/check-review-gate.sh`,
@@ -243,22 +243,22 @@ Row MX1 — `design-implement.md` item 1.
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 6. close-task.sh runs the task-close sequence
+- [x] 6. close-task.sh runs the task-close sequence
 
 Row MX3 — `design-implement.md` item 2.
 
-  - [ ] **Step 1: Write the failing tests** in new `stats/internal/guard/close_task_test.go`:
+  - [x] **Step 1: Write the failing tests** in new `stats/internal/guard/close_task_test.go`:
     `TestCloseTaskOrder` (a fields refusal → exit 1, no tick, no push; a planning-paths refusal →
     exit 1, no push; clean → gate, tick of QUIET tasks only, one push per distinct worktree, in that
     order) and `TestCloseTaskExitContract` (any guard exit 2 → exit 2; a failed tick or push → exit
     2; single and map task forms). Record the commands run through a fake `flow`/`git` on PATH.
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestCloseTask' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/closetask.go` (composes guards in-process via
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestCloseTask' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/closetask.go` (composes guards in-process via
     `Registry`), shim `scripts/close-task.sh`, symlink `skills/flow/scripts/close-task.sh`; replace
     step 2 of "**The next implementer overlaps the guard.**" in `skills/flow/implement.md` with the
     call line, keeping the exit-2-stops / exit-1-recommit contract.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/closetask.go`, `stats/internal/guard/close_task_test.go`,
 `scripts/close-task.sh`, `skills/flow/scripts/close-task.sh`, `skills/flow/implement.md`
@@ -272,22 +272,22 @@ Row MX3 — `design-implement.md` item 2.
 
 **Decision:** close-task-push-after-guards
 
-- [ ] 7. throwaway-worktree.sh creates and removes a throwaway copy
+- [x] 7. throwaway-worktree.sh creates and removes a throwaway copy
 
 Row MX2/OS05 — `design-implement.md` item 3.
 
-  - [ ] **Step 1: Write the failing tests** in new `stats/internal/guard/throwaway_worktree_test.go`:
+  - [x] **Step 1: Write the failing tests** in new `stats/internal/guard/throwaway_worktree_test.go`:
     `TestThrowawayWorktreeCreate` (dirty tree incl. a rename and an untracked file copied; `--sdd`
     copies `.superpowers/sdd`) and `TestThrowawayWorktreeRemoveFoldBack` (`--fold-back` copies only
     newer files; remove leaves no worktree), each asserting parity with the fence it replaces.
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestThrowawayWorktree' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/throwawayworktree.go`, shim
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestThrowawayWorktree' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/throwawayworktree.go`, shim
     `scripts/throwaway-worktree.sh`, symlink `skills/flow/scripts/throwaway-worktree.sh`; replace
     the create fence and the `worktree remove --force` sentence in `skills/flow/sdd-dispatch.md`
     and the "## The throwaway worktree" fences in `skills/flow/review-panel-optional-slots.md`
     with call lines.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/throwawayworktree.go`,
 `stats/internal/guard/throwaway_worktree_test.go`, `scripts/throwaway-worktree.sh`,
@@ -438,17 +438,17 @@ Correction (2026-09-30): the five late-fix conditions live in `skills/flow/revie
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 12. Cut the reviewer templates' Placeholders lists
+- [x] 12. Cut the reviewer templates' Placeholders lists
 
 `design-panel.md` § "Follow-up cut".
 
-  - [ ] **Step 1: Cut** the **Placeholders:** list from `skills/flow/primary-reviewer-prompt.md`,
+  - [x] **Step 1: Cut** the **Placeholders:** list from `skills/flow/primary-reviewer-prompt.md`,
     `skills/flow/principles-reviewer-prompt.md` and `skills/flow/failure-modes-reviewer-prompt.md`
     — the renderer fills from `review-panel.md`'s table.
-  - [ ] **Step 2: Verify** — `go test ./internal/guard -run 'TestRenderSlotPrompt' -count=1` still
+  - [x] **Step 2: Verify** — `go test ./internal/guard -run 'TestRenderSlotPrompt' -count=1` still
     passes; `scripts/check-installed-citations.sh` coverage stays non-zero (primary keeps 3
     citations in its body); lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 3: Commit.**
 
 **Files:** `skills/flow/primary-reviewer-prompt.md`, `skills/flow/principles-reviewer-prompt.md`,
 `skills/flow/failure-modes-reviewer-prompt.md`, `stats/internal/guard/references.go`,
@@ -465,21 +465,21 @@ Correction (2026-09-30): Step 2 predicted primary keeps 3 citations in its body;
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 13. check-visual-trigger.sh names its exit-2 cause
+- [x] 13. check-visual-trigger.sh names its exit-2 cause
 
 Row VH-25 — `design-verify.md` § "VH-25".
 
-  - [ ] **Step 1: Write the failing test** `TestVisualTriggerExit2Tokens` in
+  - [x] **Step 1: Write the failing test** `TestVisualTriggerExit2Tokens` in
     `stats/internal/guard/check_visual_trigger_test.go` (NOT-CONFIGURED for the two unconfigured
     cases, CANNOT-ANSWER for every other exit 2); update the existing table's exit-2 `err:` pins
     with the appended token line.
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCheckVisualTrigger|TestVisualTriggerExit2Tokens' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/internal/guard/visualtrigger.go`; add both tokens to
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCheckVisualTrigger|TestVisualTriggerExit2Tokens' -count=1`.
+  - [x] **Step 3: Implement** in `stats/internal/guard/visualtrigger.go`; add both tokens to
     `scripts/check-visual-trigger.sh`'s exit-contract header; in `skills/flow/verify-and-handoff.md`
     steps 1–2 become the one call, keeping the step numbering.
-  - [ ] **Step 4: Verify** — targeted run plus `go test ./internal/guard -run 'TestCheckVisualVerifyDispatched' -count=1`;
+  - [x] **Step 4: Verify** — targeted run plus `go test ./internal/guard -run 'TestCheckVisualVerifyDispatched' -count=1`;
     lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/visualtrigger.go`, `stats/internal/guard/check_visual_trigger_test.go`,
 `scripts/check-visual-trigger.sh`, `skills/flow/verify-and-handoff.md`
@@ -526,11 +526,11 @@ Row VH-24 — `design-verify.md` § "VH-24".
 
 **Decision:** handoff-deferred-unknown
 
-- [ ] 15. check-visual-preflight.sh runs the four visual preflight checks
+- [x] 15. check-visual-preflight.sh runs the four visual preflight checks
 
 Row VV-18 — `design-verify.md` § "VV-18", all four checks.
 
-  - [ ] **Step 1: Write the failing tests** in new
+  - [x] **Step 1: Write the failing tests** in new
     `stats/internal/guard/check_visual_preflight_test.go`, fake `lsof`/`node` injected through
     `Env.Getenv("PATH")`: `TestCheckVisualPreflightPorts` (free; held and answering; held and
     silent → FAIL; `lsof` missing → exit 2), `TestCheckVisualPreflightBaseURL` (`:<default>`
@@ -539,13 +539,13 @@ Row VV-18 — `design-verify.md` § "VV-18", all four checks.
     `allowed_origins` list missing an app origin → FAIL; source files excluded) and
     `TestCheckVisualPreflightPlaywright` (resolved outside the worktree → FAIL; unresolvable →
     info line, pass). Add one case pinning this repository clean.
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestCheckVisualPreflight' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/visualpreflight.go`, shim
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestCheckVisualPreflight' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/visualpreflight.go`, shim
     `scripts/check-visual-preflight.sh`, symlink `skills/flow/scripts/check-visual-preflight.sh`;
     in `skills/flow/visual-verify.md` step 3's four bullets become the call line plus exit
     contract, keeping "Any failing check ends the stage here".
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/visualpreflight.go`,
 `stats/internal/guard/check_visual_preflight_test.go`, `scripts/check-visual-preflight.sh`,
@@ -561,20 +561,20 @@ Row VV-18 — `design-verify.md` § "VV-18", all four checks.
 
 **Decision:** visual-preflight-all-checks
 
-- [ ] 16. Port project-get.sh to Go
+- [x] 16. Port project-get.sh to Go
 
 Row MI1/MA2, first half — `design-finish.md` § "MI1/MA2" (the byte-for-byte port).
 
-  - [ ] **Step 1: Write the failing test** `TestProjectGetParity` in new
+  - [x] **Step 1: Write the failing test** `TestProjectGetParity` in new
     `stats/internal/guard/project_get_test.go` — runs the bash at `ae805186` (`scripts/project-get.sh`
     with `lib/project-section.sh` and `lib/strip-bom.sh`) and the Go guard over the same fixtures
     (present, absent, duplicate heading, BOM, CRLF, no file) and compares stdout, stderr and exit.
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestProjectGetParity' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/projectget.go`; `scripts/project-get.sh`
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestProjectGetParity' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/projectget.go`; `scripts/project-get.sh`
     becomes a `flow_guard_exec project-get 2 …` shim. `scripts/lib/project-section.sh` stays (other
     bash sources it).
-  - [ ] **Step 4: Verify** — targeted run plus `scripts/test-project-get.sh`; lint lines.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run plus `scripts/test-project-get.sh`; lint lines.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/projectget.go`, `stats/internal/guard/project_get_test.go`,
 `scripts/project-get.sh`
@@ -588,21 +588,21 @@ Row MI1/MA2, first half — `design-finish.md` § "MI1/MA2" (the byte-for-byte p
 
 **Decision:** parity-ref-on-main
 
-- [ ] 17. project-get.sh --enum resolves a single-line literal key
+- [x] 17. project-get.sh --enum resolves a single-line literal key
 
 Row MI1/MA2, second half — `design-finish.md` § "MI1/MA2" (the enum shape).
 
-  - [ ] **Step 1: Write the failing test** `TestProjectGetEnum` in
+  - [x] **Step 1: Write the failing test** `TestProjectGetEnum` in
     `stats/internal/guard/project_get_test.go` (a match → the literal, exit 0; backticked and padded
     heads; absent → exit 1; no match → exit 3 with one stderr line quoting the head; usage → 2).
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestProjectGetEnum' -count=1`.
-  - [ ] **Step 3: Implement** in `stats/internal/guard/projectget.go`; document `--enum` in
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestProjectGetEnum' -count=1`.
+  - [x] **Step 3: Implement** in `stats/internal/guard/projectget.go`; document `--enum` in
     `scripts/project-get.sh`'s header and in `skills/flow-contracts/project-configuration.md`'s
     "A single-line-literal key's value…"; replace the hand parse in `skills/flow/integrate.md`
     ("Run `project-get.sh <main-checkout> "default landing route"` … backticks removed …") and in
     `skills/flow-fast/SKILL.md` §6 and §4 with `--enum` calls.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/projectget.go`, `stats/internal/guard/project_get_test.go`,
 `scripts/project-get.sh`, `skills/flow-contracts/project-configuration.md`,
@@ -727,19 +727,19 @@ test's `stage mark` line binds no session, and the guard test's bad call passes.
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 21. Port aside-planning-artifacts.sh to Go
+- [x] 21. Port aside-planning-artifacts.sh to Go
 
 `design-basesync.md` § "Planned shape" item 1.
 
-  - [ ] **Step 1: Write the failing test** `TestAsidePlanningArtifactsParity` in new
+  - [x] **Step 1: Write the failing test** `TestAsidePlanningArtifactsParity` in new
     `stats/internal/guard/aside_planning_artifacts_test.go` — the bash at `ae805186` (with
     `lib/spec-root.sh`) against the Go guard over the same fixtures (aside and restore; nothing to
     aside; both spec roots; not a dir; not git; unknown action), comparing stdout, stderr and exit.
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestAsidePlanningArtifactsParity' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/asideplanningartifacts.go`;
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestAsidePlanningArtifactsParity' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/asideplanningartifacts.go`;
     `scripts/aside-planning-artifacts.sh` becomes a `flow_guard_exec` shim.
-  - [ ] **Step 4: Verify** — targeted run plus `scripts/test-aside-planning-artifacts.sh`; lint lines.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run plus `scripts/test-aside-planning-artifacts.sh`; lint lines.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/asideplanningartifacts.go`,
 `stats/internal/guard/aside_planning_artifacts_test.go`, `scripts/aside-planning-artifacts.sh`
@@ -753,22 +753,22 @@ test's `stage mark` line binds no session, and the guard test's bad call passes.
 
 **Decision:** parity-ref-on-main
 
-- [ ] 22. A shared base-moved verdict and rebase-onto-tip core
+- [x] 22. A shared base-moved verdict and rebase-onto-tip core
 
 `design-basesync.md` items 2–3.
 
-  - [ ] **Step 1: Write the failing tests** `TestBaseMovedFullOverlap` in
+  - [x] **Step 1: Write the failing tests** `TestBaseMovedFullOverlap` in
     `stats/internal/guard/check_base_moved_test.go` (the verdict carries the full sorted overlap
     while the printed line keeps its 10-path cut) and `TestRebaseOntoTip` in new
     `stats/internal/guard/base_rebase_test.go` (rebased; conflict with unmerged paths, aside kept;
     refused with no rebase in progress, aside restored; tip pinned to a sha before a concurrent
     fetch).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestBaseMovedFullOverlap|TestRebaseOntoTip|TestCheckBaseMoved' -count=1`.
-  - [ ] **Step 3: Implement** — refactor `stats/internal/guard/basemoved.go` into `baseMoved(…)
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestBaseMovedFullOverlap|TestRebaseOntoTip|TestCheckBaseMoved' -count=1`.
+  - [x] **Step 3: Implement** — refactor `stats/internal/guard/basemoved.go` into `baseMoved(…)
     bmVerdict` with `checkBaseMoved` printing `v.line` unchanged; add
     `stats/internal/guard/baserebase.go` (`rebaseOntoTip`, aside in-process via Task 21's port).
-  - [ ] **Step 4: Verify** — targeted run (`TestCheckBaseMoved` unchanged); lint lines.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run (`TestCheckBaseMoved` unchanged); lint lines.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/basemoved.go`, `stats/internal/guard/check_base_moved_test.go`,
 `stats/internal/guard/baserebase.go`, `stats/internal/guard/base_rebase_test.go`
@@ -782,22 +782,22 @@ test's `stage mark` line binds no session, and the guard test's bad call passes.
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 23. sync-onto-base.sh syncs a finishing worktree onto its base
+- [x] 23. sync-onto-base.sh syncs a finishing worktree onto its base
 
 `design-basesync.md` item 4.
 
-  - [ ] **Step 1: Write the failing tests** in new `stats/internal/guard/sync_onto_base_test.go`:
+  - [x] **Step 1: Write the failing tests** in new `stats/internal/guard/sync_onto_base_test.go`:
     `TestSyncOntoBase` (CLEAR → `CLEAN:`; MOVED → `REBASED:` with `GUARD-TEST:`/`NO-GUARD-TEST:`
     lines, re-check loop capped at 3; conflict → exit 1 left mid-rebase; REFUSE → exit 2) and
     `TestSyncOntoBaseResume` (refuses mid-rebase; requires `<onto>` an ancestor of HEAD; restores
     the aside; no guard-test lines).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestSyncOntoBase' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/syncontobase.go`, shim
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestSyncOntoBase' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/syncontobase.go`, shim
     `scripts/sync-onto-base.sh` (agents root exported as the note says), symlink
     `skills/flow/scripts/sync-onto-base.sh`; replace the recipe in `skills/flow/sync-onto-base.md`
     with the call lines plus exit contract, keeping the conflict-resolution rule.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/syncontobase.go`, `stats/internal/guard/sync_onto_base_test.go`,
 `scripts/sync-onto-base.sh`, `skills/flow/scripts/sync-onto-base.sh`, `skills/flow/sync-onto-base.md`
