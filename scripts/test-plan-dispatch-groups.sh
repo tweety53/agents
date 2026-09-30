@@ -86,9 +86,9 @@ EXPECTED=$'group 1: 1 3\ngroup 2: 2 4\ngroup 3: 5'
 [ "$OUT" = "$EXPECTED" ] && pass "case 2: chains stay split, join point opens its own group" || fail "case 2: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
-# Case 3: four after:none singletons then a fifth after all four — chain
-# merge gives four singletons plus one group; the fold pass deals the four
-# singletons (identical empty ready set) round-robin into three.
+# Case 3: six after:none singletons then a seventh after all six — chain
+# merge gives six singletons plus one group; the fold pass deals the six
+# singletons (identical empty ready set) round-robin into five.
 # ===========================================================================
 new_fixture
 {
@@ -96,15 +96,17 @@ new_fixture
   task 2 b.txt none
   task 3 c.txt none
   task 4 d.txt none
-  task 5 e.txt "Task 1, 2, 3, 4"
+  task 5 e.txt none
+  task 6 f.txt none
+  task 7 g.txt "Task 1, 2, 3, 4, 5, 6"
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
-[ "$RC" -eq 0 ] && pass "case 3: four singletons plus a join exits 0" || fail "case 3: rc=$RC out=$OUT"
-EXPECTED=$'group 1: 1 4\ngroup 2: 2\ngroup 3: 3\ngroup 4: 5'
-[ "$OUT" = "$EXPECTED" ] && pass "case 3: fold to three, round-robin, join point untouched" || fail "case 3: expected [$EXPECTED], got [$OUT]"
+[ "$RC" -eq 0 ] && pass "case 3: six singletons plus a join exits 0" || fail "case 3: rc=$RC out=$OUT"
+EXPECTED=$'group 1: 1 6\ngroup 2: 2\ngroup 3: 3\ngroup 4: 4\ngroup 5: 5\ngroup 6: 7'
+[ "$OUT" = "$EXPECTED" ] && pass "case 3: fold to five, round-robin, join point untouched" || fail "case 3: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
-# Case 3b: three after:none singletons — exactly the in-flight cap — are
+# Case 3b: five after:none singletons — exactly the in-flight cap — are
 # left unfolded, one group each.
 # ===========================================================================
 new_fixture
@@ -112,11 +114,13 @@ new_fixture
   task 1 a.txt none
   task 2 b.txt none
   task 3 c.txt none
+  task 4 d.txt none
+  task 5 e.txt none
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
-[ "$RC" -eq 0 ] && pass "case 3b: three singletons exits 0" || fail "case 3b: rc=$RC out=$OUT"
-EXPECTED=$'group 1: 1\ngroup 2: 2\ngroup 3: 3'
-[ "$OUT" = "$EXPECTED" ] && pass "case 3b: three singletons stay three groups" || fail "case 3b: expected [$EXPECTED], got [$OUT]"
+[ "$RC" -eq 0 ] && pass "case 3b: five singletons exits 0" || fail "case 3b: rc=$RC out=$OUT"
+EXPECTED=$'group 1: 1\ngroup 2: 2\ngroup 3: 3\ngroup 4: 4\ngroup 5: 5'
+[ "$OUT" = "$EXPECTED" ] && pass "case 3b: five singletons stay five groups" || fail "case 3b: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
 # Case 4: the design's known ceiling — 1, 2->1, 3->1, 4->(2,3) — all merge
