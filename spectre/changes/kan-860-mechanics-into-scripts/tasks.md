@@ -303,24 +303,24 @@ Row MX2/OS05 — `design-implement.md` item 3.
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 8. fold-fixup.sh folds a fixup into its task commit
+- [x] 8. fold-fixup.sh folds a fixup into its task commit
 
 Row MX7 — `design-implement.md` item 4. `guard-autosquash.sh` stays bash and is a sibling.
 
-  - [ ] **Step 1: Write the failing tests** in new `stats/internal/guard/fold_fixup_test.go`:
+  - [x] **Step 1: Write the failing tests** in new `stats/internal/guard/fold_fixup_test.go`:
     `TestFoldFixupFolds`, `TestFoldFixupEmptyDrop` (tip and non-tip emptied commit),
     `TestFoldFixupConflictLeftInProgress` (exit 3, rebase still in progress, `--finish` completes
     after a hand resolution) and `TestFoldFixupGuardRefusal` (a `guard-autosquash` refusal → exit
     1); add `fold-fixup.sh` → `{"lib", "guard-autosquash.sh"}` to `TestShimSiblingsDeclared`.
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestFoldFixup|TestShimSiblingsDeclared' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/foldfixup.go` (`GIT_SEQUENCE_EDITOR=: git
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestFoldFixup|TestShimSiblingsDeclared' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/foldfixup.go` (`GIT_SEQUENCE_EDITOR=: git
     rebase -i --autosquash`), shim `scripts/fold-fixup.sh`, symlink
     `skills/flow/scripts/fold-fixup.sh`; in `skills/flow/review-panel-fix-round.md` replace the
     fold recipe from "**Rewrite-based folding is for unpushed history only**" through "**A fixup
     whose fold empties its target commit is dropped…**" with the call line plus exit contract,
     keeping the unpushed-history rule and "clean autosquash is not evidence".
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/foldfixup.go`, `stats/internal/guard/fold_fixup_test.go`,
 `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/fold-fixup.sh`,
@@ -373,23 +373,23 @@ Correction (2026-09-30): the `late-fix.diff` recipe lives in `skills/flow/review
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 10. check-late-fix-trigger.sh decides the late-fix reduction
+- [x] 10. check-late-fix-trigger.sh decides the late-fix reduction
 
 `design-panel.md` § "Late-fix trigger".
 
-  - [ ] **Step 1: Write the failing test** `TestCheckLateFixTrigger` in new
+  - [x] **Step 1: Write the failing test** `TestCheckLateFixTrigger` in new
     `stats/internal/guard/check_late_fix_trigger_test.go` — one case per condition 1–5 failing
     alone (exit 1, its line printed), all holding (exit 0, the `late-fix reduction:` line), a
     binary numstat entry, an untracked `tasks.md`, `-` as the since-close sha, and a cannot-answer
     (exit 2).
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCheckLateFixTrigger' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/latefixtrigger.go` (calling
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCheckLateFixTrigger' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/latefixtrigger.go` (calling
     `checkPanelFindingsClosed` in-process), shim `scripts/check-late-fix-trigger.sh`, symlink
     `skills/flow/scripts/check-late-fix-trigger.sh`; replace the trigger conditions under **The
     late-fix reduction** in `skills/flow/review-panel.md` with the call line plus exit contract
     (exit 2 read as full path).
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/latefixtrigger.go`,
 `stats/internal/guard/check_late_fix_trigger_test.go`, `scripts/check-late-fix-trigger.sh`,
@@ -406,24 +406,24 @@ Correction (2026-09-30): the five late-fix conditions live in `skills/flow/revie
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 11. render-slot-prompt.sh renders a panel dispatch's brief
+- [x] 11. render-slot-prompt.sh renders a panel dispatch's brief
 
 `design-panel.md` § "Renderer".
 
-  - [ ] **Step 1: Write the failing tests** in new `stats/internal/guard/render_slot_prompt_test.go`:
+  - [x] **Step 1: Write the failing tests** in new `stats/internal/guard/render_slot_prompt_test.go`:
     `TestRenderSlotPrompt` (against the real `skills/flow/` tree: one slot and a `+`-bundle;
     each `-diff` kind; `-fix-report` adds FIX-ROUND SCOPE; `-no-bundle`; CITATION CHECK once per
     existing `-standard` file; every placeholder of `review-panel.md`'s table filled) and
     `TestRenderSlotPromptUnresolvedPlaceholder` (exit 1 naming it; `mutation` refused).
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestRenderSlotPrompt' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/renderslotprompt.go`, shim
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestRenderSlotPrompt' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/renderslotprompt.go`, shim
     `scripts/render-slot-prompt.sh`, symlink `skills/flow/scripts/render-slot-prompt.sh`; in
     `skills/flow/review-panel.md` the dispatch recipe becomes the render call plus the items still
     typed in the Agent call (the note's list). The blocks stay in `review-panel.md`, so the
     `check-dispatch-paragraphs.sh` pins still hold.
-  - [ ] **Step 4: Verify** — targeted run; lint lines incl. `check-dispatch-paragraphs.sh`;
+  - [x] **Step 4: Verify** — targeted run; lint lines incl. `check-dispatch-paragraphs.sh`;
     verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/renderslotprompt.go`,
 `stats/internal/guard/render_slot_prompt_test.go`, `scripts/render-slot-prompt.sh`,
@@ -619,24 +619,24 @@ Row MI1/MA2, second half — `design-finish.md` § "MI1/MA2" (the enum shape).
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 18. commit-archive.sh makes the archive commit
+- [x] 18. commit-archive.sh makes the archive commit
 
 Row MA1 — `design-finish.md` § "MA1".
 
-  - [ ] **Step 1: Write the failing test** `TestCommitArchive` in new
+  - [x] **Step 1: Write the failing test** `TestCommitArchive` in new
     `stats/internal/guard/commit_archive_test.go` (`ARCHIVE-COMMITTED: <sha>`,
     `ARCHIVE-NOTHING-STAGED`, `ARCHIVE-WRONG-BRANCH: <found>` exit 1, a scope violation exit 1,
     cannot answer exit 2); add `commit-archive.sh` → `{"lib", "check-archive-scope.sh"}` to
     `TestShimSiblingsDeclared`.
-  - [ ] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCommitArchive|TestShimSiblingsDeclared' -count=1`.
-  - [ ] **Step 3: Implement** `stats/internal/guard/commitarchive.go`, shim
+  - [x] **Step 2: Run it; it fails** — `cd stats && go test ./internal/guard -run 'TestCommitArchive|TestShimSiblingsDeclared' -count=1`.
+  - [x] **Step 3: Implement** `stats/internal/guard/commitarchive.go`, shim
     `scripts/commit-archive.sh` (exports `FLOW_GUARD_SELF`, asserts
     `$SCRIPT_DIR/check-archive-scope.sh`), symlink `skills/flow/scripts/commit-archive.sh`; move
     `skills/flow/archive.md` step 4's recipe verbatim into
     `skills/flow-contracts/finish-hand-fallbacks.md` under `commit-archive.sh — Run 2, step 4`, and
     leave the call line plus exit contract in its place.
-  - [ ] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — targeted run; lint lines; verbatim-moves lines recorded.
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/commitarchive.go`, `stats/internal/guard/commit_archive_test.go`,
 `stats/internal/guard/check_guard_symlinks_test.go`, `scripts/commit-archive.sh`,
@@ -654,11 +654,11 @@ Correction (2026-09-30): the guard checks the branch before copying the ledger a
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 19. remove-change-worktrees.sh runs the worktree cleanup
+- [x] 19. remove-change-worktrees.sh runs the worktree cleanup
 
 Row MR2 — `design-finish.md` § "MR2".
 
-  - [ ] **Step 1: Write the failing tests** in new
+  - [x] **Step 1: Write the failing tests** in new
     `stats/internal/guard/remove_change_worktrees_test.go`: `TestRemoveChangeWorktrees` (clean
     removal with REMOVED and REMOTE-* lines; a remote ref already gone), 
     `TestRemoveChangeWorktreesDisclose` (an unclassified bucket or a wave-group copy → exit 3,
@@ -666,17 +666,17 @@ Row MR2 — `design-finish.md` § "MR2".
     `TestRemoveChangeWorktreesStopCommand` (a `## stop` body with no fence → check skipped; a fenced
     command → run under the 60-second bound, nothing else run); add `remove-change-worktrees.sh` →
     `{"lib", "check-worktree-processes.sh"}` to `TestShimSiblingsDeclared`.
-  - [ ] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestRemoveChangeWorktrees|TestShimSiblingsDeclared|TestCheckCleanupComplete' -count=1`.
-  - [ ] **Step 3: Implement** — factor `cleanupcomplete.go`'s porcelain loop into a shared helper;
+  - [x] **Step 2: Run them; they fail** — `cd stats && go test ./internal/guard -run 'TestRemoveChangeWorktrees|TestShimSiblingsDeclared|TestCheckCleanupComplete' -count=1`.
+  - [x] **Step 3: Implement** — factor `cleanupcomplete.go`'s porcelain loop into a shared helper;
     add `stats/internal/guard/removechangeworktrees.go`, shim `scripts/remove-change-worktrees.sh`,
     symlink `skills/flow/scripts/remove-change-worktrees.sh`; move the six-check recipe, the bucket
     list and the remove/remote blocks verbatim from `skills/flow-contracts/finish-contract-run2.md`
     (and `skills/flow/archive.md` where it carries them) into
     `skills/flow-contracts/finish-hand-fallbacks.md`, leaving the call lines, the
     gates-vs-disclosure rules, the ask and the relay.
-  - [ ] **Step 4: Verify** — targeted run (incl. `TestCheckCleanupComplete`, the refactored
+  - [x] **Step 4: Verify** — targeted run (incl. `TestCheckCleanupComplete`, the refactored
     helper); lint lines; verbatim-moves lines recorded.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `stats/internal/guard/removechangeworktrees.go`,
 `stats/internal/guard/remove_change_worktrees_test.go`, `stats/internal/guard/cleanupcomplete.go`,
@@ -877,25 +877,25 @@ Row MX6 — `design-basesync.md` item 6.
 
 **Decision:** all-designed-rows-in-scope
 
-- [ ] 26. Live verification against the worktree's own store and scratch fixtures
+- [x] 26. Live verification against the worktree's own store and scratch fixtures
 
-  - [ ] **Step 1: Before** — against the worktree's isolated stack (`.flow/project.md` `## run` /
+  - [x] **Step 1: Before** — against the worktree's isolated stack (`.flow/project.md` `## run` /
     `## workspace isolation`, never the dev workspace's `flowd` or `flow` database), record `flow
     state get` for a scratch change `kan-860-live-check` created with `flow state set`, and
     `flow record handoff-lines -change kan-860-live-check -C <worktree>`'s absence (unknown verb on
     the old binary).
-  - [ ] **Step 2: Exercise** with the worktree-built `flow`: `flow state add-worktree` twice (a
+  - [x] **Step 2: Exercise** with the worktree-built `flow`: `flow state add-worktree` twice (a
     second path) and read back both entries with `state` unchanged; `flow stage mark` over two
     keys, then `flow stage` records show both begun and ended; `flow record handoff-lines`;
     `flow decision render` on this change's `.superpowers/sdd/decision.json`; `plan-class.sh` on
     this change's `tasks.md`. In a scratch repo with a local bare `origin`: `kickoff-worktree.sh`,
     then `remove-change-worktrees.sh` (first call discloses, `--proceed` removes).
-  - [ ] **Step 3: Record** before/after figures in the commit message body. **Not working looks
+  - [x] **Step 3: Record** before/after figures in the commit message body. **Not working looks
     like:** the second `add-worktree` dropping the first entry or changing `state`; a stage key
     begun and never ended; `decision render` differing from the block printed at the plan gate;
     `remove-change-worktrees.sh` removing anything on its first call.
-  - [ ] **Step 4: Clean up** the scratch change record and scratch repo.
-  - [ ] **Step 5: Commit** (empty commit carrying the record).
+  - [x] **Step 4: Clean up** the scratch change record and scratch repo.
+  - [x] **Step 5: Commit** (empty commit carrying the record).
 
 **Files:** none
 **Tests:** none — live run; the figures are the record
@@ -905,3 +905,5 @@ Row MX6 — `design-basesync.md` item 6.
 **Commit:** `test(stats): live-verify the KAN-860 verbs and guards`
 **After:** Task 7, 12, 15, 19, 20, 23, 24, 25
 **Build:** green
+
+Correction (2026-09-30): `check-task-commit-fields.sh` read `**Files:** none` as a declared path the empty commit never touched, so this task's close failed; `Files:` now follows `Tests:`, where `none` declares nothing (commit 57542e60, `stats/internal/guard/taskcommitfields.go` + case 156). Found at pick, applied by the parent.
