@@ -104,6 +104,8 @@ line and `-class` is an unknown argument.
 **After:** none
 **Build:** green
 
+Correction (2026-09-30, panel round 1, F10): `plan-class.sh` and `sync-onto-base.sh` now take the agents-repo root from `flow_guard_root` in `scripts/lib/flow-guard.sh`, with `TestFlowGuardRootThroughSkillSymlink` added — plain commits cfeb543f and b1d927b4 on top, not folded, so the fields stay as this task's commit measured them.
+
 Correction (2026-09-30): the plan declared four files; `skills/flow-fast/SKILL.md:82` still cited "its tree table", which this task removes from `brainstorm-planner.md`, so the line now names "the tree `plan-class.sh` prints" and the file joins `**Files:**` — reported by the group-1 implementer, applied by the parent at pick.
 
 **Decision:** all-designed-rows-in-scope
@@ -269,6 +271,8 @@ Row MX3 — `design-implement.md` item 2.
 **Commit:** `feat(guard): close-task.sh runs the task-close sequence`
 **After:** Task 3, 5
 **Build:** green
+
+Correction (2026-09-30, panel round 1, F1/F6/F2): the `skills/flow/scripts/check-task-commit-fields.sh` symlink is restored (the fix round still cites it), `check-guard-symlinks` rule 2 classifies a backtick span that wraps a line (`guardsymlinks.go`, `TestCheckGuardSymlinks` case 3m), and `skills/flow-fast/SKILL.md` states its sdd task close without `close-task.sh` — plain commits a64338db, 9b627111 and 1f924109 on top, not folded.
 
 **Decision:** close-task-push-after-guards
 
@@ -650,6 +654,8 @@ Row MA1 — `design-finish.md` § "MA1".
 **After:** Task 4, 8
 **Build:** green
 
+Correction (2026-09-30, panel round 1, F5): `scripts/generate-relocation-comparison.py` reads **Files:** in the inline form too (`scripts/test-generate-relocation-comparison.sh` case ii); for this plan it now exits 2 on the symlinked skill paths rather than writing nothing silently — plain commit 29961384 on top, not folded.
+
 Correction (2026-09-30): the guard checks the branch before copying the ledger and panel record (the recipe copied first, so a wrong branch now leaves the landing worktree untouched), stops with exit 2 when an existing ledger or record cannot be copied (the recipe ignored the failed copy), and prints only its own verdict, passing on the scope guard's lines only when that guard refuses. Reported by the group-5 implementer.
 
 **Decision:** all-designed-rows-in-scope
@@ -691,6 +697,8 @@ Row MR2 — `design-finish.md` § "MR2".
 **Commit:** `feat(guard): remove-change-worktrees.sh runs the worktree cleanup`
 **After:** Task 4, 8, 18
 **Build:** green
+
+Correction (2026-09-30, panel round 1, F3/F4/F7/F9): check 4 classifies an image by its location, check 5 reads `## stop` with the `## worktree setup` fence reader and prints `SKIPPED:` when no fence is declared, and `skills/flow-contracts/project-configuration.md`'s `## stop` row carries the fence shape run 2 now cites — plain commits 29632383 and c9cdaabf on top, not folded.
 
 Correction (2026-09-30): the guard runs `worktree prune` before `branch -d`, so a leftover registration cannot block the delete; runs checks 1–4 before the disclosure stop, so the stop command never runs on an exit-3 call; treats a `## stop` section with no code fence as no command (check 5 skipped, per `design-finish.md`); and lists a screenshot in a declared screenshot-output directory as unclassified rather than regeneratable. Exit codes: 0 all passed (the remote-branch outcome reported, step 7 verifies it), 1 a check failed and nothing was removed or a removal failed, 2 cannot answer, 3 the disclosure stop. Reported by the group-5 implementer.
 
@@ -787,6 +795,8 @@ Correction (2026-09-30): Step 4's command names `./internal/guard`, where no suc
 **Commit:** `refactor(guard): share the base-moved verdict and a rebase-onto-tip core`
 **After:** Task 21
 **Build:** green
+
+Correction (2026-09-30, panel round 1, F8): one `inProgress` helper in `baserebase.go` replaces the rebase-in-progress checks in `foldfixup.go` and `syncontobase.go` — plain commit 16fe6ff9 on top, not folded.
 
 **Decision:** all-designed-rows-in-scope
 

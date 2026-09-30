@@ -424,3 +424,11 @@ Resolve `<base>` with `resolve-base-branch.sh` against the apply worktree, run `
 **Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same per-worktree `sync-panel-base.sh` call, with that section's verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED` with no overlap rebases unasked at a round boundary just as at entry.
 # Task 11 review fix (parent): a bundle naming mutation still renders the other roles and INDEPENDENT PASSES
 `mutation`'s pass is never rendered: its brief and its throwaway copy stay typed by the parent, beside the rendered path where a dispatch bundles it — the render still carries every other role's pass and the INDEPENDENT PASSES paragraph.
+# Panel round 1 fix (F4/F7/F9): the `## stop` shape lives in its canonical row; run2 cites it and relays the SKIPPED line
+Same shape as `## worktree setup`: one command per line inside a fence, read literally and run in order from the worktree; prose outside a fence is never run.
+A body with no fenced command declares no command and is skipped the same way.
+A body with no fenced command is that key's same skip, and prints `SKIPPED: check 5 — ## stop declares no fenced command`; relay the line word for word.
+# Panel round 1 fix (F2): flow-fast's sdd close states its own calls, since section 4's close is now one close-task.sh call
+written except that `check-task-commit-fields.sh` is not run and no task is ticked: section 5's lint and tests are what close a group.
+written except its task close: `close-task.sh` is not run — its fields guard, gate and tick read a spectre plan, and its planning-paths guard a planning tree, neither of which flow-fast writes.
+A group closes on the implementer's `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests.
