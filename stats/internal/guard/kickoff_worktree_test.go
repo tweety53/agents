@@ -297,11 +297,43 @@ func TestKickoffWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("named base: add from origin/<base>, base recorded on the branch", func(t *testing.T) {
+		t.Parallel()
+		fx := kwNew(t, "", true)
+		other := t.TempDir() + "/other"
+		fx.git(t, "", "clone", "-q", fx.origin, other)
+		fx.git(t, other, "commit", "-q", "--allow-empty", "-m", "feature work")
+		fx.git(t, other, "push", "-q", "origin", "HEAD:refs/heads/feature/offline-mode")
+		tip := fx.git(t, other, "rev-parse", "HEAD")
+		fx.started(t)
+		r := fx.run(t, fx.project, kwName, "feature/offline-mode")
+		wt := fx.project + "/.worktrees/" + kwName
+		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
+			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		}
+		if got := fx.git(t, wt, "config", "--get", "branch.spectre/"+kwName+".flowBase"); got != "feature/offline-mode" {
+			t.Errorf("flowBase = %q", got)
+		}
+	})
+
+	t.Run("named base missing on origin: exit 1, nothing added", func(t *testing.T) {
+		t.Parallel()
+		fx := kwNew(t, "", true)
+		fx.started(t)
+		r := fx.run(t, fx.project, kwName, "feature/nope")
+		if r.rc != 1 || !strings.Contains(r.err, "kickoff-worktree: origin/feature/nope does not exist") {
+			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		}
+		if _, err := os.Stat(fx.project + "/.worktrees/" + kwName); err == nil {
+			t.Errorf("a worktree was added for a missing base")
+		}
+	})
+
 	t.Run("usage: exit 2", func(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "", true)
 		r := fx.run(t, fx.project)
-		if r.rc != 2 || r.err != "usage: kickoff-worktree.sh <project> <name>\n" {
+		if r.rc != 2 || r.err != "usage: kickoff-worktree.sh <project> <name> [<base>]\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
 	})

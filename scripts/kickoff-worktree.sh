@@ -2,7 +2,14 @@
 # kickoff-worktree.sh — /flow's kickoff steps 1–5 (skills/flow/brainstorm.md
 # **A**), run in order in one call so no session re-types them.
 #
-# Usage: kickoff-worktree.sh <project> <name>
+# Usage: kickoff-worktree.sh <project> <name> [<base>]
+#
+# <base>, when given, names the branch the change is cut from and lands on
+# instead of origin/HEAD's: origin/<base> must exist (exit 1 otherwise,
+# nothing added), a fresh branch is created from it, and either form records
+# it as `git config branch.spectre/<name>.flowBase <base>`, which
+# resolve-base-branch.sh reads ahead of origin/HEAD. A name failing
+# resolve-base-branch's validation is exit 2.
 #
 #   0. `flow` must be on PATH, checked first: a worktree step 3 could not
 #      persist is never created.
@@ -14,7 +21,8 @@
 #   3. `git fetch origin`; when origin/spectre/<name> exists, `git worktree
 #      add <project>/.worktrees/<name> spectre/<name>`, a local branch
 #      tracking it, otherwise `-b spectre/<name> origin/<default-branch>`,
-#      the default branch read from refs/remotes/origin/HEAD, never HEAD.
+#      the default branch read from refs/remotes/origin/HEAD, never HEAD —
+#      or origin/<base> when <base> is given.
 #      The merge base is `git -C <worktree> rev-parse HEAD` right after the
 #      add, persisted before anything else runs by `flow state add-worktree
 #      -C <project> <name> <worktree> <merge-base>`.

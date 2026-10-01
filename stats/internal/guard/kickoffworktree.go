@@ -54,11 +54,28 @@ func kwFenced(body string) []string {
 
 func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "kickoff-worktree"
-	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		fmt.Fprint(stderr, "usage: kickoff-worktree.sh <project> <name>\n")
+	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" {
+		fmt.Fprint(stderr, "usage: kickoff-worktree.sh <project> <name> [<base>]\n")
 		return 2
 	}
 	project, name := smcAbs(env, args[0]), args[1]
+	// An optional base names the branch the change is cut from and lands
+	// on; it flows into refs and a git config value, so it passes the
+	// name validation resolve-base-branch applies.
+	base := ""
+	if len(args) == 3 {
+		base = args[2]
+		for i := 0; i < len(base); i++ {
+			if !rbbNameByte(base[i], i > 0) {
+				fmt.Fprintf(stderr, "%s: the base branch name is invalid\n", self)
+				return 2
+			}
+		}
+		if base == "" {
+			fmt.Fprint(stderr, "usage: kickoff-worktree.sh <project> <name> [<base>]\n")
+			return 2
+		}
+	}
 	location, projectGet := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"), env.Getenv("FLOW_GUARD_PROJECT_GET")
 	if location == "" || projectGet == "" {
 		fmt.Fprintf(stderr, "%s: FLOW_GUARD_WORKTREE_LOCATION or FLOW_GUARD_PROJECT_GET is unset — run scripts/kickoff-worktree.sh, which sets them\n", self)
@@ -118,16 +135,26 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if rc, out := kwRun(env, "", git, "-C", project, "fetch", "origin"); rc != 0 {
 		return relay(1, out)
 	}
+	if base != "" {
+		if rc, _ := kwRun(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "refs/remotes/origin/"+base); rc != 0 {
+			fmt.Fprintf(stderr, "%s: origin/%s does not exist — push the base branch first\n", self, base)
+			return 1
+		}
+	}
 	add := []string{"-C", project, "worktree", "add", wt, branch}
 	if rc, _ := kwRun(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "origin/"+branch); rc != 0 {
-		// The default branch by name, never HEAD: the main checkout may be
-		// on any branch and is never moved.
-		rc, out := kwRun(env, "", git, "-C", project, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
-		if rc != 0 {
-			fmt.Fprintf(stderr, "%s: cannot resolve the default branch — refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
-			return 2
+		start := "origin/" + base
+		if base == "" {
+			// The default branch by name, never HEAD: the main checkout may
+			// be on any branch and is never moved.
+			rc, out := kwRun(env, "", git, "-C", project, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+			if rc != 0 {
+				fmt.Fprintf(stderr, "%s: cannot resolve the default branch — refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
+				return 2
+			}
+			start = strings.TrimSpace(out)
 		}
-		add = []string{"-C", project, "worktree", "add", wt, "-b", branch, strings.TrimSpace(out)}
+		add = []string{"-C", project, "worktree", "add", wt, "-b", branch, start}
 	}
 	if rc, out := kwRun(env, "", git, add...); rc != 0 {
 		return relay(1, out)
@@ -137,6 +164,13 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		return relay(1, out)
 	}
 	mergeBase := strings.TrimSpace(out)
+	// Recorded on the branch, so resolve-base-branch and every guard it
+	// feeds land the change back on <base> rather than on origin/HEAD.
+	if base != "" {
+		if rc, out := kwRun(env, "", git, "-C", wt, "config", "branch."+branch+".flowBase", base); rc != 0 {
+			return relay(1, out)
+		}
+	}
 	if rc, out := kwRun(env, "", flow, "state", "add-worktree", "-C", project, name, wt, mergeBase); rc != 0 {
 		return relay(1, out)
 	}
