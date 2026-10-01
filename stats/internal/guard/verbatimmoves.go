@@ -161,8 +161,8 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 func vmDefaultBase(git func(...string) *exec.Cmd, root string) (sha, label string, ok bool) {
 	var candidates []string
 	if cur, ok := capture(git("-C", root, "branch", "--show-current")); ok && strings.TrimSpace(cur) != "" {
-		if rec, ok := capture(git("-C", root, "config", "--get", "branch."+strings.TrimSpace(cur)+".flowBase")); ok && strings.TrimSpace(rec) != "" {
-			candidates = append(candidates, "origin/"+strings.TrimSpace(rec))
+		if rec := recordedBase(git, root, strings.TrimSpace(cur)); rec != "" {
+			candidates = append(candidates, "origin/"+rec)
 		}
 	}
 	if sym, ok := capture(git("-C", root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); ok && sym != "" {

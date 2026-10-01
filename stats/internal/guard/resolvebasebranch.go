@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 )
 
@@ -92,8 +93,8 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// a change cut from a feature branch lands back on it. It is read
 	// after the fetch so the remote resolution above still warms
 	// origin/<base>, and it faces the same refusals below.
-	if rec, _ := capture(git("-C", dir, "config", "--get", "branch."+cur+".flowBase")); strings.TrimSpace(rec) != "" {
-		base = strings.TrimRight(strings.ReplaceAll(rec, "\x00", ""), "\n")
+	if rec := recordedBase(git, dir, cur); rec != "" {
+		base = rec
 	}
 	if base == "" {
 		fmt.Fprintf(stderr, "resolve-base-branch: could not resolve a base branch in %s\n", dir)
@@ -119,6 +120,13 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 
 	fmt.Fprintln(stdout, base)
 	return 0
+}
+
+// recordedBase is the base kickoff-worktree.sh recorded on branch, or ""
+// when none was: `git config branch.<branch>.flowBase`.
+func recordedBase(git func(...string) *exec.Cmd, dir, branch string) string {
+	rec, _ := capture(git("-C", dir, "config", "--get", "branch."+branch+".flowBase"))
+	return strings.TrimRight(strings.ReplaceAll(rec, "\x00", ""), "\n")
 }
 
 // rbbNameByte is the C locale's [A-Za-z0-9._], plus `/` and `-` when rest.

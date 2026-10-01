@@ -306,6 +306,18 @@ else
   fail "case 12 bare base-ref argument: rc=$RC out=$OUT"
 fi
 
+# --- case 16: no base-ref argument, a recorded base resolving nowhere ->
+# --- exit 2: the recorded base (branch.<cur>.flowBase) is read before
+# --- origin/HEAD ---
+new_repo
+git -C "$FIX" config "branch.$(git -C "$FIX" branch --show-current).flowBase" no-such-ref
+run_guard "$FIX"
+if [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q "COULD NOT JUDGE"; then
+  pass "case 16 recorded base read before origin/HEAD"
+else
+  fail "case 16 recorded base: rc=$RC out=$OUT"
+fi
+
 printf '\n'
 if [ "$FAILURES" -eq 0 ]; then
   printf 'all cases passed\n'

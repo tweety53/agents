@@ -249,6 +249,34 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	}
 }
 
+// TestBundleAssemblyGitLogHonoursRecordedBase pins that a change cut from
+// a recorded base (branch.<change>.flowBase) logs against that base, so the
+// base branch's own commits never read as the change's.
+func TestBundleAssemblyGitLogHonoursRecordedBase(t *testing.T) {
+	repo := gitRepo(t)
+	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	runGit(t, repo, "checkout", "-b", "feature")
+	featureSHA := commitAll(t, repo, "feature.go", "package main\n", "feat(feature): base work")
+	runGit(t, repo, "update-ref", "refs/remotes/origin/feature", "feature")
+	runGit(t, repo, "checkout", "-b", "demo")
+	implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+	runGit(t, repo, "config", "branch.demo.flowBase", "feature")
+	runGit(t, repo, "checkout", "main")
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
+	if !strings.Contains(gitLog, "commit "+implSHA) {
+		t.Errorf("git log section missing the change branch's commit %s:\n%s", implSHA, gitLog)
+	}
+	if strings.Contains(gitLog, "commit "+featureSHA) {
+		t.Errorf("git log section carries the recorded base's own commit %s:\n%s", featureSHA, gitLog)
+	}
+}
+
 // TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing pins the fallback's
 // degradation: no change branch to walk — it landed and was deleted, or
 // never existed — leaves the source skipped, never a confident wrong

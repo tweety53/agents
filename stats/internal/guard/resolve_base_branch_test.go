@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -115,6 +116,25 @@ func rbbGit(t *testing.T, dir string, args ...string) {
 	cmd.Env = append(os.Environ(), fixtureGitEnv...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// TestVerbatimMovesDefaultBaseHonoursRecordedBase pins that the lint
+// guard's offline base reads the base recorded on the branch before
+// origin/HEAD, as resolve-base-branch does.
+func TestVerbatimMovesDefaultBaseHonoursRecordedBase(t *testing.T) {
+	t.Parallel()
+	fx, err := rbbMasters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt := rbbCopy(t, fx.wt)
+	rbbGit(t, wt, "update-ref", "refs/remotes/origin/feature/x", "HEAD")
+	rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "feature/x")
+	git := envGit(Env{Dir: wt, Getenv: os.Getenv})
+	_, label, ok := vmDefaultBase(git, wt)
+	if !ok || !strings.Contains(label, "merge-base(HEAD, origin/feature/x)") {
+		t.Fatalf("label %q ok=%v, want the recorded base", label, ok)
 	}
 }
 
