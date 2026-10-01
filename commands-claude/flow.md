@@ -10,6 +10,6 @@ Follow that skill exactly. Accepts **no state** (creates a change), **`STARTED`*
 creating run that stopped before implementation), or **`IN_PROGRESS`**.
 
 **Input:** the change name or a description/Jira key to seed a new change, from `$ARGUMENTS` or the
-conversation — and nothing else.
+conversation — and nothing else, save `--base <branch>` on a creating run.
 Report any argument that is not a change name, description, or fix instruction rather than ignoring
 it.

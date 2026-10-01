@@ -27,9 +27,9 @@ The Jira contract is the one the skill cites directly; the flow rule's pipeline 
 apply here, since `/flow-fast` writes none.
 
 **Input:** the change description or Jira key, from `$ARGUMENTS` or the conversation — and nothing
-else. **This command takes no flags.** Re-invoked with a name whose worktree still exists, the
+else. **This command takes no flags**, save `--base <branch>` on a creating run. Re-invoked with a name whose worktree still exists, the
 argument is fix instructions, or — bare — the run resumes at cleanup once an open PR has merged.
 
 **When done:** after a handoff, review the branch and re-run `/flow-fast <name>` bare to land it.
-On merge and push, nothing further — the commit is on the default branch. On open PR or manual,
+On merge and push, nothing further — the commit is on the base branch. On open PR or manual,
 merge or land it, then re-run `/flow-fast <name>` bare to clean up.

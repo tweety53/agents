@@ -8,3 +8,34 @@ kickoff-worktree.sh <project> <name>
 Kickoff records it on the change's branch in every repository (`kickoff-worktree.sh <project> <name> <base>`), and `resolve-base-branch.sh` reads it back for every later phase, so it is never passed again.
 git -C <project>/.worktrees/<name> config branch.<name>.flowBase <default-branch> # --base only
 kickoff-worktree.sh <project> <name> [<base>]
+**Input:** the change name or a description/Jira key to seed a new change, from `$ARGUMENTS` or the conversation — and nothing else.
+**No command accepts a flag.
+**merge and push**: `git -C <worktree> push origin <name>:<default-branch>`.
+<default-branch> --head <name>` with the summary from section 5 as the body.
+A non-zero exit means the branch is not on the default branch yet — stop and say so, removing nothing.
+End by naming the landed commit on `<default-branch>`.
+Every `skills/flow/` section cited below runs as written, with these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha `git -C <worktree> rev-parse origin/<default-branch>` prints right after section 3 creates it, standing wherever a cited section reads the working notes' merge base; and nothing written to `<project>/spectre/` or a state file — `flow record render` is skipped, the finding rows are the record.
+On merge and push, nothing further — the commit is on the default branch.
+Then, only when the main checkout is on `<default-branch>` with an empty `git status --porcelain`, `git -C <project> pull --ff-only`; otherwise leave it and report one line naming why.
+This route is the one place `/flow-fast` pushes to the default branch.
+`/flow-self-review <name>` then runs the pass on `<default-branch>` and deletes the bundle in its report commit.
+git -C <worktree> merge-base --is-ancestor <name> origin/<default-branch>
+git -C <worktree> rebase origin/<default-branch>
+git worktree add <project>/.worktrees/<name> -b <name> origin/<default-branch>
+**From here on, on every run, `<base>` is what `resolve-base-branch.sh <worktree>` prints** — the recorded base when there is one — so a re-run lands where the creating run cut.
+**Input:** the change name or a description/Jira key to seed a new change, from `$ARGUMENTS` or the conversation — and nothing else, save `--base <branch>` on a creating run.
+**On a creating run, create the worktree here, before anything is read** — from the main checkout, with `<base>` the `--base` value when one was given, else the branch `origin/HEAD` points at:
+**This command takes no flags**, save `--base <branch>` on a creating run.
+**merge and push**: `git -C <worktree> push origin <name>:<base>`.
+<base> --head <name>` with the summary from section 5 as the body.
+A non-zero exit means the branch is not on the base branch yet — stop and say so, removing nothing.
+End by naming the landed commit on `<base>`.
+Every `skills/flow/` section cited below runs as written, with these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha `git -C <worktree> rev-parse origin/<base>` prints right after section 3 creates it, standing wherever a cited section reads the working notes' merge base; and nothing written to `<project>/spectre/` or a state file — `flow record render` is skipped, the finding rows are the record.
+On merge and push, nothing further — the commit is on the base branch.
+Then, only when the main checkout is on `<base>` with an empty `git status --porcelain`, `git -C <project> pull --ff-only`; otherwise leave it and report one line naming why.
+This route is the one place `/flow-fast` pushes to the base branch.
+`/flow-self-review <name>` then runs the pass on `<base>` and deletes the bundle in its report commit.
+git -C <project>/.worktrees/<name> config branch.<name>.flowBase <base> # --base only
+git -C <worktree> merge-base --is-ancestor <name> origin/<base>
+git -C <worktree> rebase origin/<base>
+git worktree add <project>/.worktrees/<name> -b <name> origin/<base>

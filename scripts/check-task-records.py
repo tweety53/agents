@@ -19,8 +19,9 @@ Usage (via the check-task-records.sh wrapper):
 `base-ref` is the branch the change branched from, bare (`main`) or
 remote-tracking (`origin/main`); a bare name prefers
 refs/remotes/origin/<name> when that resolves, so a stale local branch is
-never compared against. Absent, it is the branch `refs/remotes/origin/HEAD`
-points at. The commit range is `<base-ref>..HEAD`.
+never compared against. Absent, it is the base recorded on the current
+branch (`branch.<current>.flowBase`, as resolve-base-branch.sh reads it),
+else the branch `refs/remotes/origin/HEAD` points at. The commit range is `<base-ref>..HEAD`.
 
 Three checks, per task:
 
@@ -141,7 +142,24 @@ def ref_resolves(root: Path, ref: str) -> bool:
     return proc.returncode == 0
 
 
+def recorded_base(root: Path) -> Optional[str]:
+    cur = subprocess.run(
+        ["git", "-C", str(root), "branch", "--show-current"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if not cur:
+        return None
+    rec = subprocess.run(
+        ["git", "-C", str(root), "config", "--get", f"branch.{cur}.flowBase"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return rec or None
+
+
 def resolve_base(root: Path, base_arg: Optional[str]) -> str:
+    base_arg = base_arg or recorded_base(root)
     if base_arg:
         for candidate in (f"refs/remotes/origin/{base_arg}", base_arg):
             if ref_resolves(root, candidate):

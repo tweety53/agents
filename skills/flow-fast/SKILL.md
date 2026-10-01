@@ -66,7 +66,7 @@ basename is what keys the rolls — and `<project>/.superpowers/` joins `<projec
 `<project>/.git/info/exclude`. Every `skills/flow/` section cited below runs as written, with
 these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it
 reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha
-`git -C <worktree> rev-parse origin/<default-branch>` prints right after section 3 creates it,
+`git -C <worktree> rev-parse origin/<base>` prints right after section 3 creates it,
 standing wherever a cited section reads the working notes' merge base; and nothing written to
 `<project>/spectre/` or a state file — `flow record render` is
 skipped, the finding rows are the record. The scripts a cited section calls run as it says.
@@ -111,19 +111,19 @@ it is fix instructions and sections 2–5 run again on the branch; bare, section
 to do and mark through, and the run continues at section 6.
 
 **On a creating run, create the worktree here, before anything is read** — from the main
-checkout, with `<default-branch>` the `--base` value when one was given, else the branch
-`origin/HEAD` points at:
+checkout, with `<base>` the `--base` value when one was given, else the branch `origin/HEAD`
+points at:
 
 ```bash
 git fetch origin
 grep -qx '.worktrees/' .git/info/exclude 2>/dev/null || echo '.worktrees/' >> .git/info/exclude
-git worktree add <project>/.worktrees/<name> -b <name> origin/<default-branch>
-git -C <project>/.worktrees/<name> config branch.<name>.flowBase <default-branch>   # --base only
+git worktree add <project>/.worktrees/<name> -b <name> origin/<base>
+git -C <project>/.worktrees/<name> config branch.<name>.flowBase <base>   # --base only
 git -C <project>/.worktrees/<name> push -u origin <name>
 ```
 
-**From here on, on every run, `<default-branch>` is what `resolve-base-branch.sh <worktree>`
-prints** — the recorded base when there is one — so a re-run lands where the creating run cut.
+**From here on, on every run, `<base>` is what `resolve-base-branch.sh <worktree>` prints** — the
+recorded base when there is one — so a re-run lands where the creating run cut.
 
 Nothing else: no `## worktree setup` command, no database, no bucket. A project whose build needs
 generated files or installed dependencies gets them the moment section 5's first test run asks
@@ -273,7 +273,7 @@ land-self-review-report.sh "<worktree>" "<name>" \
 The bundle lands with the change on every route. A staged index holding anything beyond the
 chain's own path refuses the commit (`LAND-FOREIGN-STAGED`) — clear the staging or land from a
 clean checkout, never around it. `/flow-self-review <name>` then runs the pass
-on `<default-branch>` and deletes the bundle in its report commit.
+on `<base>` and deletes the bundle in its report commit.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
@@ -332,7 +332,7 @@ First, on every route, bring the branch up to date so what lands is what was ver
 
 ```bash
 git -C <worktree> fetch origin
-git -C <worktree> rebase origin/<default-branch>
+git -C <worktree> rebase origin/<base>
 ```
 
 A rebase that conflicts is resolved in place, automatically, per the **Conflict** bullet of **Sync
@@ -341,11 +341,11 @@ rule, its stop-and-ask cases and its handoff line apply as written. A rebase tha
 branch re-runs section 5's lint and targeted tests before continuing; one that needed resolution
 runs the project's whole `## lint` and `## test` lists instead.
 
-- **merge and push**: `git -C <worktree> push origin <name>:<default-branch>`. A push the
+- **merge and push**: `git -C <worktree> push origin <name>:<base>`. A push the
   remote rejects (branch protection, a non-fast-forward) falls back to **pull request** below and
-  says so. This route is the one place `/flow-fast` pushes to the default branch.
+  says so. This route is the one place `/flow-fast` pushes to the base branch.
 - **pull request**: `git -C <worktree> push --force-with-lease origin <name>`, then `gh pr create --base
-  <default-branch> --head <name>` with the summary from section 5 as the body.
+  <base> --head <name>` with the summary from section 5 as the body.
 - **manual**: `git -C <worktree> push --force-with-lease origin <name>`; print the branch name and the worktree path.
 
 Then transition the Jira issue to In Review per **Transitions**
@@ -370,10 +370,10 @@ flow stage begin -command '/flow-fast' -stage flow.verify-merge -harness <harnes
 
 ```bash
 git -C <worktree> fetch origin
-git -C <worktree> merge-base --is-ancestor <name> origin/<default-branch>
+git -C <worktree> merge-base --is-ancestor <name> origin/<base>
 ```
 
-A non-zero exit means the branch is not on the default branch yet — stop and say so, removing
+A non-zero exit means the branch is not on the base branch yet — stop and say so, removing
 nothing.
 
 ```bash
@@ -388,7 +388,7 @@ git -C <project> branch -D <name>
 git -C <project> push origin --delete <name>
 ```
 
-Then, only when the main checkout is on `<default-branch>` with an empty `git status
+Then, only when the main checkout is on `<base>` with an empty `git status
 --porcelain`, `git -C <project> pull --ff-only`; otherwise leave it and report one line naming
 why.
 
@@ -398,4 +398,4 @@ flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.push-arc
 ```
 
 Transition the Jira issue to **Done**, the same way as before. End by naming the landed commit
-on `<default-branch>`.
+on `<base>`.

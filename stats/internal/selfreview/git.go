@@ -298,13 +298,18 @@ func firstReadableRepo(g Runner, repos []string) string {
 // remote default branch — the git-log source for a change with no archive:
 // a /flow-fast change's implementation commits live on the branch named
 // after the change, where deriveFinishCommits's planning-and-archive query
-// has nothing to find. The base is what origin/HEAD points at, the same
-// notion the flow-fast run's own Branch log printed; a repository whose
+// has nothing to find. The base is the one recorded on the branch
+// (branch.<change>.flowBase, as resolve-base-branch.sh reads it), else what
+// origin/HEAD points at, the same notion the flow-fast run's own Branch log
+// printed; a repository whose
 // origin/HEAD is unset, and a branch that resolves nothing — landed and
 // deleted, or never created — degrade to an empty string, the same "a
 // missing source is never fatal" rule deriveFinishCommits follows.
 func changeBranchLog(g Runner, repo, change string) string {
 	base := trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+	if rec := trimmedOutput(g.Output(repo, "config", "--get", "branch."+change+".flowBase")); rec != "" {
+		base = "origin/" + rec
+	}
 	if base == "" {
 		return ""
 	}

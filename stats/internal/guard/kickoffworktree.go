@@ -54,7 +54,7 @@ func kwFenced(body string) []string {
 
 func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "kickoff-worktree"
-	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" {
+	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" || (len(args) == 3 && args[2] == "") {
 		fmt.Fprint(stderr, "usage: kickoff-worktree.sh <project> <name> [<base>]\n")
 		return 2
 	}
@@ -70,10 +70,6 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "%s: the base branch name is invalid\n", self)
 				return 2
 			}
-		}
-		if base == "" {
-			fmt.Fprint(stderr, "usage: kickoff-worktree.sh <project> <name> [<base>]\n")
-			return 2
 		}
 	}
 	location, projectGet := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"), env.Getenv("FLOW_GUARD_PROJECT_GET")
@@ -164,15 +160,15 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		return relay(1, out)
 	}
 	mergeBase := strings.TrimSpace(out)
+	if rc, out := kwRun(env, "", flow, "state", "add-worktree", "-C", project, name, wt, mergeBase); rc != 0 {
+		return relay(1, out)
+	}
 	// Recorded on the branch, so resolve-base-branch and every guard it
 	// feeds land the change back on <base> rather than on origin/HEAD.
 	if base != "" {
 		if rc, out := kwRun(env, "", git, "-C", wt, "config", "branch."+branch+".flowBase", base); rc != 0 {
 			return relay(1, out)
 		}
-	}
-	if rc, out := kwRun(env, "", flow, "state", "add-worktree", "-C", project, name, wt, mergeBase); rc != 0 {
-		return relay(1, out)
 	}
 
 	// 4. The project's worktree setup, fenced lines only, in order.

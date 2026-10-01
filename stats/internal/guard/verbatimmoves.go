@@ -152,12 +152,19 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// vmDefaultBase is the merge base of HEAD with the default branch, resolved
-// offline — origin/HEAD, else origin/main, else main — so a lint run never
-// fetches. On the default branch itself the base is HEAD, and the guard
-// judges the uncommitted edits alone.
+// vmDefaultBase is the merge base of HEAD with the change's base, resolved
+// offline — the base recorded on the current branch
+// (branch.<cur>.flowBase, resolve-base-branch.sh's first answer), else
+// origin/HEAD, else origin/main, else main — so a lint run never fetches. On
+// the default branch itself the base is HEAD, and the guard judges the
+// uncommitted edits alone.
 func vmDefaultBase(git func(...string) *exec.Cmd, root string) (sha, label string, ok bool) {
 	var candidates []string
+	if cur, ok := capture(git("-C", root, "branch", "--show-current")); ok && strings.TrimSpace(cur) != "" {
+		if rec, ok := capture(git("-C", root, "config", "--get", "branch."+strings.TrimSpace(cur)+".flowBase")); ok && strings.TrimSpace(rec) != "" {
+			candidates = append(candidates, "origin/"+strings.TrimSpace(rec))
+		}
+	}
 	if sym, ok := capture(git("-C", root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); ok && sym != "" {
 		candidates = append(candidates, sym)
 	}
