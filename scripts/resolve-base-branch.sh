@@ -19,6 +19,11 @@
 #            read (corrupt or permission-denied).
 #   Exit 3   The repository has no 'origin' remote at all.
 #
+# A RECORDED BASE WINS. When `git config branch.<current>.flowBase` is set —
+# kickoff-worktree.sh writes it when a change is created with `--base
+# <branch>` — that name is the base, ahead of origin/HEAD, and faces the same
+# equal-to-current and name-validation refusals.
+#
 # WHY THE FETCH IS WRAPPED. `git remote show origin` against an unreachable
 # host blocks for roughly 75s on the default TCP timeout, which would turn a
 # correct refusal into a two-minute hang. `-c core.askpass=true` stops it

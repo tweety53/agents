@@ -216,6 +216,25 @@ func TestResolveBaseBranch(t *testing.T) {
 			}
 			return r
 		}},
+		// A base recorded on the branch at kickoff (branch.<cur>.flowBase)
+		// wins over origin/HEAD, and passes the same refusals a remote one
+		// does.
+		{"14", func(t *testing.T, fx rbbFixture) res {
+			wt := rbbCopy(t, fx.wt)
+			rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "feature/offline-mode")
+			return res{label: "recorded flowBase wins over origin/HEAD", args: []string{wt}, out: "feature/offline-mode"}
+		}},
+		{"15", func(t *testing.T, fx rbbFixture) res {
+			wt := rbbCopy(t, fx.wt)
+			rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "spectre/fixture")
+			return res{label: "recorded flowBase equals current branch", args: []string{wt}, code: 1,
+				err: "resolve-base-branch: base branch 'spectre/fixture' is the same as the current branch — refusing to compare a branch with itself\n"}
+		}},
+		{"16", func(t *testing.T, fx rbbFixture) res {
+			wt := rbbCopy(t, fx.wt)
+			rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "-x")
+			return res{label: "hostile recorded flowBase: leading dash", args: []string{wt}, code: 1, err: invalid}
+		}},
 	}
 	fn := Registry["resolve-base-branch"]
 	for _, c := range cases {

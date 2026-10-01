@@ -87,6 +87,14 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "resolve-base-branch: HEAD is detached in %s\n", dir)
 		return 1
 	}
+	// A base recorded on this branch when its worktree was created
+	// (kickoff-worktree.sh <project> <name> <base>) wins over origin/HEAD:
+	// a change cut from a feature branch lands back on it. It is read
+	// after the fetch so the remote resolution above still warms
+	// origin/<base>, and it faces the same refusals below.
+	if rec, _ := capture(git("-C", dir, "config", "--get", "branch."+cur+".flowBase")); strings.TrimSpace(rec) != "" {
+		base = strings.TrimRight(strings.ReplaceAll(rec, "\x00", ""), "\n")
+	}
 	if base == "" {
 		fmt.Fprintf(stderr, "resolve-base-branch: could not resolve a base branch in %s\n", dir)
 		return 1
