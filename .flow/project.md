@@ -324,3 +324,7 @@ reused stack pays the restart.
 | `verify` | `cd stats/web && npm run test:visual` |
 | `capture` | `cd stats/web && npx playwright test <spec> --update-snapshots` |
 | `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html` |
+
+## progress
+
+quiet
