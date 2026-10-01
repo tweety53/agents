@@ -362,7 +362,7 @@ It exits 0 always; render each line exactly as printed.
 
 **Change:** <name>
 **Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " or "late-fix — " followed by the resolved slot(s) not dispatched, or "no">; <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
-**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | open after 2 in-run fix rounds — <defect>[; <defect> …] | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
+**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | open after 5 in-run fix rounds — <defect>[; <defect> …] | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md? | aborted — verified without added sweeps
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted

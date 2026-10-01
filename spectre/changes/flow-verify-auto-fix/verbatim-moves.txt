@@ -16,15 +16,15 @@ was already taken this run is asked, so an auto-taken **another round** cannot l
 \# The in-run fix loop
 **A fixable defect the verify stages find is fixed by this run, never handed to the operator as a question.
 **After the panel closes, the parent edits no source outside the in-run fix loop.
-**Each verify stage runs at most two rounds per run.
+**Each verify stage runs at most five rounds per run.
 **Implement it.
 **Re-capture and re-run.
 **Re-review the delta.
 **Transcribe the fix.
-**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | open after 2 in-run fix rounds — <defect>[; <defect> …] | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
+**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | open after 5 in-run fix rounds — <defect>[; <defect> …] | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Write a capture for every frame on the change's frame list.
 A guard's exit 2 (it cannot answer), a command that failed twice on an
-A stage whose final report after its second round still carries a fixable defect closes its `end` mark `-outcome stopped`, and the run continues to the `IN_PROGRESS` handoff, never a `## Question`: `flow.visual-verify`'s open defects are listed on the handoff's `**Visual:**` line, `flow.verify`'s in its `## Report`, each as the report names it.
+A stage whose final report after its fifth round still carries a fixable defect closes its `end` mark `-outcome stopped`, and the run continues to the `IN_PROGRESS` handoff, never a `## Question`: `flow.visual-verify`'s open defects are listed on the handoff's `**Visual:**` line, `flow.verify`'s in its `## Report`, each as the report names it.
 Before finishing, list the frame ids and name the task covering each; a frame no task covers is a plan gap, closed by adding the capture to the task that builds that view or by a capture task of its own.
 Its planning commit and the re-decide run as that file states.
 Neither of its two asks is made: the fix is appended to `proposal.md` and `tasks.md`, and `**Tasks appended:**` is not raised, since it counts appends made at the human gate.
