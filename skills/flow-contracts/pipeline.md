@@ -155,6 +155,12 @@ a guard passing, a commit landing. This suspends the per-unit and what-I-am-on l
 "Keep the user posted" paragraph of `rules/be-brief.mdc` for the run, and nothing else in that
 rule: a turn still ends only where it says.
 
+**It likewise writes nothing for** a bookkeeping note about a plan-field correction ("Q2
+re-captured unchanged, so its baseline is dropped from task 14's Files.") or an end-of-turn
+progress summary ("Task 13 passed review and is ticked … Task 14 … is running now."). When
+nothing needs the operator — no stop, no auto-resolution line, no handoff — the turn ends with no
+text at all.
+
 **What still prints:**
 
 - a stop for the operator — a question, a `## Question` handback, a blocked step;
