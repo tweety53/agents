@@ -1,0 +1,9 @@
+# Operator, 2026-10-01: read-only prod calls are OK; the rule now says so explicitly.
+No SSH, remote exec, prod DB client, or prod cloud CLI call — no route at all.
+\## What stays open
+A public, read-only HTTP request to a production URL: `curl` with `GET` or `HEAD`, no token, no cookie, no credentials of any kind, against a URL anyone on the internet can load — a page, a static asset, a response header, a status code.
+Anything carrying credentials, any other method, or any non-public endpoint stays closed.
+It changes nothing and reveals nothing a browser would not, so run it yourself; handing it back costs the user a turn per fact.
+No SSH, remote exec, prod DB client, or prod cloud CLI call — no route at all, except a public read-only `GET`/`HEAD` with no credentials, which you run yourself.
+One route stays open: a public, read-only HTTP request to a production URL — a `GET` or `HEAD` with no credentials, the request any browser makes — is looking, not acting, and is run directly rather than handed back.
+verb — with the one exception below.
