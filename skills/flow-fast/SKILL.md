@@ -18,7 +18,8 @@ database, bucket, ports and cache index of **Workspace isolation**
 **Announce at start:** "Using flow-fast for change `<name>`."
 
 **No flags.** The only argument is the change description or Jira key on a creating run, or fix
-instructions on a re-run; report anything else rather than ignoring it.
+instructions on a re-run; report anything else rather than ignoring it. One exception:
+`--base <branch>` on a creating run, as `/flow` takes it (`skills/flow/SKILL.md`).
 
 **Every mark is a literal call.** `<harness>` is this harness's name, `ff-<literal-token>` is one
 token generated once at the start of the run and typed the same at every `stage begin` and
@@ -110,14 +111,19 @@ it is fix instructions and sections 2–5 run again on the branch; bare, section
 to do and mark through, and the run continues at section 6.
 
 **On a creating run, create the worktree here, before anything is read** — from the main
-checkout, with `<default-branch>` the branch `origin/HEAD` points at:
+checkout, with `<default-branch>` the `--base` value when one was given, else the branch
+`origin/HEAD` points at:
 
 ```bash
 git fetch origin
 grep -qx '.worktrees/' .git/info/exclude 2>/dev/null || echo '.worktrees/' >> .git/info/exclude
 git worktree add <project>/.worktrees/<name> -b <name> origin/<default-branch>
+git -C <project>/.worktrees/<name> config branch.<name>.flowBase <default-branch>   # --base only
 git -C <project>/.worktrees/<name> push -u origin <name>
 ```
+
+**From here on, on every run, `<default-branch>` is what `resolve-base-branch.sh <worktree>`
+prints** — the recorded base when there is one — so a re-run lands where the creating run cut.
 
 Nothing else: no `## worktree setup` command, no database, no bucket. A project whose build needs
 generated files or installed dependencies gets them the moment section 5's first test run asks

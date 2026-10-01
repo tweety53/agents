@@ -24,6 +24,11 @@ and keep each entry's status current as the run proceeds, per **Progress visibil
 **No flags.** The only argument is the optional change name/description on a creating or resuming
 run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
 
+**One exception: `--base <branch>` on a creating run** names the branch the change is cut from and
+lands on, in place of the one `origin/HEAD` points at. Kickoff records it on the change's branch in
+every repository (`kickoff-worktree.sh <project> <name> <base>`), and `resolve-base-branch.sh` reads
+it back for every later phase, so it is never passed again.
+
 ## Model resolution
 
 **Resolve this once, near the top of every run, before any dispatch below reads it:**

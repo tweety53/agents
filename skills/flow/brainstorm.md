@@ -81,8 +81,12 @@ configuration**, `skills/flow-contracts/project-configuration.md`); 5 the push, 
 backup** (`skills/flow-contracts/git-boundaries.md`):
 
 ```bash
-kickoff-worktree.sh <project> <name>
+kickoff-worktree.sh <project> <name> [<base>]
 ```
+
+`<base>` is the creating run's `--base <branch>` (`skills/flow/SKILL.md`), omitted when none was
+given: the new branch is then cut from `origin/<base>` instead of `origin/<default-branch>`, and the
+base is recorded on it for `resolve-base-branch.sh`; `origin/<base>` missing is exit 1.
 
 Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. **Persist the worktree into the
 state record before this step returns** — the script does, through `flow state add-worktree` right

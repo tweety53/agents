@@ -1,0 +1,10 @@
+# KAN-864, 2026-10-01: a creating run takes --base <branch>; kickoff records it, resolve-base-branch reads it.
+**On a creating run, create the worktree here, before anything is read** — from the main checkout, with `<default-branch>` the branch `origin/HEAD` points at:
+Every other entry gets the kickoff recipe in its own repository — `<project>` in the commands below is that entry's repository root, not this change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 3): when `git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — after `check-worktree-location.sh <that repo>`, with the merge base `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees` map by `flow state add-worktree <name> <that worktree> <merge-base>`, and `git -C <that worktree> push -u origin spectre/<name>` per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+kickoff-worktree.sh <project> <name>
+**From here on, on every run, `<default-branch>` is what `resolve-base-branch.sh <worktree>` prints** — the recorded base when there is one — so a re-run lands where the creating run cut.
+**On a creating run, create the worktree here, before anything is read** — from the main checkout, with `<default-branch>` the `--base` value when one was given, else the branch `origin/HEAD` points at:
+**One exception: `--base <branch>` on a creating run** names the branch the change is cut from and lands on, in place of the one `origin/HEAD` points at.
+Kickoff records it on the change's branch in every repository (`kickoff-worktree.sh <project> <name> <base>`), and `resolve-base-branch.sh` reads it back for every later phase, so it is never passed again.
+git -C <project>/.worktrees/<name> config branch.<name>.flowBase <default-branch> # --base only
+kickoff-worktree.sh <project> <name> [<base>]

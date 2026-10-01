@@ -171,7 +171,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    `STARTED` write are what runs. A lookup that finds an existing change for this key is the
    existing-change destination above, never a second change.
 2. The kickoff steps 1–5 in the same section — `<project>/.worktrees/<name>` on `spectre/<name>`,
-   pushed. `flow.kickoff` itself is not marked (**The session does the thinking itself**, above).
+   pushed, cut from `--base <branch>` when the argument carries one (`skills/flow/SKILL.md`). `flow.kickoff` itself is not marked (**The session does the thinking itself**, above).
 3. **C. Create the change and its artifacts** (`skills/flow/brainstorm-planner.md`) — `spectre
    new` in the worktree, then the three artifacts. `design.md`'s body is **The Fixed Section
    Structure** below — the thread sections and the step-by-step breakdown — followed by C's

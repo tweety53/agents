@@ -37,7 +37,11 @@ change's — in the form that run's state calls for (`skills/flow/brainstorm.md`
 `git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an
 earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local
 branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b
-spectre/<name> origin/<default-branch>` — after `check-worktree-location.sh <that repo>`, with
+spectre/<name> origin/<default-branch>` — or `origin/<base>` when
+`git -C <this change's worktree> config --get branch.<branch>.flowBase` prints a `<base>`,
+`<branch>` being `spectre/<name>`, which is then recorded in that repository too, by
+`git -C <that worktree> config branch.<branch>.flowBase <base>` — after
+`check-worktree-location.sh <that repo>`, with
 the merge base
 `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees`
 map by `flow state add-worktree <name> <that worktree> <merge-base>`, and
