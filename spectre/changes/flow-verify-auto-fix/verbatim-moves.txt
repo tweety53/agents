@@ -1,0 +1,49 @@
+# Sentences this change rewords or adds on purpose: verify-stage defects route into the
+# in-run fix loop (skills/flow/verify-fix-loop.md) instead of a ## Question, the loop's
+# cap, and the planner's capture-per-frame rule.
+**A step-3 pre-flight failure, or a step-6 fingerprint still failing after its restart, closes this mark `-outcome stopped` instead of `completed`**, per those steps — the one outcome variant this stage's end mark carries.
+**After the panel closes, the parent edits no source.
+**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
+A guard's exit 2 (it cannot answer), a command that failed twice, and every
+A second non-zero exit from the same command ends the turn with `## Question` naming the command and its output, verbatim; the operator resolves it through a fix run.
+Another non-zero exit ends your turn with `## Question` naming the failing command and its output, verbatim; the operator resolves it through a fix run.
+Any source change from here on makes every slot's result stale (**Panel re-runs**, `skills/flow/review-panel.md`), and the only path that changes source is a fix run the operator starts.
+Never run the failing command yourself to check it, and never dispatch a third verifier.
+`begin` is recorded before the first command in the list; `end` after the `## Report` is written, carrying `-outcome completed`, or `-outcome blocked -cause <cause>` on the `## Question` handback above — `test-failure` for a command of the branch that failed twice, `environment` where the environment itself failed twice (a missing build prerequisite).
+other `## Question` handback that carries no options.
+was already taken this run is asked, so an auto-taken **another round** cannot loop
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+\# The in-run fix loop
+**A fixable defect the verify stages find is fixed by this run, never handed to the operator as a question.
+**After the panel closes, the parent edits no source outside the in-run fix loop.
+**Each verify stage runs at most two rounds per run.
+**Implement it.
+**Re-capture and re-run.
+**Re-review the delta.
+**Transcribe the fix.
+**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | open after 2 in-run fix rounds — <defect>[; <defect> …] | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
+**Write a capture for every frame on the change's frame list.
+A guard's exit 2 (it cannot answer), a command that failed twice on an
+A stage whose final report after its second round still carries a fixable defect closes its `end` mark `-outcome stopped`, and the run continues to the `IN_PROGRESS` handoff, never a `## Question`: `flow.visual-verify`'s open defects are listed on the handoff's `**Visual:**` line, `flow.verify`'s in its `## Report`, each as the report names it.
+Before finishing, list the frame ids and name the task covering each; a frame no task covers is a plan gap, closed by adding the capture to the task that builds that view or by a capture task of its own.
+Its planning commit and the re-decide run as that file states.
+Neither of its two asks is made: the fix is appended to `proposal.md` and `tasks.md`, and `**Tasks appended:**` is not raised, since it counts appends made at the human gate.
+Never run the failing command yourself to check it, and never dispatch a third verifier on the same HEAD.
+One round runs these steps in order:
+Open `flow.review-panel` again and run one dispatch: `primary` alone,
+Run **Documenting a fix, before implementing it**
+That file's finding, voiding and staleness rules apply as written — a clean or Minor-only read leaves every slot it did not dispatch current.
+The appended task carries the field family the verification-change paragraph of **D.
+The choice "fix it in-run, or hand off with it open?
+The operator fixes them with a fix run.
+The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).
+This round's `verify` and `visual-verify` dispatch keys carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix.
+Those three are the environment's and end the stage as their steps state.
+When the design is specified by mockup frames and the project declares `mockups`, every frame id `design.md` cites is named in some task's `**Files:**` or steps, as the capture spec screenshot of the view that frame draws plus its `<spec>.mockups` sidecar line (**Visual verification**, `skills/flow-contracts/project-configuration-visual.md`).
+`begin` is recorded before the first command in the list; `end` after the `## Report` is written, carrying `-outcome completed`, or `-outcome blocked -cause <cause>` when a command failed twice — `test-failure` for a command of the branch that failed twice, `environment` where the environment itself failed twice (a missing build prerequisite).
+`begin` mark, then **Visual verification** from its step 1, so the fix's own lint, tests and captures are what the handoff reports.
+`check-late-fix-trigger.sh` is not run: its scope-growth condition refuses every appended task, and this task's premise is a defect a verifier measured, not an operator's unverified flag.
+environment cause, and every other `## Question` handback that carries no options.
+task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its guard and its review gate.
+| `skills/flow/verify-fix-loop.md` | `flow.document-fix`, `flow.decide`, `flow.sdd-tdd`, `flow.review-panel`, `flow.verify`, `flow.visual-verify` — re-run through their own files; loaded only when a verify stage's final report carries a fixable defect; begins no mark of its own |
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |

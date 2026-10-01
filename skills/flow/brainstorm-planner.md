@@ -246,6 +246,14 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > predecessors or `none` — the declarations alone run the follow-on after the feature task — and
 > the parent's full-suite run after the last group still covers the pair.
 
+> **Write a capture for every frame on the change's frame list.** When the design is specified by
+> mockup frames and the project declares `mockups`, every frame id `design.md` cites is named in
+> some task's `**Files:**` or steps, as the capture spec screenshot of the view that frame draws
+> plus its `<spec>.mockups` sidecar line (**Visual verification**,
+> `skills/flow-contracts/project-configuration-visual.md`). Before finishing, list the frame ids
+> and name the task covering each; a frame no task covers is a plan gap, closed by adding the
+> capture to the task that builds that view or by a capture task of its own.
+
 > **Write a live-verification task when the change touches a running service or persistent
 > state.** When the change under plan touches a long-running service, a daemon, a store, a
 > scheduler or anything else holding runtime state, the plan carries a final task that exercises

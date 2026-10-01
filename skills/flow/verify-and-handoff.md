@@ -58,9 +58,13 @@ the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
 
-**After the panel closes, the parent edits no source.** Any source change from here on makes
-every slot's result stale (**Panel re-runs**, `skills/flow/review-panel.md`), and the only path
-that changes source is a fix run the operator starts.
+**After the panel closes, the parent edits no source outside the in-run fix loop.** Source
+changes only through **The loop** (`skills/flow/verify-fix-loop.md`) or a fix run the operator
+starts; any other source change from here on makes every slot's result stale (**Panel re-runs**,
+`skills/flow/review-panel.md`).
+
+**Load `skills/flow/verify-fix-loop.md`** only when this stage's or `flow.visual-verify`'s final
+report carries a fixable defect — it carries **The loop** and **The cap**.
 
 ### Inline verify
 
@@ -103,16 +107,18 @@ pre-existing takes the known-failure course above instead of the re-run below.
 
 A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A second non-zero exit from the same
-command ends the turn with `## Question` naming the command and its output, verbatim; the operator
-resolves it through a fix run. Never treat a passing re-run as license to skip the rest of the
-list — every remaining command in the order above still runs.
+command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
+the whole list has run; where the environment itself failed — a missing build prerequisite — it
+ends the turn with `## Question` naming the command and its output, verbatim. Never treat a
+passing re-run as license to skip the rest of the list — every remaining command in the order
+above still runs.
 
 **Recording.** One `dispatches` row per worktree, `-role verifier -key verify -model <parent
 model> -effort <parent effort> -agent-id inline`, suffixed `-<worktree basename>` when this
 run's resolved set holds more than one worktree — the same convention
 **The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows. `begin` is
 recorded before the first command in the list; `end` after the `## Report` is written, carrying
-`-outcome completed`, or `-outcome blocked -cause <cause>` on the `## Question` handback above —
+`-outcome completed`, or `-outcome blocked -cause <cause>` when a command failed twice —
 `test-failure` for a command of the branch that failed twice, `environment` where the
 environment itself failed twice (a missing build prerequisite).
 
@@ -356,7 +362,7 @@ It exits 0 always; render each line exactly as printed.
 
 **Change:** <name>
 **Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " or "late-fix — " followed by the resolved slot(s) not dispatched, or "no">; <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
-**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
+**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | open after 2 in-run fix rounds — <defect>[; <defect> …] | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md? | aborted — verified without added sweeps
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted

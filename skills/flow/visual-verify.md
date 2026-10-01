@@ -65,10 +65,12 @@ here, not restated.
 under `-key visual-verify-2` — the same `-<worktree basename>` suffix rule — with a prompt
 identical to the first plus the first `## Report` verbatim under a `## Previous attempt` heading,
 so the verifier can tell an environmental failure (a build the worktree lacked, a flaky harness)
-from a defect in the branch. **The second report is final.** Another non-zero exit ends your turn
-with `## Question` naming the failing command and its output, verbatim; the operator resolves it
-through a fix run. Never run the failing command yourself to check it, and never dispatch a third
-verifier. The ledger render and this stage's `end` mark follow whichever report was last.
+from a defect in the branch. **The second report is final.** Another non-zero exit whose block
+cause is `test-failure` or `missing-fixture` takes **The loop** (`skills/flow/verify-fix-loop.md`);
+one whose cause is `environment` ends your turn with `## Question` naming the failing command and
+its output, verbatim. Never run the failing command yourself to check it, and never dispatch a
+third verifier on the same HEAD. The ledger render and this stage's `end` mark follow whichever
+report was last.
 
 **A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never
 `completed`.** The cause is one of the closed set the CLI validates, named from the report's own
@@ -209,10 +211,16 @@ frame visibly draws, or a cell that is neither the script's numbers nor an n/a w
 — the parent's own reconciliation, step 10**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.**
 
+**Every blocking item but the pre-flight, a stack that could not be started and the fingerprint
+is the branch's own defect, never a `## Question`:** it takes **The loop**
+(`skills/flow/verify-fix-loop.md`). Those three are the environment's and end the stage as their
+steps state.
+
 ```bash
 flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
 ```
 
-**A step-3 pre-flight failure, or a step-6 fingerprint still failing after its restart, closes this
-mark `-outcome stopped` instead of `completed`**, per those steps — the one outcome variant this
+**A step-3 pre-flight failure, a step-6 fingerprint still failing after its restart, or the
+in-run fix loop's cap closes this mark `-outcome stopped` instead of `completed`**, per those
+steps and **The cap** (`skills/flow/verify-fix-loop.md`) — the one outcome variant this
 stage's end mark carries.
