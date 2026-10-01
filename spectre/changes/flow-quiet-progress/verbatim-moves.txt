@@ -1,0 +1,18 @@
+# Operator, 2026-10-01: opt-in quiet-progress mode for /flow, behind the project's ## progress key.
+The keys matched this way are `## default landing route`, `## decisions` and `## handoff`.
+\## Quiet progress
+**Opt-in, off by default.
+**Progress visibility** above is unaffected: the harness's task-list view, and the equivalent block a harness without one prints, are not the run's status prose.
+**What still prints:**
+**With the mode on, the run writes no status prose of its own on a routine event** — dispatching a subagent, a subagent returning clean, sending a subagent a decision, waiting on a background agent, a guard passing, a commit landing.
+A `/flow` run resolves the project's `## progress` key once, at its start, with `project-get.sh <main-checkout> progress --enum quiet` (**Project configuration**, `skills/flow-contracts/project-configuration.md`): exit 0 turns the mode on for the whole run; exit 1 leaves it off; exit 3 is reported by name and leaves it off.
+The keys matched this way are `## default landing route`, `## decisions`, `## progress` and `## handoff`.
+The literal `quiet` — the body's first non-blank line is the value, whitespace-trimmed and de-backticked; lines below it are documentation for the reader, never read.
+This suspends the per-unit and what-I-am-on lines of the "Keep the user posted" paragraph of `rules/be-brief.mdc` for the run, and nothing else in that rule: a turn still ends only where it says.
+`quiet` turns on `/flow`'s quiet-progress mode (**Quiet progress**, `skills/flow-contracts/pipeline.md`, canonical for what the mode silences and what still prints); absent, the key is dormant and the run reports progress exactly as it does today.
+`skills/flow-contracts/operator-prompts.md`);
+a stop for the operator — a question, a `## Question` handback, a blocked step;
+everything on the **Never compress** list of `rules/be-brief.mdc`, in full.
+one line per auto-resolution taken, naming the question and the option (**Auto-resolution**,
+the handoff block;
+| `## progress` | Optional.

@@ -142,6 +142,30 @@ steps are done, in progress and open, followed by one line per step marked done 
 harness has to gain a task tool to satisfy the rule. See **Progress visibility**
 (`skills/flow-contracts/pipeline-rationale.md`) for why the rule is stated against the mechanism.
 
+## Quiet progress
+
+**Opt-in, off by default.** A `/flow` run resolves the project's `## progress` key once, at its
+start, with `project-get.sh <main-checkout> progress --enum quiet` (**Project configuration**,
+`skills/flow-contracts/project-configuration.md`): exit 0 turns the mode on for the whole run; exit
+1 leaves it off; exit 3 is reported by name and leaves it off.
+
+**With the mode on, the run writes no status prose of its own on a routine event** — dispatching a
+subagent, a subagent returning clean, sending a subagent a decision, waiting on a background agent,
+a guard passing, a commit landing. This suspends the per-unit and what-I-am-on lines of the
+"Keep the user posted" paragraph of `rules/be-brief.mdc` for the run, and nothing else in that
+rule: a turn still ends only where it says.
+
+**What still prints:**
+
+- a stop for the operator — a question, a `## Question` handback, a blocked step;
+- one line per auto-resolution taken, naming the question and the option (**Auto-resolution**,
+  `skills/flow-contracts/operator-prompts.md`);
+- the handoff block;
+- everything on the **Never compress** list of `rules/be-brief.mdc`, in full.
+
+**Progress visibility** above is unaffected: the harness's task-list view, and the equivalent block
+a harness without one prints, are not the run's status prose.
+
 ## Stage marks
 
 `/flow` marks each of its own stages: `flow stage begin` when the stage starts,
