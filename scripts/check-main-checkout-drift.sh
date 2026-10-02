@@ -55,54 +55,15 @@
 # and only those, are the inputs the findings report. A main checkout
 # mid-rebase or carrying an unrelated staged file is a typical structural
 # cause — fix the cause, never the verdict.
+#
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-SELF="check-main-checkout-drift"
-
-die() {
-  printf '%s: %s\n' "$SELF" "$*" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-main-checkout-drift: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-[ "$#" -eq 1 ] || {
-  printf 'usage: check-main-checkout-drift.sh <main-checkout>\n' >&2
-  exit 2
-}
-
-ROOT="$(cd "$1" 2>/dev/null && pwd -P)" || die "$1 is not a directory"
-git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 ||
-  die "$ROOT is not a git repository"
-
-DEFAULT="$(
-  git -C "$ROOT" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null
-)" || die "$ROOT has no resolvable refs/remotes/origin/HEAD — the default branch cannot be named"
-DEFAULT="${DEFAULT#refs/remotes/origin/}"
-# A symbolic ref can dangle — `git update-ref -d` on the branch it points at
-# leaves the symref behind — and a name that resolves to nothing is not an
-# answer. Verify the target before trusting it.
-git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/origin/$DEFAULT^{commit}" >/dev/null 2>&1 ||
-  die "$ROOT's refs/remotes/origin/HEAD dangles — $DEFAULT does not resolve"
-
-BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null)" ||
-  die "cannot read the current branch of $ROOT"
-[ -n "$BRANCH" ] || BRANCH="(detached HEAD)"
-
-STATUS_OUT="$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ||
-  die "cannot read the status of $ROOT"
-
-ENTRIES=0
-if [ -n "$STATUS_OUT" ]; then
-  ENTRIES="$(printf '%s\n' "$STATUS_OUT" | wc -l | tr -d ' ')"
-fi
-
-if [ "$BRANCH" != "$DEFAULT" ]; then
-  printf 'DRIFT-BRANCH: %s — on %s, not %s\n' "$ROOT" "$BRANCH" "$DEFAULT"
-fi
-
-if [ "$ENTRIES" -ne 0 ]; then
-  printf 'DRIFT-DIRTY: %s — %d tracked entries\n' "$ROOT" "$ENTRIES"
-fi
-
-if [ "$BRANCH" = "$DEFAULT" ] && [ "$ENTRIES" -eq 0 ]; then
-  printf 'DRIFT-CLEAN: %s — %s\n' "$ROOT" "$DEFAULT"
-fi
+flow_guard_exec check-main-checkout-drift 2 "check-main-checkout-drift:" "$@"
