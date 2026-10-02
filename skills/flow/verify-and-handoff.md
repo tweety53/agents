@@ -332,8 +332,10 @@ flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harnes
 `<abs-worktree>/spectre/changes/<name>/narrative.md` (create it with the title `# <name> —
 session narrative` when absent) one section `## <YYYY-MM-DD> — <creating run | fix run>` holding
 this session's own prose account of the run — problems hit, workarounds, time sinks, environment
-gaps, operator decisions taken mid-run — and nothing the ledger or panel record already holds. The
-write-in-progress planning commit carries it (**Planning commits**,
+gaps, operator decisions taken mid-run — and nothing the ledger or panel record already holds. A
+durable process lesson this run paid for is promoted to the lessons home (**Process lessons**,
+`skills/flow-contracts/lessons.md`) — the brief is repo content, landed with this change's own
+work. The write-in-progress planning commit carries it (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`), made once the append lands; nothing else stages it.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.

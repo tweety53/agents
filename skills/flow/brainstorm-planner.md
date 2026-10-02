@@ -15,6 +15,10 @@ Every "you" below addresses that session directly.
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
+- **A ticket that names a practice or a brief resolves it through the lessons home** (**Process
+  lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived
+  narratives for it.
+
 - Save the design to `<project>/.worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
   path is gitignored: never stage or commit it, even where the brainstorming skill says to, and

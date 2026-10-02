@@ -144,7 +144,9 @@ readings would lead to materially different work, ask once, batched, through
 **AskUserQuestion**; a question there whose options include a recommended one takes it under
 the `## decisions: recommended` mode (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`), recorded the way that section states, and a
-genuinely open one still asks. Pick the simplest implementation that meets the ask.
+genuinely open one still asks. Pick the simplest implementation that meets the ask. A ticket
+that names a practice or a brief resolves it through the lessons home (**Process lessons**,
+`skills/flow-contracts/lessons.md`), never by a repository search.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed <name>
@@ -265,7 +267,8 @@ artifacts and no archive branch), so those three report `skipped` by design, nev
 the git-log source resolves from the main checkout the command resolves, as the change branch's
 commits; the ledger and panel render from the store when the run wrote rows — then
 `## Session narrative`, one paragraph this session writes on what it
-did and where it struggled. A re-run replaces the file. Commit and push it through the landing
+did and where it struggled. A durable process lesson the run paid for is promoted to the
+lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`). A re-run replaces the file. Commit and push it through the landing
 chain, asserting the change branch:
 
 ```bash

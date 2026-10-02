@@ -1,0 +1,24 @@
+# New run-loaded prose this change adds — one sentence per line, exactly as check-verbatim-moves.sh prints it.
+\# Process lessons
+\## Promote at the close
+\## Resolve, never search
+\## The lessons home
+**A ticket that names a practice or a brief resolves it through the lessons home** (**Process
+**Cited by the narrative and consult moments of `/flow` and `/flow-fast`** |
+A brief is repo content: it is committed, reviewed, and lands with the change that promotes it — it survives every cleanup the run's disposable artifacts do not.
+A durable process lesson the run paid for is promoted to the lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
+A durable process lesson this run paid for is promoted to the lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`) — the brief is repo content, landed with this change's own work.
+A lesson left only in a narrative is a lesson the next run re-derives.
+A process lesson is a procedure or practice a run paid for once — a bisection method, a debug dance, an environment quirk's workaround — that a later run in any project would otherwise have to re-derive.
+A project's durable briefs live in `<project>/docs/briefs/`, one Markdown file per brief named `<slug>.md`, opening with a `# <title>` heading.
+A resolve that finds only narrative mentions — no brief — is the system working, not a gap: the mention names where the knowledge lives today, and the run that consumes it is the one positioned to promote it.
+A ticket that names a practice or a brief resolves it through the lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`), never by a repository search.
+It is recorded twice, on purpose: the run's own narrative records the run; the durable form lives in the lessons home and is what a future run reads.
+The daemon scans every registered project's `<project>/docs/briefs/` and every archived change's `narrative.md`, ranks briefs before narrative mentions, and prints the answer as one Markdown document: each matching brief in full, then each mention's matching lines beside the path that holds them.
+The narrative still records the run; the brief is the form the next run resolves.
+The read carries the findings read's contract: an unreachable store is reported on stderr and exits non-zero, never a partial answer on stdout.
+When a run's own experience yields a durable process lesson, the run writes or updates its project's `<project>/docs/briefs/<slug>.md` as part of the change, committing it with the change's own work.
+When a ticket, a plan, a review finding, or a conversation names a practice or a brief — "the flake-bisection brief", "the usual bisect dance" — resolve it through the lessons home, never by searching repositories or narrative files by hand:
+flow lesson resolve -topic <words>
+lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived narratives for it.
+| [lessons.md](lessons.md) | Resolve a process lesson: the `<project>/docs/briefs/` home, the `flow lesson resolve` read, and promoting a durable lesson a run paid for.
