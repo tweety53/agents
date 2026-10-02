@@ -12,7 +12,7 @@ import (
 // reshapeBranch is scripts/reshape-branch.sh: that script's header is the
 // contract — rebuild every planning commit in <merge-base>..HEAD on top of
 // <merge-base>, then `reset --soft` there, behind
-// check-planning-commit-location.sh. Every git step's stderr passes through
+// check-planning-commit-location (in-process). Every git step's stderr passes through
 // and its exit code is the guard's, as `set -euo pipefail` made it.
 func init() { Registry["reshape-branch"] = reshapeBranch }
 
@@ -22,11 +22,7 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	wt, name, base := args[0], args[1], args[2]
-	scriptDir, ok := guardSelfDir(env, stderr, "reshape-branch: ", "reshape-branch")
-	if !ok {
-		return 2
-	}
-	if rc := planningLocation(env, scriptDir, wt, name, stdout, stderr, "reshape-branch"); rc != 0 {
+	if rc := checkPlanningCommitLocation([]string{wt, name}, env, stdout, stderr); rc != 0 {
 		return rc
 	}
 

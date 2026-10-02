@@ -12,8 +12,7 @@ import (
 // assertion named after the harness's ok: label. The harness built a
 // sandboxed repository per case and ran the script with stdout and stderr
 // merged; here commit-split runs in-process over the same repositories, with
-// the real check-planning-commit-location.sh beside it as the shim exports
-// FLOW_GUARD_SELF.
+// check-planning-commit-location in-process too.
 
 // splitGit runs fixture git in dir under fixtureGitEnv plus extra, failing
 // the test on error, and returns stdout with trailing newlines stripped.
@@ -49,15 +48,9 @@ func splitRepo(t *testing.T, main, wt string, files map[string]string, initArgs 
 
 // runSplitGuard runs guard fn in-process from dir as its shim would, stdout
 // and stderr merged in write order with trailing newlines stripped.
-func runSplitGuard(t *testing.T, fn Func, shim, dir string, args ...string) (int, string) {
+func runSplitGuard(t *testing.T, fn Func, dir string, args ...string) (int, string) {
 	t.Helper()
-	self := tcfScriptsDir(t) + "/" + shim
-	env := Env{Dir: dir, Getenv: func(k string) string {
-		if k == "FLOW_GUARD_SELF" {
-			return self
-		}
-		return os.Getenv(k)
-	}}
+	env := Env{Dir: dir, Getenv: os.Getenv}
 	var all bytes.Buffer
 	rc := fn(args, env, &all, &all)
 	return rc, strings.TrimRight(all.String(), "\n")
@@ -77,7 +70,7 @@ func csNew(t *testing.T) csFx {
 
 func (fx csFx) split(t *testing.T, dir, c string) (int, string) {
 	t.Helper()
-	return runSplitGuard(t, commitSplit, "commit-split.sh", dir, dir, "demo", "impl: "+c, "plan: "+c)
+	return runSplitGuard(t, commitSplit, dir, dir, "demo", "impl: "+c, "plan: "+c)
 }
 
 func (fx csFx) subjects(t *testing.T) string { return splitGit(t, fx.wt, nil, "log", "--format=%s") }
@@ -250,7 +243,7 @@ func TestCommitSplit(t *testing.T) {
 
 	t.Run("usage: fewer than four arguments cannot answer", func(t *testing.T) {
 		t.Parallel()
-		rc, out := runSplitGuard(t, commitSplit, "commit-split.sh", t.TempDir(), "a", "b", "c")
+		rc, out := runSplitGuard(t, commitSplit, t.TempDir(), "a", "b", "c")
 		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg>", "usage", "rc=%d out=%q", rc, out)
 	})
 }

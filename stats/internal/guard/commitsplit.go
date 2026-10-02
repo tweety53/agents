@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 )
 
 // commitSplit is scripts/commit-split.sh: that script's header is the
 // contract — the guarded two-commit chain of
 // skills/flow-contracts/pipeline.md's "Git boundaries" section, behind
-// check-planning-commit-location.sh. Every git step's own output passes
+// check-planning-commit-location (in-process). Every git step's own output passes
 // through and its exit code is the guard's, as `set -euo pipefail` made it.
 func init() { Registry["commit-split"] = commitSplit }
 
@@ -21,13 +20,9 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	worktree, name, implMsg, planMsg := args[0], args[1], args[2], args[3]
-	scriptDir, ok := guardSelfDir(env, stderr, "commit-split: ", "commit-split")
-	if !ok {
-		return 2
-	}
 	planDir := specRootLeaf(pcAbs(env, worktree), stderr) + "/changes/"
 
-	if rc := planningLocation(env, scriptDir, worktree, name, stdout, stderr, "commit-split"); rc != 0 {
+	if rc := checkPlanningCommitLocation([]string{worktree, name}, env, stdout, stderr); rc != 0 {
 		return rc
 	}
 
@@ -93,19 +88,4 @@ func hasChangeLinkMD(planDir string) bool {
 		}
 	}
 	return false
-}
-
-// planningLocation runs the sibling check-planning-commit-location.sh on
-// worktree and name with its output passed through, and returns its exit code
-// — the stop commit-split and reshape-branch make on its verdict. A sibling
-// that cannot be started is the caller's cannot-answer, 2.
-func planningLocation(env Env, scriptDir, worktree, name string, stdout, stderr io.Writer, prog string) int {
-	cmd := exec.Command(scriptDir+"/check-planning-commit-location.sh", worktree, name)
-	cmd.Dir, cmd.Stdout, cmd.Stderr = env.Dir, stdout, stderr
-	err := cmd.Run()
-	if rc := exitCode(err); rc != 126 || cmd.ProcessState != nil {
-		return rc
-	}
-	fmt.Fprintf(stderr, "%s: cannot run check-planning-commit-location.sh: %v\n", prog, err)
-	return 2
 }

@@ -9,8 +9,8 @@ import (
 
 // Every case of scripts/test-reshape-branch.sh, one subtest per case, each
 // assertion named after the harness's ok: label. reshape-branch runs
-// in-process, followed by commit-split exactly as integrate runs them, with
-// the real check-planning-commit-location.sh beside both.
+// in-process, followed by commit-split exactly as integrate runs them, each
+// calling check-planning-commit-location in-process.
 
 type rbFx struct{ main, wt, base string }
 
@@ -53,7 +53,7 @@ func (fx rbFx) expectedTree(t *testing.T) string {
 
 func (fx rbFx) reshape(t *testing.T, dir string, args ...string) (int, string) {
 	t.Helper()
-	return runSplitGuard(t, reshapeBranch, "reshape-branch.sh", dir, args...)
+	return runSplitGuard(t, reshapeBranch, dir, args...)
 }
 
 func TestReshapeBranch(t *testing.T) {
@@ -89,7 +89,7 @@ func TestReshapeBranch(t *testing.T) {
 		check(t, rc == 0, "reshape exit", "rc=%d out=%s", rc, out)
 		check(t, strings.Contains(out, "RESHAPED: "+w+" — 3 planning commit(s) kept on "+fx.base[:12]),
 			"reshape verdict names three kept commits", "%s", out)
-		if rc, out := runSplitGuard(t, commitSplit, "commit-split.sh", w,
+		if rc, out := runSplitGuard(t, commitSplit, w,
 			w, "demo", "feat(src): the change", "chore(spectre): plan\n\noutstanding: none"); rc != 0 {
 			t.Fatalf("commit-split rc=%d out=%s", rc, out)
 		}
@@ -172,7 +172,7 @@ func TestReshapeBranch(t *testing.T) {
 
 	t.Run("usage: not three arguments cannot answer", func(t *testing.T) {
 		t.Parallel()
-		rc, out := runSplitGuard(t, reshapeBranch, "reshape-branch.sh", t.TempDir(), "a", "b")
+		rc, out := runSplitGuard(t, reshapeBranch, t.TempDir(), "a", "b")
 		check(t, rc == 2 && out == "usage: reshape-branch.sh <worktree> <name> <merge-base>", "usage", "rc=%d out=%q", rc, out)
 	})
 }
