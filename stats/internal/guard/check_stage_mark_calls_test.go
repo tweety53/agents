@@ -324,6 +324,12 @@ func TestCheckStageMarkCalls(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// The pinned bash pipes the key list into `grep -q` under
+			// pipefail: bash's printf writes "%s" and "\n" separately, so a
+			// grep that matched and exited between them SIGPIPEs printf and
+			// the key reads as unknown — under load, about 1 run in 120. A
+			// here-string has no writer to kill.
+			src = bytes.ReplaceAll(src, []byte(`printf '%s\n' "$STAGE_KEYS" | grep -qxF -- "$stage_key"`), []byte(`grep -qxF -- "$stage_key" <<<"$STAGE_KEYS"`))
 			writeFile(t, filepath.Join(tree, rel), string(src))
 		}
 		if err := os.Symlink(filepath.Join(smcRepoRoot, "stats"), filepath.Join(tree, "stats")); err != nil {

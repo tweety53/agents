@@ -64,7 +64,7 @@ CAPTURED="$(
   assert_shim_fired "$UNPREPARED" "case 1"
   echo "RC=$FAILURES"
 )"
-if printf '%s\n' "$CAPTURED" | grep -q '^FAIL: case 1'; then
+if grep -q '^FAIL: case 1' <<<"$CAPTURED"; then
   pass "case 1: an unprepared dir (no .fired) makes assert_shim_fired fail"
 else
   fail "case 1: an unprepared dir (no .fired) did not fail assert_shim_fired — got: $CAPTURED"
@@ -85,12 +85,12 @@ CAPTURED="$(
   assert_shim_fired "$PREPARED" "case 2"
   echo "RC=$FAILURES"
 )"
-if printf '%s\n' "$CAPTURED" | grep -q '^ok: case 2'; then
+if grep -q '^ok: case 2' <<<"$CAPTURED"; then
   pass "case 2: a prepared dir (.fired present) makes assert_shim_fired pass"
 else
   fail "case 2: a prepared dir (.fired present) did not pass assert_shim_fired — got: $CAPTURED"
 fi
-if printf '%s\n' "$CAPTURED" | grep -q '^RC=0$'; then
+if grep -q '^RC=0$' <<<"$CAPTURED"; then
   pass "case 2: a prepared dir records zero failures"
 else
   fail "case 2: a prepared dir unexpectedly recorded a failure — got: $CAPTURED"

@@ -262,11 +262,11 @@ RESTART_PROBLEMS=""
 if [ -z "$RESTART_RULE" ]; then
   RESTART_PROBLEMS="$RESTART_PROBLEMS
   no \`restart:\` rule found in stats/Makefile"
-elif ! printf '%s\n' "$RESTART_RULE" | grep -qE '^restart:([[:space:]]|.*[[:space:]])build([[:space:]]|$)'; then
+elif ! grep -qE '^restart:([[:space:]]|.*[[:space:]])build([[:space:]]|$)' <<<"$RESTART_RULE"; then
   RESTART_PROBLEMS="$RESTART_PROBLEMS
   \`restart:\` does not declare \`build\` as a prerequisite, so nothing refreshes \$(LIVE_BIN)"
 fi
-if printf '%s\n' "$RESTART_RECIPE" | grep -qE 'go build -o \$\(LIVE_BIN\)'; then
+if grep -qE 'go build -o \$\(LIVE_BIN\)' <<<"$RESTART_RECIPE"; then
   RESTART_PROBLEMS="$RESTART_PROBLEMS
   \`restart:\`'s recipe rebuilds \$(LIVE_BIN), which its \`build\` prerequisite already wrote"
 fi

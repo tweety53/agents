@@ -234,7 +234,7 @@ unset RUN_GUARD_TESTS_ROOT 2>/dev/null || true
 UNSET_OUT="$(cd "$FIXTURE" && RUN_GUARD_TESTS_ROOT="$FIXTURE" bash "$RUNNER" 2>&1)"
 UNSET_RC=$?
 set -e
-if [ "$UNSET_RC" -eq 2 ] && printf '%s\n' "$UNSET_OUT" | grep -q 'set but empty'; then
+if [ "$UNSET_RC" -eq 2 ] && grep -q 'set but empty' <<<"$UNSET_OUT"; then
   fail "case 4 mutation: a non-empty RUN_GUARD_TESTS_ROOT was rejected as if empty — out=$UNSET_OUT"
 else
   pass "case 4 mutation: a non-empty RUN_GUARD_TESTS_ROOT is honoured, not rejected as empty"
