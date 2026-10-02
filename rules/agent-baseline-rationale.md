@@ -22,4 +22,6 @@ learned in the minutes it already had the code open. It arose in practice: a sub
 `trsdLastClass` "may be reading the oldest decision row" and left it; one trace showed the store
 lists decisions newest first while the guard took the last row — a real bug, fixed in a few lines.
 Checking turns a guess into a verdict; fixing closes it. Outside the task the fix is held to cheap and
-fast, so closing a side defect never costs more than the task itself.
+fast, so closing a side defect never costs more than the task itself. A port once left a same-second
+screenshot overwrite in place because fixing it "meant inventing a naming scheme" and the bash did
+the same — the fix was a five-line counter suffix, so a small open choice is named cheap.

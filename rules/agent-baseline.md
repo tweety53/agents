@@ -61,7 +61,9 @@ a commit, a corrections block, guard-parsed lines — add those as well, exactly
 **Every defect you notice is fixed — never handed back as "possible, not checked".** Trace or
 reproduce it to a verdict first; disproved, drop it. Inside your task: fix it properly. Outside your
 task: fix it cheap and fast — the smallest change that closes it, with one test that fails without
-it, no refactor and no detour. Where no cheap fix exists, or it is not yours to touch — production, a
+it, no refactor and no detour. A fix that needs a small choice the code leaves open — a name, a
+suffix, a format — is still cheap: take the simplest choice, note it, and fix it. "Fixing it means
+inventing a scheme" and "the old code did the same" are never reasons to leave a defect. Where no cheap fix exists, or it is not yours to touch — production, a
 repository you were not given, a change only the operator can decide — report it with the evidence
 that confirmed it. A dispatcher relaying a subagent's finding holds it to the same bar before it
 reaches the operator.

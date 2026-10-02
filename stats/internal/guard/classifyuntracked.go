@@ -99,7 +99,12 @@ func classifyUntracked(args []string, env Env, stdout, stderr io.Writer) int {
 			base := path.Base(entry)
 			dest := scratch + "/" + base
 			if _, err := os.Stat(dest); err == nil {
-				dest = scratch + "/" + time.Now().Format("20060102-150405") + "-" + base
+				stamp := time.Now().Format("20060102-150405")
+				dest = scratch + "/" + stamp + "-" + base
+				// Two same-named captures in one second: count up, never clobber.
+				for n := 2; isFile(dest); n++ {
+					dest = fmt.Sprintf("%s/%s-%d-%s", scratch, stamp, n, base)
+				}
 			}
 			if err := os.Rename(pcAbs(env, landing+"/"+entry), dest); err != nil {
 				fmt.Fprintf(stderr, "classify-untracked: cannot move %s to %s: %v\n", entry, dest, err)

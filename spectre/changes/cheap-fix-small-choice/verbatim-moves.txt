@@ -1,0 +1,3 @@
+# Operator, 2026-10-02: a small open choice does not make a side-defect fix expensive.
+A fix that needs a small choice the code leaves open — a name, a suffix, a format — is still cheap: take the simplest choice, note it, and fix it.
+"Fixing it means inventing a scheme" and "the old code did the same" are never reasons to leave a defect.

@@ -208,6 +208,24 @@ func TestClassifyUntracked(t *testing.T) {
 		}
 	})
 
+	t.Run("same-second-collision-not-clobbered", func(t *testing.T) {
+		t.Parallel()
+		fx := newCUFixture(t)
+		writeFile(t, fx.scratch+"/shot.png", "old\n")
+		// Two runs back to back land in the same second: the second must not
+		// take the first one's timestamped name.
+		for _, body := range []string{"a\n", "b\n"} {
+			writeFile(t, fx.wt+"/shot.png", body)
+			if r := runGuard("classify-untracked", []string{fx.wt}, cuEnv()); r.rc != 0 {
+				t.Fatalf("got %+v", r)
+			}
+		}
+		names, _ := os.ReadDir(fx.scratch)
+		if len(names) != 3 {
+			t.Fatalf("want all three copies, got %v", names)
+		}
+	})
+
 	t.Run("non-ascii-capture", func(t *testing.T) {
 		t.Parallel()
 		fx := newCUFixture(t)

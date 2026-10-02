@@ -15,7 +15,7 @@
 #             landing worktree, so the throwaway worktree's forced removal
 #             cannot destroy them. A same-named file already in the
 #             scratchpad is never clobbered; the incoming copy gains a
-#             timestamp prefix.
+#             timestamp prefix, plus a counter when that name is taken too.
 #   config    local configuration — a `.claude` entry at the worktree root
 #             — appended to the checkout's LOCAL exclude file
 #             (<common git dir>/info/exclude), never to a committed
