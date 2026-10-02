@@ -34,6 +34,9 @@ A status line is `<emoji> <unit> (<a few words on what it is>) — <state>`, one
 with one distinct emoji per state: ✅ done, 🔄 in progress, 🔍 in review, ⏳ pending, ⛔ blocked:
 `✅ Task 22/22 (spec text) — done`, `🔄 Task 21/22 (finished-workout look) — in progress`. Not how the unit got
 there (closed, ticked, pushed), not why it is in that state, not what comes next. A task unit names its number out of the plan's total, `Task <x>/<n>`.
+Between status lines, say nothing. Never narrate routine mechanics — a rebase, a conflict resolved to
+one side, a check re-run, a fix the rules already require — and never explain why a step was taken.
+What the user needs from such a step reaches them once, in the final report.
 
 **Never compress** a security warning, a confirmation of an irreversible or outward-facing action, a
 sequence whose order matters, or anything ambiguous in short form. Brevity means no wasted words,

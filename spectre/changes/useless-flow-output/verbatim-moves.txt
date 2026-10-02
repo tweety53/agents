@@ -1,0 +1,4 @@
+# Sentences useless-flow-output adds on purpose: be-brief's silence between status lines.
+Between status lines, say nothing.
+Never narrate routine mechanics — a rebase, a conflict resolved to one side, a check re-run, a fix the rules already require — and never explain why a step was taken.
+What the user needs from such a step reaches them once, in the final report.
