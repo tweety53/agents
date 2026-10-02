@@ -9,7 +9,7 @@ compatibility: Requires the change's default branch to be checked out and a save
 Run a change's self-review reasoning pass — the only one the pipeline has — from the context
 bundle run 2 step 9 saved (`skills/flow-contracts/finish-contract-run2.md` step 9 is canonical
 for that bundle's shape) or **5. Verify** (`skills/flow-fast/SKILL.md`) saved on the change
-branch before landing. This file is canonical for the five angles, what may be filed, the
+branch before landing. This file is canonical for the six angles, what may be filed, the
 filing-and-rating prompt and the report. **The pass runs inline, in this session, on whatever
 model it is already on** — no subagent, no dispatch. The model is picked by picking the model
 this session runs on (`/model`) before invoking this command, not by anything this skill itself
@@ -32,9 +32,9 @@ per-change state file, and marks no `flow stage` call.
 `git branch --show-current` must be `<default-branch>` (the project's own default branch). A
 checkout on any other branch: print the branch and stop.
 
-### 2. Read the bundle and run the five angles
+### 2. Read the bundle and run the six angles
 
-Read `<bundle>` in full. Run the five-angle table over it, inline, every angle explicit —
+Read `<bundle>` in full. Run the six-angle table over it, inline, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
 
 | # | Angle | Label |
@@ -44,20 +44,21 @@ present-but-empty for an angle with no findings, never omitted:
 | 3 | What went well, and how to reproduce it | `flow-improvement` |
 | 4 | What could be automated or moved to a script | `flow-automation` |
 | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
+| 6 | What can be sped up — wall-clock time the run spent waiting or working that a pipeline change would cut | `flow-speed` |
 
 Angle 5's remit covers the records the pipeline writes to files today and the derivation work
-now done in Bash or by the agent — **not** what the SPA should display. A silent angle and a
+now done in Bash or by the agent — **not** what the SPA should display. Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
 skipped angle are indistinguishable to a reader, which is why an empty angle says so.
 
-**A finding is filed only from the five angles, and only by the operator's choice.** A finding
+**A finding is filed only from the six angles, and only by the operator's choice.** A finding
 about the pipeline itself is offered under its angle. A finding about the project's own product
 code is offered only when it is Important or worse — something a user or the data would
 suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a
 missing test over already-correct code) is left out of the prompt. The report carries no
-section beyond the five angles and the rating. The filing prompt is never waived: a pass with
+section beyond the six angles and the rating. The filing prompt is never waived: a pass with
 no operator to answer it files nothing and records every finding `declined`.
 
-**One combined pass** — never five separate reads. The pass covers what the bundle holds and
+**One combined pass** — never six separate reads. The pass covers what the bundle holds and
 nothing beyond it — say so in the report's `**Deferred:**` line.
 
 ### 3. Explain, then ask
@@ -98,7 +99,7 @@ this session: print `⚠ Jira: skipped — <reason>` and record that finding `de
 ### 5. Write the report, delete the bundle, land it
 
 Write `<project>/docs/self-review/<name>-self-review.md` in the shape
-`<project>/scripts/check-self-review-report.sh` checks — one section per angle, all five present; each
+`<project>/scripts/check-self-review-report.sh` checks — one section per angle, all six present; each
 finding one line naming its angle's label, the finding, and its disposition (`filed: <KEY>` or
 `declined`); an angle with no findings carrying the explicit none-marker — plus one line under the
 title:
@@ -114,7 +115,7 @@ unreadable report inside it, an internal coverage.sh call failing) — is not a 
 commit, never commit a report the guard could not read.
 Commit both paths in one commit through the landing chain's one script — the same invocation
 `skills/flow/archive.md` step 9 lands the context bundle with, differing in the asserted branch,
-the report path, the removed context-bundle path and the `--push` — since the round-trip through the five-angle
+the report path, the removed context-bundle path and the `--push` — since the round-trip through the six-angle
 pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking
 rather than trusted from step 1 alone:
 

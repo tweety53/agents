@@ -1,0 +1,22 @@
+# Operator, 2026-10-02: add a sixth self-review angle, what can be sped up (flow-speed); every "five angles" becomes "six angles".
+**A finding is filed only from the five angles, and only by the operator's choice.
+**One combined pass** — never five separate reads.
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/archive.md` step 9 lands the context bundle with, differing in the asserted branch, the report path, the removed context-bundle path and the `--push` — since the round-trip through the five-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+It reads the context bundle a `/flow` or `/flow-fast` run saved, runs the five-angle reasoning pass inline, files and rates findings, writes the report, deletes the bundle, and lands both on the default branch.
+Read the bundle and run the five angles
+Run the five-angle table over it, inline, every angle explicit — present-but-empty for an angle with no findings, never omitted:
+The pass then runs in `/flow-self-review <name>` (`skills/flow-self-review/SKILL.md`), canonical for the five angles, what may be filed, the filing-and-rating prompt and the report, which deletes the bundle in its report commit.
+The report carries no section beyond the five angles and the rating.
+This file is canonical for the five angles, what may be filed, the filing-and-rating prompt and the report.
+Write `<project>/docs/self-review/<name>-self-review.md` in the shape `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all five present; each finding one line naming its angle's label, the finding, and its disposition (`filed: <KEY>` or `declined`); an angle with no findings carrying the explicit none-marker — plus one line under the title:
+**A finding is filed only from the six angles, and only by the operator's choice.
+**One combined pass** — never six separate reads.
+Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs.
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/archive.md` step 9 lands the context bundle with, differing in the asserted branch, the report path, the removed context-bundle path and the `--push` — since the round-trip through the six-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+It reads the context bundle a `/flow` or `/flow-fast` run saved, runs the six-angle reasoning pass inline, files and rates findings, writes the report, deletes the bundle, and lands both on the default branch.
+Read the bundle and run the six angles
+Run the six-angle table over it, inline, every angle explicit — present-but-empty for an angle with no findings, never omitted:
+The report carries no section beyond the six angles and the rating.
+This file is canonical for the six angles, what may be filed, the filing-and-rating prompt and the report.
+Write `<project>/docs/self-review/<name>-self-review.md` in the shape `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all six present; each finding one line naming its angle's label, the finding, and its disposition (`filed: <KEY>` or `declined`); an angle with no findings carrying the explicit none-marker — plus one line under the title:
+| 6 | What can be sped up — wall-clock time the run spent waiting or working that a pipeline change would cut | `flow-speed` |

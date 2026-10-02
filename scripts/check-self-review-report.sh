@@ -53,18 +53,27 @@
 # table the way a hardcoded copy would. (The original five came from the
 # kan-200 self-review spec's "One combined reasoning pass" angle table.)
 #
+# REPORTS PREDATING A LATER ANGLE STAY VALID. An angle after the original
+# five (angle 6, `flow-speed`, onwards) is demanded of a report only once
+# that report carries at least one angle after the five. A report carrying
+# none of them was written against the five-angle table and is checked
+# against those five alone — which is every report under docs/self-review/
+# written before angle 6 existed. The ceiling: a new report omitting every
+# later angle reads exactly like an old one and passes; the skill's own
+# "every angle explicit" rule is what holds a new report to the full table.
+#
 # PER-REPORT COVERAGE, via scripts/lib/coverage.sh. Each report's recorded
 # count is the number of section-level checks this guard actually performed
 # on it: one per angle heading it FOUND (not one per angle attempted), plus
 # one per finding line it found under a recognized heading. A report that is
-# not recognizable as a self-review report at all — none of the five
+# not recognizable as a self-review report at all — none of the angle
 # headings present anywhere in it — gets NO per-section "missing" findings,
 # because there was nothing in it to check against; it is instead flagged
 # entirely through coverage.sh's undeclared-zero mechanism, so a report
 # checked for nothing is a named, failing fact rather than a silent pass
 # (KAN-73's own regression shape, reproduced here as this guard's own
-# harness case 7). A report that IS recognizable — at least one of the five
-# headings present — but is missing one or more of the others gets an
+# harness case 7). A report that IS recognizable — at least one angle
+# heading present — but is missing one or more of the others gets an
 # explicit "missing section" finding for each absent one, on top of whatever
 # non-zero count its present sections contribute.
 #
@@ -92,7 +101,7 @@
 # `/flow-self-review <name>` deletes it once it runs the deferred pass. It is
 # a bundle awaiting a reasoning pass, never a report of one — `find` below
 # excludes `*-context.md` outright so a pending bundle is neither scanned for
-# the five-angle shape (which it does not carry) nor flagged as an
+# the angle shape (which it does not carry) nor flagged as an
 # undeclared-zero coverage violation naming it.
 #
 # NO RECORD PROTOCOL, DELIBERATELY (KAN-211). This guard used to classify
@@ -170,6 +179,9 @@ done < <(awk -F'|' '
 ' "$ANGLE_CONTRACT")
 [[ "${#ANGLE_LABELS[@]}" -ge 1 ]] ||
   die "the canonical angle table yielded no labels: $ANGLE_CONTRACT"
+# The table's size when every pre-flow-speed report was written — the angles
+# every report must carry (see REPORTS PREDATING A LATER ANGLE above).
+ORIGINAL_ANGLE_COUNT=5
 
 # Regex patterns are kept in variables and referenced unquoted in `[[ =~ ]]`
 # below rather than written inline: bash's quote-removal strips a literal
@@ -250,7 +262,7 @@ for f in "${FILES[@]:-}"; do
 
   # Each line is classified where it is read — no intermediate representation
   # and no second language, per this file's own NO RECORD PROTOCOL note above.
-  # A `##` heading whose text carries one of the five backtick-quoted labels
+  # A `##` heading whose text carries one of the backtick-quoted angle labels
   # opens that angle's section; a `##` heading carrying none of them resets the
   # current section to none, so lines under it are attributed to no angle at
   # all. A heading at ANY OTHER level (`#`, `###`, `####`, …) also ends the
@@ -412,8 +424,12 @@ for f in "${FILES[@]:-}"; do
   [[ "$read_rc" -eq 0 ]] || die "cannot read report file: $f"
 
   found_count=0
+  later_found=0
   for i in "${!ANGLE_LABELS[@]}"; do
-    [[ "${HEADING_FOUND[$i]}" -eq 1 ]] && found_count=$((found_count + 1))
+    if [[ "${HEADING_FOUND[$i]}" -eq 1 ]]; then
+      found_count=$((found_count + 1))
+      [[ "$i" -ge "$ORIGINAL_ANGLE_COUNT" ]] && later_found=1
+    fi
   done
 
   count=0
@@ -421,6 +437,8 @@ for f in "${FILES[@]:-}"; do
     for i in "${!ANGLE_LABELS[@]}"; do
       label="${ANGLE_LABELS[$i]}"
       if [[ "${HEADING_FOUND[$i]}" -eq 0 ]]; then
+        # A report predating every later angle (see the header).
+        [[ "$i" -ge "$ORIGINAL_ANGLE_COUNT" && "$later_found" -eq 0 ]] && continue
         printf '%s: missing section for angle `%s`\n' "$rel" "$label"
         VIOLATIONS=$((VIOLATIONS + 1))
         continue

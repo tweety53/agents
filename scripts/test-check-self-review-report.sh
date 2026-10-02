@@ -46,6 +46,8 @@
 #   canonical-table no-labels die (kan-585)    30
 #   per-report reset walked from the table     28
 #     (kan-585)
+#   pre-extension skip of the later angles     7, 31
+#   later angle demanded once one is present   28
 #
 # Case 7 appears in several rows because it alone runs the guard bare over
 # the repository's real docs/self-review/ corpus, so a broadly-scoped
@@ -107,7 +109,17 @@ _none — this angle produced no findings._
 ## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
+
+## Speed — `flow-speed`
+
+_none — this angle produced no findings._
 EOF
+}
+
+# five_angle_report: compliant_report as written before angle 6 existed —
+# the shape every report under docs/self-review/ predating flow-speed carries.
+five_angle_report() {
+  compliant_report | sed '/^## Speed — `flow-speed`$/,$d'
 }
 
 # ===========================================================================
@@ -896,12 +908,15 @@ unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
 [ "$RC" -eq 0 ] && pass "case 27: a report in the renamed spelling exits 0" \
   || fail "case 27: rc=$RC out=$OUT"
 
-# Case 28: a sixth angle added to the canonical table is demanded of every
-# report — the count is the table's, never a constant. The report also
+# Case 28: an angle added to the canonical table is demanded of every
+# report carrying any angle after the original five — the count is the
+# table's, never a constant. The fixture table gains angles 6 (`flow-docs`)
+# and 7 (`flow-speed`); the report carries 7 and not 6. The report also
 # carries one unrecognized `##` heading, so the heading matcher walks every
 # index of the parsed table.
 new_contract fixture_contract_renamed
 printf '   | 6 | Docs that taught the operator something new | `flow-docs` |\n' >>"$CONTRACT_DIR/contract.md"
+printf '   | 7 | What can be sped up | `flow-speed` |\n' >>"$CONTRACT_DIR/contract.md"
 new_fixture
 compliant_report | sed 's/flow-fix/flow-regress/g' \
   | sed 's|^## Cost — `flow-cost`$|## Interlude — `not-an-angle`\n\n## Cost — `flow-cost`|' \
@@ -950,6 +965,16 @@ case "$OUT" in
     pass "case 30: the die message names the label-free contract" ;;
   *) fail "case 30: expected a yielded-no-labels die, out=$OUT" ;;
 esac
+
+# Case 31: a report carrying exactly the original five angles and none
+# after them predates the later angles — it is checked against the five and
+# passes against the real six-angle table, so the reports written before
+# flow-speed existed stay valid. Fails with the pre-extension skip removed.
+new_fixture
+five_angle_report >"$FIXTURE/fixture-self-review.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 31: a five-angle report predating angle 6 exits 0" \
+  || fail "case 31: rc=$RC out=$OUT"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
