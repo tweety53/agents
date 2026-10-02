@@ -78,9 +78,13 @@ basename>` suffix, its prompt identical to the incomplete dispatch's plus that r
 under a `## Incomplete attempt` heading and the guard's verdict line, which names the steps it
 runs; it carries the incomplete report's lines for the steps already done into its own. A
 remainder completes its dispatch rather than adding one, so it counts toward no re-dispatch and
-no fix round. **A remainder whose report the guard still finds incomplete closes this stage
-`-outcome stopped`**, the handoff naming each undone step as the verdict line names it. Exit 2 →
-the dispatch closes as a verifier with no `## Report` does, below.
+no fix round. **A remainder whose report the guard still finds incomplete is dispatched again**,
+keyed `<key>-rest-<n>`, `<n>` counting from 2, its prompt carrying every earlier report and the
+latest verdict line; no count ends these either, a remainder that leaves the same steps undone on
+the same evidence takes **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), and
+one whose blocker only the operator can cure ends your turn with `## Question` naming that
+blocker and the undone steps. Exit 2 → the dispatch closes as a verifier with no `## Report`
+does, below.
 
 **A complete `## Report` carrying any non-zero exit is re-dispatched, and no count ends the
 re-dispatches.** Each is recorded under `-key visual-verify-<n>`, `<n>` counting from 2 — the same
@@ -257,7 +261,6 @@ steps state.
 flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
 ```
 
-**A step-3 pre-flight failure, a step-6 fingerprint still failing after its restart, or a
-remainder report still incomplete closes this mark `-outcome stopped` instead of `completed`**,
-per those steps and **The verifier dispatch** above — the one outcome variant this stage's end
-mark carries.
+**A step-3 pre-flight failure or a step-6 fingerprint still failing after its restart closes this
+mark `-outcome stopped` instead of `completed`**, per those steps — the one outcome variant this
+stage's end mark carries.

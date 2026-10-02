@@ -27,9 +27,8 @@ was already taken this run is asked, so an auto-taken **another round** cannot l
 \## Fewest operator actions
 **A complete `## Report` carrying any non-zero exit is re-dispatched, and no count ends the re-dispatches.
 **A named motion with no strip under `<changeRoot>/visual-verification/motion/` or no entry in `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a departure would.**
-**A remainder whose report the guard still finds incomplete closes this stage `-outcome stopped`**, the handoff naming each undone step as the verdict line names it.
 **A round that makes no progress — the same defect identity, on the same evidence, after a fix — changes the run's approach instead of stopping or asking.
-**A step-3 pre-flight failure, a step-6 fingerprint still failing after its restart, or a remainder report still incomplete closes this mark `-outcome stopped` instead of `completed`**, per those steps and **The verifier dispatch** above — the one outcome variant this stage's end mark carries.
+**A step-3 pre-flight failure or a step-6 fingerprint still failing after its restart closes this mark `-outcome stopped` instead of `completed`**, per those steps — the one outcome variant this stage's end mark carries.
 **Every report is checked for completeness before anything else reads it:**
 **No required step is left undone for want of time or context.
 **No round count ends a re-review or a re-verification.
