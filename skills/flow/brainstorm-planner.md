@@ -46,6 +46,11 @@ the design, its decisions and the acceptance criteria.
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
 
+A Done-when names only committed, tracked paths of the repository it belongs to — never a
+gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done
+criterion nothing satisfies — and the archive commit refuses one that does, enforced by **Run 2 —
+the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
+
 ### Stage exit — never the command's own judgment
 
 Within a single run, a stage that loops — most concretely `/flow`'s brainstorm

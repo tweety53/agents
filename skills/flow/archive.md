@@ -65,7 +65,9 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
 
    `ARCHIVE-COMMITTED: <sha>` or `ARCHIVE-NOTHING-STAGED` (exit 0) continue.
    `ARCHIVE-WRONG-BRANCH: <found>` or the scope guard's `SCOPE-VIOLATION` lines (exit 1), or exit
-   2, stop the commit and leave the change at `IN_PROGRESS`.
+   2, stop the commit and leave the change at `IN_PROGRESS`. The `DONE-WHEN-PATH:` lines of the
+   Done-when cross-check refuse the commit the same way, before anything is staged or copied, per
+   **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```bash
 flow stage end   -command '/flow' -stage flow.commit-archive -outcome completed <name>

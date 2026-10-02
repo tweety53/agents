@@ -85,6 +85,15 @@ procedure for them is there.
    the check above verifies. `<canonical-worktree>` is the resolved set's own canonical member
    (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`), and
    still exists here — its removal is step 5, after this step.
+
+   **Before any of that, the Done-when cross-check refuses the commit** — `check-done-when-paths`
+   runs in-process on the landing worktree, printing one `DONE-WHEN-PATH: <path> — <file>` line
+   per path a `## Done when` section of the worktree's tracked markdown names that the index does
+   not track, and its exit 1 refuses the commit exactly as a `SCOPE-VIOLATION` does, leaving the
+   change at `IN_PROGRESS` — the archive's answer to a done criterion satisfied by uncommitted
+   files, whose authoring side is the design rule of **The checklist**
+   (`skills/flow/brainstorm-planner.md`), and an exit 2 refuses the commit too, never read as a
+   pass.
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below.
