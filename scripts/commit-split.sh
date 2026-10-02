@@ -24,15 +24,10 @@
 #
 # A CHANGE DIRECTORY'S `link.md` IS ALSO IMPLEMENTATION, CARVED OUT BY FILE
 # RATHER THAN BY DIRECTORY. It lives at `<plan_dir><id>/link.md`, inside the
-# planning exclusion, so it needs its own `git add` after the exclude-add —
-# a `:(exclude)` pathspec always wins over a positive pathspec alongside it
-# in the same call, so a combined `add -A -- . ":(exclude)$plan_dir"
-# "$plan_dir*/link.md"` would still exclude it (verified by running git, not
-# by reasoning about it). The re-add runs after the reset above, not before,
-# so a later reset never strips it back out. `git add -A -- <pathspec>`
-# itself exits 128 when the pathspec matches nothing, so the glob is checked
-# with the shell first — most commits touch no link.md at all, and that must
-# stay a no-op rather than a failure.
+# planning exclusion, so it gets its own `git add` after the exclude-add, and
+# a commit that touches no link.md stays a no-op rather than a failure —
+# stats/internal/guard/commitsplit.go carries the pathspec reasoning beside
+# the code.
 #
 # `<name>` is the change: before anything is staged,
 # check-planning-commit-location.sh refuses a <worktree> that is a main
@@ -43,33 +38,33 @@
 # A PLANNING PATH THAT IS A TRACKED SYMLINK IS NEVER WORKED AROUND. If
 # `spectre/changes/` is a tracked symlink — or `spectre/` is, putting
 # `spectre/changes/` behind one — `git add -A -- .
-# ':(exclude)spectre/changes/'` exits 128 with
-# a message naming the path, and stages nothing. `set -euo pipefail` is what
-# propagates that exit code and message as-is — there is no trap or `||`
-# around that call to catch and reinterpret it. The only way past the stop is
-# to fix the repository so the path is a real directory; working around it
-# here would let planning content land in the implementation commit, which is
-# the one outcome this split exists to prevent.
+# ':(exclude)spectre/changes/'` exits 128 with a message naming the path, and
+# stages nothing; that exit code and message are this guard's, as-is. The
+# only way past the stop is to fix the repository so the path is a real
+# directory; working around it here would let planning content land in the
+# implementation commit, the one outcome this split exists to prevent.
+#
+# Exit codes: 0 when the chain ran (either commit possibly skipped); 2 with a
+# usage line on stderr when fewer than four arguments are given; the location
+# guard's own code on its refusal; git's own code on a git failure.
+#
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
+# FLOW_GUARD_SELF (the path this script was invoked by) is exported so the Go
+# guard execs $SCRIPT_DIR/check-planning-commit-location.sh from beside this
+# script.
 set -euo pipefail
-
-worktree="$1" name="$2" impl_msg="$3" plan_msg="$4"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/spec-root.sh"
-plan_dir="$(spec_root_leaf "$worktree")/changes/"
-
-"$SCRIPT_DIR/check-planning-commit-location.sh" "$worktree" "$name"
-
-git -C "$worktree" reset -q -- "$plan_dir"
-git -C "$worktree" add -A -- . ":(exclude)$plan_dir"
-shopt -s nullglob
-link_md_files=("$worktree/$plan_dir"*/link.md)
-shopt -u nullglob
-if [ "${#link_md_files[@]}" -gt 0 ]; then
-  git -C "$worktree" add -A -- "${plan_dir}*/link.md"
-fi
-git -C "$worktree" diff --cached --quiet \
-  || git -C "$worktree" commit -m "$impl_msg"
-git -C "$worktree" add -A
-git -C "$worktree" diff --cached --quiet \
-  || git -C "$worktree" commit -m "$plan_msg"
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "commit-split: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
+}
+[ -x "$SCRIPT_DIR/check-planning-commit-location.sh" ] || {
+  echo "commit-split: no executable check-planning-commit-location.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
+}
+FLOW_GUARD_SELF="${BASH_SOURCE[0]}"
+export FLOW_GUARD_SELF
+flow_guard_exec commit-split 2 "commit-split:" "$@"

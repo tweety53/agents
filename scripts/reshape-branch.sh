@@ -26,8 +26,8 @@
 # planning commit.
 #
 # THE WORKING TREE AND THE REAL INDEX ARE NEVER TOUCHED until the final
-# `reset --soft`: the rebuild writes trees through a scratch GIT_INDEX_FILE,
-# so a failure anywhere before that leaves the branch exactly as it was.
+# `reset --soft`, so a failure anywhere before that leaves the branch exactly
+# as it was.
 #
 # Planning commits run behind check-planning-commit-location.sh, and this
 # script rewrites them, so it calls that guard first and stops on its
@@ -37,52 +37,24 @@
 # and exits 0. Exits 2 with a reason on stderr on bad arguments or a base
 # that does not resolve, the guard's own code on a guard refusal, and git's
 # own code on a git failure.
+#
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
+# FLOW_GUARD_SELF (the path this script was invoked by) is exported so the Go
+# guard execs $SCRIPT_DIR/check-planning-commit-location.sh from beside this
+# script.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/spec-root.sh"
-
-[ "$#" -eq 3 ] || {
-  echo "usage: reshape-branch.sh <worktree> <name> <merge-base>" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "reshape-branch: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-WT="$1" NAME="$2" BASE="$3"
-
-"$SCRIPT_DIR/check-planning-commit-location.sh" "$WT" "$NAME"
-
-base_sha="$(git -C "$WT" rev-parse --verify --quiet "$BASE^{commit}")" || {
-  echo "reshape-branch.sh: base does not resolve to a commit: $BASE" >&2
+[ -x "$SCRIPT_DIR/check-planning-commit-location.sh" ] || {
+  echo "reshape-branch: no executable check-planning-commit-location.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-plan_dir="$(spec_root_leaf "$WT")/changes"
-
-plans="$(git -C "$WT" rev-list --reverse --no-merges "$base_sha..HEAD" -- "$plan_dir/")"
-
-scratch="$(mktemp -d "${TMPDIR:-/tmp}/reshape-branch.XXXXXX")"
-trap 'rm -rf "$scratch"' EXIT
-export GIT_INDEX_FILE="$scratch/index"
-
-tip="$base_sha"
-kept=0
-while IFS= read -r sha; do
-  [ -n "$sha" ] || continue
-  git -C "$WT" read-tree "$tip"
-  git -C "$WT" rm -r -q -f --cached --ignore-unmatch -- "$plan_dir/" >/dev/null
-  if git -C "$WT" cat-file -e "$sha:$plan_dir" 2>/dev/null; then
-    git -C "$WT" read-tree --prefix="$plan_dir/" "$sha:$plan_dir"
-  fi
-  tree="$(git -C "$WT" write-tree)"
-  tip="$(
-    GIT_AUTHOR_NAME="$(git -C "$WT" log -1 --format=%an "$sha")" \
-    GIT_AUTHOR_EMAIL="$(git -C "$WT" log -1 --format=%ae "$sha")" \
-    GIT_AUTHOR_DATE="$(git -C "$WT" log -1 --format=%aI "$sha")" \
-      git -C "$WT" commit-tree "$tree" -p "$tip" -F <(git -C "$WT" log -1 --format=%B "$sha")
-  )"
-  kept=$((kept + 1))
-done <<EOF_PLANS
-$plans
-EOF_PLANS
-
-unset GIT_INDEX_FILE
-git -C "$WT" reset -q --soft "$tip"
-printf 'RESHAPED: %s — %d planning commit(s) kept on %s\n' "$WT" "$kept" "${base_sha:0:12}"
+FLOW_GUARD_SELF="${BASH_SOURCE[0]}"
+export FLOW_GUARD_SELF
+flow_guard_exec reshape-branch 2 "reshape-branch:" "$@"

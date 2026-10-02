@@ -27,8 +27,7 @@ run_guard() {
 # Every case leaves one fixture directory behind, removed on exit including
 # on a failed assertion. An indexed array, not a space-separated string:
 # mktemp paths under TMPDIR may contain spaces, and word-splitting a string
-# would leak a fixture whose path split and `rm -rf` the fragments. Mirrors
-# test-commit-split.sh's own REPOS array / trap cleanup EXIT pattern.
+# would leak a fixture whose path split and `rm -rf` the fragments.
 FIXTURES=()
 cleanup() {
   [ "${#FIXTURES[@]}" -eq 0 ] && return 0
