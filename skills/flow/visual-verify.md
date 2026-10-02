@@ -11,7 +11,7 @@ this file.
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
 and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort
-`medium` through `subagent_type: flow-medium`, read from neither the settings store nor
+`low` through `subagent_type: flow-low`, read from neither the settings store nor
 `<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
 never falls back, because it is never resolved — the point is a predictable model for mechanical
 verification runs regardless of what the decision chose for any other dispatch. **The verifier is
@@ -21,7 +21,7 @@ instructions — says about browser-driving agents.**
 `flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
-tooling analysis** below. `subagent_type: flow-medium` (`agents/flow-medium.md`, effort `medium`), the Agent tool's
+tooling analysis** below. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
 literal `opus`, never a decision pair and never a session override — mapped on harness `zcode` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
@@ -59,7 +59,7 @@ own system prompt>`.
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
 **Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
-opus -effort medium`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
+opus -effort low`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
 more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
 

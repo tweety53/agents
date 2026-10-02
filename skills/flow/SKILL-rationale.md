@@ -1006,12 +1006,13 @@ earlier report, another reproduction) rather than by counting rounds. **Rejected
 that stops the stage when it is itself incomplete.** It re-creates the cap one level down; an
 incomplete remainder is dispatched again under the same no-progress rule.
 
-**The verifier runs on opus at `medium`, and no browser-driving rule moves it.** Both KAN-870
+**The verifier runs on opus at `low`, and no browser-driving rule moves it.** Both KAN-870
 verifiers ran on Sonnet — the operator's global instructions put browser-driving agents there —
-at effort `low`, and both stopped after the tests and the capture, listing the reading, composing
-and record-writing steps under "Not done". **A partial report is refused mechanically**
-(`check-verify-report.sh`), not by reading its prose: the parent had accepted one whose prose
-named the undone steps.
+and both stopped after the tests and the capture, listing the reading, composing and
+record-writing steps under "Not done". **Rejected — raising the verifier's effort to `medium`.**
+The operator kept it at `low`: completeness is enforced by the report guard, not by effort. **A
+partial report is refused mechanically** (`check-verify-report.sh`), not by reading its prose: the
+parent had accepted one whose prose named the undone steps.
 
 **Motion is recorded, not inferred from stills.** KAN-870's substance was motion — exits, slides,
 drag gestures, an entrance removed — and a still capture compared against a mockup has nothing to

@@ -90,7 +90,7 @@ panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review
 `model`/`effort` pair. On `micro`, `small` and `regular` that row dispatches `flow-low`
 (**The gated per-task reviewer**, section **4** below), and on a `default` panel a panel-bundle
 row does too, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
-row dispatches `flow-medium` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
+row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too.
 
 **Inline — the parent implements** below takes this same table minus the implementer and panel-fix
