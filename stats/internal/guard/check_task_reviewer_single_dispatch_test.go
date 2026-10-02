@@ -200,9 +200,9 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 				return p + "bundle task-5-reviewer carries 2 -retry dispatch(es) and no original -- a retry is never a bundle's only dispatch\n" +
 					p + "bundle task-4-reviewer carries 3 reviewer dispatches -- at most the original plus the handshake's one -retry\n"
 			}},
-		{"three original bundles on the last decision's class regular exit 1",
+		{"three original bundles on the newest decision's class regular exit 1",
 			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok, "task-5-reviewer", r, tok),
-				decisions: `[{"decision":{"class":"big"}},{"decision":{"class":"regular"}}]`}, 1, "",
+				decisions: `[{"decision":{"class":"regular"}},{"decision":{"class":"big"}}]`}, 1, "",
 			func(string) string {
 				return p + "class 'regular' carries 3 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer task-5-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular\n"
 			}},

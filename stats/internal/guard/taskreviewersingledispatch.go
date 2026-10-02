@@ -142,7 +142,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	// the bash blocked.
 	class := "big"
 	if out, _, rc := pcFlow(env, false, "record", "decisions", "-change", name, "-C", worktree); rc == 0 {
-		c, ok := trsdLastClass(out)
+		c, ok := trsdNewestClass(out)
 		if !ok {
 			fmt.Fprintf(stderr, "%sdecision output was JSON but not an array of decision rows -- cannot answer\n", trsdPrefix)
 			return 2
@@ -344,7 +344,7 @@ func trsdGroups(bundleLines, groupLines string) map[string]string {
 	return groupOf
 }
 
-// trsdLastClass is `[.[] | .decision.class // empty] | last // empty` under
+// trsdNewestClass is `[.[] | .decision.class // empty] | first // empty` under
 // jq -r, captured by `$(...)`: one output per input value, "" when there is
 // none. Output that is not JSON reads as "" (class `big`), as the bash's
 // `jq empty` gate did. JSON jq failed on -- a non-object row, a `.decision`
@@ -352,7 +352,9 @@ func trsdGroups(bundleLines, groupLines string) map[string]string {
 // array -- reports !ok, the caller's cannot-answer. A top-level object, which jq
 // iterated, is refused the same way, as pfdPanelFixKeys's comment explains:
 // the verb prints an array.
-func trsdLastClass(raw []byte) (string, bool) {
+// `flow record decisions` lists newest first, so `first` is the newest
+// decision -- a class raised on a later run is the one in force.
+func trsdNewestClass(raw []byte) (string, bool) {
 	vals, ok := pfdStream(raw)
 	if !ok {
 		return "", true
@@ -380,7 +382,7 @@ func trsdLastClass(raw []byte) (string, bool) {
 			default:
 				return "", false
 			}
-			if class != nil && class != false {
+			if class != nil && class != false && last == nil {
 				last = class
 			}
 		}

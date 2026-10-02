@@ -56,7 +56,7 @@
 # `skills/flow/brainstorm-planner.md`'s Decide step and implement.md's own
 # wave-grouping already use, never re-derived by this guard from the raw
 # markdown. On the decision's `class` `micro`, `small` or `regular` (read via `flow
-# record decisions -change <name> -C <worktree>`, the last entry's
+# record decisions -change <name> -C <worktree>`, the newest entry's -- the verb lists newest first --
 # `.decision.class`; a failed read, output that is not JSON, or no class
 # is treated as `big`, and JSON that is not an array of decision rows is a
 # cannot-answer, exit 2 -- `big` tolerates more bundles, so reading it as
