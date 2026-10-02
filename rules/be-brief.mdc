@@ -40,6 +40,9 @@ What the user needs from such a step reaches them once, in the final report.
 No acknowledgement lines either — "Noted", "Agreed", "Got it": the next action is the acknowledgement.
 The state is one of those five words and the line ends there: never `— done, landed as <sha>` or
 `— done, raised 2 Important`, never a state outside the five such as `fixing` or `dispatching`.
+One exception: a task a subagent is working names its phase in place of the state word, under that
+phase's emoji — `🔄 Task 30/31 (drawer drag release) — implementation`, `🔍 … — review-1`,
+`🔄 … — fix-1`, `<k>` the round — and a line prints each time a task enters a new phase.
 A unit whose state has not changed since its last status line is not printed again.
 A shell command's routine output that you do not need to read — per-item `updated:` lines, progress, counters — goes to `/dev/null`; errors stay visible.
 

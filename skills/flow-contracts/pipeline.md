@@ -152,8 +152,8 @@ start, with `project-get.sh <main-checkout> progress --enum quiet` (**Project co
 **With the mode on, the run writes no status prose of its own on a routine event** — dispatching a
 subagent, a subagent returning clean, sending a subagent a decision, waiting on a background agent,
 a guard passing, a commit landing. This suspends the per-unit and what-I-am-on lines of the
-"Keep the user posted" paragraph of `rules/be-brief.mdc` for the run, and nothing else in that
-rule: a turn still ends only where it says.
+"Keep the user posted" paragraph of `rules/be-brief.mdc` for the run — save a task's phase line
+below — and nothing else in that rule: a turn still ends only where it says.
 
 **It likewise writes nothing for** a bookkeeping note about a plan-field correction ("Q2
 re-captured unchanged, so its baseline is dropped from task 14's Files.") or an end-of-turn
@@ -165,6 +165,8 @@ text at all.
 
 **What still prints:**
 
+- one status line per task each time it enters a new phase — implementation, review-<k>, fix-<k>,
+  done — in the shape `rules/be-brief.mdc` states for a subagent's task;
 - a stop for the operator — a question, a `## Question` handback, a blocked step;
 - one line per auto-resolution taken, naming the question and the option (**Auto-resolution**,
   `skills/flow-contracts/operator-prompts.md`);
