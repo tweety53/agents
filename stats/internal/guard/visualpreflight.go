@@ -405,9 +405,13 @@ func vpMarkdown(rel string) bool {
 
 // vpConfigFile is whether a file is configuration-shaped: `.env*`, a
 // config-format extension, or `*.config.*`. Source files are not, so a
-// guard's own tests and fixtures never trigger check 3.
+// guard's own tests and fixtures never trigger check 3; nor is a
+// production file (`*.prod.*`), whose origins are never the workspace's.
 func vpConfigFile(rel string) bool {
 	base := filepath.Base(rel)
+	if strings.Contains(base, ".prod.") {
+		return false
+	}
 	return strings.HasPrefix(base, ".env") || vpConfigExt[strings.ToLower(filepath.Ext(base))] || strings.Contains(base, ".config.")
 }
 

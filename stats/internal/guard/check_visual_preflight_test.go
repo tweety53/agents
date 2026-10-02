@@ -314,6 +314,8 @@ func TestCheckVisualPreflightOrigins(t *testing.T) {
 			vpWant{code: 0, omits: []string{"FAIL:"}}},
 		{"source files excluded", map[string]string{"server/cors.go": "var allowed_origins = []string{\"http://localhost:8080\"}\n"},
 			vpWant{code: 0, omits: []string{"FAIL:"}}},
+		{"production config excluded", map[string]string{"docker-compose.prod.yml": "    ALLOWED_ORIGINS: \"https://example.test\"\n"},
+			vpWant{code: 0, omits: []string{"FAIL:"}}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

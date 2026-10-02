@@ -24,7 +24,8 @@
 #                 fails, unless the `## visual verification` `start` command
 #                 names the Variable or the resolved value.
 #   3. origins  — a configuration-shaped file (`.env*`, `*.json`, `*.y*ml`,
-#                 `*.toml`, `*.ini`, `*.properties`, `*.conf`, `*.config.*`)
+#                 `*.toml`, `*.ini`, `*.properties`, `*.conf`, `*.config.*`;
+#                 never a production `*.prod.*` file)
 #                 whose `allowed[_-]?origins` line or bracketed list names a
 #                 URL must name every app's origin.
 #   4. playwright — `@playwright/test` resolved by `node` from each app root
