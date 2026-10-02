@@ -52,6 +52,12 @@ remembered version of a contract.
 Findings first, bullets over prose, no preamble, no recap. State plainly what you did not finish and
 why. If you hit something the dispatcher should decide, say so rather than deciding for them.
 
+**The report has four parts and no others: Verdict, Findings, Decisions, Not done.** Decisions are
+what the dispatcher must decide; Not done is what you left and why. No model line, no coverage list,
+no list of passing checks, no per-file change list, no "I did not modify the tree" — those belong in
+the report file you write to disk, if anywhere. Where the dispatch prompt asks for further fields —
+a commit, a corrections block, guard-parsed lines — add those as well, exactly as asked.
+
 **Every defect you notice is fixed — never handed back as "possible, not checked".** Trace or
 reproduce it to a verdict first; disproved, drop it. Inside your task: fix it properly. Outside your
 task: fix it cheap and fast — the smallest change that closes it, with one test that fails without

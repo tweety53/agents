@@ -2,3 +2,17 @@
 Between status lines, say nothing.
 Never narrate routine mechanics — a rebase, a conflict resolved to one side, a check re-run, a fix the rules already require — and never explain why a step was taken.
 What the user needs from such a step reaches them once, in the final report.
+# Sentences added for the transcript audit of 2026-10-02: acknowledgements, status-line strictness, delta-only final reports, the four-part subagent report.
+**The final report carries only the delta.
+**The report has four parts and no others: Verdict, Findings, Decisions, Not done.
+A pending question or a still-running unit is stated once, not repeated in later turns.
+A unit whose state has not changed since its last status line is not printed again.
+Checks that all passed are one line, `Checks: green`; only a failed or skipped check gets a line of its own.
+Decisions are what the dispatcher must decide; Not done is what you left and why.
+Internal bookkeeping — finding ids, round numbers, tokens, symlinks, ref plumbing — appears only where the user must act on it.
+Never announce saving a memory.
+No acknowledgement lines either — "Noted", "Agreed", "Got it": the next action is the acknowledgement.
+No model line, no coverage list, no list of passing checks, no per-file change list, no "I did not modify the tree" — those belong in the report file you write to disk, if anywhere.
+Relaying a subagent's report, pass on what the user must decide, what failed and what is left open — never a re-telling of what the agent did, and never a per-file change list unless asked.
+The state is one of those five words and the line ends there: never `— done, landed as <sha>` or `— done, raised 2 Important`, never a state outside the five such as `fixing` or `dispatching`.
+Where the dispatch prompt asks for further fields — a commit, a corrections block, guard-parsed lines — add those as well, exactly as asked.
