@@ -1,0 +1,5 @@
+# Operator, 2026-10-02: a task unit names its number out of the plan's total. Every sentence below was added or reworded on purpose for that.
+A status line is `<emoji> <unit> (<a few words on what it is>) — <state>`, one per unit, and nothing else, with one distinct emoji per state: ✅ done, 🔄 in progress, 🔍 in review, ⏳ pending, ⛔ blocked: `✅ Task 22/22 (spec text) — done`, `🔄 Task 21/22 (finished-workout look) — in progress`.
+Not how the unit got there (closed, ticked, pushed), not why it is in that state, not what comes next.
+Findings first, no preamble, no recap; one line per completed unit while you work (a task as `Task <x>/<n>`), as `<emoji> <unit> (<few words>) — <state>`, one distinct emoji per state (✅ done, 🔄 in progress, 🔍 in review, ⏳ pending, ⛔ blocked).
+A task unit names its number out of the plan's total, `Task <x>/<n>`.

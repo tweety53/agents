@@ -32,8 +32,8 @@ was reached.
 
 A status line is `<emoji> <unit> (<a few words on what it is>) — <state>`, one per unit, and nothing else,
 with one distinct emoji per state: ✅ done, 🔄 in progress, 🔍 in review, ⏳ pending, ⛔ blocked:
-`✅ Task 22 (spec text) — done`, `🔄 Task 21 (finished-workout look) — in progress`. Not how the unit got
-there (closed, ticked, pushed), not why it is in that state, not what comes next.
+`✅ Task 22/22 (spec text) — done`, `🔄 Task 21/22 (finished-workout look) — in progress`. Not how the unit got
+there (closed, ticked, pushed), not why it is in that state, not what comes next. A task unit names its number out of the plan's total, `Task <x>/<n>`.
 
 **Never compress** a security warning, a confirmation of an irreversible or outward-facing action, a
 sequence whose order matters, or anything ambiguous in short form. Brevity means no wasted words,
