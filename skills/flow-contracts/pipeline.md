@@ -243,6 +243,11 @@ Next:
   `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup
   leftover names itself too, for the same reason: the operator clears what remains and runs it
   again.
+- **A red check is fixed, never handed off.** Every lint, guard, test or build the run executes
+  that comes back red — the change's own failure or one already red on the base — is fixed in
+  that run, at its root cause (a flake per `rules/fix-determinism-at-the-source.mdc`), before the
+  handoff prints. The handoff never asks whether to fix it. Only a fix outside the run's reach —
+  production, a repository the run was not given — is reported, with the evidence.
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
   steps, or repeat content available at a path you just gave.
 - **Link, never paste.** Diffs and plans are given as absolute paths.
@@ -331,7 +336,8 @@ here rather than in each artifact-writing skill.
 
 ## IntelliJ commands
 
-Every state that waits on a human must print a copy-paste command in its handoff:
+Every state that waits on a human prints a copy-paste command in its handoff, save where the table
+below says none:
 
 ```bash
 open -na "IntelliJ IDEA" --args "<absolute path>"
@@ -342,7 +348,7 @@ Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH.
 
 | State | Path to open |
 |-------|--------------|
-| `STARTED` | apply worktree root — created inside `flow.kickoff`, so it exists at every `STARTED` handoff |
+| `STARTED` | none — the `STARTED` handoff is the summary, the decision and the next commands alone |
 | `IN_PROGRESS` | apply worktree root — `/flow-status`'s regenerated block only; `/flow`'s own handoff omits it |
 
 Paths are absolute, resolved from `git worktree list`. Never emit a relative path.

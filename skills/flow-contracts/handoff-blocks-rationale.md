@@ -17,17 +17,11 @@ detail of it.
 
 ### Why the open-questions count is on-disk, not run-only
 
-It is derived from an
-artifact on disk — the entries under `## Open questions` in the change's design whose status is
-still `open` — exactly as the decisions count beside it in the same `Recorded` line is, so
-`/flow-status <name>` regenerates it rather than omitting it. The `Recorded` line sits next to the
-`Jira` line and is the opposite case to it: what makes `Jira` run-only is that nothing on disk holds
-it, and that test is about where the value lives, not about how close it sits to a line that failed
-it. A count that has changed since `/flow`'s creating run printed it — a revision round answered a question
-and moved the entry to `answered by <decision-id>` — is this field working: it reports what is open
-now, not what was open then. Both the decisions count and the open-questions count read `none` when
-zero, by the missing-rather-than-dropped rule; the fold moved that wording out of the inline
-placeholder and into this paragraph, which is a layout change and not a content one.
+It is derived from an artifact on disk — the entries under `## Open questions` in the change's
+design whose status is still `open` — so `/flow-status <name>` regenerates it rather than omitting
+it. What makes `Jira` run-only is that nothing on disk holds it. A line that has changed since
+`/flow`'s creating run printed it — a revision round answered a question — is this field working:
+it reports what is open now, not what was open then.
 
 ### Why the pre-check must run before the ancestor test
 

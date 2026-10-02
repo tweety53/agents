@@ -193,8 +193,6 @@ not assert against a description read earlier in the run — at resolution, at t
 a search returned the issue. Re-read,
 re-assert, write — with as little as possible between the read and the write.
 
-**Echo the pre-edit description into the `STARTED` handoff**, verbatim in a fenced block, on a
-creating run that writes **the change's own linked issue** description. Every
-append is likewise reported in that command's handoff so it can be corrected — in an
-`IN_PROGRESS` handoff as one `**Summary:**` bullet naming the issue and the appended line, with no
-echo.
+**Every append is reported in that command's handoff so it can be corrected** — one line naming
+the issue and the appended line, never an echo of the description: the `STARTED` handoff's
+`**Jira:**` line, or one `**Summary:**` bullet in an `IN_PROGRESS` handoff.

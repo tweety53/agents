@@ -205,7 +205,7 @@ together. A round that answers the question sets that entry's `**Status:**` to `
 once recorded.**
 
 `STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
-`STARTED` handoff prints at the end of the run, so its `Recorded` line counts what this section holds
+`STARTED` handoff prints at the end of the run, so its `Open questions` line shows what this section holds
 (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
 
 ```bash
@@ -500,8 +500,8 @@ do: the complexity of its tasks, the time and space
 complexity of the code it writes or reviews, and the scalability the change has to hold up under.
 A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency
 seam, a data-model change or a performance-sensitive path sits at the expensive end; nothing in
-between is a default. Each pair carries a one-line `reason` beside it in the JSON and in the
-`## Decision` block's rule cell. **On harness `zcode` the chosen pair is recorded as chosen and
+between is a default. Each pair carries a one-line `reason` beside it in the JSON; the `## Decision`
+block prints it only for a group whose pair departs from the implementer's. **On harness `zcode` the chosen pair is recorded as chosen and
 replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
 
 An experimental slot runs on the model/effort of the dispatch it joins; its roster entry's
@@ -531,8 +531,8 @@ overrides to a *result*, each replacing the pair(s) it names for this run; empty
 given).
 
 Once the Decide step completes, render the run's own output from that file and print its output
-verbatim — the `planning:`/`reviewers:` lines above the `## Decision` block, the one place these
-choices appear in a run, never printed twice:
+verbatim — the `## Decision` block, one short line per choice; the `STARTED` handoff prints the
+same output again (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`):
 
 ```bash
 flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>' -reviewers '<REVIEWERS>'

@@ -139,26 +139,20 @@ the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implemen
 
 Defined by **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`), cited here and never loaded by this run.
 
-**A value the state file does not carry is reported as missing, not dropped.**
-
 ```text
-## Proposal ready — review required
+## Plan ready
 
-**Change:** <name>
-**Artifact:** <artifactUrl, or "missing">
-**Recorded:** <N> decisions · <N> open questions · effort <level, or "not recorded — planned at default"> · model <models.default, or "not recorded">
-**Jira:** <issue key and the transition made, or "none linked", or a skipped-with-reason line>
-**Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block>
+<2–4 lines: what the plan implements, in product terms, from `proposal.md`'s `## What changes`>
 
-Open in IntelliJ:
-open -na "IntelliJ IDEA" --args "<absolute apply-worktree path>"
+<the `flow decision render` output for the change's latest recorded decision, verbatim>
 
-<what the operator does next>
+**Open questions:** <each still-open entry's ID and question, one line each — printed only when `design.md` records one>
+**Jira:** <the skip reason, or the line appended to the description — printed only when a Jira call failed or the run appended>
 
 Next:
 /clear
 /flow <name>
 ```
 
-**Both the decisions count and the open-questions count render `none` when zero — never `0` — by
-the missing-rather-than-dropped rule above.**
+**Only what the operator acts on** — on a clean run the block is the summary, the decision and
+the next commands; a conditional line prints only when its condition holds.

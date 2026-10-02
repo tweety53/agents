@@ -83,7 +83,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
   (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
-  `## Decision` block under its `planning:`/`reviewers:` lines.
+  `## Decision` block.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
   written except its task close: `close-task.sh` is not run — its fields guard, gate and tick read a spectre plan,
   and its planning-paths guard a planning tree, neither of which flow-fast writes. A group closes on the implementer's
