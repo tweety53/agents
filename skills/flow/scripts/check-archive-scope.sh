@@ -1,1 +1,0 @@
-../../../scripts/check-archive-scope.sh
