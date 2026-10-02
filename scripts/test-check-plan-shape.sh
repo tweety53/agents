@@ -860,6 +860,39 @@ run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 32: a continuation-line repair form over a test-shaped Files entry passes" || fail "case 32: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 32: no output" || fail "case 32: expected no output, got: $OUT"
 
+# ===========================================================================
+# Cases 33-34 (KAN-794, panel round 0 F1): the repair annotation's documented
+# NEGATIVE shapes stay F4 hits — prose between `none` and the phrase
+# (`none added — repairs existing tests: ...`), and the phrase without its
+# required colon. The exemption is the annotation's exact shape, never a
+# substring of it; loosening REPAIRS_OPEN_RE past either must fail here.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Prose before the repair phrase\n\n'
+  printf '**Files:** `scripts/test-check-foo.sh`\n\n'
+  printf '**Tests:** none added — repairs existing tests: the fixture-collision cases\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 33: prose before the repair phrase still fails F4" || fail "case 33: rc=$RC out=$OUT"
+case "$OUT" in
+  *"contradiction between the opt-out"*) pass "case 33: names the contradiction" ;;
+  *) fail "case 33: expected the F4 contradiction message, out=$OUT" ;;
+esac
+
+new_fixture
+{
+  printf -- '- [ ] 1. Repair phrase without its colon\n\n'
+  printf '**Files:** `scripts/test-check-foo.sh`\n\n'
+  printf '**Tests:** none — repairs existing tests the fixture-collision cases\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 34: the repair phrase without its colon still fails F4" || fail "case 34: rc=$RC out=$OUT"
+case "$OUT" in
+  *"contradiction between the opt-out"*) pass "case 34: names the contradiction" ;;
+  *) fail "case 34: expected the F4 contradiction message, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
