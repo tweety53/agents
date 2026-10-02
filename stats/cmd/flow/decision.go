@@ -17,7 +17,7 @@ one decision.json, the format brainstorm-planner.md's Decide step prints.
 It reads only the file: no store, no network.
 
 Exit codes: 0 printed; 2 usage error, an unreadable file, or a body that is
-not a decision or lacks a required field.
+not a decision, lacks a required field, or carries a malformed visual.
 `
 
 // runDecision implements `flow decision render`. Rendering is a pure
@@ -126,7 +126,20 @@ type dDecision struct {
 	GroupsMechanical [][]json.RawMessage `json:"groups_mechanical"`
 	GroupsOverride   *string             `json:"groups_override"`
 	GroupsReason     string              `json:"groups_reason"`
+	Visual           *dVisual            `json:"visual"`
 }
+
+// dVisual is Decide's visual-verification decision. Optional, so a decision
+// written before it existed -- or by a caller that never runs
+// flow.visual-verify -- still renders; absent reads as `required`
+// everywhere it is consulted.
+type dVisual struct {
+	Verify string `json:"verify"`
+	Reason string `json:"reason"`
+}
+
+// dVisualVerify is the closed set `visual.verify` takes.
+var dVisualVerify = map[string]bool{"required": true, "skipped": true, "not configured": true}
 
 type dPanel struct {
 	Compact bool   `json:"compact"`
@@ -241,6 +254,14 @@ func renderDecision(body []byte, sessionModel, reviewers string) (string, error)
 	if err := json.Unmarshal(body, &d); err != nil {
 		return "", fmt.Errorf("not a decision: %v", err)
 	}
+	if v := d.Visual; v != nil {
+		if !dVisualVerify[v.Verify] {
+			return "", fmt.Errorf("visual.verify %q is not one of required, skipped, not configured", v.Verify)
+		}
+		if strings.TrimSpace(v.Reason) == "" {
+			return "", fmt.Errorf("visual.reason is required")
+		}
+	}
 	var panelDefault string
 	var p dPanel
 	if json.Unmarshal(d.Panel, &panelDefault) != nil {
@@ -346,6 +367,9 @@ func renderDecision(body []byte, sessionModel, reviewers string) (string, error)
 			ids := dIDs(g.Bundles)
 			row("↳ group "+ids, dPair{Model: g.Model, Effort: g.Effort, Reason: g.Reason}.rule(), ids+suffix)
 		}
+	}
+	if d.Visual != nil {
+		row("visual verification", d.Visual.Reason, d.Visual.Verify)
 	}
 	return b.String(), nil
 }

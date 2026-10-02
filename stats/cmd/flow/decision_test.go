@@ -42,8 +42,8 @@ const decisionSettings = "\n| Setting | Rule | Result |\n|---|---|---|\n"
 
 // TestDecisionRenderGolden pins every rule of brainstorm-planner.md's worked
 // `## Decision` format: micro (the three roll rows not consulted, no ↳ row,
-// the `default` panel), a small inline run (string implementer and fixer,
-// static grouping), a regular free grouping (a full roster, an experimental
+// the `default` panel, a `required` visual row), a small inline run (string
+// implementer and fixer, static grouping, kan-863's `skipped` visual row), a regular free grouping (a full roster, an experimental
 // slot joining the second dispatch, an override), a big sdd run with a split
 // group (object pairs, the (mechanical: …; override: …) suffix), and a big
 // run whose experimental slot was skipped for the bundle cap with mechanical
@@ -59,6 +59,7 @@ func TestDecisionRenderGolden(t *testing.T) {
 			"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",
 			"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",
 			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,
+			"visual":{"verify":"required","reason":"the Files list carries a page component"},
 			"parent":{"model":"claude-opus-5-5","effort":"unknown"},"overrides":[]}`,
 			decisionPreamble +
 				"| class | mechanical micro | micro (override: none) |\n" +
@@ -71,14 +72,16 @@ func TestDecisionRenderGolden(t *testing.T) {
 				"| execution mode | class micro | inline |\n" +
 				"| implementer model | — | skipped — inline |\n" +
 				"| review panel | class micro | default |\n" +
-				"| implementer groups | — | skipped — inline |\n"},
+				"| implementer groups | — | skipped — inline |\n" +
+				"| visual verification | the Files list carries a page component | required |\n"},
 		{"small inline", `{"class":"small","classMechanical":"small","override":null,` + inputs(2, 3, "false") + `,
 			"rolls":{"compact":85,"experimental":84,"bundle":17,"effort":40},"execution":"inline",
 			"implementer":"skipped — inline","fixer":"skipped — inline",
 			"panel":{"compact":true,"rerun":"delta","roster":[{"slot":"primary","experimental":false},{"slot":"principles","experimental":false}],
 				"grouping":"static","dispatches":[{"slots":["primary","principles"],"model":"opus","effort":"medium","reason":"git refusals punish a sloppy reading"}],
 				"rerun_dispatch":{"model":"opus","effort":"low","reason":"a delta re-run reads a fix against its finding"},"grouping_reason":null},
-			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null}`,
+			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,
+			"visual":{"verify":"skipped","reason":"actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses"}}`,
 			decisionPreamble +
 				"| class | mechanical small | small (override: none) |\n" +
 				"| inputs | plan-class.sh | tasks 2 · files 3 · repos 1 · migration no · spec no · red no · unverified no |\n" +
@@ -93,7 +96,8 @@ func TestDecisionRenderGolden(t *testing.T) {
 				"| review panel | class small | compact · delta rerun |\n" +
 				"| ↳ dispatch 1 | opus / medium — git refusals punish a sloppy reading | primary+principles |\n" +
 				"| ↳ rerun | opus / low — a delta re-run reads a fix against its finding | every fix-round re-run, one role per dispatch |\n" +
-				"| implementer groups | — | skipped — inline |\n"},
+				"| implementer groups | — | skipped — inline |\n" +
+				"| visual verification | actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses | skipped |\n"},
 		{"regular free grouping", `{"class":"regular","classMechanical":"small","override":"touches the store seam",` + inputs(6, 12, "true") + `,
 			"rolls":{"compact":95,"experimental":12,"bundle":60,"effort":85},"execution":"inline",
 			"implementer":"skipped — inline","fixer":"skipped — inline",
@@ -187,8 +191,8 @@ func TestDecisionRenderGolden(t *testing.T) {
 }
 
 // TestDecisionRenderRefusals pins exit 2 with nothing on stdout for a usage
-// error, an unreadable file, a body that is not a decision, and a decision
-// missing a required field.
+// error, an unreadable file, a body that is not a decision, a decision
+// missing a required field, and a malformed visual.
 func TestDecisionRenderRefusals(t *testing.T) {
 	good := `{"class":"micro","classMechanical":"micro","override":null,
 		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
@@ -209,6 +213,8 @@ func TestDecisionRenderRefusals(t *testing.T) {
 		{"not JSON", "{", append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: not a decision: unexpected end of JSON input\n"},
 		{"missing rolls.bundle", strings.Replace(good, `,"bundle":43`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"rolls.bundle\"\n"},
 		{"missing groups", strings.Replace(good, `,"groups":null`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"groups\"\n"},
+		{"visual.verify outside the set", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skip","reason":"x"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.verify \"skip\" is not one of required, skipped, not configured\n"},
+		{"visual with a blank reason", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skipped","reason":" "}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.reason is required\n"},
 		{"missing panel.rerun_dispatch", strings.Replace(good, `"panel":"default"`, `"panel":{"compact":true,"rerun":"delta","grouping":"static","dispatches":[]}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"panel.rerun_dispatch\"\n"},
 	}
 	for _, c := range cases {

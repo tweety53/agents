@@ -962,3 +962,28 @@ new per-dispatch roll:** the planner would have to hash each dispatch's own key,
 per-change roll avoids. **Rejected — reusing an existing roll with a different threshold:** it
 would tie effort to roster size or grouping. The rerun pair stays at its fixed `low`, since a
 re-run reads a delta and is outside what the operator asked to change.
+
+## brainstorm-planner.md — Decide, step 5 visual verification (visual-verify-decided-at-decide)
+
+`check-visual-verify-dispatched.sh` fires `VISUAL-VERIFY-MISSING` whenever a diff touches a declared
+`ui paths` glob and no verifier dispatch is recorded. It exists because of kan-30, where a run wrote
+`flow.visual-verify`'s marks around no verifier and shipped broken screens. A glob is coarse,
+though: gymie declares `src/gateway/src/main/**`, so kan-863's actuator-only scrape-token filter
+matched it, the implement run decided mid-run that there was no UI surface and skipped silently, and
+integrate then put the three-course unfinished-work question to the operator over a verification
+nothing could have needed; kan-866 hit the same false positive. Both failures are one defect — the
+"is visual verification needed?" judgement was made nowhere visible: implicitly by the glob, or
+silently by an implementing agent.
+
+The judgement moves to Decide, beside the other per-change decisions, where it is recorded in
+`decision.json`, rendered as a row of the `## Decision` block and approved at the plan gate. That
+keeps kan-30's guarantee — no skip the operator did not see — while letting an obvious no-UI change
+skip without a prompt. The integrate guard accepts the recorded skip as `VISUAL-VERIFY-OK: skipped
+at Decide — <reason>`; `required` with no verifier dispatch stays `MISSING`, now a real signal (the
+plan said required and nobody verified). A fix run passes no plan gate, so it may raise `skipped`
+to `required` but never lower it — a lowering there would be exactly the unseen skip kan-30 was.
+`visual` is optional in the record, and absent reads as `required`, so a change decided before the
+field existed, and `/flow-fast`, which never runs `flow.visual-verify`, behave as before.
+**Rejected by the operator — turning `VISUAL-VERIFY-MISSING` into a report-only line:** it removed
+the prompt for every change, the kan-30 shape included, where the operator wanted the judgement made
+at planning, visible and gated.

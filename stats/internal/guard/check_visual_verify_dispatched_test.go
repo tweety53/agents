@@ -137,6 +137,8 @@ type vvdCase struct {
 	repo       string // vvdMasters key copied into the case's worktree
 	dispatches []byte
 	dErr       error
+	decisions  []byte // Env.Decisions' answer; nil is "[]", no decision recorded
+	decErr     error  // Env.Decisions fails
 	flags      []byte // Env.Verdicts' answer; nil is "[]\n", the harness's flags.json
 	fErr       error  // Env.Verdicts fails
 	vErr       error  // Env.Verdict refuses the row
@@ -203,6 +205,13 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 			fmt.Fprintf(&calls, "record dispatches -change %s -C %s\n", change, wt)
 			return c.dispatches, c.dErr
 		}
+		env.Decisions = func(change string) ([]byte, error) {
+			fmt.Fprintf(&calls, "record decisions -change %s -C %s\n", change, wt)
+			if c.decisions == nil {
+				return []byte("[]"), c.decErr
+			}
+			return c.decisions, c.decErr
+		}
 		env.Verdict = func(change, guard, worktree, verdict string) error {
 			fmt.Fprintf(&calls, "record verdict -change %s -guard %s -worktree %s -verdict %s -C %s\n", change, guard, worktree, verdict, wt)
 			return c.vErr
@@ -229,11 +238,15 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 }
 
 // vvdCalls is the store calls a run through to a verdict makes, in order:
-// the dispatches read, the verdict row, and -- with hint -- the
-// false-positive read MISSING makes.
-func vvdCalls(r vvdResult, verdict string, hint bool) string {
-	s := "record dispatches -change demo -C " + r.wt + "\n" +
-		"record verdict -change demo -guard check-visual-verify-dispatched -worktree " + r.wt + " -verdict " + verdict + " -C " + r.wt + "\n"
+// the dispatches read, -- with decided -- the decisions read a run with no
+// verifier makes, the verdict row, and -- with hint -- the false-positive
+// read MISSING makes.
+func vvdCalls(r vvdResult, verdict string, decided, hint bool) string {
+	s := "record dispatches -change demo -C " + r.wt + "\n"
+	if decided {
+		s += "record decisions -change demo -C " + r.wt + "\n"
+	}
+	s += "record verdict -change demo -guard check-visual-verify-dispatched -worktree " + r.wt + " -verdict " + verdict + " -C " + r.wt + "\n"
 	if hint {
 		s += "record verdicts -guard check-visual-verify-dispatched -false-positive -C " + r.wt + "\n"
 	}
@@ -247,6 +260,7 @@ func vvdCalls(r vvdResult, verdict string, hint bool) string {
 func vvdFlowRows(rows, flags string) string {
 	return "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$(dirname -- \"$0\")/args\"\n" +
 		"if [ \"${1:-}\" = record ] && [ \"${2:-}\" = dispatches ]; then\n  printf '%s' '" + rows + "'\n  exit 0\nfi\n" +
+		"if [ \"${1:-}\" = record ] && [ \"${2:-}\" = decisions ]; then\n  printf '%s' '[]'\n  exit 0\nfi\n" +
 		"if [ \"${1:-}\" = record ] && [ \"${2:-}\" = verdicts ]; then\n  printf '%s' '" + flags + "'\n  exit 0\nfi\n" +
 		"echo 'stub flow: refused'\necho 'stub flow: refused' >&2\nexit 2\n"
 }
@@ -268,8 +282,15 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 		}
 	}
 	flagHint := hint("1", "the verifier ran; the mark was lost to a session restart (demo, 2026-09-20)")
-	okCalls := func(r vvdResult) string { return vvdCalls(r, strings.TrimSuffix(vvdOK, "\n"), false) }
-	missingCalls := func(r vvdResult) string { return vvdCalls(r, strings.TrimSuffix(vvdMissing, "\n"), true) }
+	okCalls := func(r vvdResult) string { return vvdCalls(r, strings.TrimSuffix(vvdOK, "\n"), false, false) }
+	missingCalls := func(r vvdResult) string { return vvdCalls(r, strings.TrimSuffix(vvdMissing, "\n"), true, true) }
+	decision := func(visual string) []byte {
+		return []byte(`[{"id":2,"decision":{"class":"small","visual":` + visual + `}},{"id":1,"decision":{"class":"small","visual":{"verify":"required","reason":"older row"}}}]`)
+	}
+	const skipReason = "actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses"
+	vvdSkipped := "VISUAL-VERIFY-OK: skipped at Decide — " + skipReason + "\n"
+	skippedCalls := func(r vvdResult) string { return vvdCalls(r, strings.TrimSuffix(vvdSkipped, "\n"), true, false) }
+	badDecision := p + "decision rows were not readable JSON — cannot answer\n"
 	none := func(vvdResult) string { return "" }
 	refused := errors.New("stub flow: refused")
 	cases := []struct {
@@ -337,6 +358,35 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 		{"case 12a: the verdict is intact", vvdCase{dispatches: vvdRows("visual-verify", v, done), vErr: refused}, 0, vvdOK, nil, nil},
 		{"case 12b: a refused write leaves the MISSING verdict standing", vvdCase{dispatches: vvdRows("visual-verify", "reviewer", done), vErr: refused}, 1, vvdMissing, nil, missingCalls},
 		{"case 12b: the verdict is intact", vvdCase{dispatches: vvdRows("visual-verify", "reviewer", done), vErr: refused}, 1, vvdMissing, nil, nil},
+
+		// ---- a visual-verification decision recorded at Decide ----------
+		{"skipped at Decide with no verifier is OK, exit 0",
+			vvdCase{dispatches: []byte("[]"), decisions: decision(`{"verify":"skipped","reason":"` + skipReason + `"}`)}, 0, vvdSkipped, nil, skippedCalls},
+		{"a recorded verifier is OK before any decisions read",
+			vvdCase{dispatches: vvdRows("visual-verify", v, done), decErr: refused}, 0, vvdOK, nil, okCalls},
+		{"required at Decide with no verifier stays MISSING",
+			vvdCase{dispatches: []byte("[]"), decisions: decision(`{"verify":"required","reason":"gateway CORS change the SPA calls"}`)}, 1, vvdMissing, nil, missingCalls},
+		{"not configured at Decide with no verifier stays MISSING",
+			vvdCase{dispatches: []byte("[]"), decisions: decision(`{"verify":"not configured","reason":"no section"}`)}, 1, vvdMissing, nil, missingCalls},
+		{"only the newest decision row counts",
+			vvdCase{dispatches: []byte("[]"), decisions: []byte(`[{"decision":{"visual":{"verify":"required","reason":"fix touched a page"}}},{"decision":{"visual":{"verify":"skipped","reason":"x"}}}]`)}, 1, vvdMissing, nil, missingCalls},
+		{"a decision with no visual field (an older change) stays MISSING",
+			vvdCase{dispatches: []byte("[]"), decisions: []byte(`[{"decision":{"class":"small"}}]`)}, 1, vvdMissing, nil, missingCalls},
+		{"skipped with a blank reason is not a skip",
+			vvdCase{dispatches: []byte("[]"), decisions: decision(`{"verify":"skipped","reason":"  "}`)}, 1, vvdMissing, nil, nil},
+		{"a malformed visual value is not a skip",
+			vvdCase{dispatches: []byte("[]"), decisions: decision(`"skipped"`)}, 1, vvdMissing, nil, nil},
+		{"a multi-line reason folds onto the one verdict line",
+			vvdCase{dispatches: []byte("[]"), decisions: decision(`{"verify":"skipped","reason":"actuator-only filter and deploy config;\nno page, no response a page consumes, no CORS/route the frontend uses"}`)}, 0, vvdSkipped, nil, nil},
+		{"an unreachable decisions read exits 2, never read as skipped",
+			vvdCase{dispatches: []byte("[]"), decErr: errors.New("flow exit 1")}, 2, "",
+			func(vvdResult) string { return p + "flow record decisions failed for 'demo' — cannot answer\n" }, nil},
+		{"non-JSON decisions exit 2",
+			vvdCase{dispatches: []byte("[]"), decisions: []byte("sorry")}, 2, "", func(vvdResult) string { return badDecision }, nil},
+		{"a non-object newest decision row exits 2",
+			vvdCase{dispatches: []byte("[]"), decisions: []byte(`["skipped"]`)}, 2, "", func(vvdResult) string { return badDecision }, nil},
+		{"real flow on PATH answers the decisions read",
+			vvdCase{flowStub: "#!/usr/bin/env bash\nif [ \"$2\" = dispatches ]; then printf '[]'; exit 0; fi\nif [ \"$2\" = decisions ]; then printf '%s' '[{\"decision\":{\"visual\":{\"verify\":\"skipped\",\"reason\":\"" + skipReason + "\"}}}]'; exit 0; fi\nexit 2\n"}, 0, vvdSkipped, nil, nil},
 
 		// ---- branches the harness never reached, pinned from the bash -----
 		{"an ended row with an empty-string outcome is unclosed evidence",

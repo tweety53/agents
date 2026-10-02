@@ -15,7 +15,8 @@ import (
 // stdout, VISUAL-VERIFY-OK (exit 0) or VISUAL-VERIFY-MISSING (exit 1), or
 // exit 2 when it cannot answer. The trigger question is visualTrigger
 // (visualtrigger.go), evaluated in-process; the dispatch read
-// is Env.Dispatches when set, else `flow record dispatches`; the verdict
+// is Env.Dispatches when set, else `flow record dispatches`, and the
+// decisions read Env.Decisions or `flow record decisions`; the verdict
 // write and the prior-false-positive read are Env.Verdict and Env.Verdicts
 // the same way. The reasoning for each branch, moved here from the bash body
 // it replaced (2056def4, KAN-809's last commit to it), sits beside the code
@@ -135,6 +136,27 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		fmt.Fprintln(stdout, verdict)
 		return 0
 	}
+
+	// NO VERIFIER, BUT THE NEWEST DECISION SKIPPED IT AT DECIDE: the
+	// operator saw that row and its reason at the plan gate, so the skip is
+	// not silent (kan-30's failure) and is not this guard's to second-guess.
+	// The read fails closed exactly as the dispatch read does.
+	decisions, err := pfdRead(env, env.Decisions, "decisions", name, worktree)
+	if err != nil {
+		fmt.Fprintf(stderr, "%sflow record decisions failed for '%s' — cannot answer\n", vvdPrefix, name)
+		return 2
+	}
+	reason, skipped, ok := vvdSkippedAtDecide(decisions)
+	if !ok {
+		fmt.Fprintf(stderr, "%sdecision rows were not readable JSON — cannot answer\n", vvdPrefix)
+		return 2
+	}
+	if skipped {
+		verdict := "VISUAL-VERIFY-OK: skipped at Decide — " + reason
+		record(verdict)
+		fmt.Fprintln(stdout, verdict)
+		return 0
+	}
 	verdict := "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '" + name + "' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
 	record(verdict)
 	var prior []byte
@@ -153,6 +175,48 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	}
 	fmt.Fprintln(stdout, verdict)
 	return 1
+}
+
+// vvdSkippedAtDecide reads `flow record decisions`' answer, newest row
+// first: skipped only when that row's decision records `visual.verify`
+// exactly `skipped` with a non-empty string `reason`. Every other readable
+// shape -- no rows (a change decided before the field existed), no `visual`,
+// `required`, `not configured`, a malformed value -- is not skipped, so the
+// guard falls through to MISSING as it always did. !ok is cannot-answer:
+// not one JSON array, or a newest row that is not an object.
+func vvdSkippedAtDecide(raw []byte) (string, bool, bool) {
+	var rows []json.RawMessage
+	if err := json.Unmarshal(raw, &rows); err != nil || rows == nil {
+		return "", false, false
+	}
+	if len(rows) == 0 {
+		return "", false, true
+	}
+	var row struct {
+		Decision struct {
+			Visual struct {
+				Verify string `json:"verify"`
+				Reason string `json:"reason"`
+			} `json:"visual"`
+		} `json:"decision"`
+	}
+	if !isJSONObject(rows[0]) {
+		return "", false, false
+	}
+	if json.Unmarshal(rows[0], &row) != nil {
+		// A row whose decision or visual is not the shape above is not a skip.
+		return "", false, true
+	}
+	v := row.Decision.Visual
+	// One verdict line: a reason spanning lines is folded onto it.
+	reason := strings.Join(strings.Fields(v.Reason), " ")
+	return reason, v.Verify == "skipped" && reason != "", true
+}
+
+// isJSONObject reports whether raw holds a JSON object.
+func isJSONObject(raw json.RawMessage) bool {
+	t := bytes.TrimSpace(raw)
+	return len(t) > 0 && t[0] == '{'
 }
 
 // vvdPriorFalsePositives is prior_false_positives_hint's two jq reads over

@@ -173,6 +173,17 @@ this pipeline restates it. Resolve once per worktree in this run's resolved set,
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
 
+**A `skipped` decision ends the stage at step 2.** When this run's decision
+(`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 5 of
+**Decide**, `skills/flow/brainstorm-planner.md`), every worktree surviving step 2 prints
+`Visual: skipped at Decide — <reason>`, nothing is dispatched, and the stage closes:
+
+```bash
+flow stage end -command '/flow' -stage flow.visual-verify -outcome skipped <name>
+```
+
+`required`, `not configured` or no `visual` at all takes the load below, unchanged.
+
 **Load `skills/flow/visual-verify.md`** once at least one worktree survives step 2, and run it
 from step 3 for every surviving worktree — it carries **The verifier dispatch**, steps 3–13, this
 stage's `## Report`, **Blocking**, and this stage's `end` mark. When no worktree survives step 2,

@@ -453,10 +453,26 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    group carrying the change's hardest seam one step up), the reason in that group's own `reason`.
    `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
+5. **visual verification** — on every class, `micro` included: it judges what the change can
+   alter, not what its run costs. `visual` is `{verify, reason}`. `not configured` when
+   `<project>/.flow/project.md` declares no `## visual verification` section, recorded without
+   choosing. Otherwise judge from the plan's `**Files:**` whether anything a user sees can change —
+   a page, a response a page consumes, the CORS, auth or routing the frontend depends on:
+   `required` when it can, `skipped` when it cannot, the `reason` naming why. A path inside a
+   declared `ui paths` glob is not by itself a reason for `required`, since a glob is coarse;
+   `required` answers genuine doubt, never an obvious no-UI change. Worked example, gymie kan-863:
+   `**Files:**` a gateway `MetricsScrapeTokenFilter` matching only `/actuator/prometheus|metrics`,
+   management config, the Caddyfile, deploy workflows and tests — all inside the declared
+   `src/gateway/src/main/**` glob, yet nothing a user sees can change → `skipped`, reason
+   "actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route
+   the frontend uses". Its contrast: a gateway CORS rule or route the frontend calls →
+   `required`. A fix run, which passes no plan gate, may raise `skipped` to `required` and never
+   lowers `required` to `skipped` — a decision row with no `visual` counts as `required`. What
+   `skipped` does is **Visual verification** (`skills/flow/verify-and-handoff.md`).
 
 **The micro row** records defaults, never choices: what it skips is every roster, model/effort and
 grouping choice, and every roll the script printed; what it never skips is the decision record
-itself, the verify stage, or the self-review.
+itself, step 5's visual judgement, the verify stage, or the self-review.
 
 #### Model and effort
 
@@ -508,7 +524,8 @@ recorded),
 skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
-`groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
+`groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object
+`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
 overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was
 given).
@@ -522,7 +539,7 @@ flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -sessio
 ```
 
 It exits 0 on a printed block and 2 on a usage error, an unreadable file or a `decision.json`
-missing a required field — correct the file and render again.
+missing a required field or carrying a malformed `visual` — correct the file and render again.
 
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>

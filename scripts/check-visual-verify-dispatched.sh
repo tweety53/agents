@@ -22,14 +22,16 @@
 #
 # Prints ONE verdict line to stdout:
 #   VISUAL-VERIFY-OK: <reason>          nothing outstanding
-#   VISUAL-VERIFY-MISSING: <reason>     UI paths touched, no verifier dispatch found
+#   VISUAL-VERIFY-MISSING: <reason>     UI paths touched, no verifier dispatch found,
+#                                       and the plan did not skip visual verification
 #
 # Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
 # UI paths were touched and no qualifying verifier dispatch is recorded;
 # the verdict line carries the answer — and exit 2 when it cannot answer at
 # all — a non-directory worktree, a change name outside the allowlist, an
-# empty merge-base, dispatch rows that are not one readable JSON array, or a
-# store call that failed outright (never
+# empty merge-base, dispatch or decision rows that are not one readable JSON
+# array (or a newest decision row that is not an object), or a store call
+# that failed outright (never
 # read as "no dispatches", exactly as check-panel-fix-single-dispatch.sh's
 # own header explains for the identical hazard: an outage that read as zero
 # rows would pass every round it was blind to).
@@ -77,11 +79,27 @@
 # verifier from a dead one. See **The return** (skills/flow/implement.md)
 # for why only `completed` closes a dispatch's own story.
 #
+# A SKIP DECIDED AT PLANNING IS NOT A SILENT SKIP. With no qualifying
+# verifier row, the guard reads `flow record decisions -change <name> -C
+# <worktree>` (newest row first) and answers
+#   VISUAL-VERIFY-OK: skipped at Decide — <reason>
+# when that newest row's decision records `visual.verify` exactly `skipped`
+# with a non-empty `reason` (whitespace folded to single spaces, so the
+# verdict stays one line). That row is the one the Decide step printed in
+# the `## Decision` block the operator approved at the plan gate
+# (skills/flow/brainstorm-planner.md), so a skip there is visible and
+# operator-gated — kan-30's failure was a skip nobody saw. Every other
+# readable answer — no rows (a change decided before the field existed),
+# no `visual`, `required`, `not configured`, a malformed value — falls
+# through to MISSING exactly as before; a decisions read that fails or is
+# unreadable is exit 2, never a skip. A recorded verifier answers OK first,
+# so the decisions read only happens when no verifier is found.
+#
 # THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY — the
 # habit stats/internal/guard/unfinishedwork.go already carries, mirrored
 # in stats/internal/guard/visualverifydispatched.go. Once the dispatch
-# check has reached one of its two
-# store-evidence verdicts (the OK above, or the MISSING below), the guard
+# check has reached one of its three
+# store-evidence verdicts (either OK above, or the MISSING below), the guard
 # records the line verbatim — `flow record verdict -change <name> -guard
 # check-visual-verify-dispatched -worktree <worktree> -verdict "<line>"
 # -C <worktree>` — with the write's stdout, stderr and exit code all
