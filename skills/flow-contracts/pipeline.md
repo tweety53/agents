@@ -128,6 +128,13 @@ time, at that stage's own granularity — brainstorming checklist items and arti
 creating/resuming branch, tasks on the implementation branch, a finish run's steps on the
 integrate/archive branch.
 
+**Every subagent dispatch is labelled in the harness's agent view by its description**, set to
+`<emoji> <unit> (<a few words>) — <phase>`: a task's dispatch reads `Task <x>/<n>` with the plan's
+total and its phase — `🔄 … — implementation`, `🔍 … — review-<k>`, `🔄 … — fix-<k>`, `<k>` the
+round (`🔄 Task 30/31 (drawer drag release) — implementation`); any other dispatch names its own
+unit the same way (`🔍 Panel round 0 (primary+principles) — review`, `🔍 Visual verify (frontend) —
+review-1`).
+
 **The progress view is a view, never a record.** No command, guard or contract reads the harness's
 task list back as evidence of what was done. `tasks.md` remains the single source of truth for a
 plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file.
