@@ -107,6 +107,26 @@ func TestCommitArchive(t *testing.T) {
 		}
 	})
 
+	t.Run("done-when refusal", func(t *testing.T) {
+		t.Parallel()
+		fx := caNewFx(t)
+		mkdir(t, fx.landing+"/docs/tickets")
+		fx.g.write(fx.landing+"/docs/tickets/demo.md", "## Done when\n\n`shots/27.png` re-baselined.\n")
+		fx.g.git(fx.landing, "add", "docs/tickets/demo.md")
+		before := fx.g.git(fx.landing, "rev-parse", "HEAD")
+		code, out, _ := fx.run(t)
+		if code != 1 || !strings.Contains(out, "DONE-WHEN-PATH: shots/27.png — docs/tickets/demo.md") ||
+			!strings.Contains(out, "DONE-WHEN-VIOLATION: ") {
+			t.Fatalf("exit %d, stdout %q; want 1 and the Done-when guard's violation lines", code, out)
+		}
+		if after := fx.g.git(fx.landing, "rev-parse", "HEAD"); after != before {
+			t.Error("a Done-when violation was committed")
+		}
+		if _, err := os.Stat(fx.landing + "/spectre/changes/archive/demo/ledger.md"); err == nil {
+			t.Error("the ledger was copied before the Done-when check refused")
+		}
+	})
+
 	t.Run("scope violation", func(t *testing.T) {
 		t.Parallel()
 		fx := caNewFx(t)

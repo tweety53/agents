@@ -11,10 +11,11 @@ import (
 
 // commitArchive is scripts/commit-archive.sh: that script's header is the
 // contract. It makes run 2's archive commit (skills/flow/archive.md step 4):
-// asserts chore/archive-<name>, preserves the rendered ledger and panel
-// record into the archived change, stages everything, has check-archive-scope
-// (in-process) verify the staged diff stays under spectre/changes/, and
-// commits with the fixed subject.
+// asserts chore/archive-<name>, has check-done-when-paths (in-process)
+// refuse a `## Done when` naming a path the index does not track, preserves
+// the rendered ledger and panel record into the archived change, stages
+// everything, has check-archive-scope (in-process) verify the staged diff
+// stays under spectre/changes/, and commits with the fixed subject.
 func init() { Registry["commit-archive"] = commitArchive }
 
 func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
@@ -48,6 +49,20 @@ func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stdout, "ARCHIVE-WRONG-BRANCH: %s\n", branch)
 		return 1
+	}
+
+	// The Done-when cross-check runs before anything is written, so a
+	// refusal leaves the landing worktree exactly as it was found. Its OK
+	// verdict is not relayed: this guard prints one verdict. Its
+	// DONE-WHEN-PATH lines are the verdict when it refuses.
+	var dw bytes.Buffer
+	switch code := checkDoneWhenPaths([]string{landing}, env, &dw, stderr); code {
+	case 0:
+	case 1:
+		_, _ = stdout.Write(dw.Bytes())
+		return 1
+	default:
+		return refuse("check-done-when-paths.sh could not answer for %s: exit status %d", landing, code)
 	}
 
 	// Each record when present; an absent one copies nothing. One that is
