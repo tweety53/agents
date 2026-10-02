@@ -14,10 +14,13 @@ import (
 // carry a Conventional Commits subject (lowercase type, optional non-empty
 // scope, optional breaking `!`, a non-empty subject after ": "), a scope
 // naming a module — never the change name, a Jira key or a task id — and a
-// body with no attribution trailer (`Co-Authored-By:`, a `Generated
-// with/by` footer) and no `Task-Id:` trailer. A merge commit is judged like
-// any other: the fast route's series is linear by construction, so one on
-// the branch is exactly the mislabelled commit this guard exists to catch.
+// body with no attribution trailer (`Co-Authored-By:`), no AI attribution
+// banner — a `Generated with [<tool>](<url>)` line, optional 🤖 prefix, the
+// copied-in footer's own shape, so prose that merely opens with "Generated
+// with" reads clean — and no `Task-Id:` trailer. A merge commit is judged
+// like any other: the fast route's series is linear by construction, so one
+// on the branch is exactly the mislabelled commit this guard exists to
+// catch.
 //
 //	check-fast-route-record.sh <worktree> <base>
 //
@@ -38,7 +41,7 @@ var (
 	frrJiraKey = regexp.MustCompile(`(?i)[a-z]{2,10}-[0-9]+`)
 	frrTaskID  = regexp.MustCompile(`^([0-9]+|task-[0-9]+|[0-9]+/[0-9]+)$`)
 	frrAttrCo  = regexp.MustCompile(`(?i)^co-authored-by:`)
-	frrAttrGen = regexp.MustCompile(`(?i)^generated (with|by)\b`)
+	frrAttrGen = regexp.MustCompile(`(?i)^(?:🤖 )?generated (with|by) \[[^]]*\]\(`)
 	frrTaskRef = regexp.MustCompile(`(?i)^task-id:`)
 )
 
@@ -64,9 +67,13 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 	// first — the fetched base a fast route lands against — the name itself
 	// as a revision second, so a recorded local base or a raw sha still
 	// resolves.
-	resolved, ok := capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "origin/"+args[1]+"^{commit}"))
+	// `--end-of-options` on both rev-parses, so a ref beginning with `-` is
+	// read as a ref rather than parsed as a git option — the invariant
+	// resolveremotebase.go states for every other ref resolution in this
+	// repository's guards.
+	resolved, ok := capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "--end-of-options", "origin/"+args[1]+"^{commit}"))
 	if !ok {
-		resolved, ok = capture(git("-C", wt, "rev-parse", "--verify", "--quiet", args[1]+"^{commit}"))
+		resolved, ok = capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "--end-of-options", args[1]+"^{commit}"))
 	}
 	if !ok {
 		return die("%s resolves neither as origin/%s nor as a revision", args[1], args[1])

@@ -1,0 +1,1 @@
+../../../scripts/check-fast-route-record.sh

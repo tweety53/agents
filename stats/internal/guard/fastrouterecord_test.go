@@ -81,7 +81,7 @@ func TestFastRouteRecordFindings(t *testing.T) {
 		{"scope names a task- word id", "kan-838-demo", "fix(task-3): x", "", `scope "task-3" names a task id`},
 		{"scope names a step id", "kan-838-demo", "fix(3/4): x", "", `scope "3/4" names a task id`},
 		{"co-authored trailer", "kan-838-demo", "feat(guard): x", "Co-Authored-By: Claude <n@example.com>", "attribution trailer"},
-		{"generated footer", "kan-838-demo", "feat(guard): x", "Generated with Claude Code", "attribution footer"},
+		{"generated footer", "kan-838-demo", "feat(guard): x", "🤖 Generated with [Claude Code](https://claude.com/claude-code)", "attribution footer"},
 		{"task-id trailer", "kan-838-demo", "feat(guard): x", "Task-Id: 3", "Task-Id trailer"},
 	}
 	for _, tt := range tests {
@@ -127,6 +127,55 @@ func TestFastRouteRecordWalkOrder(t *testing.T) {
 	if !strings.HasPrefix(lines[0], revs[len(revs)-2]) || !strings.Contains(lines[0], "older bad subject") ||
 		!strings.HasPrefix(lines[1], revs[0]) || !strings.Contains(lines[1], "newer bad subject") {
 		t.Fatalf("findings not oldest-first: %q (revs %v)", out, revs)
+	}
+}
+
+func TestFastRouteRecordMergeCommit(t *testing.T) {
+	wt := fastRecordRepo(t, "kan-838-demo", [2]string{"feat(guard): fine", ""})
+	gitRun(t, wt, "checkout", "-q", "-b", "side", "main")
+	gitRun(t, wt, "commit", "--allow-empty", "-q", "-m", "feat(side): elsewhere")
+	gitRun(t, wt, "checkout", "-q", "kan-838-demo")
+	gitRun(t, wt, "merge", "--no-ff", "-q", "-m", "Merge branch 'side'", "side")
+	code, out, _ := runFastRecord(t, wt, "main", nil)
+	if code != 1 {
+		t.Fatalf("exit %d, want 1", code)
+	}
+	if !strings.Contains(out, "subject not in Conventional Commits form: Merge branch 'side'") {
+		t.Fatalf("stdout %q lacks the merge-commit finding", out)
+	}
+}
+
+func TestFastRouteRecordBaseFallback(t *testing.T) {
+	dir := t.TempDir()
+	gitRun(t, dir, "init", "-q", "-b", "main")
+	gitRun(t, dir, "commit", "--allow-empty", "-q", "-m", "init: base")
+	// No refs/remotes/origin/main: the base resolves through the bare-name
+	// fallback leg, as a revision of its own.
+	gitRun(t, dir, "checkout", "-q", "-b", "kan-838-demo")
+	gitRun(t, dir, "commit", "--allow-empty", "-q", "-m", "feat(guard): fine")
+	if code, out, errOut := runFastRecord(t, dir, "main", nil); code != 0 || out != "" || errOut != "" {
+		t.Fatalf("exit %d, stdout %q, stderr %q", code, out, errOut)
+	}
+}
+
+func TestFastRouteRecordProseBodyClean(t *testing.T) {
+	// A prose body that merely opens a line with "Generated with" is not an
+	// attribution banner — the banner shape is the copied-in footer's own,
+	// a markdown link with an optional 🤖 prefix.
+	wt := fastRecordRepo(t, "kan-838-demo",
+		[2]string{"test(guard): cover the generated footer", "Generated with the new fixture helper, the report lists every finding."},
+		[2]string{"feat(guard): real banner caught", "🤖 Generated with [Claude Code](https://claude.com/claude-code)"},
+		[2]string{"feat(guard): bare banner caught", "Generated with [Some Tool](https://example.com/tool)"},
+	)
+	code, out, _ := runFastRecord(t, wt, "main", nil)
+	if code != 1 {
+		t.Fatalf("exit %d, want 1 (the two real banners)", code)
+	}
+	if strings.Contains(out, "attribution footer: Generated with the new fixture helper") {
+		t.Fatalf("the prose body was flagged: %q", out)
+	}
+	if got := strings.Count(out, "attribution"); got != 2 {
+		t.Fatalf("want exactly two attribution findings, got %d: %q", got, out)
 	}
 }
 
