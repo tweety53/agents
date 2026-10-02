@@ -45,6 +45,11 @@ type fakeStore struct {
 
 	lastQuery store.Query
 
+	// --- lessons-resolve bookkeeping (internal/api/lessons_test.go's
+	// fakeStore methods operate on these) ---
+	projectRoots    []store.ProjectRoot
+	projectRootsErr error
+
 	// --- stage-mark bookkeeping (internal/api/stages_test.go's fakeStore
 	// methods operate on these) ---
 	stageRuns      []stageRunRecord

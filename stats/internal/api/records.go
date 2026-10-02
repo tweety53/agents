@@ -140,6 +140,13 @@ type RecordStore interface {
 	// above: nothing replays them.
 	RecordTaskCount(ctx context.Context, projectKey, change string, in records.TaskCount) (records.TaskCount, error)
 	ListTaskCounts(ctx context.Context, projectKey, change string) ([]records.TaskCount, error)
+
+	// ProjectRoots is the registered-checkouts read the lessons-resolve
+	// handler calls -- on RecordStore for the reason ChangeSummary states:
+	// the handler is wired with the same store value as the record routes,
+	// and the projects table is the store's one answer to where this
+	// machine's repositories live.
+	ProjectRoots(ctx context.Context) ([]store.ProjectRoot, error)
 }
 
 // var _ RecordStore = (*store.Store)(nil) verifies at compile time that the
