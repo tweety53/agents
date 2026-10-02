@@ -46,8 +46,9 @@
 #   canonical-table no-labels die (kan-585)    30
 #   per-report reset walked from the table     28
 #     (kan-585)
-#   pre-extension skip of the later angles     7, 31
-#   later angle demanded once one is present   28
+#   frozen-list exemption of angles 6+         7, 31
+#   frozen-list whole-basename match           32
+#   frozen-list read die                       33
 #
 # Case 7 appears in several rows because it alone runs the guard bare over
 # the repository's real docs/self-review/ corpus, so a broadly-scoped
@@ -908,15 +909,12 @@ unset CHECK_SELF_REVIEW_ANGLES_CONTRACT
 [ "$RC" -eq 0 ] && pass "case 27: a report in the renamed spelling exits 0" \
   || fail "case 27: rc=$RC out=$OUT"
 
-# Case 28: an angle added to the canonical table is demanded of every
-# report carrying any angle after the original five — the count is the
-# table's, never a constant. The fixture table gains angles 6 (`flow-docs`)
-# and 7 (`flow-speed`); the report carries 7 and not 6. The report also
+# Case 28: a sixth angle added to the canonical table is demanded of every
+# report — the count is the table's, never a constant. The report also
 # carries one unrecognized `##` heading, so the heading matcher walks every
 # index of the parsed table.
 new_contract fixture_contract_renamed
 printf '   | 6 | Docs that taught the operator something new | `flow-docs` |\n' >>"$CONTRACT_DIR/contract.md"
-printf '   | 7 | What can be sped up | `flow-speed` |\n' >>"$CONTRACT_DIR/contract.md"
 new_fixture
 compliant_report | sed 's/flow-fix/flow-regress/g' \
   | sed 's|^## Cost — `flow-cost`$|## Interlude — `not-an-angle`\n\n## Cost — `flow-cost`|' \
@@ -966,15 +964,44 @@ case "$OUT" in
   *) fail "case 30: expected a yielded-no-labels die, out=$OUT" ;;
 esac
 
-# Case 31: a report carrying exactly the original five angles and none
-# after them predates the later angles — it is checked against the five and
-# passes against the real six-angle table, so the reports written before
-# flow-speed existed stay valid. Fails with the pre-extension skip removed.
+# Case 31: a five-angle report named in the directory's frozen
+# five-angle-reports.txt is checked against the first five angles only and
+# passes against the real six-angle table.
 new_fixture
 five_angle_report >"$FIXTURE/fixture-self-review.md"
+printf 'other-self-review.md\nfixture-self-review.md\n' >"$FIXTURE/five-angle-reports.txt"
 run_guard "$FIXTURE"
-[ "$RC" -eq 0 ] && pass "case 31: a five-angle report predating angle 6 exits 0" \
+[ "$RC" -eq 0 ] && pass "case 31: a listed five-angle report exits 0" \
   || fail "case 31: rc=$RC out=$OUT"
+
+# Case 32: the same five-angle report NOT on the list — the list names only
+# a longer basename containing it, so a substring match would wrongly exempt
+# it — must carry every angle: flow-speed is named missing.
+new_fixture
+five_angle_report >"$FIXTURE/fixture-self-review.md"
+printf 'old-fixture-self-review.md\n' >"$FIXTURE/five-angle-reports.txt"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 32: an unlisted five-angle report is caught" \
+  || fail "case 32: rc=$RC out=$OUT"
+case "$OUT" in
+  *"missing section for angle"*"flow-speed"*) \
+    pass "case 32: the missing-section finding names flow-speed" ;;
+  *) fail "case 32: expected a missing-section finding naming flow-speed, out=$OUT" ;;
+esac
+
+# Case 33: a list that exists but cannot be read (here a directory, which
+# cat refuses) is 'cannot answer' (exit 2), never an empty exemption set.
+new_fixture
+compliant_report >"$FIXTURE/fixture-self-review.md"
+mkdir "$FIXTURE/five-angle-reports.txt"
+run_guard "$FIXTURE"
+[ "$RC" -eq 2 ] && pass "case 33: an unreadable five-angle list is 'cannot answer'" \
+  || fail "case 33: rc=$RC out=$OUT"
+case "$OUT" in
+  *"cannot read the five-angle report list"*) \
+    pass "case 33: the die message names the unreadable list" ;;
+  *) fail "case 33: expected an unreadable-list die, out=$OUT" ;;
+esac
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

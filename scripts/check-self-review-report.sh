@@ -53,14 +53,14 @@
 # table the way a hardcoded copy would. (The original five came from the
 # kan-200 self-review spec's "One combined reasoning pass" angle table.)
 #
-# REPORTS PREDATING A LATER ANGLE STAY VALID. An angle after the original
-# five (angle 6, `flow-speed`, onwards) is demanded of a report only once
-# that report carries at least one angle after the five. A report carrying
-# none of them was written against the five-angle table and is checked
-# against those five alone — which is every report under docs/self-review/
-# written before angle 6 existed. The ceiling: a new report omitting every
-# later angle reads exactly like an old one and passes; the skill's own
-# "every angle explicit" rule is what holds a new report to the full table.
+# FIVE-ANGLE REPORTS ARE A FROZEN LIST. `five-angle-reports.txt` in the
+# scanned directory names, one basename per line, every report written
+# before angle 6 (`flow-speed`) existed. A listed report is checked against
+# the first five angles of the table only; every report not on the list
+# must carry every angle the table serves. The list is frozen: it never
+# gains an entry, so a new report cannot be exempted from a later angle. A
+# directory with no list exempts nothing. A list that exists but cannot be
+# read is "cannot answer" (exit 2), never an empty exemption set.
 #
 # PER-REPORT COVERAGE, via scripts/lib/coverage.sh. Each report's recorded
 # count is the number of section-level checks this guard actually performed
@@ -179,9 +179,16 @@ done < <(awk -F'|' '
 ' "$ANGLE_CONTRACT")
 [[ "${#ANGLE_LABELS[@]}" -ge 1 ]] ||
   die "the canonical angle table yielded no labels: $ANGLE_CONTRACT"
-# The table's size when every pre-flow-speed report was written — the angles
-# every report must carry (see REPORTS PREDATING A LATER ANGLE above).
+# The table's size when every listed report was written (see FIVE-ANGLE
+# REPORTS ARE A FROZEN LIST above), and that list, newline-wrapped so a
+# basename is matched whole.
 ORIGINAL_ANGLE_COUNT=5
+FIVE_ANGLE_LIST="$TARGET/five-angle-reports.txt"
+FIVE_ANGLE_REPORTS=$'\n'
+if [[ -e "$FIVE_ANGLE_LIST" ]]; then
+  FIVE_ANGLE_REPORTS=$'\n'"$(cat -- "$FIVE_ANGLE_LIST")"$'\n' ||
+    die "cannot read the five-angle report list: $FIVE_ANGLE_LIST"
+fi
 
 # Regex patterns are kept in variables and referenced unquoted in `[[ =~ ]]`
 # below rather than written inline: bash's quote-removal strips a literal
@@ -424,21 +431,19 @@ for f in "${FILES[@]:-}"; do
   [[ "$read_rc" -eq 0 ]] || die "cannot read report file: $f"
 
   found_count=0
-  later_found=0
   for i in "${!ANGLE_LABELS[@]}"; do
-    if [[ "${HEADING_FOUND[$i]}" -eq 1 ]]; then
-      found_count=$((found_count + 1))
-      [[ "$i" -ge "$ORIGINAL_ANGLE_COUNT" ]] && later_found=1
-    fi
+    [[ "${HEADING_FOUND[$i]}" -eq 1 ]] && found_count=$((found_count + 1))
   done
+  required_count="${#ANGLE_LABELS[@]}"
+  [[ "$FIVE_ANGLE_REPORTS" == *$'\n'"$base"$'\n'* ]] && required_count="$ORIGINAL_ANGLE_COUNT"
 
   count=0
   if [[ "$found_count" -gt 0 ]]; then
     for i in "${!ANGLE_LABELS[@]}"; do
       label="${ANGLE_LABELS[$i]}"
       if [[ "${HEADING_FOUND[$i]}" -eq 0 ]]; then
-        # A report predating every later angle (see the header).
-        [[ "$i" -ge "$ORIGINAL_ANGLE_COUNT" && "$later_found" -eq 0 ]] && continue
+        # A listed five-angle report (see the header).
+        [[ "$i" -ge "$required_count" ]] && continue
         printf '%s: missing section for angle `%s`\n' "$rel" "$label"
         VIOLATIONS=$((VIOLATIONS + 1))
         continue
