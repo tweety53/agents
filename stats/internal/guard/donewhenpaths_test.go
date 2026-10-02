@@ -129,6 +129,38 @@ func TestCheckDoneWhenPaths(t *testing.T) {
 				dwFile(t, dir, "docs/tickets/kan-x.md", "## Done when: peer:shots/27.png re-baselined\n")
 			},
 			1, "DONE-WHEN-PATH: peer:shots/27.png — docs/tickets/kan-x.md\nDONE-WHEN-VIOLATION: REPO — 1\n"},
+		{"case 14: punctuation wrapping a backticked path yields the bare path (F1)",
+			[]string{"docs/tickets/kan-x.md"},
+			func(dir string) {
+				dwFile(t, dir, "docs/tickets/kan-x.md", "## Done when\n(`shots/27.png` re-baselined) and `shots/28.png`.\n")
+			},
+			1, "DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-x.md\nDONE-WHEN-PATH: shots/28.png — docs/tickets/kan-x.md\nDONE-WHEN-VIOLATION: REPO — 2\n"},
+		{"case 15: a wrapped backticked path that IS tracked is DONE-WHEN-OK (F1)",
+			[]string{"docs/tickets/kan-x.md", "shots/27.png"},
+			func(dir string) {
+				dwFile(t, dir, "docs/tickets/kan-x.md", "## Done when\n(`shots/27.png` re-baselined)\n")
+			},
+			0, "DONE-WHEN-OK: REPO\n"},
+		{"case 16: a dotless name is judged like any other (F3)",
+			[]string{"docs/tickets/kan-x.md", "src/Makefile"},
+			func(dir string) {
+				dwFile(t, dir, "docs/tickets/kan-x.md", "## Done when\n- `src/Makefile` committed\n- docs/LICENSE signed\n")
+			},
+			1, "DONE-WHEN-PATH: docs/LICENSE — docs/tickets/kan-x.md\nDONE-WHEN-VIOLATION: REPO — 1\n"},
+		{"case 17: a fence line neither closes a section nor is judged (F4)",
+			[]string{"docs/tickets/kan-x.md"},
+			func(dir string) {
+				dwFile(t, dir, "docs/tickets/kan-x.md",
+					"## Done when\n\n```bash\n# rebuild the fixtures\nshots/decoy.png\n```\n\n`shots/27.png` re-baselined.\n")
+			},
+			1, "DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-x.md\nDONE-WHEN-VIOLATION: REPO — 1\n"},
+		{"case 18: a quoted Done-when template inside a fence opens no section (F4)",
+			[]string{"docs/tickets/kan-x.md"},
+			func(dir string) {
+				dwFile(t, dir, "docs/tickets/kan-x.md",
+					"## Scope\n\n```markdown\n## Done when\n\n`shots/27.png` re-baselined.\n```\n\nDone.\n")
+			},
+			0, "DONE-WHEN-OK: REPO\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

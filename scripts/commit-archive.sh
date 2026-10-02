@@ -4,7 +4,9 @@
 #
 # Usage: commit-archive.sh <landing-worktree> <canonical-worktree> <name>
 #
-# In order: asserts <landing-worktree> is on chore/archive-<name>; copies
+# In order: asserts <landing-worktree> is on chore/archive-<name>; runs
+# check-done-when-paths (in-process, the same flow-guard), which refuses a
+# `## Done when` naming a path the index does not track; copies
 # <canonical-worktree>/.superpowers/sdd/ledgers/<name>.md and
 # .../reviews/<name>-panel.md into spectre/changes/archive/<name>/ as
 # ledger.md and panel.md, each when present (an absent file copies nothing);
@@ -17,13 +19,15 @@
 #   ARCHIVE-NOTHING-STAGED          nothing to commit — already committed
 #   ARCHIVE-WRONG-BRANCH: <found>   the landing worktree is on another branch
 #                                   (or `(detached HEAD)`); nothing written
-#   (or check-archive-scope.sh's OUT-OF-SCOPE and SCOPE-VIOLATION lines)
+#   (or check-archive-scope.sh's OUT-OF-SCOPE and SCOPE-VIOLATION lines, or
+#   check-done-when-paths's DONE-WHEN-PATH and DONE-WHEN-VIOLATION lines)
 #
-# Exit 0 committed or nothing staged; 1 wrong branch or a scope violation —
-# nothing committed, the change stays at IN_PROGRESS; 2 cannot answer, with
-# NOTHING on stdout: a usage error, a name that is not a plain change name, a
-# landing path that is not a git worktree, a present record that could not be
-# copied, a git step that failed, or check-archive-scope.sh unable to answer.
+# Exit 0 committed or nothing staged; 1 wrong branch, a scope violation, or
+# a Done-when violation — nothing committed, the change stays at IN_PROGRESS;
+# 2 cannot answer, with NOTHING on stdout: a usage error, a name that is not a
+# plain change name, a landing path that is not a git worktree, a present
+# record that could not be copied, a git step that failed, or
+# check-archive-scope.sh / check-done-when-paths unable to answer.
 #
 # The branch is asserted before anything is copied, so a refusal leaves the
 # landing worktree as it was found. The subject is a fixed literal: `flow

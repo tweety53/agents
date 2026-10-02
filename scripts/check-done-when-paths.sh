@@ -9,10 +9,14 @@
 # Usage: check-done-when-paths.sh <worktree>
 #
 # Scans every tracked `.md` file's `## Done when` sections (heading variants
-# `Done when`, `Done-When`, any level, optional trailing colon) and extracts
-# path-like tokens — backticked, bare, markdown-link targets and autolinks,
-# each carrying a `/` whose last segment names a file. `Snapshots 27/28/29`
-# never reads as a path; a URL, a glob (`*?[`), a directory and a
+# `Done when`, `Done-When`, any level, optional trailing colon; fenced code
+# blocks are invisible to the scanner — a fence line neither opens nor closes
+# a section nor is judged) and extracts path-like tokens — backticked, bare,
+# markdown-link targets and autolinks, each carrying a `/` whose last segment
+# names a file: not empty and not purely numeric, so a ticket's
+# `Snapshots 27/28/29` never reads as a path while a dotless `src/Makefile`
+# is judged like any other name. A URL, a glob (`*?[`), a directory (no final
+# segment) and a
 # peer-qualified name (`peer:shots/27.png`) are judged as named — the last
 # fails unless that exact path is tracked in THIS index.
 #

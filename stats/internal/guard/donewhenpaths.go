@@ -75,7 +75,19 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 			return die("cannot read tracked file %s in %s: %v", file, root, err)
 		}
 		inSection := false
+		fence := false
 		for _, line := range strings.Split(string(b), "\n") {
+			s := strings.TrimSpace(line)
+			if strings.HasPrefix(s, "```") || strings.HasPrefix(s, "~~~") {
+				fence = !fence
+				continue
+			}
+			if fence {
+				// A fenced line neither opens nor closes a section — a
+				// quoted `## Done when` template is not a section — and
+				// yields no paths.
+				continue
+			}
 			if dwHeading.MatchString(line) {
 				inSection = true
 			} else if dwAnyHeading.MatchString(line) {
@@ -106,8 +118,9 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 // dwPaths extracts the path-like tokens of one line: a whitespace field
 // stripped of its backticks and edge punctuation — markdown link and autolink
 // syntax included, so `[e](shots/27.png)` and `<shots/27.png>` yield the path
-// — kept when it carries a `/` whose last segment names a file (carries a
-// `.`), so a ticket's `Snapshots 27/28/29` never reads as a path; dropped
+// — kept when it carries a `/` whose last segment names a file: not empty and
+// not purely numeric, so a ticket's `Snapshots 27/28/29` never reads as a
+// path while a dotless `src/Makefile` is judged like any other name; dropped
 // when it is a URL, a glob (`*?[` make it uncheckable against an index) or a
 // directory. A leading `./` is folded away; membership is exact afterwards,
 // so a peer-qualified name (`peer:shots/27.png`) fails here as the untracked
@@ -125,6 +138,10 @@ func dwPaths(line string) []string {
 		// leading `./` would otherwise lose only its dot and become `/…`.
 		f = strings.TrimPrefix(f, "./")
 		f = strings.Trim(f, "()[],.;:!?\"'<>")
+		// Punctuation can wrap a backticked path — `(`shots/27.png`
+		// re-baselined)` — so the backtick trim runs again once the edge
+		// trim has exposed what it hid.
+		f = strings.Trim(f, "`")
 		if f == "" || !strings.Contains(f, "/") || dwURL.MatchString(f) {
 			continue
 		}
@@ -132,7 +149,7 @@ func dwPaths(line string) []string {
 			continue
 		}
 		last := f[strings.LastIndex(f, "/")+1:]
-		if !strings.Contains(last, ".") {
+		if last == "" || strings.Trim(last, "0123456789") == "" {
 			continue
 		}
 		out = append(out, f)
