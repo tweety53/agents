@@ -161,6 +161,13 @@ func TestCheckDoneWhenPaths(t *testing.T) {
 					"## Scope\n\n```markdown\n## Done when\n\n`shots/27.png` re-baselined.\n```\n\nDone.\n")
 			},
 			0, "DONE-WHEN-OK: REPO\n"},
+		{"case 19: a slash command is not a path — gymie's ticket wording",
+			[]string{"docs/tickets/kan-x.md"},
+			func(dir string) {
+				dwFile(t, dir, "docs/tickets/kan-x.md",
+					"## Done when\n* A change opened via `/myflow-start <ISSUE-KEY> <slug>` and archived.\n")
+			},
+			0, "DONE-WHEN-OK: REPO\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

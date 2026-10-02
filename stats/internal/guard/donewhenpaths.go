@@ -148,6 +148,11 @@ func dwPaths(line string) []string {
 		if strings.ContainsAny(f, "*?[") || strings.HasSuffix(f, "/") {
 			continue
 		}
+		// A lone leading `/` is a slash command (`/myflow-start`), never a
+		// path: no index entry starts with `/`.
+		if strings.LastIndex(f, "/") == 0 {
+			continue
+		}
 		last := f[strings.LastIndex(f, "/")+1:]
 		if last == "" || strings.Trim(last, "0123456789") == "" {
 			continue
