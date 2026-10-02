@@ -49,80 +49,21 @@
 #
 #   Exit 0   Could answer: clean, classified, or an absent worktree.
 #   Exit 2   Cannot answer — an argument is missing, the path is not a
-#            directory or not a git worktree, or the repository's common
-#            directory cannot be resolved. This script has no exit 1: it
-#            never refuses anything, it only settles and reports; refusing
-#            stays prepare-archive-branch.sh's job.
+#            directory or not a git worktree, the repository's common
+#            directory cannot be resolved, the untracked entries cannot be
+#            listed, or a capture or exclude write fails (the cause on
+#            stderr; entries already settled stay settled). This script has
+#            no exit 1: it never refuses anything, it only settles and
+#            reports; refusing stays prepare-archive-branch.sh's job.
+#
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-export LC_ALL=C
-
-LANDING="${1:-}"
-
-if [ -z "$LANDING" ]; then
-  echo "usage: classify-untracked.sh <landing-worktree>" >&2
-  exit 2
-fi
-
-if [ ! -e "$LANDING" ]; then
-  # Nothing to classify; prepare-archive-branch.sh will create it fresh.
-  exit 0
-fi
-
-if [ ! -d "$LANDING" ]; then
-  echo "classify-untracked: $LANDING is not a directory" >&2
-  exit 2
-fi
-
-if ! git -C "$LANDING" rev-parse --git-dir >/dev/null 2>&1; then
-  echo "classify-untracked: $LANDING is not a git worktree" >&2
-  exit 2
-fi
-
-COMMON="$(git -C "$LANDING" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
-  echo "classify-untracked: cannot resolve the common git directory of $LANDING" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "classify-untracked: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-SCRATCH="$(dirname "$COMMON")/.worktrees/_scratchpad"
-
-ENTRIES=()
-while IFS= read -r entry; do
-  [ -n "$entry" ] || continue
-  ENTRIES[${#ENTRIES[@]}]="$entry"
-done <<EOF
-$(git -C "$LANDING" ls-files --others --exclude-standard --directory)
-EOF
-
-# "${ENTRIES[@]}" is unset-expansion-unsafe under `set -u` on bash 3.2 when
-# empty.
-if [ "${#ENTRIES[@]}" -eq 0 ]; then
-  echo "CLEAN"
-  exit 0
-fi
-
-for entry in "${ENTRIES[@]}"; do
-  base="$(basename "$entry")"
-  case "$entry" in
-    .claude | .claude/)
-      EXCLUDE="$COMMON/info/exclude"
-      mkdir -p "$(dirname "$EXCLUDE")"
-      if ! grep -qxF "$entry" "$EXCLUDE" 2>/dev/null; then
-        printf '%s\n' "$entry" >>"$EXCLUDE"
-      fi
-      echo "IGNORED: $entry (local exclude)"
-      ;;
-    *.png | *.PNG | *.jpg | *.JPG | *.jpeg | *.JPEG)
-      mkdir -p "$SCRATCH"
-      dest="$SCRATCH/$base"
-      if [ -e "$dest" ]; then
-        dest="$SCRATCH/$(date +%Y%m%d-%H%M%S)-$base"
-      fi
-      mv "$LANDING/$entry" "$dest"
-      echo "CAPTURED: $entry -> $dest"
-      ;;
-    *)
-      echo "ASSET: $entry (operator decides — commit deliberately or delete)"
-      ;;
-  esac
-done
-
+flow_guard_exec classify-untracked 2 "classify-untracked:" "$@"
