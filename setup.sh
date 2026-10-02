@@ -628,7 +628,10 @@ render_managed_block() {
     # does. An unresolved placeholder here means a rule carrying it reached a render with
     # no project context — only the global render can do that — and refusing beats
     # inlining a literal template into every session.
-    if printf '%s\n' "$body" | grep -qF -- "$LINT_COMMANDS_PLACEHOLDER"; then
+    # Here-strings, never `printf | <reader>` where the reader may stop early (grep -q, awk's
+    # exit): under pipefail printf, still writing a large body, dies of SIGPIPE (141), and a
+    # match reads as a miss or the install dies -- a flake that shows only under load.
+    if grep -qF -- "$LINT_COMMANDS_PLACEHOLDER" <<<"$body"; then
       if [[ -z "${RENDER_LINT_COMMANDS:-}" ]]; then
         die "rule $rule_name carries $LINT_COMMANDS_PLACEHOLDER but is being rendered without a
   project's ## lint commands. The placeholder resolves only for a project's opted-in
@@ -636,7 +639,7 @@ render_managed_block() {
       fi
       body="${body//"$LINT_COMMANDS_PLACEHOLDER"/$RENDER_LINT_COMMANDS}"
     fi
-    if printf '%s\n' "$body" | grep -qFx -e "$CLAUDE_MD_BEGIN" -e "$CLAUDE_MD_END"; then
+    if grep -qFx -e "$CLAUDE_MD_BEGIN" -e "$CLAUDE_MD_END" <<<"$body"; then
       die "rule $rule_name contains a flow block delimiter on a line of its own.
   Inlining it would put a second delimiter inside the managed block and make every
   later run die on a file this installer wrote. Indent or fence that line in
@@ -658,8 +661,8 @@ render_managed_block() {
     # A grep inside an `if` condition is exempt from `set -e`, which is why every other
     # detection in this script is written this way.
     has_open=0; has_close=0
-    if printf '%s\n' "$body" | grep -qFx '<!-- core -->';  then has_open=1;  fi
-    if printf '%s\n' "$body" | grep -qFx '<!-- /core -->'; then has_close=1; fi
+    if grep -qFx '<!-- core -->' <<<"$body";  then has_open=1;  fi
+    if grep -qFx '<!-- /core -->' <<<"$body"; then has_close=1; fi
     if (( has_open != has_close )); then
       die "rule $rule_name has an unbalanced core marker. <!-- core --> and <!-- /core -->
   must both be present, each alone on its own line, or neither. One without the other
@@ -670,12 +673,12 @@ render_managed_block() {
     if (( global_render && has_open )); then
       # The core is everything up to the closing marker — title and any short preamble
       # included — with the marker lines themselves dropped.
-      printf '%s\n' "$body" | awk '
+      awk '
         { sub(/\r$/, "") }
         $0 == "<!-- /core -->" { exit }
         $0 == "<!-- core -->"  { next }
         { print }
-      '
+      ' <<<"$body"
       printf 'Full rule: `~/.claude/rules/%s.md`.\n' "${rule_name%.mdc}"
       continue
     fi
@@ -921,10 +924,10 @@ project_lint_commands_block() {
     die "cannot read the project's ## lint section (project-get.sh exit $rc): the placeholder
   in $rule_name has nothing safe to render from."
   fi
-  commands="$(printf '%s\n' "$body" | awk '
+  commands="$(awk '
     /^```/ { if (fence) exit; fence = 1; next }
     fence   { print }
-  ' | awk '
+  ' <<<"$body" | awk '
     { lines[++n] = $0 }
     END {
       s = 1; e = n
