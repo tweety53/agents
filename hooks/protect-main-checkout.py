@@ -19,6 +19,12 @@ pass. "Default branch" is what `origin/HEAD` points at; when the remote head is 
 of main, master or develop counts. A main checkout on a feature branch is not protected — leaving
 the default branch is how work gets a branch of its own.
 
+It also denies a landing push that would leave its change open: `git push <remote> <src>:<default>`
+where `<src>`'s tree still holds `spectre/changes/<branch>/` — `<branch>` being `<src>`, or the
+current branch for `HEAD`. A change lands archived (`spectre archive <change>`, then commit), never as
+an open folder on the default branch that no later run owns. `/flow`'s own routes archive before
+their push, so only an ad-hoc landing meets this.
+
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
 `git worktree add`, `git push`, and the landing scripts (`land-self-review-report.sh`,
 `refresh-main-checkout.sh`) — they are not `git` verbs in the command text, and each owns its own
@@ -112,8 +118,7 @@ def protected(path):
     branch = git(d, "branch", "--show-current")
     if not branch:
         return None  # detached
-    head = git(d, "symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD")
-    default = head.split("/", 1)[1] if head and "/" in head else None
+    default = default_branch(d)
     if default is None and branch in FALLBACK_DEFAULT_BRANCHES:
         default = branch
     if branch != default:
@@ -201,7 +206,33 @@ def expand_vars(token, env):
     return VAR_RE.sub(sub, token)
 
 
-def bash_hits(command, cwd):
+def default_branch(cwd):
+    """The repository's default branch: origin/HEAD's target, else None."""
+    head = git(cwd, "symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD")
+    return head.split("/", 1)[1] if head and "/" in head else None
+
+
+def unarchived_landing(args, target):
+    """(target, change) when the push args land `<src>:<default>` with
+    spectre/changes/<change>/ still open in <src>'s tree, else None."""
+    if target is None:
+        return None
+    default = default_branch(target)
+    for a in args:
+        if ":" not in a or a.startswith("-"):
+            continue
+        src, _, dst = a.lstrip("+").partition(":")
+        dst = dst.removeprefix("refs/heads/")
+        if not src or dst not in ({default} if default else FALLBACK_DEFAULT_BRANCHES):
+            continue
+        change = git(target, "branch", "--show-current") if src == "HEAD" else src
+        change = (change or "").removeprefix("refs/heads/")
+        if change and git(target, "ls-tree", "-d", "--name-only", src, f"spectre/changes/{change}"):
+            return target, change
+    return None
+
+
+def bash_hits(command, cwd, landings=None):
     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
 
     The command is scanned one logical line at a time — a newline ends an
@@ -241,6 +272,15 @@ def bash_hits(command, cwd):
                     j += 1
                 if j < n and tokens[j] in DENIED_GIT_VERBS:
                     hits.append(target)
+                if j < n and tokens[j] == "push" and landings is not None:
+                    args = []
+                    for t in tokens[j + 1 :]:
+                        if t in ("&&", "||", ";", "|"):
+                            break
+                        args.append(t)
+                    hit = unarchived_landing(args, target)
+                    if hit:
+                        landings.append(hit)
                 i = j + 1
                 continue
             if tok == "sed" and any(t.startswith("-i") for t in tokens[i + 1 : i + 4]):
@@ -301,6 +341,16 @@ def deny_reason(top, branch):
     )
 
 
+def landing_reason(top, change):
+    return (
+        f"Blocked: this push lands `spectre/changes/{change}/` on the default branch still open. "
+        "A landed change is archived first, in the same branch:\n\n"
+        f"  spectre archive --force {change}   # --force only when it has no tasks.md\n"
+        f"  git commit -m \"chore(spectre): archive {change}\"\n\n"
+        "then push again."
+    )
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -322,7 +372,20 @@ def main():
     elif tool == "Bash":
         command = tool_input.get("command")
         if isinstance(command, str) and command:
-            candidates.extend(bash_hits(command, cwd))
+            landings = []
+            candidates.extend(bash_hits(command, cwd, landings))
+            if landings:
+                json.dump(
+                    {
+                        "hookSpecificOutput": {
+                            "hookEventName": "PreToolUse",
+                            "permissionDecision": "deny",
+                            "permissionDecisionReason": landing_reason(*landings[0]),
+                        }
+                    },
+                    sys.stdout,
+                )
+                return 0
     else:
         return 0
 

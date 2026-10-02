@@ -31,6 +31,10 @@
 #   23. Bash `cd <worktree>; git commit` (`;` touching the path) -> allow
 #   24. Bash `cd <worktree>; npx ... >$S/cap.log 2>&1` with cwd = main -> allow (unexpanded var)
 #   25. Bash `cd <main>;git reset HEAD~1` (separators touching)  -> deny
+#   38. Bash `git -C <wt> push origin HEAD:main`, change open      -> deny (unarchived landing)
+#   39. Bash `git push origin change:main`, change open            -> deny
+#   40. Bash `git -C <wt> push origin HEAD:main`, change archived  -> allow
+#   41. Bash `git -C <wt> push origin change`, change open         -> allow (not a landing)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -144,6 +148,23 @@ expect "36 unset near-name variable is not expanded greedily" allow \
 expect "37 use before set is not expanded" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "echo x > \$C/f.txt
 C=$MAIN")}")"
+
+# 38-41: a landing push must not carry its own change folder open
+mkdir -p "$WT/spectre/changes/change"
+echo x >"$WT/spectre/changes/change/proposal.md"
+git_q -C "$WT" add spectre
+git_q -C "$WT" commit -q -m plan
+expect "38 HEAD:main push with the change open" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT push origin HEAD:main")}")"
+expect "39 change:main push with the change open" deny \
+  "$(run "$WT" Bash "{\"command\":\"git push origin change:main\"}")"
+expect "41 branch push with the change open" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT push origin change")}")"
+mkdir -p "$WT/spectre/changes/archive"
+git_q -C "$WT" mv spectre/changes/change spectre/changes/archive/change
+git_q -C "$WT" commit -q -m archive
+expect "40 HEAD:main push with the change archived" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT push origin HEAD:main")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
