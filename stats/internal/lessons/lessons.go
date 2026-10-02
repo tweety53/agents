@@ -24,9 +24,9 @@ import (
 // Root is one project's main checkout the scan reads. It mirrors the
 // store's ProjectRoot without importing it — the caller (the api handler)
 // holds both types and translates, so this package stays a pure scanner.
+// Only the path is carried: the scan matches and ranks on paths alone.
 type Root struct {
-	ProjectKey string
-	Path       string
+	Path string
 }
 
 // Brief is one durable brief: a Markdown file in a project's docs/briefs/
@@ -54,9 +54,9 @@ type Mention struct {
 
 // Result is one Resolve call's answer: the briefs and narrative mentions
 // matching the topic, ranked — briefs first, then mentions newest-first —
-// plus the roots that could not be read at all, which are an
-// environmental failure a caller must see rather than an absence a caller
-// could mistake for "no lesson exists".
+// plus the roots, or the individual files inside a readable root, that
+// could not be read, which are an environmental failure a caller must see
+// rather than an absence a caller could mistake for "no lesson exists".
 type Result struct {
 	Topic      string
 	Briefs     []Brief
@@ -91,9 +91,12 @@ func Normalize(s string) string {
 // Resolve scans every root for briefs and archived narratives matching
 // topic. A root that cannot be read at all is reported in Result's
 // Unreadable, never an error: one broken checkout must not silence the
-// others' answers. A root without a docs/briefs/ or without an archive
-// simply contributes nothing — legitimate absence, the same rule the
-// self-review bundle's sources follow.
+// others' answers. A single brief or narrative inside a readable root
+// whose read fails is reported there the same way — a permissions edge or
+// a mid-write file is environmental, not evidence nothing matches. A root
+// without a docs/briefs/ or without an archive simply contributes
+// nothing — legitimate absence, the same rule the self-review bundle's
+// sources follow.
 func Resolve(roots []Root, topic string) (*Result, error) {
 	needle := Normalize(topic)
 	if needle == "" {
@@ -109,15 +112,24 @@ func Resolve(roots []Root, topic string) (*Result, error) {
 
 		briefs, _ := filepath.Glob(filepath.Join(root.Path, briefsDir, "*.md"))
 		for _, path := range briefs {
-			b, ok := readBrief(root, path, needle)
-			if ok {
+			b, matched, err := readBrief(root, path, needle)
+			if err != nil {
+				res.Unreadable = append(res.Unreadable, path)
+				continue
+			}
+			if matched {
 				res.Briefs = append(res.Briefs, b)
 			}
 		}
 
 		narratives, _ := filepath.Glob(filepath.Join(root.Path, narrativesGlob))
 		for _, path := range narratives {
-			if m, ok := readNarrative(root, path, needle); ok {
+			m, matched, err := readNarrative(root, path, needle)
+			if err != nil {
+				res.Unreadable = append(res.Unreadable, path)
+				continue
+			}
+			if matched {
 				res.Mentions = append(res.Mentions, m)
 			}
 		}
@@ -141,11 +153,12 @@ func Resolve(roots []Root, topic string) (*Result, error) {
 // readBrief reads one brief file and reports whether it matches the
 // needle. The whole file is the match surface — slug, title and content
 // alike — because a brief is short and a topic may name what a brief only
-// discusses in its body.
-func readBrief(root Root, path, needle string) (Brief, bool) {
+// discusses in its body. A read failure is an error; no match is a nil
+// error with matched false.
+func readBrief(root Root, path, needle string) (Brief, bool, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return Brief{}, false
+		return Brief{}, false, err
 	}
 	b := Brief{
 		Repo:    root.Path,
@@ -155,21 +168,22 @@ func readBrief(root Root, path, needle string) (Brief, bool) {
 		Content: strings.TrimRight(string(content), "\n"),
 	}
 	if !strings.Contains(Normalize(b.Slug+" "+b.Title+" "+b.Content), needle) {
-		return Brief{}, false
+		return Brief{}, false, nil
 	}
-	return b, true
+	return b, true, nil
 }
 
 // readNarrative reads one archived narrative and reports whether any of
-// its lines matches the needle.
-func readNarrative(root Root, path, needle string) (Mention, bool) {
+// its lines matches the needle. A read or stat failure is an error; no
+// match is a nil error with matched false.
+func readNarrative(root Root, path, needle string) (Mention, bool, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return Mention{}, false
+		return Mention{}, false, err
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		return Mention{}, false
+		return Mention{}, false, err
 	}
 	m := Mention{
 		Repo:    root.Path,
@@ -184,7 +198,7 @@ func readNarrative(root Root, path, needle string) (Mention, bool) {
 			}
 		}
 	}
-	return m, len(m.Lines) > 0
+	return m, len(m.Lines) > 0, nil
 }
 
 // firstHeading returns the file's first Markdown heading line with its

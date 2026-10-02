@@ -12,14 +12,14 @@ import (
 //
 // Briefs render in full before any mention: the brief is the thing a
 // caller acts on. Each mention renders its matching lines and the path
-// holding them. Unreadable roots lead the notes, so a half-served answer
-// says so itself.
+// holding them. Unreadable paths — a whole root or one file inside a
+// readable one — lead the notes, so a half-served answer says so itself.
 func Render(r *Result) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Lessons: %s\n\n", r.Topic)
 	fmt.Fprintf(&b, "found: %d briefs, %d narrative mentions\n", len(r.Briefs), len(r.Mentions))
 	for _, path := range r.Unreadable {
-		fmt.Fprintf(&b, "note: %s could not be read — its briefs and narratives are reported absent for that reason, not because none exist\n", path)
+		fmt.Fprintf(&b, "note: %s could not be read — reported absent for that reason, not because none exist\n", path)
 	}
 	for _, brief := range r.Briefs {
 		fmt.Fprintf(&b, "\n## brief: %s\n\n%s\n", displayPath(brief.Repo, brief.Path), brief.Content)

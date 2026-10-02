@@ -49,7 +49,7 @@ func (h *lessonsHandler) resolve(w http.ResponseWriter, r *http.Request) {
 
 	ls := make([]lessons.Root, len(roots))
 	for i, root := range roots {
-		ls[i] = lessons.Root{ProjectKey: root.ProjectKey, Path: root.MainCheckoutPath}
+		ls[i] = lessons.Root{Path: root.MainCheckoutPath}
 	}
 	res, err := lessons.Resolve(ls, topic)
 	if err != nil {

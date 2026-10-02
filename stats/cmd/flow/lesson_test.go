@@ -61,6 +61,27 @@ func TestRunLessonResolveRequiresTopic(t *testing.T) {
 	}
 }
 
+// TestRunLessonResolveRefusesWhitespaceTopic pins the same rule for a
+// topic empty after normalization: a caller mistake is exit 2, never a
+// read that rides to the daemon and comes back as a store failure.
+func TestRunLessonResolveRefusesWhitespaceTopic(t *testing.T) {
+	isolatedStateRoot(t)
+
+	var stdout, stderr strings.Builder
+	code := run(context.Background(),
+		[]string{"lesson", "resolve", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-topic", " -_ "},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2 (stderr: %s)", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "-topic is required") {
+		t.Errorf("stderr = %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want nothing", stdout.String())
+	}
+}
+
 // TestRunLessonResolveRefusesPositional pins the same rule for a stray
 // positional: a mistyped flag is reported as one, never dropped.
 func TestRunLessonResolveRefusesPositional(t *testing.T) {

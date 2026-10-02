@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
+	"github.com/tweety53/agents/stats/internal/lessons"
 )
 
 const lessonUsage = `usage: flow lesson resolve [-addr url] [-timeout dur] -topic <words>
@@ -80,7 +81,10 @@ func runLessonResolve(ctx context.Context, args []string, stdout, stderr io.Writ
 		fmt.Fprint(stderr, lessonUsage)
 		return 2
 	}
-	if topic == "" {
+	// The daemon's own rule — empty after normalization — so "  " or "-"
+	// is refused here as the caller mistake it is, not ridden to the store
+	// to come back as a read failure.
+	if lessons.Normalize(topic) == "" {
 		fmt.Fprint(stderr, "flow: -topic is required\n")
 		fmt.Fprint(stderr, lessonUsage)
 		return 2
