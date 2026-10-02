@@ -30,6 +30,10 @@ you are on whenever the user would otherwise see nothing for a while. A turn end
 blocked, done, or waiting on a decision only the user can make; never merely because a milestone
 was reached.
 
+A status line is `<unit> (<a few words on what it is>) — <state>`, one per unit, and nothing else:
+`Task 22 (spec text) — done`, `Task 21 (finished-workout look) — in progress`. Not how the unit got
+there (closed, ticked, pushed), not what comes next.
+
 **Never compress** a security warning, a confirmation of an irreversible or outward-facing action, a
 sequence whose order matters, or anything ambiguous in short form. Brevity means no wasted words,
 never a withheld fact.
