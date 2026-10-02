@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 )
 
 const decisionUsage = `usage: flow decision render -file <decision.json> -session-model <model> -reviewers <REVIEWERS>
 
-render prints the planning:/reviewers: lines and the ## Decision block for
-one decision.json, the format brainstorm-planner.md's Decide step prints.
+render prints the ## Decision block for one decision.json, the format brainstorm-planner.md's Decide step prints.
 It reads only the file: no store, no network.
 
 Exit codes: 0 printed; 2 usage error, an unreadable file, or a body that is
@@ -91,8 +91,8 @@ func (p *dPair) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// rule is a pair's rule cell: "<model> / <effort> — <reason>".
-func (p dPair) rule() string { return p.Model + " / " + p.Effort + " — " + p.Reason }
+// pair is a pair as the block prints it: "<model>/<effort>".
+func (p dPair) pair() string { return p.Model + "/" + p.Effort }
 
 type dDecision struct {
 	Class           string  `json:"class"`
@@ -225,24 +225,10 @@ func dIDs(raws []json.RawMessage) string {
 	return strings.Join(ids, ", ")
 }
 
-func yesNo(b bool) string {
-	if b {
-		return "yes"
-	}
-	return "no"
-}
-
-// dRoll is a roll's rule cell: the roll against its threshold.
-func dRoll(n, threshold int) string {
-	if n < threshold {
-		return fmt.Sprintf("%d < %d", n, threshold)
-	}
-	return fmt.Sprintf("%d ≥ %d", n, threshold)
-}
-
-// renderDecision is the planning:/reviewers: preamble and the two ## Decision
-// tables, one fact per row, every reason in the middle column.
-func renderDecision(body []byte, sessionModel, reviewers string) (string, error) {
+// renderDecision is the ## Decision block: one short line per choice, a
+// reason only where a pair departs from the implementer's, or where a value
+// was raised, split or skipped.
+func renderDecision(body []byte, _, reviewers string) (string, error) {
 	missing, err := dMissing(body)
 	if err != nil {
 		return "", fmt.Errorf("not a decision: %v", err)
@@ -269,107 +255,80 @@ func renderDecision(body []byte, sessionModel, reviewers string) (string, error)
 			return "", fmt.Errorf("not a decision: panel: %v", err)
 		}
 	}
-	micro := d.Class == "micro"
-
 	var b strings.Builder
-	row := func(cells ...string) { b.WriteString("| " + strings.Join(cells, " | ") + " |\n") }
-	fmt.Fprintf(&b, "planning:  inline, this session (%s)\nreviewers: %s\n\n## Decision\n\n", sessionModel, reviewers)
+	line := func(label, value string) { b.WriteString("- **" + label + ":** " + value + "\n") }
+	b.WriteString("## Decision\n\n")
 
-	row("Input", "Rule", "Value")
-	b.WriteString("|---|---|---|\n")
-	override := "none"
+	class := fmt.Sprintf("%s · tasks %d · files %d · repos %d", d.Class, d.Inputs.Tasks, d.Inputs.Files, d.Inputs.Repos)
 	if d.Override != nil {
-		override = *d.Override
+		class += " (raised from " + d.ClassMechanical + ": " + *d.Override + ")"
 	}
-	row("class", "mechanical "+d.ClassMechanical, d.Class+" (override: "+override+")")
-	in := d.Inputs
-	row("inputs", "plan-class.sh", fmt.Sprintf("tasks %d · files %d · repos %d · migration %s · spec %s · red %s · unverified %s",
-		in.Tasks, in.Files, in.Repos, yesNo(in.Migration), yesNo(in.Spec), yesNo(in.Red), yesNo(in.Unverified)))
-	compact, experimental, bundle := "full", "no slot", "free grouping"
-	if d.Rolls.Compact < 90 {
-		compact = "compact"
-	}
-	if d.Rolls.Experimental < 30 {
-		experimental = "none available"
-		if p.Experimental != "" {
-			experimental = p.Experimental
-		}
-		for _, r := range p.Roster {
-			if r.Experimental {
-				experimental = r.Slot
-			}
-		}
-	}
-	if d.Rolls.Bundle < 30 {
-		bundle = "static grouping"
-	}
-	effort := "free effort"
-	if d.Rolls.Effort < 80 {
-		effort = "medium effort"
-	}
-	if micro {
-		compact, experimental, bundle, effort = "not consulted — micro", "not consulted — micro", "not consulted — micro", "not consulted — micro"
-	}
-	row("roll: compact", dRoll(d.Rolls.Compact, 90), compact)
-	row("roll: experimental", dRoll(d.Rolls.Experimental, 30), experimental)
-	row("roll: bundle", dRoll(d.Rolls.Bundle, 30), bundle)
-	row("roll: effort", dRoll(d.Rolls.Effort, 80), effort)
+	line("Class", class)
 
-	b.WriteString("\n")
-	row("Setting", "Rule", "Result")
-	b.WriteString("|---|---|---|\n")
-	row("execution mode", "class "+d.Class, d.Execution)
+	exec := d.Execution
 	if d.Implementer.isPair {
-		row("implementer model", d.Implementer.Reason, d.Implementer.Model+"/"+d.Implementer.Effort)
-	} else {
-		row("implementer model", "—", d.Implementer.text)
+		exec += " · implementer " + d.Implementer.pair()
 	}
-	if !micro {
-		if d.Fixer.isPair {
-			row("↳ fixer", d.Fixer.rule(), d.Fixer.Model+"/"+d.Fixer.Effort)
-		} else {
-			row("↳ fixer", "—", d.Fixer.text)
-		}
+	if d.Fixer.isPair {
+		exec += " · fixer " + d.Fixer.pair()
 	}
-	if panelDefault != "" {
-		row("review panel", "class "+d.Class, panelDefault)
-	} else {
-		shape := "full"
-		if p.Compact {
-			shape = "compact"
-		}
-		value := shape + " · " + p.Rerun + " rerun"
-		if p.Experimental == "skipped — bundle cap" {
-			value += " · experimental: skipped — bundle cap"
-		}
-		row("review panel", "class "+d.Class, value)
-		for i, disp := range p.Dispatches {
-			row(fmt.Sprintf("↳ dispatch %d", i+1), dPair{Model: disp.Model, Effort: disp.Effort, Reason: disp.Reason}.rule(), strings.Join(disp.Slots, "+"))
-		}
-		row("↳ rerun", p.RerunDispatch.rule(), "every fix-round re-run, one role per dispatch")
-		if p.Grouping == "free" {
-			row("↳ grouping", "free", p.GroupingReason)
-		}
-	}
-	if d.Groups == nil {
-		row("implementer groups", "—", "skipped — inline")
-	} else {
-		row("implementer groups", "—", d.GroupsReason)
-		suffix := ""
-		if d.GroupsOverride != nil {
-			mech := make([]string, len(d.GroupsMechanical))
-			for i, g := range d.GroupsMechanical {
-				mech[i] = "[" + dIDs(g) + "]"
+	line("Execution", exec)
+
+	if d.Groups != nil {
+		parts := make([]string, len(d.Groups))
+		for i, g := range d.Groups {
+			gp := dPair{Model: g.Model, Effort: g.Effort}
+			parts[i] = dRange(g.Bundles) + " " + gp.pair()
+			if !d.Implementer.isPair || gp.pair() != d.Implementer.pair() {
+				parts[i] += " (" + g.Reason + ")"
 			}
-			suffix = " (mechanical: " + strings.Join(mech, " · ") + "; override: " + *d.GroupsOverride + ")"
 		}
-		for _, g := range d.Groups {
-			ids := dIDs(g.Bundles)
-			row("↳ group "+ids, dPair{Model: g.Model, Effort: g.Effort, Reason: g.Reason}.rule(), ids+suffix)
+		groups := strings.Join(parts, " · ")
+		if d.GroupsOverride != nil {
+			groups += " — split: " + *d.GroupsOverride
 		}
+		line("Groups", groups)
 	}
-	if d.Visual != nil {
-		row("visual verification", d.Visual.Reason, d.Visual.Verify)
+
+	if panelDefault != "" {
+		line("Panel", panelDefault+" — "+reviewers)
+	} else {
+		parts := []string{"full"}
+		if p.Compact {
+			parts[0] = "compact"
+		}
+		for _, disp := range p.Dispatches {
+			parts = append(parts, strings.Join(disp.Slots, "+")+" "+dPair{Model: disp.Model, Effort: disp.Effort}.pair())
+		}
+		parts = append(parts, "reruns "+p.RerunDispatch.pair())
+		if p.Experimental == "skipped — bundle cap" {
+			parts = append(parts, "experimental skipped — bundle cap")
+		}
+		line("Panel", strings.Join(parts, " · "))
+	}
+
+	if v := d.Visual; v != nil {
+		visual := v.Verify
+		if v.Verify != "required" {
+			visual += " — " + v.Reason
+		}
+		line("Visual verify", visual)
 	}
 	return b.String(), nil
+}
+
+// dRange is a group's bundle ids, a consecutive integer run written a–b.
+func dRange(raws []json.RawMessage) string {
+	ids := make([]int, len(raws))
+	for i, r := range raws {
+		n, err := strconv.Atoi(dScalar(r))
+		if err != nil || (i > 0 && n != ids[i-1]+1) {
+			return dIDs(raws)
+		}
+		ids[i] = n
+	}
+	if len(ids) > 1 {
+		return fmt.Sprintf("%d–%d", ids[0], ids[len(ids)-1])
+	}
+	return dIDs(raws)
 }

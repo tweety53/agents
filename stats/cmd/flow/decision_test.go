@@ -30,24 +30,13 @@ func decisionRun(t *testing.T, body string, args ...string) (int, string, string
 	return rc, out.String(), errb.String()
 }
 
-const decisionPreamble = "planning:  inline, this session (claude-opus-5-5)\n" +
-	"reviewers: primary=opus, principles=opus\n" +
-	"\n" +
-	"## Decision\n" +
-	"\n" +
-	"| Input | Rule | Value |\n" +
-	"|---|---|---|\n"
-
-const decisionSettings = "\n| Setting | Rule | Result |\n|---|---|---|\n"
-
-// TestDecisionRenderGolden pins every rule of brainstorm-planner.md's worked
-// `## Decision` format: micro (the three roll rows not consulted, no ↳ row,
-// the `default` panel, a `required` visual row), a small inline run (string
-// implementer and fixer, static grouping, kan-863's `skipped` visual row), a regular free grouping (a full roster, an experimental
-// slot joining the second dispatch, an override), a big sdd run with a split
-// group (object pairs, the (mechanical: …; override: …) suffix), and a big
-// run whose experimental slot was skipped for the bundle cap with mechanical
-// groups (no suffix). The small case is the block kan-823 printed.
+// TestDecisionRenderGolden pins the compact `## Decision` list: micro (the
+// `default` panel naming the roster, no Groups line), a small inline run
+// (kan-863's `skipped` visual with its reason), a regular run (a raised class
+// with its reason, a full roster over two dispatches, no visual line), a big
+// sdd run with a split group (a range, a reason only on the group departing
+// from the implementer pair, the split reason), and a big run whose
+// experimental slot was skipped for the bundle cap.
 func TestDecisionRenderGolden(t *testing.T) {
 	inputs := func(tasks, files int, red string) string {
 		return `"inputs":{"tasks":` + strconv.Itoa(tasks) + `,"files":` + strconv.Itoa(files) + `,"repos":1,"migration":false,"spec":false,"red":` + red + `,"unverified":` + red + `}`
@@ -61,19 +50,11 @@ func TestDecisionRenderGolden(t *testing.T) {
 			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,
 			"visual":{"verify":"required","reason":"the Files list carries a page component"},
 			"parent":{"model":"claude-opus-5-5","effort":"unknown"},"overrides":[]}`,
-			decisionPreamble +
-				"| class | mechanical micro | micro (override: none) |\n" +
-				"| inputs | plan-class.sh | tasks 1 · files 1 · repos 1 · migration no · spec no · red no · unverified no |\n" +
-				"| roll: compact | 65 < 90 | not consulted — micro |\n" +
-				"| roll: experimental | 0 < 30 | not consulted — micro |\n" +
-				"| roll: bundle | 43 ≥ 30 | not consulted — micro |\n" +
-				"| roll: effort | 96 ≥ 80 | not consulted — micro |\n" +
-				decisionSettings +
-				"| execution mode | class micro | inline |\n" +
-				"| implementer model | — | skipped — inline |\n" +
-				"| review panel | class micro | default |\n" +
-				"| implementer groups | — | skipped — inline |\n" +
-				"| visual verification | the Files list carries a page component | required |\n"},
+			"## Decision\n\n" +
+				"- **Class:** micro · tasks 1 · files 1 · repos 1\n" +
+				"- **Execution:** inline\n" +
+				"- **Panel:** default — primary=opus, principles=opus\n" +
+				"- **Visual verify:** required\n"},
 		{"small inline", `{"class":"small","classMechanical":"small","override":null,` + inputs(2, 3, "false") + `,
 			"rolls":{"compact":85,"experimental":84,"bundle":17,"effort":40},"execution":"inline",
 			"implementer":"skipped — inline","fixer":"skipped — inline",
@@ -82,22 +63,11 @@ func TestDecisionRenderGolden(t *testing.T) {
 				"rerun_dispatch":{"model":"opus","effort":"low","reason":"a delta re-run reads a fix against its finding"},"grouping_reason":null},
 			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,
 			"visual":{"verify":"skipped","reason":"actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses"}}`,
-			decisionPreamble +
-				"| class | mechanical small | small (override: none) |\n" +
-				"| inputs | plan-class.sh | tasks 2 · files 3 · repos 1 · migration no · spec no · red no · unverified no |\n" +
-				"| roll: compact | 85 < 90 | compact |\n" +
-				"| roll: experimental | 84 ≥ 30 | no slot |\n" +
-				"| roll: bundle | 17 < 30 | static grouping |\n" +
-				"| roll: effort | 40 < 80 | medium effort |\n" +
-				decisionSettings +
-				"| execution mode | class small | inline |\n" +
-				"| implementer model | — | skipped — inline |\n" +
-				"| ↳ fixer | — | skipped — inline |\n" +
-				"| review panel | class small | compact · delta rerun |\n" +
-				"| ↳ dispatch 1 | opus / medium — git refusals punish a sloppy reading | primary+principles |\n" +
-				"| ↳ rerun | opus / low — a delta re-run reads a fix against its finding | every fix-round re-run, one role per dispatch |\n" +
-				"| implementer groups | — | skipped — inline |\n" +
-				"| visual verification | actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses | skipped |\n"},
+			"## Decision\n\n" +
+				"- **Class:** small · tasks 2 · files 3 · repos 1\n" +
+				"- **Execution:** inline\n" +
+				"- **Panel:** compact · primary+principles opus/medium · reruns opus/low\n" +
+				"- **Visual verify:** skipped — actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses\n"},
 		{"regular free grouping", `{"class":"regular","classMechanical":"small","override":"touches the store seam",` + inputs(6, 12, "true") + `,
 			"rolls":{"compact":95,"experimental":12,"bundle":60,"effort":85},"execution":"inline",
 			"implementer":"skipped — inline","fixer":"skipped — inline",
@@ -108,23 +78,10 @@ func TestDecisionRenderGolden(t *testing.T) {
 				{"slots":["failure-modes","mutation","exp-a"],"model":"opus","effort":"medium","reason":"edge cases"}],
 				"rerun_dispatch":{"model":"sonnet","effort":"low","reason":"confirms a delta"},"grouping_reason":"failure paths read together"},
 			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null}`,
-			decisionPreamble +
-				"| class | mechanical small | regular (override: touches the store seam) |\n" +
-				"| inputs | plan-class.sh | tasks 6 · files 12 · repos 1 · migration no · spec no · red yes · unverified yes |\n" +
-				"| roll: compact | 95 ≥ 90 | full |\n" +
-				"| roll: experimental | 12 < 30 | exp-a |\n" +
-				"| roll: bundle | 60 ≥ 30 | free grouping |\n" +
-				"| roll: effort | 85 ≥ 80 | free effort |\n" +
-				decisionSettings +
-				"| execution mode | class regular | inline |\n" +
-				"| implementer model | — | skipped — inline |\n" +
-				"| ↳ fixer | — | skipped — inline |\n" +
-				"| review panel | class regular | full · delta rerun |\n" +
-				"| ↳ dispatch 1 | opus / high — floor | primary+principles |\n" +
-				"| ↳ dispatch 2 | opus / medium — edge cases | failure-modes+mutation+exp-a |\n" +
-				"| ↳ rerun | sonnet / low — confirms a delta | every fix-round re-run, one role per dispatch |\n" +
-				"| ↳ grouping | free | failure paths read together |\n" +
-				"| implementer groups | — | skipped — inline |\n"},
+			"## Decision\n\n" +
+				"- **Class:** regular · tasks 6 · files 12 · repos 1 (raised from small: touches the store seam)\n" +
+				"- **Execution:** inline\n" +
+				"- **Panel:** full · primary+principles opus/high · failure-modes+mutation+exp-a opus/medium · reruns sonnet/low\n"},
 		{"big sdd split group", `{"class":"big","classMechanical":"big","override":null,` + inputs(26, 43, "false") + `,
 			"rolls":{"compact":26,"experimental":38,"bundle":35,"effort":12},"execution":"sdd",
 			"implementer":{"model":"opus","effort":"high","reason":"Go guards with git fixtures"},
@@ -134,24 +91,11 @@ func TestDecisionRenderGolden(t *testing.T) {
 				"rerun_dispatch":{"model":"sonnet","effort":"low","reason":"confirms a delta"},"grouping_reason":"compact roster is the floor bundle alone"},
 			"groups":[{"bundles":["1","2"],"model":"opus","effort":"high","reason":"store seam"},{"bundles":[3],"model":"sonnet","effort":"low","reason":"docs only"}],
 			"groups_mechanical":[["1","2",3]],"groups_override":"split docs out","groups_reason":"split: docs task apart"}`,
-			decisionPreamble +
-				"| class | mechanical big | big (override: none) |\n" +
-				"| inputs | plan-class.sh | tasks 26 · files 43 · repos 1 · migration no · spec no · red no · unverified no |\n" +
-				"| roll: compact | 26 < 90 | compact |\n" +
-				"| roll: experimental | 38 ≥ 30 | no slot |\n" +
-				"| roll: bundle | 35 ≥ 30 | free grouping |\n" +
-				"| roll: effort | 12 < 80 | medium effort |\n" +
-				decisionSettings +
-				"| execution mode | class big | sdd |\n" +
-				"| implementer model | Go guards with git fixtures | opus/high |\n" +
-				"| ↳ fixer | opus / medium — fix rounds are narrower | opus/medium |\n" +
-				"| review panel | class big | compact · delta rerun |\n" +
-				"| ↳ dispatch 1 | opus / high — wide diff | primary+principles |\n" +
-				"| ↳ rerun | sonnet / low — confirms a delta | every fix-round re-run, one role per dispatch |\n" +
-				"| ↳ grouping | free | compact roster is the floor bundle alone |\n" +
-				"| implementer groups | — | split: docs task apart |\n" +
-				"| ↳ group 1, 2 | opus / high — store seam | 1, 2 (mechanical: [1, 2, 3]; override: split docs out) |\n" +
-				"| ↳ group 3 | sonnet / low — docs only | 3 (mechanical: [1, 2, 3]; override: split docs out) |\n"},
+			"## Decision\n\n" +
+				"- **Class:** big · tasks 26 · files 43 · repos 1\n" +
+				"- **Execution:** sdd · implementer opus/high · fixer opus/medium\n" +
+				"- **Groups:** 1–2 opus/high · 3 sonnet/low (docs only) — split: split docs out\n" +
+				"- **Panel:** compact · primary+principles opus/high · reruns sonnet/low\n"},
 		{"experimental skipped for the bundle cap", `{"class":"big","classMechanical":"big","override":null,` + inputs(22, 30, "false") + `,
 			"rolls":{"compact":71,"experimental":0,"bundle":16,"effort":77},"execution":"sdd",
 			"implementer":{"model":"opus","effort":"xhigh","reason":"concurrency seam"},
@@ -162,22 +106,11 @@ func TestDecisionRenderGolden(t *testing.T) {
 				"rerun_dispatch":{"model":"opus","effort":"low","reason":"short re-read"},"grouping_reason":null},
 			"groups":[{"bundles":[1],"model":"opus","effort":"xhigh","reason":"the seam"}],
 			"groups_mechanical":[[1]],"groups_override":null,"groups_reason":"mechanical"}`,
-			decisionPreamble +
-				"| class | mechanical big | big (override: none) |\n" +
-				"| inputs | plan-class.sh | tasks 22 · files 30 · repos 1 · migration no · spec no · red no · unverified no |\n" +
-				"| roll: compact | 71 < 90 | compact |\n" +
-				"| roll: experimental | 0 < 30 | skipped — bundle cap |\n" +
-				"| roll: bundle | 16 < 30 | static grouping |\n" +
-				"| roll: effort | 77 < 80 | medium effort |\n" +
-				decisionSettings +
-				"| execution mode | class big | sdd |\n" +
-				"| implementer model | concurrency seam | opus/xhigh |\n" +
-				"| ↳ fixer | opus / high — same seam | opus/high |\n" +
-				"| review panel | class big | compact · delta rerun · experimental: skipped — bundle cap |\n" +
-				"| ↳ dispatch 1 | opus / high — floor | primary+principles |\n" +
-				"| ↳ rerun | opus / low — short re-read | every fix-round re-run, one role per dispatch |\n" +
-				"| implementer groups | — | mechanical |\n" +
-				"| ↳ group 1 | opus / xhigh — the seam | 1 |\n"},
+			"## Decision\n\n" +
+				"- **Class:** big · tasks 22 · files 30 · repos 1\n" +
+				"- **Execution:** sdd · implementer opus/xhigh · fixer opus/high\n" +
+				"- **Groups:** 1 opus/xhigh\n" +
+				"- **Panel:** compact · primary+principles opus/high · reruns opus/low · experimental skipped — bundle cap\n"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
