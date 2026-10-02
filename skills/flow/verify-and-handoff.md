@@ -64,7 +64,7 @@ starts; any other source change from here on makes every slot's result stale (**
 `skills/flow/review-panel.md`).
 
 **Load `skills/flow/verify-fix-loop.md`** only when this stage's or `flow.visual-verify`'s final
-report carries a fixable defect — it carries **The loop** and **The cap**.
+report carries a fixable defect — it carries **The loop** and **No cap**.
 
 ### Inline verify
 

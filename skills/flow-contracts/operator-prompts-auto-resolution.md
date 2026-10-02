@@ -38,8 +38,9 @@ Every auto-resolution:
 - is named in the handoff's `**Decisions:**` lines, 🤖-marked, question and option taken, so the
   operator can overrule it afterwards with a fix run
 - never repeats: the same prompt arising again for the same subject after its recommended option
-  was already taken this run is asked, so an auto-taken **another round** cannot loop — except the
-  in-run fix loop, which **The cap** (`skills/flow/verify-fix-loop.md`) bounds instead
+  was already taken this run is asked, so an auto-taken **another round** cannot loop — except a
+  fix, re-review or re-verify round, which **Fewest operator actions**
+  (`skills/flow-contracts/pipeline.md`) leaves unbounded
 
 ### What still stops
 
@@ -55,7 +56,7 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
 - **No recommended option.** The second model-handshake mismatch, a multiple-match pick, a finding
   recorded unverifiable, and a question the run cannot honestly give one recommended option.
 - **Nothing to choose.** A guard's exit 2 (it cannot answer), a command that failed twice on an
-  environment cause, and every other `## Question` handback that carries no options.
+  environment cause the run cannot cure itself, and every other `## Question` handback that carries no options.
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, archiving, deleting, and
   every Jira write — the follow-up filing and the self-review filing included.
   The global rules require these confirmed.

@@ -1,8 +1,8 @@
 # Visual verification — the verifier's steps
 
 Read by the verifier **Steps 3–13** (`skills/flow/visual-verify.md`) dispatches, at the absolute
-path its prompt carries — the parent never loads it whole. It carries step 4, steps 7–11 and the
-`## Report` template, run as written.
+path its prompt carries — the parent never loads it whole. It carries step 4, steps 7–11, the
+motion step and the `## Report` template, run as written.
 
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
 7. **Run `verify`.** When `specs` is declared, run it first from the `regression checkout`, with
@@ -440,6 +440,21 @@ path its prompt carries — the parent never loads it whole. It carries step 4, 
    <spec's basename> — searched <mockups dir>, no frame for <views>`, naming what was searched, and
    continue. Not declared → report `mockups: not declared` and continue. The sidecar's shape is
    canonical in **visual verification** (`skills/flow-contracts/project-configuration-visual.md`).
+**The motion step — record every motion the prompt names.** With `motions: none`, the report's `motion:`
+line reads n/a and the step is skipped. Otherwise, for each motion: in a Chromium page with
+reduced motion off (`page.emulateMedia({ reducedMotion: 'no-preference' })`) and the viewport and
+clock step 8 pins, bring the view to the motion's start, then record frames from before its
+trigger until the view settles — a CDP screencast (`Page.startScreencast`, each frame acknowledged
+with `Page.screencastFrameAck`), or `page.screenshot` sampled back-to-back where no screencast is
+available — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
+steps). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
+id>/<nnn>.png`, read every one, and judge the strip frame by frame: **every frame shows the view
+being left or the view being entered, never an empty, default or wrong-but-plausible rendering
+between them; chrome (a title, a bar) and content change in the same frame; a removed motion's
+strip shows no intermediate frame; a gesture's content follows the pointer in every frame and
+settles where the motion's end state says** — plus any frame rule the project's own instructions
+state. A frame that breaks one is a departure, named by its index and what it shows.
+
 11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's path in `<changeRoot>/visual-verification/`, the frame id, its `diff=`
@@ -458,7 +473,13 @@ path its prompt carries — the parent never loads it whole. It carries step 4, 
     compose step just wrote into `<changeRoot>/visual-verification/` — is cited at that
     in-repository path. No entry cites the
     worktree-absolute path of a file the worktree holds alone. The report block below keeps its absolute paths: it is the live
-    run's handoff, not the committed record.
+    run's handoff, not the committed record. **One entry per motion the motion step recorded**: its
+    id, its strip's directory relative to the record, its frame count, and each departing frame's
+    index and what it shows — or `clean`.
+
+**No required step is left undone for want of time or context.** The report's `steps:` line gives
+each of steps 4, 7–11 and the motion step a status `check-verify-report.sh` admits — its header
+is canonical for them — and the parent runs that guard on the report before reading it.
 
 ```text
 ## Report
@@ -485,5 +506,7 @@ path its prompt carries — the parent never loads it whole. It carries step 4, 
 - added sweep <name> (sweeps-<n>.md): <done, or why not — every view and frame it read, and each departure it found>
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
+- motion: <recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
 - visual-verification.md: written | not written — <reason>
+- steps: 4 <status> | 7 <status> | 8 <status> | 9 <status> | 10 <status> | 11 <status> | motion <status>
 ```

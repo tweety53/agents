@@ -407,17 +407,17 @@ at a time, and does not ask:
   Important, and even where the fix reaches past the change's original scope. A Minor that reached
   this loop joins that round only beside a Critical or Important taking one; with none, the parent
   fixes it inline, as **Panel re-runs** (`skills/flow/review-panel.md`) fixes a Minor-only round's
-  Minors.
+  Minors. No round count ends this: a round that made no progress on a defect takes **Fewest
+  operator actions** (`skills/flow-contracts/pipeline.md`).
 - **A finding no change to the tree can resolve is withdrawn** — a verification-only ask, a proof
   that needs an environment the run does not have, a defect something already covers — recorded
   `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. That reason stands
   where the operator's would.
-- **Only a genuine inability reaches the operator:** a finding the run cannot judge either way, a
-  fix that needs an irreversible or outward-facing action, or a defect identity still open after
-  two automatic rounds on it. Only then is the prompt below raised, shape per Operator prompts
+- **Only a genuine inability reaches the operator:** a finding the run cannot judge either way, or
+  a fix that needs an irreversible or outward-facing action. Only then is the prompt below raised, shape per Operator prompts
   (`skills/flow-contracts/operator-prompts.md`), and resolved per that contract's **Auto-resolution**
-  and **What still stops**: its recommended option is taken unasked, and asked only on a repeat for
-  the same finding or where the fix is irreversible or outward-facing:
+  and **What still stops**: its recommended option is taken unasked, and asked only where the fix
+  is irreversible or outward-facing:
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
 > - **Take another round on it** *(default, recommended)*

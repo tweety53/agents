@@ -42,12 +42,7 @@ One round runs these steps in order:
    captures are what the handoff reports. This round's `verify` and `visual-verify` dispatch keys
    carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix.
 
-## The cap
+## No cap
 
-**Each verify stage runs at most five rounds per run.** The cap, not the never-repeats rule of
-**Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`), bounds this
-loop: every round up to the fifth is taken unasked. A stage whose final report after its fifth
-round still carries a fixable defect closes its `end` mark `-outcome stopped`, and the run
-continues to the `IN_PROGRESS` handoff, never a `## Question`: `flow.visual-verify`'s open defects
-are listed as the handoff's `**Summary:**` bullets, `flow.verify`'s in its `## Report`, each as the
-report names it. The operator fixes them with a fix run.
+**No round count ends the loop.** **Fewest operator actions** (`skills/flow-contracts/pipeline.md`)
+is canonical for that, and for a round that makes no progress.

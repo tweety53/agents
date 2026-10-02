@@ -101,6 +101,26 @@ Implementation advances the state **only** from `STARTED` to `IN_PROGRESS`. A fi
 No field records where a fix was raised. Whether the human re-reviews the diff or re-runs the apps
 after a fix is their decision.
 
+## Fewest operator actions
+
+**The operator's actions and the run's stops are minimised: a run resolves everything it can
+itself and continues.** It stops only for a decision only the operator can make, or for an
+action that is irreversible or outward-facing — **What still stops**
+(`skills/flow-contracts/operator-prompts-auto-resolution.md`) — and every phase's contract is read
+under this one.
+
+**No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
+per-task re-review, a verify stage's fix loop and a verifier re-dispatch each repeat until their
+own clean close. **A round that makes no progress — the same defect identity, on the same
+evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix
+is a fresh dispatch of that loop's own fixer row on `opus` at effort `high` (`subagent_type:
+flow-high`, recorded with that pair, mapped on harness `zcode` per **Harness mapping**,
+`skills/flow-contracts/model-policy.md`), its prompt carrying every earlier round's report
+verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies
+it from those same reports by a different approach. Where the evidence itself may be wrong, the
+defect is first reproduced another way — another reproducer, another capture route. A further
+round without progress changes the approach again; none of them stops the run.
+
 ## Wrong state for this command
 
 **On a mismatch, stop.** Report the actual state, the states the command expects, and the command

@@ -1,0 +1,1 @@
+../../../scripts/check-verify-report.sh

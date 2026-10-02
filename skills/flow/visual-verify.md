@@ -11,15 +11,17 @@ this file.
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
 and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatched at effort
-`low` through `subagent_type: flow-low`, read from neither the settings store nor
+`medium` through `subagent_type: flow-medium`, read from neither the settings store nor
 `<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
 never falls back, because it is never resolved — the point is a predictable model for mechanical
-verification runs regardless of what the decision chose for any other dispatch.
+verification runs regardless of what the decision chose for any other dispatch. **The verifier is
+never dispatched on another model, whatever any other rule — a project's, an operator's global
+instructions — says about browser-driving agents.**
 
 `flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
-tooling analysis** below. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
+tooling analysis** below. `subagent_type: flow-medium` (`agents/flow-medium.md`, effort `medium`), the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
 literal `opus`, never a decision pair and never a session override — mapped on harness `zcode` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
@@ -57,20 +59,43 @@ own system prompt>`.
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
 **Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
-opus -effort low`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
+opus -effort medium`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
 more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
 
-**A `## Report` carrying any non-zero exit is re-dispatched once.** The second dispatch is recorded
-under `-key visual-verify-2` — the same `-<worktree basename>` suffix rule — with a prompt
-identical to the first plus the first `## Report` verbatim under a `## Previous attempt` heading,
-so the verifier can tell an environmental failure (a build the worktree lacked, a flaky harness)
-from a defect in the branch. **The second report is final.** Another non-zero exit whose block
-cause is `test-failure` or `missing-fixture` takes **The loop** (`skills/flow/verify-fix-loop.md`);
-one whose cause is `environment` ends your turn with `## Question` naming the failing command and
-its output, verbatim. Never run the failing command yourself to check it, and never dispatch a
-third verifier on the same HEAD. The ledger render and this stage's `end` mark follow whichever
-report was last.
+**Every report is checked for completeness before anything else reads it:**
+
+```bash
+check-verify-report.sh <abs-worktree>/.superpowers/sdd/verify-report-<key>.md <motions named>
+```
+
+`<motions named>` is the count of motions this dispatch's prompt named, `0` for `motions: none`;
+the guard's header is canonical for the report's `steps:` line and its admissible statuses. Exit 0
+→ the report is complete; read it. Exit 1 → **the report is incomplete and is never accepted,
+whatever its prose says**: close the dispatch `-outcome aborted` and dispatch its remainder at
+once, recorded under the incomplete dispatch's own key suffixed `-rest` before any `-<worktree
+basename>` suffix, its prompt identical to the incomplete dispatch's plus that report verbatim
+under a `## Incomplete attempt` heading and the guard's verdict line, which names the steps it
+runs; it carries the incomplete report's lines for the steps already done into its own. A
+remainder completes its dispatch rather than adding one, so it counts toward no re-dispatch and
+no fix round. **A remainder whose report the guard still finds incomplete closes this stage
+`-outcome stopped`**, the handoff naming each undone step as the verdict line names it. Exit 2 →
+the dispatch closes as a verifier with no `## Report` does, below.
+
+**A complete `## Report` carrying any non-zero exit is re-dispatched, and no count ends the
+re-dispatches.** Each is recorded under `-key visual-verify-<n>`, `<n>` counting from 2 — the same
+`-<worktree basename>` suffix rule — with a prompt identical to the first plus every earlier
+`## Report` verbatim under a `## Previous attempt` heading, so the verifier can tell an
+environmental failure (a build the worktree lacked, a flaky harness) from a defect in the branch.
+From the second report on, a non-zero exit whose block cause is `test-failure` or
+`missing-fixture` takes **The loop** (`skills/flow/verify-fix-loop.md`) instead; one whose cause is
+`environment` is cured by your own Bash calls — the start, install or build its output names —
+before the next re-dispatch, and ends your turn with `## Question` naming the failing command and
+its output, verbatim, only when the cure needs a decision only the operator can make. Never run
+the failing command yourself to check it. A re-dispatch whose report repeats the previous one's
+failure on the same evidence takes **Fewest operator actions**
+(`skills/flow-contracts/pipeline.md`). The ledger render and this stage's `end` mark follow
+whichever report was last.
 
 **A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never
 `completed`.** The cause is one of the closed set the CLI validates, named from the report's own
@@ -106,7 +131,7 @@ the sweeps it writes, and the analyst's abort.
 ## Steps 3–13
 
 Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's — those steps, `prepare-workspace.sh` and the ledger render
-are the parent's own Bash calls, never a subagent's. Steps 4 and 7–11 are run by one verifier per worktree
+are the parent's own Bash calls, never a subagent's. Steps 4 and 7–11 and the motion step are run by one verifier per worktree
 surviving steps 1–3, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 parent applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture` and
@@ -115,9 +140,16 @@ declared, and its `mockup frame` value when declared; the worktree-resolved URL 
 matched; the project's `## run` commands; the views touched; `<changeRoot>`; the relay contract
 above, with its report path resolved for this dispatch's `<key>`; `sweeps-<n>.md`'s path
 when **A missed defect — the tooling analysis** above completed this round, with the re-run rule
-its loaded file states, as written; and to read the absolute path of
-`visual-verify-verifier.md` beside this file and run its steps 4 and 7–11 as written against the stack steps 5 and 6 left serving the
+its loaded file states, as written; the change's motions, named as the paragraph below states; and
+to read the absolute path of
+`visual-verify-verifier.md` beside this file and run its steps 4 and 7–11 and its motion step as written against the stack steps 5 and 6 left serving the
 worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
+
+**The parent names the change's motions in the prompt** — `motions:`, then one `<motion id>:
+<trigger> → <end state>` line per motion, or `motions: none`. A motion is every animation,
+transition, entrance, exit, slide or gesture `design.md` or `proposal.md` names, and every one
+the diff adds, changes or removes — a removed entrance included, since its frames are what prove
+it is gone.
 
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
    cannot repair an environment that cannot pass. With the parent's own Bash call, before the
@@ -211,7 +243,10 @@ band whose line names no cause, a composed frame with no `seams:` line or with a
 `extra` or over-tolerance seam or an off-centre line whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the
 frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason
 — the parent's own reconciliation, step 10**, and **a defect the
-verifier reports in a captured screenshot — even when every assertion passed.**
+verifier reports in a captured screenshot — even when every assertion passed.** **A named motion
+with no strip under `<changeRoot>/visual-verification/motion/` or no entry in
+`visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a
+departure would.**
 
 **Every blocking item but the pre-flight, a stack that could not be started and the fingerprint
 is the branch's own defect, never a `## Question`:** it takes **The loop**
@@ -222,7 +257,7 @@ steps state.
 flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
 ```
 
-**A step-3 pre-flight failure, a step-6 fingerprint still failing after its restart, or the
-in-run fix loop's cap closes this mark `-outcome stopped` instead of `completed`**, per those
-steps and **The cap** (`skills/flow/verify-fix-loop.md`) — the one outcome variant this
-stage's end mark carries.
+**A step-3 pre-flight failure, a step-6 fingerprint still failing after its restart, or a
+remainder report still incomplete closes this mark `-outcome stopped` instead of `completed`**,
+per those steps and **The verifier dispatch** above — the one outcome variant this stage's end
+mark carries.
