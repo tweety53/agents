@@ -566,6 +566,42 @@ func TestCheckPanelReproducerExitContract(t *testing.T) {
 		expect(t, got, out, 1, "carries no such file")
 		s.neverRan(t, "case 41b: a prefixed miss means the runner never runs")
 	})
+
+	// KAN-795 round 0, panel finding F1: the canonical arm of the prefix
+	// index — a citation whose prefix is the canonical worktree's own
+	// basename, the arm a cross-repo panel's canonical-tree findings take.
+	t.Run("case 42: a citation prefixed with the canonical tree's basename resolves through the canonical arm", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		peer := filepath.Join(t.TempDir(), "peer-repo")
+		if err := os.MkdirAll(peer, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		withPeers(t, s, true, peer)
+		base := filepath.Base(s.wt)
+		// The peer carries a target.txt whose line 2 differs on purpose: an
+		// audit resolved against anything but the canonical tree fails here.
+		writeFile(t, filepath.Join(peer, "target.txt"), "line one\npeer content\nline three\n")
+		s.repro(t, "repro.sh", "# demonstrates: "+base+":target.txt:2:defect present here\nexit 9")
+		got, out := s.run(t, "prefixed-canonical")
+		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK (1 runnable")
+	})
+
+	// KAN-795 round 0, panel finding F1: the alias dedupe the canonical arm
+	// rides on — a recorded map entry naming the canonical tree itself must
+	// count once, or the canonical basename reads ambiguous at exit 2.
+	t.Run("case 43: a recorded alias of the canonical tree dedupes under the canonical basename", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		withPeers(t, s, true, s.wt)
+		base := filepath.Base(s.wt)
+		s.repro(t, "repro.sh", "# demonstrates: "+base+":target.txt:2:defect present here\nexit 9")
+		got, out := s.run(t, "prefixed-alias")
+		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK (1 runnable")
+		if strings.Contains(out, "ambiguous") {
+			t.Fatalf("the canonical basename read ambiguous despite the dedupe:\n%s", out)
+		}
+	})
 }
 
 // TestPanelExitContractReproducerGetsLCAllC: the bash guard exported

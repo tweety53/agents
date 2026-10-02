@@ -162,25 +162,16 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	// EvalSymlinks gives each the physical shape the containment comparison
 	// answers in — and two entries naming one physical tree count once, so an
 	// unambiguous prefix is never refused as ambiguous (panel finding F4,
-	// kan-658 round 0). Built once, before the findings loop, so every
-	// declaration of the run resolves through the same map.
+	// kan-658 round 0). That treatment is resolvedRecordedTrees', shared with
+	// the token search below — one home for the policy, so the dedupe rule
+	// cannot be carried to one site and dropped at the other. Built once,
+	// before the findings loop, so every declaration of the run resolves
+	// through the same map.
 	prefixTrees := map[string][]string{}
-	addPrefixTree := func(resolved string) {
-		if resolved == "" {
-			return
-		}
-		b := filepath.Base(resolved)
-		if !slices.Contains(prefixTrees[b], resolved) {
-			prefixTrees[b] = append(prefixTrees[b], resolved)
-		}
-	}
-	addPrefixTree(worktree)
-	for _, rw := range recorded {
-		if rw == "" || !isDir(pcAbs(env, rw)) {
-			continue
-		}
-		if p, err := filepath.EvalSymlinks(pcAbs(env, rw)); err == nil {
-			addPrefixTree(p)
+	for _, p := range append(resolvedRecordedTrees(env, recorded), worktree) {
+		b := filepath.Base(p)
+		if !slices.Contains(prefixTrees[b], p) {
+			prefixTrees[b] = append(prefixTrees[b], p)
 		}
 	}
 
@@ -298,21 +289,8 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		tree := worktree
 		if !pcExists(worktree + "/" + token) {
 			var matches []string
-			for _, rw := range recorded {
-				if rw == "" || !isDir(pcAbs(env, rw)) {
-					continue
-				}
-				// EvalSymlinks (the bash's `cd ... && pwd -P`) gives the
-				// recorded path the same physical shape the worktree itself
-				// carries — the containment check in pcAudit compares resolved
-				// paths, and a map entry reached through a symlinked prefix
-				// would otherwise lose every comparison on its shape alone.
-				// Two map entries can name one physical tree through a
-				// symlinked prefix; counting the alias twice would refuse an
-				// unambiguous reproducer as ambiguous (panel finding F4,
-				// kan-658 round 0).
-				p, err := filepath.EvalSymlinks(pcAbs(env, rw))
-				if err != nil || slices.Contains(matches, p) || !pcExists(p+"/"+token) {
+			for _, p := range resolvedRecordedTrees(env, recorded) {
+				if slices.Contains(matches, p) || !pcExists(p+"/"+token) {
 					continue
 				}
 				matches = append(matches, p)
@@ -457,7 +435,10 @@ func pcResolveCitation(ref, tree, decl, prefix, noun string, prefixTrees map[str
 				rest = remainder
 			case len(trees) > 1:
 				cannot(fmt.Sprintf("%s's reproducer %s declaration's prefix '%s' names %d of the change's worktrees (%s) — the citation's tree is ambiguous, so no verdict is possible", ref, noun, head, len(trees), strings.Join(trees, " ")))
-				return []string{fmt.Sprintf("%s's reproducer %s declaration's prefix '%s' is ambiguous — %d worktrees carry that basename", ref, noun, head, len(trees))}
+				// Sentinel, never printed: cannot-answer outranks exit 1, so
+				// only the cannot message above reaches stderr. The
+				// non-empty return is the finding-skip signal alone.
+				return []string{"ambiguous basename prefix"}
 			}
 		}
 	}
@@ -529,6 +510,32 @@ func pcFlow(env Env, combined bool, args ...string) ([]byte, []byte, int) {
 	default:
 		return out.Bytes(), []byte(err.Error() + "\n"), 126
 	}
+}
+
+// resolvedRecordedTrees is the recorded-worktree to physical-tree resolution
+// both consumers of the state record's `worktrees` map share (panel finding
+// F3, kan-795 round 0): an empty entry is skipped like an absent one, a path
+// that is not a directory on disk is skipped like a vanished one — the map
+// records git worktrees, and a removed worktree resolves nothing —,
+// EvalSymlinks (the bash's `cd ... && pwd -P`) gives each recorded path the
+// same physical shape the worktree itself carries, the shape every
+// containment comparison here answers in, and two entries naming one
+// physical tree through a symlinked prefix count once: counting the alias
+// twice would refuse an unambiguous reproducer as ambiguous (panel finding
+// F4, kan-658 round 0).
+func resolvedRecordedTrees(env Env, recorded []string) []string {
+	var out []string
+	for _, rw := range recorded {
+		if rw == "" || !isDir(pcAbs(env, rw)) {
+			continue
+		}
+		p, err := filepath.EvalSymlinks(pcAbs(env, rw))
+		if err != nil || slices.Contains(out, p) {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 // pcWorktreeKeys is `(.worktrees // {}) | keys[]`: an object's keys sorted,
