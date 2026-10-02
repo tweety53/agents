@@ -727,6 +727,7 @@ var (
 	cicFileLine   = regexp.MustCompile(`:[0-9]+$`)
 	cicSpectreRef = regexp.MustCompile(`^spectre/<[^/<>]+>$`)
 	cicChoreRef   = regexp.MustCompile(`^chore/(?:archive|self-review)-<[^/<>]+>$`)
+	cicFraction   = regexp.MustCompile(`^(?:[0-9]+/[0-9]+|<[a-z]>/<[a-z]>)$`)
 )
 
 // cicIsCitation is classify_token: true when token is a citation at all —
@@ -771,6 +772,13 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 	// change. Same shape, same bounds, for the same reason: a branch name is
 	// not a filesystem path; `chore/archive-<name>/spec.md` stays reportable.
 	case cicChoreRef.MatchString(tok):
+		return false
+	// FRACTION_RE — a count out of a total, `22/22`, or its one-letter
+	// placeholder shape `<x>/<n>` (be-brief's `Task <x>/<n>` status lines), is a
+	// number, not a path. Exactly two segments, each all digits or a single
+	// lowercase letter in brackets, anchored at both ends: `<name>/<file>` and
+	// `22/22/x.md` stay reportable.
+	case cicFraction.MatchString(tok):
 		return false
 	// FILE_LINE_RE — a token ending `:<digits>` names a line inside a file
 	// (a findings-table Location cell, taken verbatim from `git diff` output
