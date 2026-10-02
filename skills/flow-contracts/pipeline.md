@@ -133,7 +133,10 @@ integrate/archive branch.
 total and its phase — `🔄 … — implementation`, `🔍 … — review-<k>`, `🔄 … — fix-<k>`, `<k>` the
 round (`🔄 Task 30/31 (drawer drag release) — implementation`); any other dispatch names its own
 unit the same way (`🔍 Panel round 0 (primary+principles) — review`, `🔍 Visual verify (frontend) —
-review-1`).
+review-1`). While the agent runs, the view shows its latest tool call's description instead, so
+every dispatch prompt also tells the agent to open each tool call's description with that unit
+and phase (`Task 30/31 review-1 — run the drawer tests`, `Visual verify review-2 — resolve the
+specs`).
 
 **The progress view is a view, never a record.** No command, guard or contract reads the harness's
 task list back as evidence of what was done. `tasks.md` remains the single source of truth for a
