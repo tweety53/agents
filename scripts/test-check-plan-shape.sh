@@ -818,6 +818,48 @@ run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 30 (F11): a duplicate token in one task is not a pair" || fail "case 30 (F11): rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 30 (F11): no output" || fail "case 30 (F11): expected no output, got: $OUT"
 
+# ===========================================================================
+# Case 31 (KAN-794): the repair form — `Tests: none — repairs existing
+# tests: <names>` — over a test-shaped Files entry is the sanctioned shape
+# for a task that repairs existing tests and adds none: F4 does not fire
+# (the named tests are what the task repairs, the object of the work, not
+# a declaration it abandons) and F6 does not either (the field opens with
+# `none`). Before the exemption existed this fixture deadlocked the two
+# guards: bare `none` here is F4, and naming the tests as backtick tokens
+# instead makes check-task-commit-fields demand them in the diff, which a
+# repair never satisfies.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Repair existing tests\n\n'
+  printf '**Files:** `scripts/test-check-foo.sh`\n\n'
+  printf '**Tests:** none — repairs existing tests: the fixture-collision cases\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 31: the repair form over a test-shaped Files entry passes" || fail "case 31: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 31: no output" || fail "case 31: expected no output, got: $OUT"
+
+# The bare `none` beside the same entry still fails: the exemption is the
+# annotation's, never the word's — case 7's fixture is that case and its
+# assertion above is what pins it.
+
+# ===========================================================================
+# Case 32 (KAN-794): the repair form opening on a CONTINUATION line over a
+# test-shaped entry — the same joined-value reading case 19 pins for the
+# bare `none`; the annotation is read from fields.tests_value, never from
+# the field's own physical line.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Continuation-line repair form\n\n'
+  printf '**Files:** `scripts/test-check-foo.sh`\n\n'
+  printf '**Tests:**\n'
+  printf 'none — repairs existing tests: the fixture-collision cases\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 32: a continuation-line repair form over a test-shaped Files entry passes" || fail "case 32: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 32: no output" || fail "case 32: expected no output, got: $OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

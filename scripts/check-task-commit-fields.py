@@ -266,7 +266,16 @@ case-insensitive, leading Markdown emphasis and whitespace stripped)
 declares zero tests outright, ahead of every other check below — a task
 that legitimately adds no test says so once, in the one field that should
 be precise, instead of the field's own explanatory prose being misread as
-a test declaration by whichever check comes next. Only an opening `none`
+a test declaration by whichever check comes next. One `none` shape is
+named in the grammar itself: a value opening with `none` and carrying the
+annotation `repairs existing tests:` (`REPAIRS_OPEN_RE`) is a test REPAIR
+(KAN-794) — the task fixes existing tests and adds none — and the names
+after the colon are a record of what was repaired, never test
+declarations: no diff or tree check reads them, because a repair by
+definition changes no test's name, and naming the repaired tests in
+`Files:` is stating the object of the work, not a contradiction.
+check-plan-shape.py's F4 exempts the annotated value for the same reason.
+Only an opening `none`
 counts: the word appearing mid-sentence, as in "added `test_alpha`, none
 of the other paths change", does not. Short of that, every `Case <N>`
 label mentioned anywhere in the field's text becomes a declared test named
@@ -365,6 +374,23 @@ CASE_LABEL_RE = re.compile(r"\bCase\s+(\d+)\b", re.IGNORECASE)
 # where this is checked ahead of both the Case N scan and the backtick
 # fallback.
 NONE_OPEN_RE = re.compile(r"^[\s*_]*none\b", re.IGNORECASE)
+# REPAIRS_OPEN_RE — the test-repair annotation (KAN-794): a `Tests:` value
+# that opens with `none` and then carries `repairs existing tests:` — a task
+# repairing existing tests and adding none, the shape every hand-recorded
+# plan substitution in kan-741 spelled out. One definition, beside
+# NONE_OPEN_RE and imported by check-plan-shape.py the same way: the
+# dash separator is optional and may be an em dash, an en dash or a double
+# hyphen, but the phrase itself is required, so "none added — repairs
+# existing tests" is NOT the form — F4 fires on it and its message names
+# this one. The names after the colon are a record of what was repaired and
+# are read by no check: a value matching here also matches NONE_OPEN_RE, so
+# `_parse_test_specs` and `_extract_tree_names` already declare nothing for
+# it, and the annotation's only grammatical effect is check-plan-shape.py's
+# F4 exemption.
+REPAIRS_OPEN_RE = re.compile(
+    r"^[\s*_]*none\b\s*(?:[—–]|--)?\s*repairs\s+existing\s+tests\s*:",
+    re.IGNORECASE,
+)
 BASELINE_COUNTS_RE = re.compile(r"before=(\d+)\s+after=(\d+)")
 
 # One plan-provenance `measured:` comment (skills/flow-contracts/

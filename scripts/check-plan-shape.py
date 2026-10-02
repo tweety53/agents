@@ -74,7 +74,12 @@ field-shaped line inside a worked example is not a declaration.
       from check-task-commit-fields.py — see below) on a task whose
       `**Files:**` names a test-shaped path (`test-*`, `*_test.go`,
       `*.test.*`, `*.spec.ts`) — a contradiction between the opt-out and
-      the declared files.
+      the declared files. A value carrying the test-repair annotation
+      (`REPAIRS_OPEN_RE`: `none — repairs existing tests:`) is exempt
+      (KAN-794): the names after the colon are what the task repairs, the
+      object of the work, not a declaration it abandons — the shape every
+      hand-recorded plan substitution in kan-741 had to spell out because
+      the guards gave it no dialect to write it in.
   F5  A `tasks.md` the grammar finds zero tasks in (`collect_task_ids`
       returns `[]`) — a vacuous pass, not a clean file, so it fails rather
       than reporting nothing. Has no task id to name; reported at line 1.
@@ -185,6 +190,7 @@ FIELD_RE = _cfg.FIELD_RE
 BACKTICK_RE = _cfg.BACKTICK_RE
 CASE_LABEL_RE = _cfg.CASE_LABEL_RE
 NONE_OPEN_RE = _cfg.NONE_OPEN_RE
+REPAIRS_OPEN_RE = _cfg.REPAIRS_OPEN_RE
 
 # --- Load lib/plan_grammar.py ----------------------------------------------
 _LIB_DIR = SCRIPT_DIR / "lib"
@@ -225,10 +231,12 @@ INDENTED_FIELD_RE = re.compile(r"^[ \t]+" + FIELD_RE.pattern.lstrip("^"))
 # not redefined here: it is the same rule design.md's `tests-none-literal`
 # decision records for the real parser fix (task 2), now the definition
 # `_parse_test_specs` itself checks — one grammar, one regex, per the
-# module docstring's "Parser identity is structural" line. This guard still
-# applies it independently of what `parse_task_fields` returns, because F4
-# and F6 are properties of what the PLAN says, not of what the real parser
-# does with it.
+# module docstring's "Parser identity is structural" line. REPAIRS_OPEN_RE
+# (KAN-794) is imported the same way for the same reason: the test-repair
+# annotation's one definition lives beside NONE_OPEN_RE in the parser
+# module. This guard still applies both independently of what
+# `parse_task_fields` returns, because F4 and F6 are properties of what
+# the PLAN says, not of what the real parser does with it.
 
 # TEST_SHAPED_PATTERNS — the four glob shapes design.md's F4 row names for
 # a "test-shaped path".
@@ -409,25 +417,29 @@ def _check_task(
             "or one naming no file at all"
         )
 
-    # NONE_OPEN_RE is applied to fields.tests_value — the SAME
-    # continuation-joined string parse_task_fields itself builds and reads
-    # (`" ".join(fields.get("Tests", []))`) before handing it to
+    # NONE_OPEN_RE and REPAIRS_OPEN_RE are applied to fields.tests_value —
+    # the SAME continuation-joined string parse_task_fields itself builds
+    # and reads (`" ".join(fields.get("Tests", []))`) before handing it to
     # _parse_test_specs — never to the field's own first physical line in
     # isolation: a `none` written on the line after `**Tests:**` (a
     # continuation) is invisible to the latter, which is exactly the
     # duplicate-grammar defect this guard exists to not have (KAN-121
-    # panel-fix round, finding 1). `_first_field_line` is still used below,
-    # for its line number only, to anchor F4/F6 messages at the field's
-    # opening line.
+    # panel-fix round, finding 1; the repair form reads the same joined
+    # value, KAN-794). `_first_field_line` is still used below, for its
+    # line number only, to anchor F4/F6 messages at the field's opening
+    # line.
     tests_field = _first_field_line(body, body_start, "Tests")
     tests_opens_none = NONE_OPEN_RE.match(fields.tests_value) is not None
+    tests_opens_repairs = REPAIRS_OPEN_RE.match(fields.tests_value) is not None
 
-    if tests_opens_none and any(_is_test_shaped(f) for f in fields.files):  # F4
+    if tests_opens_none and not tests_opens_repairs and any(_is_test_shaped(f) for f in fields.files):  # F4
         violations.append(
             f"{path}:{tests_field.line}: task {task_id}'s **Tests:** "
             "field opens with `none` but **Files:** names a test-shaped "
             "path — a contradiction between the opt-out and the declared "
-            "files"
+            "files; a task repairing existing tests and adding none says "
+            "so with `Tests: none — repairs existing tests: <names>` "
+            "(KAN-794)"
         )
 
     if not tests_opens_none and not fields.tests:  # F6
