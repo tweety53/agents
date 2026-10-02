@@ -1,0 +1,6 @@
+# Operator, 2026-10-02: a progress line names the unit, a few words on what it is, and its state —
+# nothing about how it got there. Every sentence below was added or reworded on purpose for that.
+Findings first, no preamble, no recap; one line per completed unit while you work.
+A status line is `<unit> (<a few words on what it is>) — <state>`, one per unit, and nothing else: `Task 22 (spec text) — done`, `Task 21 (finished-workout look) — in progress`.
+Findings first, no preamble, no recap; one line per completed unit while you work, as `<unit> (<few words>) — <state>`.
+Not how the unit got there (closed, ticked, pushed), not what comes next.
