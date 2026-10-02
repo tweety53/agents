@@ -116,3 +116,5 @@ the commit names them. The guarded two-commit chain (**The guarded two-commit ch
 `skills/flow-contracts/git-boundaries-commit-chain.md`) is the deliberate exception: its
 `add -A` is what picks up operator edits and new files at the human gate, which a
 pathspec-scoped commit would drop.
+
+A `/flow-fast` branch's commit series is its whole record, and the route reads it back before anything lands — `check-fast-route-record.sh <worktree> <base>` in section 5's verify stage (`skills/flow-fast/SKILL.md`) asserts every commit since the merge base against it: a Conventional Commits subject, a scope naming a module (never the change name, a Jira key or a task id), no attribution trailer and no `Task-Id:` trailer, a hit fixed and re-run under the route's commit rule, with the exit codes canonical in the guard's own header.

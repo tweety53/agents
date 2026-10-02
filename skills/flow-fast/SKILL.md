@@ -219,7 +219,9 @@ one logical unit at a time on the `<name>` branch, subject in Conventional Commi
 attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch
 backup**, `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
 record; no task-fields guard reads it, and section 5's lint and tests are the only close a commit
-gets. Fix every lint hit the project's `## lint`
+gets. The series is read back before section 7 lands anything — `check-fast-route-record.sh
+<worktree> <base>` in section 5's verify stage, per **Branch backup**
+(`skills/flow-contracts/git-boundaries.md`). Fix every lint hit the project's `## lint`
 raises on the files you touched rather than suppressing it.
 
 ```bash
@@ -241,9 +243,12 @@ flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -se
 
 Run every command in `## lint`, in the worktree, and the `## test` commands scoped to what the
 change touched — the packages, modules or test files the diff names, never the full suite unless
-the operator asked for it. A failure is fixed and re-run under section 4's commit rule; the run
-never lands red — except a failing test **the sweep** (`skills/flow-contracts/known-bugs.md`)
-classifies pre-existing, which takes that contract's known-failure course instead.
+the operator asked for it. Then `check-fast-route-record.sh <worktree> <base>` reads the branch's
+commit series as the record, per **Branch backup**
+(`skills/flow-contracts/git-boundaries.md`). A failure is fixed and re-run under section 4's
+commit rule; the run never lands red — except a failing test **the sweep**
+(`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's
+known-failure course instead.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>
