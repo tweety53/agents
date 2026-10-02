@@ -151,6 +151,38 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		fmt.Fprintln(stderr, pcJQFailed)
 		return 2
 	}
+	// THE PREFIX INDEX (KAN-795). A cross-repo change's panel prefixes a
+	// finding's citation with the basename of the worktree it was raised in —
+	// `gymie-frontend:src/Foo.tsx:42`, the WORKTREES paragraph's form
+	// (skills/flow/review-panel.md) — and the audit below resolves that prefix
+	// to its tree through this index: the canonical worktree plus every
+	// recorded worktrees-map entry, keyed by the basename each resolves to.
+	// Map entries get the same treatment the per-finding token search gives
+	// them — an empty or vanished path is skipped like an absent one, and
+	// EvalSymlinks gives each the physical shape the containment comparison
+	// answers in — and two entries naming one physical tree count once, so an
+	// unambiguous prefix is never refused as ambiguous (panel finding F4,
+	// kan-658 round 0). Built once, before the findings loop, so every
+	// declaration of the run resolves through the same map.
+	prefixTrees := map[string][]string{}
+	addPrefixTree := func(resolved string) {
+		if resolved == "" {
+			return
+		}
+		b := filepath.Base(resolved)
+		if !slices.Contains(prefixTrees[b], resolved) {
+			prefixTrees[b] = append(prefixTrees[b], resolved)
+		}
+	}
+	addPrefixTree(worktree)
+	for _, rw := range recorded {
+		if rw == "" || !isDir(pcAbs(env, rw)) {
+			continue
+		}
+		if p, err := filepath.EvalSymlinks(pcAbs(env, rw)); err == nil {
+			addPrefixTree(p)
+		}
+	}
 
 	// THE STORE IS QUERIED ONCE, and a non-zero exit from `flow record findings`
 	// is this guard's own exit 2 — the same reading its sibling guard gives the
@@ -301,7 +333,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 			// KAN-839: the premise audit joins the demonstrates audit under
 			// the same mutation skip — a mutation-declared reproducer's
 			// instrument audit is the sha pin, never this tree's premises.
-			audit := append(pcAudit(ref, tree, reproPath), pcPremiseAudit(ref, tree, reproPath)...)
+			audit := append(pcAudit(ref, tree, reproPath, prefixTrees, cannot), pcPremiseAudit(ref, tree, reproPath, prefixTrees, cannot)...)
 			// The skip the audit promises: any violation this finding's
 			// declarations added means the runner is never invoked for it.
 			if len(audit) > 0 {
@@ -360,13 +392,13 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 // violations it found, none when every citation resolves. A reproducer
 // carrying no demonstrates declaration at all is itself a violation — what
 // the instrument reads and expects is unaudited.
-func pcAudit(ref, tree, reproPath string) []string {
+func pcAudit(ref, tree, reproPath string, prefixTrees map[string][]string, cannot func(string)) []string {
 	var v []string
 	decls := 0
 	for _, l := range headLines(reproPath, 10) {
 		if strings.HasPrefix(l, pcDeclare) {
 			decls++
-			v = append(v, pcResolveCitation(ref, tree, l, pcDeclare, "demonstrates")...)
+			v = append(v, pcResolveCitation(ref, tree, l, pcDeclare, "demonstrates", prefixTrees, cannot)...)
 		}
 	}
 	if decls == 0 {
@@ -383,11 +415,11 @@ func pcAudit(ref, tree, reproPath string) []string {
 // premise is a violation like any demonstrates miss: the premise names what
 // the reproducer's checks read, and checks running against nothing are the
 // vacuous pass this audit exists to deny.
-func pcPremiseAudit(ref, tree, reproPath string) []string {
+func pcPremiseAudit(ref, tree, reproPath string, prefixTrees map[string][]string, cannot func(string)) []string {
 	var v []string
 	for _, l := range headLines(reproPath, 10) {
 		if strings.HasPrefix(l, pcPremiseDeclare) {
-			v = append(v, pcResolveCitation(ref, tree, l, pcPremiseDeclare, "premise")...)
+			v = append(v, pcResolveCitation(ref, tree, l, pcPremiseDeclare, "premise", prefixTrees, cannot)...)
 		}
 	}
 	return v
@@ -400,8 +432,35 @@ func pcPremiseAudit(ref, tree, reproPath string) []string {
 // citation resolves. `noun` names the declaration kind in every message
 // ("demonstrates", "premise"), so the two audits share one resolution and
 // cannot drift.
-func pcResolveCitation(ref, tree, decl, prefix, noun string) []string {
+//
+// THE PREFIXED FORM (KAN-795). The declaration's first field may name one of
+// the change's trees by basename — `# demonstrates:
+// gymie-frontend:src/Foo.tsx:42:content`, the cross-repo form the panel
+// records already use (skills/flow/review-panel.md's WORKTREES paragraph).
+// A basename that answers to exactly one indexed tree redirects the whole
+// resolution — the file, line, content and containment checks, the prefix's
+// tree substituted for the finding's own; an unprefixed citation and a
+// prefix nothing answers to read exactly as KAN-606 left them. Several trees
+// answering to one basename is no verdict for the finding rather than a
+// guessed one — the same ambiguity class the reproducer path token resolves
+// to cannot-answer at — so the audit records cannot-answer through `cannot`
+// and returns a violation the exit-2 precedence keeps unprinted; the finding
+// is skipped either way, the runner never invoked on an instrument no tree
+// can be chosen for.
+func pcResolveCitation(ref, tree, decl, prefix, noun string, prefixTrees map[string][]string, cannot func(string)) []string {
 	rest := strings.TrimPrefix(decl, prefix)
+	if head, remainder, ok := strings.Cut(rest, ":"); ok {
+		if trees, match := prefixTrees[head]; match {
+			switch {
+			case len(trees) == 1:
+				tree = trees[0]
+				rest = remainder
+			case len(trees) > 1:
+				cannot(fmt.Sprintf("%s's reproducer %s declaration's prefix '%s' names %d of the change's worktrees (%s) — the citation's tree is ambiguous, so no verdict is possible", ref, noun, head, len(trees), strings.Join(trees, " ")))
+				return []string{fmt.Sprintf("%s's reproducer %s declaration's prefix '%s' is ambiguous — %d worktrees carry that basename", ref, noun, head, len(trees))}
+			}
+		}
+	}
 	dpath, rest2, ok1 := strings.Cut(rest, ":")
 	dline, dcontent, ok2 := strings.Cut(rest2, ":")
 	if dpath == "" || !ok1 || !ok2 || dline == "" || strings.Trim(dline, "0123456789") != "" || dcontent == "" {

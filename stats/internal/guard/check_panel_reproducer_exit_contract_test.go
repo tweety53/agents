@@ -479,6 +479,93 @@ func TestCheckPanelReproducerExitContract(t *testing.T) {
 			}
 		})
 	})
+
+	// The prefixed citation form (KAN-795): `# demonstrates:
+	// <worktree-basename>:<path>:<line>:<content>` — the basename prefix the
+	// panel records already use (skills/flow/review-panel.md's WORKTREES
+	// paragraph) — resolves against the recorded worktree whose basename the
+	// prefix names, while the reproducer itself and the runner keep the
+	// finding's own tree.
+	t.Run("case 37: a prefixed citation resolves in the worktree its basename names", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		peer := filepath.Join(t.TempDir(), "gymie-frontend")
+		if err := os.MkdirAll(peer, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		withPeers(t, s, true, peer)
+		// The canonical tree's line 2 differs on purpose: an audit resolved
+		// against the finding's tree instead of the prefixed one fails here.
+		writeFile(t, filepath.Join(s.wt, "target.txt"), "line one\ncanonical content\nline three\n")
+		writeFile(t, filepath.Join(peer, "target.txt"), "line one\npeer content\nline three\n")
+		s.repro(t, "repro.sh", "# demonstrates: gymie-frontend:target.txt:2:peer content\nexit 9")
+		got, out := s.run(t, "prefixed-demo")
+		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK (1 runnable")
+		t.Run("case 37b: the runner still ran against the finding's tree", func(t *testing.T) {
+			want, _ := filepath.EvalSymlinks(s.wt)
+			if r := s.runs(); len(r) != 1 || r[0] != want {
+				t.Fatalf("runs %v, want [%s]", r, want)
+			}
+		})
+	})
+
+	t.Run("case 38: a prefixed premise citation resolves the same way", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		peer := filepath.Join(t.TempDir(), "gymie-frontend")
+		if err := os.MkdirAll(peer, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		withPeers(t, s, true, peer)
+		writeFile(t, filepath.Join(s.wt, "target.txt"), "line one\ndefect present here\nline three\n")
+		writeFile(t, filepath.Join(peer, "target.txt"), "premise line\npeer two\n")
+		s.repro(t, "repro.sh", "# demonstrates: target.txt:2:defect present here\n# premise: gymie-frontend:target.txt:2:peer two\nexit 9")
+		got, out := s.run(t, "prefixed-premise")
+		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
+	})
+
+	t.Run("case 39: a prefix naming no worktree's basename stays a violation", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		s.repro(t, "repro.sh", "# demonstrates: nosuchrepo:target.txt:2:defect present here\nexit 9")
+		got, out := s.run(t, "prefixed-unknown")
+		expect(t, got, out, 1, "malformed demonstrates declaration")
+		s.neverRan(t, "case 39b: an unresolvable prefix means the runner never runs")
+	})
+
+	t.Run("case 40: a prefix naming several worktrees is cannot-answer", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		root := t.TempDir()
+		p1 := filepath.Join(root, "one", "peerbase")
+		p2 := filepath.Join(root, "two", "peerbase")
+		for _, p := range []string{p1, p2} {
+			if err := os.MkdirAll(p, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		withPeers(t, s, true, p1, p2)
+		s.repro(t, "repro.sh", "# demonstrates: peerbase:target.txt:2:defect present here\nexit 9")
+		got, out := s.run(t, "prefixed-ambiguous")
+		expect(t, got, out, 2, "ambiguous")
+		s.neverRan(t, "case 40b: an ambiguous prefix means the runner never runs")
+	})
+
+	t.Run("case 41: a prefixed citation is audited against the tree its prefix names", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		peer := filepath.Join(t.TempDir(), "gymie-frontend")
+		if err := os.MkdirAll(peer, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		withPeers(t, s, true, peer)
+		// The canonical tree carries the cited file and content; the prefixed
+		// tree carries neither — the audit must answer for the prefixed tree.
+		s.repro(t, "repro.sh", "# demonstrates: gymie-frontend:target.txt:2:defect present here\nexit 9")
+		got, out := s.run(t, "prefixed-miss")
+		expect(t, got, out, 1, "carries no such file")
+		s.neverRan(t, "case 41b: a prefixed miss means the runner never runs")
+	})
 }
 
 // TestPanelExitContractReproducerGetsLCAllC: the bash guard exported

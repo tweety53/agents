@@ -75,7 +75,19 @@
 # resolve is a violation and the reproducer is NOT run — the runner's
 # verdict would answer a question this audit has already settled, and a
 # "demonstrated" spent on an unresolvable instrument is exactly the green
-# flip this guard exists to deny. The premise audit (KAN-839) rides the same
+# flip this guard exists to deny. Since KAN-795 the declaration's first field
+# may name a tree by basename instead of a path — the cross-repo prefix form
+# the panel's WORKTREES prompt has reviewers write on any multi-worktree
+# change (`gymie-frontend:src/Foo.tsx:42`, skills/flow/review-panel.md) — and
+# such a citation resolves against the worktree its basename names: the
+# canonical tree or an entry of the state record's `worktrees` map, whichever
+# (exactly one) carries that basename, every check of the audit applied
+# against THAT tree while the reproducer itself keeps the finding's own. A
+# basename nothing answers to is no prefixed citation at all — the
+# declaration reads unprefixed and bounces as malformed if it cannot — and a
+# basename several trees answer to is ambiguous, cannot-answer (exit 2), the
+# citation's tree unknowable and no verdict possible. The premise audit
+# (KAN-839) rides the same
 # machinery: every `# premise: <path>:<line>:<content>` declaration in the
 # same first-10-lines window is resolved the same way, tolerantly — a
 # reproducer carrying no premise line violates nothing, so records predating
@@ -96,7 +108,9 @@
 #      did not see: the record changed after it ran, or the command resolves
 #      outside the worktree through a symlink), or failed the instrument
 #      audit — no `# demonstrates:` declaration within the first 10 lines,
-#      a malformed one, a citation outside the worktree, a file, line or
+#      a malformed one, a citation outside the tree it resolves against —
+#      the finding's own, or the worktree its basename prefix names
+#      (KAN-795) —, a file, line or
 #      content the tree does not carry, a declared-but-unresolvable
 #      `# premise:` declaration (KAN-839), or a script that cannot be read to
 #      audit at all; each named on stderr
@@ -106,7 +120,8 @@
 #      canonical worktree, so a peer tree's store read is a cannot-answer
 #      and never a clean verdict — KAN-658), jq failing, an open finding
 #      carrying no reproducer field at all, a reproducer path token
-#      resolving in several of the change's recorded worktrees, or any
+#      resolving in several of the change's recorded worktrees or a
+#      citation's basename prefix answering to several (KAN-795), or any
 #      reproducer the runner could not verdict (timeout, surviving process,
 #      plumbing failure).
 #      Cannot-answer outranks exit 1: a read that could not be completed is
