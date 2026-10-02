@@ -157,7 +157,9 @@ rule: a turn still ends only where it says.
 
 **It likewise writes nothing for** a bookkeeping note about a plan-field correction ("Q2
 re-captured unchanged, so its baseline is dropped from task 14's Files.") or an end-of-turn
-progress summary ("Task 13 passed review and is ticked … Task 14 … is running now."). When
+progress summary ("Task 13 passed review and is ticked … Task 14 … is running now."), a narrated
+step ("Now commit the frontend link and run close-task for tasks 1–6.", "Run RED first.", "Now the
+fix."), or a stage-level status line ("🔍 Review panel (primary + principles) — in review"). When
 nothing needs the operator — no stop, no auto-resolution line, no handoff — the turn ends with no
 text at all.
 
