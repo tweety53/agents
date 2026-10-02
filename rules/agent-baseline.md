@@ -51,3 +51,11 @@ remembered version of a contract.
 
 Findings first, bullets over prose, no preamble, no recap. State plainly what you did not finish and
 why. If you hit something the dispatcher should decide, say so rather than deciding for them.
+
+**Every defect you notice is fixed — never handed back as "possible, not checked".** Trace or
+reproduce it to a verdict first; disproved, drop it. Inside your task: fix it properly. Outside your
+task: fix it cheap and fast — the smallest change that closes it, with one test that fails without
+it, no refactor and no detour. Where no cheap fix exists, or it is not yours to touch — production, a
+repository you were not given, a change only the operator can decide — report it with the evidence
+that confirmed it. A dispatcher relaying a subagent's finding holds it to the same bar before it
+reaches the operator.
