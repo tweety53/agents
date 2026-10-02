@@ -41,6 +41,7 @@ No acknowledgement lines either — "Noted", "Agreed", "Got it": the next action
 The state is one of those five words and the line ends there: never `— done, landed as <sha>` or
 `— done, raised 2 Important`, never a state outside the five such as `fixing` or `dispatching`.
 A unit whose state has not changed since its last status line is not printed again.
+A shell command's routine output that you do not need to read — per-item `updated:` lines, progress, counters — goes to `/dev/null`; errors stay visible.
 
 **The final report carries only the delta.** Relaying a subagent's report, pass on what the user must
 decide, what failed and what is left open — never a re-telling of what the agent did, and never a
