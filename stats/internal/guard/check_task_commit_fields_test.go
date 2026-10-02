@@ -1349,6 +1349,13 @@ After the change: 186 tests
 **Commit:** bump counter
 **Build:** green
 `),
+	"157": bt(`- [ ] 157. Repair existing tests
+
+**Files:** ¤alpha.txt¤
+**Tests:** none — repairs existing tests: ¤test_alpha¤
+**Commit:** repair alpha
+**Build:** green
+`),
 }
 
 // tcfMapRepos is cases 147-155's cross-repo shape: two repositories carrying
@@ -2942,6 +2949,20 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			r.git("commit", "-q", "--allow-empty", "-m", "live-verify")
 			res := r.run("1", r.head())
 			ok(t, "case 156: Files: none declares no path, so an empty commit passes", res.rc == 0, res)
+		}},
+		{"case 157", func(t *testing.T) {
+			// KAN-794: the repair form names the tests a task repairs, and a
+			// repair changes no test's name — the name after the annotation is
+			// demanded by no check. The commit touches alpha.txt (declared in
+			// Files:) and carries test_alpha nowhere in its diff, so this is
+			// case 4's missing-name shape behind a value tcfNoneOpenRE reads
+			// as the zero-declaration it is; extracting the name would fail
+			// exactly as case 4 does.
+			r := fx.repo(t, "change-a")
+			r.plan(tcfPlans["157"])
+			sha := r.commit("repair alpha", "alpha.txt", "repaired internals\n")
+			res := r.run("157", sha)
+			ok(t, "case 157: the repair form declares no diff-demanded names, so a name absent from the diff passes", res.rc == 0, res)
 		}},
 	}
 	for _, c := range cases {
