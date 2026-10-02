@@ -152,6 +152,10 @@ func (nopRecordStore) RecordMutation(context.Context, string, string, records.Mu
 	return records.Mutation{}, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) ProjectRoots(context.Context) ([]store.ProjectRoot, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 var _ api.RecordStore = nopRecordStore{}
 
 // fakeRecordStore's own suite-run no-ops: replay never touches them -- a
@@ -403,6 +407,10 @@ func (f *fakeRecordStore) RecordPass(_ context.Context, projectKey, change strin
 func (f *fakeRecordStore) RecordMutation(_ context.Context, projectKey, change string, in records.Mutation) (records.Mutation, error) {
 	f.record(fmt.Sprintf("mutation %s/%s round=%d path=%s mutated=%s test=%s", projectKey, change, in.Round, in.Path, in.Mutated, in.Test))
 	return in, nil
+}
+
+func (f *fakeRecordStore) ProjectRoots(context.Context) ([]store.ProjectRoot, error) {
+	return nil, errRecordStoreNotExercised
 }
 
 func (f *fakeRecordStore) appliedCalls() []string {

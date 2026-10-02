@@ -326,6 +326,10 @@ func (fakeStore) GetChange(context.Context, string, string) (store.Change, error
 	return store.Change{}, store.ErrChangeNotFound
 }
 
+func (fakeStore) ProjectRoots(context.Context) ([]store.ProjectRoot, error) {
+	return nil, nil
+}
+
 func (fakeStore) PutChange(context.Context, store.Change) error { return nil }
 
 func (fakeStore) FindChangesByName(context.Context, string) ([]store.Change, error) {

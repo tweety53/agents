@@ -1038,6 +1038,10 @@ var _ api.RecordStore = stubStageStore{}
 // implementer must keep compiling -- this file's tests never send a
 // display-name "project" value, so there is nothing for a real
 // implementation here to do.
+func (stubStageStore) ProjectRoots(context.Context) ([]store.ProjectRoot, error) {
+	return nil, nil
+}
+
 func (stubStageStore) ProjectKeysByDisplayName(context.Context, string) ([]string, error) {
 	return nil, errStageStoreNotImplemented
 }
