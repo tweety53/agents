@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -11,9 +12,9 @@ import (
 // commitArchive is scripts/commit-archive.sh: that script's header is the
 // contract. It makes run 2's archive commit (skills/flow/archive.md step 4):
 // asserts chore/archive-<name>, preserves the rendered ledger and panel
-// record into the archived change, stages everything, has the sibling
-// check-archive-scope.sh verify the staged diff stays under
-// spectre/changes/, and commits with the fixed subject.
+// record into the archived change, stages everything, has check-archive-scope
+// (in-process) verify the staged diff stays under spectre/changes/, and
+// commits with the fixed subject.
 func init() { Registry["commit-archive"] = commitArchive }
 
 func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
@@ -29,10 +30,6 @@ func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
 	// paths: plainChangeName carries the rule and its reasoning.
 	if !plainChangeName(name) {
 		return refuse("change name %q is not a plain change name", name)
-	}
-	scriptDir, ok := guardSelfDir(env, stderr, "commit-archive: ", "commit-archive")
-	if !ok {
-		return 2
 	}
 	git := envGit(env)
 	if !isDir(landing) || git("-C", landing, "rev-parse", "--is-inside-work-tree").Run() != nil {
@@ -76,15 +73,14 @@ func commitArchive(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// The scope guard's SCOPE-OK is not relayed: this guard prints one
 	// verdict. Its violation lines are the verdict when it refuses.
-	scope := exec.Command(scriptDir+"/check-archive-scope.sh", landing, "spectre/changes/")
-	scope.Stderr = stderr
-	if lines, err := scope.Output(); err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) && ee.ExitCode() == 1 {
-			_, _ = stdout.Write(lines)
-			return 1
-		}
-		return refuse("check-archive-scope.sh could not answer for %s: %v", landing, err)
+	var lines bytes.Buffer
+	switch code := checkArchiveScope([]string{landing, "spectre/changes/"}, env, &lines, stderr); code {
+	case 0:
+	case 1:
+		_, _ = stdout.Write(lines.Bytes())
+		return 1
+	default:
+		return refuse("check-archive-scope.sh could not answer for %s: exit status %d", landing, code)
 	}
 
 	err := git("-C", landing, "diff", "--cached", "--quiet").Run()

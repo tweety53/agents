@@ -17,7 +17,7 @@
 # is not a readable directory, is not a git repository, `origin/HEAD` does
 # not resolve there, or the status read fails.
 #
-# Shape copied from test-check-foreign-staged.sh: sandboxed TMPDIR,
+# Shape copied from test-check-foreign-staged.sh at c4f26c84: sandboxed TMPDIR,
 # pass/fail counters, a run_guard capturing stdout and stderr separately.
 # Duplicated rather than shared for the same reason that file's header
 # gives — the suites test unrelated guards, and a shared library would

@@ -1127,7 +1127,7 @@ func TestShimSiblingsDeclared(t *testing.T) {
 		"check-finish-preflight.sh":          {"lib", "check-worktree-location.sh"},
 		"kickoff-worktree.sh":                {"lib", "check-worktree-location.sh", "project-get.sh"},
 		"fold-fixup.sh":                      {"lib", "guard-autosquash.sh"},
-		"commit-archive.sh":                  {"lib", "check-archive-scope.sh"},
+		"commit-archive.sh":                  {"lib"},
 		"remove-change-worktrees.sh":         {"lib", "check-worktree-processes.sh"},
 	}
 	for shim, siblings := range shims {

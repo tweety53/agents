@@ -38,20 +38,13 @@ func caNewFx(t *testing.T) *caFx {
 	return fx
 }
 
-// run runs commit-archive in-process with the real check-archive-scope.sh
-// beside it, as the shim exports FLOW_GUARD_SELF.
+// run runs commit-archive in-process.
 func (fx *caFx) run(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	if fx.g.err != nil {
 		t.Fatal(fx.g.err)
 	}
-	self := tcfScriptsDir(t) + "/commit-archive.sh"
-	env := Env{Dir: fx.landing, Getenv: func(k string) string {
-		if k == "FLOW_GUARD_SELF" {
-			return self
-		}
-		return os.Getenv(k)
-	}}
+	env := Env{Dir: fx.landing, Getenv: os.Getenv}
 	if len(args) == 0 {
 		args = []string{fx.landing, fx.canonical, "demo"}
 	}
@@ -132,26 +125,16 @@ func TestCommitArchive(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		args func(fx *caFx) []string
-		self bool
 	}{
-		{"not a worktree", func(fx *caFx) []string { return []string{fx.canonical, fx.canonical, "demo"} }, true},
-		{"not a plain name", func(fx *caFx) []string { return []string{fx.landing, fx.canonical, "../demo"} }, true},
-		{"usage", func(fx *caFx) []string { return []string{fx.landing, fx.canonical} }, true},
-		{"FLOW_GUARD_SELF unset", func(fx *caFx) []string { return []string{fx.landing, fx.canonical, "demo"} }, false},
+		{"not a worktree", func(fx *caFx) []string { return []string{fx.canonical, fx.canonical, "demo"} }},
+		{"not a plain name", func(fx *caFx) []string { return []string{fx.landing, fx.canonical, "../demo"} }},
+		{"usage", func(fx *caFx) []string { return []string{fx.landing, fx.canonical} }},
 	} {
 		t.Run("cannot answer: "+c.name, func(t *testing.T) {
 			t.Parallel()
 			fx := caNewFx(t)
 			before := fx.g.git(fx.landing, "rev-parse", "HEAD")
-			var code int
-			var out string
-			if c.self {
-				code, out, _ = fx.run(t, c.args(fx)...)
-			} else {
-				var o, e bytes.Buffer
-				code = commitArchive(c.args(fx), Env{Dir: fx.landing, Getenv: func(string) string { return "" }}, &o, &e)
-				out = o.String()
-			}
+			code, out, _ := fx.run(t, c.args(fx)...)
 			if code != 2 || out != "" {
 				t.Fatalf("exit %d, stdout %q; want 2 and nothing on stdout", code, out)
 			}
@@ -161,8 +144,7 @@ func TestCommitArchive(t *testing.T) {
 		})
 	}
 
-	// The real shim: it exports FLOW_GUARD_SELF and asserts the sibling, so
-	// the in-process runs above are the ones it makes.
+	// The real shim, end to end.
 	t.Run("through the shim", func(t *testing.T) {
 		t.Parallel()
 		fx := caNewFx(t)
