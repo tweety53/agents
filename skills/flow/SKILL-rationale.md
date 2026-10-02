@@ -183,7 +183,7 @@ text after it is the passage, verbatim.
 
 ### visual-verify.md — Visual verification, step 3 (pre-flight)
 
-- *The verifier's one re-dispatch cannot repair an environment that cannot pass* — gymie KAN-459's visual-verify stage retried three times over roughly five hours on pre-existing workspace-isolation gaps before the operator stopped it.
+- *A verifier re-dispatch cannot repair an environment that cannot pass* — gymie KAN-459's visual-verify stage retried three times over roughly five hours on pre-existing workspace-isolation gaps before the operator stopped it.
 
 ### visual-verify.md — Visual verification, step 6 (fingerprint)
 
@@ -987,3 +987,34 @@ field existed, and `/flow-fast`, which never runs `flow.visual-verify`, behave a
 **Rejected by the operator — turning `VISUAL-VERIFY-MISSING` into a report-only line:** it removed
 the prompt for every change, the kan-30 shape included, where the operator wanted the judgement made
 at planning, visible and gated.
+
+### Fewest operator actions — no round caps, and a verifier that finishes (KAN-870, 2026-10-02)
+
+The operator, after gymie KAN-870's visual verification ended partly done twice: "Fix all, it must
+not happen in the future", and, the same day: "In general the top priority is the least actions
+from my side. Less stops. Number of re-review and re visual verify shouldn't be limited."
+**Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is the rule that came of it.
+
+**Retired — every round count on a re-review or a re-verification.** The verify stages' five-round
+fix loop, the panel's escalation of a defect still open after two automatic rounds, and the
+verifier's single re-dispatch ("the second report is final; never a third verifier on the same
+HEAD") each converted a defect the run could still fix into a stop the operator had to clear. On
+KAN-870 the last of them did worse: it forbade finishing a verification the verifier had simply
+not completed. What a cap guarded against — a loop that repeats the same failed fix — is now met
+by changing the approach on a round without progress (a fresh opus/high fixer carrying every
+earlier report, another reproduction) rather than by counting rounds. **Rejected — a remainder
+that stops the stage when it is itself incomplete.** It re-creates the cap one level down; an
+incomplete remainder is dispatched again under the same no-progress rule.
+
+**The verifier runs on opus at `medium`, and no browser-driving rule moves it.** Both KAN-870
+verifiers ran on Sonnet — the operator's global instructions put browser-driving agents there —
+at effort `low`, and both stopped after the tests and the capture, listing the reading, composing
+and record-writing steps under "Not done". **A partial report is refused mechanically**
+(`check-verify-report.sh`), not by reading its prose: the parent had accepted one whose prose
+named the undone steps.
+
+**Motion is recorded, not inferred from stills.** KAN-870's substance was motion — exits, slides,
+drag gestures, an entrance removed — and a still capture compared against a mockup has nothing to
+say about any of it. **Rejected — detecting motion by grepping the diff for animation APIs.** The
+API names are per-framework and per-project; the parent naming the motions from `design.md`,
+`proposal.md` and the diff is the one rule that holds across projects.
