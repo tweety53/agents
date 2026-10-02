@@ -229,6 +229,9 @@ Next:
   printed as a list item (`- **Field:** value`), since consecutive plain lines fold into one
   paragraph, and a path, branch or change name inside a value is inline code. The next command
   and `/clear` stay bare lines, per the next rule.
+- **No HTML in anything printed to the terminal** — no `<details>`, `<summary>`, `<br>` or any
+  other tag. The terminal renders GitHub-flavoured Markdown without HTML, so a tag prints
+  literally and whatever it was meant to fold spills into the output.
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
 - **A handoff that leaves the change at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
@@ -288,6 +291,10 @@ stopping point prints it** — a fix round closing, a stage closing, a full hand
 terminal handoff, so the operator always holds a current account of what changed and what is
 still running without having to ask.
 
+**The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither.** Its own
+`**Summary:**` carries the first bullet above alone, and its block is the whole handoff (**Write
+`IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+
 ### The block each state renders
 
 The block a state hands off is defined in **The block each state renders**
@@ -336,7 +343,7 @@ Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH.
 | State | Path to open |
 |-------|--------------|
 | `STARTED` | apply worktree root — created inside `flow.kickoff`, so it exists at every `STARTED` handoff |
-| `IN_PROGRESS` | apply worktree root |
+| `IN_PROGRESS` | apply worktree root — `/flow-status`'s regenerated block only; `/flow`'s own handoff omits it |
 
 Paths are absolute, resolved from `git worktree list`. Never emit a relative path.
 

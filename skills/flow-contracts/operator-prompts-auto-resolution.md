@@ -35,7 +35,7 @@ Every auto-resolution:
   site outside the review panel, the same row shape an operator answer is recorded in; off the
   mode, it is recorded where the call site records an operator's answer — in the review panel, that
   same row — and a site that records no answer records nothing new
-- is named in the handoff's `**Auto-resolved:**` line, ⚠-marked, question and option taken, so the
+- is named in the handoff's `**Decisions:**` lines, ⚠-marked, question and option taken, so the
   operator can overrule it afterwards with a fix run
 - never repeats: the same prompt arising again for the same subject after its recommended option
   was already taken this run is asked, so an auto-taken **another round** cannot loop — except the

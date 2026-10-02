@@ -12,7 +12,7 @@ question.** The fixable defects are a lint or test failure **Inline verify**
 **Steps 3–13** (`skills/flow/visual-verify.md`) routes here. The choice "fix it in-run, or hand
 off with it open?" is never asked: the run takes **fix it in-run** under **Auto-resolution**
 (`skills/flow-contracts/operator-prompts.md`), recorded and named on the handoff's
-`**Auto-resolved:**` line as that section states, one entry per defect, the defect named as the
+`**Decisions:**` lines as that section states, one entry per defect, the defect named as the
 report names it.
 
 One round runs these steps in order:
@@ -49,5 +49,5 @@ One round runs these steps in order:
 loop: every round up to the fifth is taken unasked. A stage whose final report after its fifth
 round still carries a fixable defect closes its `end` mark `-outcome stopped`, and the run
 continues to the `IN_PROGRESS` handoff, never a `## Question`: `flow.visual-verify`'s open defects
-are listed on the handoff's `**Visual:**` line, `flow.verify`'s in its `## Report`, each as the
+are listed as the handoff's `**Summary:**` bullets, `flow.verify`'s in its `## Report`, each as the
 report names it. The operator fixes them with a fix run.

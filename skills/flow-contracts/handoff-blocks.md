@@ -93,17 +93,15 @@ rule the open-questions count reads through are stated once under
 ## Implementation staged — review and test
 
 **Change:** <name>
-**Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired"> · <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>
+**Summary:** (run-only) <what this round changed for a user of the app, then one bullet per line another contract requires in the handoff>
+**Decisions:** (run-only) <one line per open question the operator must answer and per prompt the run took on its recommended option, ⚠-marked, question and option taken, or "none">
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
 **Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted">
-**Guards:** (run-only) <all present, or how many were missing and checked by hand>
-**Auto-resolved:** (run-only) <each prompt the run took on its recommended option, ⚠-marked, question and option taken, or "none">
-**Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
 Worktree:   <absolute worktree path>
 
 Running:
-  <url line>  # <from the start command's output>
+  <url line>  # <resolved per **Resolve the run instructions**>
   <stop command>
 
 Review the diff, then run it:
@@ -117,10 +115,12 @@ Next:
 /flow <name>
 ```
 
-**`Panel` is `(run-only)`.** See **Why `Panel` is run-only**
-(`skills/flow-contracts/handoff-blocks-rationale.md`).
+**`/flow`'s implement phase prints `Summary`, `Decisions` and `Next` alone** (**Write
+`IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is
+`/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer
+lines than its template.
 
-**`Guards` is `(run-only)` too, for the same kind of reason `Panel` is.** It reports what that
+**`Guards` is `(run-only)`.** It reports what that
 run's own start-of-run guard presence check found in `<skill-dir>/scripts/`,
 per **Guard presence check** (`skills/flow-contracts/pipeline.md`) — a value only
 that run ever has, since no regeneration re-runs the check.
@@ -147,12 +147,7 @@ beside the fallback file: `<name>.journal`, the one **State file**
 stage marks'; and `<name>.journal.record`, this one. An absent journal counts `0`, and a change
 whose writes all reached the store renders the *all writes reached the store* alternative rather
 than dropping the line. That is why the line is on-disk: `/flow-status <name>` runs the same
-command and regenerates the same line rather than omitting it.
-
-**A run that journalled nothing still prints the line, and that is the whole point.** A record
-write never blocks — it journals, warns once and exits 0 — so nothing else in the run marks one that
-fell back. A line printed only when something went wrong is indistinguishable from a line nobody
-printed, and the operator would read the silence as a clean run. **This line reports; it does not
+command and regenerates the same line rather than omitting it. **This line reports; it does not
 gate**: a journalled write leaves the state, the diff and the next command exactly as they were.
 
 **`Running:` is on-disk, not `(run-only)`.** Its lines are resolved from the worktree and the
@@ -164,8 +159,7 @@ stack's liveness is not re-checked. Both commands resolve those lines the same w
 the run instructions** (`skills/flow/verify-and-handoff.md`).
 
 **The `Staged` line's git state has a third option, and the review command follows it.**
-`/flow`'s implement phase itself only ever emits the first two — it stages, or it commits and pushes to a PR
-branch. The third is reached only when `/flow-status` regenerates this rendering for a change
+The third is reached only when `/flow-status` regenerates this rendering for a change
 whose run 1 took the *merge and push* or *handle it manually* route: the work is committed and
 pushed with no `prUrl` to prove it. The review command follows the state:
 

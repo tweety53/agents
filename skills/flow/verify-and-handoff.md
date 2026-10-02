@@ -164,11 +164,10 @@ this pipeline restates it. Resolve once per worktree in this run's resolved set,
    git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>
    ```
 
-   Exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr → this worktree prints
-   `Visual: not configured` and is skipped for the rest of this stage.
+   Exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr → this worktree is skipped for the rest of this stage.
 2. **Match the diff** — the same call's verdict.
    Exit 0 → at least one changed path matched a declared `ui paths` glob; continue. Exit 1 → this
-   worktree prints `Visual: no UI paths touched` and is skipped for the rest of this stage. Exit 2
+   worktree is skipped for the rest of this stage. Exit 2
    with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line → report its stderr and skip this worktree the same
    way exit 1 does.
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
@@ -240,7 +239,7 @@ flow stage end -command '/flow' -stage flow.stage-diff -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Resolve the run instructions for the handoff's `Running:` section. It writes no file.
+Resolve the run instructions the start below uses and `/flow-status` prints as its `Running:` section; `/flow`'s own handoff prints none of them. It writes no file.
 
 - **Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path
   made absolute.
@@ -287,24 +286,17 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   Where the project declares no runnable application, there is nothing to start and the rule is
   satisfied by saying so, not by silently skipping it.
 
-- **The stack behind the URLs is checked, not trusted.** When the `Running:` block below would
-  carry URL lines, run `check-dev-stack-fresh.sh <worktree>` first: the project's declared
+- **The stack behind the URLs is checked, not trusted.** When the run instructions carry URLs, run
+  `check-dev-stack-fresh.sh <worktree>` first: the project's declared
   `fingerprint` row (the `## visual verification` section) proves what the stack serves is the
   worktree's own build. The guard's own header is canonical for what its three exits
-  cover. Exit 0 adds nothing. Exit 1 adds one line beside the URLs, naming the application, its
+  cover. Exit 0 adds nothing. Exit 1 adds one `Summary:` bullet, naming the application, its
   resolved URL and the guard's own stderr reason, restart-shaped and never a restatement of the
   verdict: `Stale: <app> (<url>) — <the guard's reason>; restart the stack before testing.`
   Exit 2 adds `Freshness: unverified — <the guard's stderr reason>` instead, the same
   visible-gap rule the visual-verification procedure's own step 6 (`skills/flow/visual-verify.md`) runs on a missing row. A refused start
   (below) already ends the run, so this check only ever runs on a start that succeeded or was
   skipped by the protected-service rule.
-
-- **The `Running:` block is the start command's own output.** Once the start above succeeds, its
-  `Running:` lines are every line of that command's output containing `http://` or `https://`,
-  verbatim, followed by the `## stop` command (or, where `## stop` declares none, the same `## run`
-  command that started it). `devStart`-style commands already announce every resolved URL on
-  success; that announcement — not the isolation table, which cannot know the pinned-port handoff
-  stack's URLs once a port has moved — is the source.
 
 - **A refused start is relayed, never resolved.** When the start command above exits non-zero
   because a port it needs is already held, this stage does not retry, does not pick another port,
@@ -348,73 +340,29 @@ The state file lives outside the repo — never `git add` it.
 flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
 ```
 
-**Produce the handoff's `Records:` and `Costs:` lines with one call**, `-C` the canonical worktree the ledger render above targets, one `-worktree` per other
-affected worktree:
-
-```bash
-flow record handoff-lines -change <name> -C <canonical-worktree> [-worktree <abs-worktree> ...]
 ```
+**Summary:**
+- <what this round changed for a user of the app, in product terms — a few bullets at most>
+- <a line another contract requires in the handoff — a caveat, a manual check, a push command, an open defect — one bullet each>
 
-It exits 0 always; render each line exactly as printed.
-
-```
-## Implementation staged — review and test | Implementation committed — review and test
-
-**Change:** <name>
-**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " or "late-fix — " followed by the resolved slot(s) not dispatched, or "no">; <default|decided — class, compact?, rerun policy, dispatches: <group> · <group>, rerun: <model>/low>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
-**Visual:** not configured | no UI paths touched | pre-flight failed — <the failing checks and their evidence> | open after 5 in-run fix rounds — <defect>[; <defect> …] | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
-**Tooling analysis:** none — no miss | <absolute path of sweeps-<n>.md> — <k> sweeps, fold into step 10 of skills/flow/visual-verify-verifier.md? | aborted — verified without added sweeps
-**Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
-**Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
-**Costs:** <the line `flow record handoff-lines` printed>
-**Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
-**Auto-resolved:** none | ⚠ <question> → <the recommended option taken>[; ⚠ <question> → <option> …]
-**Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
-
-Worktree:   <absolute worktree path>
-
-Running:
-  <url line>  # <from the start command's output>
-  <stop command>
-
-Review the diff, then run it:
-  git -C <absolute worktree path> diff <merge base>..HEAD
-  open -na "IntelliJ IDEA" --args "<absolute worktree path>"
-
-Re-run this command to fix anything you find, or bare to move on to integrating it.
+**Decisions:** none | <one line each:>
+- ? <an open question the operator must answer>
+- ⚠ <question> → <the recommended option taken>
 
 Next:
 /clear
 /flow <name>
 ```
 
-**Heading and `Staged:` line select from whether the worktree carries any commits yet.**
-Implementation commits per task, so an ordinary run reads "committed"; the "staged and
-uncommitted" spelling covers a run resuming before any task committed. **The `Panel:` line is
-`/flow`'s own** — it states what **Review panel** (`skills/flow/review-panel.md`) actually
-dispatched this run: the resolved roster, its docs-only reduction to `primary` (**The docs-only
-reduction**, `skills/flow/review-panel.md`), or its late-fix reduction (**The late-fix
-reduction**, `skills/flow/review-panel.md`); any slot an explicit operator instruction added
-beyond the resolved list; and, per **Bundled dispatch** (`skills/flow/review-panel.md`) and the `## Decision` block
-of **Decide** (`skills/flow/brainstorm-planner.md`), whether the decision's panel was
-`default` (a `micro` class) or decided, the run's class, whether the roster was `compact` or `full`, its rerun
-policy (`delta`), the dispatch groups as `+`-joined roles and, on a decided panel, the
-rerun pair — the same fields and
-shape `skills/flow-contracts/handoff-blocks.md`'s `Panel:` line carries for `/flow-status`'s
-regenerated view of the same state.
+**This block is the whole handoff of a creating, resuming or fix run that ends at `IN_PROGRESS`**
+— no heading, no other field, and no summary or live-stack line before it (**Summary and
+live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`). A stop — a failure,
+a blocked step, a refused start, a `## Question` — prints as its own rule states, not this block.
 
-**The `Auto-resolved:` line names every prompt this run answered itself** on its recommended
+**The `Decisions:` lines name every prompt this run answered itself** on its recommended
 option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so the operator can
-overrule any of them with a fix run; it reads `none` when the run took none. Planning answers
-the `## decisions: recommended` mode took are named here the same way.
-
-**The `Visual:` line reports `flow.visual-verify`'s own outcome.** **Its push clause appears only when step 12
-committed to a `regression checkout`.**
-
-**The `Tooling analysis:` line reports **A missed defect — the tooling analysis**
-(`skills/flow/visual-verify.md`)**, one entry per worktree whose fix run dispatched one. A
-completed analysis names its sweeps file by absolute path, so the operator can decide whether its
-sweeps join step 10 for every later change; the run itself never edits `visual-verify-verifier.md`.
+overrule any of them with a fix run; it reads `none` when the run took none and left no open
+question. Planning answers the `## decisions: recommended` mode took are named here the same way.
 
 **The parent prints this block directly, as this stage's own output** — no return, no relay: the
 running session assembles it here and shows it to the operator in the same turn (**The parent

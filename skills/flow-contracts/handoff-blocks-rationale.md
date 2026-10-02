@@ -86,17 +86,6 @@ outstanding list is the unfinished-work gate's verdict at the moment run 1 asked
 is the planning commit's message, which is where a later reader looks, and the state file does not
 carry it.
 
-### Why `Panel` is run-only
-
-It names the roster *that run selected* — which optional slots fired
-and which did not — and no field carries it. The only on-disk trace is the panel record
-`/flow`'s implement phase writes under `<abs-worktree>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
-removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
-there and sometimes not is not a source `/flow-status` can regenerate from, and reporting it
-*missing* on every change whose worktree is gone would name a fault where there is none. The
-durable copy is the preserved record under `<project>/docs/superpowers/reviews/`, which run 1 writes into the
-repository — an operator who needs the roster after the fact reads that, not a regenerated block.
-
 ### Why `prUrl` never splits the *not merged* row
 
 **A proven *not merged* is that same pre-check read forward, which is why `prUrl` does not split

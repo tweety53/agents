@@ -64,4 +64,6 @@ the verifier reports, and blocks as one. The report carries one line per added s
 
 An analyst that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`,
 and the verifier is dispatched without added sweeps. Either outcome is reported on the handoff's
-`**Tooling analysis:**` line (`skills/flow/verify-and-handoff.md`).
+`**Decisions:**` lines (`skills/flow/verify-and-handoff.md`). A
+completed analysis names its sweeps file by absolute path, so the operator can decide whether its
+sweeps join step 10 for every later change; the run itself never edits `visual-verify-verifier.md`.
