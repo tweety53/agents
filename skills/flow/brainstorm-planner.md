@@ -9,8 +9,8 @@ Every "you" below addresses that session directly.
 
 ### The checklist
 
-**Load `skills/flow/withdrawal.md`** only when the linked issue's labels carry `flow-fix` or
-`flow-cost` — its reachability check opens the checklist, before any design question.
+**Load `skills/flow/withdrawal.md`** only when the linked issue's labels carry `flow-fix`,
+`flow-cost` or `flow-speed` — its reachability check opens the checklist, before any design question.
 
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.

@@ -42,7 +42,7 @@ PX=("$F/withdrawal.md" "$F/seeded-note.md" "$F/resume.md")
 row "  phase files + load directives" "${PD[@]}"
 row "  + cited at point of use" "${PC[@]}"
 row "  TOTAL definite" "${ALWAYS[@]}" "${ROUTER[@]}" "${PD[@]}"
-row "  + conditional (flow-fix/flow-cost, seeded note, resume)" "${PX[@]}"
+row "  + conditional (flow-fix/flow-cost/flow-speed, seeded note, resume)" "${PX[@]}"
 row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${PD[@]}" "${PC[@]}"
 
 echo "--- implementation session (enters via Resuming at STARTED) ---"

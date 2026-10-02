@@ -1,12 +1,12 @@
 # Reachability check and withdrawal
 
-Loaded by `skills/flow/brainstorm-planner.md` when the linked issue carries `flow-fix` or
-`flow-cost`, and by `skills/flow/resume.md` on a planless `STARTED` resume.
+Loaded by `skills/flow/brainstorm-planner.md` when the linked issue carries `flow-fix`,
+`flow-cost` or `flow-speed`, and by `skills/flow/resume.md` on a planless `STARTED` resume.
 
 ### The reachability check
 
-**A run on a filed fix/cost finding verifies the defect still exists before planning.** When the
-linked issue's labels carry `flow-fix` or `flow-cost`, the checklist opens, before any design
+**A run on a filed fix/cost/speed finding verifies the defect still exists before planning.** When the
+linked issue's labels carry `flow-fix`, `flow-cost` or `flow-speed`, the checklist opens, before any design
 question, with a reachability check against the resolved base (the base the `flow.kickoff`
 worktree was created from): state the finding's defect as a claim the tree can answer, then run
 the cheapest thing that answers it — the guard the finding names, the contract section it says is

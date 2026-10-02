@@ -20,3 +20,11 @@ The report carries no section beyond the six angles and the rating.
 This file is canonical for the six angles, what may be filed, the filing-and-rating prompt and the report.
 Write `<project>/docs/self-review/<name>-self-review.md` in the shape `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all six present; each finding one line naming its angle's label, the finding, and its disposition (`filed: <KEY>` or `declined`); an angle with no findings carrying the explicit none-marker — plus one line under the title:
 | 6 | What can be sped up — wall-clock time the run spent waiting or working that a pipeline change would cut | `flow-speed` |
+# Operator, 2026-10-02: a flow-speed issue gets the reachability check, like flow-fix and flow-cost.
+**A run on a filed fix/cost finding verifies the defect still exists before planning.
+**Load `skills/flow/withdrawal.md`** only when the linked issue's labels carry `flow-fix` or `flow-cost` — its reachability check opens the checklist, before any design question.
+Loaded by `skills/flow/brainstorm-planner.md` when the linked issue carries `flow-fix` or `flow-cost`, and by `skills/flow/resume.md` on a planless `STARTED` resume.
+When the linked issue's labels carry `flow-fix` or `flow-cost`, the checklist opens, before any design question, with a reachability check against the resolved base (the base the `flow.kickoff` worktree was created from): state the finding's defect as a claim the tree can answer, then run the cheapest thing that answers it — the guard the finding names, the contract section it says is missing, the behaviour it reports.
+**A run on a filed fix/cost/speed finding verifies the defect still exists before planning.
+Loaded by `skills/flow/brainstorm-planner.md` when the linked issue carries `flow-fix`, `flow-cost` or `flow-speed`, and by `skills/flow/resume.md` on a planless `STARTED` resume.
+When the linked issue's labels carry `flow-fix`, `flow-cost` or `flow-speed`, the checklist opens, before any design question, with a reachability check against the resolved base (the base the `flow.kickoff` worktree was created from): state the finding's defect as a claim the tree can answer, then run the cheapest thing that answers it — the guard the finding names, the contract section it says is missing, the behaviour it reports.

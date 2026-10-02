@@ -7,4 +7,5 @@ Operator, 2026-10-02: "add one more angle to self-review -> what can be sped up"
 ## What changes
 
 - `skills/flow-self-review/SKILL.md`: angle 6, `flow-speed`, and the clause setting it apart from angle 2. Every "five angles" in the run-loaded corpus becomes "six angles".
-- `scripts/check-self-review-report.sh`: an angle after the original five is demanded of a report only once that report carries at least one angle after the five, so the reports under `docs/self-review/` written before angle 6 stay valid. Harness cases 28 and 31 pin both directions.
+- `scripts/check-self-review-report.sh`: the reports under `docs/self-review/` written before angle 6 are named in a frozen `docs/self-review/five-angle-reports.txt` and checked against the first five angles; every other report carries all six.
+- `skills/flow/withdrawal.md`, `skills/flow/brainstorm-planner.md`: an issue labelled `flow-speed` gets the reachability check `flow-fix` and `flow-cost` issues get — a speed finding names a pipeline change exactly like a cost one.
