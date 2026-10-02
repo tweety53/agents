@@ -27,7 +27,9 @@
 #                 `*.toml`, `*.ini`, `*.properties`, `*.conf`, `*.config.*`;
 #                 never a production `*.prod.*` file)
 #                 whose `allowed[_-]?origins` line or bracketed list names a
-#                 URL must name every app's origin.
+#                 URL must name every app's origin, unless the line holds a
+#                 `${VAR:fallback}` reference whose VAR the `start` command
+#                 names or stdin exports.
 #   4. playwright — `@playwright/test` resolved by `node` from each app root
 #                 must sit inside <worktree>; unresolvable or no `node` is an
 #                 INFO line and passes (setup installs it).

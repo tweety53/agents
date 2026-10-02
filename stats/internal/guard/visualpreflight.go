@@ -48,6 +48,7 @@ var vpSkipDirs = map[string]bool{
 
 var (
 	vpOriginsKey = regexp.MustCompile(`(?i)allowed[_-]?origins`)
+	vpEnvRef     = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*):-?`)
 	vpURL        = regexp.MustCompile(`https?://[^\s"'<>,;\]\}\)]+`)
 	vpConfigExt  = map[string]bool{".json": true, ".yml": true, ".yaml": true, ".toml": true, ".ini": true, ".properties": true, ".conf": true}
 )
@@ -254,6 +255,14 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 					if strings.Contains(next, "]") {
 						break
 					}
+				}
+			}
+			// A URL inside `${VAR:fallback}` is a default the environment
+			// overrides: the list passes when the start command or an
+			// exported variable names any VAR of the reference.
+			for _, m := range vpEnvRef.FindAllStringSubmatch(text, -1) {
+				if _, ok := exported[m[1]]; ok || vpNames(b.start, m[1]) {
+					return
 				}
 			}
 			found := map[string]bool{}

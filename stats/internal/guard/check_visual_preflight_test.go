@@ -314,6 +314,14 @@ func TestCheckVisualPreflightOrigins(t *testing.T) {
 			vpWant{code: 0, omits: []string{"FAIL:"}}},
 		{"source files excluded", map[string]string{"server/cors.go": "var allowed_origins = []string{\"http://localhost:8080\"}\n"},
 			vpWant{code: 0, omits: []string{"FAIL:"}}},
+		{"an env reference's fallback, the variable exported", map[string]string{"gateway/application.yml": "allowedOrigins: ${API_BASE_URL:${FRONTEND_URL:http://localhost:3000}}\n"},
+			vpWant{code: 0, omits: []string{"FAIL:"}}},
+		{"an env reference's fallback, the variable named by start", map[string]string{
+			".flow/project.md":        vpIsolation + "\n## visual verification\n\n| Command | Runs |\n|---|---|\n| `start` | `FRONTEND_URL=http://localhost:8093 make dev` |\n",
+			"gateway/application.yml": "allowedOrigins: ${ALLOWED_ORIGINS:${FRONTEND_URL:http://localhost:3000}}\n"},
+			vpWant{code: 0, omits: []string{"FAIL:"}}},
+		{"an env reference's fallback, no override, judged as the list", map[string]string{"gateway/application.yml": "allowedOrigins: ${ALLOWED_ORIGINS:-http://localhost:3000}\n"},
+			vpWant{code: 1, contains: []string{"FAIL: origins — gateway/application.yml:1:"}}},
 		{"production config excluded", map[string]string{"docker-compose.prod.yml": "    ALLOWED_ORIGINS: \"https://example.test\"\n"},
 			vpWant{code: 0, omits: []string{"FAIL:"}}},
 	}
