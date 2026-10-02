@@ -358,7 +358,7 @@ flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed
 
 **Decisions:** none | <one line each:>
 - ? <an open question the operator must answer>
-- ⚠ <question> → <the recommended option taken>
+- 🤖 <question> → <the recommended option taken>
 
 Next:
 /clear

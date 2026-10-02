@@ -431,14 +431,14 @@ silence closes the panel, and running beyond the cap is an explicit choice, put 
 
 **Rejected — a hard stop at the cap, no prompt.** A silent close is the over-cap failure
 `check-panel-diff-size.sh` refuses for the same reason: a decision the operator did not see. The
-prompt is the bound; the operator-prompts contract's ⚠ marker in the handoff is what shows the
+prompt is the bound; the operator-prompts contract's 🤖 marker in the handoff is what shows the
 silent default fired.
 
 **Superseded in part — the prompt is no longer asked.** The operator later asked that every
 prompt with a recommended option in an implementation or fix run be taken rather than asked
 (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`). The cap's close is now taken
 automatically; this rejection's reason is still met, because the close is not silent — it is
-recorded as a pass note and carried by the `rerun cap:` field's ⚠ marker in the handoff — and a
+recorded as a pass note and carried by the `rerun cap:` field's 🤖 marker in the handoff — and a
 third whole-branch pass still needs the operator's explicit instruction.
 
 **Rejected — a cheaper pair on the unasked repeats.** The rerun pair runs at `low` effort;

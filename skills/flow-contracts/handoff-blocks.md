@@ -94,7 +94,7 @@ rule the open-questions count reads through are stated once under
 
 **Change:** <name>
 **Summary:** (run-only) <what this round changed for a user of the app, then one bullet per line another contract requires in the handoff>
-**Decisions:** (run-only) <one line per open question the operator must answer and per prompt the run took on its recommended option, ⚠-marked, question and option taken, or "none">
+**Decisions:** (run-only) <one line per open question the operator must answer and per prompt the run took on its recommended option, 🤖-marked, question and option taken, or "none">
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
 **Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted">
 

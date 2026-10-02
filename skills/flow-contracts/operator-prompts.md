@@ -10,7 +10,7 @@ A prompt in this shape states:
 - the question, with named options
 - exactly one option marked (recommended)
 - what happens if the operator is silent — the safe default, always the recommended option
-- a ⚠ marker in the handoff when that silent default actually fired, or when **Auto-resolution**
+- a 🤖 marker in the handoff when that silent default actually fired, or when **Auto-resolution**
   below took it
 
 ## The doctrine

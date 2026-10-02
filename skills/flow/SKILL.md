@@ -108,7 +108,7 @@ store, makes the message an ordinary turn, never a wrong-state handoff, since no
 **Ambiguity prompt.** A message that reads as either a question or a change request asks once,
 shape per **The shape** (`skills/flow-contracts/operator-prompts.md`): **Run this as a fix of
 `<name>`?** — **Yes** *(recommended)* / **No — ordinary turn**. Silence takes Yes and the handoff
-carries the ⚠ line.
+carries the 🤖 line.
 
 **The run.** Announce `Using flow for change <name> — fix run from a plain message`, generate this
 run's own session token per **Generate this run's session token once** below, and continue at **3.

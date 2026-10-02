@@ -31,7 +31,7 @@ operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) 
 > - **Append anyway** — the fix is appended exactly as this section otherwise states, and the
 >   count keeps growing
 
-Silence takes the recommended re-plan, and the ⚠ line names it. Under the
+Silence takes the recommended re-plan, and the 🤖 line names it. Under the
 `## decisions: recommended` mode (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`) the ask is not made: **Re-plan** is taken and
 recorded the way the mode records a taken default. Either answer continues into the

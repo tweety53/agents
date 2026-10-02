@@ -1,0 +1,13 @@
+# Operator, 2026-10-02: the auto-picked-decision marker in the handoff is 🤖, not ⚠. Every sentence below changes only that glyph.
+**Decisions:** (run-only) <one line per open question the operator must answer and per prompt the run took on its recommended option, 🤖-marked, question and option taken, or "none">
+- 🤖 <question> → <the recommended option taken>
+Silence takes Yes and the handoff carries the 🤖 line.
+Silence takes the recommended re-plan, and the 🤖 line names it.
+a 🤖 marker in the handoff when that silent default actually fired, or when **Auto-resolution**
+is named in the handoff's `**Decisions:**` lines, 🤖-marked, question and option taken, so the
+**Decisions:** (run-only) <one line per open question the operator must answer and per prompt the run took on its recommended option, ⚠-marked, question and option taken, or "none">
+- ⚠ <question> → <the recommended option taken>
+Silence takes Yes and the handoff carries the ⚠ line.
+Silence takes the recommended re-plan, and the ⚠ line names it.
+a ⚠ marker in the handoff when that silent default actually fired, or when **Auto-resolution**
+is named in the handoff's `**Decisions:**` lines, ⚠-marked, question and option taken, so the
