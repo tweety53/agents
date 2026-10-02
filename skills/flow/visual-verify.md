@@ -130,7 +130,9 @@ worktree's build, starting, stopping and restarting nothing, committing and push
    ```
 
    One `<app-root>=<resolved-url>` argument per app `ui paths` matched: its package root relative
-   to the worktree and its worktree-resolved URL. The guard's header is canonical for
+   to the worktree and its worktree-resolved URL. A root in another repository — a cross-repo
+   change's sibling worktree — is passed as is; the guard checks it as that repository's own
+   worktree. The guard's header is canonical for
    each check's rule. Exit 0 → every check passed. Exit 1 → each `FAIL:` line names a failing check
    and its evidence. Exit 2 → it cannot answer; treat it as a failing check, carrying its stderr.
 

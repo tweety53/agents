@@ -7,7 +7,11 @@
 #
 # stdin is prepare-workspace.sh's `KEY=value` lines; one argument per app
 # `ui paths` matched — its package root, relative to <worktree>, and its
-# worktree-resolved URL. The checks:
+# worktree-resolved URL. An app root inside a different git repository than
+# <worktree> is checked as its own worktree: checks 2–4 run against that
+# repository's worktree root, its own `.flow/project.md` rows and `start`
+# command, and with that repository's apps only; check 1 is unchanged. The
+# checks:
 #   1. ports    — every `port` row's exported value and every app URL's port:
 #                 a listener `lsof -nP -iTCP:<port> -sTCP:LISTEN` reports fails
 #                 only when its probe goes unanswered (an HTTP GET of the app

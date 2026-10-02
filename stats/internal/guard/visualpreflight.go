@@ -52,7 +52,10 @@ var (
 	vpConfigExt  = map[string]bool{".json": true, ".yml": true, ".yaml": true, ".toml": true, ".ini": true, ".properties": true, ".conf": true}
 )
 
-type vpTarget struct{ root, url, origin, port string }
+// vpTarget is one app argument. base is the worktree it is checked
+// against: <worktree>, or — for an app root inside a different git
+// repository — that repository's worktree root, read as its own worktree.
+type vpTarget struct{ root, url, origin, port, base, dir string }
 
 // vpRow is one `## workspace isolation` resource row with the value
 // prepare-workspace.sh exported for it.
@@ -80,14 +83,19 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		if !ok || root == "" || err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 			return refuse("argument %q is not <app-root>=<http(s) URL>", a)
 		}
-		if !isDir(filepath.Join(wtAbs, root)) {
+		dir := filepath.Join(wtAbs, root)
+		if !isDir(dir) {
 			return refuse("app root %s is not a directory under %s", root, wt)
+		}
+		base := wtAbs
+		if r := vpRepoRoot(dir); r != "" && r != vpRepoRoot(wtAbs) {
+			base = r
 		}
 		port := u.Port()
 		if port == "" {
 			port = map[string]string{"http": "80", "https": "443"}[u.Scheme]
 		}
-		apps = append(apps, vpTarget{root: root, url: raw, origin: u.Scheme + "://" + u.Host, port: port})
+		apps = append(apps, vpTarget{root: root, url: raw, origin: u.Scheme + "://" + u.Host, port: port, base: base, dir: dir})
 	}
 
 	exported := map[string]string{}
@@ -109,19 +117,45 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 	}
 
-	cfg := filepath.Join(wtAbs, ".flow/project.md")
-	body, err := os.ReadFile(cfg)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return refuse("cannot read %s: %v", cfg, err)
+	// Each worktree checks 2–4 run against: <worktree> first, then every
+	// foreign repository an app root resolves into, with its own rows,
+	// start command and apps.
+	type vpBase struct {
+		dir   string
+		rows  []vpRow
+		start string
+		apps  []vpTarget
 	}
-	rows, msg := vpRows(cfg, body, exported)
-	if msg != "" {
-		return refuse("%s", msg)
+	var bases []*vpBase
+	byDir := map[string]*vpBase{}
+	dirs := []string{wtAbs}
+	for _, a := range apps {
+		dirs = append(dirs, a.base)
 	}
-	start, msg := vpStart(body)
-	if msg != "" {
-		return refuse("%s", msg)
+	for _, d := range dirs {
+		if byDir[d] != nil {
+			continue
+		}
+		cfg := filepath.Join(d, ".flow/project.md")
+		body, err := os.ReadFile(cfg)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return refuse("cannot read %s: %v", cfg, err)
+		}
+		b := &vpBase{dir: d}
+		var msg string
+		if b.rows, msg = vpRows(cfg, body, exported); msg != "" {
+			return refuse("%s", msg)
+		}
+		if b.start, msg = vpStart(body); msg != "" {
+			return refuse("%s", msg)
+		}
+		byDir[d] = b
+		bases = append(bases, b)
 	}
+	for _, a := range apps {
+		byDir[a.base].apps = append(byDir[a.base].apps, a)
+	}
+	rows := bases[0].rows
 
 	var fails, infos []string
 
@@ -178,89 +212,92 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		fails = append(fails, fmt.Sprintf("FAIL: port %s — held by %s; probe %s went unanswered", p.port, strings.Join(holder, " | "), pr))
 	}
 
-	// Check 2 — the app's base-URL configuration resolves to the workspace's
-	// value: a literal naming a moved row's default, on a line that does not
-	// name the row's Variable, under an app root, for a row the `start`
-	// command does not override.
-	for _, r := range rows {
-		if r.value == r.def || vpNames(start, r.variable) || (r.value != "" && strings.Contains(start, r.value)) {
-			continue
-		}
-		// A default is matched only as a whole literal: no identifier
-		// character right before or after it, so `shop` never hits
-		// `shopping-cart` and `…:8080` never hits `…:80801`.
-		lit := regexp.MustCompile(`(^|[^A-Za-z0-9_])` + regexp.QuoteMeta(r.def) + `([^A-Za-z0-9_]|$)`)
-		if r.res == "port" {
-			lit = regexp.MustCompile(":" + regexp.QuoteMeta(r.def) + `([^0-9]|$)`)
-		}
-		hit := lit.MatchString
-		for _, a := range apps {
-			vpWalk(wtAbs, filepath.Join(wtAbs, a.root), func(rel string) bool {
-				return !vpMarkdown(rel)
-			}, func(rel string, n int, l string, _ []string) {
-				if hit(l) && !vpNames(l, r.variable) {
-					fails = append(fails, fmt.Sprintf("FAIL: base-url — %s:%d: names %s's default %s, which neither $%s nor the start command overrides (resolved: %s)", rel, n, r.variable, r.def, r.variable, r.value))
-				}
-			})
-		}
-	}
-
-	// Check 3 — origin allowed: every allowed-origins list naming at least
-	// one URL, in a configuration-shaped file, carries every app's origin.
-	vpWalk(wtAbs, wtAbs, vpConfigFile, func(rel string, n int, l string, rest []string) {
-		if !vpOriginsKey.MatchString(l) {
-			return
-		}
-		text := l
-		if i := strings.LastIndex(l, "["); i >= 0 && !strings.Contains(l[i:], "]") {
-			for _, next := range rest {
-				text += "\n" + next
-				if strings.Contains(next, "]") {
-					break
-				}
-			}
-		}
-		found := map[string]bool{}
-		for _, m := range vpURL.FindAllString(text, -1) {
-			if u, err := url.Parse(m); err == nil {
-				found[u.Scheme+"://"+u.Host] = true
-			}
-		}
-		if len(found) == 0 {
-			return
-		}
-		for _, a := range apps {
-			if !found[a.origin] {
-				fails = append(fails, fmt.Sprintf("FAIL: origins — %s:%d: the allowed-origins list omits %s", rel, n, a.origin))
-			}
-		}
-	})
-
-	// Check 4 — one Playwright checkout per workspace.
 	node, haveNode := lookPath(env, "node")
-	realWT, err := filepath.EvalSymlinks(wtAbs)
-	if err != nil {
-		realWT = wtAbs
-	}
-	for _, a := range apps {
-		if !haveNode {
-			infos = append(infos, fmt.Sprintf("INFO: playwright — %s: node is not on PATH, so the module was not resolved", a.root))
-			continue
+	for _, b := range bases {
+		// Check 2 — the app's base-URL configuration resolves to the workspace's
+		// value: a literal naming a moved row's default, on a line that does not
+		// name the row's Variable, under an app root, for a row the `start`
+		// command does not override.
+		for _, r := range b.rows {
+			if r.value == r.def || vpNames(b.start, r.variable) || (r.value != "" && strings.Contains(b.start, r.value)) {
+				continue
+			}
+			// A default is matched only as a whole literal: no identifier
+			// character right before or after it, so `shop` never hits
+			// `shopping-cart` and `…:8080` never hits `…:80801`.
+			lit := regexp.MustCompile(`(^|[^A-Za-z0-9_])` + regexp.QuoteMeta(r.def) + `([^A-Za-z0-9_]|$)`)
+			if r.res == "port" {
+				lit = regexp.MustCompile(":" + regexp.QuoteMeta(r.def) + `([^0-9]|$)`)
+			}
+			hit := lit.MatchString
+			for _, a := range b.apps {
+				vpWalk(wtAbs, a.dir, func(rel string) bool {
+					return !vpMarkdown(rel)
+				}, func(rel string, n int, l string, _ []string) {
+					if hit(l) && !vpNames(l, r.variable) {
+						fails = append(fails, fmt.Sprintf("FAIL: base-url — %s:%d: names %s's default %s, which neither $%s nor the start command overrides (resolved: %s)", rel, n, r.variable, r.def, r.variable, r.value))
+					}
+				})
+			}
 		}
-		root := filepath.Join(wtAbs, a.root)
-		out, err := exec.Command(node, "-e", "console.log(require.resolve('@playwright/test/package.json', {paths: [process.argv[1]]}))", root).Output()
-		got := strings.TrimSpace(string(out))
-		if err != nil || got == "" {
-			infos = append(infos, fmt.Sprintf("INFO: playwright — %s: @playwright/test does not resolve yet (setup installs it)", a.root))
-			continue
-		}
-		real, err := filepath.EvalSymlinks(got)
+
+		// Check 3 — origin allowed: every allowed-origins list naming at least
+		// one URL, in a configuration-shaped file, carries every app's origin.
+		vpWalk(wtAbs, b.dir, vpConfigFile, func(rel string, n int, l string, rest []string) {
+			if !vpOriginsKey.MatchString(l) {
+				return
+			}
+			text := l
+			if i := strings.LastIndex(l, "["); i >= 0 && !strings.Contains(l[i:], "]") {
+				for _, next := range rest {
+					text += "\n" + next
+					if strings.Contains(next, "]") {
+						break
+					}
+				}
+			}
+			found := map[string]bool{}
+			for _, m := range vpURL.FindAllString(text, -1) {
+				if u, err := url.Parse(m); err == nil {
+					found[u.Scheme+"://"+u.Host] = true
+				}
+			}
+			if len(found) == 0 {
+				return
+			}
+			for _, a := range b.apps {
+				if !found[a.origin] {
+					fails = append(fails, fmt.Sprintf("FAIL: origins — %s:%d: the allowed-origins list omits %s", rel, n, a.origin))
+				}
+			}
+		})
+
+		// Check 4 — one Playwright checkout per workspace.
+		realWT, err := filepath.EvalSymlinks(b.dir)
 		if err != nil {
-			real = filepath.Clean(got)
+			realWT = b.dir
 		}
-		if real != realWT && !strings.HasPrefix(real, realWT+string(filepath.Separator)) {
-			fails = append(fails, fmt.Sprintf("FAIL: playwright — %s resolves @playwright/test to %s, outside %s — install this worktree's own before re-running", a.root, got, wt))
+		for _, a := range b.apps {
+			if !haveNode {
+				infos = append(infos, fmt.Sprintf("INFO: playwright — %s: node is not on PATH, so the module was not resolved", a.root))
+				continue
+			}
+			root := a.dir
+			out, err := exec.Command(node, "-e", "console.log(require.resolve('@playwright/test/package.json', {paths: [process.argv[1]]}))", root).Output()
+			got := strings.TrimSpace(string(out))
+			if err != nil || got == "" {
+				infos = append(infos, fmt.Sprintf("INFO: playwright — %s: @playwright/test does not resolve yet (setup installs it)", a.root))
+				continue
+			}
+			real, err := filepath.EvalSymlinks(got)
+			if err != nil {
+				real = filepath.Clean(got)
+			}
+			if real != realWT && !strings.HasPrefix(real, realWT+string(filepath.Separator)) {
+				fails = append(fails, fmt.Sprintf("FAIL: playwright — %s resolves @playwright/test to %s, outside %s — install this worktree's own before re-running", a.root, got, b.dir))
+			}
 		}
+
 	}
 
 	for _, l := range append(infos, fails...) {
@@ -412,4 +449,17 @@ func vpWalk(wt, dir string, want func(string) bool, visit func(rel string, n int
 		}
 		return nil
 	})
+}
+
+// vpRepoRoot is the nearest directory at or above dir carrying a `.git`
+// entry (a checkout's directory or a linked worktree's file), or "".
+func vpRepoRoot(dir string) string {
+	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
+		if _, err := os.Lstat(filepath.Join(d, ".git")); err == nil {
+			return d
+		}
+		if filepath.Dir(d) == d {
+			return ""
+		}
+	}
 }

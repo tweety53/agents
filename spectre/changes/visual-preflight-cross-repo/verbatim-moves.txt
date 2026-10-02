@@ -1,0 +1,2 @@
+# Step 3 states the guard's cross-repo rule once; the guard's header is canonical for it.
+A root in another repository — a cross-repo change's sibling worktree — is passed as is; the guard checks it as that repository's own worktree.

@@ -397,3 +397,27 @@ func TestCheckVisualPreflightPlaywright(t *testing.T) {
 		vpWant{code: 0, contains: []string{"PREFLIGHT-OK: "}, omits: []string{"FAIL:"}}.check(t, code, out, errOut)
 	})
 }
+
+// An app root inside a different git repository than <worktree> is checked
+// as its own worktree — its own `.flow/project.md` rows and start command —
+// so <worktree>'s moved rows are never judged against the other
+// repository's files, while per-port probing still covers both.
+func TestCheckVisualPreflightCrossRepo(t *testing.T) {
+	t.Parallel()
+	top := t.TempDir()
+	be, fe := filepath.Join(top, "backend"), filepath.Join(top, "frontend")
+	writeFile(t, filepath.Join(be, ".git"), "gitdir: /elsewhere\n")
+	writeFile(t, filepath.Join(be, ".flow/project.md"), vpIsolation)
+	mkdir(t, filepath.Join(fe, ".git"))
+	writeFile(t, filepath.Join(fe, "src/api.ts"), "fetch(\"//localhost:8080/x\")\n")
+
+	code, out, errOut := vpRun(t, be, []string{"../frontend=http://localhost:8093"}, vpStdin, vpBin(t, nil, ""))
+	vpWant{code: 0, contains: []string{"PREFLIGHT-OK: " + be}, omits: []string{"FAIL:"}}.check(t, code, out, errOut)
+
+	// The same tree with the app root in <worktree>'s own repository keeps
+	// today's verdict: the moved row's default fails.
+	mkdir(t, filepath.Join(be, "web"))
+	writeFile(t, filepath.Join(be, "web/api.ts"), "fetch(\"//localhost:8080/x\")\n")
+	code, out, errOut = vpRun(t, be, []string{vpApp}, vpStdin, vpBin(t, nil, ""))
+	vpWant{code: 1, contains: []string{"FAIL: base-url — web/api.ts:1:"}}.check(t, code, out, errOut)
+}
