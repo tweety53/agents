@@ -49,7 +49,7 @@ pass() { printf 'ok: %s\n' "$1"; }
 run() {
   local out
   out="$(printf '{"tool_name":"%s","tool_input":%s,"cwd":"%s"}' "$2" "$3" "$1" | python3 "$HOOK")"
-  if printf '%s' "$out" | grep -q '"permissionDecision": *"deny"'; then echo deny; else echo allow; fi
+  if grep -q '"permissionDecision": *"deny"' <<<"$out"; then echo deny; else echo allow; fi
 }
 expect() { # <case> <want> <got>
   if [ "$2" = "$3" ]; then pass "$1"; else fail "$1: wanted $2, got $3"; fi

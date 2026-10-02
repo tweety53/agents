@@ -119,7 +119,7 @@ fi
 new_repo
 task_block 1 x "feat(a): missing" green
 run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "task 1 ticked but no commit"; then
+if [ "$RC" -eq 1 ] && grep -q "task 1 ticked but no commit" <<<"$OUT"; then
   pass "case 2 ticked without commit reported"
 else
   fail "case 2 ticked without commit: rc=$RC out=$OUT"
@@ -131,7 +131,7 @@ task_block 1 ' ' "feat(a): landed" green
 commit_plan
 commit_file src/f1.go "feat(a): landed"
 run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "task 1 not ticked but commit"; then
+if [ "$RC" -eq 1 ] && grep -q "task 1 not ticked but commit" <<<"$OUT"; then
   pass "case 3 commit without tick reported"
 else
   fail "case 3 commit without tick: rc=$RC out=$OUT"
@@ -144,7 +144,7 @@ commit_plan
 commit_file src/f1.go "feat(a): declared"
 commit_file src/undeclared.go "feat(a): sneaky"
 run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "src/undeclared.go is not declared"; then
+if [ "$RC" -eq 1 ] && grep -q "src/undeclared.go is not declared" <<<"$OUT"; then
   pass "case 4 undeclared commit file reported"
 else
   fail "case 4 undeclared commit file: rc=$RC out=$OUT"
@@ -163,7 +163,7 @@ new_repo
 commit_plan
 commit_file src/f1.go "feat(a): partial"
 run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "src/f9.go is not touched"; then
+if [ "$RC" -eq 1 ] && grep -q "src/f9.go is not touched" <<<"$OUT"; then
   pass "case 5 declared-but-untouched file reported"
 else
   fail "case 5 declared-but-untouched file: rc=$RC out=$OUT"
@@ -190,7 +190,7 @@ fi
 new_repo
 task_block 1 ' ' "-" yellow
 run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "malformed \*\*Build:\*\* tag"; then
+if [ "$RC" -eq 1 ] && grep -q "malformed \*\*Build:\*\* tag" <<<"$OUT"; then
   pass "case 7 malformed Build tag reported"
 else
   fail "case 7 malformed Build tag: rc=$RC out=$OUT"
@@ -205,7 +205,7 @@ new_repo
   printf '**After:** none\n'
 } >"$TASKS"
 run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "has no \*\*Build:\*\* tag"; then
+if [ "$RC" -eq 1 ] && grep -q "has no \*\*Build:\*\* tag" <<<"$OUT"; then
   pass "case 8 missing Build tag reported"
 else
   fail "case 8 missing Build tag: rc=$RC out=$OUT"
@@ -224,7 +224,7 @@ fi
 # --- case 10: base-ref argument resolving nowhere -> exit 2 COULD NOT JUDGE ---
 new_repo
 run_guard "$FIX" no-such-ref
-if [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q "COULD NOT JUDGE"; then
+if [ "$RC" -eq 2 ] && grep -q "COULD NOT JUDGE" <<<"$OUT"; then
   pass "case 10 unusable base-ref refused exit 2"
 else
   fail "case 10 unusable base-ref: rc=$RC out=$OUT"
@@ -256,7 +256,7 @@ commit_plan
 commit_file src/f1.go "feat(a): twice"
 commit_file src/f9.go "feat(a): twice"
 run_guard "$FIX"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "carried by 2 commits"; then
+if [ "$RC" -eq 1 ] && grep -q "carried by 2 commits" <<<"$OUT"; then
   pass "case 13 duplicate-subject commits reported"
 else
   fail "case 13 duplicate-subject commits: rc=$RC out=$OUT"
@@ -312,7 +312,7 @@ fi
 new_repo
 git -C "$FIX" config "branch.$(git -C "$FIX" branch --show-current).flowBase" no-such-ref
 run_guard "$FIX"
-if [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q "COULD NOT JUDGE"; then
+if [ "$RC" -eq 2 ] && grep -q "COULD NOT JUDGE" <<<"$OUT"; then
   pass "case 16 recorded base read before origin/HEAD"
 else
   fail "case 16 recorded base: rc=$RC out=$OUT"

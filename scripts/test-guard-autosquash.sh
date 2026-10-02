@@ -87,14 +87,14 @@ if [ "$RC" -eq 0 ]; then pass "targets accepts a genuine ancestor"; else fail "t
 repo="$(new_repo)"
 stray="$(orphan_commit "$repo")"
 run_guard targets "$repo" "$stray"
-if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q "$stray"; then
+if [ "$RC" -eq 1 ] && grep -q "$stray" <<<"$ERR"; then
   pass "targets refuses a non-ancestor sha and names it"
 else
   fail "targets on a non-ancestor sha: rc=$RC err=$ERR"
 fi
 # targets-reports-a-non-resolving-sha-as-unresolved
 run_guard targets "$repo" deadbeefcafe1234
-if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q 'does not resolve as a commit object'; then
+if [ "$RC" -eq 1 ] && grep -q 'does not resolve as a commit object' <<<"$ERR"; then
   pass "targets reports a non-resolving sha as unresolved"
 else
   fail "targets on a bogus sha: rc=$RC err=$ERR"
@@ -111,7 +111,7 @@ repo="$(new_repo)"
 stray="$(orphan_commit "$repo")"
 : >"$SANDBOX/empty-tasks.md"
 run_guard after "$repo" "$stray" "$SANDBOX/empty-tasks.md"
-if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q "$stray"; then
+if [ "$RC" -eq 1 ] && grep -q "$stray" <<<"$ERR"; then
   pass "after refuses a base that is no ancestor of HEAD"
 else
   fail "after on a moved-off base: rc=$RC err=$ERR"
@@ -125,14 +125,14 @@ stale="$(head_sha "$repo")"
 git -C "$repo" commit -q --amend -m two-amended
 printf -- '- task 5 baseline %s\n' "$stale" >"$SANDBOX/stale-tasks.md"
 run_guard after "$repo" "$(root_sha "$repo")" "$SANDBOX/stale-tasks.md"
-if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q "$stale"; then
+if [ "$RC" -eq 1 ] && grep -q "$stale" <<<"$ERR"; then
   pass "after refuses a stale tasks.md sha and names it"
 else
   fail "after on a stale tasks.md sha: rc=$RC err=$ERR"
 fi
 printf 'recorded off the defaced token\n' >"$SANDBOX/prose-tasks.md"
 run_guard after "$repo" "$(root_sha "$repo")" "$SANDBOX/prose-tasks.md"
-if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q 'defaced'; then
+if [ "$RC" -eq 1 ] && grep -q 'defaced' <<<"$ERR"; then
   pass "after reports a hex-shaped token that resolves to no commit"
 else
   fail "after on a prose hex token: rc=$RC err=$ERR"
@@ -144,7 +144,7 @@ repo="$(new_repo)"
 LONGHEX="a12345678901234567890123456789012345678901"
 printf -- '- baseline %s\n' "$LONGHEX" >"$SANDBOX/long-tasks.md"
 run_guard after "$repo" "$(root_sha "$repo")" "$SANDBOX/long-tasks.md"
-if [ "$RC" -eq 1 ] && printf '%s' "$ERR" | grep -q "$LONGHEX"; then
+if [ "$RC" -eq 1 ] && grep -q "$LONGHEX" <<<"$ERR"; then
   pass "after reports a long hex run"
 else
   fail "after on a long hex run: rc=$RC err=$ERR"

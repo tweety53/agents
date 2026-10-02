@@ -51,7 +51,7 @@ set +e
 out="$(check_tree_restored "$repo" "$snap")"
 rc=$?
 set -e
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'new stash entry: .*kan-448-test-residue'; then
+if [ "$rc" -ne 0 ] && grep -q 'new stash entry: .*kan-448-test-residue' <<<"$out"; then
   pass "new stash entry is named and fails the check"
 else
   fail "new stash entry is named and fails the check (rc=$rc out=$out)"
@@ -65,7 +65,7 @@ set +e
 out="$(check_tree_restored "$repo" "$snap")"
 rc=$?
 set -e
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'unexpected status line: .*stray.txt'; then
+if [ "$rc" -ne 0 ] && grep -q 'unexpected status line: .*stray.txt' <<<"$out"; then
   pass "unexpected status line is named and fails the check"
 else
   fail "unexpected status line is named and fails the check (rc=$rc out=$out)"

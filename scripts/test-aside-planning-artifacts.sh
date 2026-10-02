@@ -72,7 +72,7 @@ new_repo
 echo plan-edited > "$REPO/spectre/changes/demo/tasks.md"
 echo scratch > "$REPO/spectre/changes/demo/notes.md"
 run_helper aside "$REPO"
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-ASIDE:'; then
+if [ "$RC" -eq 0 ] && grep -q '^PLANNING-ARTIFACTS-ASIDE:' <<<"$OUT"; then
   if planning_clean "$REPO"; then
     pass "case 1: aside clears the planning paths"
   else
@@ -84,7 +84,7 @@ fi
 run_helper restore "$REPO"
 restored_tasks="$(cat "$REPO/spectre/changes/demo/tasks.md")"
 restored_notes="$(cat "$REPO/spectre/changes/demo/notes.md" 2>/dev/null || true)"
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-RESTORED:' \
+if [ "$RC" -eq 0 ] && grep -q '^PLANNING-ARTIFACTS-RESTORED:' <<<"$OUT" \
   && [ "$restored_tasks" = "plan-edited" ] && [ "$restored_notes" = "scratch" ]; then
   pass "case 1: restore brings the tracked edit and the untracked file back"
 else
@@ -130,7 +130,7 @@ run_helper restore "$REPO"
 # never pops the operator's entry.
 new_repo
 run_helper restore "$REPO"
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-NONE:'; then
+if [ "$RC" -eq 0 ] && grep -q '^PLANNING-ARTIFACTS-NONE:' <<<"$OUT"; then
   pass "case 4a: restore with no stash reports NONE"
 else
   fail "case 4a: restore with no stash rc=$RC out=$OUT"
@@ -145,7 +145,7 @@ run_helper restore "$REPO"
 # Three entries at this point: the operator's first stash, the helper's
 # aside (now shadowed beneath the operator's second), both untouched.
 stash_count="$(git -C "$REPO" stash list | wc -l | tr -d ' ')"
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-NONE:' \
+if [ "$RC" -eq 0 ] && grep -q '^PLANNING-ARTIFACTS-NONE:' <<<"$OUT" \
   && [ "$stash_count" -eq 3 ]; then
   pass "case 4b: an operator stash on top is never popped"
 else
@@ -163,7 +163,7 @@ git -C "$REPO" add spectre/changes/demo/tasks.md
 git -C "$REPO" commit -qm "upstream moves the planning file"
 run_helper restore "$REPO"
 stash_count="$(git -C "$REPO" stash list | wc -l | tr -d ' ')"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-CONFLICT:' \
+if [ "$RC" -eq 1 ] && grep -q '^PLANNING-ARTIFACTS-CONFLICT:' <<<"$OUT" \
   && [ "$stash_count" -eq 1 ]; then
   pass "case 5: conflicted restore exits 1 and keeps the stash"
 else
@@ -196,7 +196,7 @@ set +e
 git -C "$REPO" rebase --abort >/dev/null 2>&1
 set -e
 run_helper restore "$REPO"
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-RESTORED:'; then
+if [ "$RC" -eq 0 ] && grep -q '^PLANNING-ARTIFACTS-RESTORED:' <<<"$OUT"; then
   pass "case 6: restore succeeds once the rebase has aborted"
 else
   fail "case 6: post-abort restore rc=$RC out=$OUT"
@@ -243,7 +243,7 @@ fi
 new_repo
 run_helper aside "$REPO"
 stash_count="$(git -C "$REPO" stash list | wc -l | tr -d ' ')"
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-CLEAN:' \
+if [ "$RC" -eq 0 ] && grep -q '^PLANNING-ARTIFACTS-CLEAN:' <<<"$OUT" \
   && [ "$stash_count" -eq 0 ]; then
   pass "case 8: clean planning paths report CLEAN and stash nothing"
 else
@@ -266,7 +266,7 @@ for n in $(seq 1 2000); do
     "$HEAD_SHA" "$HEAD_SHA" "$((1700000000 + n))" "$n" >> "$REPO/.git/logs/refs/stash"
 done
 run_helper restore "$REPO"
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^PLANNING-ARTIFACTS-NONE:'; then
+if [ "$RC" -eq 0 ] && grep -q '^PLANNING-ARTIFACTS-NONE:' <<<"$OUT"; then
   pass "case 9: a long stash list is read without a SIGPIPE refusal"
 else
   fail "case 9: rc=$RC out=$OUT"
