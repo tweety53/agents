@@ -3,7 +3,8 @@
 # every self-review angle the canonical table serves, each section carrying
 # either a finding line
 # or the none-marker, each finding line parseable with its label matching
-# its section and a filed finding naming an issue key.
+# its section, a filed finding naming an issue key and a fixed finding
+# naming a sha.
 #
 # Usage: scripts/check-self-review-report.sh [dir]
 #
@@ -26,6 +27,7 @@
 #
 #   ## <prose> — `<label>`
 #
+#   - **[<label>]** <text> — fixed: <sha>
 #   - **[<label>]** <text> — filed: <KEY>
 #   - **[<label>]** <text> — declined
 #
@@ -34,7 +36,9 @@
 # lines together. The label on a finding line must match the label in its
 # own section's heading. `<KEY>` is an uppercase project key, a hyphen, and
 # digits — e.g. `KAN-201`; anything else (empty, `yes`, a bare number, a
-# trailing hyphen) is a violation naming the malformed key.
+# trailing hyphen) is a violation naming the malformed key. `<sha>` is the
+# landed commit of a finding the self-review pass fixed (KAN-875): 7–40
+# lowercase hex characters; an empty or non-hex sha is a violation naming it.
 #
 # The `##` sections appear in the order the canonical table states,
 # each exactly once — an out-of-order or duplicate section is a named

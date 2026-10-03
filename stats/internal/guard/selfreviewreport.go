@@ -28,12 +28,16 @@ func init() { Registry["check-self-review-report"] = checkSelfReviewReport }
 //
 // srrIssueKey is an uppercase project key, a hyphen, and digits — e.g.
 // `KAN-201`. Anything else naming itself `filed:` (empty, `yes`, `201`,
-// `KAN-`) is a violation.
+// `KAN-`) is a violation. srrSha is a 7–40 character lowercase hex sha —
+// the landed commit a `fixed:` finding names (KAN-875); anything else
+// naming itself `fixed:` is a violation.
 var (
 	srrFindingShape = regexp.MustCompile(`^-[[:space:]]*\*\*\[`)
 	srrFindingLine  = regexp.MustCompile(`^-[[:space:]]\*\*\[([^]]+)\]\*\*[[:space:]](.+)$`)
 	srrFiled        = regexp.MustCompile(`^filed:[[:space:]]*(.*)$`)
 	srrIssueKey     = regexp.MustCompile(`^[A-Z][A-Z0-9]*-[0-9]+$`)
+	srrFixed        = regexp.MustCompile(`^fixed:[[:space:]]*(.*)$`)
+	srrSha          = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
 	srrH2           = regexp.MustCompile(`^##[[:space:]]`)
 	srrHeading      = regexp.MustCompile(`^#+[[:space:]]`)
 	srrAngleRow     = regexp.MustCompile(`^[[:space:]]*[0-9]+[[:space:]]*$`)
@@ -244,10 +248,19 @@ func checkSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int
 				if disposition == "declined" {
 					continue
 				}
+				if xm := srrFixed.FindStringSubmatch(disposition); xm != nil {
+					switch {
+					case xm[1] == "":
+						violation("%s:%d: finding line marked fixed with no sha", rel, lineno)
+					case !srrSha.MatchString(xm[1]):
+						violation("%s:%d: finding line marked fixed with a malformed sha `%s` (want 7–40 lowercase hex characters — e.g. abc1234)", rel, lineno, xm[1])
+					}
+					continue
+				}
 				fm := srrFiled.FindStringSubmatch(disposition)
 				switch {
 				case fm == nil:
-					violation("%s:%d: finding line disposition is neither `filed: <KEY>` nor `declined`", rel, lineno)
+					violation("%s:%d: finding line disposition is none of `fixed: <sha>`, `filed: <KEY>` or `declined`", rel, lineno)
 				case fm[1] == "":
 					violation("%s:%d: finding line marked filed with no issue key", rel, lineno)
 				case !srrIssueKey.MatchString(fm[1]):
@@ -261,7 +274,7 @@ func checkSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int
 			// line matches neither pattern and stays ignored, as ordinary
 			// body prose should.
 			if srrFindingShape.MatchString(line) {
-				violation("%s:%d: finding-shaped line is malformed (want \"- **[%s]** <text> — filed: <KEY>\" or \"- **[%s]** <text> — declined\")", rel, lineno, cur, cur)
+				violation("%s:%d: finding-shaped line is malformed (want \"- **[%s]** <text> — fixed: <sha>\", \"- **[%s]** <text> — filed: <KEY>\" or \"- **[%s]** <text> — declined\")", rel, lineno, cur, cur, cur)
 			}
 		}
 
