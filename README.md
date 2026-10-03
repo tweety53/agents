@@ -29,6 +29,7 @@ any project.
 | `skills/` | The `/flow*` skills; `skills/flow-contracts/` holds the on-demand contracts, with `pipeline.md` canonical for the state machine. Command map: `skills/README.md` |
 | `commands-claude/` | Thin slash-command wrappers for Claude Code and ZCode |
 | `agents/` | Subagent definitions (`flow-low`, `flow-medium`, `flow-high`) |
+| `mods/` | Claude Code function-hooks plugins. `subagent-board` draws a band above the prompt with one `<model-effort> <emoji> Task <x>/<n> (<desc>) — <state>` line per subagent, and adds the tracker key, `/flow` phase, running stage and a tally to the hint line under it |
 | `hooks/` | `enforce-agent-baseline.py` (denies a dispatch missing the baseline pointer), `protect-main-checkout.py` (denies edits on a main checkout's default branch), `flow-active-change.py` (turns a plain problem report into a fix run) |
 | `scripts/` | The guards `/flow` runs, each with its `test-*.sh` harness |
 | `stats/` | `flowd` — the PostgreSQL-backed service holding pipeline state and per-stage telemetry, with a web UI. See `stats/README.md` |
@@ -286,6 +287,7 @@ Never stop the live daemon or drop the `flow` database: every project's runs wri
 ```
 
 Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/` and `~/.zcode/`, and
+each `mods/<name>/` into `~/.claude/skills/`, from which Claude Code auto-loads it as a plugin, and
 writes a managed block of always-on rules into `~/.claude/CLAUDE.md` and `~/.zcode/AGENTS.md`. It
 also exports `Z_COMPACT_WINDOW` from `~/.zshrc` (and `~/.bashrc` when present) for the `zcode`
 wrapper.

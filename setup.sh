@@ -17,6 +17,7 @@ SKILLS_SRC="$SCRIPT_DIR/skills"
 RULES_SRC="$SCRIPT_DIR/rules"
 COMMANDS_CLAUDE_SRC="$SCRIPT_DIR/commands-claude"
 AGENTS_SRC="$SCRIPT_DIR/agents"
+MODS_SRC="$SCRIPT_DIR/mods"
 HARNESS="${1:-}"
 PROJECT_DIR="${2:-.}"
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
@@ -556,6 +557,23 @@ install_commands() {
   done
 }
 
+# install_mods <claude-skills-dir>
+# Links each mods/<name>/ — a Claude Code function-hooks plugin — into the user's skills folder,
+# from which Claude Code auto-loads a plugin folder and hot-reloads it on save. Claude Code only:
+# ZCode has no function-hooks surface, so its skills folder never gets one. Runs after
+# install_skills on the same folder, whose prune already dropped links to deleted mods.
+install_mods() {
+  local target_dir="$1" mod_dir mod_name
+  [[ -d "$MODS_SRC" ]] || return 0
+  info "Installing mods into $target_dir"
+  mkdir -p "$target_dir"
+  for mod_dir in "$MODS_SRC"/*/; do
+    [[ -d "$mod_dir" ]] || continue
+    mod_name=$(basename "$mod_dir")
+    link_into "$mod_dir" "$target_dir/$mod_name" "$mod_name"
+  done
+}
+
 install_agents() {
   local target_dir="$1" agent_file agent_name
   [[ -d "$AGENTS_SRC" ]] || return 0
@@ -1063,6 +1081,7 @@ install_global() {
   done
 
   install_skills "$home_dir/.claude/skills"
+  install_mods "$home_dir/.claude/skills"
   # ZCode needs its own copy: its AGENTS.md block names the /flow* skills, and user scope
   # (~/.zcode/skills) is where that client resolves them from.
   install_skills "$home_dir/.zcode/skills"
@@ -1091,6 +1110,7 @@ install_global() {
   echo ""
   finish_banner "Global" "$skipped_before"
   echo "   Skills   → $home_dir/.claude/skills/ and $home_dir/.zcode/skills/"
+  echo "   Mods     → $home_dir/.claude/skills/ (Claude Code function-hooks plugins)"
   echo "   Commands → $home_dir/.claude/commands/ and $home_dir/.zcode/commands/"
   echo "   Agents   → $home_dir/.claude/agents/"
   echo "   Rules    → the managed block in $home_dir/.claude/CLAUDE.md and"

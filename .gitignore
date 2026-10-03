@@ -40,3 +40,6 @@ stats/web/blob-report/
 
 # Per-project skill symlinks installed by the operator (Go skills from ~/.agents/skills) — machine-local
 .claude/skills/
+
+# Claude Code writes each mod's API typings here on load — generated, not source
+mods/*/.claude-plugin/types/

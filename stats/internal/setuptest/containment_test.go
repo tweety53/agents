@@ -144,7 +144,9 @@ func TestGlobalInstallPopulatesSkillDirs(t *testing.T) {
 	g.runSetup(repoRoot, home, "global", "")
 	g.assertRCZero("the real-repo global install succeeds", g.rc, g.log)
 
-	expectedSkills := len(skillDirs(t))
+	expectedSkills := len(repoDirs(t, "skills"))
+	// install_mods links each mods/<name>/ beside the skills in Claude Code's folder alone.
+	expected := map[string]int{".claude/skills": expectedSkills + len(repoDirs(t, "mods")), ".zcode/skills": expectedSkills}
 	if expectedSkills == 0 {
 		g.fail("the repo has skills to install", filepath.Join(repoRoot, "skills")+" contains no directories")
 	}
@@ -158,8 +160,8 @@ func TestGlobalInstallPopulatesSkillDirs(t *testing.T) {
 				linked++
 			}
 		}
-		g.assertEq(rel+" holds every skill", expectedSkills, installed)
-		g.assertEq(rel+" holds only resolvable symlinks", expectedSkills, linked)
+		g.assertEq(rel+" holds every skill", expected[rel], installed)
+		g.assertEq(rel+" holds only resolvable symlinks", expected[rel], linked)
 	}
 
 	var dangling []string
@@ -293,7 +295,7 @@ func TestGuardsReachInstallAndRunFromIt(t *testing.T) {
 func TestPreexistingSkillDirMovedOut(t *testing.T) {
 	g := newGroup(t)
 	home := g.newHome()
-	skills := skillDirs(t)
+	skills := repoDirs(t, "skills")
 	if len(skills) == 0 {
 		t.Fatal("cannot pick a skill name to displace")
 	}
@@ -335,11 +337,12 @@ func visibleEntries(dir string) []string {
 }
 
 // skillDirs is `skills/*/`: the non-dot entries of the repo's skills/ that stat as directories.
-func skillDirs(t *testing.T) []string {
+// repoDirs lists the directories directly under <repo>/<dir>: "skills", or "mods" (absent → none).
+func repoDirs(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string
-	for _, name := range visibleEntries(filepath.Join(repoRoot, "skills")) {
-		if fi, err := os.Stat(filepath.Join(repoRoot, "skills", name)); err == nil && fi.IsDir() {
+	for _, name := range visibleEntries(filepath.Join(repoRoot, dir)) {
+		if fi, err := os.Stat(filepath.Join(repoRoot, dir, name)); err == nil && fi.IsDir() {
 			out = append(out, name)
 		}
 	}
