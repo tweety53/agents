@@ -20,9 +20,12 @@
 #          can no longer see. Reported, never failing — a human confirms it.
 #
 # A change that rewords or adds a rule on purpose lists each such sentence,
-# exactly as the FAIL line prints it after "::", one per line, in
-# <spec-root>/changes/<change>/verbatim-moves.txt (`#` lines are comments; a
-# leading `\` is dropped, so a heading is listed as `\## …`).
+# exactly as the FAIL line prints it after "::", one per line, in its
+# change's acknowledgement file — <spec-root>/changes/<change>/verbatim-moves.txt
+# on a /flow run, <worktree>/.superpowers/sdd/<change>/verbatim-moves.txt on a
+# /flow-fast run, whose guardrail forbids writing <project>/spectre/ — where
+# `#` lines are comments and a leading `\` is dropped, so a heading is listed
+# as `\## …`.
 # Only in-flight changes count; an archived change's list is never read.
 #
 # It cannot judge whether a lazily loaded file's "Load X only when Y"
