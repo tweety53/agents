@@ -76,6 +76,30 @@ Each Go test carries at least its harness's floor in subtests (`parity-by-case-c
 
 <!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh x3, the runner's own "N harnesses, … Ns wall" line and grep '(Ns)' sorted descending @ 9cd35da8 -->
 
+**After** — `@ branch spectre/kan-873-agents-port-the-next-five-slowest-bash-guards-to` (`ea3a5808`):
+
+| Run | suite wall | exit | harnesses | slowest five |
+|---|--:|--:|--:|---|
+| 1 | 68s | 0 | 40 | go-guards 68s, generate-relocation-comparison 26s, setup 19s, lib-flow-guard 16s, check-plan-shape 16s |
+| 2 | 71s | 0 | 40 | go-guards 71s, generate-relocation-comparison 22s, lib-flow-guard 12s, check-plan-shape 12s, run-guard-tests 11s |
+| 3 | 54s | 0 | 40 | go-guards 53s, generate-relocation-comparison 16s, lib-flow-guard 13s, lib-parallel 11s, check-plan-shape 11s |
+| **median** | **68s** | | | |
+
+<!-- measured: FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh x3, the runner's own "N harnesses, … Ns wall" line and grep '(Ns)' sorted descending @ branch spectre/kan-873-agents-port-the-next-five-slowest-bash-guards-to -->
+
+Parity (`--- PASS: Test<Name>/`, floor in brackets): CheckPanelDocsOnly 26 (23), PrepareWorkspace
+32 (25), BreakAndProve 137 (38), PostMutationCheck 14 (4), LandSelfReviewReport 49 (43),
+CheckSelfReviewReport 75 (63) — every port at or above its floor.
+
+<!-- measured: cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '--- PASS: Test<Name>/' @ branch spectre/kan-873-agents-port-the-next-five-slowest-bash-guards-to -->
+
+Judgement: every run green (the two base reds fixed); suite median 68s against 75s; six bash
+harnesses gone (46 → 40). `test-go-guards.sh` remains the critical path. Every remaining harness at
+or above 10s median is Python-backed (`generate-relocation-comparison`, `check-plan-shape`,
+`check-task-records`), already a shim (`aside-planning-artifacts`) or a runner harness
+(`lib-parallel`, `run-guard-tests`); the next slice re-ranks the sub-10s bash tail by this
+change's three-run median method first.
+
 ## Decisions
 
 ### Carry the prior slices' port decisions unchanged

@@ -341,7 +341,7 @@ usage line prints the literal `check-self-review-report.sh`, not `$0` (the shim 
 which never sees the invoked path), and an unreadable report loses bash's own
 `<script>: line N: <file>: Permission denied` prefix line; both exits are unchanged.
 
-- [ ] 8. Repoint citations of the deleted files
+- [x] 8. Repoint citations of the deleted files
 
 **Files:** `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `hooks/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`
@@ -355,22 +355,22 @@ which never sees the invoked path), and an unreadable report loses bash's own
 
 **Decision:** carry-prior-port-decisions
 
-  - [ ] **Step 1: Find.** `grep -rlF -e test-check-panel-docs-only.sh -e test-prepare-workspace.sh
+  - [x] **Step 1: Find.** `grep -rlF -e test-check-panel-docs-only.sh -e test-prepare-workspace.sh
     -e test-break-and-prove.sh -e test-land-self-review-report.sh -e
     test-check-self-review-report.sh -e post-mutation-check.sh --exclude-dir=archive
     --exclude-dir=.worktrees --exclude-dir=node_modules --exclude-dir=.git
     --exclude-dir=self-review .`; then grep the same tree for citations of a ported script's body
     comments and of its bash plumbing (`sources lib/…`).
     `unverified: the file set is known only after tasks 3–7 land; widen **Files:** by a correction if a hit falls outside the collateral globs`
-  - [ ] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites; a
+  - [x] **Step 2: Repoint** each citation to the Go file or Go test that now holds what it cites; a
     sentence describing bash plumbing that no longer exists is corrected, not repointed.
     `.flow/project.md`'s paragraph naming which guards are Go lists the five new ones; library
     headers naming a ported script as a caller that sources them are corrected.
-  - [ ] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-873-*`,
+  - [x] **Step 3: Verify.** Step 1's grep returns only `spectre/changes/kan-873-*`,
     `docs/self-review/` and the Go ports' own history comments; every guard in `.flow/project.md`'s
     `## lint` exits 0.
 
-- [ ] 9. Live verification: after timings and parity
+- [x] 9. Live verification: after timings and parity
 
 **Files:** none
 **Tests:** none — measurement task; the figures it records are the check
@@ -380,19 +380,19 @@ which never sees the invoked path), and an unreadable report loses bash's own
 **After:** Task 1, 2, 3, 4, 5, 6, 7, 8, 10
 **Build:** green
 
-  - [ ] **Step 1: Suite, after.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh`,
+  - [x] **Step 1: Suite, after.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh`,
     three times on the branch head; record each run's wall, exit, harness count and slowest five.
-  - [ ] **Step 2: Parity.** `cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '---
+  - [x] **Step 2: Parity.** `cd stats && go test ./internal/guard/ -count=1 -v | grep -c -- '---
     PASS: Test<Name>/'` per port against its floor in `design.md`.
-  - [ ] **Step 3: Record** an **After** table beside design.md's **Before**, same columns, each
+  - [x] **Step 3: Record** an **After** table beside design.md's **Before**, same columns, each
     figure tagged `measured:` with the command and
     `@ branch spectre/kan-873-agents-port-the-next-five-slowest-bash-guards-to`; name the slowest
     remaining bash harness and the next slice.
-  - [ ] **Step 4: Judge.** Failure looks like: any harness red; any port's `--- PASS` count below
+  - [x] **Step 4: Judge.** Failure looks like: any harness red; any port's `--- PASS` count below
     its floor; the suite median above the Before median. Any of these is reported, not recorded as
     success.
 
-- [ ] 10. Shims refuse a missing lib/flow-guard.sh with their cannot-answer code under bash 3.2
+- [x] 10. Shims refuse a missing lib/flow-guard.sh with their cannot-answer code under bash 3.2
 
 **Files:** `stats/internal/guard/shim_template_test.go`
 **Allowed-collateral:** `scripts/*.sh`
@@ -411,13 +411,13 @@ block, so neither the cannot-load line nor the cannot-answer code reaches the ca
 the block.
 <!-- measured: ln -s scripts/check-panel-docs-only.sh <tmp>/x.sh; /bin/bash <tmp>/x.sh → rc 1, bash 5.3 → rc 2 @ ae96f2b3 -->
 
-  - [ ] **Step 1: Failing test.** `TestShimMissingLibCannotAnswer`: for every `scripts/*.sh` that
+  - [x] **Step 1: Failing test.** `TestShimMissingLibCannotAnswer`: for every `scripts/*.sh` that
     calls `flow_guard_exec`, symlink it alone into `t.TempDir()`, run it with `/bin/bash`, and
     assert the exit is the code its cannot-load block names and stderr carries `cannot load
     lib/flow-guard.sh`. Run — expect failures.
-  - [ ] **Step 2: Fix** every shim's source line `. "<dir>/lib/flow-guard.sh" || {` to
+  - [x] **Step 2: Fix** every shim's source line `. "<dir>/lib/flow-guard.sh" || {` to
     `[ -r "<dir>/lib/flow-guard.sh" ] && . "<dir>/lib/flow-guard.sh" || {`, the `<dir>` spelling
     kept so `check-guard-symlinks.sh` rule 2 still reads the sibling.
-  - [ ] **Step 3: Verify.** The test green; `scripts/check-guard-symlinks.sh`,
+  - [x] **Step 3: Verify.** The test green; `scripts/check-guard-symlinks.sh`,
     `bash scripts/test-lib-flow-guard.sh` exit 0.
 
