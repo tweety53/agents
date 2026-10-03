@@ -31,7 +31,7 @@ guardrail and `/flow-self-review`'s angle 1. No guard, CLI or SPA change.
 - The fix branch lives in its own `<agents repo>` worktree from `origin/<default-branch>` — never
   the main checkout (read-only) and never the change's own worktree.
 - Landing: `<agents repo>`'s `## default landing route`, no ask. Merge and push is
-  `git push origin fix/<slug>:<default-branch>` after a rebase, then `pull --ff-only` in the main
+  `git push origin fix-<slug>:<default-branch>` after a rebase, then `pull --ff-only` in the main
   checkout so the installed symlinks see the fix.
 - The loop runs in the background; the run's own work continues.
 
