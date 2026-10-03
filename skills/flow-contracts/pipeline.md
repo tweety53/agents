@@ -145,15 +145,12 @@ row per subagent, drawn from each dispatch's description, and a hint-line tail n
 key, the phase and the running stage — read from the run's own `flow stage` marks (**Stage marks**,
 below) — followed by a tally of those rows by emoji.
 
-**Every subagent dispatch is labelled in the harness's agent view by its description**, set to
-`<emoji> <unit> (<a few words>) — <phase>`: a task's dispatch reads `Task <x>/<n>` with the plan's
-total and its phase — `🔄 … — implementation`, `🔍 … — review-<k>`, `🔄 … — fix-<k>`, `<k>` the
-round (`🔄 Task 30/31 (drawer drag release) — implementation`); any other dispatch names its own
-unit the same way (`🔍 Panel round 0 (primary+principles) — review`, `🔍 Visual verify (frontend) —
-review-1`). While the agent runs, the view shows its latest tool call's description instead, so
-every dispatch prompt also tells the agent to open each tool call's description with that unit
-and phase (`Task 30/31 review-1 — run the drawer tests`, `Visual verify review-2 — resolve the
-specs`).
+**Every subagent dispatch's description is the board row's label**, in the shape
+**Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states — no emoji and
+no state of its own: the mod adds both, and numbers a task's row from its `Task <x>/<n>` prefix.
+While the agent runs, the view shows its latest tool call's description instead, so every dispatch
+prompt also tells the agent to open each tool call's description with that unit and phase
+(`Task 30/31 review-1 — run the drawer tests`, `Visual verify review-2 — resolve the specs`).
 
 **The progress view is a view, never a record.** No command, guard or contract reads it back as
 evidence of what was done. `tasks.md` remains the single source of truth for a
