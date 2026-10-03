@@ -9,12 +9,17 @@ import (
 	"strings"
 )
 
-// snapshotTreeState and checkTreeRestored are scripts/lib/post-mutation-check.sh's
-// snapshot_tree_state and check_tree_restored for the Go guards. The bash
-// library stays the source of truth while break-and-prove.sh still sources
-// it; its header carries the reasoning (KAN-448 part 1, KAN-423's incident)
-// and TestPostMutationCheckParity fails when the two differ in output, stderr
-// or status.
+// snapshotTreeState and checkTreeRestored are the post-guard sanity check
+// KAN-448 part 1 mechanizes, for the guards that mutate the working tree
+// (break-and-prove, mutate-and-verify, prepare-archive-branch): snapshot
+// `git status --porcelain=v2 --untracked-files=normal` and `git stash list`
+// before the first mutation, and check afterwards that the tree still matches
+// the snapshot — any NEW stash entry or status line is residue the guard
+// names and fails on, instead of leaving a conductor to retry blind (KAN-423's
+// incident). They were scripts/lib/post-mutation-check.sh's
+// snapshot_tree_state and check_tree_restored until that library was deleted
+// (KAN-873); TestPostMutationCheck pins the output, stderr and status the
+// library printed at 9cd35da8.
 //
 // Only NEW entries are drift: a stash entry the snapshot recorded and that is
 // still present afterwards is expected, and a deleted entry is not residue.

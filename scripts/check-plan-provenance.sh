@@ -49,7 +49,7 @@ root="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)" || {
   exit 2
 }
 export CHECK_PLAN_PROVENANCE_ROOT="${CHECK_PLAN_PROVENANCE_ROOT-$root}"
-. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
   echo "check-plan-provenance: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }

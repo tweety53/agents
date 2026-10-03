@@ -182,7 +182,7 @@
 # are exact — argparse's prefix abbreviations are not accepted — and a usage
 # error is one `measure-visual-properties: …` line on stderr.
 set -euo pipefail
-. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
   echo "measure-visual-properties: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }

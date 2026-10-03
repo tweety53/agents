@@ -1,8 +1,8 @@
 # scripts/lib/panel-touched-paths.sh — this change's own touched paths,
 # defined once.
 #
-# check-panel-docs-only.sh and check-panel-citation-trigger (Go since KAN-842;
-# twin stats/internal/guard/paneltouchedpaths.go) both need the same answer to "which paths did this change touch?": the union of
+# write-panel-diff.sh and the Go ports check-panel-docs-only and check-panel-citation-trigger
+# (twin stats/internal/guard/paneltouchedpaths.go) all need the same answer to "which paths did this change touch?": the union of
 # committed-since-merge-base, staged and unstaged paths, sorted and
 # de-duplicated. Before this file existed the two guards carried a
 # line-for-line copy of that preamble — GIT_BIN resolution through the
@@ -48,8 +48,8 @@ panel_resolve_git() {
 # (WORKTREE/MERGEBASE/GIT_BIN) the two guards used before extraction —
 # not a style choice, a call-site contract: every real git invocation
 # literally reads "$GIT_BIN" -C "$WORKTREE" and the rev-parse/diff calls carry
-# this run's own $MERGEBASE, and check-panel-docs-only.sh still calls them
-# that way.
+# this run's own $MERGEBASE, and the Go port (paneltouchedpaths.go) still calls
+# them that way.
 panel_validate_worktree() {
   local prog="$1" WORKTREE="$2" MERGEBASE="$3" GIT_BIN="$4"
   if [ -z "$WORKTREE" ] || [ -z "$MERGEBASE" ]; then

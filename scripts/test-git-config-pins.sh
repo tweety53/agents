@@ -35,7 +35,7 @@
 #   R3  every `git status --porcelain` must carry an explicit
 #       --untracked-files= — status.showUntrackedFiles otherwise decides
 #       whether newly-created untracked residue is visible at all.
-# The `g()` wrapper used by land-self-review-report.sh, and the
+# A bash `g()` git wrapper (the form land-self-review-report.sh used before its Go port), and the
 # `"$GIT_BIN"` / `$GIT_BIN` command form the panel lib resolves git to, are
 # scanned too: a call through either is a git call.
 #

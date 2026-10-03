@@ -570,7 +570,7 @@ All of these need code and parity tests.
 - jira-integration.md:233 (angle-to-label table)
 - archive.md:254-255
 - `scripts/check-self-review-report.sh:47, 91, 155`: `ANGLE_CONTRACT` defaults to run2, so it must change
-- `scripts/test-check-self-review-report.sh:837`
+- `stats/internal/guard/check_self_review_report_test.go:310` (cases 26-30)
 
 **Hand fallbacks.** No heading moves. Only prose follows:
 - pipeline.md:388-389 ("Each contract's existing hand-run fallback still governs …") stays true once run1/run2 carry the load directive.

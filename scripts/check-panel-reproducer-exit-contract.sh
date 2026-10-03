@@ -135,7 +135,7 @@
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
 # cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
   echo "check-panel-reproducer-exit-contract: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }

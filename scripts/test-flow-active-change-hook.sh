@@ -3,7 +3,7 @@
 # HTTP server answering GET /api/v1/stage-runs with a canned body) under a sandboxed
 # mktemp directory, points the hook at it through FLOW_ADDR, and pipes fixture stdin
 # JSON to the hook, asserting its stdout and exit code — never one alone. Modeled on
-# scripts/test-check-self-review-report.sh's fixture-driven pattern: a run_hook helper
+# a fixture-driven pattern: a run_hook helper
 # captures RC/OUT, cases are numbered exactly as the plan's **Tests:** field names them.
 set -euo pipefail
 

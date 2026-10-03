@@ -568,3 +568,12 @@ func TestPlainNameRefusesEmpty(t *testing.T) {
 		t.Fatal(`plainChangeName("") = true, want false`)
 	}
 }
+
+// hermeticGitLookup is os.LookupEnv answering GIT_CONFIG_GLOBAL=/dev/null, so
+// a guard that forwards it runs git without the operator's ~/.gitconfig.
+func hermeticGitLookup(k string) (string, bool) {
+	if k == "GIT_CONFIG_GLOBAL" {
+		return "/dev/null", true
+	}
+	return os.LookupEnv(k)
+}

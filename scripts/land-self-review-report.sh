@@ -33,82 +33,14 @@
 #   A pull --rebase that stops on a conflict leaves <repo> mid-rebase with
 #   nothing to auto-recover — resolve or `git rebase --abort` by hand; this
 #   script never aborts one
+#
+# The logic is the Go port in stats/internal/guard/landselfreviewreport.go.
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 with the cause when it
+# cannot.
 set -euo pipefail
-
-usage() {
-  echo "usage: land-self-review-report.sh <repo> <branch> <subject> <add-path> [<rm-path>] [--push <base>]" >&2
+[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+  echo "land-self-review-report: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
+  exit 2
 }
-
-[ "$#" -ge 4 ] || { usage; exit 2; }
-
-REPO="$1"
-BRANCH="$2"
-SUBJECT="$3"
-ADD_PATH="$4"
-shift 4
-
-RM_PATH=""
-PUSH_BASE=""
-while [ "$#" -gt 0 ]; do
-  if [ "$1" = "--push" ]; then
-    { [ "$#" -ge 2 ] && [ -n "$2" ]; } || { usage; exit 2; }
-    PUSH_BASE="$2"
-    shift 2
-  else
-    [ -z "$RM_PATH" ] || { usage; exit 2; }
-    RM_PATH="$1"
-    shift
-  fi
-done
-
-g() { git -C "$REPO" "$@"; }
-
-# The start-of-run assert cannot be trusted across the run: a concurrent
-# session on a shared checkout can switch the branch between two steps
-# (observed, kan-657). The commit and the pull/push pair each re-check
-# before an irreversible step runs on the wrong branch.
-assert_branch() {
-  local stage="$1" found
-  found="$(g branch --show-current)"
-  [ "$found" = "$BRANCH" ] && return 0
-  echo "LAND-BRANCH-MISMATCH: expected $BRANCH, found $found $stage" >&2
-  exit 1
-}
-
-assert_branch "— nothing added, committed, pulled or pushed"
-
-g add -- "$ADD_PATH"
-if [ -n "$RM_PATH" ]; then
-  g rm -- "$RM_PATH"
-fi
-
-if g diff --cached --quiet; then
-  echo "LAND-NOTHING-TO-COMMIT: nothing staged under $REPO — no commit, no pull, no push"
-  exit 0
-fi
-
-# git commit takes the whole index, and the chain staged only its own
-# paths: a shared checkout holding foreign staged work must not be swept
-# into the commit (kan-657, where 121 foreign paths landed as 66ae176 and
-# reverted a just-merged change). Refuse loudly, index untouched; the own-paths set is deliberately stated twice — in the add/rm calls and in EXPECTED below — because the staging verbs and this assertion must agree, and each side reads it in its own grammar.
-STAGED="$(g diff --cached --name-only --no-renames | sort)"
-if [ -n "$RM_PATH" ]; then
-  EXPECTED="$(printf '%s\n%s\n' "$ADD_PATH" "$RM_PATH" | sort)"
-else
-  EXPECTED="$(printf '%s\n' "$ADD_PATH" | sort)"
-fi
-if [ "$STAGED" != "$EXPECTED" ]; then
-  FOREIGN="$(comm -13 <(printf '%s\n' "$EXPECTED") <(printf '%s\n' "$STAGED") | tr '\n' ' ')"
-  echo "LAND-FOREIGN-STAGED: expected only $(printf '%s' "$EXPECTED" | tr '\n' ' ')— foreign staged: ${FOREIGN}— missing from the index: $(comm -23 <(printf '%s\n' "$EXPECTED") <(printf '%s\n' "$STAGED") | tr '\n' ' ')— nothing committed, pulled or pushed; clear the staging or land from a clean checkout" >&2
-  exit 3
-fi
-
-assert_branch "before the commit — nothing committed, pulled or pushed"
-
-g commit -m "$SUBJECT" -- "$ADD_PATH" ${RM_PATH:+"$RM_PATH"}
-
-if [ -n "$PUSH_BASE" ]; then
-  assert_branch "before the pull/push — nothing pulled or pushed"
-  g pull --rebase origin "$PUSH_BASE"
-  g push origin "$PUSH_BASE"
-fi
+flow_guard_exec land-self-review-report 2 "land-self-review-report:" "$@"

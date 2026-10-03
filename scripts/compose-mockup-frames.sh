@@ -53,7 +53,7 @@
 #
 # The body is Go: stats/internal/guard/composemockupframes.go.
 set -euo pipefail
-. "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
+[ -r "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]}")/lib/flow-guard.sh" || {
   echo "compose-mockup-frames: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }

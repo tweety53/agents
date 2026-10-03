@@ -5,7 +5,7 @@
 # that tree's own data files, and asserts the diff tool's exit codes, its
 # normalized-manifest output and its setup.sh-at-root guard against them.
 # Never touches the real repository tree or the real HOME. Same shape as
-# test-break-and-prove.sh: an indexed TREES array (bash 3.2 has no
+# the retired test-break-and-prove.sh: an indexed TREES array (bash 3.2 has no
 # associative arrays), removed by an EXIT trap.
 #
 # Case 1 does the load-bearing work twice over: two fixtures built

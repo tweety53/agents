@@ -278,16 +278,22 @@ func crMarkdownUnder(env Env, dir string) ([]string, error) {
 // sorts "SKILL-rationale.md" after "session-records-rationale.md"), which
 // no byte comparison reproduces, and the guard's output order is its.
 func crSort(env Env, lines []string, unique bool) ([]string, error) {
+	if unique {
+		return crSortSep(env, lines, "\n", "-u")
+	}
+	return crSortSep(env, lines, "\n")
+}
+
+// crSortSep is crSort over lines joined and terminated by sep, sort run with
+// args (`-z` for a NUL separator); the caller's collation variables are the
+// only environment sort sees.
+func crSortSep(env Env, lines []string, sep string, args ...string) ([]string, error) {
 	if len(lines) < 2 {
 		return lines, nil
 	}
 	bin, ok := lookPath(env, "sort")
 	if !ok {
 		return nil, fmt.Errorf("no sort on PATH")
-	}
-	var args []string
-	if unique {
-		args = []string{"-u"}
 	}
 	cmd := exec.Command(bin, args...)
 	cmd.Env = []string{}
@@ -296,12 +302,12 @@ func crSort(env Env, lines []string, unique bool) ([]string, error) {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
 	}
-	cmd.Stdin = strings.NewReader(strings.Join(lines, "\n") + "\n")
+	cmd.Stdin = strings.NewReader(strings.Join(lines, sep) + sep)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("sort: %v", err)
 	}
-	return strings.Split(strings.TrimSuffix(string(out), "\n"), "\n"), nil
+	return strings.Split(strings.TrimSuffix(string(out), sep), sep), nil
 }
 
 // rel is `${file#"$REPO_ROOT"/}`.
