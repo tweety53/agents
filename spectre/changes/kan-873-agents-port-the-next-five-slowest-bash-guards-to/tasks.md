@@ -185,9 +185,9 @@ the shim's cannot-answer exit 2 now). The gated review's Minor — `panelGit` re
 - [x] 4. Port prepare-workspace
 
 **Files:** `stats/internal/guard/prepareworkspace.go`, `stats/internal/guard/prepare_workspace_test.go`, `scripts/prepare-workspace.sh`, `scripts/test-prepare-workspace.sh`
-**Tests:** `TestPrepareWorkspace`
+**Tests:** `TestPrepareWorkspace`, `TestPrepareWorkspaceShimSibling`
 **Regression:** fails if any of the harness's 25 `ok:` behaviours regress.
-**Baseline:** before=0 after=1
+**Baseline:** before=0 after=2
 <!-- measured: cat stats/internal/guard/prepare_workspace_test.go 2>/dev/null | grep -cE '^func Test' @ 9cd35da8 -->
 **After:** none
 **Commit:** `feat(stats): port prepare-workspace to Go`
@@ -224,10 +224,10 @@ in its port note so `check-guard-symlinks.sh` rule 2 still sees the sibling
 - [x] 5. Port break-and-prove and delete lib/post-mutation-check.sh
 
 **Files:** `stats/internal/guard/breakandprove.go`, `stats/internal/guard/break_and_prove_test.go`, `stats/internal/guard/post_mutation_check_test.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/postmutationcheck.go`, `scripts/break-and-prove.sh`, `scripts/test-break-and-prove.sh`, `scripts/lib/post-mutation-check.sh`, `scripts/test-lib-post-mutation-check.sh`
-**Tests:** `TestBreakAndProve`, `TestPostMutationCheck`
+**Tests:** `TestBreakAndProve`, `TestPostMutationCheck`, `TestBreakAndProveCleanBackgroundChild`
 **Regression:** `TestBreakAndProve` fails if any of the harness's 38 `ok:` behaviours regress;
 `TestPostMutationCheck` fails if any of `test-lib-post-mutation-check.sh`'s 4 behaviours regress.
-**Baseline:** before=8 after=9
+**Baseline:** before=8 after=11
 <!-- measured: cat stats/internal/guard/break_and_prove_test.go stats/internal/guard/post_mutation_check_test.go stats/internal/guard/libtwins_test.go 2>/dev/null | grep -cE '^func Test' @ 9cd35da8 -->
 **After:** none
 **Commit:** `feat(stats): port break-and-prove to Go and drop the bash post-mutation library`
@@ -308,8 +308,8 @@ pipefail. Step 5's symlink check runs with `lib/` linked beside the shim, as tas
 
 - [x] 7. Port check-self-review-report
 
-**Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`, `scripts/test-check-self-review-report.sh`
-**Tests:** `TestCheckSelfReviewReport`
+**Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`, `scripts/test-check-self-review-report.sh`, `stats/internal/guard/references.go`
+**Tests:** `TestCheckSelfReviewReport`, `TestCheckReferences`
 **Regression:** fails if any of the harness's 63 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
 <!-- measured: cat stats/internal/guard/check_self_review_report_test.go 2>/dev/null | grep -cE '^func Test' @ 9cd35da8 -->
@@ -343,7 +343,7 @@ which never sees the invoked path), and an unreadable report loses bash's own
 
 - [x] 8. Repoint citations of the deleted files
 
-**Files:** `.flow/project.md`
+**Files:** `.flow/project.md`, `docs/prompt-audit-2026-09-29/audit-finish.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `hooks/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`
 **Tests:** none — citation sweep; the lint guards are the check
 **Regression:** none — prose and comments only

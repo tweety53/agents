@@ -159,4 +159,16 @@ read spans every project), and `.flow/project.md`'s record-family sentence names
 Priority); accepting `-C` silently — a flag that does nothing, which `79c2f025`'s own comment
 rejects.
 
+### prepare-workspace's sibling path comes from the shim
+
+**ID:** prepare-workspace-sibling-path-exported
+**Status:** active — supersedes `prepare-workspace-execs-sibling`'s "through `FLOW_GUARD_REPO_ROOT`"
+**Chosen:** the shim exports `FLOW_GUARD_WORKSPACE_ISOLATION="$SCRIPT_DIR/check-workspace-isolation.sh"`
+and the Go port execs that path, as `check-finish-preflight`'s `FLOW_GUARD_WORKTREE_LOCATION` and
+`fold-fixup`'s `FLOW_GUARD_AUTOSQUASH` do — the bash's `$SCRIPT_DIR`, whatever the directory is
+named.
+**Considered:** `<FLOW_GUARD_REPO_ROOT>/scripts` — agrees with the bash only while the shim's
+directory is named `scripts` (panel round 0, P2); `FLOW_GUARD_SELF` with `guardSelfDir` — resolves
+the shim's symlink, which the bash's `$SCRIPT_DIR` never did.
+
 ## Open questions
