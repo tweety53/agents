@@ -60,6 +60,7 @@ the deferred bundle of section 5 alone — never a reasoning pass.
 `REVIEWERS` resolves per **Model resolution** (`skills/flow/SKILL.md`) before section 2; every
 dispatch's model is the recorded decision's pair, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`).
+Every dispatch's `description` follows **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
 
 `<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
 basename is what keys the rolls — and `<project>/.superpowers/` joins `<project>/.worktrees/` in

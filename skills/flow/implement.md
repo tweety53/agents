@@ -71,6 +71,13 @@ other name.
 **The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.
 
+**Every dispatch's Agent-tool `description` names what it carries, in the operator's status-line
+shape.** A dispatch carrying plan tasks — an implementer, a gated reviewer bundle — names them
+by plan id over the plan's task count, then a few words in parentheses: `Task 3/22 (port guard)`
+for one task, `Tasks 3+4+7/22 (review)` for a group, its ids in the order its key lists them. Every other row is its key and a few
+words, with no parentheses: `panel-1-primary correctness review`. The `subagent-board` mod
+(`mods/subagent-board/`) reads that prefix to number its row.
+
 **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
 `SendMessage` to a child that has written its report. Whatever a
 finished child's work still needs — a guard refusal, a pick conflict, a reviewer's `fix` — is the
