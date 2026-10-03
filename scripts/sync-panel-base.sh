@@ -39,7 +39,7 @@
 # cannot-answer code) with the cause when it cannot.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-. "$SCRIPT_DIR/lib/flow-guard.sh" || {
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
   echo "sync-panel-base: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }

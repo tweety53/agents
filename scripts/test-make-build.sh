@@ -59,9 +59,15 @@ if [ "$RC" -ne 0 ]; then
 fi
 
 # assert_recipe_matches <case-name> <extended-regex>
+# The input reaches grep through a here-string, never `printf ... | grep -q`:
+# grep -q exits on its first match, and when the writer still has lines to
+# send it dies of SIGPIPE; under `set -o pipefail` the pipeline then returns
+# 141 and the `if` reads a match as a miss. The here-string has no writer
+# process to kill. assert_makefile_matches_all reads the same way, for the
+# same reason; assert_makefile_lacks reads its whole input and keeps its pipe.
 assert_recipe_matches() {
   local name="$1" pattern="$2"
-  if printf '%s\n' "$RECIPE" | grep -Eq "$pattern"; then
+  if grep -Eq "$pattern" <<<"$RECIPE"; then
     pass "$name"
   else
     fail "$name: no recipe line matched /$pattern/; recipe was:
@@ -88,7 +94,7 @@ assert_makefile_matches_all() {
   shift
   local pattern missing=""
   for pattern in "$@"; do
-    printf '%s\n' "$MAKEFILE_TEXT" | grep -Eq "$pattern" || missing="$missing
+    grep -Eq "$pattern" <<<"$MAKEFILE_TEXT" || missing="$missing
   /$pattern/"
   done
   if [ -z "$missing" ]; then

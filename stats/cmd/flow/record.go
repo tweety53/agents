@@ -620,8 +620,8 @@ type recordIdentityFlags struct {
 // The -addr default is resolveRecordsAddr(), and this registration is the
 // one place that decision is wired: the record family's rows must outlive an
 // apply worktree, so this is the only flag set that resolves
-// FLOW_RECORDS_ADDR. `flow self-review bundle` registers through here too,
-// for the same reason. Every verb outside the record family -- hazard,
+// FLOW_RECORDS_ADDR. `flow self-review bundle` and `flow lesson resolve`
+// register through here too, for the same reason. Every verb outside the record family -- hazard,
 // suite, spec, tasks -- registers registerConnFlags instead, whose address
 // follows FLOW_ADDR alone.
 func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {

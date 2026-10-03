@@ -125,3 +125,37 @@ func TestRunLessonResolveUnreachableStoreExitsNonZero(t *testing.T) {
 		t.Errorf("stderr = %q, want the failure named", stderr.String())
 	}
 }
+
+// TestRunLessonResolveRefusesDirFlag pins the record seam's -C as refused:
+// the answer spans every registered project, so a -C would be a flag that
+// does nothing. Exit 2, the refusal on stderr, and no store call made.
+func TestRunLessonResolveRefusesDirFlag(t *testing.T) {
+	isolatedStateRoot(t)
+
+	called := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	// An explicit empty -C is a given flag too: refused, not read as "cwd".
+	for _, dir := range []string{t.TempDir(), ""} {
+		var stdout, stderr strings.Builder
+		code := run(context.Background(),
+			[]string{"lesson", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-topic", "x", "-C", dir},
+			strings.NewReader(""), &stdout, &stderr)
+		if code != 2 {
+			t.Fatalf("-C %q: exit = %d, want 2 (stderr: %s)", dir, code, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "flow: lesson resolve takes no -C") {
+			t.Errorf("-C %q: stderr = %q, want the -C refusal", dir, stderr.String())
+		}
+		if called {
+			t.Errorf("-C %q: a store call was made; want none", dir)
+		}
+		if stdout.Len() != 0 {
+			t.Errorf("-C %q: stdout = %q, want nothing", dir, stdout.String())
+		}
+	}
+}

@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -31,6 +32,13 @@ func panelResolveGit(env Env, prog string, stderr io.Writer) (string, bool) {
 func panelGit(env Env, gitBin, worktree string, args ...string) *exec.Cmd {
 	cmd := exec.Command(gitBin, append([]string{"-C", worktree}, args...)...)
 	cmd.Dir = env.Dir
+	// GIT_CONFIG_GLOBAL is forwarded from env, as verbatimmoves.go does: a
+	// no-op in production, the tests' /dev/null under test.
+	if env.LookupEnv != nil {
+		if v, ok := env.LookupEnv("GIT_CONFIG_GLOBAL"); ok {
+			cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+v)
+		}
+	}
 	return cmd
 }
 

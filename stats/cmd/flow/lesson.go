@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/lessons"
@@ -28,7 +27,8 @@ checkout.
 This is a read, with the findings read's contract: a store that cannot be
 reached is reported to stderr and exits non-zero -- never a partial answer
 on stdout that a caller could mistake for the workspace's own. The only
-other non-zero exits are caller mistakes: a missing -topic, or a stray
+other non-zero exits are caller mistakes: a missing -topic, a -C (the
+answer spans every project, so there is no project to resolve), or a stray
 positional argument.
 `
 
@@ -54,17 +54,16 @@ func runLessonResolve(ctx context.Context, args []string, stdout, stderr io.Writ
 	fset := flag.NewFlagSet("flow lesson resolve", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var (
-		addr    string
-		timeout time.Duration
-		topic   string
+		f     recordIdentityFlags
+		topic string
 	)
-	// The records-family address resolution, stated here rather than
-	// inherited from registerRecordConnFlags: the record family's -C flag
-	// resolves a project key this read never uses -- the answer spans
-	// every registered project -- so accepting it would be a flag that
-	// does nothing.
-	fset.StringVar(&addr, "addr", resolveRecordsAddr(), "flowd base URL")
-	fset.DurationVar(&timeout, "timeout", defaultTimeout, "store request timeout before falling back")
+	// The record family's one seam, so this read resolves FLOW_RECORDS_ADDR
+	// exactly where every other record verb does. The seam also registers
+	// -C, which resolves a project key this read never uses -- the answer
+	// spans every registered project -- so a -C given is refused below
+	// rather than accepted as a flag that does nothing.
+	registerRecordConnFlags(fset, &f)
+	fset.Lookup("C").Usage = "refused: the answer spans every registered project"
 	fset.StringVar(&topic, "topic", "", "the words a ticket uses to name the practice or brief (required)")
 
 	if err := fset.Parse(args); err != nil {
@@ -75,7 +74,14 @@ func runLessonResolve(ctx context.Context, args []string, stdout, stderr io.Writ
 		fmt.Fprint(stderr, lessonUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, addr)
+	noteAddrUsage(fset, stderr, f.addr)
+	cGiven := false
+	fset.Visit(func(fl *flag.Flag) { cGiven = cGiven || fl.Name == "C" })
+	if cGiven {
+		fmt.Fprint(stderr, "flow: lesson resolve takes no -C\n")
+		fmt.Fprint(stderr, lessonUsage)
+		return 2
+	}
 	if fset.NArg() != 0 {
 		fmt.Fprint(stderr, "flow: expected no positional arguments\n")
 		fmt.Fprint(stderr, lessonUsage)
@@ -90,7 +96,7 @@ func runLessonResolve(ctx context.Context, args []string, stdout, stderr io.Writ
 		return 2
 	}
 
-	answer, err := callRecord(ctx, addr, timeout, func(ctx context.Context, cl *client.Client) ([]byte, error) {
+	answer, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]byte, error) {
 		return cl.ResolveLesson(ctx, topic)
 	})
 	if err != nil {
