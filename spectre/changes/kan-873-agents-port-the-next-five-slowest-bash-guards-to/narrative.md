@@ -42,3 +42,10 @@
   change does not touch, `test-run-guard-tests.sh` (case 2's summary count) and
   `test-check-done-when-paths.sh`. Both passed alone, and the whole suite passed on its one
   re-run. The cause was not investigated.
+
+## 2026-10-03 — integrate run
+
+- **Preflight:** `RUN1`; main checkout `STAGED-CLEAN` and `DRIFT-CLEAN`.
+- **Unfinished-work gate:** `CLEAR`; visual verify not required (no UI paths).
+- **Base:** `origin/main` had not moved since the recorded merge base — no rebase.
+- **Route:** merge and push, from the project's configured default.
