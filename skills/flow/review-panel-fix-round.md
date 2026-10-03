@@ -440,7 +440,8 @@ since its last read` counts as clean, and a re-run that re-raises a defect withd
 under the handback above is recorded `withdrawn` with its original reason, never
 `open`, and does not stand in the way of that clean round. The last round before the stage close
 is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose
-only raise was a defect recorded `withdrawn` under the carve-out above, or a round whose findings
-were all Minor and none fixed — nothing it touched names a re-run — which closes beside them. A
+only raise was a defect recorded `withdrawn` under the carve-out above, or a round every one of
+whose findings was Minor, which re-runs no slot — the parent fixes them inline at the round's
+close (**Panel re-runs**, `skills/flow/review-panel.md`) — and closes beside them. A
 re-run that finds a fix incomplete opens the next fix round under the rules above, and the cycle repeats until a
 re-run comes back clean.
