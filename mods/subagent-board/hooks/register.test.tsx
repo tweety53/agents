@@ -172,6 +172,9 @@ test('a running row shows its kind; a finished one its state', () => {
   expect(at('panel-fix-1 findings 1-6')).toBe('🔨 Task 1/1 (panel-fix-1 findings 1-6) — in progress')
   expect(at('visual-verify login page')).toBe('👀 Task 1/1 (visual-verify login page) — in progress')
   expect(at('Run tests')).toBe('🧪 Task 1/1 (Run tests) — in progress')
+  expect(at('strip prefix')).toBe('🔄 Task 1/1 (strip prefix) — in progress')
+  expect(at('read latest log')).toBe('🔄 Task 1/1 (read latest log) — in progress')
+  expect(at('Run unittests')).toBe('🔄 Task 1/1 (Run unittests) — in progress')
   expect(at('Task 3/22 (port guard)')).toBe('🔄 Task 3/22 (port guard) — in progress')
   expect(at('Tasks 3+4/22 (review)', 'done')).toBe('✅ Tasks 3+4/22 (review) — done')
   const rows = [
@@ -217,4 +220,17 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
   expect(await shown()).toEqual([])
   await (await $.ui.mount({ ...HINT, surface: 'terminal' })).unmount()
   expect(tails.at(-1)).toBe('· KAN-873 flow-implement -> ✅ 1')
+})
+
+test('a denied Bash call leaves the flow state as it was', async ($, on) => {
+  on('tool.call', () => ({ deny: 'no' }))
+  const tails: (string | undefined)[] = []
+  on('ui.render', (r, e) => {
+    if (e.component === 'PromptHint') tails.push(e.props.tail)
+    const { Text } = r.ui.resolve(e)
+    return <Text>hint</Text>
+  })
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
+  await (await $.ui.mount({ plugin: 'subagent-board', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
+  expect(tails).toEqual([undefined])
 })

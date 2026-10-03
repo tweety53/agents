@@ -18,11 +18,12 @@ const STATE_COLOR: Record<RowState, string> = { 'in progress': 'warning', done: 
 const NUMBERED = /^(Tasks? \d+(?:\+\d+)*\/\d+)\s*/
 
 // What a running row is doing, read from its description; first match wins, so a panel fix is a fix.
+// Each word is matched from its start, so "prefix", "preview" or "latest" names no kind.
 const KINDS: [RegExp, string][] = [
-  [/fix/i, '🔨'],
-  [/visual[- ]verif/i, '👀'],
-  [/review|panel/i, '🔍'],
-  [/verif|tests?\b|lint/i, '🧪'],
+  [/\bfix/i, '🔨'],
+  [/\bvisual[- ]verif/i, '👀'],
+  [/\b(?:review|panel)/i, '🔍'],
+  [/\b(?:verif|tests?\b|lint)/i, '🧪'],
 ]
 
 // How a row shows: a running row by its kind (a review reads "in review"), a finished one by its state.
@@ -172,13 +173,17 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // A denied command never ran, so its marks move nothing.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    const current = await read($, flow)
-    const after = flowAfter(e.command, current)
-    if (after !== current) {
-      await update($, flow, () => after)
+    const result = await next(e)
+    if (result.deny === undefined) {
+      const current = await read($, flow)
+      const after = flowAfter(e.command, current)
+      if (after !== current) {
+        await update($, flow, () => after)
+      }
     }
-    return next(e)
+    return result
   })
 
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
