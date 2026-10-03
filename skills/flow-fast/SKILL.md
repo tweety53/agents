@@ -81,7 +81,9 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's
   not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
   fixed by editing the plan. A re-run replaces the file with
-  the fix's own tasks.
+  the fix's own tasks. A deliberate reword or addition to the run-loaded corpus is listed, exactly as
+  the guard's FAIL lines print it after `::`, in `<changeRoot>/verbatim-moves.txt` — the
+  acknowledgement home the guard reads beside the spectre one this run never writes.
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
   (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the

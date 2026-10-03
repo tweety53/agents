@@ -146,7 +146,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", bad, review, label)
 	if bad != 0 {
-		fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in <spec-root>/changes/<change>/%s.\n", vmAckFile)
+		fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in <spec-root>/changes/<change>/%s or <worktree>/.superpowers/sdd/<name>/%s.\n", vmAckFile, vmAckFile)
 		return 1
 	}
 	return 0
@@ -295,26 +295,34 @@ func vmCorpusAt(git func(...string) *exec.Cmd, root, commit string) (vmCorpus, v
 }
 
 // vmAcks is every sentence listed in an in-flight change's acknowledgement
-// file. Archived changes are skipped: their acknowledgements were for a diff
-// that has already landed.
+// file — under <spec-root>/changes/<change>/, and under a flow-fast run's
+// change root <worktree>/.superpowers/sdd/<change>/, which a flow-fast run
+// can write where it never writes <project>/spectre/. Archived changes are
+// skipped: their acknowledgements were for a diff that has already landed.
 func vmAcks(root string) (map[string]bool, error) {
 	acks := map[string]bool{}
 	leaf := specRootLeaf(root, io.Discard)
-	matches, err := filepath.Glob(filepath.Join(root, leaf, "changes", "*", vmAckFile))
-	if err != nil {
-		return nil, err
+	patterns := []string{
+		filepath.Join(root, leaf, "changes", "*", vmAckFile),
+		filepath.Join(root, ".superpowers", "sdd", "*", vmAckFile),
 	}
-	for _, m := range matches {
-		b, err := os.ReadFile(m)
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(pattern)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read %s: %v", m, err)
+			return nil, err
 		}
-		for _, l := range strings.Split(string(b), "\n") {
-			l = vmSpace.ReplaceAllString(strings.TrimSpace(l), " ")
-			if l == "" || strings.HasPrefix(l, "#") {
-				continue
+		for _, m := range matches {
+			b, err := os.ReadFile(m)
+			if err != nil {
+				return nil, fmt.Errorf("cannot read %s: %v", m, err)
 			}
-			acks[strings.TrimPrefix(l, `\`)] = true
+			for _, l := range strings.Split(string(b), "\n") {
+				l = vmSpace.ReplaceAllString(strings.TrimSpace(l), " ")
+				if l == "" || strings.HasPrefix(l, "#") {
+					continue
+				}
+				acks[strings.TrimPrefix(l, `\`)] = true
+			}
 		}
 	}
 	return acks, nil

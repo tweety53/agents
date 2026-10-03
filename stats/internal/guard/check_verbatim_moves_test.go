@@ -57,6 +57,9 @@ const (
 	vmWhy   = "This is why no `*-done` command exists — there would be nothing for one to write."
 	vmTable = "**This table is authoritative.**"
 	vmMark  = "**A mark never blocks, delays, or alters the stage it marks.**"
+	// A new run-loaded sentence a flow-fast change acknowledges in its own
+	// change root instead of spectre's.
+	vmAdded = "The confirming re-run verifies a fresh build, never a stale stack."
 )
 
 var vmBase = map[string]string{
@@ -134,6 +137,17 @@ func TestCheckVerbatimMoves(t *testing.T) {
 				"spectre/changes/archive/old/verbatim-moves.txt": vmMark + "\n",
 			},
 			rc: 1, want: []string{"FAIL deleted or reworded :: " + vmMark}},
+		{name: "a new sentence listed in a flow-fast change's acknowledgement file passes",
+			edit: map[string]string{
+				vmPipe: vmBase[vmPipe] + "\n" + vmAdded + "\n",
+				".superpowers/sdd/demo/verbatim-moves.txt": "# deliberate\n" + vmAdded + "\n",
+			},
+			rc: 0, want: []string{"ok   acknowledged new text", "0 violation(s)"}, reject: []string{"FAIL"}},
+		{name: "the flow-fast change's acknowledgement file absent, the same new sentence fails",
+			edit: map[string]string{
+				vmPipe: vmBase[vmPipe] + "\n" + vmAdded + "\n",
+			},
+			rc: 1, want: []string{"FAIL new run-loaded text (paraphrase?) :: " + vmAdded}},
 		{name: "a deleted file fails every sentence it held",
 			remove: []string{vmPipe},
 			rc:     1, want: []string{"FAIL deleted or reworded :: " + vmWhy}},
