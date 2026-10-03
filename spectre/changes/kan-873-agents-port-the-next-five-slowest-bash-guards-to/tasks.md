@@ -308,7 +308,7 @@ pipefail. Step 5's symlink check runs with `lib/` linked beside the shim, as tas
 
 - [x] 7. Port check-self-review-report
 
-**Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`, `scripts/test-check-self-review-report.sh`, `stats/internal/guard/references.go`
+**Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`, `scripts/test-check-self-review-report.sh`
 **Tests:** `TestCheckSelfReviewReport`, `TestCheckReferences`
 **Regression:** fails if any of the harness's 63 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -343,7 +343,7 @@ which never sees the invoked path), and an unreadable report loses bash's own
 
 - [x] 8. Repoint citations of the deleted files
 
-**Files:** `.flow/project.md`, `docs/prompt-audit-2026-09-29/audit-finish.md`
+**Files:** `.flow/project.md`
 **Allowed-collateral:** `.flow/*.md`, `scripts/*.sh`, `scripts/lib/*.sh`, `scripts/*.py`, `hooks/*.py`, `skills/**/*.md`, `rules/*.mdc`, `README.md`, `CONTRIBUTING.md`, `stats/internal/guard/*.go`
 **Tests:** none — citation sweep; the lint guards are the check
 **Regression:** none — prose and comments only
