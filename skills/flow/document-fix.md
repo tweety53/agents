@@ -74,6 +74,11 @@ provenance**'s evidence rule (`skills/flow-contracts/plan-provenance.md`).
 narrows the panel.** The operator flag that prompted it is not a verification of its premise: its
 work lands in the fix run's diff and takes the panel beside every other task's, and the narrow
 late-fix path stays closed to an append (**The late-fix reduction**, `skills/flow/review-panel.md`).
+Beside the plan-time paragraphs, the appended task's dispatch also carries the MUTATION PROOF
+paragraph (`skills/flow/review-panel.md`): the fix's own condition is mutated and a named test
+confirmed to fail before the run's panel stage closes, the reported `fix-mutation:` lines checked
+against the fix diff the way **The fix round mutation-proves what it changed**
+(`skills/flow/review-panel-fix-round.md`) walks them.
 
 **A passing test that asserts the behaviour the fix instructions report as wrong is evidence of
 the code, not of the spec — it decides nothing on its own.** Before the planning pass treats such
