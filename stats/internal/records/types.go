@@ -380,6 +380,21 @@ type Incident struct {
 	OccurredAt  time.Time `json:"occurredAt"`
 }
 
+// SelfReviewFinding is one /flow-self-review finding and its outcome
+// (KAN-875). Disposition is the closed set fixed/filed/declined; Ref is the
+// landed sha for fixed, the issue key for filed and empty for declined.
+// BlastRadius is the finding's file count, nil when none was counted.
+type SelfReviewFinding struct {
+	ID          int64     `json:"id"`
+	Change      string    `json:"change"`
+	Angle       string    `json:"angle"`
+	Note        string    `json:"note"`
+	Disposition string    `json:"disposition"`
+	Ref         string    `json:"ref,omitempty"`
+	BlastRadius *int      `json:"blastRadius,omitempty"`
+	RecordedAt  time.Time `json:"recordedAt"`
+}
+
 // Hazard is a proactive, per-project warning a dispatch bundle carries
 // before it costs time -- incidents' proactive sibling (KAN-452). Applies
 // is a closed vocabulary matching how the pipeline classifies a change:
