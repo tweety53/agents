@@ -267,7 +267,7 @@ carries the harness's 4 cases plus `TestPostMutationCheckParity`'s 10 rows as fi
 `<script>: line N:` diagnostic prefix becomes `break-and-prove: `; a test command found on PATH but
 not runnable exits 127 rather than 126 (both map to 4).
 
-- [ ] 6. Port land-self-review-report
+- [x] 6. Port land-self-review-report
 
 **Files:** `stats/internal/guard/landselfreviewreport.go`, `stats/internal/guard/land_self_review_report_test.go`, `scripts/land-self-review-report.sh`, `scripts/test-land-self-review-report.sh`, `skills/flow-self-review/scripts/lib`
 **Tests:** `TestLandSelfReviewReport`
@@ -280,18 +280,18 @@ not runnable exits 127 rather than 126 (both map to 4).
 
 **Decision:** scope-five-next-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-land-self-review-report.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-land-self-review-report.sh`, one
     subtest per `ok:` label; each case's remote is a bare repository in `t.TempDir()`. Run — expect
     failure.
-  - [ ] **Step 2: Port**, registering `land-self-review-report`; the chain in the header's order —
+  - [x] **Step 2: Port**, registering `land-self-review-report`; the chain in the header's order —
     branch re-assertions before the add, before the commit and before the pull/push pair; the
     foreign-staged refusal (exit 3); git's own exit code passed through unmasked; every
     `LAND-*` line byte for byte; the bash's `g()` wrapper pins carried onto each git call.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestLandSelfReviewReport$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestLandSelfReviewReport$' -count=1
     -race -v | grep -c -- '--- PASS: TestLandSelfReviewReport/'` — at least 43.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2; `git rm
+  - [x] **Step 4: Shim and delete** — shim template, code 2; `git rm
     scripts/test-land-self-review-report.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `bash
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `bash
     scripts/test-git-config-pins.sh` and `bash scripts/test-protect-main-checkout.sh` exit 0;
     `scripts/land-self-review-report.sh` with no arguments exits 2 with the usage line it printed
     at `9cd35da8`, directly and through a symlink to it in a temp directory.
