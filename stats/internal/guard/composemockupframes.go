@@ -328,7 +328,7 @@ var (
 // cmfCropBox is the frame's content area in PNG pixels -- left, top, right,
 // bottom -- or errCmfNoContent when the declared geometry leaves none, or
 // errCmfNoBorder when a border is declared and the frame's side border pixel
-// (rule 2's, just left of the crop at the top crop) is the colour at (0, 0):
+// (rule 2's, just left of the crop at the probe row) is the colour at (0, 0):
 // the image has no border telling page from frame -- gymie's X4 was drawn
 // without its top and left border, its content background running to (0, 0)
 // -- and rule 1 would take a uniform content row for the margin and crop short
@@ -365,9 +365,11 @@ func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, error) {
 	}
 
 	page := frame.at(0, 0)
-	// The side border is read below the rounded top corner: with status=0 the
-	// top crop row still sits inside the corner, where the pixel is the page.
-	if y := min(max(top, (g.border+cmfBottomCornerRows)*s), frame.H-1); g.border > 0 && frame.at(left-1, y) == page {
+	// The side border is read at the probe row, below the rounded top corner:
+	// with status=0 the top crop row still sits inside the corner, where the
+	// pixel is the page.
+	probe := min(max(top, (g.border+cmfBottomCornerRows)*s), frame.H-1)
+	if g.border > 0 && frame.at(left-1, probe) == page {
 		return [4]int{}, errCmfNoBorder
 	}
 	bottom := frame.H - g.border*s
@@ -385,8 +387,8 @@ func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, error) {
 		}
 	}
 	if !found && g.border > 0 {
-		edge := frame.at(left-1, top)
-		y := top
+		edge := frame.at(left-1, probe)
+		y := probe
 		for y+1 < frame.H && frame.at(left-1, y+1) == edge {
 			y++
 		}
