@@ -219,7 +219,12 @@ Implement in the worktree, in this session — or, on a decided `sdd`, per **Dyn
 `sdd-tdd` step. Test first where a test can express the behaviour
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. A
 refactor of output-producing code follows the PIN BEFORE REFACTOR rule of **4. Execute (SDD + TDD)**
-(`skills/flow/implement.md`). Commit
+(`skills/flow/implement.md`). On a fix run the fix's own condition is mutation-killed before
+section 5 closes: after the fix commits, mutate each fix's own condition — flip the gate, drop the
+guard, substitute the lagging value — confirm a named test fails, and restore, per the MUTATION
+PROOF paragraph (`skills/flow/review-panel.md`), naming the mutation and its killing test in the
+fix commit's body; a mutant nothing kills is an unfinished fix, its killing test added under this
+section's commit rule before the run lands. Commit
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form, no
 attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch
 backup**, `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
