@@ -12,7 +12,7 @@ const MAX_ROWS = 5
 
 const EMOJI: Record<RowState, string> = { 'in progress': '🔄', done: '✅', blocked: '⛔' }
 // The task-list look: its marker and colour per state; `claude` is the theme's accent (orange).
-const MARK: Record<RowState, string> = { 'in progress': '■', done: '✔', blocked: '✗' }
+const MARK: Record<RowState, string> = { 'in progress': '◼', done: '✔', blocked: '✘' }
 const MARK_COLOR: Record<RowState, string> = { 'in progress': 'claude', done: 'success', blocked: 'error' }
 
 // A description that already carries its plan numbering keeps it: one task, "Task 3/22 (spec text)",
@@ -29,7 +29,7 @@ const KINDS: [RegExp, string, string][] = [
   [/\b(?:verif|tests?\b|lint)/i, '🧪', 'verify'],
 ]
 
-// How a row shows: a running row by its kind (a review reads "in review"), a finished one by its state.
+// How a row shows: a running row by its kind's word (in review, fix, visual verify, verify), a finished one by its state.
 // `emoji` is what the hint line's tally counts it under; `mark` and `color` are its marker on the band.
 export const look = (row: Row): { emoji: string; word: string; mark: string; color: string } => {
   const kind = row.state === 'in progress' ? KINDS.find(([re]) => re.test(row.desc)) : undefined
@@ -69,7 +69,7 @@ export const runLabel = (model: string, effort?: string | number): string => {
   return effort === undefined ? family : `${family}-${effort}`
 }
 
-// "🔄 1  🔍 2  ✅ 4": the board's rows counted by the emoji each shows, running kinds first. The space
+// "🔄 1  🔍 2  ✅ 4": the board's rows counted by their kind's emoji (the stage emoji's vocabulary), running kinds first. The space
 // after each emoji keeps the count clear of it where the terminal draws the emoji wider than it measures.
 export const tally = (rs: Row[]): string => {
   const order = [EMOJI['in progress'], ...KINDS.map(([, e]) => e), EMOJI.done, EMOJI.blocked]
