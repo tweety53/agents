@@ -124,7 +124,7 @@ resolve`, `flow self-review bundle`) resolves …" — appending the verb last t
 `**Files:**` widened by `stats/cmd/flow/record.go` and `stats/cmd/flow/state.go`: their doc comments
 named `flow self-review bundle` as the only other seam user.
 
-- [ ] 2. Fix the SIGPIPE race in test-make-build.sh
+- [x] 2. Fix the SIGPIPE race in test-make-build.sh
 
 **Files:** `scripts/test-make-build.sh`
 **Tests:** none — repairs existing tests: `build target still compiles every package` and every other `assert_recipe_matches`/`assert_makefile_matches_all` case of scripts/test-make-build.sh
@@ -135,21 +135,21 @@ named `flow self-review bundle` as the only other seam user.
 **Commit:** `fix(scripts): read the make recipe without a pipe in test-make-build.sh`
 **Build:** green
 
-  - [ ] **Step 1: Reproduce** before touching anything: run 2 of design.md's base ranking failed
+  - [x] **Step 1: Reproduce** before touching anything: run 2 of design.md's base ranking failed
     `build target still compiles every package` while printing a recipe that contains `go build
     ./...`. Mechanism: under `set -o pipefail`, `printf '%s\n' "$RECIPE" | grep -Eq` lets `grep -q`
     exit on its first match while `printf` is still writing; `printf` dies of SIGPIPE, the pipeline
     returns 141, and the `if` reads a match as a miss. Show it: a loop of 2000 iterations of
     `set -o pipefail; printf '%s\n' "$RECIPE" | grep -Eq '<case 3 pattern>'` with `RECIPE` padded
     to 200 KiB after the matching line counts non-zero exits; record the count.
-    `unverified: the count on this machine; a zero count at 200 KiB means raise the padding until the race shows, never treat zero as proof`
-  - [ ] **Step 2: Fix** both `grep -q` sites — `assert_recipe_matches` and
+    <!-- measured: 2000 non-zero of 2000 at 200 KiB (pipe form), 0 of 2000 (here-string); at the real 160-byte recipe 36 of 12000 under 12 concurrent loops, 0 of 2000 idle @ dc4f234c -->
+  - [x] **Step 2: Fix** both `grep -q` sites — `assert_recipe_matches` and
     `assert_makefile_matches_all` — to read from a here-string (`grep -Eq "$pattern" <<<"$RECIPE"`,
     `<<<"$MAKEFILE_TEXT"`), no pipe; `assert_makefile_lacks` reads the whole input and stays.
     Comment the reason beside `assert_recipe_matches`.
-  - [ ] **Step 3: Prove the seam.** Step 1's loop with the here-string form: zero non-zero exits;
+  - [x] **Step 3: Prove the seam.** Step 1's loop with the here-string form: zero non-zero exits;
     with the pipe form restored: step 1's count again. Record both counts in the commit body.
-  - [ ] **Step 4: Verify.** `bash scripts/test-make-build.sh` exits 0, ten runs in a row.
+  - [x] **Step 4: Verify.** `bash scripts/test-make-build.sh` exits 0, ten runs in a row.
 
 - [ ] 3. Port check-panel-docs-only
 
@@ -253,6 +253,14 @@ in its port note so `check-guard-symlinks.sh` rule 2 still sees the sibling
     `bashAtBase` read of `lib/post-mutation-check.sh` still passes (it reads the file at the base
     commit, not the tree); `scripts/break-and-prove.sh` with no arguments exits 4 with the usage
     line it printed at `9cd35da8`, directly and through a symlink to it in a temp directory.
+
+Correction (2026-10-03): step 4's shim drops the `FLOW_GUARD_REPO_ROOT` lines (the port reads only
+its arguments and cwd). Step 5's symlink check runs through a symlink in a temp directory that also
+links `lib/` beside it — every skill layout's shape; a bare symlink without `lib/` refuses with
+`cannot load lib/flow-guard.sh` (exit 4), where `9cd35da8` printed the usage line. `TestPostMutationCheck`
+carries the harness's 4 cases plus `TestPostMutationCheckParity`'s 10 rows as fixed values. Bash's
+`<script>: line N:` diagnostic prefix becomes `break-and-prove: `; a test command found on PATH but
+not runnable exits 127 rather than 126 (both map to 4).
 
 - [ ] 6. Port land-self-review-report
 
