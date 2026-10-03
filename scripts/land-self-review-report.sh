@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # land-self-review-report.sh — the one landing chain for a self-review
 # report or context bundle (kan-523), extracted from the prose shells at
-# skills/flow-self-review/SKILL.md step 5 and skills/flow/archive.md step 9
+# skills/flow-self-review/SKILL.md step 7 and skills/flow/archive.md step 9
 # so the chain is correct once and harness-covered instead of
 # per-prose-copy. The chain, in order: re-assert the branch (F3 — nothing
 # at all runs on a mismatch), git add the report, optionally git rm the

@@ -209,8 +209,8 @@ procedure for them is there.
    `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, and
    commits it on `chore/archive-<name>` with subject `docs(self-review): <name> self-review context
    bundle`; step 10 carries the bundle. The pass then runs in `/flow-self-review <name>`
-   (`skills/flow-self-review/SKILL.md`), canonical for the six angles, what may be filed, the
-   filing-and-rating prompt and the report, which deletes the bundle in its report commit. A
+   (`skills/flow-self-review/SKILL.md`), canonical for the six angles, what is fixed and what may
+   be filed, the filing-and-rating prompt and the report, which deletes the bundle in its report commit. A
    deferred pass covers what the bundle holds and nothing beyond it — the report's
    `**Deferred:**` line states that.
 10. **Push the archive branch and land it — the route depends on how this run of archive.md was

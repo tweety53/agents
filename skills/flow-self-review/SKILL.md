@@ -1,7 +1,7 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; file, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
-allowed-tools: Bash(git:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
+description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
 compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
 ---
@@ -9,9 +9,9 @@ compatibility: Requires the change's default branch to be checked out and a save
 Run a change's self-review reasoning pass — the only one the pipeline has — from the context
 bundle run 2 step 9 saved (`skills/flow-contracts/finish-contract-run2.md` step 9 is canonical
 for that bundle's shape) or **5. Verify** (`skills/flow-fast/SKILL.md`) saved on the change
-branch before landing. This file is canonical for the six angles, what may be filed, the
-filing-and-rating prompt and the report. **The pass runs inline, in this session, on whatever
-model it is already on** — no subagent, no dispatch. The model is picked by picking the model
+branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
+filing-and-rating prompt, the store record and the report. **The pass and its fixes run inline, in this session, on
+whatever model it is already on** — the one dispatch is the fix branch's reviewer (step 3). The model is picked by picking the model
 this session runs on (`/model`) before invoking this command, not by anything this skill itself
 resolves.
 
@@ -54,29 +54,62 @@ An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
-**A finding is filed only from the six angles, and only by the operator's choice.** A finding
-about the pipeline itself is offered under its angle. A finding about the project's own product
-code is offered only when it is Important or worse — something a user or the data would
+**A finding is fixed or filed only from the six angles.** A finding about the pipeline itself is
+fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding about the
+project's own product code is always `big`, and is offered only when it is Important or worse — something a user or the data would
 suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a
 missing test over already-correct code) is left out of the prompt. The report carries no
 section beyond the six angles and the rating. The filing prompt is never waived: a pass with
-no operator to answer it files nothing and records every finding `declined`.
+no operator to answer it files nothing and records every offered finding `declined`.
 
 **One combined pass** — never six separate reads. The pass covers what the bundle holds and
 nothing beyond it — say so in the report's `**Deferred:**` line.
 
-### 3. Explain, then ask
+### 3. Fix every finding that is not `big`
+
+**Classify every finding before any work** by the blast-radius rule of **Pipeline defects found
+mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files,
+reaches outside `<agents repo>`, or needs a design choice only the operator can make. A finding
+about the project's own product code reaches outside `<agents repo>`, so it is always `big`. An
+`In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
+
+**Every finding that is not `big` is fixed and landed without asking**, on one branch for the
+whole pass. A pass with none creates no worktree and dispatches nothing.
+
+1. **Fix, inline.** This session fixes them itself — it already holds the context a fresh fixer
+   would re-load. It works in its own worktree,
+   `git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<default-branch>`
+   — never the main checkout — and makes one commit per finding with a module scope, adding one
+   test or guard that fails without the fix wherever the fix changes behaviour, and running the
+   `<agents repo>/.flow/project.md` `## lint` lines its files need.
+2. **Review** — one fresh dispatch on `opus`, `subagent_type: flow-high`, key
+   `self-review-<name>-review-<r>`, over `git diff origin/<default-branch>...self-review-<name>`,
+   its prompt naming each finding beside its commit. It is one-shot: no `SendMessage` to it once
+   it returns.
+3. **Fix the review's findings inline**, then step 2 again, `<r>` plus one, until a review comes
+   back clean, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A commit
+   the review judges not to fix its finding, or to make things worse, is dropped from the branch,
+   and its finding is offered in step 4 as a `big` one is; so is a fix found `big` once under way.
+4. **Land once** by `<agents repo>`'s `## default landing route`
+   (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
+   step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
+   branch. Each fixed finding's sha is read off `<default-branch>` after the landing, never from
+   the branch before its rebase.
+
+### 4. Explain, then ask
 
 Every finding is explained in the message body first, before any prompt fires — what was
-observed, what breaks, and what the fix would be. A prompt's option text cannot carry that
+observed, what breaks, and what the fix would be. Every fixed finding is one line in the same
+body, naming its landed sha; it is not offered. A prompt's option text cannot carry that
 explanation, so the prompt records the decision only: a filed issue is durable, and an
 explanation arriving afterward describes something the operator did not agree to. The filing ask
 and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
 (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
-three findings each, every option prefixed with its angle's label, plus **None — file nothing**
+three offered findings each, every option prefixed with its angle's label, plus **None — file nothing**
 as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1`
 typed through the tool's free-text "Other". More than nine findings roll the overflow into one
-further call of the same shape, without the rating.
+further call of the same shape, without the rating. With no finding to offer, the call
+carries the rating alone.
 
 #### The multi-select variant
 
@@ -94,17 +127,29 @@ recommended) or to the full set (every listed option, silence needing no option 
 it) — whichever matches what the options actually control. The one live multi-select call site,
 the self-review filing ask, chooses the empty set: silence selects **None — file nothing**.
 
-### 4. File chosen findings
+### 5. File chosen findings
 
 File each chosen finding as a Jira issue per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), carrying its angle's label on top of that set.
 `## jira` absent or `none` in `<project>/.flow/project.md`, or no Atlassian tooling available in
 this session: print `⚠ Jira: skipped — <reason>` and record that finding `declined` instead.
 
-### 5. Write the report, delete the bundle, land it
+### 6. Record every finding in the flow store
+
+One call per finding, every disposition alike, before the report is written:
+
+```bash
+flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined [-ref <sha|KEY>] [-blast-radius <N>] -note '<the finding, one line>'
+```
+
+`-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`;
+`-blast-radius` is step 3's count, omitted for a product-code finding. A store failure is one
+warning line and the pass continues — the report below is the durable record.
+
+### 7. Write the report, delete the bundle, land it
 
 Write `<project>/docs/self-review/<name>-self-review.md` in the shape
 `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all six present; each
-finding one line naming its angle's label, the finding, and its disposition (`filed: <KEY>` or
+finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>` or
 `declined`); an angle with no findings carrying the explicit none-marker — plus one line under the
 title:
 
@@ -136,9 +181,9 @@ checkout beyond the chain's own two paths refuses the commit (`LAND-FOREIGN-STAG
 the staging or land from a clean checkout, never around the refusal. A rejected push leaves the
 commit local and this run names it — never retried around.
 
-### 6. Report
+### 8. Report
 
-End naming the report path, the rating, and the Jira keys filed (or `none`).
+End naming the report path, the rating, the shas landed and the Jira keys filed (each `none` when empty).
 
 ## Guardrails
 
