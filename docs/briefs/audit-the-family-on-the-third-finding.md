@@ -12,13 +12,13 @@ a reviewer happens to find next.
 
 ## Why
 
-kan-575's review panel raised the same defect shape four times across fix rounds 2–8: a
+kan-575's review panel raised the same defect shape four times across rounds 2–8: a
 relative navigator mutation (`back()`, `finish()`, `replaceTop()`) reached by a late or
-duplicate callback (F10, F11+F15, F19, F25/F27, F30). Each round guarded one instance, and
-the class stayed open until round 9 audited every `ShellNavigator` mutator in one pass,
-guarded the class closed, and confirmed the remaining mutators could not empty the graph,
-pop a room, or remove Workouts. The audit, not the fourth individual fix, is what closed the
-class.
+duplicate callback (F10+F15, F19, F25/F27, F30). Each fix round guarded one instance of it —
+round 3's guarded two mutators, one of them this shape — and the class stayed open until
+round 9 audited every `ShellNavigator` mutator in one pass, guarded the class closed, and
+confirmed the remaining mutators cannot empty the graph, pop a room, or remove Workouts.
+The audit, not the fourth individual fix, is what closed the class.
 
 ## How to run one
 
