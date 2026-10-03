@@ -87,7 +87,7 @@ beside design.md's **Before**.
 
 ---
 
-- [ ] 1. Route flow lesson resolve through the record-family seam
+- [x] 1. Route flow lesson resolve through the record-family seam
 
 **Files:** `stats/cmd/flow/lesson.go`, `stats/cmd/flow/lesson_test.go`, `.flow/project.md`, `stats/cmd/flow/record.go`, `stats/cmd/flow/state.go`
 **Tests:** `TestRunLessonResolveRefusesDirFlag`
@@ -101,20 +101,20 @@ commit also turns `scripts/test-flow-addr-declaration.sh`'s `pass-unmutated` red
 
 **Decision:** lesson-resolve-through-record-seam
 
-  - [ ] **Step 1: Reproduce** before touching anything: `bash scripts/test-flow-addr-declaration.sh`
+  - [x] **Step 1: Reproduce** before touching anything: `bash scripts/test-flow-addr-declaration.sh`
     prints `FAIL pass-unmutated: … found 2` and exits 1.
     <!-- measured: bash scripts/test-flow-addr-declaration.sh, exit 1, FAIL pass-unmutated @ 9cd35da8 -->
-  - [ ] **Step 2: Failing test.** `TestRunLessonResolveRefusesDirFlag`: `runLessonResolve` with
+  - [x] **Step 2: Failing test.** `TestRunLessonResolveRefusesDirFlag`: `runLessonResolve` with
     `-topic x -C /tmp` exits 2, stderr carries `flow: lesson resolve takes no -C`, and no store call
     is made. Run — expect failure.
-  - [ ] **Step 3: Fix.** Replace lesson.go's own `-addr`/`-timeout` registrations with a
+  - [x] **Step 3: Fix.** Replace lesson.go's own `-addr`/`-timeout` registrations with a
     `recordIdentityFlags` value registered through `registerRecordConnFlags` (a column-1-tab call
     line, as the harness's assertion 3 reads it); after parsing, a non-empty `dir` prints the line
     above plus `lessonUsage` and exits 2. Rewrite the comment that explained the old registration.
     In `.flow/project.md` `## workspace isolation`, the sentence becomes "The record family
     (`flow record`, `flow self-review bundle`, `flow lesson resolve`) resolves …", the parenthesis
     and verb kept on one physical line.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./cmd/flow/ && go test ./cmd/flow/
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./cmd/flow/ && go test ./cmd/flow/
     -run '^TestRunLessonResolve' -count=1 -race`; `bash scripts/test-flow-addr-declaration.sh`
     exits 0 with six `ok` lines; `scripts/check-references.sh` exits 0.
 
@@ -151,7 +151,7 @@ named `flow self-review bundle` as the only other seam user.
     with the pipe form restored: step 1's count again. Record both counts in the commit body.
   - [x] **Step 4: Verify.** `bash scripts/test-make-build.sh` exits 0, ten runs in a row.
 
-- [ ] 3. Port check-panel-docs-only
+- [x] 3. Port check-panel-docs-only
 
 **Files:** `stats/internal/guard/paneldocsonly.go`, `stats/internal/guard/check_panel_docs_only_test.go`, `scripts/check-panel-docs-only.sh`, `scripts/test-check-panel-docs-only.sh`
 **Tests:** `TestCheckPanelDocsOnly`
@@ -164,20 +164,25 @@ named `flow self-review bundle` as the only other seam user.
 
 **Decision:** scope-five-next-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-panel-docs-only.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-panel-docs-only.sh`, one
     subtest per `ok:` label; fixtures are small git repos in `t.TempDir()`. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `check-panel-docs-only`; the touched-path set through
+  - [x] **Step 2: Port**, registering `check-panel-docs-only`; the touched-path set through
     `paneltouchedpaths.go`, never re-derived.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPanelDocsOnly$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckPanelDocsOnly$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckPanelDocsOnly/'` — at least 23.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines dropped
+  - [x] **Step 4: Shim and delete** — shim template, code 2, `FLOW_GUARD_REPO_ROOT` lines dropped
     unless step 2 needs a sibling; `git rm scripts/test-check-panel-docs-only.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-panel-docs-only.sh
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/check-panel-docs-only.sh
     "$PWD" 9cd35da8` on this tree exits 1 printing the first non-doc path, directly and through a
     symlink to it in a temp directory; with no arguments it exits 2 with the usage line it printed
     at `9cd35da8`.
 
-- [ ] 4. Port prepare-workspace
+Correction (2026-10-03): step 5's symlink check runs through a symlink in a temp directory that also
+links `lib/` beside it; a lone symlink has no `lib/` and refused at `9cd35da8` too (exit 1 there,
+the shim's cannot-answer exit 2 now). The gated review's Minor — `panelGit` read the operator's
+`~/.gitconfig` under test — is fixed at the branch tip (`GIT_CONFIG_GLOBAL` forwarded from `Env`).
+
+- [x] 4. Port prepare-workspace
 
 **Files:** `stats/internal/guard/prepareworkspace.go`, `stats/internal/guard/prepare_workspace_test.go`, `scripts/prepare-workspace.sh`, `scripts/test-prepare-workspace.sh`
 **Tests:** `TestPrepareWorkspace`
@@ -192,21 +197,21 @@ named `flow self-review bundle` as the only other seam user.
 
 **Decision:** prepare-workspace-execs-sibling
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-prepare-workspace.sh`, one
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-prepare-workspace.sh`, one
     subtest per `ok:` label; the cases that replace or remove the sibling guard build their own
     scripts directory in `t.TempDir()` and point the guard at it the way the shim's
     `FLOW_GUARD_REPO_ROOT`/`FLOW_GUARD_SELF` would. Run — expect failure.
-  - [ ] **Step 2: Port**, registering `prepare-workspace`; the workspace id and every derived value
+  - [x] **Step 2: Port**, registering `prepare-workspace`; the workspace id and every derived value
     through the Go code `check-workspace-isolation` and `stats/cmd/flow/workspaceid.go` already
     share where one exists, else ported from the bash; `check-workspace-isolation.sh` exec'd beside
     the shim, its stdout relayed verbatim and its stderr inherited, exit codes mapped exactly as the
     header states (126 included).
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestPrepareWorkspace$' -count=1 -race
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestPrepareWorkspace$' -count=1 -race
     -v | grep -c -- '--- PASS: TestPrepareWorkspace/'` — at least 25.
-  - [ ] **Step 4: Shim and delete** — shim template, code 2, the sibling resolved as the bash did
+  - [x] **Step 4: Shim and delete** — shim template, code 2, the sibling resolved as the bash did
     (`FLOW_GUARD_REPO_ROOT`, or `FLOW_GUARD_SELF` if the bash resolved its own symlink);
     `git rm scripts/test-prepare-workspace.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/prepare-workspace.sh
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `scripts/prepare-workspace.sh
     "$PWD"` on this worktree prints the same `KEY=value` lines and exit code it printed at
     `9cd35da8`, directly and through a symlink to it in a temp directory.
 
@@ -216,7 +221,7 @@ in its port note so `check-guard-symlinks.sh` rule 2 still sees the sibling
 (`cleanupcomplete.go`); `stats/cmd/flow/workspaceid.go` is package main. A fixture flake (a
 `t.TempDir()` named after a label holding `=`, 2/5 runs) was pinned with `os.MkdirTemp`, 0/15 after.
 
-- [ ] 5. Port break-and-prove and delete lib/post-mutation-check.sh
+- [x] 5. Port break-and-prove and delete lib/post-mutation-check.sh
 
 **Files:** `stats/internal/guard/breakandprove.go`, `stats/internal/guard/break_and_prove_test.go`, `stats/internal/guard/post_mutation_check_test.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/postmutationcheck.go`, `scripts/break-and-prove.sh`, `scripts/test-break-and-prove.sh`, `scripts/lib/post-mutation-check.sh`, `scripts/test-lib-post-mutation-check.sh`
 **Tests:** `TestBreakAndProve`, `TestPostMutationCheck`
@@ -232,24 +237,24 @@ in its port note so `check-guard-symlinks.sh` rule 2 still sees the sibling
 
 **Decision:** delete-post-mutation-check-lib
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-break-and-prove.sh`, one subtest
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-break-and-prove.sh`, one subtest
     per `ok:` label; port the 4 cases of `scripts/test-lib-post-mutation-check.sh` into
     `TestPostMutationCheck` in `post_mutation_check_test.go`, each pinning `snapshotTreeState` /
     `checkTreeRestored` output, stderr and status as fixed expected values (the bash library's
     output on the same fixture, captured once at `9cd35da8` and written into the test). Run —
     expect `TestBreakAndProve` to fail.
-  - [ ] **Step 2: Port**, registering `break-and-prove`; tree snapshot and restore check through
+  - [x] **Step 2: Port**, registering `break-and-prove`; tree snapshot and restore check through
     `postmutationcheck.go`; `--clean`, `--sed` and `--patch` as the bash parses them; the restore
     on every exit path past the mutation; exit 3 over exit 2 as the header states; 126/127 from
     the test command mapped to 4.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^(TestBreakAndProve|TestPostMutationCheck)$'
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^(TestBreakAndProve|TestPostMutationCheck)$'
     -count=1 -race -v | grep -c -- '--- PASS: TestBreakAndProve/'` — at least 38, and
     `TestPostMutationCheck` passes all 4.
-  - [ ] **Step 4: Shim and delete** — shim template, code 4; remove `TestPostMutationCheckParity`
+  - [x] **Step 4: Shim and delete** — shim template, code 4; remove `TestPostMutationCheckParity`
     from `libtwins_test.go`; correct `postmutationcheck.go`'s header, which names the bash library
     as the source of truth; `git rm scripts/test-break-and-prove.sh
     scripts/lib/post-mutation-check.sh scripts/test-lib-post-mutation-check.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `mutate_and_verify_test.go`'s
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`; `mutate_and_verify_test.go`'s
     `bashAtBase` read of `lib/post-mutation-check.sh` still passes (it reads the file at the base
     commit, not the tree); `scripts/break-and-prove.sh` with no arguments exits 4 with the usage
     line it printed at `9cd35da8`, directly and through a symlink to it in a temp directory.
@@ -296,7 +301,12 @@ sources `lib/flow-guard.sh` beside itself and that skill directory had no `lib` 
 (`check-guard-symlinks.sh` rule 2). Harness case 7's rejected push now targets a bare remote
 refusing through its own `pre-receive` hook, per the plan's isolation rule.
 
-- [ ] 7. Port check-self-review-report
+Correction (2026-10-03): the gated review's Important — the guard's commit, pull and push read the
+operator's `~/.gitconfig` under test (a global `core.hooksPath` failed 11 subtests) — is fixed by
+forwarding `GIT_CONFIG_GLOBAL` from `Env`; a missing `sort` exits 127, the shell's status under
+pipefail. Step 5's symlink check runs with `lib/` linked beside the shim, as task 3's does.
+
+- [x] 7. Port check-self-review-report
 
 **Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`, `scripts/test-check-self-review-report.sh`
 **Tests:** `TestCheckSelfReviewReport`
@@ -309,20 +319,27 @@ refusing through its own `pre-receive` hook, per the plan's isolation rule.
 
 **Decision:** scope-five-next-guards
 
-  - [ ] **Step 1: Failing test.** Port every case of `scripts/test-check-self-review-report.sh`,
+  - [x] **Step 1: Failing test.** Port every case of `scripts/test-check-self-review-report.sh`,
     one subtest per `ok:` label; fixtures are small `docs/self-review/` trees in `t.TempDir()`. Run
     — expect failure.
-  - [ ] **Step 2: Port**, registering `check-self-review-report`; the angle table through
+  - [x] **Step 2: Port**, registering `check-self-review-report`; the angle table through
     `coverage.go`; the frozen `five-angle-reports.txt` list; an unreadable list or a failing
     directory walk is exit 2, never an empty set; the default directory resolved from the repo root
     as the bash's `$SCRIPT_DIR/..` did.
-  - [ ] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckSelfReviewReport$' -count=1
+  - [x] **Step 3: Green.** `go test ./internal/guard/ -run '^TestCheckSelfReviewReport$' -count=1
     -race -v | grep -c -- '--- PASS: TestCheckSelfReviewReport/'` — at least 63.
-  - [ ] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
+  - [x] **Step 4: Shim and delete** — shim template with `FLOW_GUARD_REPO_ROOT`, code 2;
     `git rm scripts/test-check-self-review-report.sh`.
-  - [ ] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
+  - [x] **Step 5: Verify.** `gofmt -l`, `go vet ./internal/guard/`;
     `scripts/check-self-review-report.sh` on this tree exits with the code and output it printed at
     `9cd35da8`, directly and through a symlink to it in a temp directory.
+
+Correction (2026-10-03): the gated review's Important — a symlinked target without a trailing `/`
+was walked, where `find -P` saw an empty corpus — is fixed, with a finding line carrying an
+invalid UTF-8 byte now malformed under a UTF-8 locale and the report list sorted `sort -z`. The
+usage line prints the literal `check-self-review-report.sh`, not `$0` (the shim execs flow-guard,
+which never sees the invoked path), and an unreadable report loses bash's own
+`<script>: line N: <file>: Permission denied` prefix line; both exits are unchanged.
 
 - [ ] 8. Repoint citations of the deleted files
 
@@ -332,7 +349,7 @@ refusing through its own `pre-receive` hook, per the plan's isolation rule.
 **Regression:** none — prose and comments only
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
-**After:** Task 1, 2, 3, 4, 5, 6, 7
+**After:** Task 1, 2, 3, 4, 5, 6, 7, 10
 **Commit:** `docs(scripts): repoint citations of the ported scripts to their Go sources`
 **Build:** green
 
@@ -360,7 +377,7 @@ refusing through its own `pre-receive` hook, per the plan's isolation rule.
 **Regression:** none — no commit
 **Baseline:** before=0 after=0
 <!-- predicted: no test is added by this task -->
-**After:** Task 1, 2, 3, 4, 5, 6, 7, 8
+**After:** Task 1, 2, 3, 4, 5, 6, 7, 8, 10
 **Build:** green
 
   - [ ] **Step 1: Suite, after.** `FLOW_GUARD_CACHE_DIR=$(mktemp -d) scripts/run-guard-tests.sh`,
@@ -374,3 +391,33 @@ refusing through its own `pre-receive` hook, per the plan's isolation rule.
   - [ ] **Step 4: Judge.** Failure looks like: any harness red; any port's `--- PASS` count below
     its floor; the suite median above the Before median. Any of these is reported, not recorded as
     success.
+
+- [ ] 10. Shims refuse a missing lib/flow-guard.sh with their cannot-answer code under bash 3.2
+
+**Files:** `stats/internal/guard/shim_template_test.go`
+**Allowed-collateral:** `scripts/*.sh`
+**Tests:** `TestShimMissingLibCannotAnswer`
+**Regression:** `TestShimMissingLibCannotAnswer` fails for every shim whose source line loses the
+readability check: `/bin/bash` 3.2 then exits 1 without the cannot-load line.
+**Baseline:** before=0 after=1
+<!-- measured: cat stats/internal/guard/shim_template_test.go 2>/dev/null | grep -cE '^func Test' @ 9cd35da8 -->
+**After:** Task 3, 4, 5, 6, 7
+**Commit:** `fix(scripts): shims refuse a missing flow-guard library under bash 3.2`
+**Build:** green
+
+Found by task 5's implementer and confirmed by the parent: under `/bin/bash` 3.2, a shim whose
+`lib/flow-guard.sh` is missing exits 1 at the failed `.` without running its `|| { …; exit <code>; }`
+block, so neither the cannot-load line nor the cannot-answer code reaches the caller; bash 5 runs
+the block.
+<!-- measured: ln -s scripts/check-panel-docs-only.sh <tmp>/x.sh; /bin/bash <tmp>/x.sh → rc 1, bash 5.3 → rc 2 @ ae96f2b3 -->
+
+  - [ ] **Step 1: Failing test.** `TestShimMissingLibCannotAnswer`: for every `scripts/*.sh` that
+    calls `flow_guard_exec`, symlink it alone into `t.TempDir()`, run it with `/bin/bash`, and
+    assert the exit is the code its cannot-load block names and stderr carries `cannot load
+    lib/flow-guard.sh`. Run — expect failures.
+  - [ ] **Step 2: Fix** every shim's source line `. "<dir>/lib/flow-guard.sh" || {` to
+    `[ -r "<dir>/lib/flow-guard.sh" ] && . "<dir>/lib/flow-guard.sh" || {`, the `<dir>` spelling
+    kept so `check-guard-symlinks.sh` rule 2 still reads the sibling.
+  - [ ] **Step 3: Verify.** The test green; `scripts/check-guard-symlinks.sh`,
+    `bash scripts/test-lib-flow-guard.sh` exit 0.
+
