@@ -59,8 +59,8 @@ reproducer rerun and diff check below (**Once the fix subagent reports…**) are
 they must run against the post-rebase file content, never be satisfied by the fixup commit's
 presence or the rebase's own exit code.
 
-**Which slots re-run, and on what, follows from the severities the round raised — never from a
-mode table, a trigger list, or a round count.**
+**Which slots re-run, and on what, follows from the findings the round fixed and the severities
+it raised — never from a mode table, a trigger list, or a round count.**
 
 **A Critical is confirmed against a primary source before any fix round rewrites working code on
 it.** The confirmation is the parent's, at acceptance: where the finding's premise is what something
@@ -70,7 +70,8 @@ secondary summary, and records the confirmation with the round's pass log. A pre
 source does not support withdraws the finding with that reason through the round's auto-decisions
 below, and the working code stands.
 
-**When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
+**After a fix round, re-run on deltas — every slot that raised a finding the round touched,
+Critical, Important or Minor alike.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
 was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
 `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), written
@@ -81,13 +82,14 @@ each worktree's starting sha. **Check base movement first** above clears every s
 the rebased worktree on a clean rebase, whether taken at panel entry or at a round boundary, so
 that worktree's section falls under the no-held-sha rule in the next round. Then:
 
-- **a slot re-runs only when it raised a Critical or Important in the previous round, or the
-  previous round raised a new Critical** — every slot in the resolved roster, Primary included,
-  and every operator-added slot already dispatched in an earlier pass of this run, on that one
-  rule. A Minor re-runs no slot: one fixed beside a Critical or Important closes on the
-  verification below alone, and one the parent fixed inline (**Panel re-runs**,
-  `skills/flow/review-panel.md`) on its commit. A slot that raised nothing keeps the result it has;
-  the round's own mutation-proof (below) covers what the fix changed;
+- **a slot re-runs when it raised a finding the round touched — Critical, Important or Minor
+  alike — or the previous round raised a new Critical**; the new-Critical clause sends every slot
+  in the resolved roster, Primary included, and every operator-added slot already dispatched in
+  an earlier pass of this run. **A fix round is never exempt from being itself reviewed**: the
+  fix for one finding can introduce the very class it fixed, no per-file or per-test check
+  catches that, and the round's own mutation-proof and reproducer flips never substitute for the
+  re-run its fixes name. A slot that raised nothing keeps the result it has; the round's own
+  mutation-proof (below) covers what the fix changed;
 - **a diff-reading slot that re-runs reads its delta**; Mutation reads no diff
   file and re-runs in its pass-1 shape, throwaway worktree included. **A diff-reading slot whose
   delta is empty in every worktree is not dispatched** — record `not re-run —
@@ -438,7 +440,7 @@ since its last read` counts as clean, and a re-run that re-raises a defect withd
 under the handback above is recorded `withdrawn` with its original reason, never
 `open`, and does not stand in the way of that clean round. The last round before the stage close
 is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose
-only raise was a defect recorded `withdrawn` under the carve-out above, or a round every one of
-whose findings was Minor, which re-runs no slot and closes beside them. A
+only raise was a defect recorded `withdrawn` under the carve-out above, or a round whose findings
+were all Minor and none fixed — nothing it touched names a re-run — which closes beside them. A
 re-run that finds a fix incomplete opens the next fix round under the rules above, and the cycle repeats until a
 re-run comes back clean.

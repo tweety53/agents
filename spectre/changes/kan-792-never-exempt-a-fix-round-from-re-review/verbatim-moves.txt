@@ -1,0 +1,16 @@
+# kan-792-never-exempt-a-fix-round-from-re-review — the sentences
+# check-verbatim-moves.sh FAILs on, listed exactly as the FAIL lines print
+# them after "::": this change rewords the fix-round re-run rule on purpose
+# (KAN-792 — never exempt a fix round from re-review).
+**When the round raised anything above Minor, re-run on deltas.
+**Which slots re-run, and on what, follows from the severities the round raised — never from a mode table, a trigger list, or a round count.**
+**a slot re-runs only when it raised a Critical or Important in the previous round, or the
+A Minor re-runs no slot: one fixed beside a Critical or Important closes on the verification below alone, and one the parent fixed inline (**Panel re-runs**, `skills/flow/review-panel.md`) on its commit.
+The last round before the stage close is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose only raise was a defect recorded `withdrawn` under the carve-out above, or a round every one of whose findings was Minor, which re-runs no slot and closes beside them.
+previous round raised a new Critical** — every slot in the resolved roster, Primary included, and every operator-added slot already dispatched in an earlier pass of this run, on that one rule.
+**A fix round is never exempt from being itself reviewed**: the fix for one finding can introduce the very class it fixed, no per-file or per-test check catches that, and the round's own mutation-proof and reproducer flips never substitute for the re-run its fixes name.
+**After a fix round, re-run on deltas — every slot that raised a finding the round touched, Critical, Important or Minor alike.
+**Which slots re-run, and on what, follows from the findings the round fixed and the severities it raised — never from a mode table, a trigger list, or a round count.**
+**a slot re-runs when it raised a finding the round touched — Critical, Important or Minor
+The last round before the stage close is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose only raise was a defect recorded `withdrawn` under the carve-out above, or a round whose findings were all Minor and none fixed — nothing it touched names a re-run — which closes beside them.
+alike — or the previous round raised a new Critical**; the new-Critical clause sends every slot in the resolved roster, Primary included, and every operator-added slot already dispatched in an earlier pass of this run.
