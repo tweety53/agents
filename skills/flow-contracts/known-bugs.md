@@ -31,6 +31,8 @@ measurement compared:
 - `<frame id>`/`<element>` — <the departure, one line> — present at merge base <sha> (<subject>).
 ```
 
+When the change's task exists to exercise a surface and report what it finds — the triage rule of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) — a finding on a surface the change does not verify, pre-existing or one another change owns, joins the pre-existing class: the recorded course below is its course, and its entry names the owning change or area when ownership, not an introducing commit, is why the change never repairs it.
+
 A pre-existing failure is **recorded, never repaired**:
 
 1. **Record it.** One entry per failure in `<project>/KNOWN-BUGS.md` (create the file with a
@@ -70,3 +72,6 @@ verify report names them.
   takes the course above.
 - **Every `/flow*` command that runs those stages**, `/flow-fast` included — the sweep is stage
   behavior, not one command's.
+- **A verification change's sweep** — the triage its findings get before any appended fix task —
+  consults this file the same way, per the triage rule of **D. Basic Workflow #3 — Writing plans**
+  (`skills/flow/brainstorm-planner.md`).
