@@ -42,8 +42,9 @@ discipline**, below, states the one-foreground-wait-call shape this applies thro
 
 ### Dispatch sites — the parent's closed list
 
-These six rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
-**2** and **4** below, `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`:
+These seven rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
+**2** and **4** below, `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md` and
+`skills/flow-contracts/pipeline.md`'s **Pipeline defects found mid-run**:
 
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
@@ -53,8 +54,9 @@ These six rows are **every** Agent-tool dispatch the parent may make, across sec
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
+| in-run pipeline fix, review and fixer, one each per loop step | `implementer` for the fix and the fixer, `reviewer` for the review | `pipeline-fix-<k>`, `pipeline-fix-<k>-review-<r>`, `pipeline-fix-<k>-fix-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
-**Everything else in those five sections is the parent's own Bash and Read work, never
+**Everything else in those six sections is the parent's own Bash and Read work, never
 delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,
 `prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
@@ -78,7 +80,7 @@ parent's own inline fix, under the commit mechanics and records **Inline — the
 implements** below already states; a re-review is a fresh dispatch.
 
 Every row's own prompt carries the NO DELEGATION paragraph (section **4** below,
-`skills/flow/review-panel.md`, `skills/flow/visual-verify.md`) — a leaf never dispatches, so
+`skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
 nothing exists below these rows.
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
 — three definitions, one per effort, each carrying `effort:` and no
@@ -98,7 +100,7 @@ rows — the parent's only permitted dispatches inline are the panel-bundle, gat
 verifier and tooling-analyst rows.
 
 **The handshake.** Every dispatched role in this
-pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst — opens its first reply with the `Model:`
+pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst, in-run pipeline fix — opens its first reply with the `Model:`
 line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
 this pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
 requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or
@@ -175,7 +177,7 @@ these substitutions:
   is recorded when the parent starts the fix, before its first edit, and its `dispatch end` once
   the fix commit lands — never the two together, which records the fix as taking no time. A gated per-task reviewer's own
   rows carry the dispatched agent's id, never `inline`; the gated fix round it causes records
-  `-model <parent model> -effort <parent effort> -agent-id inline` under the task's fix key.
+  `-role implementer -model <parent model> -effort <parent effort> -agent-id inline` under the task's fix key.
 
 ## 1. Load context and validate the plan
 

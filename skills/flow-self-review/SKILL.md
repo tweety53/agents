@@ -50,6 +50,10 @@ Angle 5's remit covers the records the pipeline writes to files today and the de
 now done in Bash or by the agent — **not** what the SPA should display. Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
 skipped angle are indistinguishable to a reader, which is why an empty angle says so.
 
+An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**,
+`skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
+is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
+
 **A finding is filed only from the six angles, and only by the operator's choice.** A finding
 about the pipeline itself is offered under its angle. A finding about the project's own product
 code is offered only when it is Important or worse — something a user or the data would

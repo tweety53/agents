@@ -29,7 +29,8 @@ to run for; the mark stays so the run's stage set matches `/flow`'s.
 
 **Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
 an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never
-a planner or a verifier. Never ask a model,
+a planner or a verifier, save the in-run fix loop of **Pipeline defects found mid-run**
+(`skills/flow-contracts/pipeline.md`), which a `/flow-fast` run follows too. Never ask a model,
 planning-effort or review question. Never write `<project>/spectre/`
 or a state file. Never set up workspace isolation and never call a
 guard script a cited `skills/flow/` section does not call itself. Never push to a branch other

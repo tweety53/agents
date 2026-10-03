@@ -121,6 +121,58 @@ it from those same reports by a different approach. Where the evidence itself ma
 defect is first reproduced another way — another reproducer, another capture route. A further
 round without progress changes the approach again; none of them stops the run.
 
+## Pipeline defects found mid-run
+
+**A `/flow` or `/flow-fast` run that hits a defect in the pipeline itself fixes it within the
+run, unless the fix is `big`.** The pipeline is everything `<agents repo>` ships — a skill, a
+contract, a guard, the `flow` CLI or flowd, a rule — and any saved memory that encodes its
+behaviour. For this section alone `<agents repo>` is a repository the run was given
+(**Reporting back**, `rules/agent-baseline.md`), whichever project the run is in.
+
+**Predict the class before any work, from the blast radius — never from a plan.** Count the
+files the fix must touch: the defective file, its test, and every file `grep -rl` finds in
+`<agents repo>` citing the name or section the fix changes. The fix is `big` — `plan-class.sh`'s
+own `files>=60` threshold — when that count is 60 or more, when it reaches outside
+`<agents repo>`, or when it needs a design choice only the operator can make. A `big` fix is
+deferred to self-review, and so is one found `big` once under way, which stops there.
+
+**Every dispatch in the loop is one-shot.** No `SendMessage` to a finished child, and no child
+parks a question for a resume. Each runs on `opus`, `subagent_type: flow-high`, its key per the
+steps below and `<k>` counting this run's in-run fixes. Each prompt carries the MODEL HANDSHAKE,
+TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
+(`skills/flow/implement.md`) verbatim, the review's READ-ONLY REVIEW too, and **The handshake**
+there applies to each reply:
+
+1. **Fix** — `pipeline-fix-<k>`, its prompt carrying the defect, its evidence and the counted
+   blast radius. It works in its own worktree,
+   `git -C <agents repo> worktree add -b fix-<slug> <agents repo>/.worktrees/<slug> origin/<default-branch>`
+   — never the main checkout, never the change's own worktree — adds one test or guard that
+   fails without the fix, updates a saved memory that encoded the defect, runs the
+   `<agents repo>/.flow/project.md` `## lint` lines its files need, and commits with a module
+   scope. It never merges or pushes.
+2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
+   `git diff origin/<default-branch>...fix-<slug>`.
+3. **Fix the findings** — the parent fixes them inline in that worktree, or dispatches a fresh
+   `pipeline-fix-<k>-fix-<r>`; then step 2 again, `<r>` plus one. The loop runs to a clean
+   review under **Fewest operator actions** above.
+4. **Land** — by `<agents repo>`'s `## default landing route`
+   (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is:
+   `git -C <agents repo> fetch origin`, rebase `fix-<slug>` onto `origin/<default-branch>`,
+   `git push origin fix-<slug>:<default-branch>`, `git -C <agents repo> pull --ff-only`, then
+   remove the worktree and the branch.
+
+The loop runs in the background while the run's own work continues; the run still never ends a
+turn with one of its children in flight.
+
+**Record each one.** Every in-run fix, landed or deferred, is one line in the run's narrative —
+`narrative.md` on `/flow` (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`),
+`## Session narrative` on `/flow-fast` — and one decision bullet in the run's summary
+(**Summary and live-stack line, before every handoff**, below):
+
+```text
+In-run pipeline fix: <agents sha | deferred> — <the defect, one line> (blast radius <N> files)
+```
+
 ## Wrong state for this command
 
 **On a mismatch, stop.** Report the actual state, the states the command expects, and the command

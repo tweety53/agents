@@ -5,7 +5,7 @@ Loaded during `flow.sdd-tdd` by the load directive under the gated per-task revi
 
 **The parent applies the fix itself**, never resuming the group's
 implementer: one inline round per group carrying every `fix` report of that group's tasks,
-recorded as one pair `-model <parent model> -effort <parent effort> -agent-id inline` under
+recorded as one pair `-role implementer -model <parent model> -effort <parent effort> -agent-id inline` under
 `task-<n+n>-implementer-fix-<k>`, the same `+`-joined ids; per task, it stages the
 changed paths (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only, so
 a fix that adds a file stages first) and commits on the route the branch's push state dictates
