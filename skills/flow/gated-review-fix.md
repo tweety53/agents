@@ -19,8 +19,9 @@ convention as the implementer's fix key — each pass on its own range: the on-t
 fix commit's own diff `git diff <fix-commit>^..<fix-commit>`, the fold its rewritten
 `git diff <task-sha>^..<new-task-sha>`.
 
-The fix the parent applies is mutation-proved before the reviewer re-dispatches: **Inline — the
-parent implements** (`skills/flow/implement.md`) binds the MUTATION PROOF paragraph
-(`skills/flow/review-panel.md`) to the parent in its exact words, and the re-dispatched reviewer's
+The fix the parent applies is mutation-proved before the reviewer re-dispatches: the parent is
+bound by the MUTATION PROOF paragraph (`skills/flow/review-panel.md`) in its exact words — the
+same binding **Inline — the parent implements** (`skills/flow/implement.md`) gives the parent on
+an `inline` run — and the re-dispatched reviewer's
 bundle carries the reported `fix-mutation:` lines beside the fix diff, a mutant nothing kills
 failing the gate and sending the task back through this file's fix path.
