@@ -80,6 +80,7 @@ var cmfInvs = map[string]cmfInv{
 	"case-26":  {stdin: "caps/c1.png\n", geom: cmfGeom},
 	"case-27":  {stdin: "caps/c1.png\n", geom: cmfGeom},
 	"case-28":  {stdin: "caps/b1.png\n", geom: cmfGeom},
+	"case-29":  {stdin: "caps/r1.png\n", geom: "scale=2 status=0 border=1"},
 	// The Python's luma mask printed diff=0.0000 for this pair: one pixel
 	// one level off in red, one in blue, 2 of 96x20.
 	"any-channel":   {stdin: "caps/d1.png\n", geom: cmfGeom, stdout: "<out>/d1.png diff=0.0010\n"},
@@ -166,6 +167,7 @@ var cmfCases = []cmfCase{
 	{"case 27: the cropped frame runs to the last row above the bottom border", "case-27", []cmfCheck{cmfSize("c1.frame.png", 96, 120)}},
 	{"case 28: a frame with no border, its content background at (0, 0), exits 1 rather than cropping", "case-28", []cmfCheck{cmfRC(1), cmfOut(""), cmfErr(`map\.mockups:1: frame has no border: root/B1\.png\n`)}},
 	{"case 28: the borderless frame writes no composite and no cropped frame", "case-28", []cmfCheck{cmfExists("b1.png", false), cmfExists("b1.frame.png", false)}},
+	{"case 29: with status=0 the side border is read below the rounded top corner, so a bordered frame is not taken for a borderless one", "case-29", []cmfCheck{cmfRC(0), cmfErr(""), cmfSize("r1.frame.png", 96, 156)}},
 
 	{"one-level red and blue differences each count toward diff=", "any-channel", []cmfCheck{cmfRC(0), cmfOut("<out>/d1.png diff=0.0010")}},
 	{"a one-level red difference is white in the difference panel", "any-channel", []cmfCheck{cmfPixel("d1.png", 96+16+96+16+10, 5, 255, 255, 255), cmfPixel("d1.png", 96+16+96+16+11, 5, 0, 0, 0)}},

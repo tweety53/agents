@@ -365,7 +365,9 @@ func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, error) {
 	}
 
 	page := frame.at(0, 0)
-	if g.border > 0 && frame.at(left-1, top) == page {
+	// The side border is read below the rounded top corner: with status=0 the
+	// top crop row still sits inside the corner, where the pixel is the page.
+	if y := min(max(top, (g.border+cmfBottomCornerRows)*s), frame.H-1); g.border > 0 && frame.at(left-1, y) == page {
 		return [4]int{}, errCmfNoBorder
 	}
 	bottom := frame.H - g.border*s
