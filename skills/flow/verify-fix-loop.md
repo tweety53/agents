@@ -37,19 +37,19 @@ One round runs these steps in order:
    `check-late-fix-trigger.sh` is not run: its scope-growth condition refuses every appended task,
    and this task's premise is a defect a verifier measured, not an operator's unverified flag.
    The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).
-4. **Re-capture and re-run.** The confirming re-run verifies a fresh build, never a stale stack:
-   before this round's re-run reports the fix confirmed live, rebuild the stack from the branch
-   HEAD — current source through the project's own build commands, brought up the way step 5 of
-   **Steps 3–13** (`skills/flow/visual-verify.md`) starts one — and re-run the defect's exact
-   scenario end to end against that build. The fingerprint step there proves only that a stack
-   serves its worktree's build, never that the build is current source, and verification against a
-   stale build is not verification. The rebuild is itself a defect-finder: a defect the fresh
-   build exposes that the fix's own task does not cover is reported the way any stage-found defect
-   is, never absorbed into the fix's confirmation. Run **Verify**
-   (`skills/flow/verify-and-handoff.md`) again from its `begin` mark, then **Visual verification**
-   from its step 1, so the fix's own lint, tests and captures are what the handoff reports. This
-   round's `verify` and `visual-verify` dispatch keys carry the suffix `-fix-<k>`, before any
-   `-<worktree basename>` suffix.
+4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
+   `begin` mark, then **Visual verification** from its step 1, so the fix's own lint, tests and
+   captures are what the handoff reports. This round's `verify` and `visual-verify` dispatch keys
+   carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix. The confirming re-run
+   verifies a fresh build, never a stale stack: before this round's re-run reports the fix
+   confirmed live, rebuild the stack from the branch HEAD — current source through the project's
+   own build commands, brought up the way step 5 of **Steps 3–13** (`skills/flow/visual-verify.md`)
+   starts one — and re-run the defect's exact scenario end to end against that build. The
+   fingerprint step there proves only that a stack serves its worktree's build, never that the
+   build is current source, and verification against a stale build is not verification. The
+   rebuild is itself a defect-finder: a defect the fresh build exposes that the fix's own task
+   does not cover is reported the way any stage-found defect is, never absorbed into the fix's
+   confirmation.
 
 ## No cap
 
