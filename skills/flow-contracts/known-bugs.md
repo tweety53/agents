@@ -18,7 +18,8 @@ git merge-base --is-ancestor <introducing-sha> origin/<default-branch>
 
 `git log` over the failing spec and the code it exercises is usually enough to name the
 introducing commit. A failure no such commit can be named for is the change's own and follows
-the ordinary failing-command rules; the sweep never absorbs it.
+the ordinary failing-command rules; the sweep never absorbs it, unless the
+verification-change class below takes it.
 
 **A visual departure classifies pre-existing by measurement, never by an introducing commit:
 present at the merge base is the proof.** The verifier's merge-base attribution names it
@@ -31,7 +32,11 @@ measurement compared:
 - `<frame id>`/`<element>` — <the departure, one line> — present at merge base <sha> (<subject>).
 ```
 
-When the change's task exists to exercise a surface and report what it finds — the triage rule of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) — a finding on a surface the change does not verify, pre-existing or one another change owns, joins the pre-existing class: the recorded course below is its course, and its entry names the owning change or area when ownership, not an introducing commit, is why the change never repairs it.
+When the change's task exists to exercise a surface and report what it finds — the triage rule of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) — a finding on a surface the change does not verify, pre-existing or one another change owns, joins the pre-existing class: the recorded course below is its course, and its entry names the owning change or area when ownership, not an introducing commit, is why the change never repairs it:
+
+```markdown
+- `<spec or test name>` — <the defect, one line> — owned by <change or area>; found by this change's verification sweep, never repaired by it.
+```
 
 A pre-existing failure is **recorded, never repaired**:
 

@@ -1,0 +1,9 @@
+# acknowledged by the panel fix round — splitter-cut fragments of cited
+# sentences, the owned-finding entry template, and the F3 exception clause
+# that rewrote an absolute (panel findings F1-F3)
+A failure no such commit can be named for is the change's own and follows the ordinary failing-command rules; the sweep never absorbs it.
+**A verification change's sweep** — the triage its findings get before any appended fix task —
+- `<spec or test name>` — <the defect, one line> — owned by <change or area>; found by this change's verification sweep, never repaired by it.
+A failure no such commit can be named for is the change's own and follows the ordinary failing-command rules; the sweep never absorbs it, unless the verification-change class below takes it.
+When the change's task exists to exercise a surface and report what it finds — the triage rule of **D.
+consults this file the same way, per the triage rule of **D.
