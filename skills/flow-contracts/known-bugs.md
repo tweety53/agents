@@ -1,7 +1,7 @@
 # Known bugs — the KNOWN-BUGS.md sweep
 
 **This file is canonical for `<project>/KNOWN-BUGS.md`: the sweep that records pre-existing test
-failures.** Skills reference it by name; none of them
+failures and visual departures.** Skills reference it by name; none of them
 restate it. If a rule below and a skill ever disagree, this file wins.
 
 ## The sweep
@@ -19,6 +19,17 @@ git merge-base --is-ancestor <introducing-sha> origin/<default-branch>
 `git log` over the failing spec and the code it exercises is usually enough to name the
 introducing commit. A failure no such commit can be named for is the change's own and follows
 the ordinary failing-command rules; the sweep never absorbs it.
+
+**A visual departure classifies pre-existing by measurement, never by an introducing commit:
+present at the merge base is the proof.** The verifier's merge-base attribution names it
+(`skills/flow/visual-verify-verifier.md`), and it takes the recorded course below — one entry,
+never repaired, kept out of the diff — reported as a **known failure** with the same no-block
+effect a recorded failure gets. Its entry names the departure and the merge base sha the
+measurement compared:
+
+```markdown
+- `<frame id>`/`<element>` — <the departure, one line> — present at merge base <sha> (<subject>).
+```
 
 A pre-existing failure is **recorded, never repaired**:
 
@@ -55,6 +66,7 @@ verify report names them.
 - **Verify** — the failing-command classification consults the sweep before the inline re-run: a
   failing test the sweep proves pre-existing takes the known-failure course above.
 - **Visual verification** — the stage's `verify` and the full-suite runs a baseline regeneration
-  forces consult it the same way.
+  forces consult it the same way. A departure the merge-base measurement proves pre-existing
+  takes the course above.
 - **Every `/flow*` command that runs those stages**, `/flow-fast` included — the sweep is stage
   behavior, not one command's.

@@ -168,6 +168,23 @@ motion step and the `## Report` template, run as written.
    see — a divider in a row with no border or fill, the label of a filled cell, a glyph, a
    corner radius — the per-control sweeps below still measure.
 
+   **Every departure is attributed at the merge base before the round closes — `departure` is
+   never a closing state.** A band, seam, matrix or sweep finding no named cause explains is
+   measured twice more before the report is written: the same element on the frame at 2x, and the
+   same element on the view's own rendering at the merge base — the committed baseline PNG the
+   merge base carries for that spec, read out with `git show <merge-base>:<baseline png path>`
+   into a temporary file and measured like any other image. The comparison decides which of the
+   three the departure is, every time: **present at the merge base** — pre-existing, recorded per
+   **the sweep** (`skills/flow-contracts/known-bugs.md`)'s known-failure course, never repaired by
+   this change; **absent at the merge base** — this change's own defect, blocking and taking
+   **The loop** (`skills/flow/verify-fix-loop.md`) per **Steps 3–13**
+   (`skills/flow/visual-verify.md`); **corrected or gone at 2x** — a mis-measurement, the
+   corrected number standing in its place. A
+   view this change creates has no rendering at the merge base, and neither has one the merge base
+   carries no baseline PNG for: every departure on either is this change's, and the report names
+   the missing baseline. Every line that reports the departure names its cause or its attribution
+   beside it — never a bare `departure`.
+
    **A full-page match — a clean composite read, a structural match — is necessary, never
    sufficient: verify at the control level, measure rather than eyeball, and exercise the states
    a resting frame does not show.** Full-page comparison catches wrong regions and wrong overall
@@ -497,8 +514,8 @@ is canonical for them — and the parent runs that guard on the report before re
 - <view>: <absolute PNG path> — <what was seen, including any defect>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
-- <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause or `departure`>
-- <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over 2px with its `left` and `right` deltas, each with its named cause or `departure`>
+- <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
+- <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over 2px with its `left` and `right` deltas, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each done, or why not; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's

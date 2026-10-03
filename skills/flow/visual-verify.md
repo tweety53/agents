@@ -243,8 +243,10 @@ non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the
 verifier reports in a composite**, **a frame on the change's declared list with no line in the
 report, a composed frame with no `bands:` line or with a `missing`, `extra` or over-tolerance
-band whose line names no cause, a composed frame with no `seams:` line or with a `missing`,
-`extra` or over-tolerance seam or an off-centre line whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the
+band whose line names no cause and no recorded pre-existing attribution (**the sweep**,
+`skills/flow-contracts/known-bugs.md`), a composed frame with no `seams:` line or with a `missing`,
+`extra` or over-tolerance seam or an off-centre line whose line names no cause and no recorded
+pre-existing attribution, and a composed frame with no `matrix:` line, a matrix row missing for an element the
 frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason
 — the parent's own reconciliation, step 10**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** **A named motion
