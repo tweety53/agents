@@ -44,32 +44,32 @@ to read the narrative line Task 1 defines.
 
 ---
 
-- [ ] 1. The in-run pipeline-fix contract section, reachable from `/flow` and `/flow-fast`
+- [x] 1. The in-run pipeline-fix contract section, reachable from `/flow` and `/flow-fast`
 
 `design.md` §§ 1–4.
 
-  - [ ] **Step 1: Add the section** to `skills/flow-contracts/pipeline.md`, directly after
+  - [x] **Step 1: Add the section** to `skills/flow-contracts/pipeline.md`, directly after
     `## Fewest operator actions` and before the first `## Wrong state for this command`, verbatim the
     block under **Task 1 — the section text** below.
 
-  - [ ] **Step 2: Add the closed-list row** to `skills/flow/implement.md`'s
+  - [x] **Step 2: Add the closed-list row** to `skills/flow/implement.md`'s
     **Dispatch sites — the parent's closed list**: change `These six rows are **every**` to
     `These seven rows are **every**`, and append the row under **Task 1 — the closed-list row**
     below.
 
     If the row count sentence reads differently once the board-swap change has landed on
     `origin/main`, keep its wording and change only the count.
-  - [ ] **Step 3: Cite the section from `/flow-fast`.** In `skills/flow-fast/SKILL.md`'s
+  - [x] **Step 3: Cite the section from `/flow-fast`.** In `skills/flow-fast/SKILL.md`'s
     **Guardrails, the whole list.** paragraph, change
     `Never dispatch a subagent the recorded decision does not name — an implementer per group on
     `sdd`, the decision's panel dispatches, the panel-fix subagent; never a planner or a verifier.`
     to end `…; never a planner or a verifier, save the in-run fix loop of **Pipeline defects found
     mid-run** (`skills/flow-contracts/pipeline.md`), which a `/flow-fast` run follows too.`
-  - [ ] **Step 4: Verify** — `grep -c '^## Pipeline defects found mid-run$' skills/flow-contracts/pipeline.md`
+  - [x] **Step 4: Verify** — `grep -c '^## Pipeline defects found mid-run$' skills/flow-contracts/pipeline.md`
     prints `1`; `grep -c 'Pipeline defects found mid-run' skills/flow/implement.md skills/flow-fast/SKILL.md`
     prints `1` for each. Run the Markdown lint lines; record every sentence
     `check-verbatim-moves.sh` flags in `verbatim-moves.txt`.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 5: Commit.**
 
 **Files:** `skills/flow-contracts/pipeline.md`, `skills/flow/implement.md`, `skills/flow-fast/SKILL.md`
 **Tests:** none — contract prose
