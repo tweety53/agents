@@ -89,7 +89,7 @@ beside design.md's **Before**.
 
 - [ ] 1. Route flow lesson resolve through the record-family seam
 
-**Files:** `stats/cmd/flow/lesson.go`, `stats/cmd/flow/lesson_test.go`, `.flow/project.md`
+**Files:** `stats/cmd/flow/lesson.go`, `stats/cmd/flow/lesson_test.go`, `.flow/project.md`, `stats/cmd/flow/record.go`, `stats/cmd/flow/state.go`
 **Tests:** `TestRunLessonResolveRefusesDirFlag`
 **Regression:** `TestRunLessonResolveRefusesDirFlag` fails when `-C` is accepted again; reverting the
 commit also turns `scripts/test-flow-addr-declaration.sh`'s `pass-unmutated` red.
@@ -117,6 +117,12 @@ commit also turns `scripts/test-flow-addr-declaration.sh`'s `pass-unmutated` red
   - [ ] **Step 4: Verify.** `cd stats && gofmt -l . && go vet ./cmd/flow/ && go test ./cmd/flow/
     -run '^TestRunLessonResolve' -count=1 -race`; `bash scripts/test-flow-addr-declaration.sh`
     exits 0 with six `ok` lines; `scripts/check-references.sh` exits 0.
+
+Correction (2026-10-03): step 3's sentence shipped as "The record family (`flow record`, `flow lesson
+resolve`, `flow self-review bundle`) resolves …" — appending the verb last turned the harness's
+`mutate-declaration-drops-verb` case into a no-op (its sed anchors on `` `flow self-review bundle`) ``).
+`**Files:**` widened by `stats/cmd/flow/record.go` and `stats/cmd/flow/state.go`: their doc comments
+named `flow self-review bundle` as the only other seam user.
 
 - [ ] 2. Fix the SIGPIPE race in test-make-build.sh
 
@@ -204,6 +210,12 @@ commit also turns `scripts/test-flow-addr-declaration.sh`'s `pass-unmutated` red
     "$PWD"` on this worktree prints the same `KEY=value` lines and exit code it printed at
     `9cd35da8`, directly and through a symlink to it in a temp directory.
 
+Correction (2026-10-03): the shim spells `"$(dirname -- "${BASH_SOURCE[0]}")/check-workspace-isolation.sh"`
+in its port note so `check-guard-symlinks.sh` rule 2 still sees the sibling
+(`remove-change-worktrees.sh`'s precedent). The workspace id reuses `ccWorkspaceID`
+(`cleanupcomplete.go`); `stats/cmd/flow/workspaceid.go` is package main. A fixture flake (a
+`t.TempDir()` named after a label holding `=`, 2/5 runs) was pinned with `os.MkdirTemp`, 0/15 after.
+
 - [ ] 5. Port break-and-prove and delete lib/post-mutation-check.sh
 
 **Files:** `stats/internal/guard/breakandprove.go`, `stats/internal/guard/break_and_prove_test.go`, `stats/internal/guard/post_mutation_check_test.go`, `stats/internal/guard/libtwins_test.go`, `stats/internal/guard/postmutationcheck.go`, `scripts/break-and-prove.sh`, `scripts/test-break-and-prove.sh`, `scripts/lib/post-mutation-check.sh`, `scripts/test-lib-post-mutation-check.sh`
@@ -244,7 +256,7 @@ commit also turns `scripts/test-flow-addr-declaration.sh`'s `pass-unmutated` red
 
 - [ ] 6. Port land-self-review-report
 
-**Files:** `stats/internal/guard/landselfreviewreport.go`, `stats/internal/guard/land_self_review_report_test.go`, `scripts/land-self-review-report.sh`, `scripts/test-land-self-review-report.sh`
+**Files:** `stats/internal/guard/landselfreviewreport.go`, `stats/internal/guard/land_self_review_report_test.go`, `scripts/land-self-review-report.sh`, `scripts/test-land-self-review-report.sh`, `skills/flow-self-review/scripts/lib`
 **Tests:** `TestLandSelfReviewReport`
 **Regression:** fails if any of the harness's 43 `ok:` behaviours regress.
 **Baseline:** before=0 after=1
@@ -270,6 +282,11 @@ commit also turns `scripts/test-flow-addr-declaration.sh`'s `pass-unmutated` red
     scripts/test-git-config-pins.sh` and `bash scripts/test-protect-main-checkout.sh` exit 0;
     `scripts/land-self-review-report.sh` with no arguments exits 2 with the usage line it printed
     at `9cd35da8`, directly and through a symlink to it in a temp directory.
+
+Correction (2026-10-03): `**Files:**` widened by `skills/flow-self-review/scripts/lib` — the shim
+sources `lib/flow-guard.sh` beside itself and that skill directory had no `lib` symlink
+(`check-guard-symlinks.sh` rule 2). Harness case 7's rejected push now targets a bare remote
+refusing through its own `pre-receive` hook, per the plan's isolation rule.
 
 - [ ] 7. Port check-self-review-report
 
