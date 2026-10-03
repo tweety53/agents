@@ -268,7 +268,7 @@ recommended
 | `url` | `FLOW_RECORDS_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:4173` |
 
 **The `FLOW_RECORDS_ADDR` row is deliberately not isolated, and its token-free workspace cell is
-the statement of that.** The record family (`flow record`, `flow lesson resolve`, `flow self-review bundle`) resolves
+the statement of that.** The record family (`flow record`, `flow lesson resolve`, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`) resolves
 its store address from it, so an apply worktree's dispatch and finding rows land in the
 persistent store the main checkout serves, and a deferred self-review bundle still finds them
 after `scripts/workspace.sh remove` has dropped the `database` row's resource. The cell could not use the `database` word: that row is

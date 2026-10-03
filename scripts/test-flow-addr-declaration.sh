@@ -210,11 +210,12 @@ sed -i.bak 's/registerRecordConnFlags(fset, &f)/registerConnFlags(fset, \&f)/' \
 run_case mutate-family-verb-switches-seam fail "$SANDBOX/m-switch"
 
 # mutate-declaration-drops-verb: the declared set loses a command the code
-# still wires. The sed keeps the closing paren, so the mutated sentence
+# still wires — every `flow self-review` verb, since they share one source
+# file and dropping one alone leaves that file declared. The sed keeps the closing paren, so the mutated sentence
 # still parses and the case fails through assertion 3's set comparison —
 # the drift the case name claims — not through the sentence-parse guard.
 make_root "$SANDBOX/m-decl" || exit 2
-sed -i.bak 's/, `flow self-review bundle`)/)/' "$SANDBOX/m-decl/.flow/project.md" &&
+sed -i.bak 's/, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`)/)/' "$SANDBOX/m-decl/.flow/project.md" &&
   rm -f "$SANDBOX/m-decl/.flow/project.md.bak"
 run_case mutate-declaration-drops-verb fail "$SANDBOX/m-decl"
 
