@@ -27,7 +27,11 @@ One round runs these steps in order:
    this stage's round in this run. Its planning commit and the re-decide run as that file states.
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
-   guard and its review gate.
+   guard and its review gate. The implementer's dispatch also carries the MUTATION PROOF
+   paragraph (`skills/flow/review-panel.md`), and the round closes only when every reported
+   `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
+   what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
+   kills is a new fixable defect this loop takes another round on.
 3. **Re-review the delta.** Open `flow.review-panel` again and run one dispatch: `primary` alone,
    reading `late-fix.diff` over the range since the panel's last clean close, written, paired,
    ceilinged and recorded as **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`)
