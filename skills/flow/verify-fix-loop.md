@@ -45,7 +45,7 @@ One round runs these steps in order:
    serves its worktree's build, never that the build is current source, and verification against a
    stale build is not verification. The rebuild is itself a defect-finder: a defect the fresh
    build exposes that the fix's own task does not cover is reported the way any stage-found defect
-   is, never absorbed into the fix's confirmation. Then run **Verify**
+   is, never absorbed into the fix's confirmation. Run **Verify**
    (`skills/flow/verify-and-handoff.md`) again from its `begin` mark, then **Visual verification**
    from its step 1, so the fix's own lint, tests and captures are what the handoff reports. This
    round's `verify` and `visual-verify` dispatch keys carry the suffix `-fix-<k>`, before any
