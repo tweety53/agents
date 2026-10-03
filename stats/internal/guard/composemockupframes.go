@@ -204,8 +204,12 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			cmfPaste(canvas, capture, 0, 0)
 			cmfPaste(canvas, mock, capture.W+cmfGutter, 0)
 		} else {
-			box, ok := cmfCropBox(mock, *geometry)
-			if !ok {
+			box, err := cmfCropBox(mock, *geometry)
+			if errors.Is(err, errCmfNoBorder) {
+				finding(lineno, "frame has no border: %s", framePath)
+				continue
+			}
+			if err != nil {
 				finding(lineno, "frame %s: declared geometry leaves no content area", frameID)
 				continue
 			}
@@ -316,8 +320,19 @@ func cmfMatchCapture(name string, stdinPaths []string) []string {
 	return matches
 }
 
+var (
+	errCmfNoContent = errors.New("declared geometry leaves no content area")
+	errCmfNoBorder  = errors.New("frame has no border")
+)
+
 // cmfCropBox is the frame's content area in PNG pixels -- left, top, right,
-// bottom -- or false when the declared geometry leaves none.
+// bottom -- or errCmfNoContent when the declared geometry leaves none, or
+// errCmfNoBorder when a border is declared and the frame's side border pixel
+// (rule 2's, just left of the crop at the top crop) is the colour at (0, 0):
+// the image has no border telling page from frame -- gymie's X4 was drawn
+// without its top and left border, its content background running to (0, 0)
+// -- and rule 1 would take a uniform content row for the margin and crop short
+// in silence.
 //
 // The sides and the top come from the declared values; the status line and
 // the border are declared rather than detected. The bottom is found in the
@@ -340,16 +355,19 @@ func cmfMatchCapture(name string, stdinPaths []string) []string {
 //     copy-session C1/C4/C7 frames), never the bottom border.
 //
 // Neither rule finding a row means the frame runs to the last row.
-func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, bool) {
+func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, error) {
 	s := g.scale
 	left := g.border * s
 	top := (g.border + g.status) * s
 	right := frame.W - g.border*s
 	if right <= left || top >= frame.H {
-		return [4]int{}, false
+		return [4]int{}, errCmfNoContent
 	}
 
 	page := frame.at(0, 0)
+	if g.border > 0 && frame.at(left-1, top) == page {
+		return [4]int{}, errCmfNoBorder
+	}
 	bottom := frame.H - g.border*s
 	found := false
 	for y := top; y < frame.H && !found; y++ {
@@ -380,9 +398,9 @@ func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, bool) {
 	}
 
 	if bottom <= top {
-		return [4]int{}, false
+		return [4]int{}, errCmfNoContent
 	}
-	return [4]int{left, top, right, bottom}, true
+	return [4]int{left, top, right, bottom}, nil
 }
 
 // cmfDifferencePanel is white wherever any channel differs and black elsewhere,

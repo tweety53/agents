@@ -43,9 +43,11 @@
 #   1  a map line names a screenshot no stdin path matches, a frame file
 #      absent under the mockups root, a malformed map line, or — with the
 #      geometry declared — a capture whose size differs from the cropped
-#      frame, or a geometry that leaves the frame no content area. Every
-#      finding is printed as `<map>:<line>: <message>` to stderr; every
-#      other, well-formed line is still composed.
+#      frame, a geometry that leaves the frame no content area, or a frame
+#      with no border — its side border pixel the colour at (0, 0), so the
+#      page cannot be told from the frame (`frame has no border: <frame
+#      path>`). Every finding is printed as `<map>:<line>: <message>` to
+#      stderr; every other, well-formed line is still composed.
 #   2  cannot answer: usage error (including a malformed geometry argument),
 #      the map unreadable or not UTF-8, the mockups root not a directory, the
 #      output directory not creatable, stdin not UTF-8, an unreadable PNG, or
