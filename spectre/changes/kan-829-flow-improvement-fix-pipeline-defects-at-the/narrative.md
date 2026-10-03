@@ -21,3 +21,12 @@ In-run pipeline fix: 5b917257 — gated fix round's record role was ambiguous, t
 
 Zsh word-splitting broke a pathspec held in a variable once, and a `bash -c` wrapper for the
 verify list was refused by the harness's removal check; a script file under the job's tmp ran it.
+
+## 2026-10-03 — integrate run
+
+Preflight returned RUN1; the main checkout was staged-clean and drift-clean, and the
+unfinished-work and visual-verify gates both cleared with nothing outstanding. `origin/main` had
+moved 9 commits since the recorded merge base with no overlap on this change's paths; the rebase
+onto 75cc1a75 was clean and no guard test was named for re-verification. The route was the
+project's configured default, merge and push, so no landing question was asked. One stumble:
+`flow state get` takes its `-C` flag before the change name, not after it.
