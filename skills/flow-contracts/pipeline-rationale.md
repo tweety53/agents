@@ -56,8 +56,9 @@ per-step view of undispatched work — brainstorming, inline-executed tasks, fin
 up for one view the run never maintains by hand. The dispatch-description shape drops its leading
 emoji and trailing phase because the mod's `NUMBERED` pattern is anchored at `^Tasks?`
 (`mods/subagent-board/hooks/register.tsx`): `🔄 Task 3/22 (x) — implementation` would draw with the
-board's own spawn-order number, a doubled emoji and a doubled state. flow runs in Claude Code and ZCode, and the mod is a Claude Code plugin; ZCode keeps the
-printed equivalent block, so neither harness has to gain a task tool or a plugin to show progress.
+board's own spawn-order number, a doubled emoji and a doubled state. flow runs in Claude Code and
+ZCode, and the mod is a Claude Code plugin; ZCode keeps the printed equivalent block, so neither
+harness has to gain a task tool or a plugin to show progress.
 
 ## Stage marks
 

@@ -160,8 +160,8 @@ evidence of what was done. `tasks.md` remains the single source of truth for a
 plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
-count comes from no persisted record at all — the board shows only what is running now. See **Progress visibility**
-(`skills/flow-contracts/pipeline-rationale.md`) for why a marker would be unsafe.
+count comes from no persisted record at all — the board's rows are session state, never written
+to disk. See **Progress visibility** (`skills/flow-contracts/pipeline-rationale.md`) for why a marker would be unsafe.
 
 **On a harness without the mod (ZCode), `/flow` prints the equivalent block instead** — a count
 line naming how many steps are done, in progress and open, followed by one line per step marked
