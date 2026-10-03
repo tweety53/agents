@@ -36,13 +36,6 @@ run the guard-presence check, before this run's first dispatch — on a fix run,
 `groups` field, which section **4** below
 dispatches by.
 
-**On the implementation branch the granularity is per task.** The stages from
-`flow.load-context` to `flow.write-in-progress` (**The parent orchestrates directly**,
-`skills/flow/implement.md`) run in the parent session itself, which holds its own task-list tool
-throughout the run — no resumed subagent sits between the parent and the list, so nothing forces a
-coarser stage-level granularity. One entry per `tasks.md` item, updated as each task's guard passes
-and its checkbox ticks.
-
 **Never end a turn with a child in flight** — wait for every implementer, reviewer, slot or fix
 subagent launched before reporting a stage boundary or asking the operator anything. **Turn
 discipline**, below, states the one-foreground-wait-call shape this applies through.

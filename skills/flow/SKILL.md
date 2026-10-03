@@ -17,10 +17,6 @@ transition table's shape, stage-mark mechanics, the guard-presence check, guard 
 handoff shape and change-name resolution. Its **State transitions** table is `/flow`'s contract;
 **Stage keys** (`skills/flow/stage-keys.md`) names which phase file marks each key.
 
-**Then register this run's steps** with the harness's task-list mechanism, before any work begins,
-and keep each entry's status current as the run proceeds, per **Progress visibility**
-(`skills/flow-contracts/pipeline.md`).
-
 **No flags.** The only argument is the optional change name/description on a creating or resuming
 run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
 

@@ -76,7 +76,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   fields `check-plan-shape.sh` reads: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
   `**Commit:**`, `**After:**` — plus each task's `**Build:** green` tag, the convention
   `check-task-build-green.sh` requires at close time (**The build-green tag**,
-  `skills/flow-contracts/build-green.md`) — one task per entry of the harness task list, then run
+  `skills/flow-contracts/build-green.md`) — one task per file or logical unit the change touches, then run
   `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's
   not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
   fixed by editing the plan. A re-run replaces the file with
@@ -166,8 +166,7 @@ flow stage end   -command '/flow-fast' -stage flow.create-artifacts -outcome com
 flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Register the steps of this change with the harness's task-list mechanism — one entry per file or
-logical unit you will touch, so the operator can follow along. **Dynamic decisions**' `writing-plans` step then writes the plan.
+**Dynamic decisions**' `writing-plans` step then writes the plan.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>

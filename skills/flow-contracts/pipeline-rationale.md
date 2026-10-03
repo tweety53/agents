@@ -47,15 +47,13 @@ be deterministic.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state. A marker written
 at dispatch and resolved at completion would survive a crashed run as a permanently in-progress
-task, in a file two guards parse. The in-progress count comes from the harness's task list alone,
-which no run persists.
+task, in a file two guards parse.
 
-**Stated against the mechanism, never against one harness's tool.** flow runs in Claude Code
-and ZCode, and a rule written against one harness's API is unimplementable in the other.
-Where a harness offers no task-list mechanism, the command prints the equivalent block in its output
-instead: a count line naming how many steps are done, in progress and open, followed by one line per
-step marked done or not done. The rule is satisfied by whichever mechanism the harness provides, and
-no harness has to gain a task tool to satisfy it.
+**The subagent-board mod replaced the harness's task-list mechanism** (operator, 2026-10-03). The
+mod already renders what a run's dispatch descriptions and stage marks carry, so registering and
+updating a parallel checklist of the same steps was a second, hand-maintained copy of the progress
+view. flow runs in Claude Code and ZCode, and the mod is a Claude Code plugin; ZCode keeps the
+printed equivalent block, so neither harness has to gain a task tool or a plugin to show progress.
 
 A second source of
 completion state would be one that guard cannot see.

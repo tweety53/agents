@@ -1,0 +1,27 @@
+# Operator, 2026-10-03: /flow stops driving the harness's task-list mechanism; the subagent-board mod is the live progress view.
+**No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress count comes from the progress view alone, which no run persists.
+**On a harness without the mod (ZCode), the command prints the equivalent block instead** — a count line naming how many steps are done, in progress and open, followed by one line per step marked done or not done.
+**Progress visibility** above is unaffected: the subagent-board mod's view, and the equivalent block a harness without it prints, are not the run's status prose.
+**`/flow` registers nothing with the harness's task-list mechanism.
+<title>`, `**Files:**`, `**Tests:**`, `**Commit:**`, `**After:**` — plus each task's `**Build:** green` tag, the convention `check-task-build-green.sh` requires at close time (**The build-green tag**, `skills/flow-contracts/build-green.md`) — one task per file or logical unit the change touches, then run `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never fixed by editing the plan.
+Its live progress view on Claude Code is the `subagent-board` mod (`mods/subagent-board/`): a band above the prompt with one row per subagent, drawn from each dispatch's description, and a hint-line tail naming the tracker key, the phase and the running stage — read from the run's own `flow stage` marks (**Stage marks**, below) — followed by a tally of those rows by emoji.
+No command, guard or contract reads it back as evidence of what was done.
+One step per whichever cited stage is running at the time, at that stage's own granularity — brainstorming checklist items and artifacts on the creating/resuming branch, tasks on the implementation branch, a finish run's steps on the integrate/archive branch.
+**No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress count comes from the harness's task list alone, which no run persists.
+**On the implementation branch the granularity is per task.
+**Progress visibility** above is unaffected: the harness's task-list view, and the equivalent block a harness without one prints, are not the run's status prose.
+**Stated against the mechanism, never against one harness's tool.
+**Then register this run's steps** with the harness's task-list mechanism, before any work begins, and keep each entry's status current as the run proceeds, per **Progress visibility** (`skills/flow-contracts/pipeline.md`).
+**`/flow` drives the harness's task-list mechanism.
+<title>`, `**Files:**`, `**Tests:**`, `**Commit:**`, `**After:**` — plus each task's `**Build:** green` tag, the convention `check-task-build-green.sh` requires at close time (**The build-green tag**, `skills/flow-contracts/build-green.md`) — one task per entry of the harness task list, then run `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never fixed by editing the plan.
+It registers its steps with it at the start of a run and keeps each entry's status current — in progress when its step begins, completed when that step finishes — so the harness's live progress view, a count line and one line per task, renders throughout the run rather than arriving with the handoff.
+No command, guard or contract reads the harness's task list back as evidence of what was done.
+One entry per `tasks.md` item, updated as each task's guard passes and its checkbox ticks.
+One entry per whichever cited stage is running at the time, at that stage's own granularity — brainstorming checklist items and artifacts on the creating/resuming branch, tasks on the implementation branch, a finish run's steps on the integrate/archive branch.
+Register the steps of this change with the harness's task-list mechanism — one entry per file or logical unit you will touch, so the operator can follow along.
+Registering steps for a report would put entries on the operator's task list for work nobody is doing.
+See **Progress visibility** (`skills/flow-contracts/pipeline-rationale.md`) for why the rule is stated against the mechanism.
+The count line then distinguishes done, in progress and open at every point.
+The stages from `flow.load-context` to `flow.write-in-progress` (**The parent orchestrates directly**, `skills/flow/implement.md`) run in the parent session itself, which holds its own task-list tool throughout the run — no resumed subagent sits between the parent and the list, so nothing forces a coarser stage-level granularity.
+Where a harness offers no task-list mechanism, the command prints the equivalent block instead — a count line naming how many steps are done, in progress and open, followed by one line per step marked done or not done — and no harness has to gain a task tool to satisfy the rule.
+`/flow-status` is read-only and **registers nothing**.

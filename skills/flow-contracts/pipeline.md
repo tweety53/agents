@@ -139,14 +139,11 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 
 ## Progress visibility
 
-**`/flow` drives the harness's task-list mechanism.** It registers its steps with it at the start of
-a run and keeps each entry's status current — in progress when its step begins, completed when
-that step finishes — so the harness's live progress view, a count line and one line per task,
-renders throughout the run rather than arriving with the handoff. The count line then distinguishes
-done, in progress and open at every point. One entry per whichever cited stage is running at the
-time, at that stage's own granularity — brainstorming checklist items and artifacts on the
-creating/resuming branch, tasks on the implementation branch, a finish run's steps on the
-integrate/archive branch.
+**`/flow` registers nothing with the harness's task-list mechanism.** Its live progress view on
+Claude Code is the `subagent-board` mod (`mods/subagent-board/`): a band above the prompt with one
+row per subagent, drawn from each dispatch's description, and a hint-line tail naming the tracker
+key, the phase and the running stage — read from the run's own `flow stage` marks (**Stage marks**,
+below) — followed by a tally of those rows by emoji.
 
 **Every subagent dispatch is labelled in the harness's agent view by its description**, set to
 `<emoji> <unit> (<a few words>) — <phase>`: a task's dispatch reads `Task <x>/<n>` with the plan's
@@ -158,19 +155,19 @@ every dispatch prompt also tells the agent to open each tool call's description 
 and phase (`Task 30/31 review-1 — run the drawer tests`, `Visual verify review-2 — resolve the
 specs`).
 
-**The progress view is a view, never a record.** No command, guard or contract reads the harness's
-task list back as evidence of what was done. `tasks.md` remains the single source of truth for a
+**The progress view is a view, never a record.** No command, guard or contract reads it back as
+evidence of what was done. `tasks.md` remains the single source of truth for a
 plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
-count comes from the harness's task list alone, which no run persists. See **Progress visibility**
+count comes from the progress view alone, which no run persists. See **Progress visibility**
 (`skills/flow-contracts/pipeline-rationale.md`) for why a marker would be unsafe.
 
-**Stated against the mechanism, never against one harness's tool.** Where a harness offers no
-task-list mechanism, the command prints the equivalent block instead — a count line naming how many
-steps are done, in progress and open, followed by one line per step marked done or not done — and no
-harness has to gain a task tool to satisfy the rule. See **Progress visibility**
-(`skills/flow-contracts/pipeline-rationale.md`) for why the rule is stated against the mechanism.
+**On a harness without the mod (ZCode), the command prints the equivalent block instead** — a count
+line naming how many steps are done, in progress and open, followed by one line per step marked
+done or not done. One step per whichever cited stage is running at the time, at that stage's own
+granularity — brainstorming checklist items and artifacts on the creating/resuming branch, tasks on
+the implementation branch, a finish run's steps on the integrate/archive branch.
 
 ## Quiet progress
 
@@ -201,8 +198,8 @@ text at all.
 - the handoff block;
 - everything on the **Never compress** list of `rules/be-brief.mdc`, in full.
 
-**Progress visibility** above is unaffected: the harness's task-list view, and the equivalent block
-a harness without one prints, are not the run's status prose.
+**Progress visibility** above is unaffected: the subagent-board mod's view, and the equivalent block
+a harness without it prints, are not the run's status prose.
 
 ## Stage marks
 
