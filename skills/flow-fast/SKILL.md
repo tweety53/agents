@@ -166,7 +166,7 @@ flow stage end   -command '/flow-fast' -stage flow.create-artifacts -outcome com
 flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-**Dynamic decisions**' `writing-plans` step then writes the plan.
+**Dynamic decisions**' `writing-plans` step writes the plan.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>
