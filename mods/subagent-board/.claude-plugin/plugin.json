@@ -1,1 +1,1 @@
-{ "name": "subagent-board", "version": "0.1.0", "description": "Pinned band above the prompt listing this turn's subagents as '<emoji> Task X/N (desc) — state'", "types": "./types/index.d.ts" }
+{ "name": "subagent-board", "version": "0.1.0", "description": "Pinned band above the prompt listing this turn's subagents as '⎿ <marker> Task X/N (desc) — state'", "types": "./types/index.d.ts" }

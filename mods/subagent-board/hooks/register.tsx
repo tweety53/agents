@@ -11,38 +11,46 @@ const flow = atom({ plugin: 'subagent-board', key: 'flow' } as const, NO_FLOW)
 const MAX_ROWS = 5
 
 const EMOJI: Record<RowState, string> = { 'in progress': '🔄', done: '✅', blocked: '⛔' }
-const STATE_COLOR: Record<RowState, string> = { 'in progress': 'warning', done: 'success', blocked: 'error' }
+// The task-list look: its marker and colour per state; `claude` is the theme's accent (orange).
+const MARK: Record<RowState, string> = { 'in progress': '■', done: '✔', blocked: '✗' }
+const MARK_COLOR: Record<RowState, string> = { 'in progress': 'claude', done: 'success', blocked: 'error' }
 
 // A description that already carries its plan numbering keeps it: one task, "Task 3/22 (spec text)",
 // or a /flow task group, "Tasks 3+4+7/22 (port guards)" (skills/flow/implement.md, **Dispatch sites**).
 const NUMBERED = /^(Tasks? \d+(?:\+\d+)*\/\d+)\s*/
 
-// What a running row is doing, read from its description; first match wins, so a panel fix is a fix.
-// Each word is matched from its start, so "prefix", "preview" or "latest" names no kind.
-const KINDS: [RegExp, string][] = [
-  [/\bfix/i, '🔨'],
-  [/\bvisual[- ]verif/i, '👀'],
-  [/\b(?:review|panel)/i, '🔍'],
-  [/\b(?:verif|tests?\b|lint)/i, '🧪'],
+// What a running row is doing, read from its description, and the state word it shows; first match
+// wins, so a panel fix is a fix. Each word is matched from its start, so "prefix", "preview" or
+// "latest" names no kind.
+const KINDS: [RegExp, string, string][] = [
+  [/\bfix/i, '🔨', 'fix'],
+  [/\bvisual[- ]verif/i, '👀', 'visual verify'],
+  [/\b(?:review|panel)/i, '🔍', 'in review'],
+  [/\b(?:verif|tests?\b|lint)/i, '🧪', 'verify'],
 ]
 
 // How a row shows: a running row by its kind (a review reads "in review"), a finished one by its state.
-export const look = (row: Row): { emoji: string; word: string; color: string } => {
-  const kind = KINDS.find(([re]) => re.test(row.desc))?.[1]
-  if (row.state !== 'in progress' || !kind) {
-    return { emoji: EMOJI[row.state], word: row.state, color: STATE_COLOR[row.state] }
+// `emoji` is what the hint line's tally counts it under; `mark` and `color` are its marker on the band.
+export const look = (row: Row): { emoji: string; word: string; mark: string; color: string } => {
+  const kind = row.state === 'in progress' ? KINDS.find(([re]) => re.test(row.desc)) : undefined
+  return {
+    emoji: kind?.[1] ?? EMOJI[row.state],
+    word: kind?.[2] ?? row.state,
+    mark: MARK[row.state],
+    color: MARK_COLOR[row.state],
   }
-  return { emoji: kind, word: kind === '🔍' ? 'in review' : row.state, color: STATE_COLOR[row.state] }
 }
 
-// One board row's pieces; `run` is padded to `width` so the emoji column lines up.
-export const parts = (row: Row, total: number, run = '', width = 0) => {
+// One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, and `run`
+// is padded to `width` so the marker column lines up.
+export const parts = (row: Row, total: number, run = '', width = 0, first = true) => {
   const m = NUMBERED.exec(row.desc)
   const desc = m ? row.desc.slice(m[0].length).replace(/^\((.*)\)$/, '$1') : row.desc
   const l = look(row)
   return {
+    lead: first ? '⎿ ' : '  ',
     run: run.padEnd(width),
-    emoji: l.emoji,
+    mark: l.mark,
     unit: m?.[1] ?? `Task ${row.n}/${total}`,
     desc: desc ? ` (${desc})` : '',
     state: l.word,
@@ -50,9 +58,9 @@ export const parts = (row: Row, total: number, run = '', width = 0) => {
   }
 }
 
-export const line = (row: Row, total: number, run = '', width = 0): string => {
-  const p = parts(row, total, run, width)
-  return `${p.run ? `${p.run} ` : ''}${p.emoji} ${p.unit}${p.desc} — ${p.state}`
+export const line = (row: Row, total: number, run = '', width = 0, first = true): string => {
+  const p = parts(row, total, run, width, first)
+  return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}`
 }
 
 // "opus-high" from the model id and effort a request went out with.
@@ -203,17 +211,16 @@ export const register: Register = on => {
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
-        {rs.map(r => {
-          const p = parts(r, last.n, labels[r.id], width)
+        {rs.map((r, i) => {
+          const p = parts(r, last.n, labels[r.id], width, i === 0)
           const isDone = r.state === 'done'
           return (
             <Text key={r.id}>
-              {p.run ? <Text dimColor>{`${p.run} `}</Text> : null}
-              {`${p.emoji} `}
-              <Text bold={!isDone} dimColor={isDone}>{p.unit}</Text>
-              <Text dimColor={isDone}>{p.desc}</Text>
+              <Text dimColor>{`${p.lead}${p.run ? `${p.run} ` : ''}`}</Text>
+              <Text color={p.color}>{`${p.mark} `}</Text>
+              <Text bold={r.state === 'in progress'} dimColor={isDone} strikethrough={isDone}>{`${p.unit}${p.desc}`}</Text>
               <Text dimColor>{' — '}</Text>
-              <Text color={p.color}>{p.state}</Text>
+              <Text color={r.state === 'blocked' ? p.color : undefined} dimColor={isDone}>{p.state}</Text>
             </Text>
           )
         })}

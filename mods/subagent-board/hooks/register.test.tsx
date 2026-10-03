@@ -31,12 +31,12 @@ const complete = (agentId: string, reason: 'answer' | 'error') => ({
 const running = (n: number) => ({ id: `r${n}`, n, desc: 'x', state: 'in progress' }) as const
 
 test('formats numbered and unnumbered rows', () => {
-  expect(line({ id: 'a', n: 1, desc: 'Explore auth code', state: 'in progress' }, 3)).toBe('🔄 Task 1/3 (Explore auth code) — in progress')
-  expect(line({ id: 'b', n: 2, desc: 'Task 21/22 finished-workout look', state: 'done' }, 3)).toBe('✅ Task 21/22 (finished-workout look) — done')
-  expect(line({ id: 'c', n: 3, desc: 'Task 2/5 (spec text)', state: 'blocked' }, 3)).toBe('⛔ Task 2/5 (spec text) — blocked')
-  expect(line({ id: 'd', n: 4, desc: 'Tasks 3+4+7/22 (port guards)', state: 'in progress' }, 4)).toBe('🔄 Tasks 3+4+7/22 (port guards) — in progress')
-  expect(line({ id: 'e', n: 5, desc: 'Tasks 3+4+7/22 (review)', state: 'done' }, 5)).toBe('✅ Tasks 3+4+7/22 (review) — done')
-  expect(line({ id: 'f', n: 6, desc: 'panel-1 primary review', state: 'done' }, 6)).toBe('✅ Task 6/6 (panel-1 primary review) — done')
+  expect(line({ id: 'a', n: 1, desc: 'Explore auth code', state: 'in progress' }, 3)).toBe('⎿ ■ Task 1/3 (Explore auth code) — in progress')
+  expect(line({ id: 'b', n: 2, desc: 'Task 21/22 finished-workout look', state: 'done' }, 3)).toBe('⎿ ✔ Task 21/22 (finished-workout look) — done')
+  expect(line({ id: 'c', n: 3, desc: 'Task 2/5 (spec text)', state: 'blocked' }, 3)).toBe('⎿ ✗ Task 2/5 (spec text) — blocked')
+  expect(line({ id: 'd', n: 4, desc: 'Tasks 3+4+7/22 (port guards)', state: 'in progress' }, 4)).toBe('⎿ ■ Tasks 3+4+7/22 (port guards) — in progress')
+  expect(line({ id: 'e', n: 5, desc: 'Tasks 3+4+7/22 (review)', state: 'done' }, 5)).toBe('⎿ ✔ Tasks 3+4+7/22 (review) — done')
+  expect(line({ id: 'f', n: 6, desc: 'panel-1 primary review', state: 'done' }, 6, '', 0, false)).toBe('  ✔ Task 6/6 (panel-1 primary review) — done')
 })
 
 test('trim never drops a running row', () => {
@@ -56,7 +56,7 @@ test('finished rows stay across prompts; past five the oldest finished goes', as
   const shown = async (surface: 'terminal' | 'desktop') => {
     const ui = await $.ui.mount({ ...BAND, surface })
     // A row is the outer Text holding the whole line; its styled pieces are Texts inside it.
-    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^\S.* — \S/.test(t.text) && t.text.includes('Task')).map(t => t.text)
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
     await ui.unmount()
     return texts
   }
@@ -74,9 +74,9 @@ test('finished rows stay across prompts; past five the oldest finished goes', as
 
   for (const surface of ['terminal', 'desktop'] as const) {
     expect(await shown(surface)).toEqual([
-      '✅ Task 1/3 (Explore auth) — done',
-      '🔄 Task 2/3 (Read diff) — in progress',
-      '⛔ Task 3/3 (Run tests) — blocked',
+      '⎿ ✔ Task 1/3 (Explore auth) — done',
+      '  ■ Task 2/3 (Read diff) — in progress',
+      '  ✗ Task 3/3 (Run tests) — blocked',
     ])
   }
 
@@ -84,11 +84,11 @@ test('finished rows stay across prompts; past five the oldest finished goes', as
   await $.agent.spawn(spawn('Five'))
   await $.agent.spawn(spawn('Six'))
   expect(await shown('terminal')).toEqual([
-    '🔄 Task 2/6 (Read diff) — in progress',
-    '⛔ Task 3/6 (Run tests) — blocked',
-    '🔄 Task 4/6 (Four) — in progress',
-    '🔄 Task 5/6 (Five) — in progress',
-    '🔄 Task 6/6 (Six) — in progress',
+    '⎿ ■ Task 2/6 (Read diff) — in progress',
+    '  ✗ Task 3/6 (Run tests) — blocked',
+    '  ■ Task 4/6 (Four) — in progress',
+    '  ■ Task 5/6 (Five) — in progress',
+    '  ■ Task 6/6 (Six) — in progress',
   ])
 })
 
@@ -122,11 +122,11 @@ test('runLabel names the model family and effort', () => {
   expect(runLabel('custom-model', 3)).toBe('custom-model-3')
 })
 
-test('a run label leads the row, padded so the emoji column lines up', () => {
+test('a run label follows the lead, padded so the marker column lines up', () => {
   const row = { id: 'a', n: 2, desc: 'Count rules files', state: 'done' } as const
-  expect(line(row, 6, 'opus-high', 9)).toBe('opus-high ✅ Task 2/6 (Count rules files) — done')
-  expect(line({ ...row, state: 'in progress' }, 6, 'sonnet', 9)).toBe('sonnet    🔄 Task 2/6 (Count rules files) — in progress')
-  expect(line(row, 6, '', 9)).toBe('          ✅ Task 2/6 (Count rules files) — done')
+  expect(line(row, 6, 'opus-high', 9)).toBe('⎿ opus-high ✔ Task 2/6 (Count rules files) — done')
+  expect(line({ ...row, state: 'in progress' }, 6, 'sonnet', 9, false)).toBe('  sonnet    ■ Task 2/6 (Count rules files) — in progress')
+  expect(line(row, 6, '', 9)).toBe('⎿           ✔ Task 2/6 (Count rules files) — done')
 })
 
 const NO_FLOW = { phase: null, ticket: null, stage: null }
@@ -165,18 +165,18 @@ test('hintTail joins the ticket, the phase, the running stage and the tally', ()
   expect(hintTail({ ...impl, stage: 'sdd-tdd' }, '')).toBe('· KAN-873 flow-implement')
 })
 
-test('a running row shows its kind; a finished one its state', () => {
+test('a running row shows its kind as its state word; a finished one its state', () => {
   const at = (desc: string, state: 'in progress' | 'done' = 'in progress') => line({ id: 'x', n: 1, desc, state }, 1)
-  expect(at('Tasks 3+4/22 (review)')).toBe('🔍 Tasks 3+4/22 (review) — in review')
-  expect(at('panel-1-primary correctness review')).toBe('🔍 Task 1/1 (panel-1-primary correctness review) — in review')
-  expect(at('panel-fix-1 findings 1-6')).toBe('🔨 Task 1/1 (panel-fix-1 findings 1-6) — in progress')
-  expect(at('visual-verify login page')).toBe('👀 Task 1/1 (visual-verify login page) — in progress')
-  expect(at('Run tests')).toBe('🧪 Task 1/1 (Run tests) — in progress')
-  expect(at('strip prefix')).toBe('🔄 Task 1/1 (strip prefix) — in progress')
-  expect(at('read latest log')).toBe('🔄 Task 1/1 (read latest log) — in progress')
-  expect(at('Run unittests')).toBe('🔄 Task 1/1 (Run unittests) — in progress')
-  expect(at('Task 3/22 (port guard)')).toBe('🔄 Task 3/22 (port guard) — in progress')
-  expect(at('Tasks 3+4/22 (review)', 'done')).toBe('✅ Tasks 3+4/22 (review) — done')
+  expect(at('Tasks 3+4/22 (review)')).toBe('⎿ ■ Tasks 3+4/22 (review) — in review')
+  expect(at('panel-1-primary correctness review')).toBe('⎿ ■ Task 1/1 (panel-1-primary correctness review) — in review')
+  expect(at('panel-fix-1 findings 1-6')).toBe('⎿ ■ Task 1/1 (panel-fix-1 findings 1-6) — fix')
+  expect(at('visual-verify login page')).toBe('⎿ ■ Task 1/1 (visual-verify login page) — visual verify')
+  expect(at('Run tests')).toBe('⎿ ■ Task 1/1 (Run tests) — verify')
+  expect(at('strip prefix')).toBe('⎿ ■ Task 1/1 (strip prefix) — in progress')
+  expect(at('read latest log')).toBe('⎿ ■ Task 1/1 (read latest log) — in progress')
+  expect(at('Run unittests')).toBe('⎿ ■ Task 1/1 (Run unittests) — in progress')
+  expect(at('Task 3/22 (port guard)')).toBe('⎿ ■ Task 3/22 (port guard) — in progress')
+  expect(at('Tasks 3+4/22 (review)', 'done')).toBe('⎿ ✔ Tasks 3+4/22 (review) — done')
   const rows = [
     { id: 'a', n: 1, desc: 'Task 1/3 (a)', state: 'in progress' },
     { id: 'b', n: 2, desc: 'panel-1 review', state: 'in progress' },
@@ -202,7 +202,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
   const shown = async () => {
     const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
     // A row is the outer Text holding the whole line; its styled pieces are Texts inside it.
-    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^\S.* — \S/.test(t.text) && t.text.includes('Task')).map(t => t.text)
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
     await ui.unmount()
     return texts
   }
@@ -214,7 +214,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
   for await (const _ of step) {
     // drain
   }
-  expect(await shown()).toEqual(['opus-high 🔄 Task 2/7 (wire band) — in progress'])
+  expect(await shown()).toEqual(['⎿ opus-high ■ Task 2/7 (wire band) — in progress'])
 
   await $.turn.complete(complete('ag1', 'answer'))
   expect(await shown()).toEqual([])
@@ -233,4 +233,30 @@ test('a denied Bash call leaves the flow state as it was', async ($, on) => {
   await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
   await (await $.ui.mount({ plugin: 'subagent-board', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
   expect(tails).toEqual([undefined])
+})
+
+test('rows take the task-list styles: a done row green-ticked, dim and struck; a running row bold', async ($, on) => {
+  let n = 0
+  on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
+  on('turn.complete', () => ({ text: '' }))
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  await $.agent.spawn(spawn('Explore auth'))
+  await $.agent.spawn(spawn('Read diff'))
+  await $.agent.spawn(spawn('Run tests'))
+  await $.turn.complete(complete('ag1', 'answer'))
+  await $.turn.complete(complete('ag3', 'error'))
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    const at = async (text: string) => (await ui.findAll({ type: 'Text' })).find(t => t.text === text)?.props
+    expect(await at('✔ ')).toMatchObject({ color: 'success' })
+    expect(await at('Task 1/3 (Explore auth)')).toMatchObject({ dimColor: true, strikethrough: true, bold: false })
+    expect(await at('■ ')).toMatchObject({ color: 'claude' })
+    expect(await at('Task 2/3 (Read diff)')).toMatchObject({ bold: true, dimColor: false, strikethrough: false })
+    expect(await at('✗ ')).toMatchObject({ color: 'error' })
+    expect(await at('Task 3/3 (Run tests)')).toMatchObject({ bold: false, strikethrough: false })
+    await ui.unmount()
+  }
 })
