@@ -1,0 +1,34 @@
+# Operator, 2026-10-03: KAN-829 — in-run pipeline fixes.
+\## Pipeline defects found mid-run
+(`project-get.sh <agents repo> 'default landing route'`), without asking.
+**A `/flow` or `/flow-fast` run that hits a defect in the pipeline itself fixes it within the run, unless the fix is `big`.
+**Every dispatch in the loop is one-shot.
+**Fix the findings** — the parent fixes them inline in that worktree, or dispatches a fresh
+**Fix** — `pipeline-fix-<k>`, its prompt carrying the defect, its evidence and the counted
+**Land** — by `<agents repo>`'s `## default landing route`
+**Predict the class before any work, from the blast radius — never from a plan.
+**Record each one.
+**Review** — a fresh `pipeline-fix-<k>-review-<r>` over
+A `big` fix is deferred to self-review, and so is one found `big` once under way, which stops there.
+Count the files the fix must touch: the defective file, its test, and every file `grep -rl` finds in `<agents repo>` citing the name or section the fix changes.
+Each runs on `opus`, `subagent_type: flow-high`, its key per the steps below and `<k>` counting this run's in-run fixes:
+Every in-run fix, landed or deferred, is one line in the run's narrative — `narrative.md` on `/flow` (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`), `## Session narrative` on `/flow-fast` — and one decision bullet in the run's summary (**Summary and live-stack line, before every handoff**, below):
+For this section alone `<agents repo>` is a repository the run was given (**Reporting back**, `rules/agent-baseline.md`), whichever project the run is in.
+In-run pipeline fix: <agents sha | deferred> — <the defect, one line> (blast radius <N> files)
+It never merges or pushes.
+It works in its own worktree, `git -C <agents repo> worktree add -b fix-<slug> <agents repo>/.worktrees/<slug> origin/<default-branch>` — never the main checkout, never the change's own worktree — adds one test or guard that fails without the fix, updates a saved memory that encoded the defect, runs the `<agents repo>/.flow/project.md` `## lint` lines its files need, and commits with a module scope.
+Merge and push is: rebase `fix-<slug>` onto `origin/<default-branch>`, `git push origin fix-<slug>:<default-branch>`, `git -C <agents repo> pull --ff-only`, then remove the worktree and the branch.
+No `SendMessage` to a finished child, and no child parks a question for a resume.
+The fix is `big` — `plan-class.sh`'s own `files>=60` threshold — when that count is 60 or more, when it reaches outside `<agents repo>`, or when it needs a design choice only the operator can make.
+The loop runs in the background while the run's own work continues; the run still never ends a turn with one of its children in flight.
+The loop runs to a clean review under **Fewest operator actions** above.
+The pipeline is everything `<agents repo>` ships — a skill, a contract, a guard, the `flow` CLI or flowd, a rule — and any saved memory that encodes its behaviour.
+These seven rows are **every** Agent-tool dispatch the parent may make, across sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`:
+`git diff origin/<default-branch>...fix-<slug>`.
+`pipeline-fix-<k>-fix-<r>`; then step 2 again, `<r>` plus one.
+blast radius.
+| in-run pipeline fix, review and fixer, one each per loop step | `implementer` for the fix and the fixer, `reviewer` for the review | `pipeline-fix-<k>`, `pipeline-fix-<k>-review-<r>`, `pipeline-fix-<k>-fix-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+\## Pipeline defects found mid-run
+Never dispatch a subagent the recorded decision does not name — an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never a planner or a verifier.
+These six rows are **every** Agent-tool dispatch the parent may make, across sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`:
+An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.

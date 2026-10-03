@@ -86,6 +86,16 @@ to read the narrative line Task 1 defines.
 **Decision:** one-shot-fix-loop
 **Decision:** narrative-line-record
 
+Correction (2026-10-03): three departures from the text below, all found at implementation.
+(1) The closed-list row's Role column declared `pipeline-fix`; shipped `implementer` for the fix
+and the fixer, `reviewer` for the review — `flow record dispatch` accepts only the served
+`recordRoles` (`stats/cmd/flow/record.go`), so `-role pipeline-fix` is refused, and `panel-fix`
+would trip `check-panel-fix-single-dispatch.sh`'s canonical-key check on a `pipeline-fix-*` key.
+(2) The fix branch is `fix-<slug>`, not `fix/<slug>`: `scripts/check-installed-citations.sh`
+reads a backticked `fix/<slug>` as a rootless path citation. (3) The summary citation reads
+`below`, not `above` — **Summary and live-stack line, before every handoff** sits under
+`## Handoff output`, after the new section.
+
 ### Task 1 — the section text
 
 ````markdown verified:authored in-tree for this change
@@ -145,21 +155,21 @@ In-run pipeline fix: <agents sha | deferred> — <the defect, one line> (blast r
 | in-run pipeline fix, review and fixer, one each per loop step | `pipeline-fix` | `pipeline-fix-<k>`, `pipeline-fix-<k>-review-<r>`, `pipeline-fix-<k>-fix-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 ```
 
-- [ ] 2. Self-review's angle 1 skips a defect fixed in-run
+- [x] 2. Self-review's angle 1 skips a defect fixed in-run
 
 `design.md` § 4.
 
-  - [ ] **Step 1: Add the sentence** to `skills/flow-self-review/SKILL.md`, as its own paragraph
+  - [x] **Step 1: Add the sentence** to `skills/flow-self-review/SKILL.md`, as its own paragraph
     directly after the paragraph opening `Angle 5's remit covers`, verbatim:
 
     > An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**,
     > `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
     > is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
-  - [ ] **Step 2: Verify** — `grep -c 'In-run pipeline fix:' skills/flow-self-review/SKILL.md`
+  - [x] **Step 2: Verify** — `grep -c 'In-run pipeline fix:' skills/flow-self-review/SKILL.md`
     prints `1`. Run the Markdown lint lines plus `scripts/check-self-review-report.sh`; record the
     new sentences in `verbatim-moves.txt`.
-  - [ ] **Step 3: Commit.**
+  - [x] **Step 3: Commit.**
 
 **Files:** `skills/flow-self-review/SKILL.md`
 **Tests:** none — skill prose
