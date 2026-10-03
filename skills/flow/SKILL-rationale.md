@@ -153,6 +153,7 @@ text after it is the passage, verbatim.
 ### brainstorm-planner.md — D. Writing plans
 
 - ***Write a verification change so its found defects become their own tasks.*** — (the gymie KAN-29/gymie KAN-30 precedent)
+- ***Triage the sweep's findings before any fix runs.*** — (KAN-800; kan-741's whole-suite verification found 19 defects and none piled into a mega-fix: six became tasks 7–12 in the creating run, thirteen more tasks 13–25 in the fix run, each with its own field family, while the pre-existing out-of-scope failures went to KNOWN-BUGS.md by a dedicated triage dispatch)
 - ***A task premise about a guard's behaviour is run at plan time, never assumed.*** — kan-542's task 2 shows the cost of leaving the premise to review: planned on a stale premise, it survived until a reviewer struck it with the guard's own exit — a defect this duty kills at planning.
 - ***A task cites the decision it implements, never restates it.** Restated decision prose drifts from its entry the first time either is edited* — which is why gymie kan-468's seeded plan cited instead
 - *`**Baseline:**` … record a command whose stdout is one integer* — (the `| grep -c` pipelines in kan-271 and kan-298's plans are the shape)
