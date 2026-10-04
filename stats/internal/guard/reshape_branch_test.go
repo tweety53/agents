@@ -152,6 +152,28 @@ func TestReshapeBranch(t *testing.T) {
 			"task work kept staged", "task work lost from the index")
 	})
 
+	// A run 1 that stopped between `spectre archive` and commit-archive.sh
+	// left the archive rename staged; a resumed reshape keeps it staged and
+	// the working tree as found — only HEAD moves.
+	t.Run("2b a staged archive rename survives the reshape staged", func(t *testing.T) {
+		t.Parallel()
+		fx := rbNew(t)
+		w := fx.wt
+		writeFile(t, w+"/spectre/changes/demo/tasks.md", "- [x] 1. task\n")
+		fx.commitAs(t, "planner", "chore(spectre): plan", "spectre/changes/demo")
+		writeFile(t, w+"/src/a.txt", "task\n")
+		fx.commitAs(t, "impl", "feat(src): task\n\nTask-Id: 1", "src")
+		mkdir(t, w+"/spectre/changes/archive")
+		splitGit(t, w, nil, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
+		want := fx.expectedTree(t)
+		rc, out := fx.reshape(t, w, w, "demo", fx.base)
+		check(t, rc == 0 && strings.Contains(out, "1 planning commit(s)"), "planning commit kept", "rc=%d out=%s", rc, out)
+		staged := splitGit(t, w, nil, "diff", "--cached", "--name-status", "-M", "--", "spectre/changes/")
+		check(t, staged == "R100\tspectre/changes/demo/tasks.md\tspectre/changes/archive/demo/tasks.md",
+			"rename still staged", "staged under spectre/changes/: %q", staged)
+		check(t, fx.expectedTree(t) == want, "working tree and index as found", "the tree moved")
+	})
+
 	t.Run("3 the guard refuses a main checkout and HEAD does not move", func(t *testing.T) {
 		t.Parallel()
 		fx := rbNew(t)
