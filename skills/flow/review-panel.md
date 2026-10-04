@@ -323,7 +323,8 @@ each with its own REPORT FILE line. Exit 0 prints the rendered path; exit 1 name
 could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
 `mutation`'s pass is never rendered: its brief and its throwaway copy stay typed by the parent,
 beside the rendered path where a dispatch bundles it — the render still carries every other
-role's pass and the INDEPENDENT PASSES paragraph. The Agent call's prompt carries only the baseline
+role's pass and the INDEPENDENT PASSES paragraph, and a dispatch carrying `mutation` alone renders
+the shared paragraphs and no PASS section, the brief typed beside that rendered path. The Agent call's prompt carries only the baseline
 pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
 reproducer rule, and `read <rendered path> in full first — it is your brief`. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
