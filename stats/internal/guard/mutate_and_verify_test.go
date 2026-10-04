@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -560,11 +561,7 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 	dir := t.TempDir()
 	c := fx.newFixture(t, dir, 4, "4/flip:2")
 	ready, release := dir+"/ready", dir+"/release"
-	for _, p := range []string{ready, release} {
-		if err := syscall.Mkfifo(p, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
+	readyF, releaseF := mvFifo(t, ready), mvFifo(t, release)
 	h := c.repo + "/block.sh"
 	writeExec(t, h, "#!/usr/bin/env bash\necho 'ok: case-1'\n"+
 		"if grep -q '"+mvMutationMark+"' guard.sh; then echo ready > \"$MV_READY\"; read -r _ < \"$MV_RELEASE\"; fi\n")
@@ -583,7 +580,7 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.ReadFile(ready); err != nil { // blocks until the harness writes
+	if _, err := bufio.NewReader(readyF).ReadString('\n'); err != nil { // blocks until the harness writes
 		t.Fatal(err)
 	}
 	if err := cmd.Process.Signal(sig); err != nil {
@@ -596,9 +593,7 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 		time.Sleep(500 * time.Millisecond)
 		g, _ := os.ReadFile(c.guard)
 		mvCheck(t, "ignored signal: the mutation is still applied", strings.Contains(string(g), mvMutationMark), "restored early")
-		if f, err := os.OpenFile(release, os.O_WRONLY, 0); err == nil {
-			f.Close()
-		}
+		mvRelease(t, releaseF)
 		_ = cmd.Wait()
 		o, _ := os.ReadFile(dir + "/stdout")
 		mvCheck(t, "ignored signal: the run ends normally", cmd.ProcessState.ExitCode() == 0 && has(string(o), "ran clean"),
@@ -607,9 +602,7 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 		return
 	}
 	_ = cmd.Wait()
-	if f, err := os.OpenFile(release, os.O_WRONLY, 0); err == nil { // unblock the orphaned harness
-		f.Close()
-	}
+	mvRelease(t, releaseF) // unblock the orphaned harness
 	ws, _ := cmd.ProcessState.Sys().(syscall.WaitStatus)
 	if sig == syscall.SIGHUP || sig == syscall.SIGINT || sig == syscall.SIGTERM {
 		mvCheck(t, "signal mid-run: dies of "+sig.String(), ws.Signaled() && ws.Signal() == sig, "status %v", cmd.ProcessState)
@@ -624,18 +617,22 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 	}
 }
 
-// mvSIGPIPECase runs the real shim with its stdout on a pipe the test
-// closes once the mutated pass has begun, as `| head -n 7` would; the next
-// line the guard prints raises SIGPIPE. The touched file is restored and the
-// guard exits 141 -- where bash 5.3 died of the SIGPIPE and left the
-// mutation in place, and bash 3.2's trap restored it.
+// mvSIGPIPECase runs the real shim with its stdout on a pipe whose one
+// reader stops reading and closes it once the mutated pass has begun, as
+// `| head -n 7` would; the next line the guard prints raises SIGPIPE. The
+// touched file is restored and the guard exits 141 -- where bash 5.3 died of
+// the SIGPIPE and left the mutation in place, and bash 3.2's trap restored it.
+//
+// The pipe is a bash pipeline's, never one this test process opens: every
+// fd the test process holds is copied into each child a parallel test forks,
+// and held there until that child execs, so a read end closed here could
+// still have a reader when the guard writes -- the write lands and the next
+// harness runs. The reader below forks nothing before it closes its stdin.
 func mvSIGPIPECase(t *testing.T, fx mvFixtures) {
 	dir := t.TempDir()
 	c := fx.newFixture(t, dir, 4, "4/flip:2")
-	release := dir + "/release"
-	if err := syscall.Mkfifo(release, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	release, gone := dir+"/release", dir+"/gone"
+	releaseF, goneF := mvFifo(t, release), mvFifo(t, gone)
 	h := c.repo + "/block.sh"
 	writeExec(t, h, "#!/usr/bin/env bash\necho 'ok: case-1'\n"+
 		"if grep -q '"+mvMutationMark+"' guard.sh; then read -r _ < \"$MV_RELEASE\"; fi\n")
@@ -646,37 +643,67 @@ func mvSIGPIPECase(t *testing.T, fx mvFixtures) {
 		"if grep -q '"+mvMutationMark+"' guard.sh; then touch \"$MV_SECOND\"; fi\n")
 	second := dir + "/second-ran"
 	c.snap()
-	cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/mutate-and-verify.sh", c.patch, h, h2)
+	// The reader reads line by line (bash's read takes one byte at a time
+	// from a pipe, so nothing past the marker line is consumed), closes its
+	// stdin -- the pipe's last read end -- and only then reports on $MV_GONE.
+	cmd := exec.Command("/bin/bash", "-c", `/bin/bash "$0" "$@" | {
+  r=eof
+  while IFS= read -r l; do
+    case $l in *"mutated pass (after mutation)"*) r=seen; break ;; esac
+  done
+  exec <&-
+  echo "$r" > "$MV_GONE"
+}
+exit "${PIPESTATUS[0]}"`, tcfScriptsDir(t)+"/mutate-and-verify.sh", c.patch, h, h2)
 	cmd.Dir = c.repo
-	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "MV_RELEASE="+release, "MV_SECOND="+second)
+	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t),
+		"MV_RELEASE="+release, "MV_SECOND="+second, "MV_GONE="+gone)
 	cmd.Stderr = mvCreate(t, dir+"/stderr")
-	pr, pw, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd.Stdout = pw
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	pw.Close()
-	var seen strings.Builder
-	buf := make([]byte, 4096)
-	for !strings.Contains(seen.String(), "mutated pass (after mutation)\n") {
-		n, err := pr.Read(buf)
-		if err != nil {
-			t.Fatalf("stdout ended before the mutated pass: %v\n%s", err, seen.String())
-		}
-		seen.Write(buf[:n])
+	r, err := bufio.NewReader(goneF).ReadString('\n') // blocks until the reader has closed the pipe
+	if err != nil || r != "seen\n" {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		e, _ := os.ReadFile(dir + "/stderr")
+		t.Fatalf("stdout ended before the mutated pass: %q %v\n%s", r, err, e)
 	}
-	pr.Close()
-	if f, err := os.OpenFile(release, os.O_WRONLY, 0); err == nil {
-		f.Close()
-	}
+	mvRelease(t, releaseF)
 	_ = cmd.Wait()
 	mvCheck(t, "SIGPIPE mid-run: exits 141", cmd.ProcessState.ExitCode() == 141, "status %v", cmd.ProcessState)
 	_, err = os.Stat(second)
 	mvCheck(t, "SIGPIPE mid-run: the next harness never starts its mutated pass", os.IsNotExist(err), "it ran")
 	c.unchanged("SIGPIPE mid-run: status and HEAD unchanged")
+}
+
+// mvFifo makes a FIFO at path and holds it open read-write for the rest of
+// the test. A read-write open neither blocks nor waits on the other end, and
+// it keeps the FIFO open on both ends, so the harness's or reader's own open
+// returns at once and data written before it reads is kept. A blocking open
+// is what this replaces: darwin's fifo_open undoes a reader's count when a
+// signal (the Go runtime's preemption signal, under load) interrupts it, after
+// a writer may already have opened against that count -- the writer's next
+// write then dies of SIGPIPE and the retried open waits forever.
+func mvFifo(t *testing.T, path string) *os.File {
+	t.Helper()
+	if err := syscall.Mkfifo(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { f.Close() })
+	return f
+}
+
+// mvRelease ends a harness's `read -r _ < "$MV_RELEASE"` with one line.
+func mvRelease(t *testing.T, f *os.File) {
+	t.Helper()
+	if _, err := f.WriteString("\n"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // mvApplyEPIPECase runs the real shim with a `git` first on PATH that
