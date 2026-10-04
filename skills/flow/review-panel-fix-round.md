@@ -161,7 +161,8 @@ check-panel-reproducers.sh <worktree> <change>
 Exit 0 proceeds. Exit 1 covers two classes: a **missing or malformed field** is added before
 dispatch; a **rejected reproducer shape** (a shell metacharacter, an absolute path, a `..` segment,
 a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **unverifiable** and put to
-the operator, never silently rewritten. Exit 2 stops the run. Both guards first read the change's
+the round's one batched operator ask (**Only a genuine inability reaches the operator**, below),
+never silently rewritten. Exit 2 stops the run. Both guards first read the change's
 state record through the worktree argument, and a store-reached-but-absent record is exit 2 — on a
 cross-repo change the record resolves only through the canonical worktree's project key, so that
 shape is what invoking a guard on a peer tree reads as, and the empty findings array a peer tree's
@@ -200,7 +201,7 @@ demonstrated* — the inverted class —, one whose demonstrates citation did no
 whose script cannot be read to audit at all, are
 bounced exactly as the per-finding run's own answer 1 below,
 once, back to the raising slot; a reproducer the runner refused as unusable is recorded
-**unverifiable** and put to the operator, exactly as the per-finding run's own answer 2 below, since
+**unverifiable** and put to the round's one batched operator ask, exactly as the per-finding run's own answer 2 below, since
 a refused reproducer never ran and so carries no passing output a bounce could carry. Exit 2 — any
 reproducer the runner could not verdict: a timeout, a surviving process, a plumbing failure, the
 state record absent or unreadable, an ambiguous worktree — stops
@@ -221,8 +222,8 @@ recorded relative path resolves, canonical first, else the one recorded worktree
 
 Read its exit code: **0** dispatches the finding; **1** bounces it once, back to the raising slot,
 carrying the reproducer's passing output; **2** is a refusal — recorded **unverifiable**, put to the
-operator; **3** is a timeout or a detached survivor — recorded **unverifiable**, put to the
-operator, with a surviving pid named when the script names one; **4** stops this finding's dispatch
+round's one batched operator ask; **3** is a timeout or a detached survivor — recorded
+**unverifiable**, put to the same ask, with a surviving pid named when the script names one; **4** stops this finding's dispatch
 decision entirely — a finding recorded `none — <reason>` is dispatched without a run.
 
 **Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
@@ -240,8 +241,8 @@ or stopped before any dispatch, so nothing re-runs for it — and
 require the reproducer now to exit **0**, which the script answers **1**. The flag makes the
 script refuse (exit 2) a reproducer whose verdict here is identical to its pre-fix verdict —
 ambiguous under either exit-code convention, the expected one named in the script's message — so
-an ambiguous reproducer is recorded unverifiable and put to the operator rather than read as an
-unfinished fix. **The parent runs these re-runs itself, in its own
+an ambiguous reproducer is recorded unverifiable and put to the round's one batched operator ask
+rather than read as an unfinished fix. **The parent runs these re-runs itself, in its own
 Bash calls** (**Dispatch sites — the
 parent's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
@@ -416,12 +417,18 @@ at a time, and does not ask:
   `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. That reason stands
   where the operator's would.
 - **Only a genuine inability reaches the operator:** a finding the run cannot judge either way, or
-  a fix that needs an irreversible or outward-facing action. Only then is the prompt below raised, shape per Operator prompts
-  (`skills/flow-contracts/operator-prompts.md`), and resolved per that contract's **Auto-resolution**
-  and **What still stops**: its recommended option is taken unasked, and asked only where the fix
-  is irreversible or outward-facing:
+  a fix that needs an irreversible or outward-facing action. **The round asks once.** It never
+  fires an operator ask where a handback is discovered: the walk that produced it — the reproducer
+  guards and runs, the mutation walk, the close guards — runs to its end first, every handback it
+  produced is collected, and the collection is presented as one batched ask (**Batched asks**,
+  `skills/flow-contracts/operator-prompts.md`) — one entry per handback, each entry carrying the
+  finding's observed/breaks/fix summary in one line and its recommended disposition. Each entry
+  resolves per that contract's **Auto-resolution** and **What still stops**, per entry: its
+  recommended option is taken unasked, and only the entries auto-resolution leaves asked — the fix
+  irreversible or outward-facing, a finding recorded **unverifiable** — join the ask. An entry
+  reads:
 
-> **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
+> **`<location>` — <the finding, in one line: what was observed, what it breaks, the fix it needs>. The fix round did not resolve it.**
 > - **Take another round on it** *(default, recommended)*
 > - **Withdraw it — I'll give the reason** — the reason is recorded on the finding's marker line
 > - **Stop the run and hand it back to me**
