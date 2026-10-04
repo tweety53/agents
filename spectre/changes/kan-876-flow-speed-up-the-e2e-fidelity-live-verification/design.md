@@ -58,8 +58,10 @@ reads the parent's own calls make, and a browser walk is already visual verify's
 **Chosen:** a spec depending on a production timeout, backoff or polling interval plans a test-only
 override that shortens it, and an independent suite runs on the runner's parallel workers — planner
 guidance only.
-**Considered:** editing gymie's client timeout and Playwright config here — another repository, owned
-by its own changes; the planner rule makes the next plan carry it.
+**Considered:** editing gymie's client timeout and Playwright config here — gymie's main already runs
+`fullyParallel` on five workers and carries no spec that waits out a timeout; the one that does
+(`a timed out replay is not applied twice`) exists only on KAN-754's unmerged branch, so the operator
+routed its test-only timeout override to a KAN-754 fix run (2026-10-05).
 
 ## Open questions
 
