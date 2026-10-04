@@ -197,7 +197,8 @@ row per subagent, drawn from each dispatch's description, and a hint-line tail n
 key where the change name leads with one, the phase, and the running stage's emoji where it has one
 — read from the run's own `flow stage` marks (**Stage marks**, below) — followed by a tally of those
 rows by emoji. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
-shows no row of its own; the phase and stage tail is its only live progress.
+shows on the main agent's own `main` row, first on the band while the main turn runs, labelled with its
+latest Bash command's description and never numbered as a task.
 
 **Every subagent dispatch's description is the board row's label**, in the shape
 **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states — no emoji and

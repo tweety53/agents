@@ -1,6 +1,8 @@
 export type RowState = 'in progress' | 'done' | 'blocked'
 // n: the subagent's spawn number in this session.
 export type Row = { id: string; n: number; desc: string; state: RowState }
+// The main agent's running turn: its latest Bash description and its "opus-high" run label.
+export type Main = { desc: string; run: string }
 // The pipeline phase a /flow run is in, from the `flow stage` marks it runs.
 export type Phase = 'flow-plan' | 'flow-implement' | 'flow-integrate'
 // The running /flow phase, the tracker key ("KAN-873") its change name starts with, if any, and the
@@ -14,6 +16,8 @@ declare module 'claude-code' {
       // agent id → "opus-high": the model and effort its first request went out with.
       runs: Record<string, string>
       flow: Flow
+      // The main agent's turn while it runs; null between turns.
+      main: Main | null
     }
   }
 }

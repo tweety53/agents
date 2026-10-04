@@ -260,3 +260,85 @@ test('rows take the task-list styles: a done row green-ticked, dim and struck; a
     await ui.unmount()
   }
 })
+
+test("the main agent's running turn is a row of its own, outside the task numbering", async ($, on) => {
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
+  on('turn.complete', () => ({ text: '' }))
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('tool.call', () => ({ result: '' }))
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  const shown = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
+    await ui.unmount()
+    return texts
+  }
+  const drain = async (agentId?: string, index = 0, model = 'claude-opus-5-5', effort?: 'high') => {
+    for await (const _ of $.turn.step({ turnId: 't1', index, model, effort, messageCount: 1, agentId })) {
+      // drain
+    }
+  }
+
+  await drain(undefined, 0, 'claude-opus-5-5', 'high')
+  expect(await shown()).toEqual(['⎿ opus-high ◼ main — in progress'])
+
+  await $.tool.call({ tool: 'Bash', command: 'scripts/run-guard-tests.sh', description: 'Run guard tests' })
+  await drain(undefined, 1, 'claude-opus-5-5', 'high')
+  expect(await shown()).toEqual(['⎿ opus-high ◼ main (Run guard tests) — verify'])
+
+  await $.agent.spawn(spawn('Explore auth'))
+  await drain('ag1', 0, 'claude-sonnet-5-5')
+  // The subagent's own command, its loop named as the engine names it; it leaves the main row's description alone.
+  const sub = { tool: 'Bash', command: 'ls', description: 'List subagent files', agentId: 'ag1' } as const
+  await $.tool.call(sub)
+  expect(await shown()).toEqual([
+    '⎿ opus-high ◼ main (Run guard tests) — verify',
+    '  sonnet    ◼ Task 1/1 (Explore auth) — in progress',
+  ])
+
+  await $.turn.complete({ ...complete('ag1', 'answer'), agentId: undefined })
+  expect(await shown()).toEqual(['⎿ sonnet ◼ Task 1/1 (Explore auth) — in progress'])
+  await $.turn.complete(complete('ag1', 'answer'))
+  expect(await shown()).toEqual([])
+})
+
+test("the main row names a Bash command's description while the command runs", async ($, on) => {
+  let release = () => {}
+  const gate = new Promise<void>(resolve => {
+    release = resolve
+  })
+  let reached = () => {}
+  const atCore = new Promise<void>(resolve => {
+    reached = resolve
+  })
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('tool.call', async () => {
+    reached()
+    await gate
+    return { result: '' }
+  })
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1 })) {
+    // drain
+  }
+
+  const call = $.tool.call({ tool: 'Bash', command: 'scripts/run-guard-tests.sh', description: 'Run guard tests' })
+  // Mid-call: the command has reached the core and is held open there, so the row must already name it.
+  await atCore
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
+  await ui.unmount()
+  release()
+  await call
+  expect(texts).toEqual(['⎿ opus-high ◼ main (Run guard tests) — verify'])
+})

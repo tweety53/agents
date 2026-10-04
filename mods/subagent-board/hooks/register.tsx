@@ -1,12 +1,13 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { Flow, Phase, Row, RowState } from '../types'
+import type { Flow, Main, Phase, Row, RowState } from '../types'
 
 const rows = atom({ plugin: 'subagent-board', key: 'rows' } as const, [] as Row[])
 const runs = atom({ plugin: 'subagent-board', key: 'runs' } as const, {} as Record<string, string>)
 const NO_FLOW: Flow = { phase: null, ticket: null, stage: null }
 const flow = atom({ plugin: 'subagent-board', key: 'flow' } as const, NO_FLOW)
+const main = atom({ plugin: 'subagent-board', key: 'main' } as const, null as Main | null)
 
 const MAX_ROWS = 5
 
@@ -42,7 +43,7 @@ export const look = (row: Row): { emoji: string; word: string; mark: string; col
 }
 
 // One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, and `run`
-// is padded to `width` so the marker column lines up.
+// is padded to `width` so the marker column lines up. The main agent's row, n 0, is "main", never a task.
 export const parts = (row: Row, total: number, run = '', width = 0, first = true) => {
   const m = NUMBERED.exec(row.desc)
   const desc = m ? row.desc.slice(m[0].length).replace(/^\((.*)\)$/, '$1') : row.desc
@@ -51,7 +52,7 @@ export const parts = (row: Row, total: number, run = '', width = 0, first = true
     lead: first ? '⎿ ' : '  ',
     run: run.padEnd(width),
     mark: l.mark,
-    unit: m?.[1] ?? `Task ${row.n}/${total}`,
+    unit: m?.[1] ?? (row.n === 0 ? 'main' : `Task ${row.n}/${total}`),
     desc: desc ? ` (${desc})` : '',
     state: l.word,
     color: l.color,
@@ -162,12 +163,16 @@ export const register: Register = on => {
     return result
   })
 
-  // A subagent's first model request names the model and effort it actually runs on.
+  // A subagent's first model request names the model and effort it actually runs on. A main-loop step
+  // means the main turn runs: its first starts the main row afresh, and any later step starts it when it is
+  // missing, as when the plugin loads mid-turn or a main-loop step arrives after the main turn.complete.
   on('turn.step', async function* ($, e, next) {
     const id = e.agentId
+    const label = runLabel(e.model, e.effort)
     if (id && e.index === 0) {
-      const label = runLabel(e.model, e.effort)
       await update($, runs, rs => ({ ...rs, [id]: label }))
+    } else if (!id && (e.index === 0 || !(await read($, main)))) {
+      await update($, main, () => ({ desc: '', run: label }))
     }
     return yield* next(e)
   })
@@ -177,12 +182,19 @@ export const register: Register = on => {
     if (id) {
       const state: RowState = e.reason === 'answer' ? 'done' : 'blocked'
       await update($, rows, rs => rs.map(r => (r.id === id ? { ...r, state } : r)))
+    } else {
+      await update($, main, () => null)
     }
     return next(e)
   })
 
-  // A denied command never ran, so its marks move nothing.
+  // A main-loop command's description is what the main row says it is doing, set before the command
+  // runs so the row names it while it runs. A denied command never ran, so its marks move nothing.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const desc = e.description
+    if (!e.agentId && desc) {
+      await update($, main, m => (m ? { ...m, desc } : m))
+    }
     const result = await next(e)
     if (result.deny === undefined) {
       const current = await read($, flow)
@@ -200,19 +212,23 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const rs = await read($, rows)
-    const last = rs.at(-1)
-    // Shown while a subagent runs; once all have finished the band hides and the hint line's tally stays.
-    if (e.props.hasSurvey || !last || !rs.some(r => r.state === 'in progress')) {
+    const subs = await read($, rows)
+    const m = await read($, main)
+    // The main agent's row, first and only while its turn runs; it stays out of rows, so trim and the
+    // task numbering never see it.
+    const rs: Row[] = m ? [{ id: 'main', n: 0, desc: m.desc, state: 'in progress' }, ...subs] : subs
+    // Shown while the main turn or a subagent runs; once all have finished the band hides and the hint line's tally stays.
+    if (e.props.hasSurvey || !rs.some(r => r.state === 'in progress')) {
       return next(e)
     }
-    const labels = await read($, runs)
+    const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
     const width = Math.max(0, ...rs.map(r => labels[r.id]?.length ?? 0))
+    const total = subs.at(-1)?.n ?? 0
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
         {rs.map((r, i) => {
-          const p = parts(r, last.n, labels[r.id], width, i === 0)
+          const p = parts(r, total, labels[r.id], width, i === 0)
           const isDone = r.state === 'done'
           return (
             <Text key={r.id}>
