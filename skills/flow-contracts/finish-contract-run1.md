@@ -79,10 +79,10 @@ bringing it forward.
 ### Run 1 — the branch is not merged
 
 **Whether the change is already archived is decided once per change, in the canonical
-repository, and holds for every worktree in the set.** It is archived when
-`<canonical-worktree>/spectre/changes/archive/<name>/` exists and
-`<canonical-worktree>/spectre/changes/<name>/` does not — an earlier run 1 ran `spectre archive`
-and stopped somewhere after it. A re-run of an archived change skips `spectre archive` and,
+repository, and holds for every worktree in the set.** It is archived when the canonical
+worktree's `<project>/spectre/changes/archive/<name>/` exists and its
+`<project>/spectre/changes/<name>/` does not — an earlier run 1 ran `spectre archive` and stopped
+somewhere after it. A re-run of an archived change skips `spectre archive` and,
 before it, the unfinished-work gate, the reshape and the two-commit chain — `spectre archive`
 already refused any unchecked task, and a reshape would fold the archive and bundle commits into
 the implementation commit. Everything else runs: the base-moved check and **Sync the branch onto
