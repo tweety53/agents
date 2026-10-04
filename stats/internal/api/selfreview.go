@@ -46,7 +46,8 @@ type selfreviewStore interface {
 // self-review context bundle, assembled server-side — the ledger and panel
 // record rendered from the store exactly as the render route renders them,
 // the archived change's tasks.md, design.md and narrative.md read out of
-// the chore/archive-<name> branch of the repository the caller named, and
+// the change branch spectre/<name> of the repository the caller named, or
+// its base branch once the change has landed, and
 // the git log of the finish-run commits, derived here rather than in any
 // Bash the caller would have to run. The CLI transports the result and
 // constructs none of it, the record-render rule.

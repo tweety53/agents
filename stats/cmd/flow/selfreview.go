@@ -17,7 +17,7 @@ import (
 const selfReviewUsage = `usage: flow self-review bundle [-addr url] [-timeout dur] [-C dir]
                              -change name
 
-Prints a finished change's whole self-review context bundle on stdout --
+Prints a change's whole self-review context bundle on stdout --
 the ledger and panel record rendered from the store, the archived change's
 tasks.md, design.md and narrative.md, and the git log of the finish-run
 commits, assembled by the daemon. The CLI constructs none of it, the
@@ -55,8 +55,8 @@ contract: a store that cannot be reached exits non-zero with nothing on
 stdout.
 `
 
-// runSelfReview implements `flow self-review`: `bundle`, the read run 2
-// step 9 fetches its reasoning input through, and `finding`/`findings`, the
+// runSelfReview implements `flow self-review`: `bundle`, the read run 1's
+// bundle step fetches its reasoning input through, and `finding`/`findings`, the
 // write and read of each finding's outcome.
 func runSelfReview(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
@@ -82,7 +82,7 @@ func runSelfReviewBundle(ctx context.Context, args []string, stdout, stderr io.W
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	registerRecordConnFlags(fset, &f)
-	fset.StringVar(&f.change, "change", "", "the finished change whose bundle is served (required)")
+	fset.StringVar(&f.change, "change", "", "the change whose bundle is served (required)")
 
 	projectKey, mainCheckout, code := parseSelfReviewFlags(fset, &f, args, stderr)
 	if code >= 0 {

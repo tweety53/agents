@@ -32,9 +32,9 @@ func selfReviewPath(project, change, repo string) string {
 
 // TestSelfReviewBundleHandlerServesAssembledBundle drives the route end to
 // end over a real repository: the ledger renders from the recorded
-// dispatches, and the archived design.md is read out of the
-// chore/archive-<name> branch of the repository the request named — no
-// path arrives from the store.
+// dispatches, and the archived design.md is read out of the change branch
+// spectre/<name> of the repository the request named — no path arrives
+// from the store.
 func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 	repo := bundleGitRepo(t)
 	bundleCommit(t, repo, "spectre/changes/kan-1/tasks.md", "- [ ] 1. do it\n",
@@ -144,7 +144,7 @@ func bundleArchiveBranch(t *testing.T, repo, name string, files map[string]strin
 			t.Fatal(err)
 		}
 	}
-	bundleRunGit(t, repo, "checkout", "-b", "chore/archive-"+name)
+	bundleRunGit(t, repo, "checkout", "-b", "spectre/"+name)
 	bundleRunGit(t, repo, "add", "-A")
 	bundleRunGit(t, repo, "commit", "-m", "chore(spectre): archive "+name)
 	bundleRunGit(t, repo, "checkout", "main")

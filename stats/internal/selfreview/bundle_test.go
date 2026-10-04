@@ -42,11 +42,11 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 	}
 	g := &fakeGit{
 		responses: map[string]string{
-			"/repo show chore/archive-demo:spectre/changes/archive/demo/tasks.md": "# demo tasks\n",
+			"/repo show spectre/demo:spectre/changes/archive/demo/tasks.md": "# demo tasks\n",
 		},
 		failOn: map[string]bool{
-			"/repo show chore/archive-demo:spectre/changes/archive/demo/design.md":    true,
-			"/repo show chore/archive-demo:spectre/changes/archive/demo/narrative.md": true,
+			"/repo show spectre/demo:spectre/changes/archive/demo/design.md":    true,
+			"/repo show spectre/demo:spectre/changes/archive/demo/narrative.md": true,
 		},
 	}
 
@@ -143,7 +143,7 @@ func TestUnreadableRepoProbeIsGitDir(t *testing.T) {
 			repo + " rev-parse --git-dir": repo + "/.git",
 		},
 		failOn: map[string]bool{
-			repo + " show chore/archive-demo:spectre/changes/archive/demo/tasks.md": true,
+			repo + " show spectre/demo:spectre/changes/archive/demo/tasks.md": true,
 		},
 	}
 
@@ -187,8 +187,8 @@ func TestBundleAssemblyReadsArchivedFilesThroughGit(t *testing.T) {
 
 func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	repo := gitRepo(t)
-	// The archive branch is cut from main AFTER the implementation and
-	// planning commits, as run 2 cuts it — the branch carries all three
+	// The archive commit sits on the change branch above the implementation
+	// and planning commits, as run 1 makes it — the branch carries all three
 	// commits, which is what lets the derivation resolve them from the
 	// branch alone.
 	implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
@@ -298,8 +298,8 @@ func TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing(t *testing.T) {
 
 // TestBundleAssemblyFallsBackToCommittedRecords pins the KAN-552 fallback:
 // a change whose rows never reached the store — the kan-468 failure —
-// still gets its ledger and panel sections, read out of the copies run 2
-// step 4 commits onto the archive branch. The sections are labelled by the
+// still gets its ledger and panel sections, read out of the copies run 1's
+// archive commit carries. The sections are labelled by the
 // committed path, the one provenance that is true of their content.
 func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
 	repo := gitRepo(t)
@@ -343,7 +343,7 @@ func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
 
 // TestBundleAssemblyPrefersStoreRenderOverCommittedRecord pins the
 // precedence: the store is the terminal record, so rows that DID reach it
-// render the sections and the step-4 committed copies are never served
+// render the sections and the archive commit's copies are never served
 // beside them.
 func TestBundleAssemblyPrefersStoreRenderOverCommittedRecord(t *testing.T) {
 	repo := gitRepo(t)
@@ -379,7 +379,7 @@ func TestBundleAssemblyPrefersStoreRenderOverCommittedRecord(t *testing.T) {
 }
 
 // TestBundleAssemblySkipsCommittedRecordsWhenAbsent keeps the fallback
-// honest in the other direction: a readable archive branch that carries no
+// honest in the other direction: a readable archive commit that carries no
 // copies leaves the store labels' skip lines exactly as they were.
 func TestBundleAssemblySkipsCommittedRecordsWhenAbsent(t *testing.T) {
 	repo := gitRepo(t)
@@ -419,11 +419,11 @@ func TestDeriveFinishCommitsRefusesMergeParent(t *testing.T) {
 	merge := mergeCommit(t, repo, "side", "Merge branch 'side'")
 	commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n",
 		"chore(spectre): plan and session records")
-	// The archive branch is cut last, so the derivation's branch-scoped
+	// The change branch is cut last, so the derivation's branch-scoped
 	// queries see the merge and the plan commit.
 	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	fc := deriveFinishCommits(ExecRunner{}, repo, "demo")
+	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
 	if fc.impl != "" {
 		t.Errorf("merge commit %s accepted as the implementation commit", merge)
 	}
@@ -443,7 +443,7 @@ func TestDeriveFinishCommitsRefusesPlanningOnlyParent(t *testing.T) {
 		"chore(spectre): plan and session records")
 	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	fc := deriveFinishCommits(ExecRunner{}, repo, "demo")
+	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
 	if fc.impl != "" {
 		t.Errorf("planning-only commit accepted as the implementation commit below %s", planSHA)
 	}
@@ -461,20 +461,54 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 	planSHA := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n",
 		"chore(spectre): plan and session records")
 	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
-	// A later commit ON THE ARCHIVE BRANCH, whose subject carries the
+	// A later commit ON THE CHANGE BRANCH, whose subject carries the
 	// change's name as a proper prefix of a DIFFERENT change's archive
 	// subject.
-	runGit(t, repo, "checkout", "chore/archive-demo")
+	runGit(t, repo, "checkout", "spectre/demo")
 	commitAll(t, repo, "spectre/changes/archive/demo/notes.md", "note\n",
 		"chore(spectre): archive demo-fix-1")
 	runGit(t, repo, "checkout", "main")
 
-	fc := deriveFinishCommits(ExecRunner{}, repo, "demo")
+	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
 	if fc.archive != archiveSHA {
 		t.Errorf("archive sha = %s, want the change's own %s", fc.archive, archiveSHA)
 	}
 	if fc.plan != planSHA || fc.impl != implSHA {
 		t.Errorf("plan/impl = %s/%s, want %s/%s", fc.plan, fc.impl, planSHA, implSHA)
+	}
+}
+
+// TestBundleAssemblyReadsArchiveFromBaseAfterMerge pins the post-merge
+// read: once the change branch has landed and been deleted, the archived
+// directory lives on the base branch, and the bundle finds it there —
+// through origin/<base> when the fetch has seen the merge, through the local
+// <base> when only that has moved.
+func TestBundleAssemblyReadsArchiveFromBaseAfterMerge(t *testing.T) {
+	for _, tc := range []struct{ name, originAt string }{
+		{"origin base carries the merge", "main"},
+		{"only local base carries the merge", "main~1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			implSHA := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+			commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
+			runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+			runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+			archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
+			runGit(t, repo, "merge", "-q", "--ff-only", "spectre/demo")
+			runGit(t, repo, "branch", "-D", "spectre/demo")
+			runGit(t, repo, "update-ref", "refs/remotes/origin/main", tc.originAt)
+
+			bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})
+			if err != nil {
+				t.Fatalf("Bundle: %v", err)
+			}
+			for _, want := range []string{"## spectre/changes/archive/demo/tasks.md", "# demo tasks", "commit " + archiveSHA, "commit " + implSHA} {
+				if !strings.Contains(bundle, want) {
+					t.Errorf("bundle missing %q:\n%s", want, bundle)
+				}
+			}
+		})
 	}
 }
 
@@ -498,8 +532,8 @@ func gitRepo(t *testing.T) string {
 }
 
 // writeArchiveBranch creates the archived change's files and commits them
-// on chore/archive-<name>, then returns to main — run 2's archive step in
-// miniature, returning the archive commit's sha.
+// on the change's own branch spectre/<name>, then returns to main — run 1's
+// archive step in miniature, returning the archive commit's sha.
 func writeArchiveBranch(t *testing.T, repo, name string, files map[string]string) string {
 	t.Helper()
 	for file, body := range files {
@@ -511,7 +545,7 @@ func writeArchiveBranch(t *testing.T, repo, name string, files map[string]string
 			t.Fatal(err)
 		}
 	}
-	runGit(t, repo, "checkout", "-b", "chore/archive-"+name)
+	runGit(t, repo, "checkout", "-b", "spectre/"+name)
 	runGit(t, repo, "add", "-A")
 	runGit(t, repo, "commit", "-m", "chore(spectre): archive "+name)
 	out, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()

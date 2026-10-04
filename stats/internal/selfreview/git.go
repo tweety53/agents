@@ -1,16 +1,15 @@
-// Package selfreview assembles the self-review context bundle a finished
-// change's reasoning pass reads — the six sources run 2 step 9 judges a
-// change by, served from the store and the change's own repository instead
-// of gathered from files a Bash script had to be pointed at.
+// Package selfreview assembles the self-review context bundle a change's
+// reasoning pass reads — the sources run 1's bundle step judges a change
+// by, served from the store and the change's own repository instead of
+// gathered from files a Bash script had to be pointed at.
 //
 // Everything this package reads is read through git (`git -C <repo>`) or
 // rendered from the run record; no path any caller supplies is resolved
 // against this process's working directory, and the archived change is
-// read out of the `chore/archive-<name>` branch's committed tree rather
-// than out of any worktree's working files — which is what removes the
-// landing-worktree path coupling the Bash gather carried, both in its
-// invocation (the caller passed the worktree path in) and in its output
-// (the bundle's own section labels quoted that absolute path back).
+// read out of a committed tree — the change branch `spectre/<name>` while
+// it exists, the base branch once it has landed — rather than out of any
+// worktree's working files, so neither the invocation nor the bundle's own
+// section labels carry a worktree path.
 package selfreview
 
 import (
@@ -24,14 +23,11 @@ import (
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
-// archiveBranch is the branch run 2's archive step commits the archived
-// change onto (prepare-archive-branch.sh's own name). It exists as a local
-// branch in the repository's shared object store while step 9 runs — the
-// landing worktree that checked it out is not removed until step 11 — so
-// reading the archived files through `git show <branch>:<path>` needs no
-// worktree path at all, and keeps working after cleanup for as long as the
-// branch lives.
-const archiveBranchPrefix = "chore/archive-"
+// changeBranchPrefix names the branch run 1 archives the change on, in its
+// apply worktree. The branch lives in the repository's shared ref store, so
+// `git show <branch>:<path>` from the main checkout reads it with no
+// worktree path at all.
+const changeBranchPrefix = "spectre/"
 
 // probeFile is the archived file whose presence decides that a repository
 // carries THIS change's archive, not merely a same-named branch: spectre
@@ -98,7 +94,7 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 
 // finishCommits is the three-commit spine of the git-log source: the
 // implementation commit and the planning commit (finish run 1's own
-// two-commit chain), plus run 2's archive commit. Any member may be empty —
+// two-commit chain), plus run 1's archive commit. Any member may be empty —
 // a change finished without one of them keeps the others rather than
 // failing the source.
 type finishCommits struct {
@@ -109,12 +105,9 @@ type finishCommits struct {
 
 // deriveFinishCommits resolves the three shas for change name out of repo,
 // under the same rules the retired Bash gather stated for the same query.
-// Every query starts from the archive branch, not HEAD: at step 9 the
-// implementation and planning commits are already on the default branch,
-// but the archive commit lives on chore/archive-<name> alone — the gather
-// saw it only because its process cwd sat in the landing worktree whose
-// HEAD was that branch, and naming the branch explicitly is what lets the
-// app see the same three commits from any checkout of the repository.
+// Every query starts from rev — the revision archiveRev found the archived
+// change on — never HEAD: naming it explicitly is what lets the app see the
+// same three commits from any checkout of the repository.
 //
 //   - the archive commit is the most recent commit whose subject is exactly
 //     `chore(spectre): archive <name>`;
@@ -125,7 +118,7 @@ type finishCommits struct {
 //     not commit-specific (a later typo fix to the archived directory would
 //     outrank the real planning commit by recency); subject alone is not
 //     change-specific (the fixed literal is identical across changes); the
-//     live pathspec alone still finds the commit after run 2's `git mv`
+//     live pathspec alone still finds the commit after the archive's `git mv`
 //     because `git log -- <path>` filters each commit by its own
 //     historical tree;
 //   - the implementation commit is the planning commit's first parent,
@@ -136,23 +129,21 @@ type finishCommits struct {
 //
 // Every git failure degrades to an empty sha, the gather's `|| true`
 // semantics: a missing source is never fatal to the bundle.
-func deriveFinishCommits(g Runner, repo, name string) finishCommits {
+func deriveFinishCommits(g Runner, repo, rev, name string) finishCommits {
 	nameRe := regexp.QuoteMeta(name)
 
 	shapes := reservedShapes(nameRe)
 
 	var out finishCommits
 
-	branch := archiveBranchPrefix + name
-
-	out.archive = trimmedOutput(g.Output(repo, "log", branch, "-E",
+	out.archive = trimmedOutput(g.Output(repo, "log", rev, "-E",
 		"--grep="+shapes.archive, "--max-count=1", "--format=%H"))
 
 	// Only the LIVE pathspec is searched, never the archived location:
 	// `git log -- <path>` filters each commit by its own historical tree,
-	// so the planning commit resolves even after run 2's `git mv` renamed
-	// the directory into the archive.
-	out.plan = trimmedOutput(g.Output(repo, "log", branch, "-E",
+	// so the planning commit resolves even after the archive's `git mv`
+	// renamed the directory.
+	out.plan = trimmedOutput(g.Output(repo, "log", rev, "-E",
 		"--grep="+shapes.planNew, "--grep="+shapes.planOld,
 		"--max-count=1", "--format=%H",
 		"--", liveDir+"/"+name))
@@ -235,34 +226,50 @@ func show(g Runner, repo, rev, path string) ([]byte, error) {
 	return g.Output(repo, "show", rev+":"+path)
 }
 
-// committedRecord reads one of run 2 step 4's preserved record copies —
-// spectre/changes/archive/<name>/<file> off the change's archive branch —
-// and reports whether it exists. With no archive repository, or a copy the
-// branch does not carry, it reports absence: the fallback exists for the
-// store-less change, never instead of the store.
-func committedRecord(g Runner, repo, branch, name, file string) (string, bool) {
+// committedRecord reads one of the archive commit's preserved record copies
+// — spectre/changes/archive/<name>/<file> at rev — and reports whether it
+// exists. With no archive repository, or a copy rev does not carry, it
+// reports absence: the fallback exists for the store-less change, never
+// instead of the store.
+func committedRecord(g Runner, repo, rev, name, file string) (string, bool) {
 	if repo == "" {
 		return "", false
 	}
-	content, err := show(g, repo, branch, archiveDir+"/"+name+"/"+file)
+	content, err := show(g, repo, rev, archiveDir+"/"+name+"/"+file)
 	if err != nil {
 		return "", false
 	}
 	return string(content), true
 }
 
-// archiveRepo returns the first recorded repository whose
-// chore/archive-<name> branch carries this change's own archived directory
-// — probed on the archived tasks.md's content, not on branch existence
-// alone: a stale or same-prefixed branch that happens to exist is never
-// the repository the archived change lives in. Repos are probed in the
-// order the caller listed them; a change with no repository carrying the
-// archived directory yields "".
-func archiveRepo(g Runner, repos []string, name string) string {
-	branch := archiveBranchPrefix + name
+// archiveRepo returns the first recorded repository, and the revision in
+// it, carrying this change's own archived directory — probed on the
+// archived tasks.md's content, not on branch existence alone. Repos are
+// probed in the order the caller listed them; a change with no repository
+// carrying the archived directory yields "", "".
+func archiveRepo(g Runner, repos []string, name string) (string, string) {
 	for _, repo := range repos {
-		if _, err := show(g, repo, branch, archiveDir+"/"+name+"/"+probeFile); err == nil {
-			return repo
+		if rev := archiveRev(g, repo, name); rev != "" {
+			return repo, rev
+		}
+	}
+	return "", ""
+}
+
+// archiveRev returns the first revision in repo whose tree carries the
+// archived change: the change branch spectre/<name>, where run 1 archives
+// it, while that branch exists; then origin/<base> and <base> — the base
+// being what origin/HEAD points at — once the branch has landed and been
+// removed, origin's tip first because the local base may lag it. "" when
+// none carries it.
+func archiveRev(g Runner, repo, name string) string {
+	revs := []string{changeBranchPrefix + name}
+	if remote := trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); strings.HasPrefix(remote, "origin/") {
+		revs = append(revs, remote, strings.TrimPrefix(remote, "origin/"))
+	}
+	for _, rev := range revs {
+		if _, err := show(g, repo, rev, archiveDir+"/"+name+"/"+probeFile); err == nil {
+			return rev
 		}
 	}
 	return ""
@@ -352,8 +359,8 @@ func trimmedOutput(b []byte, err error) string {
 // run renders the ledger and panel sources —
 // each present only when the run holds rows of its kind, so a change the
 // store has never heard of reports both skipped rather than rendering
-// empty records nobody wrote; a skipped one falls back to the copies run 2
-// step 4 commits onto the archive branch as
+// empty records nobody wrote; a skipped one falls back to the copies the
+// archive commit carries as
 // spectre/changes/archive/<change>/ledger.md and panel.md (KAN-552 — the
 // worktree renders die with the worktree, and rows that never reached the
 // store leave those copies the only source), labelled by the committed
@@ -414,23 +421,22 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	if panelRan && len(run.Dispatches) == 0 {
 		notes = append(notes, "note: RECORDS LOSS — a flow.review-panel stage run completed for "+change+", but the store holds no dispatch rows for it: the run's dispatch and finding records never reached this store, most plausibly written to a per-workspace database later removed at cleanup. The ledger and panel sources below are absent or degraded for that reason, not because no panel ran.")
 	}
-	repo := archiveRepo(g, repos, change)
+	repo, rev := archiveRepo(g, repos, change)
 	if repo == "" {
 		for _, broken := range unreadableRepos(g, repos) {
 			notes = append(notes, "note: repository "+broken+" could not be read — its archive sources are reported skipped for that reason, not because the change was never archived")
 		}
 	}
-	branch := archiveBranchPrefix + change
 
 	// The store renders: the ledger needs dispatch rows (RenderKind's own
 	// rule); the panel needs any row of the run at all, so an unknown
 	// change's empty run never renders a findings-total: 0 record nobody
 	// wrote. records.Run.HasRows is the one home of that row set. A render
-	// the store cannot produce falls back to the step-4 committed copy.
+	// the store cannot produce falls back to the archive commit's copy.
 	ledger, ledgerOK := records.RenderKind("ledger", run)
 	if ledgerOK {
 		add(".superpowers/sdd/ledgers/"+change+".md", ledger, true)
-	} else if content, ok := committedRecord(g, repo, branch, change, "ledger.md"); ok {
+	} else if content, ok := committedRecord(g, repo, rev, change, "ledger.md"); ok {
 		add(archiveDir+"/"+change+"/ledger.md", content, true)
 	} else {
 		add(".superpowers/sdd/ledgers/"+change+".md", "", false)
@@ -438,7 +444,7 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	panel, _ := records.RenderKind("panel", run)
 	if run.HasRows() {
 		add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, true)
-	} else if content, ok := committedRecord(g, repo, branch, change, "panel.md"); ok {
+	} else if content, ok := committedRecord(g, repo, rev, change, "panel.md"); ok {
 		add(archiveDir+"/"+change+"/panel.md", content, true)
 	} else {
 		add(".superpowers/sdd/reviews/"+change+"-panel.md", "", false)
@@ -447,7 +453,7 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	if repo != "" {
 		for _, file := range []string{"tasks.md", "design.md", "narrative.md"} {
 			label := archiveDir + "/" + change + "/" + file
-			content, err := show(g, repo, branch, label)
+			content, err := show(g, repo, rev, label)
 			add(label, string(content), err == nil)
 		}
 	} else {
@@ -458,7 +464,7 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 
 	gitLog := ""
 	if repo != "" {
-		gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, change))
+		gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change))
 	} else if mainRepo := firstReadableRepo(g, repos); mainRepo != "" {
 		gitLog = changeBranchLog(g, mainRepo, change)
 	}

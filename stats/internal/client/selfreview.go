@@ -22,7 +22,7 @@ func (c *Client) selfReviewBundleURL(project, change, repo string) string {
 	return u
 }
 
-// GetSelfReviewBundle fetches a finished change's whole self-review
+// GetSelfReviewBundle fetches a change's whole self-review
 // context bundle, assembled server-side by flowd. repo is the repository
 // root the archive-derived sources are read from — the caller resolves it
 // from its own location in the repository, the way every flow command
