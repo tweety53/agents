@@ -145,8 +145,8 @@ Moved verbatim (KAN-859), where it followed "**Never fall back to `HEAD@{upstrea
 bare `/flow` runs inside the apply worktree, where
 `HEAD` *is* `spectre/<name>` — so that fallback resolves to the change's **own** upstream, making
 the merge check `spectre/<name>` vs `origin/spectre/<name>`, which is true the moment the branch
-is pushed. That silently reports an unmerged change as merged, and run 2 then archives it and
-deletes its worktree. `resolve-base-branch.sh` is where this rule is enforced: it never
+is pushed. That silently reports an unmerged change as merged, and run 2 then deletes its
+worktree. `resolve-base-branch.sh` is where this rule is enforced: it never
 consults `HEAD@{upstream}`, and its assertion that `BASE` differs from the current branch is
 unconditional, which is what makes that class of misresolution impossible rather than merely
 unlikely.

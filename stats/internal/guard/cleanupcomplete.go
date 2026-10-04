@@ -253,7 +253,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 		note(fmt.Sprintf("SKIPPED: the remote-tracking ref row — git could not read %s in %s, so whether it survives was not established; a failure to look is not an absence", remoteRef, repo))
 	}
 
-	// Row four — the change directory, which run 2 moves into the archive;
+	// Row four — the change directory, which run 1 moves into the archive;
 	// then each <name>-fix-N sub-change, archived by its own call and
 	// therefore missable on its own (see the header note).
 	leaf := specRootLeaf(repo, stderr)
@@ -716,8 +716,8 @@ func ccWorkspaceID(name string) string {
 //     no value of it — valid, invalid, hostile — that turns an unverified row
 //     into a verified one, which is the only thing this guard must never do.
 //  3. What it CAN do is turn a working survivor report into a skip, and that
-//     is no longer a quiet outcome. Step 6 of **Run 2 — the branch is merged**
-//     (`skills/flow-contracts/pipeline.md`) requires the skip clause to be
+//     is no longer a quiet outcome. Step 4 of **Run 2 — the branch is merged**
+//     (`skills/flow-contracts/finish-contract-run2.md`) requires the skip clause to be
 //     relayed to the operator word for word, so the residual risk is closed at
 //     the consumer — which is where a verdict's meaning belongs.
 //  4. Every alternative broke the single-file rule the bash guard was copied

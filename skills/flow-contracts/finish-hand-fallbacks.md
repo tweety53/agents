@@ -20,12 +20,11 @@ verdicts and exit contract stay there.
 
 **Never substitute a commit count.** `git rev-list --count <base>..HEAD` is zero both for a branch
 with no commits and for a branch whose commits have joined the base branch, so it cannot separate the
-dangerous state from the correct terminal one, and using it would refuse every legitimate archive.
+dangerous state from the correct terminal one, and using it would refuse every legitimate run 2.
 
 **Signal 1 precedes signal 2, and that ordering is the point.** A branch with no commits of its own
 is an ancestor of every branch, so the ancestor test alone reports *merged* on a branch whose work is
-staged and never committed — after which run 2 archives the change and `--force`-removes the worktree
-holding all of it.
+staged and never committed — after which run 2 `--force`-removes the worktree holding all of it.
 
 **When the script is absent** — a harness whose repository does not carry it — perform the same three
 signals by hand in the same order and say in the handoff that the check was run manually. The check is

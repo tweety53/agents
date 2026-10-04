@@ -26,7 +26,7 @@ name `resolve-base-branch.sh` printed — never the bare local name on its own.
 | Verdict | Meaning |
 |---------|---------|
 | `RUN1` | integrate — the branch has not reached the base branch |
-| `RUN2` | archive — merged, and nothing is outstanding |
+| `RUN2` | clean up — merged, and nothing is outstanding |
 | `REFUSE` | stop and ask the operator before anything is archived |
 
 On a `REFUSE`, stop before touching anything, report `HEAD`, the base branch and the uncommitted

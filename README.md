@@ -95,7 +95,7 @@ flowchart TD
 - **The gate is the state.** No command exists just to record that you reviewed something.
 - **A fix never moves the state.** Re-run `/flow` with instructions, or describe the problem in the
   same session.
-- **Merge status alone decides** whether a bare `/flow` integrates or archives, so a PR merged on
+- **Merge status alone decides** whether a bare `/flow` integrates or cleans up, so a PR merged on
   the forge and one `/flow` merged itself look the same.
 - **Run 2 runs no tests or linters** and commits nothing: the archive and the self-review bundle
   ride the change's own branch, landing with the code.

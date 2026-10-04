@@ -15,8 +15,8 @@
 # block — see the asymmetry paragraph below — so a caller that reads the token
 # and discards the rest reports "cleanup verified" over a row nothing looked at,
 # which is this guard's whole argument inverted one layer up. The rule that the
-# clause is relayed word for word therefore lives with the consumer, in step 6
-# of **Run 2 — the branch is merged** (`skills/flow-contracts/pipeline.md`),
+# clause is relayed word for word therefore lives with the consumer, in step 4
+# of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`),
 # and is named here so a future editor of this line knows where it is kept.
 #
 # Exit 0 whenever a verdict was reached; exit 2 when it cannot answer at all —
@@ -175,7 +175,7 @@
 # command blocking on an interactive prompt. An unreachable host with no connect
 # timeout, a lock wait, a frozen container and an infinite loop are all untouched
 # by it. The bound is the 60 seconds **Worktree cleanup**
-# (`skills/flow-contracts/pipeline.md`) already gives the project-supplied
+# (`skills/flow-contracts/finish-contract-run2.md`) already gives the project-supplied
 # `## stop` command, and the OUTCOME deliberately differs: there a timeout is a
 # failed check, because an un-stopped stack is a reason not to remove a worktree
 # and there is no other answer to fall back on; here the contract already defines
