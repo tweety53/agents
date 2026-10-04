@@ -140,7 +140,7 @@ the run instructions**.
     `scripts/check-markdown-integrity.py` and `scripts/check-guard-symlinks.sh`; each exits 0.
   - [x] **Step 6: Commit** the file, with the `**Commit:**` subject.
 
-- [ ] 3. Planner: fan-out, live check and spec-timing rules
+- [x] 3. Planner: fan-out, live check and spec-timing rules
 
 **Files:** `skills/flow/brainstorm-planner.md`, `skills/flow/SKILL-rationale.md`, `README.md`
 **Tests:** **none** — pipeline prose.
@@ -157,7 +157,7 @@ the run instructions**.
 
 **Decision:** no-production-waits-in-specs
 
-  - [ ] **Step 1: Replace the live-verification paragraph.** In `skills/flow/brainstorm-planner.md`
+  - [x] **Step 1: Replace the live-verification paragraph.** In `skills/flow/brainstorm-planner.md`
     section D, replace the whole quoted paragraph opening `> **Write a live-verification task when
     the change touches a running service or persistent` with:
 
@@ -175,7 +175,7 @@ the run instructions**.
 > justification is required, the check is not.
 ```
 
-  - [ ] **Step 2: Add the fan-out and timing rules** directly after the quoted paragraph opening
+  - [x] **Step 2: Add the fan-out and timing rules** directly after the quoted paragraph opening
     `> **Write a feature's UI tests as their own follow-on task.**`:
 
 ```markdown unverified:new prose — check-references.sh and check-verbatim-moves.sh pass once listed
@@ -193,19 +193,19 @@ the run instructions**.
 > whose specs are independent runs on the test runner's parallel workers.
 ```
 
-  - [ ] **Step 3: Decide step 4 split.** In `### Decide` step 4, after the sentence ending `would
+  - [x] **Step 3: Decide step 4 split.** In `### Decide` step 4, after the sentence ending `would
     collapse a real parallel wave.`, insert: `**A mechanical group holding two or more
     verification-only bundles** — end-to-end specs or fidelity captures, none named in another's
     after-set — **is split, one group per such bundle**, \`groups_override\` naming the parallel
     wave, since the chain merge joins each to the group holding the feature task it waits on and
     runs them in series.`
-  - [ ] **Step 4: Model and effort.** In `#### Model and effort`, replace `fidelity captures or
+  - [x] **Step 4: Model and effort.** In `#### Model and effort`, replace `fidelity captures or
     baselines against design frames, or a live-verification record of an already-built feature,`
     with `fidelity captures or baselines against design frames of an already-built feature,`.
-  - [ ] **Step 5: Rationale and README.** In `skills/flow/SKILL-rationale.md`, retitle `### brainstorm-planner.md — D. Writing plans (live-verification task)` to `### brainstorm-planner.md — D. Writing plans (live check)`, keep its bullet, and add a bullet: `- *…never a live-verification task …* — (KAN-876) KAN-754's live task ran after the spec and capture tasks in one serial group and repeated, against a stack of its own, what \`flow.verify\` and visual verify already do against the running app.` Add under the same heading a bullet for the fan-out rule: `- *Write end-to-end spec and fidelity-capture tasks to run side by side* — (KAN-876) KAN-754 chained its fidelity task after its spec task with no file dependency, and the chain merge then ran them in series.` In the `## brainstorm-planner.md — Model and effort, the verification-only group (opus-low-verification)` section, drop `, a live-verification record` from its first sentence and add a closing sentence `KAN-876 folded the live-verification record into \`flow.verify\`; the pin now covers spec and capture groups.` In `README.md`'s class table, `(end-to-end specs, fidelity captures, a live-verification record)` becomes `(end-to-end specs, fidelity captures)`.
-  - [ ] **Step 6: Acknowledge.** Run `scripts/check-verbatim-moves.sh`; append every sentence it
+  - [x] **Step 5: Rationale and README.** In `skills/flow/SKILL-rationale.md`, retitle `### brainstorm-planner.md — D. Writing plans (live-verification task)` to `### brainstorm-planner.md — D. Writing plans (live check)`, keep its bullet, and add a bullet: `- *…never a live-verification task …* — (KAN-876) KAN-754's live task ran after the spec and capture tasks in one serial group and repeated, against a stack of its own, what \`flow.verify\` and visual verify already do against the running app.` Add under the same heading a bullet for the fan-out rule: `- *Write end-to-end spec and fidelity-capture tasks to run side by side* — (KAN-876) KAN-754 chained its fidelity task after its spec task with no file dependency, and the chain merge then ran them in series.` In the `## brainstorm-planner.md — Model and effort, the verification-only group (opus-low-verification)` section, drop `, a live-verification record` from its first sentence and add a closing sentence `KAN-876 folded the live-verification record into \`flow.verify\`; the pin now covers spec and capture groups.` In `README.md`'s class table, `(end-to-end specs, fidelity captures, a live-verification record)` becomes `(end-to-end specs, fidelity captures)`.
+  - [x] **Step 6: Acknowledge.** Run `scripts/check-verbatim-moves.sh`; append every sentence it
     prints after `::` to `verbatim-moves.txt`.
-  - [ ] **Step 7: Verify.** Run `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
+  - [x] **Step 7: Verify.** Run `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh` and
     `scripts/check-plan-shape.sh`; each exits 0.
-  - [ ] **Step 8: Commit** the three files, with the `**Commit:**` subject.
+  - [x] **Step 8: Commit** the three files, with the `**Commit:**` subject.
