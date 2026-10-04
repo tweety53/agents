@@ -11,6 +11,10 @@
 -- change is text, not a changes(id) FK: the change is FINISHED and possibly
 -- archived when its self-review runs. blast_radius is NULL for a finding
 -- with no file count, a product-code finding among them.
+--
+-- No uniqueness constraint, as incidents has none: a pass interrupted after
+-- its store writes and re-run records its findings again. The committed
+-- self-review report is the one record of what a pass decided.
 
 CREATE TABLE self_review_findings (
   id           BIGSERIAL PRIMARY KEY,
