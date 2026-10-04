@@ -115,7 +115,7 @@ reshape becomes `--force-with-lease`, on a branch only the run writes.
 
 Incident behind `aside-planning-artifacts.sh`, cited there as a parenthetical: KAN-628.
 
-## archive.md — 4. Commit the archive
+## integrate.md — Archive on the change branch
 
 Incident behind `check-archive-scope.sh`'s cannot-answer exit, cited there as a parenthetical:
 KAN-601.
@@ -941,7 +941,7 @@ and fixup commit back into the working tree, uncommitted; using the
 stale value here would also collapse in the upstream commits the rebase just brought in, silently
 smuggling them into the implementation commit below.
 
-### archive.md — 4. Commit the archive, the `bash -c` pin (KAN-859)
+### integrate.md — Archive on the change branch, the `bash -c` pin (KAN-859)
 
 Moved verbatim from the paragraph after step 4's shell block; the duplicate sentences around it were cut, step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) being canonical for them:
 

@@ -253,8 +253,7 @@ defined; the two call sites point here rather than each describing them.
 
    **Both halves share one numbered step deliberately.** They are one act — undoing what this
    change's run created — with an order between them that has to hold, and giving the removal a
-   number of its own would renumber steps 7, 8 and 9, which are cited *by number* from
-   `skills/flow/archive.md`.
+   number of its own would renumber the steps `skills/flow/cleanup.md` cites *by number*.
 
 ### Worktree cleanup
 

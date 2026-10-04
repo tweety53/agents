@@ -153,13 +153,13 @@ Moved verbatim, the paragraph that followed it:
 
 **"Here and nowhere else" is a duty on the producing skills, not a claim about them.** Each of the
 three phase files — `skills/flow/verify-and-handoff.md`, `skills/flow/integrate.md` and
-`skills/flow/archive.md` — carries the block it prints, and each **cites this section as the
+`skills/flow/cleanup.md` — carries the block it prints, and each **cites this section as the
 definition** at that block. A block sitting in a skill with no citation is a second, independently
 authored definition however faithfully it happens to match today, and it is exactly how the two
 copies drift: nothing tells the next editor of the skill that this file exists. The citation is what
 turns three copies into one definition and three renderings of it.
 
-Moved verbatim from the `FINISHED` paragraph, describing the terminal block `skills/flow/archive.md`
+Moved verbatim from the `FINISHED` paragraph, describing the terminal block `skills/flow/cleanup.md`
 prints: That block also carries `**Self-review:** deferred —
 docs/self-review/<name>-context.md`, immediately after
 `**Cleanup:** verified`, naming step 9's outcome, and `**Guards:** all present | N missing — those

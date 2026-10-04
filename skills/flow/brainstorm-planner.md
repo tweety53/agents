@@ -52,8 +52,8 @@ conflicting design.
 
 A Done-when names only committed, tracked paths of the repository it belongs to — never a
 gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done
-criterion nothing satisfies — and the archive commit refuses one that does, enforced by **Run 2 —
-the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
+criterion nothing satisfies — and the archive commit refuses one that does, enforced by **Archive on
+the change branch** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ### Stage exit — never the command's own judgment
 
