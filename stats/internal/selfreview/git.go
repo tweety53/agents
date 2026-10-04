@@ -92,74 +92,65 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
-// finishCommits is the three-commit spine of the git-log source: the
-// implementation commit and the planning commit (finish run 1's own
-// two-commit chain), plus run 1's archive commit. Any member may be empty —
-// a change finished without one of them keeps the others rather than
-// failing the source.
-type finishCommits struct {
-	impl    string
-	plan    string
-	archive string
-}
-
-// deriveFinishCommits resolves the three shas for change name out of repo,
-// under the same rules the retired Bash gather stated for the same query.
-// Every query starts from rev — the revision archiveRev found the archived
-// change on — never HEAD: naming it explicitly is what lets the app see the
-// same three commits from any checkout of the repository.
+// deriveFinishCommits resolves every implementation, planning and archive
+// commit of change name out of repo, oldest first, under the same rules
+// the retired Bash gather stated for one triple of them. Every query
+// starts from rev — the revision archiveRev found the archived change on —
+// never HEAD: naming it explicitly is what lets the app see the same
+// commits from any checkout of the repository. A change carries more than
+// one implementation-and-planning pair once an archived re-run
+// (skills/flow-contracts/finish-contract-run1.md) committed its own, and
+// self-review covers the whole change, so every pair is listed.
 //
-//   - the archive commit is the most recent commit whose subject is exactly
+//   - an archive commit is a commit whose subject is exactly
 //     `chore(spectre): archive <name>`;
-//   - the planning commit is the most recent commit that BOTH carries a
-//     plan-commit subject — the current fixed literal `chore(spectre):
-//     plan`, or either pre-rename wording scoped to the change — AND
-//     touched the change's live spectre/changes/<name>/ path or its
-//     archived spectre/changes/archive/<name>/ one. Path alone is not
+//   - a planning commit is a commit that BOTH carries a plan-commit
+//     subject — the current fixed literal `chore(spectre): plan`, or either
+//     pre-rename wording scoped to the change — AND touched the change's
+//     live spectre/changes/<name>/ path or its archived
+//     spectre/changes/archive/<name>/ one. Path alone is not
 //     commit-specific (the archive commit itself touches both); subject
 //     alone is not change-specific (the fixed literal is identical across
 //     changes). The archived path is what finds an archived re-run's
-//     planning commit (skills/flow-contracts/finish-contract-run1.md), so
-//     the bundle it regenerates describes the fix run's implementation;
-//   - the implementation commit is the planning commit's first parent,
+//     planning commit;
+//   - each planning commit's implementation commit is its first parent,
 //     accepted only when it is a non-merge commit, matches none of the
 //     three reserved subject shapes, and touches at least one path outside
 //     spectre/changes/, docs/research/ and docs/superpowers/ — anything
-//     else resolves NOTHING rather than a confident wrong answer.
+//     else resolves NOTHING rather than a confident wrong answer — and
+//     listed directly before its planning commit.
 //
-// Every git failure degrades to an empty sha, the gather's `|| true`
-// semantics: a missing source is never fatal to the bundle.
-func deriveFinishCommits(g Runner, repo, rev, name string) finishCommits {
+// Every git failure degrades to an empty list, or a pair without its
+// implementation commit, the gather's `|| true` semantics: a missing
+// source is never fatal to the bundle.
+func deriveFinishCommits(g Runner, repo, rev, name string) []string {
 	nameRe := regexp.QuoteMeta(name)
-
 	shapes := reservedShapes(nameRe)
-
-	var out finishCommits
-
-	out.archive = trimmedOutput(g.Output(repo, "log", rev, "-E",
-		"--grep="+shapes.archive, "--max-count=1", "--format=%H"))
+	archiveRe := regexp.MustCompile(shapes.archive)
 
 	// The live pathspec finds run 1's planning commit even after the
 	// archive's `git mv` renamed the directory, since `git log -- <path>`
 	// filters each commit by its own historical tree; the archived one
 	// finds an archived re-run's, made after a fix run wrote into the
-	// archived directory. The subject keeps the archive commit itself out.
-	out.plan = trimmedOutput(g.Output(repo, "log", rev, "-E",
-		"--grep="+shapes.planNew, "--grep="+shapes.planOld,
-		"--max-count=1", "--format=%H",
+	// archived directory. The archive commit renames the one into the
+	// other, so the same pathspec carries it.
+	found := trimmedOutput(g.Output(repo, "log", rev, "--reverse", "-E",
+		"--grep="+shapes.planNew, "--grep="+shapes.planOld, "--grep="+shapes.archive,
+		"--format=%H %s",
 		"--", liveDir+"/"+name, archiveDir+"/"+name))
 
-	if out.plan == "" {
-		return out
-	}
-
-	parent, err := g.Output(repo, "rev-parse", out.plan+"^")
-	if err != nil {
-		return out
-	}
-	impl := strings.TrimSpace(string(parent))
-	if isRealImplCommit(g, repo, impl, nameRe) {
-		out.impl = impl
+	var out []string
+	for _, line := range strings.Split(found, "\n") {
+		sha, subject, _ := strings.Cut(line, " ")
+		if sha == "" {
+			continue
+		}
+		if !archiveRe.MatchString(subject) {
+			if impl := trimmedOutput(g.Output(repo, "rev-parse", sha+"^")); isRealImplCommit(g, repo, impl, nameRe) {
+				out = append(out, impl)
+			}
+		}
+		out = append(out, sha)
 	}
 	return out
 }
@@ -325,14 +316,10 @@ func changeBranchLog(g Runner, repo, change string) string {
 }
 
 // gitLogSection renders the git-log source's content: `git log --stat -1`
-// per resolved sha, implementation, planning, archive in that order — the
-// same three commits in the same order the gather printed.
-func gitLogSection(g Runner, repo string, fc finishCommits) string {
+// per resolved sha, in deriveFinishCommits's oldest-first order.
+func gitLogSection(g Runner, repo string, shas []string) string {
 	var b strings.Builder
-	for _, sha := range []string{fc.impl, fc.plan, fc.archive} {
-		if sha == "" {
-			continue
-		}
+	for _, sha := range shas {
 		if logStat, err := g.Output(repo, "log", "--stat", "-1", sha); err == nil {
 			b.Write(logStat)
 			b.WriteString("\n")

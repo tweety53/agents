@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -417,18 +418,15 @@ func TestDeriveFinishCommitsRefusesMergeParent(t *testing.T) {
 	_ = commitAll(t, repo, "side.txt", "side\n", "side")
 	runGit(t, repo, "checkout", "main")
 	merge := mergeCommit(t, repo, "side", "Merge branch 'side'")
-	commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n",
+	planSHA := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n",
 		"chore(spectre): plan and session records")
 	// The change branch is cut last, so the derivation's branch-scoped
 	// queries see the merge and the plan commit.
-	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
+	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
-	if fc.impl != "" {
-		t.Errorf("merge commit %s accepted as the implementation commit", merge)
-	}
-	if fc.plan == "" || fc.archive == "" {
-		t.Errorf("plan and archive commits must still resolve, got %+v", fc)
+	got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
+	if want := []string{planSHA, archiveSHA}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v — merge commit %s must never be the implementation commit", got, want, merge)
 	}
 }
 
@@ -441,14 +439,11 @@ func TestDeriveFinishCommitsRefusesPlanningOnlyParent(t *testing.T) {
 	commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n", "work")
 	planSHA := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [ ] 1. do it\n\t- [ ] step\n",
 		"chore(spectre): plan and session records")
-	writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
+	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "# demo tasks\n"})
 
-	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
-	if fc.impl != "" {
-		t.Errorf("planning-only commit accepted as the implementation commit below %s", planSHA)
-	}
-	if fc.plan == "" || fc.archive == "" {
-		t.Errorf("plan and archive commits must still resolve, got %+v", fc)
+	got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
+	if want := []string{planSHA, archiveSHA}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v — a planning-only parent is never the implementation commit", got, want)
 	}
 }
 
@@ -469,24 +464,21 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 		"chore(spectre): archive demo-fix-1")
 	runGit(t, repo, "checkout", "main")
 
-	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
-	if fc.archive != archiveSHA {
-		t.Errorf("archive sha = %s, want the change's own %s", fc.archive, archiveSHA)
-	}
-	if fc.plan != planSHA || fc.impl != implSHA {
-		t.Errorf("plan/impl = %s/%s, want %s/%s", fc.plan, fc.impl, planSHA, implSHA)
+	got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
+	if want := []string{implSHA, planSHA, archiveSHA}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want the change's own %v", got, want)
 	}
 }
 
 // TestDeriveFinishCommitsFollowsArchivedRerun pins the archived re-run of
 // integrate: a fix run after run 1 archived the change commits a new
 // implementation commit and a planning commit over the ARCHIVED directory
-// on the change branch, and the regenerated bundle describes those, not
-// the first run 1's pair.
+// on the change branch, and the regenerated bundle describes those after
+// run 1's pair and the archive commit.
 func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
 	repo := gitRepo(t)
-	commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
-	commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
+	impl1 := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+	plan1 := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
 	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "- [x] 1. do it\n"})
 	runGit(t, repo, "checkout", "spectre/demo")
 	commitAll(t, repo, "docs/self-review/demo-context.md", "bundle\n",
@@ -496,9 +488,45 @@ func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
 		"chore(spectre): plan")
 	runGit(t, repo, "checkout", "main")
 
-	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
-	if fc.plan != planSHA || fc.impl != implSHA || fc.archive != archiveSHA {
-		t.Errorf("got %+v, want plan %s, impl %s, archive %s", fc, planSHA, implSHA, archiveSHA)
+	got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
+	if want := []string{impl1, plan1, archiveSHA, implSHA, planSHA}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// TestBundleAssemblyListsEveryCommitOfArchivedRerun pins the whole-change
+// git-log source: an archived re-run's regenerated bundle lists run 1's
+// implementation and planning commits and the archive commit as well as
+// the re-run's own pair, oldest first — self-review covers the whole
+// change, never only its newest pair.
+func TestBundleAssemblyListsEveryCommitOfArchivedRerun(t *testing.T) {
+	repo := gitRepo(t)
+	impl1 := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+	plan1 := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
+	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "- [x] 1. do it\n"})
+	runGit(t, repo, "checkout", "spectre/demo")
+	commitAll(t, repo, "docs/self-review/demo-context.md", "bundle\n",
+		"docs(self-review): demo self-review context bundle")
+	impl2 := commitAll(t, repo, "app.go", "package main\n\nfunc f() {}\n", "fix(demo): the fix run's change")
+	plan2 := commitAll(t, repo, "spectre/changes/archive/demo/tasks.md", "- [x] 1. do it\n- [x] 2. fix\n",
+		"chore(spectre): plan")
+	runGit(t, repo, "checkout", "main")
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
+	last := -1
+	for _, sha := range []string{impl1, plan1, archiveSHA, impl2, plan2} {
+		at := strings.Index(gitLog, "commit "+sha)
+		if at < 0 {
+			t.Fatalf("git log section missing commit %s:\n%s", sha, gitLog)
+		}
+		if at < last {
+			t.Errorf("commit %s out of order (want oldest first):\n%s", sha, gitLog)
+		}
+		last = at
 	}
 }
 
