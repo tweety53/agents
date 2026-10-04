@@ -478,6 +478,30 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 	}
 }
 
+// TestDeriveFinishCommitsFollowsArchivedRerun pins the archived re-run of
+// integrate: a fix run after run 1 archived the change commits a new
+// implementation commit and a planning commit over the ARCHIVED directory
+// on the change branch, and the regenerated bundle describes those, not
+// the first run 1's pair.
+func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
+	repo := gitRepo(t)
+	commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+	commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
+	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "- [x] 1. do it\n"})
+	runGit(t, repo, "checkout", "spectre/demo")
+	commitAll(t, repo, "docs/self-review/demo-context.md", "bundle\n",
+		"docs(self-review): demo self-review context bundle")
+	implSHA := commitAll(t, repo, "app.go", "package main\n\nfunc f() {}\n", "fix(demo): the fix run's change")
+	planSHA := commitAll(t, repo, "spectre/changes/archive/demo/tasks.md", "- [x] 1. do it\n- [x] 2. fix\n",
+		"chore(spectre): plan")
+	runGit(t, repo, "checkout", "main")
+
+	fc := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
+	if fc.plan != planSHA || fc.impl != implSHA || fc.archive != archiveSHA {
+		t.Errorf("got %+v, want plan %s, impl %s, archive %s", fc, planSHA, implSHA, archiveSHA)
+	}
+}
+
 // TestBundleAssemblyReadsArchiveFromBaseAfterMerge pins the post-merge
 // read: once the change branch has landed and been deleted, the archived
 // directory lives on the base branch, and the bundle finds it there —

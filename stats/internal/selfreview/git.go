@@ -114,13 +114,13 @@ type finishCommits struct {
 //   - the planning commit is the most recent commit that BOTH carries a
 //     plan-commit subject — the current fixed literal `chore(spectre):
 //     plan`, or either pre-rename wording scoped to the change — AND
-//     touched the change's live spectre/changes/<name>/ path. Path alone is
-//     not commit-specific (a later typo fix to the archived directory would
-//     outrank the real planning commit by recency); subject alone is not
-//     change-specific (the fixed literal is identical across changes); the
-//     live pathspec alone still finds the commit after the archive's `git mv`
-//     because `git log -- <path>` filters each commit by its own
-//     historical tree;
+//     touched the change's live spectre/changes/<name>/ path or its
+//     archived spectre/changes/archive/<name>/ one. Path alone is not
+//     commit-specific (the archive commit itself touches both); subject
+//     alone is not change-specific (the fixed literal is identical across
+//     changes). The archived path is what finds an archived re-run's
+//     planning commit (skills/flow-contracts/finish-contract-run1.md), so
+//     the bundle it regenerates describes the fix run's implementation;
 //   - the implementation commit is the planning commit's first parent,
 //     accepted only when it is a non-merge commit, matches none of the
 //     three reserved subject shapes, and touches at least one path outside
@@ -139,14 +139,15 @@ func deriveFinishCommits(g Runner, repo, rev, name string) finishCommits {
 	out.archive = trimmedOutput(g.Output(repo, "log", rev, "-E",
 		"--grep="+shapes.archive, "--max-count=1", "--format=%H"))
 
-	// Only the LIVE pathspec is searched, never the archived location:
-	// `git log -- <path>` filters each commit by its own historical tree,
-	// so the planning commit resolves even after the archive's `git mv`
-	// renamed the directory.
+	// The live pathspec finds run 1's planning commit even after the
+	// archive's `git mv` renamed the directory, since `git log -- <path>`
+	// filters each commit by its own historical tree; the archived one
+	// finds an archived re-run's, made after a fix run wrote into the
+	// archived directory. The subject keeps the archive commit itself out.
 	out.plan = trimmedOutput(g.Output(repo, "log", rev, "-E",
 		"--grep="+shapes.planNew, "--grep="+shapes.planOld,
 		"--max-count=1", "--format=%H",
-		"--", liveDir+"/"+name))
+		"--", liveDir+"/"+name, archiveDir+"/"+name))
 
 	if out.plan == "" {
 		return out
