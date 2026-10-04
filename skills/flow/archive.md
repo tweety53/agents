@@ -1,4 +1,4 @@
-# Archive and clean up (run 2)
+# Clean up (run 2)
 
 Loaded either by `skills/flow/integrate.md`'s merge-and-push route, in the same invocation, or by a
 fresh bare `/flow <name>` invocation once `check-finish-preflight.sh` returns `RUN2` from every

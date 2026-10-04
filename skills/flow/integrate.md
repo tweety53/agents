@@ -309,5 +309,5 @@ Continue, within the same invocation and without a further command from the oper
 ## After open PR or manual specifically
 
 Stop after the route completes, printing the handoff above. Each of these two routes needs an
-action outside this command's control before archiving can happen. The next bare `/flow <name>`
-call, once the branch is integrated, runs the archive phase.
+action outside this command's control before the branch merges. The next bare `/flow <name>`
+call, once the branch is integrated, runs run 2's cleanup (`skills/flow/archive.md`).
