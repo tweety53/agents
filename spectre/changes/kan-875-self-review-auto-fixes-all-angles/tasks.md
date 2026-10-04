@@ -43,7 +43,7 @@ against a real daemon.
   `fixed` without a sha-shaped ref and a `filed` without a key-shaped ref.
 - **Never blocks.** `flow self-review finding` exits 0 with one warning line when the store is
   unreachable (`store-write-never-blocks`).
-- **Sha after landing.** The skill reads each fixed finding's sha off `<default-branch>` after the
+- **Sha after landing.** The skill reads each fixed finding's sha off `<agents-base>` after the
   rebase, never from the pre-rebase branch.
 - **Main checkout.** The fix worktree is never the main checkout.
 

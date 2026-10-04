@@ -102,7 +102,7 @@ operator-attended command whose data the report already holds.
 **ID:** fixed-disposition
 **Status:** active
 **Chosen:** the report's finding line ends `— fixed: <sha>`, a 7–40 character lowercase hex sha,
-read off the landed branch after the rebase so it names the commit on `<default-branch>`.
+read off the landed branch after the rebase so it names the commit on `<agents-base>`.
 **Considered:** `declined` for a fixed finding — loses the fact; a free-text note — unparseable.
 
 ## Open questions
