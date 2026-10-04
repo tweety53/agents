@@ -1020,3 +1020,11 @@ drag gestures, an entrance removed — and a still capture compared against a mo
 say about any of it. **Rejected — detecting motion by grepping the diff for animation APIs.** The
 API names are per-framework and per-project; the parent naming the motions from `design.md`,
 `proposal.md` and the diff is the one rule that holds across projects.
+
+## brainstorm-planner.md — Model and effort, the verification-only group (opus-low-verification)
+
+The operator asked for `opus` at `low` on implementer groups that only verify an already-built
+feature — end-to-end specs, fidelity captures against design frames, a live-verification record.
+A gymie run had decided such a group (Tasks 23–25) `opus`/`medium`. The group writes tests and records against a fixed target, not production code, so it is pinned at
+`low` whatever `effort_roll` says. It stays `opus` because judging a capture or a live walk is
+judgement the `sonnet` allowance does not cover.

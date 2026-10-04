@@ -1,0 +1,3 @@
+# Sentences this change adds on purpose: a verification-only implementer group is pinned at opus/low
+# whatever effort_roll says. Nothing here is a trim.
+**A verification-only implementer group is `opus` at `low`, fixed, whatever the roll** — a group whose every task only adds end-to-end specs, fidelity captures or baselines against design frames, or a live-verification record of an already-built feature, and changes no production code.

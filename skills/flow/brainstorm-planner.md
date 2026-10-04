@@ -503,7 +503,10 @@ A micro decision records no pair, and a dispatch with no recorded pair — a mic
 **review-panel.md**'s no-decision dispatch, the tooling analyst — runs on the literal `opus`. `flow record
 decision` refuses a decision whose pairs name any other model. Pairs may repeat — two dispatches,
 or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. The rerun
-pair's effort is fixed at `low` (step 3). **When `effort_roll < 80`, every other `effort` is
+pair's effort is fixed at `low` (step 3). **A verification-only implementer group is `opus` at `low`, fixed, whatever the
+roll** — a group whose every task only adds end-to-end specs, fidelity captures or baselines
+against design frames, or a live-verification record of an already-built feature, and changes no
+production code. **When `effort_roll < 80`, every other `effort` is
 `medium`**, save a pair carrying a hard seam, which may take `high`, its `reason` naming the seam.
 When `effort_roll ≥ 80`, every other `effort` is the
 planner's own choice, one of `low`/`medium`/`high`, decided from what that dispatch will actually
