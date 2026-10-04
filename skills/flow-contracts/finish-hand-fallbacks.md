@@ -187,7 +187,7 @@ git -C "$REPO" worktree prune
   `--force` safe would be false: a gitignored `.env` passes checks 1 and 2 and is
   destroyed silently.
 - **`git branch -d`, never `-D`.** It must be free to refuse an unmerged branch.
-- **The upstream is pointed at `origin/<base>` before `-d`.** `-d` judges against the branch's upstream, else the main checkout's `HEAD`; a forge merge deletes `origin/spectre/<name>`, and the main checkout is refreshed only after cleanup, so judged against either it refuses a merged branch.
+- **The upstream is pointed at `origin/<base>` before `-d`.** `-d` judges against the branch's upstream, else the main checkout's `HEAD`; a forge merge deletes `origin/spectre/<name>`, and the main checkout is refreshed only after cleanup, so judged against either it refuses a merged branch. **A refused `-d` puts the previous upstream back** — `git -C "$REPO" branch --set-upstream-to=<previous upstream> "spectre/<name>"`, or `--unset-upstream` when it had none — so a surviving branch never tracks `origin/<base>`.
 - **An already-removed worktree is success**, not an error.
 
 Then the change's **remote** branch:

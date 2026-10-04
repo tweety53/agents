@@ -72,6 +72,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		fmt.Fprintf(stdout, "REFUSED: %s — check %d: %s\n", wt, check, rcwFlat(fmt.Sprintf(format, a...)))
 	}
 	unclassified := false
+	upstream := "" // origin/<base>, as check 3 resolved it for the first live worktree
 	for _, wt := range wts {
 		// 1. no uncommitted tracked changes.
 		if s, ok := capture(git("-C", wt, "status", "--porcelain", "--untracked-files=no")); !ok {
@@ -87,8 +88,11 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		}
 		// 3. no commits that exist only here, against a base resolved fresh
 		// for THIS worktree.
-		if msg := rcwOnlyHere(env, git, wt, stderr); msg != "" {
+		base, msg := rcwOnlyHere(env, git, wt, stderr)
+		if msg != "" {
 			fail(wt, 3, "%s", msg)
+		} else if upstream == "" {
+			upstream = "origin/" + base
 		}
 		// 4. what --force will destroy, split by path.
 		out, err := git("-C", wt, "ls-files", "-z", "--others", "--ignored", "--exclude-standard").Output()
@@ -191,17 +195,26 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		// merge never moved. Pointing the upstream at origin/<base> first
 		// makes -d judge against where the change landed, even after the
 		// forge deleted origin/spectre/<name> and a prune removed its ref.
-		upstream, _ := capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
-		if base := recordedBase(git, repo, branch); base != "" {
-			upstream = "origin/" + base
+		// With every worktree already gone there is no checkout of the branch
+		// for resolve-base-branch to read: the base recorded on the branch,
+		// else origin/HEAD's, stands in.
+		if upstream == "" {
+			upstream, _ = capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+			if base := recordedBase(git, repo, branch); base != "" {
+				upstream = "origin/" + base
+			}
 		}
-		if upstream = strings.TrimSpace(upstream); upstream != "" {
+		remote, _ := capture(git("-C", repo, "config", "--get", "branch."+branch+".remote"))
+		merge, _ := capture(git("-C", repo, "config", "--get", "branch."+branch+".merge"))
+		if upstream != "" {
 			_ = git("-C", repo, "branch", "-q", "--set-upstream-to="+upstream, branch).Run()
 		}
 		// -d, never -D: it must be free to refuse an unmerged branch.
 		if out, err := git("-C", repo, "branch", "-d", branch).CombinedOutput(); err != nil {
 			failed = true
 			fmt.Fprintf(stdout, "REFUSED: %s — git branch -d: %s\n", branch, rcwFlat(string(out)))
+			// A surviving branch keeps the upstream it had, never origin/<base>.
+			rcwRestoreUpstream(git, repo, branch, remote, merge)
 		} else {
 			fmt.Fprintf(stdout, "REMOVED: %s\n", branch)
 		}
@@ -229,27 +242,41 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 }
 
 // rcwOnlyHere is check 3: "" when HEAD is merged into origin/<base> or has
-// nothing its upstream lacks, else why not. A failed lookup never passes.
-func rcwOnlyHere(env Env, git func(...string) *exec.Cmd, wt string, stderr io.Writer) string {
-	var base bytes.Buffer
-	if rc := resolveBaseBranch([]string{wt}, env, &base, stderr); rc != 0 {
-		return fmt.Sprintf("cannot resolve the base branch (resolve-base-branch exit %d) — stop and ask", rc)
+// nothing its upstream lacks, else why not, with the base it resolved. A
+// failed lookup never passes.
+func rcwOnlyHere(env Env, git func(...string) *exec.Cmd, wt string, stderr io.Writer) (string, string) {
+	var buf bytes.Buffer
+	if rc := resolveBaseBranch([]string{wt}, env, &buf, stderr); rc != 0 {
+		return "", fmt.Sprintf("cannot resolve the base branch (resolve-base-branch exit %d) — stop and ask", rc)
 	}
-	if git("-C", wt, "merge-base", "--is-ancestor", "HEAD", "origin/"+strings.TrimSpace(base.String())).Run() == nil {
-		return ""
+	base := strings.TrimSpace(buf.String())
+	if git("-C", wt, "merge-base", "--is-ancestor", "HEAD", "origin/"+base).Run() == nil {
+		return base, ""
 	}
 	up, ok := capture(git("-C", wt, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"))
 	if !ok || up == "" {
-		return "not merged, and no upstream — cannot prove these commits exist anywhere else"
+		return base, "not merged, and no upstream — cannot prove these commits exist anywhere else"
 	}
 	log, ok := capture(git("-C", wt, "log", "--oneline", up+"..HEAD"))
 	if !ok {
-		return "cannot read " + up + "..HEAD"
+		return base, "cannot read " + up + "..HEAD"
 	}
 	if log != "" {
-		return "commits not on " + up + ": " + log
+		return base, "commits not on " + up + ": " + log
 	}
-	return ""
+	return base, ""
+}
+
+// rcwRestoreUpstream puts back the branch.<branch>.remote/.merge pair read
+// before the upstream was pointed at origin/<base>, or unsets the upstream
+// when the branch had none.
+func rcwRestoreUpstream(git func(...string) *exec.Cmd, repo, branch, remote, merge string) {
+	if remote == "" || merge == "" {
+		_ = git("-C", repo, "branch", "-q", "--unset-upstream", branch).Run()
+		return
+	}
+	_ = git("-C", repo, "config", "branch."+branch+".remote", remote).Run()
+	_ = git("-C", repo, "config", "branch."+branch+".merge", merge).Run()
 }
 
 // rcwRegeneratable is check 4's regeneratable bucket, decided by path alone

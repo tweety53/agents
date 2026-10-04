@@ -198,6 +198,42 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		}
 	})
 
+	// -d refuses a branch origin/<base> does not carry; the branch survives
+	// with the upstream it had, or none, never origin/<base>.
+	for _, tc := range []struct {
+		name      string
+		upstream  bool
+		wantMerge string
+	}{
+		{"a refused -d restores the branch's upstream", true, "refs/heads/spectre/demo"},
+		{"a refused -d unsets an upstream the branch never had", false, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := rcwNewFx(t)
+			fx.g.git(fx.repo, "reset", "-q", "--hard", fx.mergeBase)
+			fx.g.git(fx.repo, "push", "-q", "-f", "origin", "HEAD:main")
+			if tc.upstream {
+				fx.g.git(fx.repo, "branch", "-q", "--set-upstream-to=origin/spectre/demo", "spectre/demo")
+			} else {
+				// Check 3 refuses an unmerged worktree with no upstream: only
+				// a re-run whose worktree is already gone reaches -d this way.
+				fx.g.git(fx.repo, "worktree", "remove", fx.wt)
+			}
+			code, out, errb := fx.run(t, nil)
+			if code != 1 {
+				t.Fatalf("exit %d, want 1\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+			}
+			if l := rcwLines(out, "REFUSED: spectre/demo — git branch -d"); len(l) != 1 {
+				t.Errorf("REFUSED lines %q, want the branch delete refused", l)
+			}
+			merge, _ := capture(exec.Command(fixtureGit, "-C", fx.repo, "config", "--get", "branch.spectre/demo.merge"))
+			if merge != tc.wantMerge {
+				t.Errorf("branch.spectre/demo.merge = %q, want %q", merge, tc.wantMerge)
+			}
+		})
+	}
+
 	t.Run("a failed gate removes nothing", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
