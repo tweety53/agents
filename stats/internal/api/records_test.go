@@ -158,6 +158,12 @@ func (f *fakeStore) SetFindingStatus(_ context.Context, projectKey, change, ref,
 	if category != "" && !strings.HasPrefix(status, "deferred") {
 		return fmt.Errorf("%w: %s in %s/%s", store.ErrCategoryNotDeferred, ref, projectKey, change)
 	}
+	// The bare-withdrawn refusal mirrors store.SetFindingStatus the same
+	// way (KAN-791), in the real store's own order: after the category
+	// rule, before existence.
+	if rest, ok := strings.CutPrefix(status, "withdrawn"); ok && strings.TrimSpace(rest) == "" {
+		return fmt.Errorf("%w: %s in %s/%s", store.ErrWithdrawnReasonMissing, ref, projectKey, change)
+	}
 	for i := range f.findings {
 		r := &f.findings[i]
 		if r.projectKey == projectKey && r.changeName == change && r.finding.Ref == ref {
@@ -1853,6 +1859,26 @@ func TestSetFindingStatusRouteAnswers409ForCategoryOffDeferral(t *testing.T) {
 		map[string]any{"status": "fixed", "category": "cosmetic"})
 	if status != http.StatusConflict {
 		t.Fatalf("PATCH a category onto a non-deferred status = %d (%s), want 409", status, body)
+	}
+}
+
+// TestSetFindingStatusRouteAnswers409ForABareWithdrawn pins the sentinel's
+// own mapStoreError case (KAN-791): a bare `withdrawn` is the store having
+// been reached and having correctly refused -- the same contradiction class
+// as a category off deferral -- so the route answers 409, never the generic
+// 500 that internal/client would read as the store being unavailable and
+// journal for a replay that can never succeed.
+func TestSetFindingStatusRouteAnswers409ForABareWithdrawn(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed POST findings = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	status, body := patchJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings/F1",
+		map[string]any{"status": "withdrawn"})
+	if status != http.StatusConflict {
+		t.Fatalf("PATCH a bare withdrawn status = %d (%s), want 409", status, body)
 	}
 }
 

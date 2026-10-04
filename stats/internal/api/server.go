@@ -504,7 +504,9 @@ func writeErrorWithCode(w http.ResponseWriter, status int, code, msg string) {
 // journal a replay that would be refused identically every time.
 // ErrCategoryNotDeferred is that refusal's category counterpart -- a
 // deferral category on a non-deferred status is the same class of
-// contradiction, and maps 409 for the same reason.
+// contradiction, and maps 409 for the same reason. ErrWithdrawnReasonMissing
+// (KAN-791) is the third of that family: a bare `withdrawn` refuses for the
+// same "reached and correctly refused" reason, 409.
 //
 // Every other typed error below gets its own deliberate status rather than
 // folding into a blanket 500, chosen by what kind of failure it actually
@@ -554,6 +556,12 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 	case errors.Is(err, store.ErrDeferredNotMinor):
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrCategoryNotDeferred):
+		return http.StatusConflict, err.Error()
+	case errors.Is(err, store.ErrWithdrawnReasonMissing):
+		// KAN-791: a bare `withdrawn` is the same contradiction class as a
+		// category off deferral -- the store reached and correctly refused
+		// a status the contract forbids -- so 409 here too, never a 5xx a
+		// client would journal a replay of.
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrFindingPatternInvalid):
 		return http.StatusBadRequest, err.Error()
