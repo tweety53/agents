@@ -39,6 +39,11 @@
 # a change the store has never heard of, or one that genuinely raised no
 # findings, answers `[]` at exit 0, which is CLEAR on this signal.
 #
+# A BARE `withdrawn` IS OPEN, not closed (KAN-791), the same line
+# check-panel-findings-closed's duplicate of this predicate draws: the word
+# with no reason after it is the reasonless drop the finding-status contract
+# forbids, so only `withdrawn <reason>` counts as closed on this signal.
+#
 # Both signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.

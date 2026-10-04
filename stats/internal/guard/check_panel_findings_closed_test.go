@@ -120,6 +120,8 @@ func TestCheckPanelFindingsClosed(t *testing.T) {
 		{label: "case 2: one still-open finding exits 1, naming it", json: cfcJSON(cfcFinding{Ref: "F1", Status: "open"}, cfcFinding{Ref: "F2", Status: "fixed", Slot: "primary"}), want: 1, needle: []string{"check-panel-findings-closed: finding(s) still open: F1\n"}},
 		{label: "case 3: several still-open findings exit 1, naming both", json: cfcJSON(cfcFinding{Ref: "F1", Status: "open"}, cfcFinding{Ref: "F2", Status: "fixed", Slot: "primary"}, cfcFinding{Ref: "F3", Status: "open"}), want: 1, needle: []string{"finding(s) still open: F1 F3\n"}},
 		{label: "case 4: a withdrawn finding counts as closed, exits 0", json: cfcJSON(cfcFinding{Ref: "F1", Status: "withdrawn — not a real defect"}), want: 0},
+		{label: "case 4a: a bare withdrawn finding is open, exits 1, naming it (KAN-791)", json: cfcJSON(cfcFinding{Ref: "F1", Status: "withdrawn"}), want: 1, needle: []string{"check-panel-findings-closed: finding(s) still open: F1\n"}},
+		{label: "case 4a2: a whitespace-only withdrawal reason is open, exits 1", json: cfcJSON(cfcFinding{Ref: "F1", Status: "withdrawn   "}), want: 1, needle: []string{"finding(s) still open: F1\n"}},
 		{label: "case 4b: a deferred finding is open, exits 1, naming it", json: cfcJSON(cfcFinding{Ref: "F1", Status: "deferred cosmetic, not worth a fix round"}), want: 1, needle: []string{"check-panel-findings-closed: finding(s) still open: F1\n"}},
 		{label: "case 5: zero findings exits 0", json: "[]", want: 0},
 		{label: "case 11: Minors deferred beside an Important of the same round exit 1, naming both as open",

@@ -313,6 +313,12 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwReason("every open finding is counted, not just the first", "3 open finding(s)"))
 	each(demo(findings("withdrawn the operator retracted it: the guard already covers this")),
 		uwVerdict("a withdrawal with a reason is closed", "CLEAR:"))
+	each(demo(findings("withdrawn")),
+		uwVerdict("a bare withdrawn finding is open (KAN-791)", "OUTSTANDING:"),
+		uwReason("a bare withdrawn finding is counted open", "1 open finding(s)"))
+	each(demo(findings("withdrawn   ")),
+		uwVerdict("a whitespace-only withdrawal reason is open", "OUTSTANDING:"),
+		uwReason("a whitespace-only withdrawal reason is counted open", "1 open finding(s)"))
 	each(demo(findings("deferred cosmetic, not worth a fix round")),
 		uwVerdict("a deferred finding is open", "OUTSTANDING:"),
 		uwReason("a deferred finding is counted open", "1 open finding(s)"))

@@ -115,11 +115,17 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	}
 
 	// An open finding is any finding whose status is neither `fixed` nor a
-	// `withdrawn <reason>` value -- the prefix covers the whole family,
-	// reason text included.
+	// `withdrawn <reason>` value -- and, since KAN-791, a bare `withdrawn`
+	// (the word with no reason after it) is open too: a reasonless
+	// withdrawal is the silent drop the finding-status contract forbids, so
+	// it can no longer read as a closed state here, the same line the
+	// store's withdrawnWithoutReason and check-unfinished-work's own copy
+	// draw. A `deferred <reason>` row is open the same way: nothing is
+	// deferred (KAN-862).
 	var open []string
 	for _, f := range findings {
-		if f.status != "fixed" && !strings.HasPrefix(f.status, "withdrawn") {
+		rest, withdrawn := strings.CutPrefix(f.status, "withdrawn")
+		if f.status != "fixed" && !(withdrawn && strings.TrimSpace(rest) != "") {
 			open = append(open, f.ref)
 		}
 	}

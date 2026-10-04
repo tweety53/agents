@@ -23,6 +23,12 @@
 # predicate gains nothing from being centralized and loses the property that
 # both harnesses assert the same shape.
 #
+# A BARE `withdrawn` IS OPEN, not closed (KAN-791): the word with no reason
+# after it is the silent drop the finding-status contract forbids — a
+# finding leaves the board only into `fixed` or `withdrawn <reason>` — so
+# both copies of the predicate require the reason, and a reasonless
+# withdrawal reports exit 1 like any other open finding.
+#
 # THE GUARD NEVER CONSULTS THE JOURNAL — design.md's `no-journal-excuse`
 # decision. `flow record status` never blocks, so a store outage journals a
 # close instead of landing it, and a finding whose close only reached the

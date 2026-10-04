@@ -202,7 +202,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// finding is a JSON object in the store, with no cells to split and no
 	// table boundary to track. Write-time validation guarantees every stored
 	// status is exactly `open`, `fixed`, `withdrawn <reason>` or `deferred
-	// <reason>`, so there is no branch here for a malformed one.
+	// <reason>` -- refused at the CLI's validator and, since KAN-791, at the
+	// store itself, so the guarantee no longer rides on the CLI alone. A
+	// bare `withdrawn` that predates that rule, if one exists, is open here:
+	// the predicate's own withdrawn test (below) requires the reason. There
+	// is no branch for any other malformed status.
 	//
 	// THE STORE IS QUERIED ONCE, and a failed `flow record findings` is exit
 	// 2, "cannot determine anything" -- never OUTSTANDING and never CLEAR. A
@@ -233,8 +237,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// An open finding is any finding whose status is neither `fixed` nor a
 	// `withdrawn <reason>` value -- a prefix test covers the family, reason
-	// text included, without comparing the reason. A `deferred <reason>`
-	// row is open: nothing is deferred (KAN-862).
+	// text included, without comparing the reason -- and, since KAN-791, a
+	// bare `withdrawn` (the word with no reason after it) is open too: a
+	// reasonless withdrawal is the silent drop the contract forbids, so it
+	// can no longer read as a closed state. A `deferred <reason>` row is
+	// open: nothing is deferred (KAN-862).
 	open, ok := uwOpenFindings(findingsJSON)
 	if !ok {
 		fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
@@ -345,8 +352,16 @@ func uwOpenFindings(b []byte) (int, bool) {
 		if f == nil || !pcIsString(f["status"]) || json.Unmarshal(f["status"], &status) != nil {
 			return 0, false
 		}
-		if status != "fixed" && !strings.HasPrefix(status, "withdrawn") {
-			n++
+		// Closed is `fixed` or a reasoned `withdrawn` (KAN-791): the bare
+		// word -- no reason after it -- is open, the same line the store's
+		// withdrawnWithoutReason and check-panel-findings-closed's own copy
+		// draw. A `deferred <reason>` row is open: nothing is deferred
+		// (KAN-862).
+		if status != "fixed" {
+			rest, withdrawn := strings.CutPrefix(status, "withdrawn")
+			if !withdrawn || strings.TrimSpace(rest) == "" {
+				n++
+			}
 		}
 	}
 	return n, true
