@@ -55,3 +55,17 @@ It works in its own worktree, `git -C <agents repo> worktree add -b self-review-
 `<agents-base>` is `<agents repo>`'s own default branch — `git -C <agents repo> symbolic-ref --short refs/remotes/origin/HEAD` with its `origin/` prefix dropped — never the project's `<default-branch>`, which step 1 binds and which `<agents repo>` may not carry.
 `self-review-<name>-review-<r>`, over `git diff origin/<agents-base>...self-review-<name>`, its prompt naming each finding beside its commit and carrying the paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**) names for a review.
 description: Run a change's self-review pass, inline on this session's model, from the context bundle /flow or /flow-fast saved; fix and land every non-big finding, file the big ones
+# Operator, 2026-10-04: KAN-875 fix round 1 — every fix-loop step is a one-shot subagent.
+**Fix the review's findings** — key `self-review-<name>-fix-<r>`, its prompt carrying the
+**Fix** — this session creates the worktree,
+**Review** — key `self-review-<name>-review-<r>`, over
+**The pass runs inline, in this session, on whatever model it is already on; its fixes never do** — step 3 runs every fix, review and re-review as a one-shot `opus` dispatch.
+**This session changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`): each numbered step below that does is a fresh dispatch on `opus`, `subagent_type: flow-high`, its prompt carrying the paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`) names — a review's READ-ONLY REVIEW too — with **The handshake** there applying to each reply.
+A dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once under way.
+Each fix is folded into the commit of the finding it fixes (`git commit --fixup <that commit>`, then `git rebase --autosquash origin/<agents-base>`), so every finding stays one commit; a commit the review judges not to fix its finding, or to make things worse, is dropped from the branch.
+Every dispatch is one-shot: no `SendMessage` to it once it returns.
+It reports each finding's commit, or a finding it found `big` once under way, left uncommitted.
+The fixer works in that worktree and makes one commit per finding with a module scope, adding one test or guard that fails without the fix wherever the fix changes behaviour, and running the `<agents repo>/.flow/project.md` `## lint` lines its files need.
+`git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<agents-base>` — never the main checkout — then dispatches key `self-review-<name>-fix`, its prompt carrying every non-`big` finding with its evidence and counted blast radius.
+`git diff origin/<agents-base>...self-review-<name>`, its prompt naming each finding beside its commit.
+review's report verbatim.
