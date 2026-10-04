@@ -47,9 +47,22 @@ KAN-875's landing). Run 2 then archived on `chore/archive-<name>` and landed it 
 push or pull request — two landings per change, and a window in which the code had landed with its
 change still open.
 
-A re-run of run 1 on an already-archived change skips straight to the route because
-`reshape-branch.sh` keeps only commits touching `<project>/spectre/changes/`: the bundle commit
-touches `<project>/docs/self-review/` alone, so a reshape would fold it into the implementation commit.
+A re-run of run 1 on an already-archived change skips the reshape because `reshape-branch.sh`
+keeps only commits touching `<project>/spectre/changes/`: the bundle commit touches
+`<project>/docs/self-review/` alone, so a reshape would fold it into the implementation commit. It
+still runs `commit-archive.sh` and the bundle step, each a no-op once its commit exists, because the
+earlier run may have stopped between `spectre archive` and either commit — a refused archive commit,
+or a bundle commit refused after the archive commit landed — and a skip keyed on the working tree's
+layout alone would leave that commit missing on every later re-run. Archived-ness is read from the
+canonical repository alone because only it holds the change directory; a satellite worktree has
+nothing to judge it by.
+
+The merge-and-push route pushes `spectre/<name>` before `<base>`: the branch's upstream is
+`origin/spectre/<name>`, last pushed at its pre-reshape tip, and `git branch -d` at run 2 refuses
+a branch not merged into its upstream — a cleanup that would end `LEFTOVER` and fail again on every
+re-run. A rejected push of `<base>` re-resolves the base before re-syncing because a rejected push
+fetches nothing: `origin/<base>` would still name the tip the push was refused against, and the
+re-sync would rebase onto it and be refused again.
 
 ## finish-contract-run1.md — Archive on the change branch
 

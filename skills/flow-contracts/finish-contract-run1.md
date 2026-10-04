@@ -78,13 +78,17 @@ bringing it forward.
 
 ### Run 1 — the branch is not merged
 
-**A worktree whose change is already archived has finished every step through the bundle.** Its
-`<project>/spectre/changes/archive/<name>/` exists and `<project>/spectre/changes/<name>/` does
-not — an earlier run 1 got that far and stopped at the route. A re-run checks whether the base
-moved, syncs onto it per **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`), and
-goes straight to the route: the unfinished-work gate, the reshape, the two-commit chain, the
-archive and the bundle are skipped, not repeated — `spectre archive` already refused any unchecked
-task, and a reshape would fold the bundle commit into the implementation commit.
+**Whether the change is already archived is decided once per change, in the canonical
+repository, and holds for every worktree in the set.** It is archived when
+`<canonical-worktree>/spectre/changes/archive/<name>/` exists and
+`<canonical-worktree>/spectre/changes/<name>/` does not — an earlier run 1 ran `spectre archive`
+and stopped somewhere after it. A re-run of an archived change skips `spectre archive` and,
+before it, the unfinished-work gate, the reshape and the two-commit chain — `spectre archive`
+already refused any unchecked task, and a reshape would fold the archive and bundle commits into
+the implementation commit. Everything else runs: the base-moved check and **Sync the branch onto
+the base** (`skills/flow/sync-onto-base.md`), `commit-archive.sh`, which prints
+`ARCHIVE-NOTHING-STAGED` once the archive commit exists, the bundle step, which skips a committed
+bundle, and the route.
 
 **Check for unfinished work first — before the landing question and before any git action.**
 `check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]` prints one verdict line and
@@ -92,7 +96,8 @@ exits 0 whenever it reached a verdict. It exits 2 with **no** verdict line when 
 worktree. Run it once per worktree in the set found by **Resolving a change's worktrees** below —
 never a raw read of the state file's `worktrees` map, for the same reason the preflight verdict
 above does not read it raw. Pass `[canonical-worktree]` on every call in the run: the one member of
-the resolved set whose own `<project>/<spec-root>/changes/<change-name>/tasks.md` exists.
+the resolved set whose own `<project>/<spec-root>/changes/<change-name>/tasks.md` exists — or,
+once run 1 archived the change, its `<project>/<spec-root>/changes/archive/<change-name>/tasks.md`.
 
 | Verdict | Meaning |
 |---------|---------|
@@ -255,7 +260,7 @@ Every route runs from the apply worktree; none touches the main checkout or any 
 | Route | Then |
 |-------|------|
 | **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code, planning, archive and bundle commits |
-| **Merge and push** | `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive and the bundle, already committed, ride the rebase — and push once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
+| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive and the bundle, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
 Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/flow <name>` again.
