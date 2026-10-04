@@ -285,7 +285,8 @@ set -e
 # CHECK_PLAN_PROVENANCE_ROOT). Asserts: aggregation reports non-zero when
 # ANY file has a violation, the violating file's own message is surfaced,
 # and a tasks.md nested under archive/ (two levels deep, same as a real
-# archived change) is excluded from the scan entirely.
+# archived change) is excluded from the scan entirely — the fixture is no
+# git worktree, so no base exists for it to be absent from (case 14b).
 # ===========================================================================
 AGG_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/task-build-green-agg-test.XXXXXX")"
 mkdir -p "$AGG_ROOT/spectre/changes/change-a" \
@@ -314,6 +315,40 @@ esac
 case "$OUT" in
   *"archive/"*) fail "case 14: archived tasks.md must be excluded from the scan, out=$OUT" ;;
   *) pass "case 14: archived tasks.md excluded from the scan" ;;
+esac
+
+# ===========================================================================
+# Case 14b: an archived change joins the no-argument scan only while the
+# base does not carry it — archived on this branch, then written into by a
+# fix run. In a git fixture whose base commit carries landed-change and
+# whose working tree adds new-change, both untagged, only new-change is
+# reported.
+# ===========================================================================
+ARCH_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/task-build-green-arch-test.XXXXXX")"
+
+mkdir -p "$ARCH_ROOT/spectre/changes/archive/landed-change" "$ARCH_ROOT/spectre/changes/archive/new-change"
+{
+  printf -- '- [ ] 1. Archived, untagged\n\n'
+  printf 'No tag here.\n'
+} > "$ARCH_ROOT/spectre/changes/archive/landed-change/tasks.md"
+git -C "$ARCH_ROOT" init -q -b main
+git -C "$ARCH_ROOT" add -A
+git -C "$ARCH_ROOT" -c user.email=fixture@example.com -c user.name=Fixture commit -qm "chore(spectre): archive landed-change"
+{
+  printf -- '- [ ] 1. Archived, untagged\n\n'
+  printf 'No tag here.\n'
+} > "$ARCH_ROOT/spectre/changes/archive/new-change/tasks.md"
+run_guard_root "$ARCH_ROOT"
+rm -rf "$ARCH_ROOT"
+[ "$RC" -eq 1 ] && pass "case 14b: an archived change the base lacks is scanned" \
+  || fail "case 14b: rc=$RC out=$OUT"
+case "$OUT" in
+  *"archive/new-change/tasks.md"*"has no **Build:** tag"*) pass "case 14b: names the unlanded archived change's violation" ;;
+  *) fail "case 14b: expected new-change's violation, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"landed-change"*) fail "case 14b: an archived change the base carries was scanned, out=$OUT" ;;
+  *) pass "case 14b: an archived change the base carries stays out of the scan" ;;
 esac
 
 # ===========================================================================
@@ -878,6 +913,35 @@ case "$OUT" in
   *"has no **Build:** tag"*) fail "case 36: malformed tag must not also report as no tag, out=$OUT" ;;
   *) pass "case 36: no duplicate no-tag violation" ;;
 esac
+
+# ===========================================================================
+# Unlanded archives: the scan cannot list the archived changes the base does
+# not carry -> exit 2, never a scan that silently skips them. A copy of the
+# guard in a scratch tree with no stats/ beside it cannot build flow-guard;
+# the same copy with no lib/flow-guard.sh cannot load it.
+# ===========================================================================
+U="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/unlanded-archives-test.XXXXXX")" && pwd)"
+mkdir -p "$U/scripts" "$U/root/spectre/changes/some-change"
+cp -R "$SCRIPT_DIR/lib" "$U/scripts/lib"
+cp "$SCRIPT_DIR"/*.py "$SCRIPT_DIR/check-task-build-green.sh" "$U/scripts/"
+set +e
+OUT="$(CHECK_TASK_BUILD_GREEN_ROOT="$U/root" "$U/scripts/check-task-build-green.sh" 2>&1)"
+RC=$?
+set -e
+case "$RC:$OUT" in
+  2:*"cannot build flow-guard"*) pass "unlanded archives: flow-guard that cannot be built exits 2" ;;
+  *) fail "unlanded archives: flow-guard that cannot be built: rc=$RC out=$OUT" ;;
+esac
+rm -f "$U/scripts/lib/flow-guard.sh"
+set +e
+OUT="$(CHECK_TASK_BUILD_GREEN_ROOT="$U/root" "$U/scripts/check-task-build-green.sh" 2>&1)"
+RC=$?
+set -e
+case "$RC:$OUT" in
+  2:*"not found: $U/scripts/lib/flow-guard.sh"*) pass "unlanded archives: a missing lib/flow-guard.sh exits 2" ;;
+  *) fail "unlanded archives: a missing lib/flow-guard.sh: rc=$RC out=$OUT" ;;
+esac
+rm -rf "$U"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

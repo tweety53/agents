@@ -39,7 +39,7 @@ own `.flow/project.md` and run only where a project declares them — while `che
 (`skills/flow-contracts/pipeline.md`), because the guard it protects
 (`check-task-commit-fields.sh`) is itself shipped and runs in every project `/flow` touches. It
 answers a bare-tree question exactly like `check-plan-provenance.sh` and `check-task-build-green.sh`
-do — no arguments scans every non-archived `<spec-root>/changes/*/tasks.md` — which is why it
+do — no arguments scans every live `<spec-root>/changes/*/tasks.md`, and every archived one the base does not carry yet — which is why it
 belongs in this list at all, for the same reason those two do.
 
 **Its place in this list is a self-check on this repository, not how it covers the projects flow

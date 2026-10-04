@@ -14,11 +14,13 @@
 # invocation — exactly check-task-build-green.py's convention. This
 # wrapper is what resolves WHICH files that means:
 #
-#   - no arguments: scan every non-archived change's tasks.md under
-#     <spec-root>/changes/*/tasks.md (excluding <spec-root>/changes/
-#     archive/), calling the Python script once per file and aggregating
-#     exit codes — non-zero if ANY file has a violation, printing each
-#     file's own violations as the Python script emits them;
+#   - no arguments: scan every live change's tasks.md under
+#     <spec-root>/changes/*/tasks.md, and that of every archived change
+#     under <spec-root>/changes/archive/ the base does not carry yet
+#     (`flow-guard unlanded-archives`), calling the Python script once per
+#     file and aggregating exit codes — non-zero if ANY file has a
+#     violation, printing each file's own violations as the Python script
+#     emits them;
 #   - one argument: treat it as an explicit tasks.md path and scan only
 #     that file.
 set -euo pipefail
@@ -71,7 +73,7 @@ if [ "$#" -gt 1 ]; then
   exit 2
 fi
 
-# No arguments: scan every non-archived change's tasks.md. Unless
+# No arguments: scan every in-flight change's tasks.md. Unless
 # CHECK_PLAN_SHAPE_ROOT is set — in which case it names the root explicitly
 # (the same opt-in override check-task-build-green.sh accepts as
 # CHECK_TASK_BUILD_GREEN_ROOT), so a test harness can point this wrapper at
@@ -94,17 +96,34 @@ else
   REPO_ROOT="$(cd "$(dirname "$SELF_REAL")/.." && pwd)"
 fi
 source "$SCRIPT_DIR/lib/spec-root.sh"
+# flow_guard_exec runs `flow-guard unlanded-archives` below; named as
+# $SCRIPT_DIR/<name> and checked before sourcing, like every sibling here.
+FLOW_GUARD_LIB="$SCRIPT_DIR/lib/flow-guard.sh"
+if [ ! -f "$FLOW_GUARD_LIB" ]; then
+  echo "check-plan-shape.sh: shared flow-guard module not found: $FLOW_GUARD_LIB" >&2
+  exit 2
+fi
+source "$FLOW_GUARD_LIB"
 CHANGES_DIR="$REPO_ROOT/$(spec_root_leaf "$REPO_ROOT")/changes"
 
 STATUS=0
 
 if [ -d "$CHANGES_DIR" ]; then
-  # The glob below (one directory level under CHANGES_DIR) never descends
-  # into <spec-root>/changes/archive/*/tasks.md in the first place — an
-  # archived change's tasks.md is nested a level deeper, at
-  # archive/<name>/tasks.md, so the glob's own depth already excludes
-  # every archived file without any extra filtering here.
-  for tasks_file in "$CHANGES_DIR"/*/tasks.md; do
+  # The glob (one directory level under CHANGES_DIR) never descends into an
+  # archived change's archive/<name>/tasks.md, a level deeper. An archived
+  # change joins the scan only while the base does not carry it — archived
+  # on this branch by integrate's run 1, then written into by a fix run — as
+  # `flow-guard unlanded-archives` names it
+  # (stats/internal/guard/unlandedarchives.go, the one statement of that
+  # rule); every archive the base carries stays out.
+  ARCHIVED="$(flow_guard_exec unlanded-archives 2 "check-plan-shape.sh:" "$REPO_ROOT")" || exit 2
+  TASKS_FILES=("$CHANGES_DIR"/*/tasks.md)
+  while IFS= read -r archived_name; do
+    if [ -n "$archived_name" ]; then
+      TASKS_FILES+=("$CHANGES_DIR/archive/$archived_name/tasks.md")
+    fi
+  done <<<"$ARCHIVED"
+  for tasks_file in "${TASKS_FILES[@]}"; do
     [ -e "$tasks_file" ] || continue
     rc=0
     python3 "$PYTHON_GUARD" "$tasks_file" || rc=$?

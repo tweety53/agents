@@ -265,6 +265,10 @@ cp "$SCRIPT_DIR/plan-dispatch-bundles.py" "$FIXTURE/scripts/plan-dispatch-bundle
 cp "$SCRIPT_DIR/lib/resolve-file.sh" "$FIXTURE/scripts/lib/resolve-file.sh"
 cp "$SCRIPT_DIR/lib/spec-root.sh" "$FIXTURE/scripts/lib/spec-root.sh"
 cp "$SCRIPT_DIR/lib/plan_grammar.py" "$FIXTURE/scripts/lib/plan_grammar.py"
+# The no-argument scan asks flow-guard for unlanded archived changes; the
+# scratch tree borrows this checkout's stats/ to build it from.
+cp "$SCRIPT_DIR/lib/flow-guard.sh" "$FIXTURE/scripts/lib/flow-guard.sh"
+ln -s "$SCRIPT_DIR/../stats" "$FIXTURE/stats"
 ln -s ../../../scripts/plan-dispatch-bundles.sh \
   "$FIXTURE/skills/flow/scripts/plan-dispatch-bundles.sh"
 ln -s ../../../scripts/plan-dispatch-bundles.py \
@@ -284,6 +288,43 @@ set -e
 case "$OUT" in
   *"task 1"*"no **Files:** field"*) pass "case 11: names task 1 from the fixture's own spectre/changes/" ;;
   *) fail "case 11: expected message naming task 1, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 11b: an archived change joins the no-argument scan only while the
+# base does not carry it — archived on this branch, then written into by a
+# fix run. In a git fixture whose base commit carries landed-change and
+# whose working tree adds new-change, both fieldless, only new-change is
+# reported.
+# ===========================================================================
+FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/plan-dispatch-bundles-test.XXXXXX")"
+FIXTURES+=("$FIXTURE")
+mkdir -p "$FIXTURE/spectre/changes/archive/landed-change" "$FIXTURE/spectre/changes/archive/new-change"
+{
+  printf -- '- [ ] 1. Fieldless task\n\n'
+  printf 'No Files field here at all.\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$FIXTURE/spectre/changes/archive/landed-change/tasks.md"
+git -C "$FIXTURE" init -q -b main
+git -C "$FIXTURE" add -A
+git -C "$FIXTURE" -c user.email=fixture@example.com -c user.name=Fixture commit -qm "chore(spectre): archive landed-change"
+{
+  printf -- '- [ ] 1. Fieldless task\n\n'
+  printf 'No Files field here at all.\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$FIXTURE/spectre/changes/archive/new-change/tasks.md"
+set +e
+OUT="$(PLAN_DISPATCH_BUNDLES_ROOT="$FIXTURE" "$GUARD" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 1 ] && pass "case 11b: an archived change the base lacks is scanned" || fail "case 11b: rc=$RC out=$OUT"
+case "$OUT" in
+  *"archive/new-change/tasks.md"*"no **Files:** field"*) pass "case 11b: names the unlanded archived change's violation" ;;
+  *) fail "case 11b: expected new-change's violation, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"landed-change"*) fail "case 11b: an archived change the base carries was scanned, out=$OUT" ;;
+  *) pass "case 11b: an archived change the base carries stays out of the scan" ;;
 esac
 
 # ===========================================================================
@@ -572,6 +613,35 @@ run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 23: mixed-width after-set exits 0" || fail "case 23: rc=$RC out=$OUT"
 EXPECTED=$'bundle 1: 1 3\nafter 1: 1 2 10\nbundle 2: 2\nafter 2: 1\nbundle 3: 10\nafter 3: 1 2 3'
 [ "$OUT" = "$EXPECTED" ] && pass "case 23: the after line sorts numerically, not lexically" || fail "case 23: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Unlanded archives: the scan cannot list the archived changes the base does
+# not carry -> exit 2, never a scan that silently skips them. A copy of the
+# guard in a scratch tree with no stats/ beside it cannot build flow-guard;
+# the same copy with no lib/flow-guard.sh cannot load it.
+# ===========================================================================
+U="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/unlanded-archives-test.XXXXXX")" && pwd)"
+mkdir -p "$U/scripts" "$U/root/spectre/changes/some-change"
+cp -R "$SCRIPT_DIR/lib" "$U/scripts/lib"
+cp "$SCRIPT_DIR"/*.py "$SCRIPT_DIR/plan-dispatch-bundles.sh" "$U/scripts/"
+set +e
+OUT="$(PLAN_DISPATCH_BUNDLES_ROOT="$U/root" "$U/scripts/plan-dispatch-bundles.sh" 2>&1)"
+RC=$?
+set -e
+case "$RC:$OUT" in
+  2:*"cannot build flow-guard"*) pass "unlanded archives: flow-guard that cannot be built exits 2" ;;
+  *) fail "unlanded archives: flow-guard that cannot be built: rc=$RC out=$OUT" ;;
+esac
+rm -f "$U/scripts/lib/flow-guard.sh"
+set +e
+OUT="$(PLAN_DISPATCH_BUNDLES_ROOT="$U/root" "$U/scripts/plan-dispatch-bundles.sh" 2>&1)"
+RC=$?
+set -e
+case "$RC:$OUT" in
+  2:*"not found: $U/scripts/lib/flow-guard.sh"*) pass "unlanded archives: a missing lib/flow-guard.sh exits 2" ;;
+  *) fail "unlanded archives: a missing lib/flow-guard.sh: rc=$RC out=$OUT" ;;
+esac
+rm -rf "$U"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

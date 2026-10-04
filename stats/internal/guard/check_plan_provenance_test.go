@@ -194,6 +194,17 @@ func ppCasesSyntaxToPass6() []ppCase {
 			r := ppRun(root)
 			ok(t, "archived tasks.md is not scanned", r.rc == 0, r)
 		}},
+		{"case 7b", func(t *testing.T) {
+			root := vmRepo(t, map[string]string{
+				ppDemo + "tasks.md":                           ppClean,
+				"spectre/changes/archive/old-change/tasks.md": "```bash\necho hi\n```\n",
+			})
+			r := ppRun(root)
+			ok(t, "an archived change the base carries is not scanned", r.rc == 0, r)
+			ppWrite(t, root, "spectre/changes/archive/new-change/tasks.md", "```bash\necho hi\n```\n")
+			r = ppRun(root)
+			ok(t, "an archived change the base lacks is scanned", r.rc == 1 && has(r.out, "spectre/changes/archive/new-change/tasks.md:1") && !has(r.out, "old-change"), r)
+		}},
 		{"case 8", func(t *testing.T) {
 			root := ppFixture(t)
 			ppWrite(t, root, ppDemo+"tasks.md", ppClean)

@@ -8,9 +8,12 @@ kan-29's self-review (F14, F1 and the malformed **Build:** lines of tasks
 happens: a checkbox ticked with no commit behind it, a commit that touched
 files its task never declared, a Build tag mangled by a later hand edit.
 This guard is the retroactive, whole-plan pass those findings asked for:
-every non-archived spectre/changes/*/tasks.md, every task, checked against
-the branch's commits since the base ref. Zero plans in flight is clean —
-the bare-tree case a lint step runs in.
+every live spectre/changes/*/tasks.md, plus the tasks.md of each
+archived change named in CHECK_TASK_RECORDS_ARCHIVED (one per line) —
+the archived changes the base does not carry yet, which the
+check-task-records.sh wrapper lists through `flow-guard unlanded-archives`
+— every task, checked against the branch's commits since the base ref.
+Zero plans in flight is clean — the bare-tree case a lint step runs in.
 
 Usage (via the check-task-records.sh wrapper):
 
@@ -29,11 +32,15 @@ Three checks, per task:
    subject that is ticked must have a commit carrying that subject
    reachable from HEAD — a landed plan whose commits are already in the
    base reads clean, which is the state every unarchived plan left behind
-   by a merged change sits in. A task that is unticked must have no commit
-   carrying its subject in `<base-ref>..HEAD` (work the branch started
-   that the record does not claim); a commit reachable from HEAD but older
-   than the base is not this branch's business and is not a violation. A
-   task declaring no subject carries no expectation and is skipped here.
+   by a merged change sits in. An archived plan is exempt from that half:
+   integrate's split collapsed its task commits into one implementation
+   commit before it archived, so a ticked task of an archived plan whose
+   subject no commit carries is not a violation. A task that is unticked
+   must have no commit carrying its subject in `<base-ref>..HEAD` (work
+   the branch started that the record does not claim); a commit reachable
+   from HEAD but older than the base is not this branch's business and is
+   not a violation. A task declaring no subject carries no expectation and
+   is skipped here.
 2. Declared `**Files:**` vs the commit's real files. For each ticked
    task's subject, the files `git diff-tree` reports for the newest
    reachable commit carrying it are checked against the
@@ -78,6 +85,7 @@ root>: task <id> ...`, in first-come order. Exit codes:
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -221,6 +229,11 @@ def main(argv: List[str]) -> int:
             candidate = entry / "tasks.md"
             if entry.is_dir() and candidate.is_file():
                 tasks_files.append(candidate)
+    archive_dir = changes_dir / "archive"
+    for name in os.environ.get("CHECK_TASK_RECORDS_ARCHIVED", "").splitlines():
+        candidate = archive_dir / name / "tasks.md"
+        if name and candidate.is_file():
+            tasks_files.append(candidate)
     if not tasks_files:
         return 0
 
@@ -272,6 +285,8 @@ def main(argv: List[str]) -> int:
                     )
                 continue
             if not shas:
+                if tasks_md.parent.parent == archive_dir:
+                    continue
                 violations.append(
                     f"{rel}: task {task.id} ticked but no commit with "
                     f"subject '{subject}' reachable from HEAD"

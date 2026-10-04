@@ -11,8 +11,9 @@ same class of drift stats/internal/guard/planprovenance.go's ported docstring wa
 Scope is a single file per invocation (unlike check-plan-provenance's
 whole-repo scan): this script takes exactly one `tasks.md` path on argv and
 scans only that file. `check-task-build-green.sh` is the thin wrapper that
-resolves WHICH files to pass — every non-archived change's tasks.md when
-called with no arguments, or one explicit path when called with one.
+resolves WHICH files to pass — every in-flight change's tasks.md — live, or
+archived and absent from the base — when called with no arguments, or one
+explicit path when called with one.
 
 Exit codes:
   0  clean — every task in the file carries a resolvable **Build:** tag

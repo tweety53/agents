@@ -26,8 +26,9 @@ that registration, the module's `@dataclass` decorator raises
 Scope is a single file per invocation, exactly like
 check-task-build-green.py: this script takes exactly one `tasks.md` path on
 argv and scans only that file. `check-plan-shape.sh` is the thin wrapper
-that resolves WHICH files to pass — every non-archived change's tasks.md
-when called with no arguments, or one explicit path when called with one.
+that resolves WHICH files to pass — every in-flight change's tasks.md —
+live, or archived and absent from the base — when called with no
+arguments, or one explicit path when called with one.
 
 Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it

@@ -60,4 +60,18 @@ if [ "$#" -gt 2 ]; then
   exit 2
 fi
 
-exec python3 "$PYTHON_GUARD" "$@"
+# An archived change joins the check only while the base does not carry it —
+# archived on this branch by integrate's run 1, then written into by a fix
+# run. `flow-guard unlanded-archives` (stats/internal/guard/unlandedarchives.go)
+# is the one statement of that rule; its names reach the Python guard as
+# CHECK_TASK_RECORDS_ARCHIVED, one per line. Every archive the base carries
+# stays out.
+FLOW_GUARD_LIB="$SCRIPT_DIR/lib/flow-guard.sh"
+if [ ! -f "$FLOW_GUARD_LIB" ]; then
+  echo "check-task-records.sh: required sibling module not found: $FLOW_GUARD_LIB" >&2
+  exit 2
+fi
+source "$FLOW_GUARD_LIB"
+ARCHIVED="$(flow_guard_exec unlanded-archives 2 "check-task-records: COULD NOT JUDGE — not a record verdict:" "${1:-$PWD}")" || exit 2
+
+CHECK_TASK_RECORDS_ARCHIVED="$ARCHIVED" exec python3 "$PYTHON_GUARD" "$@"

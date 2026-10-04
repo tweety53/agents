@@ -5,8 +5,9 @@ vocabulary itself is canonical in **The four tags** (`skills/flow-contracts/plan
 
 ## The guard's scope, and why it is narrow
 
-The guard that enforces this contract reads three files per non-archived change — that change's own
-`tasks.md`, `design.md` and `proposal.md` — and explicitly excludes `<project>/spectre/changes/archive/`. It
+The guard that enforces this contract reads three files per in-flight change — that change's own
+`tasks.md`, `design.md` and `proposal.md` — and excludes every change under `<project>/spectre/changes/archive/`
+the base already carries; one archived on the change branch and not yet landed is in flight. It
 does not scan the whole repository, and it does not scan other changes' plans. Both rules apply to
 all three files identically: every fenced block needs `verified:`/`unverified:`, and no untagged
 number may appear in any of them.

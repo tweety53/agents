@@ -276,22 +276,57 @@ else
   fail "case 14 landed plan: rc=$RC out=$OUT"
 fi
 
-# --- case 15: a plan under spectre/changes/archive is not in flight -> exit 0 ---
+# archived_plan <name> <state> <subject> — write a one-task plan under
+# spectre/changes/archive/<name>/, uncommitted.
+archived_plan() {
+  mkdir -p "$FIX/spectre/changes/archive/$1"
+  {
+    printf -- '- [%s] 1. Task 1\n' "$2"
+    printf '**Files:** `src/f1.go`\n'
+    printf '**Tests:** none\n'
+    printf '**Commit:** `%s`\n' "$3"
+    printf '**Build:** green\n'
+    printf '**After:** none\n'
+  } >"$FIX/spectre/changes/archive/$1/tasks.md"
+}
+
+# --- case 15: a plan archived at the base has landed and is not in flight:
+# --- its unticked task's commit in base..HEAD is never read -> exit 0 ---
 new_repo
-mkdir -p "$FIX/spectre/changes/archive/old-change"
-{
-  printf -- '- [x] 1. Task 1\n'
-  printf '**Files:** `src/f1.go`\n'
-  printf '**Tests:** none\n'
-  printf '**Commit:** `feat(a): ghost`\n'
-  printf '**Build:** green\n'
-  printf '**After:** none\n'
-} >"$FIX/spectre/changes/archive/old-change/tasks.md"
+archived_plan old-change ' ' "feat(a): ghost"
+commit_all "chore(spectre): archive old-change"
+git -C "$FIX" update-ref refs/remotes/origin/main "$(git -C "$FIX" rev-parse HEAD)"
+commit_file src/f1.go "feat(a): ghost"
 run_guard "$FIX"
 if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then
-  pass "case 15 archived plan ignored"
+  pass "case 15 plan archived at the base ignored"
 else
-  fail "case 15 archived plan: rc=$RC out=$OUT"
+  fail "case 15 plan archived at the base: rc=$RC out=$OUT"
+fi
+
+# --- case 15b: a plan archived on this branch, absent from the base, is in
+# --- flight: the same unticked task with its commit in base..HEAD -> exit 1 ---
+new_repo
+archived_plan new-change ' ' "feat(a): ghost"
+commit_all "chore(spectre): archive new-change"
+commit_file src/f1.go "feat(a): ghost"
+run_guard "$FIX"
+if [ "$RC" -eq 1 ] && grep -qF "spectre/changes/archive/new-change/tasks.md: task 1 not ticked" <<<"$OUT"; then
+  pass "case 15b plan archived on this branch checked"
+else
+  fail "case 15b plan archived on this branch: rc=$RC out=$OUT"
+fi
+
+# --- case 15c: a ticked task of a plan archived on this branch whose commit
+# --- integrate's split collapsed away is not a violation -> exit 0 ---
+new_repo
+archived_plan new-change x "feat(a): collapsed"
+commit_all "chore(spectre): archive new-change"
+run_guard "$FIX"
+if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then
+  pass "case 15c archived ticked task with a collapsed commit reads clean"
+else
+  fail "case 15c archived ticked task with a collapsed commit: rc=$RC out=$OUT"
 fi
 
 # --- case 12: bare base-ref argument resolving via refs/remotes -> exit 0 ---
@@ -319,6 +354,35 @@ else
 fi
 
 printf '\n'
+# ===========================================================================
+# Unlanded archives: the scan cannot list the archived changes the base does
+# not carry -> exit 2, never a scan that silently skips them. A copy of the
+# guard in a scratch tree with no stats/ beside it cannot build flow-guard;
+# the same copy with no lib/flow-guard.sh cannot load it.
+# ===========================================================================
+U="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/unlanded-archives-test.XXXXXX")" && pwd)"
+mkdir -p "$U/scripts" "$U/root/spectre/changes/some-change"
+cp -R "$SCRIPT_DIR/lib" "$U/scripts/lib"
+cp "$SCRIPT_DIR"/*.py "$SCRIPT_DIR/check-task-records.sh" "$U/scripts/"
+set +e
+OUT="$("$U/scripts/check-task-records.sh" "$U/root" 2>&1)"
+RC=$?
+set -e
+case "$RC:$OUT" in
+  2:*"cannot build flow-guard"*) pass "unlanded archives: flow-guard that cannot be built exits 2" ;;
+  *) fail "unlanded archives: flow-guard that cannot be built: rc=$RC out=$OUT" ;;
+esac
+rm -f "$U/scripts/lib/flow-guard.sh"
+set +e
+OUT="$("$U/scripts/check-task-records.sh" "$U/root" 2>&1)"
+RC=$?
+set -e
+case "$RC:$OUT" in
+  2:*"not found: $U/scripts/lib/flow-guard.sh"*) pass "unlanded archives: a missing lib/flow-guard.sh exits 2" ;;
+  *) fail "unlanded archives: a missing lib/flow-guard.sh: rc=$RC out=$OUT" ;;
+esac
+rm -rf "$U"
+
 if [ "$FAILURES" -eq 0 ]; then
   printf 'all cases passed\n'
 else

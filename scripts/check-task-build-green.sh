@@ -13,11 +13,12 @@
 # one call), check-task-build-green.py's scope is ONE file per invocation.
 # This wrapper is what resolves WHICH files that means:
 #
-#   - no arguments: scan every non-archived change's tasks.md under
-#     spectre/changes/*/tasks.md (excluding spectre/changes/archive/),
-#     calling the Python script once per file and aggregating exit codes —
-#     non-zero if ANY file has a violation, printing each file's own
-#     violations as the Python script emits them;
+#   - no arguments: scan every live change's tasks.md under
+#     spectre/changes/*/tasks.md, and that of every archived change under
+#     spectre/changes/archive/ the base does not carry yet (`flow-guard
+#     unlanded-archives`), calling the Python script once per file and
+#     aggregating exit codes — non-zero if ANY file has a violation,
+#     printing each file's own violations as the Python script emits them;
 #   - one argument: treat it as an explicit tasks.md path and scan only
 #     that file.
 set -euo pipefail
@@ -63,7 +64,7 @@ if [ "$#" -gt 1 ]; then
   exit 2
 fi
 
-# No arguments: scan every non-archived change's tasks.md. REPO_ROOT is
+# No arguments: scan every in-flight change's tasks.md. REPO_ROOT is
 # derived from this script's own location so the scan works from any cwd,
 # the same convention check-plan-provenance.sh uses for its own root —
 # unless CHECK_TASK_BUILD_GREEN_ROOT is set, in which case it names the root
@@ -72,17 +73,34 @@ fi
 # sandboxed fixture tree instead of this repository's own spectre/changes/.
 REPO_ROOT="${CHECK_TASK_BUILD_GREEN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 source "$SCRIPT_DIR/lib/spec-root.sh"
+# flow_guard_exec runs `flow-guard unlanded-archives` below; named as
+# $SCRIPT_DIR/<name> and checked before sourcing, like every sibling here.
+FLOW_GUARD_LIB="$SCRIPT_DIR/lib/flow-guard.sh"
+if [ ! -f "$FLOW_GUARD_LIB" ]; then
+  echo "check-task-build-green.sh: shared flow-guard module not found: $FLOW_GUARD_LIB" >&2
+  exit 2
+fi
+source "$FLOW_GUARD_LIB"
 CHANGES_DIR="$REPO_ROOT/$(spec_root_leaf "$REPO_ROOT")/changes"
 
 STATUS=0
 
 if [ -d "$CHANGES_DIR" ]; then
-  # The glob below (one directory level under CHANGES_DIR) never descends
-  # into spectre/changes/archive/*/tasks.md in the first place — an
-  # archived change's tasks.md is nested a level deeper, at
-  # archive/<name>/tasks.md, so the glob's own depth already excludes
-  # every archived file without any extra filtering here.
-  for tasks_file in "$CHANGES_DIR"/*/tasks.md; do
+  # The glob (one directory level under CHANGES_DIR) never descends into an
+  # archived change's archive/<name>/tasks.md, a level deeper. An archived
+  # change joins the scan only while the base does not carry it — archived
+  # on this branch by integrate's run 1, then written into by a fix run — as
+  # `flow-guard unlanded-archives` names it
+  # (stats/internal/guard/unlandedarchives.go, the one statement of that
+  # rule); every archive the base carries stays out.
+  ARCHIVED="$(flow_guard_exec unlanded-archives 2 "check-task-build-green.sh:" "$REPO_ROOT")" || exit 2
+  TASKS_FILES=("$CHANGES_DIR"/*/tasks.md)
+  while IFS= read -r archived_name; do
+    if [ -n "$archived_name" ]; then
+      TASKS_FILES+=("$CHANGES_DIR/archive/$archived_name/tasks.md")
+    fi
+  done <<<"$ARCHIVED"
+  for tasks_file in "${TASKS_FILES[@]}"; do
     [ -e "$tasks_file" ] || continue
     rc=0
     python3 "$PYTHON_GUARD" "$tasks_file" || rc=$?

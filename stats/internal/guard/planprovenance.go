@@ -141,10 +141,11 @@ func init() { Registry["check-plan-provenance"] = checkPlanProvenance }
 // number names the command that would confirm it.
 //
 // Scope is `spectre/changes/*/{tasks,design,proposal}.md` — the three
-// artifacts named in `SCANNED_FILENAMES` — and never
-// `spectre/changes/archive/`. All three make claims about the world, and
-// a claim is no more attributable for sitting in the design than in the
-// tasks; scanning only tasks.md left the two artifacts the tasks are
+// artifacts named in `SCANNED_FILENAMES` — plus the same three under each
+// `spectre/changes/archive/<name>/` the base does not carry yet
+// (unlandedArchives), and never an archived change that has landed. All
+// three make claims about the world, and a claim is no more attributable
+// for sitting in the design than in the tasks; scanning only tasks.md left the two artifacts the tasks are
 // derived FROM unchecked.
 //
 // `specs/` under a change is still excluded, and the reason is a
@@ -3463,6 +3464,20 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 			changeDirs = append(changeDirs, e)
 		}
 	}
+	// An archived change the base does not carry yet — archived on this
+	// branch by integrate's run 1, then written into by a fix run — is still
+	// in flight and is scanned like a live one; every archive the base
+	// carries stays out of scope. unlandedArchives is the one statement of
+	// that rule, shared with check-verbatim-moves.
+	archived, err := unlandedArchivesAtDefaultBase(envGit(env, "LC_ALL=C"), g.abs(repoRoot))
+	if err != nil {
+		msg := fmt.Sprintf("%s: cannot list its archived changes (%v) — refusing to report a clean run", g.relpath(ppJoin(changesDir, "archive"), repoRoot), err)
+		fmt.Fprintln(stderr, msg)
+		fileErrors = append(fileErrors, msg)
+	}
+	for _, name := range archived {
+		changeDirs = append(changeDirs, ppJoin("archive", name))
+	}
 
 	// Zero non-archived changes is only the genuine "nothing in flight"
 	// steady state when nothing ALSO failed classification above — an
@@ -3542,7 +3557,11 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 			// LATER directory from being scanned. `check_file` must not be
 			// called on a `path` that failed containment — that refusal
 			// exists precisely so this guard never opens it.
-			if !g.verifyContainment(candidate, changesDir, filename) {
+			parent := changesDir
+			if strings.HasPrefix(name, "archive/") {
+				parent = ppJoin(changesDir, "archive")
+			}
+			if !g.verifyContainment(candidate, parent, filename) {
 				continue
 			}
 			if msg := g.checkFile(candidate, repoRoot); msg != "" {
@@ -3580,7 +3599,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		// legitimately has only some of them) and not what this
 		// failure means. It fires only when NOT ONE of them turned up
 		// anywhere.
-		fmt.Fprintf(stderr, "none of %s found at all, in any of %d non-archived change(s) under %s — refusing to report a clean run\n",
+		fmt.Fprintf(stderr, "none of %s found at all, in any of %d in-flight change(s) under %s — refusing to report a clean run\n",
 			strings.Join(ppScannedFilenames, ", "), len(changeDirs), changesDir)
 		return 2
 	}

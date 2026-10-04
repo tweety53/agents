@@ -18,8 +18,9 @@ also touch, not paths the task owns.
 
 Scope is a single file per invocation, matching check-task-build-green.py's
 own scope. `plan-dispatch-bundles.sh` is the thin wrapper that resolves
-WHICH files to pass — every non-archived change's tasks.md when called with
-no arguments, or one explicit path when called with one.
+WHICH files to pass — every in-flight change's tasks.md — live, or archived
+and absent from the base — when called with no arguments, or one explicit
+path when called with one.
 
 Exit codes:
   0  bundles computed — printed one per line on stdout, ordered by each
