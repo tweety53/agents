@@ -333,7 +333,10 @@ under `<abs-worktree>` (**A change's directory**, `skills/flow-contracts/pipelin
 with the title `# <name> —
 session narrative` when absent) one section `## <YYYY-MM-DD> — <creating run | fix run>` holding
 this session's own prose account of the run — problems hit, workarounds, time sinks, environment
-gaps, operator decisions taken mid-run — and nothing the ledger or panel record already holds. A
+gaps, operator decisions taken mid-run, every approach tried and abandoned with why it failed —
+and nothing the ledger or panel record already holds. The abandoned approaches and their failure
+reasons are recorded because the diff shows only the winning shape — a deferred self-review pass
+reads the narrative, and the negative results live nowhere else in the change's record. A
 durable process lesson this run paid for is promoted to the lessons home (**Process lessons**,
 `skills/flow-contracts/lessons.md`) — the brief is repo content, landed with this change's own
 work. The write-in-progress planning commit carries it (**Planning commits**,
