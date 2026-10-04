@@ -347,7 +347,8 @@ var (
 //  2. No such row -- gymie's J/K floor frames draw their caption band on the
 //     row directly below the bottom border, with no page-coloured margin --
 //     and a border declared: the side border column (just left of the crop)
-//     holds one colour from the top crop down to the bottom corner, and the
+//     holds one colour from the probe row (below the rounded top corner, or the top
+//     crop when that is lower) down to the bottom corner, and the
 //     first row within the corner's height below that run (a few rows: 3 on
 //     every real frame at 2x) whose middle pixel is that colour is the
 //     bottom border's first row. A matching row further down is content in
@@ -367,7 +368,7 @@ func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, error) {
 	page := frame.at(0, 0)
 	// The side border is read at the probe row, below the rounded top corner:
 	// with status=0 the top crop row still sits inside the corner, where the
-	// pixel is the page.
+	// pixel is the page or the corner's anti-aliased edge, never the border.
 	probe := min(max(top, (g.border+cmfBottomCornerRows)*s), frame.H-1)
 	if g.border > 0 && frame.at(left-1, probe) == page {
 		return [4]int{}, errCmfNoBorder

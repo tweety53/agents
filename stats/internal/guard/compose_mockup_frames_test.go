@@ -82,6 +82,7 @@ var cmfInvs = map[string]cmfInv{
 	"case-28":  {stdin: "caps/b1.png\n", geom: cmfGeom},
 	"case-29":  {stdin: "caps/r1.png\n", geom: "scale=2 status=0 border=1"},
 	"case-30":  {stdin: "caps/r1.png\n", geom: "scale=2 status=0 border=1"},
+	"case-31":  {stdin: "caps/b1.png\n", geom: "scale=2 status=0 border=0"},
 	// The Python's luma mask printed diff=0.0000 for this pair: one pixel
 	// one level off in red, one in blue, 2 of 96x20.
 	"any-channel":   {stdin: "caps/d1.png\n", geom: cmfGeom, stdout: "<out>/d1.png diff=0.0010\n"},
@@ -170,6 +171,7 @@ var cmfCases = []cmfCase{
 	{"case 28: the borderless frame writes no composite and no cropped frame", "case-28", []cmfCheck{cmfExists("b1.png", false), cmfExists("b1.frame.png", false)}},
 	{"case 29: with status=0 the side border is read below the rounded top corner, so a bordered frame is not taken for a borderless one", "case-29", []cmfCheck{cmfRC(0), cmfErr(""), cmfSize("r1.frame.png", 96, 156)}},
 	{"case 30: with status=0 rule 2 reads the side border below the rounded top corner, so a frame whose caption band sits directly under its bottom border still crops there", "case-30", []cmfCheck{cmfRC(0), cmfErr(""), cmfSize("r1.frame.png", 96, 156)}},
+	{"case 31: with border=0 declared, no side border is read, so the frame is never refused as having no border", "case-31", []cmfCheck{cmfRC(1), cmfErr(`map\.mockups:1: frame B1: declared geometry leaves no content area\n`)}},
 
 	{"one-level red and blue differences each count toward diff=", "any-channel", []cmfCheck{cmfRC(0), cmfOut("<out>/d1.png diff=0.0010")}},
 	{"a one-level red difference is white in the difference panel", "any-channel", []cmfCheck{cmfPixel("d1.png", 96+16+96+16+10, 5, 255, 255, 255), cmfPixel("d1.png", 96+16+96+16+11, 5, 0, 0, 0)}},
