@@ -2207,3 +2207,33 @@ func TestStateAddWorktreeRefusals(t *testing.T) {
 		})
 	}
 }
+
+// TestStateGetAcceptsFlagsAfterTheName pins that a flag may follow the
+// change name: Go's flag package stops at the first positional, so
+// `flow state get <name> -C <dir>` used to exit 2 with "expected exactly one
+// argument".
+func TestStateGetAcceptsFlagsAfterTheName(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	diskBody := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z"}`)
+	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-16"), diskBody); err != nil {
+		t.Fatalf("seed state file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "kan-16", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !jsonEqual(t, stdout.Bytes(), diskBody) {
+		t.Errorf("stdout = %s, want the on-disk record %s", stdout.Bytes(), diskBody)
+	}
+}

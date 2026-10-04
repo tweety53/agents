@@ -294,6 +294,24 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 		}
 	})
 
+	t.Run("--proceed before the positionals", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		fx.g.write(fx.wt+"/.env", "SECRET=1")
+		var out, errb bytes.Buffer
+		self := tcfScriptsDir(t) + "/remove-change-worktrees.sh"
+		env := Env{Dir: fx.dir, Getenv: func(k string) string {
+			if k == "FLOW_GUARD_SELF" {
+				return self
+			}
+			return os.Getenv(k)
+		}}
+		code := removeChangeWorktrees([]string{"--proceed", fx.repo, "demo", fx.mergeBase}, env, &out, &errb)
+		if code != 0 || rcwExists(fx.wt) {
+			t.Fatalf("leading --proceed: exit %d\nstdout:\n%s\nstderr:\n%s", code, out.String(), errb.String())
+		}
+	})
+
 	t.Run("a wave-group copy", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)

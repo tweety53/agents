@@ -258,14 +258,25 @@ func parseStateFlagsN(fset *flag.FlagSet, args []string, stderr io.Writer, n int
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
-	if err := fset.Parse(args); err != nil {
-		return stateFlags{}, err
+	// Flags may follow the positionals too: the flag package stops at the
+	// first one, so parse again after each. A positional is never a flag —
+	// a change name, a path or a sha cannot begin with "-".
+	var pos []string
+	for {
+		if err := fset.Parse(args); err != nil {
+			return stateFlags{}, err
+		}
+		if fset.NArg() == 0 {
+			break
+		}
+		pos = append(pos, fset.Arg(0))
+		args = fset.Args()[1:]
 	}
 	noteAddrUsage(fset, stderr, f.addr)
-	if fset.NArg() != n {
+	if len(pos) != n {
 		return stateFlags{}, errors.New(wrong)
 	}
-	f.args = fset.Args()
+	f.args = pos
 	f.name = f.args[0]
 	dir, err := resolveFlagDir(f.dir)
 	if err != nil {

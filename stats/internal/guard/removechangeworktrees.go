@@ -28,8 +28,9 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		fmt.Fprintf(stderr, "remove-change-worktrees: "+format+"\n", a...)
 		return 2
 	}
-	proceed := len(args) == 4 && args[3] == "--proceed"
-	if len(args) != 3 && !proceed {
+	proceed := slices.Contains(args, "--proceed")
+	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--proceed" })
+	if len(args) != 3 {
 		return refuse("usage: remove-change-worktrees.sh <repo> <name> <merge-base|-> [--proceed]")
 	}
 	repo, name, mergeBase := pcAbs(env, args[0]), args[1], args[2]
