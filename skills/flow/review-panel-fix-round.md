@@ -96,11 +96,13 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round;
-- **on a decided panel, each re-running role runs alone, in its own dispatch, on
-  the decision's `panel.rerun_dispatch` pair**, under the 5-minute ceiling — never bundled with
-  another role. **The re-run is targeted at what that role raised and nothing else**: in place of
+- **on a decided panel, the round's re-running roles ride one bundled dispatch, on
+  the decision's `panel.rerun_dispatch` pair**, under the 5-minute ceiling — one **PASS** section
+  per role, the full-roster fallback (**Bundled dispatch**, `skills/flow/review-panel.md`)
+  separating them one per role when the bundled findings need separation. **Each role's re-run is
+  targeted at what that role raised and nothing else**: in place of
   its held-sha delta it reads the round's `fix-round-N.diff` plus the sites of its own open
-  findings, each opened at its recorded `file:line` in the current tree, and its prompt lists
+  findings, each opened at its recorded `file:line` in the current tree, and its PASS section lists
   those `F<n>` rows verbatim, states that it is re-reviewing their fix, and names that diff path.
   Its verdict is per listed finding — fixed, or not fixed with the reproducer output — plus any
   defect the fix diff itself introduces at those sites.
