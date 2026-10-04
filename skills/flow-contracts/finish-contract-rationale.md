@@ -47,13 +47,13 @@ KAN-875's landing). Run 2 then archived on `chore/archive-<name>` and landed it 
 push or pull request — two landings per change, and a window in which the code had landed with its
 change still open.
 
-A re-run of run 1 on an already-archived change skips the reshape because `reshape-branch.sh`
-keeps only commits touching `<project>/spectre/changes/`: the bundle commit touches
-`<project>/docs/self-review/` alone, so a reshape would fold it into the implementation commit. It
-still runs `commit-archive.sh` and the bundle step, each a no-op once its commit exists, because the
-earlier run may have stopped between `spectre archive` and either commit — a refused archive commit,
-or a bundle commit refused after the archive commit landed — and a skip keyed on the working tree's
-layout alone would leave that commit missing on every later re-run. Archived-ness is read from the
+A re-run of run 1 on an already-archived change without new work skips the reshape because
+`reshape-branch.sh` keeps only commits touching `<project>/spectre/changes/`: the bundle commit
+touches `<project>/docs/self-review/` alone, so a reshape from the merge base would fold it into the
+implementation commit. It still runs the bundle step, a no-op once its commit exists, because the
+earlier run may have stopped after the archive commit and before the bundle commit. An archive left
+uncommitted is undone rather than finished: finishing it on top of a fix run's commits would make
+the archive commit the re-run's base and hide that work. Archived-ness is read from the
 canonical repository alone because only it holds the change directory; a satellite worktree has
 nothing to judge it by.
 

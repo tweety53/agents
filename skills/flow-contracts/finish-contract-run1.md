@@ -83,7 +83,7 @@ anything below: when `<project>/spectre/changes/archive/<name>/` exists there an
 holds no `chore(spectre): archive <name>` commit — a run 1 that stopped between `spectre archive` and
 `commit-archive.sh`, or between the parent's call and a `<name>-fix-N` sibling's — `git mv` that
 directory, and every `<project>/spectre/changes/archive/<name>-fix-N/` beside it, back under
-`<project>/spectre/changes/`. The change is then not archived, and this run archives it as a first
+`<project>/spectre/changes/`. **When `<project>/spectre/changes/<name>/` also exists, stop and ask** — `git mv` would nest the archive inside it, hiding the fix run's tasks from the gate; the operator removes the stale live copy and re-runs. The change is then not archived, and this run archives it as a first
 run 1 does: any fix run's work is gated, reshaped and committed by the two-commit chain, and the
 move lands after it as its own archive commit, never riding `chore(spectre): plan`.
 
@@ -161,7 +161,7 @@ prompted: a `MOVED` verdict, overlapping or not, is what **Sync the branch onto 
 (`skills/flow/sync-onto-base.md`) consumes. A `REFUSE`, an exit 2, or a resolved set that comes back empty stops and asks, exactly
 as the preflight verdict above does.
 
-Only then decide, **before any git action**, how the branch should land — the default, the prompt
+Only then decide, **before any git action but the undo and the sync above**, how the branch should land — the default, the prompt
 and its parse are step 2 of `skills/flow/integrate.md`. The answer is never remembered between runs.
 
 **The reshape-commit-route sequence below runs once per worktree in the resolved set, in the order
