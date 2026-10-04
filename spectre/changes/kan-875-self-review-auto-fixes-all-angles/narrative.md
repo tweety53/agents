@@ -34,3 +34,10 @@ Resumed at `STARTED` with a ready six-task plan and ran it inline (decision `exe
 - **Operator side request.** A `main` row for the parent's own turn on the `subagent-board` mod — in-run pipeline fix 2, landed as dc7554b7 after one fix round (the row showed the previous Bash description while a command ran).
 - **Panel round 2** found that Task 8's Land item delegated to a recipe still bound to the project's `<default-branch>`, and that the fix worktree never ran `## worktree setup` (so Verify would be red on every pass). Root-caused by binding `<agents-base>` once in **Pipeline defects found mid-run**, which also fixed that loop for projects whose default branch is not `main`.
 - **Process friction.** Reviewer reproducers twice came back with prose `# demonstrates:`/`# premise:` lines the exit-contract guard rejects; the parent reformatted them rather than bouncing. Two re-run slots answered in their reply without writing their report files. A `cd`-led compound command against the main checkout path was blocked by the main-checkout hook even though it only read state.
+
+## 2026-10-04 — integrate run
+
+- **Preflight.** `RUN1`; no foreign staged work or drift on the main checkout; unfinished-work gate `CLEAR`, visual verify not applicable.
+- **Rebase.** `origin/main` moved 2 commits (the two in-run pipeline fixes, overlapping `skills/flow-contracts/pipeline.md`); the rebase onto dc7554b7 was clean, and the overlap carries no guard test to re-run.
+- **Route.** Merge and push, from the project's configured default.
+- **Friction.** `flow state get <name> -C <dir>` exits 2 — the Go flag parser stops at the first positional, so `-C` must precede the name.
