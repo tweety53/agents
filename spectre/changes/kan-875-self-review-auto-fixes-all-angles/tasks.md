@@ -445,7 +445,7 @@ to the pass, and the unchanged sentence needs no verbatim-moves entry.
 
 ---
 
-- [ ] 8. Skill: verify and integrate every self-review fix end to end (fix round 1)
+- [x] 8. Skill: verify and integrate every self-review fix end to end (fix round 1)
 
 **Files:** `skills/flow-self-review/SKILL.md`
 **Tests:** none — skill prose; no guard reads step 3's wording
@@ -461,10 +461,10 @@ to the pass, and the unchanged sentence needs no verbatim-moves entry.
 Operator instruction at the human gate: the self-review fixes run proper implement/fix/review/
 verify/integrate cycles and end on agents `main`.
 
-  - [ ] **Step 1: Insert the Verify item** as step 3's new item 4, between item 3 (**Fix the
+  - [x] **Step 1: Insert the Verify item** as step 3's new item 4, between item 3 (**Fix the
     review's findings**) and **Land once**, with the block below.
-  - [ ] **Step 2: Replace the Land item** (old item 4) with the block below, renumbered 5.
-  - [ ] **Step 3: Verify** the reference and verbatim-move guards of `## lint` exit clean.
+  - [x] **Step 2: Replace the Land item** (old item 4) with the block below, renumbered 5.
+  - [x] **Step 3: Verify** the reference and verbatim-move guards of `## lint` exit clean.
     **Failure looks like:** a landing that can proceed without a green `## lint` and `## test`, or a
     pass that can end with a fix not on `origin/<agents-base>`.
 
