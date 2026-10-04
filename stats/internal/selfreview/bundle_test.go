@@ -474,23 +474,34 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 // integrate: a fix run after run 1 archived the change commits a new
 // implementation commit and a planning commit over the ARCHIVED directory
 // on the change branch, and the regenerated bundle describes those after
-// run 1's pair and the archive commit.
+// run 1's pair and the archive commit. The branch has the reshaped shape:
+// the kickoff planning commit sits on the merge base, whose tip is another
+// change's commit, and the fix run's own kept planning commit sits on the
+// previous run's bundle commit — neither parent is the change's
+// implementation.
 func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
 	repo := gitRepo(t)
+	commitAll(t, repo, "other.go", "package other\n", "feat(other): another change on the base")
+	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	runGit(t, repo, "checkout", "-b", "work")
+	kickoff := commitAll(t, repo, "spectre/changes/demo/proposal.md", "# demo\n", "chore(spectre): plan")
 	impl1 := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
 	plan1 := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
-	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"tasks.md": "- [x] 1. do it\n"})
+	runGit(t, repo, "rm", "-q", "-r", "spectre/changes/demo")
+	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"proposal.md": "# demo\n", "tasks.md": "- [x] 1. do it\n"})
 	runGit(t, repo, "checkout", "spectre/demo")
 	commitAll(t, repo, "docs/self-review/demo-context.md", "bundle\n",
 		"docs(self-review): demo self-review context bundle")
+	fixPlan := commitAll(t, repo, "spectre/changes/archive/demo/narrative.md", "fix run\n", "chore(spectre): plan")
 	implSHA := commitAll(t, repo, "app.go", "package main\n\nfunc f() {}\n", "fix(demo): the fix run's change")
 	planSHA := commitAll(t, repo, "spectre/changes/archive/demo/tasks.md", "- [x] 1. do it\n- [x] 2. fix\n",
 		"chore(spectre): plan")
 	runGit(t, repo, "checkout", "main")
 
 	got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
-	if want := []string{impl1, plan1, archiveSHA, implSHA, planSHA}; !slices.Equal(got, want) {
-		t.Errorf("got %v, want %v", got, want)
+	if want := []string{kickoff, impl1, plan1, archiveSHA, fixPlan, implSHA, planSHA}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v — neither the base tip nor the bundle commit is an implementation commit", got, want)
 	}
 }
 

@@ -114,11 +114,17 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 //     changes). The archived path is what finds an archived re-run's
 //     planning commit;
 //   - each planning commit's implementation commit is its first parent,
-//     accepted only when it is a non-merge commit, matches none of the
-//     three reserved subject shapes, and touches at least one path outside
+//     accepted only when it sits above the change's merge base
+//     (changeMergeBase), is a non-merge commit, matches none of the four
+//     reserved subject shapes, and touches at least one path outside
 //     spectre/changes/, docs/research/ and docs/superpowers/ — anything
 //     else resolves NOTHING rather than a confident wrong answer — and
-//     listed directly before its planning commit.
+//     listed directly before its planning commit. The merge-base gate is
+//     what keeps the oldest planning commit's parent out: the reshape
+//     rebuilds every kept planning commit on the merge base, so that
+//     parent is the base tip, a commit of some other change; the bundle
+//     subject is what keeps an archived re-run's first planning commit's
+//     parent out, the previous run's self-review bundle commit.
 //
 // Every git failure degrades to an empty list, or a pair without its
 // implementation commit, the gather's `|| true` semantics: a missing
@@ -139,6 +145,7 @@ func deriveFinishCommits(g Runner, repo, rev, name string) []string {
 		"--format=%H %s",
 		"--", liveDir+"/"+name, archiveDir+"/"+name))
 
+	bound := changeMergeBase(g, repo, rev, name)
 	var out []string
 	for _, line := range strings.Split(found, "\n") {
 		sha, subject, _ := strings.Cut(line, " ")
@@ -146,7 +153,8 @@ func deriveFinishCommits(g Runner, repo, rev, name string) []string {
 			continue
 		}
 		if !archiveRe.MatchString(subject) {
-			if impl := trimmedOutput(g.Output(repo, "rev-parse", sha+"^")); isRealImplCommit(g, repo, impl, nameRe) {
+			impl := trimmedOutput(g.Output(repo, "rev-parse", sha+"^"))
+			if !atOrBelow(g, repo, impl, bound) && isRealImplCommit(g, repo, impl, nameRe) {
 				out = append(out, impl)
 			}
 		}
@@ -155,27 +163,77 @@ func deriveFinishCommits(g Runner, repo, rev, name string) []string {
 	return out
 }
 
-// reservedShapes is the one declaration of the three reserved subject
+// reservedShapes is the one declaration of the four reserved subject
 // shapes — the current plan-commit literal (a prefix match, no `$`, exactly
 // as the gather anchored it), the pre-rename wording scoped to the change,
-// and the exact archive subject. deriveFinishCommits greps with them and
-// isRealImplCommit rejects against them; one declaration is what keeps the
-// gate and the query from drifting apart.
-func reservedShapes(nameRe string) struct{ planNew, planOld, archive string } {
-	return struct{ planNew, planOld, archive string }{
+// the exact archive subject, and the exact self-review bundle subject.
+// deriveFinishCommits greps with the first three and isRealImplCommit
+// rejects against all four; one declaration is what keeps the gate and the
+// query from drifting apart.
+func reservedShapes(nameRe string) struct{ planNew, planOld, archive, bundle string } {
+	return struct{ planNew, planOld, archive, bundle string }{
 		planNew: `^chore\(spectre\): plan`,
 		planOld: `^chore\(` + nameRe + `\): plan(, test guide and| and) session records`,
 		archive: `^chore\(spectre\): archive ` + nameRe + `$`,
+		bundle:  `^docs\(self-review\): ` + nameRe + ` self-review context bundle$`,
 	}
 }
 
+// changeMergeBase returns the commit the change branch forked from: the
+// merge base of rev and the change's base — origin/<base> for the base
+// recorded on spectre/<name>, else what origin/HEAD points at. "" when rev
+// is not the change branch or is already contained in its base (the change
+// has landed, and the fork point is no longer visible in the topology), or
+// when no base resolves; every parent is then judged by isRealImplCommit
+// alone.
+//
+// ponytail: a landed change's bundle has no merge-base gate; it was saved,
+// gated, at run 1 before landing, so only a hand re-assembly after landing
+// can list the base tip below a reshaped first planning commit.
+func changeMergeBase(g Runner, repo, rev, name string) string {
+	if rev != changeBranchPrefix+name {
+		return ""
+	}
+	base := baseRef(g, repo, rev)
+	if base == "" {
+		return ""
+	}
+	mb := trimmedOutput(g.Output(repo, "merge-base", rev, base))
+	if mb == "" || mb == trimmedOutput(g.Output(repo, "rev-parse", rev)) {
+		return ""
+	}
+	return mb
+}
+
+// baseRef is the remote-tracking ref a branch lands on: origin/<the base
+// recorded as branch.<branch>.flowBase>, as resolve-base-branch.sh reads
+// it, else what origin/HEAD points at; "" when neither resolves.
+func baseRef(g Runner, repo, branch string) string {
+	if rec := trimmedOutput(g.Output(repo, "config", "--get", "branch."+branch+".flowBase")); rec != "" {
+		return "origin/" + rec
+	}
+	return trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+}
+
+// atOrBelow reports whether commit is bound or one of its ancestors —
+// outside the change's own range. An empty bound or commit bounds nothing.
+func atOrBelow(g Runner, repo, commit, bound string) bool {
+	if commit == "" || bound == "" {
+		return false
+	}
+	_, err := g.Output(repo, "merge-base", "--is-ancestor", commit, bound)
+	return err == nil
+}
+
 // isRealImplCommit judges plan's first parent by the four conditions the
-// gather named. The three subject rejections and the merge gate are
-// deliberately dead today — commit-split.sh's commits always carry one
+// gather named. The merge gate and the plan and archive subject rejections
+// are deliberately dead today — commit-split.sh's commits always carry one
 // parent and a plan-commit subject never sits one commit below another
 // reserved subject — and kept anyway: each guards this function's own git
 // queries against a future edit to commit-split.sh's staging shape, which
-// no test of this function can see.
+// no test of this function can see. The bundle subject rejection is live:
+// an archived re-run's first kept planning commit sits on the previous
+// run's bundle commit.
 func isRealImplCommit(g Runner, repo, impl, nameRe string) bool {
 	if impl == "" {
 		return false
@@ -188,7 +246,7 @@ func isRealImplCommit(g Runner, repo, impl, nameRe string) bool {
 
 	subject := trimmedOutput(g.Output(repo, "log", "-1", "--format=%s", impl))
 	shapes := reservedShapes(nameRe)
-	for _, re := range []string{shapes.planNew, shapes.planOld, shapes.archive} {
+	for _, re := range []string{shapes.planNew, shapes.planOld, shapes.archive, shapes.bundle} {
 		if matched, err := regexp.MatchString(re, subject); err == nil && matched {
 			return false
 		}
@@ -305,10 +363,7 @@ func firstReadableRepo(g Runner, repos []string) string {
 // deleted, or never created — degrade to an empty string, the same "a
 // missing source is never fatal" rule deriveFinishCommits follows.
 func changeBranchLog(g Runner, repo, change string) string {
-	base := trimmedOutput(g.Output(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
-	if rec := trimmedOutput(g.Output(repo, "config", "--get", "branch."+change+".flowBase")); rec != "" {
-		base = "origin/" + rec
-	}
+	base := baseRef(g, repo, change)
 	if base == "" {
 		return ""
 	}
