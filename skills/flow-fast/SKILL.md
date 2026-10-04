@@ -254,7 +254,10 @@ flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -se
 
 Run every command in `## lint`, in the worktree, and the `## test` commands scoped to what the
 change touched — the packages, modules or test files the diff names, never the full suite unless
-the operator asked for it. Then `check-fast-route-record.sh <worktree> <base>` reads the branch's
+the operator asked for it. When the diff names nothing those commands can scope to, none of them
+runs — the change summary below states that empty-scope reason explicitly, the stated reason
+being what makes the skip auditable rather than lazy, never a reflexive full-suite run in its
+place. Then `check-fast-route-record.sh <worktree> <base>` reads the branch's
 commit series as the record, per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`). A failure is fixed and re-run under section 4's
 commit rule; the run never lands red — except a failing test **the sweep**
