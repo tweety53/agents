@@ -393,6 +393,47 @@ test("the running /flow change's pending tasks follow the dispatched rows", asyn
     '  ◼ Tasks 21+22/25 (pair) — in progress',
     '  ◻ Task 23/25 (Step 23) — pending',
     '  ◻ Task 24/25 (Step 24) — pending',
-    '  ◻ Task 25/25 (Step 25) — pending',
+  ])
+})
+
+test('the band draws at most main plus five rows: dispatched rows first, then the earliest pending', async ($, on) => {
+  let n = 0
+  on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', () => ({ value: PLAN.replace(/- \[x\] (?:[4-9]|1\d)\. /g, m => m.replace('x', ' ')) }))
+  on('ui.render', (r, e) => {
+    const { Box, Text } = r.ui.resolve(e)
+    return e.component === 'PromptHint' ? <Text>hint</Text> : <Box />
+  })
+  const shown = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2}) *\S.* — \S/.test(t.text)).map(t => t.text)
+    await ui.unmount()
+    return texts
+  }
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', messageCount: 1 })) {
+    // drain
+  }
+
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
+  await $.agent.spawn(spawn('Task 1/25 (Step 1)'))
+  await $.agent.spawn(spawn('Task 2/25 (Step 2)'))
+  await $.agent.spawn(spawn('Task 3/25 (Step 3)'))
+  expect(await shown()).toEqual([
+    '⎿ opus ◼ main — in progress',
+    '       ◼ Task 1/25 (Step 1) — in progress',
+    '       ◼ Task 2/25 (Step 2) — in progress',
+    '       ◼ Task 3/25 (Step 3) — in progress',
+    '       ◻ Task 4/25 (Step 4) — pending',
+    '       ◻ Task 5/25 (Step 5) — pending',
+  ])
+
+  for (const k of [4, 5, 6, 7]) await $.agent.spawn(spawn(`Task ${k}/25 (Step ${k})`))
+  expect(await shown()).toEqual([
+    '⎿ opus ◼ main — in progress',
+    ...[1, 2, 3, 4, 5].map(k => `       ◼ Task ${k}/25 (Step ${k}) — in progress`),
   ])
 })

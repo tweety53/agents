@@ -241,7 +241,9 @@ export const register: Register = on => {
     const plan = change
       ? await $.fs.read(`.worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '')
       : ''
-    const all = [...rs, ...pendingRows(plan, subs)]
+    // The main row plus at most MAX_ROWS others: the board's rows first, then the earliest pending ones;
+    // past MAX_ROWS running rows, only the earliest show, while the hint line's tally still counts them all.
+    const all = [...rs.filter(r => r.n === 0), ...[...subs, ...pendingRows(plan, subs)].slice(0, MAX_ROWS)]
     const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
     const width = Math.max(0, ...all.map(r => labels[r.id]?.length ?? 0))
     const total = subs.at(-1)?.n ?? 0

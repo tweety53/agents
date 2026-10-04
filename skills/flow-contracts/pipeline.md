@@ -206,7 +206,8 @@ shows on the main agent's own `main` row, first on the band while the main turn 
 latest Bash command's description, if any, and never numbered as a task. After the subagent rows,
 the band lists each task of the running change's plan that is still unticked and named by no row's
 `Task <x>/<n>` prefix as a `pending` row, read from the change's `tasks.md` in its worktree on every
-draw — never stored.
+draw — never stored. The band draws at most five rows besides the `main` row: the subagent rows first, then
+the earliest pending rows in whatever room is left.
 
 **Every subagent dispatch's description is the board row's label**, in the shape
 **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states — no emoji and
