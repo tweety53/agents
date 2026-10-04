@@ -47,6 +47,26 @@ func TestTasksTickWritesFile(t *testing.T) {
 	}
 }
 
+// A fix run after integrate's run 1 archived the change ticks the archived
+// plan, the one its tasks were appended to.
+func TestTasksTickWritesArchivedPlan(t *testing.T) {
+	dir := t.TempDir()
+	writePlan(t, dir, "spectre", "archive/c", "- [x] 1. First\n- [ ] 2. Appended by a fix run\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "2"}, nil, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "spectre", "changes", "archive", "c", "tasks.md"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !strings.Contains(string(got), "- [x] 2. Appended by a fix run") {
+		t.Errorf("archived plan not ticked:\n%s", got)
+	}
+}
+
 func TestTasksTickAlreadyTickedExitsNonZero(t *testing.T) {
 	dir := t.TempDir()
 	writePlan(t, dir, "spectre", "c", "- [x] 1. First\n")

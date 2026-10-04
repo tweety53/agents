@@ -1412,6 +1412,37 @@ func TestStateResolveFallbackDropsArchived(t *testing.T) {
 	}
 }
 
+// TestStateResolveFallbackKeepsArchivedInProgress pins the one archived
+// name the fallback keeps: integrate's run 1 archives on the change branch,
+// so once that branch merges the main checkout carries the archive while
+// the change still waits, IN_PROGRESS, on run 2's cleanup.
+func TestStateResolveFallbackKeepsArchivedInProgress(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	changesDirFixture(t, repo)
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
+	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-b"), seeded); err != nil {
+		t.Fatalf("seed state file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if names := candidateNames(decodeStateResolveOutput(t, stdout.Bytes())); !containsName(names, "kan-b") {
+		t.Errorf("candidates = %v, want kan-b (archived, IN_PROGRESS record) present", names)
+	}
+}
+
 // TestStateResolveFallbackNamesUnreadable is state resolve's own version
 // of the never-rebuild-by-inference rule TestStateListFallbackReportsUnreadableFileByName
 // already covers for `state list`: an unparseable fallback file must

@@ -21,6 +21,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/guard"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -28,8 +29,9 @@ const tasksUsage = `usage: flow tasks tick [-C dir] <change> <task-id>
        flow tasks count [-C dir] [-addr url] [-timeout dur] <change>
 
 tasks tick flips one task's own checkbox and every step checkbox in its
-body from "[ ]" to "[x]" in <dir>/<spec-root>/changes/<change>/tasks.md,
-where <spec-root> is "spectre" when <dir>/spectre/changes exists,
+body from "[ ]" to "[x]" in <dir>/<spec-root>/changes/<change>/tasks.md
+-- <dir>/<spec-root>/changes/archive/<change>/tasks.md once the change
+is archived and no live directory remains -- where <spec-root> is "spectre" when <dir>/spectre/changes exists,
 "openspec" when only <dir>/openspec/changes does, and "spectre"
 otherwise. It refuses (exit 1) rather than silently no-opping when the
 task is already ticked, or when no task with that id exists in the
@@ -89,9 +91,11 @@ func specRootLeaf(dir string) string {
 // "../escape" can never walk planPath outside <dir>/<spec-root>/changes/.
 var changeNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
-// planPath returns <dir>/<spec-root>/changes/<change>/tasks.md, or an
-// error when change fails changeNamePattern. It resolves only the
-// direct path -- no link.md/peer indirection the way
+// planPath returns <dir>/<spec-root>/changes/<change>/tasks.md -- or, once
+// integrate's run 1 archived the change and no live directory remains,
+// <dir>/<spec-root>/changes/archive/<change>/tasks.md (guard.ChangeDir) --
+// or an error when change fails changeNamePattern. It resolves only the
+// change's own directory -- no link.md/peer indirection the way
 // scripts/lib/change-plan.sh's change_plan_path offers guards checking
 // a different worktree's plan from outside it: flow tasks tick only
 // ever runs inside the worktree that owns the plan it is ticking
@@ -100,7 +104,7 @@ func planPath(dir, change string) (string, error) {
 	if !changeNamePattern.MatchString(change) {
 		return "", fmt.Errorf("change name %q must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
 	}
-	return filepath.Join(dir, specRootLeaf(dir), "changes", change, "tasks.md"), nil
+	return filepath.Join(guard.ChangeDir(filepath.Join(dir, specRootLeaf(dir), "changes"), change), "tasks.md"), nil
 }
 
 func runTasksTick(_ context.Context, args []string, stdout, stderr io.Writer) int {
