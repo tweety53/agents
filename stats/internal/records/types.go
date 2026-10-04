@@ -2,13 +2,14 @@
 // every subagent dispatch and every review-panel finding -- shared by the
 // store, the API, the client and (from this change's renderer) the Markdown
 // rendering. It holds data and rendering, nothing else, and imports only
-// encoding/json and time so that every layer above can depend on it without
+// the standard library so that every layer above can depend on it without
 // dragging a database or an HTTP client with it.
 package records
 
 import (
 	"bytes"
 	"encoding/json"
+	"regexp"
 	"time"
 )
 
@@ -378,6 +379,29 @@ type Incident struct {
 	Recovery    string    `json:"recovery"`
 	MinutesLost int       `json:"minutesLost"`
 	OccurredAt  time.Time `json:"occurredAt"`
+}
+
+// SelfReviewSha and IssueKey are the shapes a self-review finding's ref
+// takes: the landed sha of a fixed finding and the issue key of a filed one.
+// The report guard and the store both read them, so the two cannot drift.
+var (
+	SelfReviewSha = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+	IssueKey      = regexp.MustCompile(`^[A-Z][A-Z0-9]*-[0-9]+$`)
+)
+
+// SelfReviewFinding is one /flow-self-review finding and its outcome
+// (KAN-875). Disposition is the closed set fixed/filed/declined; Ref is the
+// landed sha for fixed, the issue key for filed and empty for declined.
+// BlastRadius is the finding's file count, nil when none was counted.
+type SelfReviewFinding struct {
+	ID          int64     `json:"id"`
+	Change      string    `json:"change"`
+	Angle       string    `json:"angle"`
+	Note        string    `json:"note"`
+	Disposition string    `json:"disposition"`
+	Ref         string    `json:"ref,omitempty"`
+	BlastRadius *int      `json:"blastRadius,omitempty"`
+	RecordedAt  time.Time `json:"recordedAt"`
 }
 
 // Hazard is a proactive, per-project warning a dispatch bundle carries

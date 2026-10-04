@@ -112,6 +112,10 @@ type fakeStore struct {
 	addHazardErr   error
 	listHazardsErr error
 
+	// --- self-review findings (KAN-875, internal/api/selfreview_test.go's
+	// fakeStore methods operate on these) ---
+	selfReviewFindings []selfReviewFindingRecord
+
 	// --- suite-run bookkeeping (KAN-252, internal/api/suites_test.go's
 	// fakeStore methods operate on these) ---
 	suiteRuns         []suiteRunRecord

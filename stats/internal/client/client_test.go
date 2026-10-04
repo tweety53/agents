@@ -973,6 +973,14 @@ func (stubStageStore) RetireHazard(context.Context, string, string) (records.Haz
 	return records.Hazard{}, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RecordSelfReviewFinding(context.Context, string, records.SelfReviewFinding) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListSelfReviewFindings(context.Context, string, string) ([]records.SelfReviewFinding, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
 	return records.SuiteRun{}, errStageStoreNotImplemented
 }

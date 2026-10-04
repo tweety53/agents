@@ -136,6 +136,10 @@ own `files>=60` threshold — when that count is 60 or more, when it reaches out
 `<agents repo>`, or when it needs a design choice only the operator can make. A `big` fix is
 deferred to self-review, and so is one found `big` once under way, which stops there.
 
+`<agents-base>` is `<agents repo>`'s own default branch —
+`git -C <agents repo> symbolic-ref --short refs/remotes/origin/HEAD` with its `origin/` prefix
+dropped — never the project's `<default-branch>`, which `<agents repo>` may not carry.
+
 **Every dispatch in the loop is one-shot.** No `SendMessage` to a finished child, and no child
 parks a question for a resume. Each runs on `opus`, `subagent_type: flow-high`, its key per the
 steps below and `<k>` counting this run's in-run fixes. Each prompt carries the MODEL HANDSHAKE,
@@ -145,20 +149,21 @@ there applies to each reply:
 
 1. **Fix** — `pipeline-fix-<k>`, its prompt carrying the defect, its evidence and the counted
    blast radius. It works in its own worktree,
-   `git -C <agents repo> worktree add -b fix-<slug> <agents repo>/.worktrees/<slug> origin/<default-branch>`
-   — never the main checkout, never the change's own worktree — adds one test or guard that
+   `git -C <agents repo> worktree add -b fix-<slug> <agents repo>/.worktrees/<slug> origin/<agents-base>`
+   — never the main checkout, never the change's own worktree — runs `<agents repo>`'s
+   `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), adds one test or guard that
    fails without the fix, updates a saved memory that encoded the defect, runs the
    `<agents repo>/.flow/project.md` `## lint` lines its files need, and commits with a module
    scope. It never merges or pushes.
 2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
-   `git diff origin/<default-branch>...fix-<slug>`.
+   `git diff origin/<agents-base>...fix-<slug>`.
 3. **Fix the findings** — the parent fixes them inline in that worktree, or dispatches a fresh
    `pipeline-fix-<k>-fix-<r>`; then step 2 again, `<r>` plus one. The loop runs to a clean
    review under **Fewest operator actions** above.
 4. **Land** — by `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is:
-   `git -C <agents repo> fetch origin`, rebase `fix-<slug>` onto `origin/<default-branch>`,
-   `git push origin fix-<slug>:<default-branch>`, `git -C <agents repo> pull --ff-only`, then
+   `git -C <agents repo> fetch origin`, rebase `fix-<slug>` onto `origin/<agents-base>`,
+   `git push origin fix-<slug>:<agents-base>`, `git -C <agents repo> pull --ff-only`, then
    remove the worktree and the branch.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
