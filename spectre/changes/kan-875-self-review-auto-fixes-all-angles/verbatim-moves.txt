@@ -43,3 +43,5 @@ allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.
 flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined [-ref <sha|KEY>] [-blast-radius <N>] -note '<the finding, one line>'
 name: flow-self-review description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle.
 would re-load.
+Each fixed finding's sha is read off `<default-branch>` after the landing, never from the branch before its rebase; on a route that opens a pull request, once that pull request merges.
+`self-review-<name>-review-<r>`, over `git diff origin/<default-branch>...self-review-<name>`, its prompt naming each finding beside its commit and carrying the paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**) names for a review.
