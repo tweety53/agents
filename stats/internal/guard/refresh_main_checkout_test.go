@@ -89,6 +89,23 @@ func TestRefreshMainCheckout(t *testing.T) {
 		}
 	})
 
+	// B adds g.txt; an untracked g.txt here is what the fast-forward would
+	// overwrite, so git's own merge refuses it: exit 2, no verdict, nothing
+	// moved and the untracked file kept.
+	t.Run("fast-forward over an untracked file cannot answer", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		before := rmcRev(t, repo, "main")
+		writeFile(t, repo+"/g.txt", "mine\n")
+		if r := run(repo, "main"); r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "g.txt") {
+			t.Fatalf("want exit 2, no verdict, git's message naming g.txt; got %+v", r)
+		}
+		unmoved(t, repo, before)
+		if body, _ := os.ReadFile(repo + "/g.txt"); string(body) != "mine\n" {
+			t.Fatal("untracked file overwritten")
+		}
+	})
+
 	t.Run("detached refused", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
