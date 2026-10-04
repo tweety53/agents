@@ -84,8 +84,9 @@ whole pass. A pass with none creates no worktree and dispatches nothing.
    `<agents repo>/.flow/project.md` `## lint` lines its files need.
 2. **Review** — one fresh dispatch on `opus`, `subagent_type: flow-high`, key
    `self-review-<name>-review-<r>`, over `git diff origin/<default-branch>...self-review-<name>`,
-   its prompt naming each finding beside its commit. It is one-shot: no `SendMessage` to it once
-   it returns.
+   its prompt naming each finding beside its commit and carrying the paragraphs **Every dispatch
+   in the loop is one-shot** (**Pipeline defects found mid-run**) names for a review. It is
+   one-shot: no `SendMessage` to it once it returns.
 3. **Fix the review's findings inline**, then step 2 again, `<r>` plus one, until a review comes
    back clean, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A commit
    the review judges not to fix its finding, or to make things worse, is dropped from the branch,
@@ -94,7 +95,8 @@ whole pass. A pass with none creates no worktree and dispatches nothing.
    (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
    branch. Each fixed finding's sha is read off `<default-branch>` after the landing, never from
-   the branch before its rebase.
+   the branch before its rebase; on a route that opens a pull request, once that pull request
+   merges.
 
 ### 4. Explain, then ask
 

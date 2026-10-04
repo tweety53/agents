@@ -11,7 +11,8 @@ import (
 
 // ErrSelfReviewFindingInvalid reports a RecordSelfReviewFinding whose
 // disposition is outside fixed/filed/declined, whose ref does not fit its
-// disposition, or whose change, angle or note is empty. The handler maps it
+// disposition, whose change, angle or note is empty, or whose blast radius
+// is negative. The handler maps it
 // to 400: a caller's mistake, never a store failure.
 var ErrSelfReviewFindingInvalid = errors.New("store: invalid self-review finding")
 
@@ -25,6 +26,9 @@ var (
 func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 	if f.Change == "" || f.Angle == "" || f.Note == "" {
 		return fmt.Errorf("%w: change, angle and note are required", ErrSelfReviewFindingInvalid)
+	}
+	if f.BlastRadius != nil && *f.BlastRadius < 0 {
+		return fmt.Errorf("%w: blast radius must be 0 or more, got %d", ErrSelfReviewFindingInvalid, *f.BlastRadius)
 	}
 	switch f.Disposition {
 	case "fixed":

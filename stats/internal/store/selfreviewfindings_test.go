@@ -60,13 +60,14 @@ func TestSelfReviewFindingsRoundTrip(t *testing.T) {
 
 // TestSelfReviewFindingRefusesBadDisposition asserts the store's own
 // validation: a disposition outside the closed set, a ref that does not fit
-// its disposition, or an empty change, angle or note is ErrSelfReviewFindingInvalid
+// its disposition, an empty change, angle or note, or a negative blast radius is ErrSelfReviewFindingInvalid
 // and writes nothing.
 func TestSelfReviewFindingRefusesBadDisposition(t *testing.T) {
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
 	const a, n = "myflow-fix", "a finding"
+	negative := -1
 	cases := map[string]records.SelfReviewFinding{
 		"unknown disposition": {Change: "kan-1", Angle: a, Note: n, Disposition: "bogus"},
 		"fixed with a key":    {Change: "kan-1", Angle: a, Note: n, Disposition: "fixed", Ref: "KAN-9"},
@@ -76,6 +77,7 @@ func TestSelfReviewFindingRefusesBadDisposition(t *testing.T) {
 		"empty angle":         {Change: "kan-1", Note: n, Disposition: "declined"},
 		"empty note":          {Change: "kan-1", Angle: a, Disposition: "declined"},
 		"empty change":        {Angle: a, Note: n, Disposition: "declined"},
+		"negative blast":      {Change: "kan-1", Angle: a, Note: n, Disposition: "declined", BlastRadius: &negative},
 	}
 	for name, f := range cases {
 		t.Run(name, func(t *testing.T) {

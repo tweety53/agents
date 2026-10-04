@@ -38,8 +38,9 @@ Records one self-review finding and its outcome (KAN-875): -ref is the
 landed sha for fixed, the issue key for filed and omitted for declined;
 -blast-radius is the finding's file count, omitted when none was counted.
 
-This is a write that never blocks: a store that cannot be reached is one
-warning line on stderr and exit 0, with no journal -- the committed
+This is a write that never blocks: a store that cannot be reached, or
+that fails the write for any reason but a refusal, is one warning line on
+stderr and exit 0, with no journal -- the committed
 self-review report already carries every finding's disposition. A store
 refusal (a disposition outside the closed set, a ref that does not fit it)
 is the caller's mistake and exits 2 with the store's message, as does a
@@ -184,7 +185,7 @@ func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) 
 		fmt.Fprintf(stderr, "flow: self-review finding refused: %v\n", err)
 		return 2
 	default:
-		fmt.Fprintf(stderr, "⚠ flow: store unreachable — self-review finding not recorded: %v\n", err)
+		fmt.Fprintf(stderr, "⚠ flow: self-review finding not recorded — the store could not take it: %v\n", err)
 		return 0
 	}
 }

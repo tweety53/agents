@@ -188,7 +188,7 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("unreachable store: exit %d, want 0 (stderr %q)", code, stderr)
 	}
-	if lines := strings.Split(strings.TrimRight(stderr, "\n"), "\n"); len(lines) != 1 || !strings.HasPrefix(lines[0], "⚠ flow: store unreachable") {
+	if lines := strings.Split(strings.TrimRight(stderr, "\n"), "\n"); len(lines) != 1 || !strings.HasPrefix(lines[0], "⚠ flow: self-review finding not recorded") {
 		t.Errorf("unreachable store stderr = %q, want exactly one warning line", stderr)
 	}
 	if stdout != "" {
