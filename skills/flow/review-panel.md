@@ -750,7 +750,7 @@ reduction read has its own carve-out (`skills/flow/review-panel-late-fix.md`).
 > case or changes what tests a task names, update that task's `**Tests:**` field; when it changes
 > what a task's `**Baseline:**` counts or `**Files:**` paths declare — a test case added, a file
 > created — update those fields too. All of it lands in the worktree's
-> `<project>/spectre/changes/<name>/tasks.md` in this same pass — never left for a reviewer to
+> `<changeRoot>/tasks.md` in this same pass — never left for a reviewer to
 > catch next round. Edit them; do not stage or commit them — the plan record is
 > a planning path and is committed later by the pipeline, never in a fixup.
 

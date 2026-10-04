@@ -47,6 +47,9 @@ task-commit check — and is pushed plain (**Branch backup** below):
 | `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
 | `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
 
+`<project>/spectre/changes/<name>/` in **Carries** is the change's directory — its archived path
+once integrate's run 1 archived it (**A change's directory**, `skills/flow-contracts/pipeline.md`).
+
 ```bash
 check-planning-commit-location.sh <abs-worktree> <name> \
   && git -C <abs-worktree> add -A -- <path> \

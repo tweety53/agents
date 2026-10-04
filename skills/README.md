@@ -17,7 +17,7 @@ installed by `setup.sh global` to `~/.claude/rules/` and inlined into the manage
 `skills/flow-contracts/pipeline.md`, loaded on demand by `/flow`.
 
 `<name>` is **optional** on `/flow` and on `/flow-status` — if omitted, the sole active
-(non-archived) change relevant to that state is used automatically; if there are multiple, you're
+change relevant to that state is used automatically; if there are multiple, you're
 asked which.
 
 **Model:** See "Model resolution" in `skills/flow/SKILL.md`, which is canonical for `/flow`; see

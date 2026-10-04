@@ -58,6 +58,11 @@ Under the mode the ask is not made: **Append to `proposal.md` and `tasks.md`** i
 recorded the way the mode records a taken default (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`).
 
+**A change already archived is never asked**: the append is taken, into the archived directory
+(**A change's directory**, `skills/flow-contracts/pipeline.md`). A `<name>-fix-N` sub-change
+scaffolded live beside an archived parent would never be archived — the archived re-run of
+integrate skips `spectre archive`.
+
 The parent writes the append, or the sub-change's own proposal and plan. Whichever brief the
 budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks
 appended:**` value by one, creating the line in `tasks.md`'s header when the plan has never

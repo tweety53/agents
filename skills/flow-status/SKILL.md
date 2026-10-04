@@ -6,7 +6,7 @@ license: MIT
 compatibility: Requires the spectre CLI, the flow CLI, and jq.
 ---
 
-Report the pipeline state of every open (non-archived) spectre change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes state.
+Report the pipeline state of every open spectre change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes state.
 
 `/flow-status` marks nothing — the Level 1 section of `<agents repo>/README.md` says so, and a read-only report
 that wrote stage runs would be recording work nobody did.
@@ -46,7 +46,7 @@ reads `fallback`, say so in one line — `⚠ store unreachable — reporting fr
 which may be stale` — so a report built during an outage is never mistaken for one built from the
 live store. Say nothing extra when it reads `store`; that is the normal case.
 
-With a `<name>` argument, restrict to that change and include the detail view (step 4). With no argument, report every non-archived change.
+With a `<name>` argument, restrict to that change and include the detail view (step 4). With no argument, report every open change.
 
 Zero open changes → say so and suggest `/flow`'s creating run. Stop.
 
@@ -83,7 +83,7 @@ printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue
 **Load `skills/flow-contracts/worktree-resolution.md`** before resolving the merge-status report
 below.
 
-**Merge status** decides whether the next bare `/flow` integrates or archives. It is answered
+**Merge status** decides whether the next bare `/flow` integrates or cleans up. It is answered
 once per worktree in the set resolved per **Resolving a change's worktrees**
 (`skills/flow-contracts/worktree-resolution.md`) — never a raw read of the record's `worktrees` map,
 which a `{}` or absent map would make a loop over its keys report on nothing. Per that same
@@ -185,7 +185,10 @@ Add below the table:
 
 - Linked Jira issue key, or "none linked"
 - Task progress — `done` of `total` from `spectre list --json`, which counts the change's
-  `tasks.md` checkboxes and is the same count `spectre archive` gates on
+  `tasks.md` checkboxes and is the same count `spectre archive` gates on. A change already
+  archived on its branch is absent from that list: count the column-0 `- [x]` and `- [ ]` task
+  lines of its archived `tasks.md` in the worktree instead (**A change's directory**,
+  `skills/flow-contracts/pipeline.md`)
 - `<name>-fix-N` sub-changes, if any
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that

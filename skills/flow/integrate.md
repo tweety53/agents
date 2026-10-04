@@ -43,10 +43,11 @@ flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <har
 ## 1. Check for unfinished work
 
 **A change already archived** — decided once, in the canonical repository, for every worktree,
-per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) — ends
-`flow.unfinished-work-gate` `completed` at once and runs **2**, then **4** from
-`flow.commit-archive` on, then **5**; the rest of **1**, all of **3** and **4**'s
-`flow.sync-archive` mark with its `spectre archive` call are skipped, unmarked.
+per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) — skips
+**4**'s `flow.sync-archive` mark with its `spectre archive` call, unmarked. **Without new work**, per
+the same section, it also ends `flow.unfinished-work-gate` `completed` at once and runs **2**, then
+**4** from `flow.commit-archive` on, then **5**; the rest of **1** and all of **3** are skipped,
+unmarked. **With new work** every other step runs.
 
 Run `check-unfinished-work.sh <worktree> <name> <canonical-worktree>` once per worktree in the
 resolved set — before the landing question and before any git action.
@@ -134,6 +135,9 @@ reshape-branch.sh <worktree> <name> <recorded-merge-base>
 `<recorded-merge-base>` is the merge base recorded in the state
 file's `worktrees` map for this worktree — **or `<rebased-merge-base>` from step 2 above, for a
 worktree this run rebased**, never the state file's now-stale pre-rebase value for that worktree.
+**On an archived re-run with new work, pass the archived re-run's base instead**, found in the
+range from that merge base (**Run 1 — the branch is not merged**,
+`skills/flow-contracts/finish-contract-run1.md`).
 
 **Load `skills/flow-contracts/session-records.md`** before rendering, below.
 

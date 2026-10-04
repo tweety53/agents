@@ -517,7 +517,8 @@ hand-written HTTP call, never a directory listing of your own.** It prints one J
 `"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`),
 `"candidates"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`) and `"unreadable"` (the
 names of fallback records that could not be read). A `FINISHED` change is never a candidate, and
-neither is one already under `<project>/spectre/changes/archive/`.
+neither is one already under `<project>/spectre/changes/archive/` whose record is not
+`IN_PROGRESS` — a merged change carries its archive while it waits on run 2.
 
 **A record `flow state resolve` marks `"unreadable":true` is reported and skipped from the union — never
 silently dropped.** Name the unreadable file in the resolution's own output; do not fold it into a
@@ -535,3 +536,15 @@ Once the candidate set is built:
 
 A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 **Change naming** in `skills/flow-contracts/jira-integration.md`.
+
+## A change's directory
+
+A change's directory is `<project>/spectre/changes/<name>/` while that exists, else
+`<project>/spectre/changes/archive/<name>/`. Integrate's run 1 archives the change on its branch
+before the route (**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`),
+so a fix run after a run 1 that stopped at a pull request or a manual route finds the change
+archived, and writes into the archived directory — its appended tasks, its narrative and its
+planning commits. Every step that reads or writes a change's planning artifacts resolves the
+directory this way; the guards resolve it through `changePlanDir`
+(`<agents repo>/stats/internal/guard/changeplan.go`) and its bash twin
+`<agents repo>/scripts/lib/change-plan.sh`, and `flow tasks` through the same rule.

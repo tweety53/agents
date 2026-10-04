@@ -201,14 +201,18 @@ check-plan-shape.sh "<changeRoot>/tasks.md"
 Exit `0` from `validate` is the only exit that proceeds. Exit `1` names findings in this change's
 own artifacts — most often a step checkbox left at column 0 — and each is repaired here, before any
 code is touched. Exit `2` is a usage or IO error, and `no such change "<name>"` is the one worth
-naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`.
+naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`. **A change
+already archived skips `spectre validate` and `spectre list --json`** — both answer for open
+changes only, and `validate` names an archived one `no such change`; `check-plan-shape.sh` still
+runs on the archived `tasks.md`.
 
 Exit `0` from `check-plan-shape.sh` proceeds. Exit `1` names a shape defect in this plan's own
 `**Files:**`, `**Tests:**` or other declared fields — repaired here, before any task is dispatched
 and before any code is touched, exactly as an exit-1 from `spectre validate` already is. Exit `2`
 stops the run.
 
-**The change root is `<project>/spectre/changes/<name>/`, by construction.** Read:
+**The change root is the change's directory** (**A change's directory**,
+`skills/flow-contracts/pipeline.md`). Read:
 
 - `<changeRoot>/proposal.md` — what and why
 - `<changeRoot>/tasks.md` — the plan
@@ -411,13 +415,14 @@ makes, this file's and `skills/flow/review-panel.md`'s alike. The context bundle
 section is filtered by it; a gather made without it carries only always-on hazards.
 
 In every gather (`skills/flow/sdd-dispatch.md`, `skills/flow/review-panel.md`), `<changeRoot>` is
-`<project>/spectre/changes/<name>/` resolved inside this worktree, and
+the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`) resolved
+inside this worktree, and
 `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
 `skills/flow/`, always.
 
 `<canonical-worktree>` — the seventh argument, passed on every call — is
-the member of this run's resolved worktree set whose own
-`<project>/<spec-root>/changes/<name>/tasks.md` exists, the same argument
+the member of this run's resolved worktree set whose own change directory holds `tasks.md`, the
+same argument
 `check-unfinished-work.sh` takes at the integrate gate; on a single-repo change that member is
 this worktree and the argument is inert, while on a satellite worktree's group it carries the
 canonical plan under labeled sections while keeping this worktree's own project commands,

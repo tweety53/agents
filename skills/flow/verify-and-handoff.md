@@ -125,8 +125,8 @@ environment itself failed twice (a missing build prerequisite).
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
 **Confirm this run recorded a ledger** — rendering into the canonical worktree, the member of
-this run's resolved set whose own `<project>/<spec-root>/changes/<name>/tasks.md` exists (the
-same member **1. Check for unfinished work**, `skills/flow/integrate.md`, passes
+this run's resolved set whose own change directory (**A change's directory**,
+`skills/flow-contracts/pipeline.md`) holds `tasks.md` (the same member **1. Check for unfinished work**, `skills/flow/integrate.md`, passes
 check-unfinished-work), never into whichever worktree this pass runs in, so a multi-worktree run
 writes one copy, not one per worktree:
 
@@ -328,8 +328,9 @@ flow stage end -command '/flow' -stage flow.run-instructions -outcome completed 
 flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**Append this run's own narrative first.** Append to
-`<abs-worktree>/spectre/changes/<name>/narrative.md` (create it with the title `# <name> —
+**Append this run's own narrative first.** Append to `narrative.md` in the change's directory
+under `<abs-worktree>` (**A change's directory**, `skills/flow-contracts/pipeline.md`) (create it
+with the title `# <name> —
 session narrative` when absent) one section `## <YYYY-MM-DD> — <creating run | fix run>` holding
 this session's own prose account of the run — problems hit, workarounds, time sinks, environment
 gaps, operator decisions taken mid-run — and nothing the ledger or panel record already holds. A
