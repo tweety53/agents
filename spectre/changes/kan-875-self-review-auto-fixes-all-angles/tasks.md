@@ -3,6 +3,7 @@
 > **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
+> **Tasks appended:** 1
 
 **Goal:** `/flow-self-review` fixes and lands every non-`big` finding across all six angles on one
 branch behind one `opus` review loop, records every finding's outcome in the flow store, and files
@@ -358,3 +359,82 @@ Correction (2026-10-04): built with `go build -o … ./cmd/flowd ./cmd/flow` rat
 `projects` row, so it was seeded with `flow state set` from this change's record before the writes.
 
 This task commits nothing; its figures are committed with the change's artifacts.
+
+---
+
+- [ ] 7. Skill: every fix-loop step is a one-shot subagent (fix round 1)
+
+**Files:** `skills/flow-self-review/SKILL.md`
+**Tests:** none — skill prose; no guard reads step 3's wording
+**Regression:** none — prose.
+**Baseline:** before=0 after=0
+<!-- predicted: no test files in this task -->
+**Commit:** `fix(flow-self-review): run every fix-loop step as a one-shot subagent`
+**After:** Task 5
+**Build:** green
+
+**Decision:** one-shot-subagent-fix-loop
+
+**Decision:** rejected-fix-to-prompt
+
+Operator instruction at the human gate: the initial fix, every review-finding fix, every review and
+every re-review run as one-shot subagents — the session fixes nothing inline.
+
+  - [ ] **Step 1: Replace the opening paragraph's inline-fix sentence** (`SKILL.md` lines 13–17,
+    from `**The pass and its fixes run inline` to `resolves.`) with the block below.
+  - [ ] **Step 2: Replace step 3's body** from `**Every finding that is not \`big\` is fixed and
+    landed without asking**` through item 3 with the block below; item 4 (**Land once**) and the
+    `<agents-base>` paragraph stay as they are.
+  - [ ] **Step 3: Verify** `grep -n 'inline' skills/flow-self-review/SKILL.md` names no fix-loop
+    step, and `scripts/check-references.sh` plus every `scripts/check-*.sh` guard the
+    `## lint` section names exit clean.
+    **Failure looks like:** a remaining "fixes inline", "This session fixes them itself", or the
+    `opus`-session gate.
+
+### Task 7 — the new opening sentence
+
+````markdown verified:authored for this change
+**The pass runs inline, in this session, on whatever model it is already on; its fixes never do**
+— step 3 runs every fix, review and re-review as a one-shot `opus` dispatch. The pass's model is
+picked by picking the model this session runs on (`/model`) before invoking this command, not by
+anything this skill itself resolves.
+````
+
+### Task 7 — the new step 3 body
+
+````markdown verified:authored for this change
+**Every finding that is not `big` is fixed and landed without asking**, on one branch for the
+whole pass. A pass with none creates no worktree and dispatches nothing. **This session changes
+and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`): each numbered step
+below that does is a fresh dispatch on `opus`, `subagent_type: flow-high`, its prompt carrying the
+paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**,
+`skills/flow-contracts/pipeline.md`) names — a review's READ-ONLY REVIEW too — with **The
+handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
+it returns.
+
+`<agents-base>` is `<agents repo>`'s own default branch —
+`git -C <agents repo> symbolic-ref --short refs/remotes/origin/HEAD` with its `origin/` prefix
+dropped — never the project's `<default-branch>`, which step 1 binds and which `<agents repo>` may
+not carry.
+
+1. **Fix** — this session creates the worktree,
+   `git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<agents-base>`
+   — never the main checkout — then dispatches key `self-review-<name>-fix`, its prompt carrying
+   every non-`big` finding with its evidence and counted blast radius. The fixer works in that
+   worktree and makes one commit per finding with a module scope, adding one test or guard that
+   fails without the fix wherever the fix changes behaviour, and running the
+   `<agents repo>/.flow/project.md` `## lint` lines its files need. It reports each finding's
+   commit, or a finding it found `big` once under way, left uncommitted. It never merges or
+   pushes.
+2. **Review** — key `self-review-<name>-review-<r>`, over
+   `git diff origin/<agents-base>...self-review-<name>`, its prompt naming each finding beside its
+   commit.
+3. **Fix the review's findings** — key `self-review-<name>-fix-<r>`, its prompt carrying the
+   review's report verbatim. Each fix is folded into the commit of the finding it fixes
+   (`git commit --fixup <that commit>`, then `git rebase --autosquash origin/<agents-base>`), so
+   every finding stays one commit; a commit the review judges not to fix its finding, or to make
+   things worse, is dropped from the branch. Then step 2 again, `<r>` plus one, until a review
+   comes back clean, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A
+   dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once
+   under way.
+````

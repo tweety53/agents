@@ -25,7 +25,7 @@ the operator chose unattended fixing; angle 1 only (kan-829 as is) — leaves fi
 ### Cheap by structure, opus throughout
 
 **ID:** inline-fix-one-branch-one-reviewer
-**Status:** active
+**Status:** superseded by `one-shot-subagent-fix-loop` (fix round 1)
 **Chosen:** the self-review session fixes inline (it already holds the context), all findings on
 one branch `self-review-<name>`, one commit each; one fresh `opus` `flow-high` reviewer per round
 over the whole branch diff; landed once — one dispatch on a clean pass, regardless of finding
@@ -33,6 +33,21 @@ count.
 **Considered:** kan-829's per-finding loop (fixer + reviewer per finding) — 2N dispatches, each
 re-loading context the session already holds; sonnet for the reviewer or fixer — the operator
 ruled model downgrades out ("Opus is good").
+
+### Every fix-loop step is a one-shot subagent
+
+**ID:** one-shot-subagent-fix-loop
+**Status:** active
+**Chosen:** the self-review session implements nothing itself — the initial fix, each review, each
+fix of a review's findings and each re-review are separate one-shot `opus` `flow-high` dispatches,
+never resumed: one fixer for every non-big finding (one commit each on `self-review-<name>`), one
+fresh reviewer per round over the whole branch diff, one fresh fixer per round of review findings.
+Still one branch and landed once, so a clean pass costs two dispatches regardless of finding count.
+The dispatches name `opus` explicitly, so the session's own model no longer gates step 3. Operator
+instruction at the human gate (fix round 1).
+**Considered:** inline fixing (`inline-fix-one-branch-one-reviewer`) — the operator ruled it out;
+one subagent running the whole loop — a fixer reviewing its own diff is not a review, and
+`flow-high` cannot dispatch a reviewer.
 
 ### A reviewer-rejected fix becomes big
 

@@ -14,8 +14,9 @@ outcome recorded in the flow store, and the pass kept cheap — by structure, no
 - `/flow-self-review` fixes every finding that is not `big` (kan-829's blast-radius rule) and lands
   the fixes without asking; only `big` findings — and every product-code finding — reach the
   filing prompt, and with none the prompt asks for the rating alone.
-- The fixes run inline in the self-review session, all on one `<agents repo>` worktree branch, one
-  commit per finding, behind one fresh `opus` reviewer per round over the whole branch, landed once.
+- The fixes run in one-shot `opus` subagents, never inline (fix round 1): one fixer for every
+  finding, one fresh reviewer per round over the whole branch, one fresh fixer per round of review
+  findings — all on one `<agents repo>` worktree branch, one commit per finding, landed once.
 - Every finding's outcome — angle, finding, `fixed`/`filed`/`declined`, sha or key, blast radius —
   is a row in a new `self_review_findings` table, written by `flow self-review finding` and read by
   `flow self-review findings`.
