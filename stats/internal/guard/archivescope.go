@@ -12,16 +12,15 @@ import (
 // exit 0 SCOPE-OK (an empty staged diff included), 1 SCOPE-VIOLATION, 2 with
 // nothing on stdout when it cannot answer.
 //
-// WHY THIS GUARD EXISTS (KAN-472 follow-up, self-review finding). The finish
-// contract's own step 4 stages the archive commit with `git -C
-// <landing-worktree> add -A` — every path in the worktree, not only the
-// archived change's own move. A landing worktree left stale by a skipped or
-// failed fast-forward in step 2 stages and commits whatever else is sitting
-// in that stale tree right alongside the archive move, silently. This is
-// exactly what happened to kan-474's archive commit (`a574bf4`): it reverted
-// skill-file content another change had shipped minutes earlier, because
-// `add -A` swept it up along with the intended archive move. This guard
-// makes that class of accident a refusal instead of a silent commit.
+// WHY THIS GUARD EXISTS (KAN-472 follow-up, self-review finding). The
+// archive commit is staged with `git -C <worktree> add -A` — every path in
+// the worktree, not only the archived change's own move — so whatever else
+// is sitting in that tree is committed right alongside the archive move,
+// silently. This is exactly what happened to kan-474's archive commit
+// (`a574bf4`): it reverted skill-file content another change had shipped
+// minutes earlier, because `add -A` swept it up along with the intended
+// archive move. This guard makes that class of accident a refusal instead
+// of a silent commit.
 func init() { Registry["check-archive-scope"] = checkArchiveScope }
 
 func checkArchiveScope(args []string, env Env, stdout, stderr io.Writer) int {
