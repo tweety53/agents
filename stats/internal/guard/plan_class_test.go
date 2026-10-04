@@ -369,7 +369,7 @@ func TestPlanClassTree(t *testing.T) {
 							shape, roster = "full", c.full
 							room = c.second
 							if c.second {
-								dispatches += " · failure-modes+mutation"
+								dispatches += "+failure-modes · mutation"
 							}
 						}
 						grouping := "free"
@@ -464,7 +464,7 @@ func TestPlanClassTree(t *testing.T) {
 				"rolls: compact 91 · experimental 4 · bundle 16 · effort 93\n" +
 				"tree: class regular · execution inline · implementer skipped — inline\n" +
 				"panel: full · roster primary; principles; failure-modes; mutation; exp-a · rerun delta\n" +
-				"grouping: static · dispatches primary+principles · failure-modes+mutation+exp-a\n" +
+				"grouping: static · dispatches primary+principles+failure-modes · mutation+exp-a\n" +
 				"experimental: exp-a · skills/flow/experimental/a.md · first probe\n"},
 	} {
 		t.Run(c.label, func(t *testing.T) {

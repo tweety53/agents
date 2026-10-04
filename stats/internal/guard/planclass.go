@@ -72,9 +72,10 @@ type pcExp struct{ name, desc string }
 // roster, its grouping and dispatches, and the experimental slot. Compact
 // when compact < 90, static grouping when bundle < 30, an experimental slot
 // when exp < 30, picked at index exp mod len(cands) of the byte-ordered
-// candidates. The floor bundle primary+principles never takes a third role,
-// so the slot joins only a full roster's second dispatch and is otherwise
-// skipped for the bundle cap. micro records defaults and consults no roll.
+// candidates. The first dispatch fills to its three-role cap in roster
+// order, the mutating role last, so the slot joins a full roster's overflow
+// dispatch and is otherwise skipped for the bundle cap. micro records
+// defaults and consults no roll.
 func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 	if class == "micro" {
 		return "tree: class micro · execution inline · implementer skipped — inline\n" +
@@ -91,7 +92,7 @@ func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 		shape = "full"
 		if class != "small" {
 			roster += "; failure-modes; mutation"
-			dispatches += " · failure-modes+mutation"
+			dispatches += "+failure-modes · mutation"
 			room = true
 		}
 	}

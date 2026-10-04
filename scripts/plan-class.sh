@@ -9,7 +9,7 @@
 #   rolls: compact N · experimental N · bundle N · effort N
 #   tree: class <c> · execution inline|sdd · implementer skipped — inline|chosen
 #   panel: default|compact|full · roster <slot; …> · rerun delta
-#   grouping: static|free · dispatches primary+principles[ · failure-modes+mutation[+exp-<name>]]
+#   grouping: static|free · dispatches primary+principles[+failure-modes · mutation[+exp-<name>]]
 #   experimental: no slot|none available|exp-<name> · skills/flow/experimental/<name>.md · <description>[ · skipped — bundle cap]
 #
 # The first three lines are the mechanical answer. The four tree lines are
@@ -19,10 +19,11 @@
 # experimental < 30. The slot is sorted(skills/flow/experimental/*.md)
 # [experimental mod count] under FLOW_GUARD_REPO_ROOT, with its line-1
 # `description:` value; an absent directory or no *.md file is `none
-# available`. primary+principles is the floor bundle and takes no third
-# role, so the slot joins only a full regular/big roster's second dispatch
-# and is otherwise `skipped — bundle cap`. On micro, panel is `default` and
-# grouping/experimental read `not consulted — micro`.
+# available`. The first dispatch fills to its three-role cap in roster
+# order, the mutating role last, so the slot joins a full regular/big
+# roster's overflow dispatch and is otherwise `skipped — bundle cap`. On
+# micro, panel is `default` and grouping/experimental read `not
+# consulted — micro`.
 #
 # -class may equal class_mechanical or sit one step above it
 # (micro→small→regular→big) — the planner's recorded raise; the class: line
