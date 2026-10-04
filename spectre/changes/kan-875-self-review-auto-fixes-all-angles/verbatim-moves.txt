@@ -45,3 +45,13 @@ name: flow-self-review description: Run a change's self-review pass, inline on t
 would re-load.
 Each fixed finding's sha is read off `<default-branch>` after the landing, never from the branch before its rebase; on a route that opens a pull request, once that pull request merges.
 `self-review-<name>-review-<r>`, over `git diff origin/<default-branch>...self-review-<name>`, its prompt naming each finding beside its commit and carrying the paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**) names for a review.
+description: Run a change's self-review pass, inline on this session's model, from the context bundle /flow or /flow-fast saved
+**Fix the review's findings inline**, each folded into the commit of the finding it fixes
+**The fixes need an `opus` session** (`design.md`, `inline-fix-one-branch-one-reviewer`): on any other model, step 3 fixes nothing and every finding is offered in step 4 as a `big` one is.
+**The pass and its fixes run inline, in this session, on whatever model it is already on** — its only dispatches are the fix branch's reviewers, one per review round (step 3).
+Each fixed finding's sha is read off `<agents-base>` after the landing, never from the branch before its rebase; on a route that opens a pull request, once that pull request merges.
+It reads the context bundle a `/flow` or `/flow-fast` run saved, runs the six-angle reasoning pass inline, fixes and lands every finding that is not big, files the big ones, rates, records each finding in the flow store, writes the report, deletes the bundle, and lands both on the default branch.
+It works in its own worktree, `git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<agents-base>` — never the main checkout — and makes one commit per finding with a module scope, adding one test or guard that fails without the fix wherever the fix changes behaviour, and running the `<agents repo>/.flow/project.md` `## lint` lines its files need.
+`<agents-base>` is `<agents repo>`'s own default branch — `git -C <agents repo> symbolic-ref --short refs/remotes/origin/HEAD` with its `origin/` prefix dropped — never the project's `<default-branch>`, which step 1 binds and which `<agents repo>` may not carry.
+`self-review-<name>-review-<r>`, over `git diff origin/<agents-base>...self-review-<name>`, its prompt naming each finding beside its commit and carrying the paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**) names for a review.
+description: Run a change's self-review pass, inline on this session's model, from the context bundle /flow or /flow-fast saved; fix and land every non-big finding, file the big ones
