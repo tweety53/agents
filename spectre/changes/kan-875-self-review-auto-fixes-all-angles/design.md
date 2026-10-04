@@ -28,7 +28,7 @@ the operator chose unattended fixing; angle 1 only (kan-829 as is) — leaves fi
 **Status:** active
 **Chosen:** the self-review session fixes inline (it already holds the context), all findings on
 one branch `self-review-<name>`, one commit each; one fresh `opus` `flow-high` reviewer per round
-over the whole branch diff; landed once — two dispatches on a clean pass, regardless of finding
+over the whole branch diff; landed once — one dispatch on a clean pass, regardless of finding
 count.
 **Considered:** kan-829's per-finding loop (fixer + reviewer per finding) — 2N dispatches, each
 re-loading context the session already holds; sonnet for the reviewer or fixer — the operator
@@ -52,6 +52,9 @@ finding text, disposition `fixed`/`filed`/`declined` (closed at the store), ref 
 issue key for `filed`, empty for `declined`), blast radius (nullable). Written by
 `flow self-review finding`, read by `flow self-review findings`, served under
 `/api/v1/self-review/{project}/{change}/findings`.
+No uniqueness constraint: a pass interrupted after its store writes and re-run records its findings
+again, as `incidents` does for a re-recorded incident — the committed report is the one record of
+what a pass decided.
 **Considered:** `flow record finding` with slot `self-review` — its status vocabulary, Minor-only
 deferral rule, `canonical_slot` folding and the panel guards that read it are all panel-specific.
 
@@ -89,7 +92,10 @@ the project row seeded by `flow state set` from this change's record — never `
   `d34ba4aa` blast radius 6, `filed` `KAN-875` (no blast radius), `declined` (no ref, no blast
   radius); angle and note intact on each; nothing from the refused write. Exit 0.
 - **Never blocks** — measured: `flow self-review finding -addr http://127.0.0.1:1 …` @ d34ba4aa →
-  exit 0, one stderr line `⚠ flow: store unreachable — self-review finding not recorded: …`.
+  exit 0, one stderr line `⚠ flow: store unreachable — self-review finding not recorded: …` — the
+  wording at d34ba4aa; the panel's Minor fix later reworded it to
+  `⚠ flow: self-review finding not recorded — the store could not take it: …`, pinned by
+  `TestSelfReviewFindingCLI`.
 
 The daemon was stopped and its database dropped (`scripts/workspace.sh remove kan-875-self-3af6`);
 `flow-postgres` stayed up.
