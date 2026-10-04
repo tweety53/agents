@@ -21,9 +21,10 @@ the default branch is how work gets a branch of its own.
 
 It also denies a landing push that would leave its change open: `git push <remote> <src>:<default>`
 where `<src>`'s tree still holds `spectre/changes/<branch>/` — `<branch>` being `<src>`, or the
-current branch for `HEAD`. A change lands archived (`spectre archive <change>`, then commit), never as
-an open folder on the default branch that no later run owns. `/flow`'s own routes archive before
-their push, so only an ad-hoc landing meets this.
+current branch for `HEAD`, with a `/flow` branch's `spectre/` prefix dropped. A change lands
+archived (`spectre archive <change>`, then commit), never as an open folder on the default branch
+that no later run owns. `/flow`'s run 1 archives before its push, so only a run that skipped it or
+an ad-hoc landing meets this.
 
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
 `git worktree add`, `git push`, and the landing scripts (`land-self-review-report.sh`,
@@ -99,7 +100,7 @@ def protected(path):
     if os.path.basename(d) == ".worktrees" and os.path.abspath(path) != d:
         # the nearest existing ancestor is the sanctioned worktree root, so a
         # missing component below it is a future worktree — never main-checkout
-        # content; a not-yet-existing landing worktree is where work goes. The
+        # content; a not-yet-existing worktree is where work goes. The
         # `.worktrees/` root convention is owned by scripts/check-worktree-location.sh;
         # this rule mirrors it for path resolution, and the root itself — path == d —
         # stays protected like any other main-checkout directory.
@@ -226,7 +227,7 @@ def unarchived_landing(args, target):
         if not src or dst not in ({default} if default else FALLBACK_DEFAULT_BRANCHES):
             continue
         change = git(target, "branch", "--show-current") if src == "HEAD" else src
-        change = (change or "").removeprefix("refs/heads/")
+        change = (change or "").removeprefix("refs/heads/").removeprefix("spectre/")
         if change and git(target, "ls-tree", "-d", "--name-only", src, f"spectre/changes/{change}"):
             return target, change
     return None
@@ -287,7 +288,8 @@ def bash_hits(command, cwd, landings=None):
                 for t in tokens[i + 1 :]:
                     if t in ("&&", "||", ";", "|"):
                         break
-                    path = None if t.startswith("-") else resolve(t, cur)
+                    # an empty word is BSD sed's `-i ''` suffix, never a path
+                    path = None if not t or t.startswith("-") else resolve(t, cur)
                     if path and os.path.exists(path):
                         hits.append(path)
                 i += 1

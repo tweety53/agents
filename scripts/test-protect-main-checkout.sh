@@ -35,6 +35,10 @@
 #   39. Bash `git push origin change:main`, change open            -> deny
 #   40. Bash `git -C <wt> push origin HEAD:main`, change archived  -> allow
 #   41. Bash `git -C <wt> push origin change`, change open         -> allow (not a landing)
+#   42. Bash `git -C <wt2> push origin spectre/flowchg:main`, the
+#       /flow branch's change open                                   -> deny
+#   43. Bash `sed -i '' … <outside file>` from the main checkout     -> allow
+#       (BSD sed's empty suffix argument is not a path)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -160,11 +164,23 @@ expect "39 change:main push with the change open" deny \
   "$(run "$WT" Bash "{\"command\":\"git push origin change:main\"}")"
 expect "41 branch push with the change open" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT push origin change")}")"
+git_q -C "$MAIN" worktree add "$MAIN/.worktrees/flowchg" -b spectre/flowchg
+WT2="$MAIN/.worktrees/flowchg"
+mkdir -p "$WT2/spectre/changes/flowchg"
+echo x >"$WT2/spectre/changes/flowchg/proposal.md"
+git_q -C "$WT2" add spectre
+git_q -C "$WT2" commit -q -m plan
+expect "42 spectre/<name>:main push with the change open" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT2 push origin spectre/flowchg:main")}")"
 mkdir -p "$WT/spectre/changes/archive"
 git_q -C "$WT" mv spectre/changes/change spectre/changes/archive/change
 git_q -C "$WT" commit -q -m archive
 expect "40 HEAD:main push with the change archived" allow \
   "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT push origin HEAD:main")}")"
+
+echo x >"$ROOT/outside.txt"
+expect "43 BSD sed -i with an empty suffix, file outside" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "sed -i '' 's/x/y/' $ROOT/outside.txt")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
