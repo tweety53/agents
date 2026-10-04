@@ -132,37 +132,37 @@ rm -rf "$FIXTURE"
 # ---------------------------------------------------------------------------
 new_fixture
 run_runner "$FIXTURE"
-if printf '%s\n' "$OUT" | grep -Eq '^ok:.*test-alpha\.sh'; then
+if grep -Eq '^ok:.*test-alpha\.sh' <<<"$OUT"; then
   pass "case 2: an ok: line names the passing test-alpha.sh"
 else
   fail "case 2: no ok: line for test-alpha.sh — out=$OUT"
 fi
-if printf '%s\n' "$OUT" | grep -Eq '^ok:.*test-gamma\.sh'; then
+if grep -Eq '^ok:.*test-gamma\.sh' <<<"$OUT"; then
   pass "case 2: an ok: line names the passing test-gamma.sh"
 else
   fail "case 2: no ok: line for test-gamma.sh — out=$OUT"
 fi
-if printf '%s\n' "$OUT" | grep -Eq '^FAIL:.*test-beta\.sh'; then
+if grep -Eq '^FAIL:.*test-beta\.sh' <<<"$OUT"; then
   pass "case 2: a FAIL: line names the failing test-beta.sh"
 else
   fail "case 2: no FAIL: line for test-beta.sh — out=$OUT"
 fi
-if printf '%s\n' "$OUT" | grep -Eq '^ok:.*test-beta\.sh'; then
+if grep -Eq '^ok:.*test-beta\.sh' <<<"$OUT"; then
   fail "case 2: test-beta.sh (which fails) was reported with ok:, not FAIL: — out=$OUT"
 else
   pass "case 2: the failing harness is never reported as ok:"
 fi
-if printf '%s\n' "$OUT" | grep -Eq '3 harnesses'; then
+if grep -Eq '3 harnesses' <<<"$OUT"; then
   pass "case 2: summary names the total (3 harnesses)"
 else
   fail "case 2: summary does not name the total 3 harnesses — out=$OUT"
 fi
-if printf '%s\n' "$OUT" | grep -Eq '2 passed'; then
+if grep -Eq '2 passed' <<<"$OUT"; then
   pass "case 2: summary names the passed count (2)"
 else
   fail "case 2: summary does not name 2 passed — out=$OUT"
 fi
-if printf '%s\n' "$OUT" | grep -Eq '1 failed'; then
+if grep -Eq '1 failed' <<<"$OUT"; then
   pass "case 2: summary names the failed count (1)"
 else
   fail "case 2: summary does not name 1 failed — out=$OUT"
@@ -174,12 +174,12 @@ rm -rf "$FIXTURE"
 # above actually discriminate the two outcomes rather than always matching.
 new_clean_fixture
 run_runner "$FIXTURE"
-if printf '%s\n' "$OUT" | grep -Eq '^FAIL:'; then
+if grep -Eq '^FAIL:' <<<"$OUT"; then
   fail "case 2 mutation: an all-passing fixture reported a FAIL: line — out=$OUT"
 else
   pass "case 2 mutation: an all-passing fixture reports no FAIL: line"
 fi
-if printf '%s\n' "$OUT" | grep -Eq '0 failed'; then
+if grep -Eq '0 failed' <<<"$OUT"; then
   pass "case 2 mutation: an all-passing fixture's summary names 0 failed"
 else
   fail "case 2 mutation: an all-passing fixture's summary does not name 0 failed — out=$OUT"

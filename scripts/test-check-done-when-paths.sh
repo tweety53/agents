@@ -61,8 +61,8 @@ track "$r1" "docs/tickets/kan-x.md" "## Done when
 \`shots/27.png\` re-baselined.
 "
 run_guard "$r1"
-if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "^DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-x.md$" &&
-  printf '%s' "$OUT" | grep -q "^DONE-WHEN-VIOLATION: $r1 — 1$"; then
+if [ "$RC" -eq 1 ] && grep -q "^DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-x.md$" <<<"$OUT" &&
+  grep -q "^DONE-WHEN-VIOLATION: $r1 — 1$" <<<"$OUT"; then
   pass "an untracked named path is refused, named with its file"
 else
   fail "an untracked named path is refused, named with its file (rc=$RC: $OUT)"
@@ -103,9 +103,9 @@ git -C "$r2" rm -q --cached src/Makefile
 rm -f "$r2/src/Makefile"
 run_guard "$r2"
 if [ "$RC" -eq 1 ] &&
-  printf '%s' "$OUT" | grep -q "^DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-y.md$" &&
-  printf '%s' "$OUT" | grep -q "^DONE-WHEN-PATH: src/Makefile — docs/tickets/kan-y.md$" &&
-  printf '%s' "$OUT" | grep -q "^DONE-WHEN-VIOLATION: $r2 — 2$"; then
+  grep -q "^DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-y.md$" <<<"$OUT" &&
+  grep -q "^DONE-WHEN-PATH: src/Makefile — docs/tickets/kan-y.md$" <<<"$OUT" &&
+  grep -q "^DONE-WHEN-VIOLATION: $r2 — 2$" <<<"$OUT"; then
   pass "a wrapped backticked path and a now-untracked dotless name are both refused"
 else
   fail "a wrapped backticked path and a now-untracked dotless name are both refused (rc=$RC: $OUT)"
@@ -130,8 +130,8 @@ track "$r3" "docs/tickets/kan-x.md" "## Scope
 "
 run_guard "$r3"
 if [ "$RC" -eq 1 ] &&
-  printf '%s' "$OUT" | grep -q "^DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-x.md$" &&
-  printf '%s' "$OUT" | grep -cv "^DONE-WHEN-PATH:" | grep -q "^1$"; then
+  grep -q "^DONE-WHEN-PATH: shots/27.png — docs/tickets/kan-x.md$" <<<"$OUT" &&
+  [ "$(grep -cv "^DONE-WHEN-PATH:" <<<"$OUT")" -eq 1 ]; then
   pass "a quoted template opens no section and a fence line closes nothing"
 else
   fail "a quoted template opens no section and a fence line closes nothing (rc=$RC: $OUT)"

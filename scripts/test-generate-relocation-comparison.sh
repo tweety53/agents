@@ -226,7 +226,7 @@ write_tasks_md "$FIXTURE/tasks.md" "yes" "zeta.md"
 run_generator "$FIXTURE" "$FIXTURE" "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 if [ "$RC" -ne 2 ]; then
   fail "case f: expected exit 2 for unresolvable merge-base, got $RC: $ERR"
-elif ! echo "$ERR" | grep -q "does not resolve to a commit"; then
+elif ! grep -q "does not resolve to a commit" <<<"$ERR"; then
   # Isolates the merge-base-resolves guard specifically (F10b): exit 2
   # alone is not proof this guard fired — a downstream git-show failure
   # against the same bogus ref would also exit 2 for an unrelated reason.
@@ -376,7 +376,7 @@ write_tasks_md "$FIXTURE/tasks.md" "yes" "nu.md"
 run_generator "$FIXTURE" "$FIXTURE" "$BASE_L"
 if [ "$RC" -ne 2 ]; then
   fail "case l: expected exit 2 for corrupt merge-base blob, got $RC: $ERR"
-elif echo "$ERR" | grep -q "does not exist in"; then
+elif grep -q "does not exist in" <<<"$ERR"; then
   fail "case l: corrupt blob misread as an ordinary missing path: $ERR"
 else
   pass "case l: corrupt merge-base blob exits 2, not misread as missing path (F2 regression)"

@@ -58,25 +58,25 @@ run_guard "$d" main
 # 2. A bad commit is named, with its attribution finding, exit 1.
 d="$(fixture_repo kan-838-demo "bad subject" "Co-Authored-By: Claude <n@example.com>")"
 run_guard "$d" main
-{ [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "subject not in Conventional Commits form: bad subject" \
-  && printf '%s' "$OUT" | grep -q "attribution trailer: Co-Authored-By:"; } \
+{ [ "$RC" -eq 1 ] && grep -q "subject not in Conventional Commits form: bad subject" <<<"$OUT" \
+  && grep -q "attribution trailer: Co-Authored-By:" <<<"$OUT"; } \
   && pass "bad commit named with its finding" || fail "bad commit: rc=$RC out=$OUT"
 
 # 3. No arguments is the usage refusal, exit 2.
 run_guard
-[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q "usage: check-fast-route-record.sh" \
+[ "$RC" -eq 2 ] && grep -q "usage: check-fast-route-record.sh" <<<"$OUT" \
   && pass "no args exits 2 with usage" || fail "no args: rc=$RC out=$OUT"
 
 # 4. An unresolvable base is cannot-answer, exit 2 with the cause on stderr.
 d="$(fixture_repo kan-838-demo "feat(guard): fine")"
 run_guard "$d" nosuch
-[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q "resolves neither as origin/nosuch" \
+[ "$RC" -eq 2 ] && grep -q "resolves neither as origin/nosuch" <<<"$OUT" \
   && pass "unresolvable base exits 2 with its cause" || fail "bad base: rc=$RC out=$OUT"
 
 # 5. A directory that is not a worktree is cannot-answer, exit 2 with the cause.
 d="$(mktemp -d)"; FIXTURES+=("$d")
 run_guard "$d" main
-[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q "is not a git worktree" \
+[ "$RC" -eq 2 ] && grep -q "is not a git worktree" <<<"$OUT" \
   && pass "non-worktree exits 2 with its cause" || fail "non-worktree: rc=$RC out=$OUT"
 
 if [ "$FAILURES" -eq 0 ]; then

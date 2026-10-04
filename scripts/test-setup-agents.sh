@@ -56,7 +56,7 @@ for effort in $EFFORTS; do
   fi
   if ! grep -qE '^tools: ' "$link"; then
     fail "$link frontmatter missing a 'tools:' allowlist"
-  elif grep -E '^tools: ' "$link" | grep -qE 'Agent|Task'; then
+  elif grep -qE '^tools: .*(Agent|Task)' "$link"; then
     fail "$link 'tools:' allowlist grants Agent or Task — a dispatched role must not fork"
   fi
 done

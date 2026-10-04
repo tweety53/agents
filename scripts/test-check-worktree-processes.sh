@@ -129,7 +129,7 @@ start_in() {
 await_cwd() {
   local i=0
   while [ "$i" -lt 100 ]; do
-    if lsof -a -d cwd -p "$1" -Fn 2>/dev/null | grep -qx -- "n$2"; then
+    if grep -qx -- "n$2" <<<"$(lsof -a -d cwd -p "$1" -Fn 2>/dev/null)"; then
       return 0
     fi
     i=$((i + 1))
