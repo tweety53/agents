@@ -82,7 +82,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	// The worktree is guarded a second time here, distinct from the
 	// existence check above: the two are separate syscalls, and a worktree
 	// that vanishes in the gap between them (a concurrent cleanup, a race
-	// with another /flow integrate or archive run) fails here after the
+	// with another /flow integrate or cleanup run) fails here after the
 	// directory check already passed -- reported at this guard's own exit 2.
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {

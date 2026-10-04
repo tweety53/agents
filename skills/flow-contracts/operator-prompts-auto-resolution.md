@@ -61,4 +61,4 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
   every Jira write — the follow-up filing and the self-review filing included.
   The global rules require these confirmed.
 - **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity
-  prompt that decides whether a fix run starts at all, and every integrate and archive prompt.
+  prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt.

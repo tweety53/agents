@@ -24,7 +24,7 @@ worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw re
 `resolve-base-branch.sh <worktree>` prints — the same `<base>` every route below lands on.
 
 - **`RUN1`** → this file (integrate)
-- **`RUN2`** from every worktree → `skills/flow/archive.md` <!-- refs-guard:allow -->
+- **`RUN2`** from every worktree → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
 - **`REFUSE`** → stop, report what the script reported, relay the guard's hand-verification
   procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask
   the operator
@@ -305,10 +305,10 @@ merge-status test in **The block each state renders**
 ## After merge-and-push specifically
 
 Continue, within the same invocation and without a further command from the operator, into
-`skills/flow/archive.md` exactly as written. Nothing external blocks this route.
+`skills/flow/cleanup.md` exactly as written. Nothing external blocks this route.
 
 ## After open PR or manual specifically
 
 Stop after the route completes, printing the handoff above. Each of these two routes needs an
 action outside this command's control before the branch merges. The next bare `/flow <name>`
-call, once the branch is integrated, runs run 2's cleanup (`skills/flow/archive.md`).
+call, once the branch is integrated, runs run 2's cleanup (`skills/flow/cleanup.md`).

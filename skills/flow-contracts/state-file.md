@@ -189,7 +189,7 @@ change with a partially updated repository set. A skill writes `worktrees` and n
 repository set separately.
 
 The **key set of `worktrees` is the authoritative recorded list of affected worktrees** — it is
-what `/flow`'s archive phase cleans up, and what resolves an app's root when a handoff needs an absolute
+what `/flow`'s cleanup phase cleans up, and what resolves an app's root when a handoff needs an absolute
 path. It is the record, not the iteration set: a step that needs "the worktrees" resolves that set
 first, per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), rather than
 looping over this map directly. The scalar `branch` names the shared branch only. Every repository

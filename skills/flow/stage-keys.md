@@ -29,4 +29,4 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.sync-archive`, `flow.commit-archive`, `flow.self-review`, `flow.landing-routes` |
 | `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`; begins no mark |
 | `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when a worktree's `check-base-moved.sh` verdict is `MOVED`, or the merge-and-push route's push was rejected; closes the enclosing mark, begins none |
-| `skills/flow/archive.md` | `flow.verify-merge`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.push-archive` |
+| `skills/flow/cleanup.md` | `flow.verify-merge`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |

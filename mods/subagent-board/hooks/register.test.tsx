@@ -148,7 +148,7 @@ test("flowAfter follows flow stage marks and the change name's ticket", () => {
   expect(flowAfter(mark('end', 'review-panel'), impl)).toBe(impl)
   expect(flowAfter(mark('begin', 'preflight'), impl)).toEqual({ ...impl, phase: 'flow-integrate', stage: 'preflight' })
   expect(flowAfter(mark('end', 'write-in-progress'), impl)).toEqual(NO_FLOW)
-  expect(flowAfter(mark('end', 'push-archive'), { ...impl, phase: 'flow-integrate' })).toEqual(NO_FLOW)
+  expect(flowAfter(mark('end', 'refresh-main-checkout'), { ...impl, phase: 'flow-integrate' })).toEqual(NO_FLOW)
 })
 
 test('hintTail joins the ticket, the phase, the running stage and the tally', () => {

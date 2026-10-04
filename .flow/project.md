@@ -217,7 +217,7 @@ there.
 
 **A workspace's own derived resources are not protected, and removing them is correct.** The
 `flow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
-`scripts/workspace.sh remove <id>` drops them during archive cleanup exactly as the registry
+`scripts/workspace.sh remove <id>` drops them during the cleanup run exactly as the registry
 requires, and that must keep working. The line is the one **Workspace isolation**
 (`skills/flow-contracts/workspace-isolation.md`) already draws — what is isolated is the logical
 resource, never the service that holds it. This section protects the service and the dev workspace's

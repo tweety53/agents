@@ -22,7 +22,7 @@
 # WHAT DRIFT MEANS. Every pipeline run works in a worktree, and the main
 # checkout's expected state is the post-merge one: on the repository's
 # default branch with nothing tracked modified, staged or unmerged — the
-# only state from which a landing or an archive can proceed and in which
+# only state from which a landing or a cleanup can proceed and in which
 # the checkout reflects what actually landed. kan-574's archive run found
 # two "reverse image of a landing" incidents — tracked content silently
 # reverted to pre-merge state — and a main checkout left on an unrelated
@@ -33,7 +33,7 @@
 # --untracked-files=no` is the cheap read: one invocation, no object
 # database walk. A checkout that is clean but BEHIND its default branch is
 # ordinary not-pulled state, indistinguishable from benign by any local
-# marker and never this guard's finding — the archive's own refresh step
+# marker and never this guard's finding — the cleanup run's own refresh step
 # owns bringing the checkout forward. Untracked files are hidden from the
 # read entirely, exactly as the KAN-546 guard's identical read hides them:
 # the pipeline never creates them in a main checkout, and the operator's

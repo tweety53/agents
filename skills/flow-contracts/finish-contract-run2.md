@@ -1,6 +1,6 @@
 # Finish contract — run 2 (the branch is merged)
 
-**This file is canonical for `/flow`'s archive run** — run 2's procedure and worktree cleanup.
+**This file is canonical for `/flow`'s cleanup run** — run 2's procedure and worktree cleanup.
 Run 1 already archived the change and saved its self-review context bundle on the change branch
 (**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`), so run 2
 archives, commits and pushes nothing: it cleans up once the branch has merged.
@@ -33,7 +33,7 @@ procedure for them is there.
    | Command | Runs |
    |---------|------|
    | `create` | The command that creates this workspace's resources when they are absent. Whatever starts the project's applications calls it. |
-   | `remove` | The command that removes them. `/flow`'s archive run calls it, and nothing else does. |
+   | `remove` | The command that removes them. `/flow`'s cleanup run calls it, and nothing else does. |
    | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/check-cleanup-complete.sh` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
 
    Why a third verb rather than two — why "ran `remove`" is not "verified gone", and why a guard in the

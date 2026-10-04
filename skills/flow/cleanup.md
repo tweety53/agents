@@ -74,7 +74,7 @@ flow stage end -command '/flow' -stage flow.write-finished -outcome completed <n
 (`skills/flow-contracts/jira-integration.md`). A run that stopped at step 4 transitions nothing.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.refresh-main-checkout -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 6. **Bring the main checkout forward:**
@@ -87,7 +87,7 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
    a `REFRESH-REFUSED` line goes into the handoff verbatim.
 
 ```bash
-flow stage end -command '/flow' -stage flow.push-archive -outcome completed <name>
+flow stage end -command '/flow' -stage flow.refresh-main-checkout -outcome completed <name>
 ```
 
 ```

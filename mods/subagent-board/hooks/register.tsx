@@ -103,11 +103,11 @@ const PHASE_KEYS: Record<Phase, string[]> = {
   'flow-integrate': [
     'preflight', 'unfinished-work-gate', 'landing-question', 'preserve-sessions', 'commit-two',
     'landing-routes', 'verify-merge', 'sync-archive', 'commit-archive', 'cleanup', 'verify-cleanup',
-    'write-finished', 'self-review', 'push-archive',
+    'write-finished', 'self-review', 'refresh-main-checkout',
   ],
 }
 // The stage each run of /flow stops after: its end leaves no phase running.
-const LAST_KEYS = ['writing-plans', 'write-in-progress', 'landing-routes', 'push-archive']
+const LAST_KEYS = ['writing-plans', 'write-in-progress', 'landing-routes', 'refresh-main-checkout']
 
 // One `flow stage begin|end ... <name>` mark, up to the next shell separator.
 const STAGE_MARK = /\bflow stage (begin|end)\b([^;&|\n]*)/g

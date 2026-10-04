@@ -120,13 +120,13 @@ Incident behind `aside-planning-artifacts.sh`, cited there as a parenthetical: K
 Incident behind `check-archive-scope.sh`'s cannot-answer exit, cited there as a parenthetical:
 KAN-601.
 
-## archive.md — Worktree cleanup
+## cleanup.md — Worktree cleanup
 
 Moved verbatim from the section's opening sentence, where it followed "**Worktree cleanup**
 (`skills/flow-contracts/finish-contract-run2.md`), canonical for it": , and is not restated in full
 here beyond one override.
 
-## archive.md — Guardrails
+## cleanup.md — Guardrails
 
 Moved verbatim, the bullet addressed to the file's editor rather than to a run:
 

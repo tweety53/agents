@@ -273,7 +273,7 @@ stated under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
 refuse; an unreachable service makes a run report and continue. They read as opposites and can never
 meet: the first governs the **resource table**, is decided when `/flow`'s implement phase resolves this section,
 and refuses because the only fallback is the project's shared value. The second
-governs the `survivors` command's exit code, is decided in `/flow`'s archive run after the merge,
+governs the `survivors` command's exit code, is decided in `/flow`'s cleanup run after the merge,
 and skips because a resource nobody can reach is not a resource anything can still protect.
 Different table, different phase, different thing at stake.
 

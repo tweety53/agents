@@ -85,11 +85,11 @@ flowchart TD
     end
 
     subgraph S3 ["FINISHED"]
-        archive["<b>Clean up</b><br/>verify merge → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
+        cleanup["<b>Clean up</b><br/>verify merge → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
     end
 
-    land -- "merge and push:<br/>archive → bundle → push to base" --> archive
-    g3 --> archive
+    land -- "merge and push:<br/>archive → bundle → push to base" --> cleanup
+    g3 --> cleanup
 ```
 
 - **The gate is the state.** No command exists just to record that you reviewed something.
@@ -101,7 +101,7 @@ flowchart TD
   ride the change's own branch, landing with the code.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
-`skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and archive.
+`skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.
 
 ### Deciding how to implement (`flow.decide`)
 
@@ -172,7 +172,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |
 | `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
 | `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast` |
-| `flow.push-archive` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast` |
+| `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast` |
 | `plan.session` | Plan session — the whole `/flow-plan` invocation | `/flow-plan` |
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
@@ -219,8 +219,8 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
 - `mutate-and-verify.sh` and `break-and-prove.sh`: break the code on purpose and show a test
   fails. The `mutation` reviewer uses them.
 
-**Land and archive**
-- `check-finish-preflight.sh`: decides between integrate and archive from the merge state, or
+**Land and clean up**
+- `check-finish-preflight.sh`: decides between integrate and cleanup from the merge state, or
   refuses and asks.
 - `check-unfinished-work.sh`: reports unticked tasks or open findings before you are asked how to
   land.

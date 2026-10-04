@@ -54,7 +54,7 @@ because it keeps the guard runnable from a bare tree.
 
 **`check-foreign-staged.sh`, `check-finish-preflight.sh`, `check-unfinished-work.sh`,
 `check-cleanup-complete.sh` and `check-worktree-processes.sh` are deliberately not lint steps.**
-All five are `/flow` integrate/archive helpers that need a change in flight and a real worktree, a
+All five are `/flow` integrate/cleanup helpers that need a change in flight and a real worktree, a
 main checkout, a repository or a state directory passed in as arguments; they answer a question
 about one change, not about the state of the repository's text. A lint step that cannot run against
 a bare tree would fail on every unrelated invocation, so

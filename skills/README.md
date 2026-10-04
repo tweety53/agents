@@ -1,8 +1,8 @@
 # flow skills
 
 **flow** = spectre + Superpowers **Basic Workflow** bridge with a **three-state** machine: a
-kickoff marker, one combined review-and-test gate, and an integrate phase that merges before it
-archives.
+kickoff marker, one combined review-and-test gate, and an integrate phase that merges before the
+cleanup run cleans up.
 
 The state each phase of `/flow` ends in, and the gate that follows it, are under
 **States** (`flow-contracts/pipeline.md`); the state diagram and the per-command stage table are
@@ -42,7 +42,7 @@ still apply.
 
 | Command | Skill | What it does |
 |---------|-------|--------------|
-| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. An argument at `IN_PROGRESS` is a fix run; state unchanged. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through archive to `FINISHED`. Publishes no proposal artifact. |
+| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. An argument at `IN_PROGRESS` is a fix run; state unchanged. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through cleanup to `FINISHED`. Publishes no proposal artifact. |
 | *(gate)* | you | Creating run or fix: review the staged diff — the stack is running. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-fast <name>` | `flow-fast` | Minimal-ceremony `/flow` variant — one invocation from Jira key to landed change: a git worktree for isolation only, implementation and review panel as the plan's class decides, project lint plus the tests the change touches, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks; no spectre artifacts or state file. |
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
@@ -58,7 +58,7 @@ repeated here.
 
 ```
 skills/
-├── flow/               ← /flow (brainstorm, implement behind the review panel, integrate and archive)
+├── flow/               ← /flow (brainstorm, implement behind the review panel, integrate and clean up)
 ├── flow-fast/          ← /flow-fast (worktree, implement, land, clean up)
 ├── flow-status/         ← /flow-status (read-only)
 ├── flow-plan/       ← /flow-plan

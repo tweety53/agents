@@ -225,7 +225,7 @@ to disk. See **Progress visibility** (`skills/flow-contracts/pipeline-rationale.
 line naming how many steps are done, in progress and open, followed by one line per step marked
 done or not done. One step per whichever cited stage is running at the time, at that stage's own
 granularity — brainstorming checklist items and artifacts on the creating/resuming branch, tasks on
-the implementation branch, a finish run's steps on the integrate/archive branch.
+the implementation branch, a finish run's steps on the integrate/cleanup branch.
 
 ## Quiet progress
 

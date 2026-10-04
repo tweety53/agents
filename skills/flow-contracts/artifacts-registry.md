@@ -2,7 +2,7 @@
 
 Every artifact the pipeline creates, with what creates it, where it lives, and what removes it.
 
-**Loaded by `/flow`'s archive run and `/flow-fast`** — wherever an artifact this
+**Loaded by `/flow`'s cleanup run and `/flow-fast`** — wherever an artifact this
 table names is created or removed.
 
 This file is **canonical** for everything in it.

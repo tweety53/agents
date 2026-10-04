@@ -7,7 +7,7 @@ Use the **flow-status** skill — installed globally, so let your harness resolv
 
 Follow that skill exactly. Accepts **any** state and never blocks. **Read-only** — it never commits, never advances a state, never creates a worktree, and never writes the state file.
 
-Reports each open change's state, PR, absolute worktree path, last update, and the next command — including which `/flow` run (integrate or archive) comes next, since that depends on whether the branch is merged.
+Reports each open change's state, PR, absolute worktree path, last update, and the next command — including which `/flow` run (integrate or cleanup) comes next, since that depends on whether the branch is merged.
 
 Also follow the flow rule (`flow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/flow-contracts/pipeline.md` first**, which is canonical for the states, transitions and the finish contract.
 

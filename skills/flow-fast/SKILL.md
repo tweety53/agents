@@ -51,7 +51,7 @@ them:
 | **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.self-review`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | **6. Preflight** | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two` |
 | **7. Land** | `flow.landing-routes` |
-| **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.push-archive` |
+| **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
 
 `flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
 the deferred bundle of section 5 alone — never a reasoning pass.
@@ -411,7 +411,7 @@ why.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.cleanup -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.refresh-main-checkout -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
 Transition the Jira issue to **Done**, the same way as before. End by naming the landed commit

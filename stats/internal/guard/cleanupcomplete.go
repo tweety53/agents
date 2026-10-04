@@ -69,7 +69,7 @@ const (
 	// than an omission. CHECK_CLEANUP_SURVIVORS_TIMEOUT exists because a
 	// harness would otherwise spend a minute of wall clock per timeout case;
 	// the grace costs two seconds, so that argument buys nothing here — and a
-	// knob on the interface every /flow integrate and archive run reads has to
+	// knob on the interface every /flow integrate and cleanup run reads has to
 	// be paid for by more than symmetry. (The Go tests shorten it in-process,
 	// through Env.SurvivorsKillGrace, which no caller of the shim can reach.)
 	ccDefaultTimeout = 60 * time.Second
@@ -700,7 +700,7 @@ func ccWorkspaceID(name string) string {
 //
 // IT IS A RUNTIME OVERRIDE RATHER THAN A TEST-ONLY SEAM, AND THAT WAS WEIGHED.
 // The objection is fair on its face: this is test economics sitting on an
-// interface every /flow integrate and archive run reads, and the ordinary
+// interface every /flow integrate and cleanup run reads, and the ordinary
 // answer to that is a seam only the harness can reach. It was not the answer
 // for the bash guard, for four reasons recorded so the question is not
 // re-opened from scratch; the first three still hold for the port.

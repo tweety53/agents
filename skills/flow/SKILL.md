@@ -1,6 +1,6 @@
 ---
 name: flow
-description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, then integrate and archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
+description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, then integrate and clean up across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
 allowed-tools: Bash(spectre:*), Bash(flow:*)
 license: MIT
 ---
@@ -146,5 +146,5 @@ run — generates its own rather than reusing an earlier run's.
   **Review panel** (`skills/flow/review-panel.md`).
 - Never skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
 - Never advance the state past what the phase in force is entitled to write — a fix never moves
-  the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 (`skills/flow/archive.md`)
+  the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 (`skills/flow/cleanup.md`)
   and **The withdrawal route** (`skills/flow/withdrawal.md`) write `FINISHED`.

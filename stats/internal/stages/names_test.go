@@ -215,6 +215,22 @@ func TestNoDocumentedStageNameIsImplausiblyLong(t *testing.T) {
 	}
 }
 
+// TestRetiredPushArchiveKeyIsRejected pins that flow.push-archive, renamed to
+// flow.refresh-main-checkout when run 2 became the cleanup run, takes no new
+// mark: a skill copy still citing the old key is refused rather than splitting
+// the stage's history across two keys. Marks already stored under it are only
+// read back as raw keys, which no validation touches.
+func TestRetiredPushArchiveKeyIsRejected(t *testing.T) {
+	for _, cmd := range []stages.Command{stages.Flow, stages.FlowFast} {
+		if err := stages.Validate(cmd, "flow.push-archive"); err == nil {
+			t.Errorf("Validate(%s, flow.push-archive): got nil, want a rejection", cmd)
+		}
+		if err := stages.Validate(cmd, "flow.refresh-main-checkout"); err != nil {
+			t.Errorf("Validate(%s, flow.refresh-main-checkout): %v", cmd, err)
+		}
+	}
+}
+
 // TestUndocumentedStageKeyIsRejected pins Validate's rejection of a key
 // absent from the documented table, and that the rejection names the
 // documented alternatives -- exactly what the CLI needs to report a useful

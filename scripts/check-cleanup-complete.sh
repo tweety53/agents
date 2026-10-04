@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check-cleanup-complete.sh — verify that everything the cleanup registry says
-# should be gone after /flow's archive run actually is.
+# should be gone after /flow's cleanup run actually is.
 #
 # Usage: check-cleanup-complete.sh <repo> <change-name> <state-dir>
 #        (<state-dir> is the path `flow state dir` prints — resolve it with

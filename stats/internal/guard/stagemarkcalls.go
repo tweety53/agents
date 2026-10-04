@@ -36,7 +36,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 	{"skills/flow-contracts/SKILL.md", "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"},
 	{"skills/flow-self-review/SKILL.md", "a standalone command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"},
 	{"skills/flow-settings/SKILL.md", "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"},
-	{"skills/flow/SKILL.md", "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, archive.md) that owns the phase in force; every flow.* mark lives in one of those phase files, which this guard's corpus now scans directly, never in this router itself"},
+	{"skills/flow/SKILL.md", "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, cleanup.md) that owns the phase in force; every flow.* mark lives in one of those phase files, which this guard's corpus now scans directly, never in this router itself"},
 	// flow-status marks nothing BY CONTRACT, not merely as a measured fact
 	// like the files above: it is a read-only status report, and a stage
 	// mark or a dispatch record it wrote would record work nobody did.
@@ -58,7 +58,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 //
 // KAN-374 — the six `skills/flow/` PHASE FILES (brainstorm.md,
 // implement.md, review-panel.md, verify-and-handoff.md, integrate.md,
-// archive.md) are candidates alongside SKILL.md/pipeline.md:
+// cleanup.md) are candidates alongside SKILL.md/pipeline.md:
 // `skills/flow/SKILL.md` is a zero-mark router (see its reason above) and
 // every `flow.*` mark and `flow record dispatch` call actually lives in
 // these six phase files, so a guard meant to catch a missing
@@ -75,7 +75,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 var smcCandidates = map[string]bool{
 	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "brainstorm-planner.md": true, "implement.md": true, "document-fix.md": true,
 	"review-panel.md": true, "verify-and-handoff.md": true, "integrate.md": true,
-	"archive.md": true, "review.md": true, "finish.md": true,
+	"cleanup.md": true, "review.md": true, "finish.md": true,
 }
 
 const (
