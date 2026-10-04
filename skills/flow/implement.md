@@ -238,7 +238,9 @@ names, it never rebases: the change branch is synced onto the base at integrate 
 onto the base**, `skills/flow/sync-onto-base.md`).
 
 **Whether there is anything left to implement is read off the task checkboxes**, from
-`spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change:
+`spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change. A change already
+archived is absent from that list: `done` is the count of column-0 `- [x]` task lines in its
+archived `tasks.md`, and `total` that count plus the column-0 `- [ ]` ones.
 
 - `total == 0` → no plan spectre can read: stop, resume at `skills/flow/resume.md`.
 - `total > 0` and `done == total` → every task is already checked: proceed to
@@ -723,7 +725,8 @@ decision the pivot displaces is superseded by ID per **Decisions**
 <new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a
 fresh entry appended, nothing deleted or rewritten — so the record carries the
 superseded decision beside its replacement. The amended plan is
-re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches.
+re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches; a
+change already archived runs `check-plan-shape.sh` alone, as section 1 does.
 
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
@@ -886,7 +889,8 @@ stated once here and cited — never restated — from `skills/flow/review-panel
   once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;
-  `tasks.md` re-read only through `spectre list --json` and `flow tasks tick` output afterward.
+  `tasks.md` re-read only through `spectre list --json` — for a change already archived, its
+  checkbox count — and `flow tasks tick` output afterward.
 
 The parent's own `## lint`/`## test` runs, reproducer runs and boundary checks are bound by the same two paragraphs:
 
