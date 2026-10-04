@@ -19,8 +19,9 @@
 #             verdict is read or acted on — recomputes the same status and
 #             compares byte-for-byte
 #
-# THE GUARD IS SCOPED TO THE PLAN TREE (`spectre/changes/<name>/`),
-# deliberately, and never asserts HEAD or the rest of the worktree: a
+# THE GUARD IS SCOPED TO THE PLAN TREE (`spectre/changes/<name>/`, and
+# `spectre/changes/archive/<name>/`, where a fix run writes once integrate's
+# run 1 archived the change), deliberately, and never asserts HEAD or the rest of the worktree: a
 # gated reviewer bundle flies BESIDE the next implementer group (implement.md's
 # bundled dispatch), whose source edits and commits legitimately move
 # everything else while the reviewer is in flight — a whole-worktree assert
@@ -88,7 +89,7 @@ esac
 WORKTREE="$(cd "$WORKTREE" && pwd -P)" || { echo "check-plan-unchanged: worktree vanished: $WORKTREE" >&2; exit 2; }
 
 plan_status() {
-  git -C "$WORKTREE" status --porcelain --untracked-files=all -- "spectre/changes/$NAME"
+  git -C "$WORKTREE" status --porcelain --untracked-files=all -- "spectre/changes/$NAME" "spectre/changes/archive/$NAME"
 }
 
 case "$MODE" in

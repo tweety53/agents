@@ -9,7 +9,8 @@
 # decoded JSON array of that change's dispatch rows, and this guard reads
 # only that array plus <worktree>/spectre/changes/<name>/tasks.md (the
 # canonical worktree's copy -- the only one that exists on a cross-repo
-# change, per skills/flow-contracts/worktree-resolution.md).
+# change, per skills/flow-contracts/worktree-resolution.md; its
+# changes/archive/<name>/ copy once integrate's run 1 archived the change).
 #
 # This is the gate KAN-527 asked for, the gated-per-task-reviewer sibling
 # of check-panel-fix-single-dispatch.sh: on that run the conductor launched

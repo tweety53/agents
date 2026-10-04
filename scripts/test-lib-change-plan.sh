@@ -884,6 +884,63 @@ else
   pass "store-unavailable-stays-unresolvable: no stderr noise beyond the caller's own failure modes"
 fi
 
+# Case 16: integrate's run 1 archives the change on its branch, and a fix run
+# after it writes into the archived directory. 16: no live directory, so the
+# archived plan resolves; 16b: a live directory wins over an archived one;
+# 16c: an archive holding other changes only, and no live directory, cannot
+# resolve. The default store stub keeps the store step inert.
+unset FLOW_FIND_UNAVAILABLE FLOW_FIND_FIXTURE
+CASE16="$WORK/case16-archived"
+make_tree "$CASE16"
+mkdir -p "$CASE16/spectre/changes/archive/arch-change"
+printf '# arch\n\n- [ ] 1. do a thing\n' > "$CASE16/spectre/changes/archive/arch-change/tasks.md"
+set +e
+OUT="$(change_plan_path "$CASE16" "arch-change")"
+RC=$?
+set -e
+assert_zero_rc "case 16: an archived change with no live directory resolves at exit 0" "$RC"
+assert_eq "case 16: it prints the archived plan's tasks.md path" \
+  "$CASE16/spectre/changes/archive/arch-change/tasks.md" "$OUT"
+
+CASE16B="$WORK/case16b-both"
+make_tree "$CASE16B"
+mkdir -p "$CASE16B/spectre/changes/arch-change" "$CASE16B/spectre/changes/archive/arch-change"
+printf '# arch\n\n- [ ] 1. do a thing\n' > "$CASE16B/spectre/changes/arch-change/tasks.md"
+printf '# arch\n\n- [ ] 1. do a thing\n' > "$CASE16B/spectre/changes/archive/arch-change/tasks.md"
+set +e
+OUT="$(change_plan_dir "$CASE16B" "arch-change")"
+RC=$?
+set -e
+assert_zero_rc "case 16b: a change with a live and an archived directory resolves at exit 0" "$RC"
+assert_eq "case 16b: the live directory wins" "$CASE16B/spectre/changes/arch-change" "$OUT"
+
+# 16d: a satellite whose canonical worktree's change run 1 archived.
+SAT16D="$WORK/case16d-satellite"
+CANON16D="$WORK/case16d-canonical"
+make_tree "$SAT16D"
+make_tree "$CANON16D"
+mkdir -p "$SAT16D/spectre/changes/sat-change" "$CANON16D/spectre/changes/archive/canon-change"
+printf '## Part of\n\n`peerx:canon-change`\n' > "$SAT16D/spectre/changes/sat-change/link.md"
+printf '# canon\n\n- [ ] 1. do a thing\n' > "$CANON16D/spectre/changes/archive/canon-change/tasks.md"
+set +e
+OUT="$(change_plan_dir "$SAT16D" "sat-change" "$CANON16D")"
+RC=$?
+set -e
+assert_zero_rc "case 16d: a satellite resolves its canonical worktree's archived plan at exit 0" "$RC"
+assert_eq "case 16d: it prints the canonical worktree's archived directory" \
+  "$CANON16D/spectre/changes/archive/canon-change" "$OUT"
+
+CASE16C="$WORK/case16c-neither"
+make_tree "$CASE16C"
+mkdir -p "$CASE16C/spectre/changes/archive/other-change"
+printf '# other\n\n- [ ] 1. do a thing\n' > "$CASE16C/spectre/changes/archive/other-change/tasks.md"
+set +e
+OUT="$(change_plan_dir "$CASE16C" "arch-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 16c: neither a live nor an archived directory cannot resolve" "$RC"
+assert_eq "case 16c: it prints nothing to stdout" "" "$OUT"
+
 # ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'

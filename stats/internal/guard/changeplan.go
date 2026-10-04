@@ -194,7 +194,7 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 			if tree == "" {
 				continue
 			}
-			dir := tree + "/" + specRootLeaf(tree, io.Discard) + "/changes/" + key
+			dir := ChangeDir(tree+"/"+specRootLeaf(tree, io.Discard)+"/changes", key)
 			if isFile(dir + "/tasks.md") {
 				matches = append(matches, dir)
 				projects = append(projects, proj)
@@ -213,6 +213,22 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 	return "", 1
 }
 
+// ChangeDir is a change's own directory under changes (a tree's
+// <spec-root>/changes): changes/<name> while it exists, else
+// changes/archive/<name> when that holds a tasks.md -- integrate's run 1
+// archives the change on its branch before the route, and a fix run after
+// it writes into the archived directory. The name is the caller's to have
+// allowlisted. Every worktree changePlanDir reads -- the judged one, the
+// canonical worktree argument, the store's worktrees -- goes through it, as
+// _change_plan_change_dir in the bash twin; exported for `flow tasks`, which
+// resolves no further than this.
+func ChangeDir(changes, name string) string {
+	if !isDir(changes+"/"+name) && isFile(changes+"/archive/"+name+"/tasks.md") {
+		return changes + "/archive/" + name
+	}
+	return changes + "/" + name
+}
+
 // changePlanDir is change_plan_dir (_change_plan_resolve_dir): the directory
 // holding the change's canonical tasks.md.
 func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) (string, int) {
@@ -221,13 +237,13 @@ func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) 
 		return "", 1
 	}
 	specRoot := specRootLeaf(worktree, stderr)
-	dir := worktree + "/" + specRoot + "/changes/" + name
+	dir := ChangeDir(worktree+"/"+specRoot+"/changes", name)
 	if isFile(dir + "/tasks.md") {
 		return dir, 0
 	}
 	link := dir + "/link.md"
 	if !isFile(link) && canonical != "" {
-		absentDir := canonical + "/" + specRootLeaf(canonical, stderr) + "/changes/" + name
+		absentDir := ChangeDir(canonical+"/"+specRootLeaf(canonical, stderr)+"/changes", name)
 		if isFile(absentDir + "/tasks.md") {
 			return absentDir, 0
 		}
@@ -259,7 +275,7 @@ func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) 
 		return "", 1
 	}
 	if canonical != "" {
-		canonDir := canonical + "/" + specRootLeaf(canonical, stderr) + "/changes/" + changeID
+		canonDir := ChangeDir(canonical+"/"+specRootLeaf(canonical, stderr)+"/changes", changeID)
 		if isFile(canonDir + "/tasks.md") {
 			return canonDir, 0
 		}

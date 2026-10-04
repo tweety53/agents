@@ -230,6 +230,21 @@ mkdir -p "$wt/spectre/changes/demo"
 printf 'new\n' > "$wt/spectre/changes/demo/tasks.md"
 expect_exit 'case 13b: verify after the plan tree appears exits 1' 1 run_guard verify "$wt" demo "$snap"
 
+# ===========================================================================
+# Case 14: a change integrate's run 1 archived — a fix run writes into
+# spectre/changes/archive/<name>/, and an uncommitted edit there destroyed
+# across the dispatch is caught exactly as a live plan tree's is.
+# ===========================================================================
+wt="$(make_repo)"; snap="$(new_snap)"
+git -C "$wt" mv spectre/changes/demo spectre/changes/archive-tmp
+mkdir -p "$wt/spectre/changes/archive"
+git -C "$wt" mv spectre/changes/archive-tmp spectre/changes/archive/demo
+git -C "$wt" commit -q -m archive
+printf 'plan: appended by a fix run\n' >> "$wt/spectre/changes/archive/demo/tasks.md"
+expect_exit 'case 14a: snapshot of an archived change exits 0' 0 run_guard snapshot "$wt" demo "$snap"
+git -C "$wt" checkout -q -- spectre/changes/archive/demo/tasks.md
+expect_exit 'case 14b: verify after the archived plan edit was destroyed exits 1' 1 run_guard verify "$wt" demo "$snap"
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi

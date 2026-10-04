@@ -260,6 +260,21 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	each(demo(unticked),
 		uwVerdict("an unchecked plan item is OUTSTANDING", "OUTSTANDING:"),
 		uwReason("an unchecked plan item names its signal", "unchecked plan item"))
+	// 3a. A change run 1 archived on its branch, with no live directory left,
+	//     is judged by its archived plan — the one a later fix run appends to.
+	archived := func(body string) func(t *testing.T) uwResult {
+		return func(t *testing.T) uwResult {
+			f := newUWBare(t, t.TempDir())
+			f.setFindings(t, "fixed")
+			writeFile(t, f.wt+"/spectre/changes/archive/demo/tasks.md", body)
+			return f.run(t, f.wt, "demo")
+		}
+	}
+	each(archived("- [x] 1.1 done\n"),
+		uwVerdict("an archived change whose plan is all checked is CLEAR", "CLEAR:"))
+	each(archived("- [x] 1.1 done\n- [ ] 2. appended by a fix run\n"),
+		uwVerdict("an unchecked item in an archived change's plan is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("an archived change's unchecked item names its signal", "1 unchecked plan item(s)"))
 	// 3b. The same signal in a fix sub-change, both layouts.
 	each(demo(file("spectre/changes/demo-fix-1/tasks.md", "- [ ] 1.1 the fix is not done\n")),
 		uwVerdict("an unchecked item in a sibling fix sub-change is OUTSTANDING", "OUTSTANDING:"))

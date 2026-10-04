@@ -139,8 +139,8 @@
 # KAN-363. The caller (skills/flow/implement.md's per-bundle gather,
 # skills/flow/review-panel.md's rebuild) passes the canonical worktree on
 # every call: the member of the run's resolved worktree set whose own
-# <project>/<spec-root>/changes/<name>/tasks.md exists, inert on a
-# single-repo change. Three consequences, each deliberate:
+# change directory holds tasks.md (skills/flow-contracts/pipeline.md's
+# "A change's directory"), inert on a single-repo change. Three consequences, each deliberate:
 #
 #   1. The boundary the three leaves are checked against is the CONTENT
 #      DIRECTORY, not the argument <change-root>: the canonical directory is

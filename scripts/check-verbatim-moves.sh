@@ -26,7 +26,9 @@
 # /flow-fast run, whose guardrail forbids writing <project>/spectre/ — where
 # `#` lines are comments and a leading `\` is dropped, so a heading is listed
 # as `\## …`.
-# Only in-flight changes count; an archived change's list is never read.
+# Only in-flight changes count: an archived change's list is read only while
+# the base does not carry it yet — archived on this branch by integrate's
+# run 1 — never once it has landed.
 #
 # It cannot judge whether a lazily loaded file's "Load X only when Y"
 # condition is right — review each such directive by hand.

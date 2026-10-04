@@ -331,6 +331,20 @@ func TestChangePlan(t *testing.T) {
 	case15 := work + "/case15-no-dir"
 	mkdir(t, case15+"/spectre/changes")
 	env15, _ := store("15", "")
+	// Case 16: run 1 archived the change on its branch and no live directory
+	// remains; 16b: a live directory wins over an archived one; 16c: an
+	// archive holding other changes only, and no live directory.
+	case16 := work + "/case16-archived"
+	case16Dir := plan(case16, "archive/arch-change")
+	case16b := work + "/case16b-both"
+	case16bDir := plan(case16b, "arch-change")
+	plan(case16b, "archive/arch-change")
+	case16c := work + "/case16c-neither"
+	plan(case16c, "archive/other-change")
+	// 16d: a satellite whose canonical worktree's change run 1 archived.
+	sat16d, canon16d := work+"/case16d-satellite", work+"/case16d-canonical"
+	satellite(sat16d, "peerx:canon-change")
+	canon16dDir := plan(canon16d, "archive/canon-change")
 
 	rows = append(rows,
 		row{name: "store-resolves-absent-dir: the record's worktrees map resolves the plan's directory", fn: "dir", worktree: case11s, change: "x-repo-plan", want: canon11sDir, env: env11},
@@ -341,6 +355,11 @@ func TestChangePlan(t *testing.T) {
 		row{name: "store-skipped-when-canonical-arg: a supplied canonical worktree never falls back to the store", fn: "path", worktree: case14, change: "sat-change", canonical: canon14, rc: 1, env: env14},
 		row{name: "store-skipped-when-canonical-arg: the absent-dir site never falls back to the store behind a supplied canonical worktree", fn: "path", worktree: case14b, change: "x-repo-change", canonical: canon14b, rc: 1, env: env14b},
 		row{name: "store-unavailable-stays-unresolvable: an unreachable store cannot resolve", fn: "path", worktree: case15, change: "lonely-plan", rc: 1, env: env15, wantErr: &none},
+		row{name: "case 16: an archived change with no live directory resolves to its archived plan", fn: "path", worktree: case16, change: "arch-change", want: case16Dir + "/tasks.md", env: env15},
+		row{name: "case 16 dir: an archived change's directory resolves", fn: "dir", worktree: case16, change: "arch-change", want: case16Dir, env: env15},
+		row{name: "case 16b: a live change directory wins over an archived one", fn: "dir", worktree: case16b, change: "arch-change", want: case16bDir, env: env15},
+		row{name: "case 16d: a satellite resolves its canonical worktree's archived plan", fn: "dir", worktree: sat16d, change: "sat-change", canonical: canon16d, want: canon16dDir, env: env15},
+		row{name: "case 16c: neither a live nor an archived directory cannot resolve", fn: "dir", worktree: case16c, change: "arch-change", rc: 1, env: env15, wantErr: &none},
 	)
 
 	// The rows share fixtures read-only; git fixtures above are built before

@@ -47,6 +47,7 @@ type trsdCase struct {
 	realFlow   bool   // Dispatches nil: the stub flow on PATH answers it
 	decisions  string // non-empty: a stub flow on PATH answers `record decisions`
 	plan       *string
+	archived   bool              // the plan sits in the archived change directory, none live
 	siblings   map[string]string // non-nil: FLOW_GUARD_SELF sits in a temp root's scripts/ beside these
 	args       func(wt string) []string
 }
@@ -80,7 +81,11 @@ func trsdRun(t *testing.T, c trsdCase) (int, string, string, string, string) {
 		plan = *c.plan
 	}
 	if plan != "" {
-		writeFile(t, wt+"/spectre/changes/demo/tasks.md", plan)
+		dir := wt + "/spectre/changes/demo"
+		if c.archived {
+			dir = wt + "/spectre/changes/archive/demo"
+		}
+		writeFile(t, dir+"/tasks.md", plan)
 	}
 	bin := t.TempDir()
 	if c.realFlow || c.decisions != "" {
@@ -171,6 +176,8 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 			func(wt string) string {
 				return p + "no tasks.md at " + wt + "/spectre/changes/demo/tasks.md -- cannot answer\n"
 			}},
+		{"a change run 1 archived reads its archived plan and exits 0",
+			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok, "task-5-reviewer", r, tok), archived: true}, 0, trsdOK, nil},
 		{"case 11: empty token is a usage error, exits 2",
 			trsdCase{dispatches: d("task-1+3-reviewer", r, tok), args: func(wt string) []string { return []string{wt, "demo", ""} }}, 2, "",
 			func(string) string {

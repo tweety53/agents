@@ -106,7 +106,9 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "check-verbatim-moves: no sentences under skills/, commands-claude/ or rules/ in %s — refusing to report a clean run\n", root)
 		return 2
 	}
-	acks, err := vmAcks(root)
+	acks, err := vmAcks(root, func(rel string) bool {
+		return git("-C", root, "cat-file", "-e", base+":"+rel).Run() == nil
+	})
 	if err != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
 		return 2
@@ -297,21 +299,30 @@ func vmCorpusAt(git func(...string) *exec.Cmd, root, commit string) (vmCorpus, v
 // vmAcks is every sentence listed in an in-flight change's acknowledgement
 // file — under <spec-root>/changes/<change>/, and under a flow-fast run's
 // change root <worktree>/.superpowers/sdd/<change>/, which a flow-fast run
-// can write where it never writes <project>/spectre/. Archived changes are
-// skipped: their acknowledgements were for a diff that has already landed.
-func vmAcks(root string) (map[string]bool, error) {
+// can write where it never writes <project>/spectre/. A change archived at
+// the base is skipped (atBase reports a root-relative path present in the
+// base commit): its acknowledgements were for a diff that has already
+// landed. One archived on this branch counts — integrate's run 1 archives
+// on the change branch, and the diff its list acknowledges is still this
+// branch's.
+func vmAcks(root string, atBase func(rel string) bool) (map[string]bool, error) {
 	acks := map[string]bool{}
 	leaf := specRootLeaf(root, io.Discard)
 	patterns := []string{
 		filepath.Join(root, leaf, "changes", "*", vmAckFile),
+		filepath.Join(root, leaf, "changes", "archive", "*", vmAckFile),
 		filepath.Join(root, ".superpowers", "sdd", "*", vmAckFile),
 	}
+	archived := filepath.Join(root, leaf, "changes", "archive") + string(filepath.Separator)
 	for _, pattern := range patterns {
 		matches, err := filepath.Glob(pattern)
 		if err != nil {
 			return nil, err
 		}
 		for _, m := range matches {
+			if strings.HasPrefix(m, archived) && atBase(filepath.ToSlash(strings.TrimPrefix(m, root+string(filepath.Separator)))) {
+				continue
+			}
 			b, err := os.ReadFile(m)
 			if err != nil {
 				return nil, fmt.Errorf("cannot read %s: %v", m, err)

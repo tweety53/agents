@@ -131,12 +131,18 @@ func TestCheckVerbatimMoves(t *testing.T) {
 				"spectre/changes/demo/verbatim-moves.txt": "## Transition table\n",
 			},
 			rc: 1, want: []string{"FAIL new run-loaded text (paraphrase?) :: ## Transition table"}},
-		{name: "an acknowledgement in an archived change does not count",
+		{name: "an acknowledgement in a change archived at the base does not count",
+			base: map[string]string{"spectre/changes/archive/old/verbatim-moves.txt": vmMark + "\n"},
 			edit: map[string]string{
 				vmPipe: "# Pipeline\n\n" + vmTable + " Every row is a transition.\n\n" + vmWhy + "\n",
-				"spectre/changes/archive/old/verbatim-moves.txt": vmMark + "\n",
 			},
 			rc: 1, want: []string{"FAIL deleted or reworded :: " + vmMark}},
+		{name: "an acknowledgement in a change archived on this branch counts",
+			edit: map[string]string{
+				vmPipe: "# Pipeline\n\n" + vmTable + " Every row is a transition.\n\n" + vmWhy + "\n",
+				"spectre/changes/archive/demo/verbatim-moves.txt": vmMark + "\n",
+			},
+			rc: 0, want: []string{"ok   acknowledged removal", "0 violation(s)"}, reject: []string{"FAIL"}},
 		{name: "a new sentence listed in a flow-fast change's acknowledgement file passes",
 			edit: map[string]string{
 				vmPipe: vmBase[vmPipe] + "\n" + vmAdded + "\n",

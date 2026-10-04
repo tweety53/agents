@@ -99,7 +99,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	if !ok {
 		return 2
 	}
-	tasksMD := worktree + "/spectre/changes/" + name + "/tasks.md"
+	tasksMD := ChangeDir(worktree+"/spectre/changes", name) + "/tasks.md"
 	if fi, err := os.Stat(tasksMD); err != nil || !fi.Mode().IsRegular() {
 		fmt.Fprintf(stderr, "%sno tasks.md at %s -- cannot answer\n", trsdPrefix, tasksMD)
 		return 2

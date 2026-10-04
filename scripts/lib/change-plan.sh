@@ -15,7 +15,14 @@
 #
 # Resolution order, per design.md's `guards-take-the-canonical-worktree-path`:
 #
-#   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path.
+#   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path;
+#      or no <worktree>/<spec-root>/changes/<name>/ directory at all and
+#      <worktree>/<spec-root>/changes/archive/<name>/tasks.md exists → that
+#      path. Integrate's run 1 archives the change on its branch before the
+#      route, and a fix run after it writes into the archived directory, so
+#      the archived plan is this change's plan, not a stale copy. Every
+#      worktree read in the steps below resolves a change's directory the
+#      same way (_change_plan_change_dir).
 #   2. Otherwise, no local tasks.md and no local link.md for <name> here at
 #      all (the cross-repo shape where the plan lives only in the canonical
 #      repo — the change directory absent entirely, or an empty scaffold a
@@ -54,16 +61,19 @@
 #
 #   5. None of the above → unresolvable.
 #
-# WHY THIS DOES NOT FALL BACK TO changes/archive/ THE WAY spectre's own
-# `internal/check` does for the peer side of a link (task 2's
+# WHY A PEER ROOT DOES NOT FALL BACK TO changes/archive/ THE WAY spectre's
+# own `internal/check` does for the peer side of a link (task 2's
 # `independent-archive`). That fallback answers "is the counterpart change
 # still findable at all", which matters to `validate` reporting archive skew.
 # This function answers a narrower question for a guard running inside a
-# live worktree: /flow only holds a worktree open for a change still being
-# worked, so an archived canonical has no worktree left to pass as the third
-# argument, and a `peers`-relative archive lookup would require duplicating
-# spectre's own two-step search for a case this repository's guards do not
-# reach. Narrower is deliberate here, not an oversight.
+# live worktree: a peer root is a sibling repository's main checkout, where
+# a change's archive appears only once the change has landed and nothing is
+# left for a guard to judge, and a `peers`-relative archive lookup would
+# require duplicating spectre's own two-step search for a case this
+# repository's guards do not reach. Narrower is deliberate here, not an
+# oversight. A worktree is different: integrate's run 1 archives on the
+# change branch in a worktree that stays open until run 2, which is why
+# step 1's archived half applies to every worktree this function reads.
 #
 # CONTAINMENT applies to every name concatenated into a path in this
 # function: the change name (the caller's own argument, from a
@@ -119,6 +129,22 @@ _change_plan_name_ok() {
       ;;
   esac
   return 0
+}
+
+# _change_plan_change_dir <changes-dir> <name> — print a change's own
+# directory under <changes-dir> (a tree's <spec-root>/changes): <name> while
+# that directory exists, else archive/<name> when it holds a tasks.md
+# (resolution order step 1). Every worktree this file reads — the judged
+# one, the canonical worktree argument, the store's worktrees — goes through
+# it; a peer root does not (see the WHY paragraph in the header). The Go
+# twin is ChangeDir (stats/internal/guard/changeplan.go). <name> is the
+# caller's to have allowlisted.
+_change_plan_change_dir() {
+  if [ ! -d "$1/$2" ] && [ -f "$1/archive/$2/tasks.md" ]; then
+    printf '%s\n' "$1/archive/$2"
+  else
+    printf '%s\n' "$1/$2"
+  fi
 }
 
 # _change_plan_link_part_of <link.md path> — print the `## Part of` code
@@ -305,7 +331,7 @@ _change_plan_store_dir() {
     while IFS= read -r tree; do
       [ -n "$tree" ] || continue
       spec_root="$(spec_root_leaf "$tree" 2>/dev/null)" || continue
-      dir="$tree/$spec_root/changes/$key"
+      dir="$(_change_plan_change_dir "$tree/$spec_root/changes" "$key")"
       if [ -f "$dir/tasks.md" ]; then
         matches+=("$dir")
         projects+=("$proj")
@@ -360,7 +386,8 @@ _change_plan_resolve_dir() {
   local spec_root
   spec_root="$(spec_root_leaf "$worktree")"
 
-  local dir="$worktree/$spec_root/changes/$name"
+  local dir
+  dir="$(_change_plan_change_dir "$worktree/$spec_root/changes" "$name")"
   if [ -f "$dir/tasks.md" ]; then
     printf '%s\n' "$dir"
     return 0
@@ -384,7 +411,7 @@ _change_plan_resolve_dir() {
   if [ ! -f "$dir/tasks.md" ] && [ ! -f "$dir/link.md" ] && [ -n "$canonical_worktree" ]; then
     local absent_leaf absent_dir
     absent_leaf="$(spec_root_leaf "$canonical_worktree")"
-    absent_dir="$canonical_worktree/$absent_leaf/changes/$name"
+    absent_dir="$(_change_plan_change_dir "$canonical_worktree/$absent_leaf/changes" "$name")"
     if [ -f "$absent_dir/tasks.md" ]; then
       printf '%s\n' "$absent_dir"
       return 0
@@ -426,7 +453,7 @@ _change_plan_resolve_dir() {
   if [ -n "$canonical_worktree" ]; then
     local canon_spec_root canon_dir
     canon_spec_root="$(spec_root_leaf "$canonical_worktree")"
-    canon_dir="$canonical_worktree/$canon_spec_root/changes/$changeid"
+    canon_dir="$(_change_plan_change_dir "$canonical_worktree/$canon_spec_root/changes" "$changeid")"
     if [ -f "$canon_dir/tasks.md" ]; then
       printf '%s\n' "$canon_dir"
       return 0
