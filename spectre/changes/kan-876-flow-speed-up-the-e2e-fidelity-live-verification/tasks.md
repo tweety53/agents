@@ -89,6 +89,7 @@ flow dev stack (`<project>/CLAUDE.md`).
 Correction (2026-10-05): the panel (F6, F4) found that the section restated the run-instructions start rule, and the restatement had already drifted: it retried a failed start, where run-instructions relays a refused start and never retries. The section now cites **Resolve the run instructions** for how to start the stack, keeps only when and where it starts, and states what each `check-dev-stack-fresh.sh` exit means.
 
 Correction (2026-10-05): the plan placed the new `###` heading directly after the `sdd-dispatch.md` load directive, mid section 4; there it would have become the parent heading of the rest of section 4 (about 520 lines). It shipped as section 4's last subsection, after the `flow.sdd-tdd` stage close, so no existing content changes heading. Its opening clause ("Before the first task … goes out") locates it in time, and phase files are read in full at stage start.
+<!-- measured: awk 'NR>412 && NR<937' skills/flow/implement.md | wc -l (524) @ 06b1e8bd plus Task 1's insertion point -->
 
 - [x] 2. Verify: the live check, and reuse of the running stack
 
