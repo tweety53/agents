@@ -485,7 +485,7 @@ verify/integrate cycles and end on agents `main`.
 5. **Land once** by `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
-   branch. A rebase onto a moved `origin/<agents-base>` runs step 4 again before the push. The
+   branch. A rebase onto a moved `origin/<agents-base>` runs item 4, **Verify**, again before the push. The
    pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
    finding's sha is read off `<agents-base>` after the landing, never from
    the branch before its rebase; on a route that opens a pull request, once that pull request
