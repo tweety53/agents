@@ -48,7 +48,7 @@ against a real daemon.
 
 ---
 
-- [ ] 1. Store: the `self_review_findings` table and its write/list
+- [x] 1. Store: the `self_review_findings` table and its write/list
 
 **Files:** `stats/internal/store/migrations/0035_self_review_findings.sql`, `stats/internal/records/types.go`, `stats/internal/store/selfreviewfindings.go`, `stats/internal/store/selfreviewfindings_test.go`
 **Tests:** `TestSelfReviewFindingsRoundTrip`, `TestSelfReviewFindingRefusesBadDisposition`
@@ -63,7 +63,7 @@ against a real daemon.
 
 **Decision:** self-review-findings-table
 
-  - [ ] **Step 1: Write the failing tests** in `stats/internal/store/selfreviewfindings_test.go`
+  - [x] **Step 1: Write the failing tests** in `stats/internal/store/selfreviewfindings_test.go`
     on `newTestStore(t)` (`stats/internal/store/testsupport_test.go`): round-trip — record three
     rows for one change (`fixed` with ref `abc1234` and blast radius 3, `filed` with `KAN-9`,
     `declined` with no ref and no blast radius), list them back in insertion order with every
@@ -71,7 +71,7 @@ against a real daemon.
     ref `KAN-9`, `filed` with ref `abc1234`, `declined` with a ref, each an error wrapping a new
     `ErrSelfReviewFindingInvalid` sentinel. Run: `cd stats && go test ./internal/store -run
     'TestSelfReviewFinding' -count=1` — fails to compile.
-  - [ ] **Step 2: Migration** `0035_self_review_findings.sql`: table `self_review_findings` —
+  - [x] **Step 2: Migration** `0035_self_review_findings.sql`: table `self_review_findings` —
     `id BIGSERIAL PRIMARY KEY`, `project_key TEXT NOT NULL REFERENCES projects(project_key)`,
     `change TEXT NOT NULL`, `angle TEXT NOT NULL`, `note TEXT NOT NULL`,
     `disposition TEXT NOT NULL CHECK (disposition IN ('fixed','filed','declined'))`, `ref TEXT`,
@@ -79,19 +79,19 @@ against a real daemon.
     `(project_key, change)`. Header comment states why it is not the panel `findings` table
     (`design.md`, `self-review-findings-table`). `change` is text, not an FK: the change is
     `FINISHED` and possibly archived when the row is written.
-  - [ ] **Step 3: Type** `records.SelfReviewFinding` in `stats/internal/records/types.go`, beside
+  - [x] **Step 3: Type** `records.SelfReviewFinding` in `stats/internal/records/types.go`, beside
     `Incident`: `ID int64`, `Change string`, `Angle string`, `Note string`, `Disposition string`,
     `Ref string` (`json:"ref,omitempty"`), `BlastRadius *int` (`json:"blastRadius,omitempty"`),
     `RecordedAt time.Time`, camelCase JSON tags.
-  - [ ] **Step 4: Store** `stats/internal/store/selfreviewfindings.go`:
+  - [x] **Step 4: Store** `stats/internal/store/selfreviewfindings.go`:
     `RecordSelfReviewFinding(ctx, projectKey string, in records.SelfReviewFinding)` validating
     before the insert — disposition in the closed set; `fixed` ref matches `^[0-9a-f]{7,40}$`;
     `filed` ref matches `^[A-Z][A-Z0-9]*-[0-9]+$`; `declined` ref empty; `angle` and `note`
     non-empty — and `ListSelfReviewFindings(ctx, projectKey, change string)` ordered by `id`.
-  - [ ] **Step 5: Verify** — the Step 1 command passes; gofmt/vet per Global Constraints.
-  - [ ] **Step 6: Commit.**
+  - [x] **Step 5: Verify** — the Step 1 command passes; gofmt/vet per Global Constraints.
+  - [x] **Step 6: Commit.**
 
-- [ ] 2. API and client: `/api/v1/self-review/{project}/{change}/findings`
+- [x] 2. API and client: `/api/v1/self-review/{project}/{change}/findings`
 
 **Files:** `stats/internal/api/selfreview.go`, `stats/internal/api/selfreview_test.go`, `stats/internal/api/server.go`, `stats/internal/client/selfreview.go`, `stats/internal/client/selfreview_test.go`, `stats/internal/api/records.go`, `stats/internal/api/changes_test.go`, `stats/internal/client/client_test.go`, `stats/internal/reconcile/record_test.go`, `stats/internal/web/embed_test.go`
 **Tests:** `TestSelfReviewFindingsEndpoint`, `TestClientSelfReviewFindings`
@@ -106,20 +106,20 @@ JSON shape drifts from the handler's.
 
 **Decision:** self-review-findings-table
 
-  - [ ] **Step 1: Write the failing tests**, following the existing tests in each file:
+  - [x] **Step 1: Write the failing tests**, following the existing tests in each file:
     endpoint — POST a valid row → 201 and the stored row back; POST `bogus` disposition → 400;
     GET → the posted rows in order; client — `RecordSelfReviewFinding` and
     `ListSelfReviewFindings` against an `httptest` server asserting method, path and body. Run:
     `cd stats && go test ./internal/api ./internal/client -run 'SelfReviewFindings' -count=1` —
     fails to compile.
-  - [ ] **Step 2: Handler and routes** — `selfreviewHandler.recordFinding` and `.listFindings` in
+  - [x] **Step 2: Handler and routes** — `selfreviewHandler.recordFinding` and `.listFindings` in
     `stats/internal/api/selfreview.go`, the store interface it holds gaining the two Task 1
     methods; `POST` and `GET /api/v1/self-review/{project}/{change}/findings` registered beside
     the bundle route in `server.go`. `ErrSelfReviewFindingInvalid` maps to 400.
-  - [ ] **Step 3: Client** — `RecordSelfReviewFinding(ctx, project, change, in)` and
+  - [x] **Step 3: Client** — `RecordSelfReviewFinding(ctx, project, change, in)` and
     `ListSelfReviewFindings(ctx, project, change)` in `stats/internal/client/selfreview.go`.
-  - [ ] **Step 4: Verify** — the Step 1 command passes; gofmt/vet.
-  - [ ] **Step 5: Commit.**
+  - [x] **Step 4: Verify** — the Step 1 command passes; gofmt/vet.
+  - [x] **Step 5: Commit.**
 
 Correction (2026-10-04): the plan declared the store interface change in `selfreview.go` alone;
 `server.go` hands the handler `rs`, an `api.RecordStore`, so the two methods also joined
@@ -127,7 +127,7 @@ Correction (2026-10-04): the plan declared the store interface change in `selfre
 `changes_test.go`'s `fakeStore` field, `client_test.go`'s `stubStageStore`,
 `reconcile/record_test.go`'s `nopRecordStore`/`fakeRecordStore`, `web/embed_test.go`'s `fakeStore`.
 
-- [ ] 3. CLI: `flow self-review finding` and `flow self-review findings`
+- [x] 3. CLI: `flow self-review finding` and `flow self-review findings`
 
 **Files:** `stats/cmd/flow/selfreview.go`, `stats/cmd/flow/selfreview_test.go`, `.flow/project.md`, `scripts/test-flow-addr-declaration.sh`
 **Tests:** `TestSelfReviewFindingCLI`, `TestSelfReviewFindingsCLI`
@@ -145,30 +145,31 @@ on an unreachable store.
 
 **Decision:** store-write-never-blocks
 
-  - [ ] **Step 1: Write the failing tests** following `selfreview_test.go`'s bundle tests:
+  - [x] **Step 1: Write the failing tests** following `selfreview_test.go`'s bundle tests:
     `finding` with every flag against a fake server → exit 0 and the posted JSON; missing
     `-change`, `-angle`, `-disposition` or `-note` → exit 2 naming the flag; `-blast-radius`
     negative → exit 2; unreachable `-addr` → exit 0, one stderr line starting `flow: warning:`
     (match the record family's existing warning prefix); `findings` → prints the JSON array;
     unreachable → non-zero, nothing on stdout. Run: `cd stats && go test ./cmd/flow -run
     'TestSelfReviewFinding' -count=1` — fails.
-  - [ ] **Step 2: Subcommands** — `finding` (`-change`, `-angle`, `-disposition`, `-note`
+  - [x] **Step 2: Subcommands** — `finding` (`-change`, `-angle`, `-disposition`, `-note`
     required; `-ref`, `-blast-radius` optional, the latter unset → nil) and `findings`
     (`-change`), both on `registerRecordConnFlags` and `fallback.ProjectKey(f.dir)` as `bundle`
     does. A store validation refusal (400) is exit 2 with the store's message — a caller
     mistake, not a store miss. Extend `selfReviewUsage` with both, stating the write's
     never-block contract and the read's non-zero miss in the bundle paragraph's own style.
-  - [ ] **Step 3: Verify** — the Step 1 command passes; `go build ./cmd/flow`; gofmt/vet.
-  - [ ] **Step 4: Commit.**
+  - [x] **Step 3: Verify** — the Step 1 command passes; `go build ./cmd/flow`; gofmt/vet.
+  - [x] **Step 4: Commit.**
 
-Correction (2026-10-04): the unreachable-store line is `⚠ flow: store unreachable — …`, the record
-family's actual prefix (`journalRecordWrite`), not the `flow: warning:` the plan guessed. The two
+Correction (2026-10-04): the never-block line is `⚠ flow: self-review finding not recorded — …`,
+in the record family's `⚠ flow:` style (`journalRecordWrite`), not the `flow: warning:` the plan
+guessed; it covers a reached store that failed the write (a 5xx) as well as an unreachable one. The two
 new verbs resolve `FLOW_RECORDS_ADDR`, so `.flow/project.md`'s record-family sentence now names
 them, and `scripts/test-flow-addr-declaration.sh`'s drops-verb mutation drops all three
 `flow self-review` verbs — dropping `bundle` alone left `selfreview.go` declared and the case passed.
 `bundle` now shares `parseSelfReviewFlags` with the two new verbs.
 
-- [ ] 4. Report guard: accept `fixed: <sha>`
+- [x] 4. Report guard: accept `fixed: <sha>`
 
 **Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`
 **Tests:** Case 34, Case 35, Case 36 — in `TestCheckSelfReviewReport`
@@ -182,19 +183,19 @@ them, and `scripts/test-flow-addr-declaration.sh`'s drops-verb mutation drops al
 
 **Decision:** fixed-disposition
 
-  - [ ] **Step 1: Write the failing cases** 34–36 in `TestCheckSelfReviewReport`, built like
+  - [x] **Step 1: Write the failing cases** 34–36 in `TestCheckSelfReviewReport`, built like
     cases 5 and 6 (`csrSec` on the cost section). Run: `cd stats && go test ./internal/guard -run
     TestCheckSelfReviewReport -count=1` — case 34 fails.
-  - [ ] **Step 2: Parse** — beside `srrFiled`, a `srrFixed` (`^fixed:[[:space:]]*(.*)$`) and a
+  - [x] **Step 2: Parse** — beside `srrFiled`, a `srrFixed` (`^fixed:[[:space:]]*(.*)$`) and a
     `srrSha` (`^[0-9a-f]{7,40}$`); a `fixed:` disposition with an empty sha is "marked fixed with
     no sha", a non-sha is "marked fixed with a malformed sha `<x>`"; the "neither" and
     "malformed line" messages name all three dispositions. Update the doc comments and the
     shim's header (`THE REPORT SHAPE`) to show the third line form.
-  - [ ] **Step 3: Verify** — the Step 1 command passes; `scripts/check-self-review-report.sh`
+  - [x] **Step 3: Verify** — the Step 1 command passes; `scripts/check-self-review-report.sh`
     exits 0 on the real tree; gofmt/vet.
-  - [ ] **Step 4: Commit.**
+  - [x] **Step 4: Commit.**
 
-- [ ] 5. Skill: fix every non-big finding, record each one
+- [x] 5. Skill: fix every non-big finding, record each one
 
 **Files:** `skills/flow-self-review/SKILL.md`, `skills/flow-contracts/finish-contract-run2.md`, `scripts/land-self-review-report.sh`, `skills/README.md`, `skills/flow-self-review/SKILL-rationale.md`, `skills/flow-self-review/scripts/project-get.sh`
 **Tests:** none — skill prose; Tasks 1–4 carry the tests for what it calls
@@ -215,18 +216,18 @@ them, and `scripts/test-flow-addr-declaration.sh`'s drops-verb mutation drops al
 
 **Decision:** fixed-disposition
 
-  - [ ] **Step 1: Frontmatter** of `skills/flow-self-review/SKILL.md`: `description:` becomes
+  - [x] **Step 1: Frontmatter** of `skills/flow-self-review/SKILL.md`: `description:` becomes
     `Run a change's self-review pass, inline on this session's model, from the context bundle
     \`/flow\` or \`/flow-fast\` saved; fix and land every finding that is not big, file the big
     ones, record each in the flow store, rate, write the report, delete the bundle. Standalone,
     not a pipeline stage. Use for /flow-self-review.`; `allowed-tools:` gains `Bash(flow:*)`.
-  - [ ] **Step 2: Intro.** Replace `canonical for the six angles, what may be filed, the
+  - [x] **Step 2: Intro.** Replace `canonical for the six angles, what may be filed, the
     filing-and-rating prompt and the report.` with `canonical for the six angles, what is fixed
     and what may be filed, the filing-and-rating prompt, the store record and the report.`, and
     `**The pass runs inline, in this session, on whatever model it is already on** — no subagent,
     no dispatch.` with `**The pass and its fixes run inline, in this session, on whatever model it
     is already on** — the one dispatch is the fix branch's reviewer (step 3).`
-  - [ ] **Step 3: Step 2's filing paragraph.** Replace `**A finding is filed only from the six
+  - [x] **Step 3: Step 2's filing paragraph.** Replace `**A finding is filed only from the six
     angles, and only by the operator's choice.** A finding about the pipeline itself is offered
     under its angle. A finding about the project's own product code is offered only when it is
     Important or worse` with `**A finding is fixed or filed only from the six angles.** A finding
@@ -234,35 +235,35 @@ them, and `scripts/test-flow-addr-declaration.sh`'s drops-verb mutation drops al
     when it is. A finding about the project's own product code is always \`big\`, and is offered
     only when it is Important or worse`; and `files nothing and records every finding
     \`declined\`.` with `files nothing and records every offered finding \`declined\`.`
-  - [ ] **Step 4: Insert step 3**, the block under **Task 5 — the new step 3** below, before
+  - [x] **Step 4: Insert step 3**, the block under **Task 5 — the new step 3** below, before
     `### 3. Explain, then ask`, and renumber the following headings: `### 4. Explain, then ask`,
     `### 5. File chosen findings`, `### 7. Write the report, delete the bundle, land it`,
     `### 8. Report`; insert the block under **Task 5 — the new step 6** below as `### 6.` before
     the report step.
-  - [ ] **Step 5: Explain, then ask.** After its first sentence, add `Every fixed finding is one
+  - [x] **Step 5: Explain, then ask.** After its first sentence, add `Every fixed finding is one
     line in the same body, naming its landed sha; it is not offered.` Replace `up to three
     multi-select questions of three findings each` with `up to three multi-select questions of
     three offered findings each`, and append to that paragraph `With no finding to offer, the call
     carries the rating alone.`
-  - [ ] **Step 6: Report step.** Replace `and its disposition (\`filed: <KEY>\` or
+  - [x] **Step 6: Report step.** Replace `and its disposition (\`filed: <KEY>\` or
     \`declined\`)` with `and its disposition (\`fixed: <sha>\`, \`filed: <KEY>\` or
     \`declined\`)`. In `### 8. Report`, replace `the rating, and the Jira keys filed (or \`none\`).`
     with `the rating, the shas landed and the Jira keys filed (each \`none\` when empty).`
-  - [ ] **Step 7: Citations.** `skills/flow-contracts/finish-contract-run2.md` step 9: `canonical
+  - [x] **Step 7: Citations.** `skills/flow-contracts/finish-contract-run2.md` step 9: `canonical
     for the six angles, what may be filed, the` → `canonical for the six angles, what is fixed and
     what may be filed, the`. `scripts/land-self-review-report.sh` header: `SKILL.md step 5` →
     `SKILL.md step 7`. `skills/README.md`'s `/flow-self-review` row: append `Fixes and lands every
     non-big finding; files the big ones.` to its description. Then
     `grep -rn 'flow-self-review' skills rules scripts stats --include='*.md' --include='*.sh'
     --include='*.go'` and correct any other step-number citation the renumbering moved.
-  - [ ] **Step 8: Verify** — `grep -c '^### 3. Fix every finding that is not \`big\`$'
+  - [x] **Step 8: Verify** — `grep -c '^### 3. Fix every finding that is not \`big\`$'
     skills/flow-self-review/SKILL.md` prints `1`; `grep -c '^### [0-9]\.' skills/flow-self-review/SKILL.md`
     prints `8`. Run `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`,
     `scripts/check-installed-citations.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-dispatch-paragraphs.sh`, `scripts/check-guard-symlinks.sh`,
     `scripts/check-normative-inventory.sh`, `scripts/check-self-review-report.sh`; record every
     sentence `check-verbatim-moves.sh` flags in `verbatim-moves.txt`.
-  - [ ] **Step 9: Commit.**
+  - [x] **Step 9: Commit.**
 
 Correction (2026-10-04): the renumbering moved a heading `skills/flow-self-review/SKILL-rationale.md`
 cites (`## SKILL.md — 5. Write the report…` → `7.`), and the new step 3's `project-get.sh` call
