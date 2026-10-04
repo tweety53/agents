@@ -73,3 +73,23 @@ read off the landed branch after the rebase so it names the commit on `<default-
 **Considered:** `declined` for a fixed finding — loses the fact; a free-text note — unparseable.
 
 ## Open questions
+
+## Live verification
+
+Against this worktree's own daemon — `flowd` built from branch `spectre/kan-875-self-review-auto-fixes-all-angles`
+at `d34ba4aa`, on port 4875 over database `flow_kan_875_self_3af6` (`scripts/workspace.sh create kan-875-self-3af6`),
+the project row seeded by `flow state set` from this change's record — never `flowd` on 4173.
+
+- **Before** — measured: `flow self-review findings -change kan-875-self-review-auto-fixes-all-angles` @ d34ba4aa →
+  `[]`, exit 0.
+- **Write** — measured: `flow self-review finding … -disposition fixed -ref d34ba4aa -blast-radius 6`,
+  `… -disposition filed -ref KAN-875`, `… -disposition declined` @ d34ba4aa → exit 0 each;
+  `… -disposition bogus` → exit 2, `store: invalid self-review finding: disposition must be fixed, filed or declined, got "bogus"`.
+- **After** — measured: the same read @ d34ba4aa → exactly three rows, ids 1–3 in order: `fixed`
+  `d34ba4aa` blast radius 6, `filed` `KAN-875` (no blast radius), `declined` (no ref, no blast
+  radius); angle and note intact on each; nothing from the refused write. Exit 0.
+- **Never blocks** — measured: `flow self-review finding -addr http://127.0.0.1:1 …` @ d34ba4aa →
+  exit 0, one stderr line `⚠ flow: store unreachable — self-review finding not recorded: …`.
+
+The daemon was stopped and its database dropped (`scripts/workspace.sh remove kan-875-self-3af6`);
+`flow-postgres` stayed up.

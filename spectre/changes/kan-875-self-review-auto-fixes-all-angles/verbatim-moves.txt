@@ -1,0 +1,45 @@
+# Operator, 2026-10-04: KAN-875 — self-review fixes every non-big finding.
+**The pass runs inline, in this session, on whatever model it is already on** — no subagent, no dispatch.
+A finding about the pipeline itself is offered under its angle.
+A finding about the project's own product code is offered only when it is Important or worse — something a user or the data would suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a missing test over already-correct code) is left out of the prompt.
+End naming the report path, the rating, and the Jira keys filed (or `none`).
+The filing ask and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts** (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of three findings each, every option prefixed with its angle's label, plus **None — file nothing** as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1` typed through the tool's free-text "Other".
+The filing prompt is never waived: a pass with no operator to answer it files nothing and records every finding `declined`.
+The pass then runs in `/flow-self-review <name>` (`skills/flow-self-review/SKILL.md`), canonical for the six angles, what may be filed, the filing-and-rating prompt and the report, which deletes the bundle in its report commit.
+allowed-tools: Bash(git:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*) license: MIT compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+name: flow-self-review description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; file, rate, write the report, delete the bundle.
+(`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the branch.
+**A finding is fixed or filed only from the six angles.
+**Every finding that is not `big` is fixed and landed without asking**, on one branch for the whole pass.
+**Fix the review's findings inline**, then step 2 again, `<r>` plus one, until a review comes
+**Fix, inline.
+**Land once** by `<agents repo>`'s `## default landing route`
+**Review** — one fresh dispatch on `opus`, `subagent_type: flow-high`, key
+**The pass and its fixes run inline, in this session, on whatever model it is already on** — the one dispatch is the fix branch's reviewer (step 3).
+A commit the review judges not to fix its finding, or to make things worse, is dropped from the branch, and its finding is offered in step 4 as a `big` one is; so is a fix found `big` once under way.
+A finding about the pipeline itself is fixed in step 3 unless it is `big`, and offered under its angle when it is.
+A finding about the project's own product code is always `big`, and is offered only when it is Important or worse — something a user or the data would suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a missing test over already-correct code) is left out of the prompt.
+A finding about the project's own product code reaches outside `<agents repo>`, so it is always `big`.
+A pass with none creates no worktree and dispatches nothing.
+A store failure is one warning line and the pass continues — the report below is the durable record.
+An `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
+Each fixed finding's sha is read off `<default-branch>` after the landing, never from the branch before its rebase.
+End naming the report path, the rating, the shas landed and the Jira keys filed (each `none` when empty).
+Every fixed finding is one line in the same body, naming its landed sha; it is not offered.
+Fix every finding that is not `big`
+Fixes and lands every non-big finding; files the big ones.
+It is one-shot: no `SendMessage` to it once it returns.
+It works in its own worktree, `git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<default-branch>` — never the main checkout — and makes one commit per finding with a module scope, adding one test or guard that fails without the fix wherever the fix changes behaviour, and running the `<agents repo>/.flow/project.md` `## lint` lines its files need.
+One call per finding, every disposition alike, before the report is written:
+Record every finding in the flow store
+The filing prompt is never waived: a pass with no operator to answer it files nothing and records every offered finding `declined`.
+This file is canonical for the six angles, what is fixed and what may be filed, the filing-and-rating prompt, the store record and the report.
+This session fixes them itself — it already holds the context a fresh fixer
+With no finding to offer, the call carries the rating alone.
+Write `<project>/docs/self-review/<name>-self-review.md` in the shape `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all six present; each finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>` or `declined`); an angle with no findings carrying the explicit none-marker — plus one line under the title:
+`-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`; `-blast-radius` is step 3's count, omitted for a product-code finding.
+`self-review-<name>-review-<r>`, over `git diff origin/<default-branch>...self-review-<name>`, its prompt naming each finding beside its commit.
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*) license: MIT compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined [-ref <sha|KEY>] [-blast-radius <N>] -note '<the finding, one line>'
+name: flow-self-review description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle.
+would re-load.
