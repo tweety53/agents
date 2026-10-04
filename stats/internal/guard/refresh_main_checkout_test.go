@@ -7,40 +7,32 @@ import (
 	"testing"
 )
 
-// Every case of scripts/test-refresh-main-checkout.sh at c4f26c84, one subtest each,
-// plus the cannot-answer exit the port names. Each case builds a repo at
-// commit A, then moves refs/heads/main to a later commit B with update-ref
-// -- exactly what a landing worktree's fast-forward does to the main
-// checkout -- so the index and worktree lag the branch pointer.
-
-// staleRepo is the harness's stale_repo: the checkout's index and worktree
-// at A, refs/heads/main at B.
-func staleRepo(t *testing.T) string {
+// behindRepo is a main checkout one commit behind its origin: a bare origin
+// at B, the checkout cloned at A and never pulled. The refresh's own fetch is
+// what brings origin/main to B, so every case exercises the fetch too.
+func behindRepo(t *testing.T) (repo, origin string) {
 	t.Helper()
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := dir + "/repo"
-	gitRun(t, "", "init", "-q", "-b", "main", repo)
+	origin, repo, other := dir+"/origin.git", dir+"/repo", dir+"/other"
+	gitRun(t, "", "init", "-q", "--bare", "-b", "main", origin)
+	gitRun(t, "", "clone", "-q", origin, repo)
 	writeFile(t, repo+"/f.txt", "a\n")
 	gitRun(t, repo, "add", "f.txt")
 	gitRun(t, repo, "commit", "-q", "-m", "A")
-	writeFile(t, repo+"/f.txt", "b\n")
-	writeFile(t, repo+"/g.txt", "new\n")
-	gitRun(t, repo, "add", "f.txt", "g.txt")
-	gitRun(t, repo, "commit", "-q", "-m", "B")
-	var g fxGit
-	b := g.git(repo, "rev-parse", "HEAD")
-	if g.err != nil {
-		t.Fatal(g.err)
-	}
-	gitRun(t, repo, "reset", "-q", "--hard", "HEAD~1")
-	gitRun(t, repo, "update-ref", "refs/heads/main", b)
-	return repo
+	gitRun(t, repo, "push", "-q", "origin", "main")
+	gitRun(t, "", "clone", "-q", origin, other)
+	writeFile(t, other+"/f.txt", "b\n")
+	writeFile(t, other+"/g.txt", "new\n")
+	gitRun(t, other, "add", "f.txt", "g.txt")
+	gitRun(t, other, "commit", "-q", "-m", "B")
+	gitRun(t, other, "push", "-q", "origin", "main")
+	return repo, origin
 }
 
-func rmcShort(t *testing.T, repo, rev string) string {
+func rmcRev(t *testing.T, repo, rev string) string {
 	t.Helper()
 	var g fxGit
 	s := g.git(repo, "rev-parse", "--short", rev)
@@ -49,6 +41,8 @@ func rmcShort(t *testing.T, repo, rev string) string {
 	}
 	return s
 }
+
+func rmcExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 func TestRefreshMainCheckout(t *testing.T) {
 	t.Parallel()
@@ -60,24 +54,24 @@ func TestRefreshMainCheckout(t *testing.T) {
 			t.Fatalf("want exit 1, stdout %q; got %+v", want, r)
 		}
 	}
-
-	// Cases 1 and 2: a stale index is refreshed, and a second run finds it
-	// current.
-	t.Run("stale index refreshed, then current", func(t *testing.T) {
-		t.Parallel()
-		repo := staleRepo(t)
-		if cuStatus(t, repo) == "" {
-			t.Fatal("fixture: expected a stale status")
+	// unmoved asserts a refusal left local main where it was.
+	unmoved := func(t *testing.T, repo, before string) {
+		t.Helper()
+		if got := rmcRev(t, repo, "refs/heads/main"); got != before {
+			t.Fatalf("local main moved: %s -> %s", before, got)
 		}
-		tip, old := rmcShort(t, repo, "HEAD"), rmcShort(t, repo, "HEAD~1")
+	}
+
+	t.Run("behind is fast-forwarded, then current", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		old := rmcRev(t, repo, "HEAD")
 		r := run(repo, "main")
-		if want := "REFRESH-DONE: " + repo + " index was the tree of " + old + "; now at " + tip + "\n"; r.rc != 0 || r.stdout != want {
+		tip := rmcRev(t, repo, "origin/main")
+		if want := "REFRESH-DONE: " + repo + " fast-forwarded " + old + " -> " + tip + "\n"; r.rc != 0 || r.stdout != want {
 			t.Fatalf("want %q; got %+v", want, r)
 		}
-		if s := cuStatus(t, repo); s != "" {
-			t.Fatalf("status not clean: %q", s)
-		}
-		if body, _ := os.ReadFile(repo + "/f.txt"); string(body) != "b\n" || !cuExists(repo+"/g.txt") {
+		if body, _ := os.ReadFile(repo + "/f.txt"); string(body) != "b\n" || !rmcExists(repo+"/g.txt") {
 			t.Fatal("worktree not at B")
 		}
 		r = run(repo, "main")
@@ -86,39 +80,76 @@ func TestRefreshMainCheckout(t *testing.T) {
 		}
 	})
 
+	t.Run("untracked survives", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		writeFile(t, repo+"/untracked.txt", "loose\n")
+		if r := run(repo, "main"); r.rc != 0 || !rmcExists(repo+"/untracked.txt") {
+			t.Fatalf("untracked file lost; %+v", r)
+		}
+	})
+
+	t.Run("detached refused", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		before := rmcRev(t, repo, "main")
+		gitRun(t, repo, "checkout", "-q", "--detach")
+		refused(t, run(repo, "main"), repo, "is detached")
+		unmoved(t, repo, before)
+	})
+
+	t.Run("other branch refused", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := behindRepo(t)
+		before := rmcRev(t, repo, "main")
+		gitRun(t, repo, "checkout", "-q", "-b", "other")
+		refused(t, run(repo, "main"), repo, "is on other, not main")
+		unmoved(t, repo, before)
+	})
+
 	t.Run("unstaged edit refused and kept", func(t *testing.T) {
 		t.Parallel()
-		repo := staleRepo(t)
+		repo, _ := behindRepo(t)
+		before := rmcRev(t, repo, "main")
 		writeFile(t, repo+"/f.txt", "a\nedited\n")
-		refused(t, run(repo, "main"), repo, "has unstaged changes")
+		refused(t, run(repo, "main"), repo, "has tracked changes")
+		unmoved(t, repo, before)
 		if body, _ := os.ReadFile(repo + "/f.txt"); !strings.Contains(string(body), "edited") {
 			t.Fatal("edit lost")
 		}
 	})
 
-	t.Run("real staged work refused and kept", func(t *testing.T) {
+	t.Run("staged work refused and kept", func(t *testing.T) {
 		t.Parallel()
-		repo := staleRepo(t)
+		repo, _ := behindRepo(t)
+		before := rmcRev(t, repo, "main")
 		writeFile(t, repo+"/h.txt", "real\n")
 		gitRun(t, repo, "add", "h.txt")
-		refused(t, run(repo, "main"), repo, "has staged changes that match no recent main tip")
-		if !cuExists(repo + "/h.txt") {
+		refused(t, run(repo, "main"), repo, "has tracked changes")
+		unmoved(t, repo, before)
+		if !rmcExists(repo + "/h.txt") {
 			t.Fatal("staged file lost")
 		}
 	})
 
-	t.Run("other branch refused", func(t *testing.T) {
+	t.Run("local commits not on origin refused", func(t *testing.T) {
 		t.Parallel()
-		repo := staleRepo(t)
-		gitRun(t, repo, "checkout", "-q", "-b", "other")
-		refused(t, run(repo, "main"), repo, "is on other, not main")
+		repo, _ := behindRepo(t)
+		writeFile(t, repo+"/local.txt", "mine\n")
+		gitRun(t, repo, "add", "local.txt")
+		gitRun(t, repo, "commit", "-q", "-m", "local")
+		before := rmcRev(t, repo, "main")
+		refused(t, run(repo, "main"), repo, "has main commits origin/main lacks")
+		unmoved(t, repo, before)
 	})
 
-	t.Run("detached refused", func(t *testing.T) {
+	t.Run("no origin base refused", func(t *testing.T) {
 		t.Parallel()
-		repo := staleRepo(t)
-		gitRun(t, repo, "checkout", "-q", "--detach")
-		refused(t, run(repo, "main"), repo, "is detached")
+		repo, _ := behindRepo(t)
+		gitRun(t, repo, "checkout", "-q", "-b", "trunk")
+		before := rmcRev(t, repo, "trunk")
+		refused(t, run(repo, "trunk"), repo, "has no origin/trunk")
+		unmoved(t, repo, before)
 	})
 
 	t.Run("usage", func(t *testing.T) {
@@ -128,15 +159,6 @@ func TestRefreshMainCheckout(t *testing.T) {
 			if r := run(args...); r.rc != 2 || r.stdout != "" || r.err != usage {
 				t.Fatalf("%v: want exit 2 with usage; got %+v", args, r)
 			}
-		}
-	})
-
-	t.Run("untracked survives", func(t *testing.T) {
-		t.Parallel()
-		repo := staleRepo(t)
-		writeFile(t, repo+"/untracked.txt", "loose\n")
-		if r := run(repo, "main"); r.rc != 0 || !cuExists(repo+"/untracked.txt") {
-			t.Fatalf("untracked file lost; %+v", r)
 		}
 	})
 

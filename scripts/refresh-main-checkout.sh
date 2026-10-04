@@ -1,35 +1,35 @@
 #!/usr/bin/env bash
-# refresh-main-checkout.sh — bring a main checkout's index and worktree back
-# onto the branch pointer a landing moved under it, and only then.
+# refresh-main-checkout.sh — fast-forward a main checkout onto origin/<base>
+# once a change has landed there, and only when nothing in it can be lost.
 #
-# WHY. Run 2 positions the landing worktree on <base> with `worktree add
-# --force` (prepare-archive-branch.sh step 2b), fast-forwards it and merges
-# the archive branch there. `refs/heads/<base>` moves; the main checkout's
-# HEAD names that ref, but its index and worktree still hold the tree of
-# the old tip. `git status` there then shows the landing in reverse as
-# staged changes — the "reversal artifact" every stash labelled since
-# kan-487 — and a session that trusts it commits, stashes or resets the
-# ghost. This script closes that gap right after the landing, and refuses
-# whenever the checkout holds anything that is NOT that ghost.
+# WHY. /flow's last step brings the operator's main checkout forward so it
+# shows the landed change. Nothing in the pipeline moves the local <base>
+# ref any more — every change lands from its own apply worktree, as a push
+# of its branch or a forge merge — so there is no stale index to repair,
+# only a checkout behind its remote; the old reset path for a ref moved
+# under the checkout is gone with the landing worktree that moved it.
 #
 # Usage:
 #   refresh-main-checkout.sh <main-checkout> <base>
 #
-# Exit codes:
-#   0  REFRESH-DONE: <path> index was the tree of <old-tip>; now at <tip>
-#      REFRESH-CURRENT: <path> already at <tip> (nothing to do)
-#   1  REFRESH-REFUSED: <reason> — nothing touched. Reasons: detached HEAD;
-#      on a branch other than <base>; unstaged changes (staleness never
-#      produces any — the worktree and index go stale together); an index
-#      tree that is not the tree of any of the last 300 commits reachable
-#      from HEAD (real staged work, not staleness)
-#   2  usage; or cannot answer — a git read or the reset fails outright
-#      (an unmerged index, an unborn HEAD), git's own message on stderr
+# In order: the bounded, credential-free fetch resolve-base-branch.sh runs
+# (`-c core.askpass=true fetch --quiet origin`, its failure ignored — a
+# stale origin/<base> only means a smaller step); then every refusal below,
+# checked before anything moves; then `git merge --ff-only origin/<base>`.
 #
-# The reset is `git reset --hard`, which never touches untracked files.
-# The proof it is safe: the index tree is byte-identical to a commit the
-# branch has already moved past, and the worktree is identical to the index,
-# so there is no edit anywhere in the checkout that the reset could lose.
+# Exit codes:
+#   0  REFRESH-DONE: <path> fast-forwarded <old> -> <new>
+#      REFRESH-CURRENT: <path> already at <tip> (nothing to do)
+#   1  REFRESH-REFUSED: <path> <reason> — nothing touched. Reasons: is
+#      detached; is on <branch>, not <base>; has tracked changes (any
+#      modified, staged or unmerged entry); has no origin/<base>; has <base>
+#      commits origin/<base> lacks (local <base> is not an ancestor of
+#      origin/<base>)
+#   2  usage; or cannot answer — a git read or the merge fails outright
+#      (an unborn HEAD), git's own message on stderr
+#
+# Untracked files are never touched; a fast-forward that would overwrite
+# one fails in git itself, exit 2.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
