@@ -48,7 +48,7 @@ and README lines that describe the old live-verification task.
 
 ---
 
-- [ ] 1. Implement: one stack for the verification tasks
+- [x] 1. Implement: one stack for the verification tasks
 
 **Files:** `skills/flow/implement.md`
 **Tests:** **none** — pipeline prose.
@@ -61,7 +61,7 @@ and README lines that describe the old live-verification task.
 
 **Decision:** stack-started-once
 
-  - [ ] **Step 1: Add the heading.** In `skills/flow/implement.md` section `## 4. Execute (SDD + TDD)`,
+  - [x] **Step 1: Add the heading.** In `skills/flow/implement.md` section `## 4. Execute (SDD + TDD)`,
     directly after the paragraph that opens `**Load \`skills/flow/sdd-dispatch.md\` only when**`,
     insert:
 
@@ -79,14 +79,16 @@ twice ends the turn with `## Question` naming the command and its output, verbat
 flow dev stack (`<project>/CLAUDE.md`).
 ```
 
-  - [ ] **Step 2: Acknowledge.** Run `scripts/check-verbatim-moves.sh`; append every sentence it
+  - [x] **Step 2: Acknowledge.** Run `scripts/check-verbatim-moves.sh`; append every sentence it
     prints after `::` to `verbatim-moves.txt` (Global Constraints), creating the file with its first
     line.
-  - [ ] **Step 3: Verify.** Run `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
+  - [x] **Step 3: Verify.** Run `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-markdown-integrity.py` and `scripts/check-guard-symlinks.sh`; each exits 0.
-  - [ ] **Step 4: Commit** `skills/flow/implement.md` alone, with the `**Commit:**` subject.
+  - [x] **Step 4: Commit** `skills/flow/implement.md` alone, with the `**Commit:**` subject.
 
-- [ ] 2. Verify: the live check, and reuse of the running stack
+Correction (2026-10-05): the plan placed the new `###` heading directly after the `sdd-dispatch.md` load directive, mid section 4; there it would have become the parent heading of the rest of section 4 (about 520 lines). It shipped as section 4's last subsection, after the `flow.sdd-tdd` stage close, so no existing content changes heading. Its opening clause ("Before the first task … goes out") locates it in time, and phase files are read in full at stage start.
+
+- [x] 2. Verify: the live check, and reuse of the running stack
 
 **Files:** `skills/flow/verify-and-handoff.md`
 **Tests:** **none** — pipeline prose.
@@ -101,10 +103,10 @@ flow dev stack (`<project>/CLAUDE.md`).
 
 **Decision:** stack-started-once
 
-  - [ ] **Step 1: `create` paragraph.** In `skills/flow/verify-and-handoff.md` `## Verify`, replace
+  - [x] **Step 1: `create` paragraph.** In `skills/flow/verify-and-handoff.md` `## Verify`, replace
     `and this step starts none of them — it exports, lints, tests, and hands off.` with `and this
     step starts them only for **Live check** below, through the project's own \`## run\`.`
-  - [ ] **Step 2: Live check section.** Insert after `### Inline verify`'s `**Recording.**`
+  - [x] **Step 2: Live check section.** Insert after `### Inline verify`'s `**Recording.**`
     paragraph, before `**Load \`skills/flow-contracts/session-records.md\`**`:
 
 ```markdown unverified:new prose — check-references.sh and check-verbatim-moves.sh pass once listed
@@ -125,18 +127,18 @@ command's environment cause does. The stack stays up for **Visual verification**
 the run instructions**.
 ```
 
-  - [ ] **Step 3: Run-instructions start.** In `## Resolve the run instructions`, after the sentence
+  - [x] **Step 3: Run-instructions start.** In `## Resolve the run instructions`, after the sentence
     ending `from the project's \`## run\` commands.`, insert: `**A stack already serving this
     worktree's build is left running**: when its URLs answer and \`check-dev-stack-fresh.sh
     <worktree>\` exits 0 before the start, the start is skipped — the stack the verification tasks
     or **Live check** started is the one handed off. Exit 1 or 2 starts it as above.`
     `skills/flow/visual-verify.md` is not edited: its step 5 already starts nothing when the stack
     answers, and its step 13 stops only a stack it started itself.
-  - [ ] **Step 4: Acknowledge.** Run `scripts/check-verbatim-moves.sh`; append every sentence it
+  - [x] **Step 4: Acknowledge.** Run `scripts/check-verbatim-moves.sh`; append every sentence it
     prints after `::` to `verbatim-moves.txt`.
-  - [ ] **Step 5: Verify.** Run `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
+  - [x] **Step 5: Verify.** Run `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-markdown-integrity.py` and `scripts/check-guard-symlinks.sh`; each exits 0.
-  - [ ] **Step 6: Commit** the file, with the `**Commit:**` subject.
+  - [x] **Step 6: Commit** the file, with the `**Commit:**` subject.
 
 - [ ] 3. Planner: fan-out, live check and spec-timing rules
 

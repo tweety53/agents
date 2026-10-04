@@ -1,0 +1,30 @@
+# Operator, 2026-10-05: KAN-876 — verification tasks fan out, one stack, live check in verify.
+\### One stack for the verification tasks
+**Before the first task whose `**Files:**` only add end-to-end specs, fidelity captures or their baselines goes out** — dispatched under `sdd`, or started by the parent on an `inline` run — the parent starts the canonical worktree's stack once: the project's `## stop` command when it declares one, then its `## run`, then any build the plan's Global Constraints name for those tasks, then `check-dev-stack-fresh.sh <canonical-worktree>`.
+A start that fails twice ends the turn with `## Question` naming the command and its output, verbatim.
+Every such task, and every wave copy it runs in, runs against that stack's worktree-resolved URLs, which its prompt names, and starts, stops and rebuilds nothing.
+Never the flow dev stack (`<project>/CLAUDE.md`).
+The stack stays up for `flow.verify`.
+`create` is called by whatever starts the project's applications, per **Project configuration** (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it exports, lints, tests, and hands off.
+\### Live check
+**A stack already serving this worktree's build is left running**: when its URLs answer and `check-dev-stack-fresh.sh <worktree>` exits 0 before the start, the start is skipped — the stack the verification tasks or **Live check** started is the one handed off.
+**Runs only when `design.md` carries a `## Live check` section naming something to exercise** (**D.
+Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`); a one-line no-runtime section, or none, skips it.
+Exit 1 or 2 starts it as above.
+The `## Report` gains one line, `live check — <matched | failure look>`.
+The stack stays up for **Visual verification** and **Resolve the run instructions**.
+**Write a live-verification task when the change touches a running service or persistent state.
+That task also states what the change **not** working would look like, so a null result is recognisable as failure rather than read as success: a task that only asserts the command exited 0 cannot tell a repaired system from an untouched one.
+When the change under plan touches a long-running service, a daemon, a store, a scheduler or anything else holding runtime state, the plan carries a final task that exercises the real thing — the running system against its real state, not its fakes — and records the before/after figures it observed.
+When the planner judges the change has no runtime to verify against, it writes one line in the plan saying so — the justification is required, the task is not.
+**A mechanical group holding two or more verification-only bundles** — end-to-end specs or fidelity captures, none named in another's after-set — **is split, one group per such bundle**, `groups_override` naming the parallel wave, since the chain merge joins each to the group holding the feature task it waits on and runs them in series.
+**A verification-only implementer group is `opus` at `low`, fixed, whatever the roll** — a group whose every task only adds end-to-end specs, fidelity captures or baselines against design frames of an already-built feature, and changes no production code.
+**Write a live check when the change touches a running service or persistent state — never a live-verification task.
+**Write a spec so it never waits out a production timing.
+**Write end-to-end spec and fidelity-capture tasks to run side by side.
+A scenario that depends on a production timeout, retry backoff or polling interval plans a test-only override that shortens it — the production value unchanged — in the task that adds the spec, and a suite whose specs are independent runs on the test runner's parallel workers.
+Each such task's `**After:**` names only the feature tasks whose behaviour it exercises — never another verification task, since one spec file never needs another's commit — and each seeds its own accounts and data, so the tasks share one running stack (**One stack for the verification tasks**, `skills/flow/implement.md`) without touching each other's state.
+Global Constraints names the stack's start row and any build the tasks run against; no task's steps start, stop or rebuild the stack.
+When the change under plan touches a long-running service, a daemon, a store, a scheduler or anything else holding runtime state, `design.md` carries a `## Live check` section naming what to exercise against the real thing — the running system against its real state, not its fakes — the before/after figures to record, and what the change **not** working would look like, so a null result is recognisable as failure rather than read as success: a check that only asserts a command exited 0 cannot tell a repaired system from an untouched one.
+When the planner judges the change has no runtime to verify against, the section is one line saying so — the justification is required, the check is not.
+`flow.verify` runs it (**Live check**, `skills/flow/verify-and-handoff.md`); no task in `tasks.md` does.
