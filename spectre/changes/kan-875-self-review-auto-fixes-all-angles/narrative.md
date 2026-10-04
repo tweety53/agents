@@ -26,3 +26,11 @@ Resumed at `STARTED` with a ready six-task plan and ran it inline (decision `exe
   Important (step 3 used the project's `<default-branch>` against the agents repo) and seven
   Minors; fixed inline in round 1, re-runs clean. The base moved 5 commits with no overlap and was
   rebased automatically before round 0.
+
+## 2026-10-04 — fix run
+
+- **Two operator instructions, one round.** "Implement/fix/review/rereview in a one-shot subagent" became Task 7; a mid-run "proper implement/fix/review/verify/integrate cycles … changes on agents main" became Task 8 (verify + land end to end) and a Jira `## Added during implementation` bullet. Both executed inline (decision `inline`, class `regular`).
+- **Flake found and fixed in-run.** The full guard suite failed once on `test-run-guard-tests.sh`; reproduced as `printf … | grep -q` returning 141 under `pipefail` (47–77 misses per 2000 iterations under 12-way load, 0 with a here-string). In-run pipeline fix 1 landed as 8dad0fc9 after three review rounds that kept finding matcher holes in its new Go guard; the fixer finally replaced the regex with a small shell tokenizer. Known ceilings left (Minor, no repo instance): a quoted/arithmetic `<<` read as a heredoc, grep behind wrappers (`sudo`, `xargs`, `{ }`, `/usr/bin/grep`).
+- **Operator side request.** A `main` row for the parent's own turn on the `subagent-board` mod — in-run pipeline fix 2, landed as dc7554b7 after one fix round (the row showed the previous Bash description while a command ran).
+- **Panel round 2** found that Task 8's Land item delegated to a recipe still bound to the project's `<default-branch>`, and that the fix worktree never ran `## worktree setup` (so Verify would be red on every pass). Root-caused by binding `<agents-base>` once in **Pipeline defects found mid-run**, which also fixed that loop for projects whose default branch is not `main`.
+- **Process friction.** Reviewer reproducers twice came back with prose `# demonstrates:`/`# premise:` lines the exit-contract guard rejects; the parent reformatted them rather than bouncing. Two re-run slots answered in their reply without writing their report files. A `cd`-led compound command against the main checkout path was blocked by the main-checkout hook even though it only read state.
