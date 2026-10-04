@@ -93,7 +93,7 @@ against a real daemon.
 
 - [ ] 2. API and client: `/api/v1/self-review/{project}/{change}/findings`
 
-**Files:** `stats/internal/api/selfreview.go`, `stats/internal/api/selfreview_test.go`, `stats/internal/api/server.go`, `stats/internal/client/selfreview.go`, `stats/internal/client/selfreview_test.go`
+**Files:** `stats/internal/api/selfreview.go`, `stats/internal/api/selfreview_test.go`, `stats/internal/api/server.go`, `stats/internal/client/selfreview.go`, `stats/internal/client/selfreview_test.go`, `stats/internal/api/records.go`, `stats/internal/api/changes_test.go`, `stats/internal/client/client_test.go`, `stats/internal/reconcile/record_test.go`, `stats/internal/web/embed_test.go`
 **Tests:** `TestSelfReviewFindingsEndpoint`, `TestClientSelfReviewFindings`
 **Regression:** `TestSelfReviewFindingsEndpoint` fails without the POST/GET routes or if a store
 validation error is not a 400; `TestClientSelfReviewFindings` fails if the client's URL, method or
@@ -121,9 +121,15 @@ JSON shape drifts from the handler's.
   - [ ] **Step 4: Verify** — the Step 1 command passes; gofmt/vet.
   - [ ] **Step 5: Commit.**
 
+Correction (2026-10-04): the plan declared the store interface change in `selfreview.go` alone;
+`server.go` hands the handler `rs`, an `api.RecordStore`, so the two methods also joined
+`RecordStore` (`stats/internal/api/records.go`), and every test stub implementing it gained them —
+`changes_test.go`'s `fakeStore` field, `client_test.go`'s `stubStageStore`,
+`reconcile/record_test.go`'s `nopRecordStore`/`fakeRecordStore`, `web/embed_test.go`'s `fakeStore`.
+
 - [ ] 3. CLI: `flow self-review finding` and `flow self-review findings`
 
-**Files:** `stats/cmd/flow/selfreview.go`, `stats/cmd/flow/selfreview_test.go`
+**Files:** `stats/cmd/flow/selfreview.go`, `stats/cmd/flow/selfreview_test.go`, `.flow/project.md`, `scripts/test-flow-addr-declaration.sh`
 **Tests:** `TestSelfReviewFindingCLI`, `TestSelfReviewFindingsCLI`
 **Regression:** `TestSelfReviewFindingCLI` fails if a missing required flag is not exit 2, or if
 an unreachable store is not exit 0 with exactly one warning line on stderr;
@@ -155,6 +161,13 @@ on an unreachable store.
   - [ ] **Step 3: Verify** — the Step 1 command passes; `go build ./cmd/flow`; gofmt/vet.
   - [ ] **Step 4: Commit.**
 
+Correction (2026-10-04): the unreachable-store line is `⚠ flow: store unreachable — …`, the record
+family's actual prefix (`journalRecordWrite`), not the `flow: warning:` the plan guessed. The two
+new verbs resolve `FLOW_RECORDS_ADDR`, so `.flow/project.md`'s record-family sentence now names
+them, and `scripts/test-flow-addr-declaration.sh`'s drops-verb mutation drops all three
+`flow self-review` verbs — dropping `bundle` alone left `selfreview.go` declared and the case passed.
+`bundle` now shares `parseSelfReviewFlags` with the two new verbs.
+
 - [ ] 4. Report guard: accept `fixed: <sha>`
 
 **Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`
@@ -183,7 +196,7 @@ on an unreachable store.
 
 - [ ] 5. Skill: fix every non-big finding, record each one
 
-**Files:** `skills/flow-self-review/SKILL.md`, `skills/flow-contracts/finish-contract-run2.md`, `scripts/land-self-review-report.sh`, `skills/README.md`
+**Files:** `skills/flow-self-review/SKILL.md`, `skills/flow-contracts/finish-contract-run2.md`, `scripts/land-self-review-report.sh`, `skills/README.md`, `skills/flow-self-review/SKILL-rationale.md`, `skills/flow-self-review/scripts/project-get.sh`
 **Tests:** none — skill prose; Tasks 1–4 carry the tests for what it calls
 **Regression:** none — prose.
 **Baseline:** before=0 after=0
@@ -251,6 +264,11 @@ on an unreachable store.
     sentence `check-verbatim-moves.sh` flags in `verbatim-moves.txt`.
   - [ ] **Step 9: Commit.**
 
+Correction (2026-10-04): the renumbering moved a heading `skills/flow-self-review/SKILL-rationale.md`
+cites (`## SKILL.md — 5. Write the report…` → `7.`), and the new step 3's `project-get.sh` call
+needs the skill's own `scripts/project-get.sh` symlink, which `check-guard-symlinks.sh` rule 2
+requires; both join this task's files.
+
 ### Task 5 — the new step 3
 
 ````markdown verified:authored for this change
@@ -302,7 +320,7 @@ flow self-review finding -change <name> -angle <label> -disposition fixed|filed|
 warning line and the pass continues — the report below is the durable record.
 ````
 
-- [ ] 6. Live verification: a real row through a real daemon
+- [x] 6. Live verification: a real row through a real daemon
 
 **Files:** none
 **Tests:** none — verification task; the before/after reads it records are the check
@@ -316,22 +334,26 @@ warning line and the pass continues — the report below is the durable record.
 
 **Decision:** store-write-never-blocks
 
-  - [ ] **Step 1: Bring up this worktree's own daemon** per `.flow/project.md`'s
+  - [x] **Step 1: Bring up this worktree's own daemon** per `.flow/project.md`'s
     `## workspace isolation` (`scripts/workspace.sh`): its own `flow_<id>` database and port,
     built from this branch with `cd stats && make build` — never `flowd` on `127.0.0.1:4173`.
     Export `FLOW_ADDR` and `FLOW_RECORDS_ADDR` to that port.
-  - [ ] **Step 2: Before.** `flow self-review findings -change kan-875-self-review-auto-fixes-all-angles`
+  - [x] **Step 2: Before.** `flow self-review findings -change kan-875-self-review-auto-fixes-all-angles`
     → record the output (`[]` expected).
-  - [ ] **Step 3: Write.** One `fixed` row (ref = this branch's head short sha, blast radius 6),
+  - [x] **Step 3: Write.** One `fixed` row (ref = this branch's head short sha, blast radius 6),
     one `filed` (`KAN-875`), one `declined`; then `-disposition bogus` → exit 2 and nothing
     written.
-  - [ ] **Step 4: After.** The same read → exactly the three rows, in order, fields intact.
-  - [ ] **Step 5: Never blocks.** `flow self-review finding … -addr http://127.0.0.1:1` → exit 0,
+  - [x] **Step 4: After.** The same read → exactly the three rows, in order, fields intact.
+  - [x] **Step 5: Never blocks.** `flow self-review finding … -addr http://127.0.0.1:1` → exit 0,
     one warning line.
-  - [ ] **Step 6: Record** the before/after outputs and exit codes in `design.md` under a
+  - [x] **Step 6: Record** the before/after outputs and exit codes in `design.md` under a
     `## Live verification` heading, each tagged `measured:` with the command and the branch.
     **Failure looks like:** the after read still `[]` or missing a row, `bogus` accepted, or the
     unreachable write exiting non-zero.
-  - [ ] **Step 7: Tear down** the worktree daemon it started; leave `flow-postgres` up.
+  - [x] **Step 7: Tear down** the worktree daemon it started; leave `flow-postgres` up.
+
+Correction (2026-10-04): built with `go build -o … ./cmd/flowd ./cmd/flow` rather than `make build`, whose
+`web-build` prerequisite builds an SPA this change does not touch. The fresh database held no
+`projects` row, so it was seeded with `flow state set` from this change's record before the writes.
 
 This task commits nothing; its figures are committed with the change's artifacts.
