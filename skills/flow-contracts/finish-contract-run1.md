@@ -83,7 +83,7 @@ anything below: when `<project>/spectre/changes/archive/<name>/` exists there an
 holds no `chore(spectre): archive <name>` commit — a run 1 that stopped between `spectre archive` and
 `commit-archive.sh`, or between the parent's call and a `<name>-fix-N` sibling's — `git mv` that
 directory, and every `<project>/spectre/changes/archive/<name>-fix-N/` beside it, back under
-`<project>/spectre/changes/`. **When `<project>/spectre/changes/<name>/` also exists, stop and ask** — `git mv` would nest the archive inside it, hiding the fix run's tasks from the gate; the operator removes the stale live copy and re-runs. The change is then not archived, and this run archives it as a first
+`<project>/spectre/changes/`. **When `<project>/spectre/changes/<name>/` also exists, stop and ask** — `git mv` would nest the archive inside it, hiding the fix run's tasks from the gate; the operator checks the live copy holds nothing the archived one lacks, removes it, and re-runs. The change is then not archived, and this run archives it as a first
 run 1 does: any fix run's work is gated, reshaped and committed by the two-commit chain, and the
 move lands after it as its own archive commit, never riding `chore(spectre): plan`.
 
