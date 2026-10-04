@@ -279,16 +279,22 @@ the reduction's conditions, its single dispatch and what voids it.
 Before dispatching any panel round,
 re-check the decision's `panel.dispatches`/`panel.grouping`.
 
-**At most two review dispatches per round, each carrying one to three roles**, on
-decided and `default` panels alike and in both execution modes. A dispatch carrying one role covers that role alone; a roster the
-two dispatches cannot hold shrinks to what they hold.
+**One bundled review dispatch per round is the starting shape: every role the round dispatches
+rides one dispatch**, one rendered **PASS `<id>`** section per role in roster order, on decided and
+`default` panels alike and in both execution modes — findings still recorded per role. A roster
+past the three-role cap spills its overflow — the mutating role (`mutation`) last — into a second
+dispatch, and a roster the two dispatches cannot hold shrinks to what they hold. **The full-roster
+shape — one dispatch per role — is the explicit fallback, taken when a bundled dispatch's findings
+need separation** — a finding the bundle cannot attribute to its role, or a bundled read that must
+separate to hold review quality — and recorded with `flow record pass -round <round>` naming why.
 
 **Grouping.** On a decided panel, the decision's `panel.grouping` is `static` — the class's row in
 the tree of **Decide** (`skills/flow/brainstorm-planner.md`), unchanged, no override — or `free` — the
 planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On a `default` panel,
 the settings-store roster is grouped deterministically by the same static logic, no roll and no
-planner: the floor roles (`primary`, `principles`) fill the first
-dispatch, every other role the second, up to three, the mutating role (`mutation`) last; a list the two cannot hold is truncated in store order, and the truncation is
+planner: the floor roles (`primary`, `principles`) open the first dispatch and it fills to its
+three-role cap in roster order, the mutating role (`mutation`) last, and only the overflow opens
+the second; a list the two cannot hold is truncated in store order, and the truncation is
 recorded with `flow record pass -round <round>`.
 
 **One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with
@@ -332,9 +338,9 @@ Every bundle prompt also carries this paragraph verbatim:
 **No de-duplication across roles**: the same defect raised by two passes is two `F<n>` rows.
 
 **Re-runs are re-grouped by the same grouping**, carrying only the roles re-running this round — a
-group whose other members are clean dispatches with its re-running members only. On
-a decided panel a fix round's re-running roles are never bundled: one dispatch per
-role, its `-slot` that role alone (**Panel re-runs**).
+group whose other members are clean dispatches with its re-running members only — on decided and
+`default` panels alike; the full-roster fallback above separates them one per role when the
+bundled findings need separation (**Panel re-runs**).
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
