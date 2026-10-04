@@ -444,8 +444,9 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
    static and a free grouping alike assign each dispatch its own pair per **Model and effort**
    below. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
-   fix-round re-run dispatch runs on — one dispatch per re-running role, each targeted at the
-   findings that role raised (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
+   fix-round re-run dispatch runs on — one bundled dispatch carrying the round's re-running roles,
+   each targeted at the findings its role raised, the full-roster fallback separating them when
+   the bundled findings need separation (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
    chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
    delta to confirm a fix and must be short and fast.
 4. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then

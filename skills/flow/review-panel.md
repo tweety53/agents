@@ -233,7 +233,7 @@ named at this stage's start. Every other resolved slot is recorded with
 `primary` is the reduced roster even when the resolved list does not carry it — the
 same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
 This reduction applies to a decided roster unchanged: it still narrows to `primary` alone, on the model and
-effort of the decided dispatch that carried `primary` — one dispatch, never bundled.
+effort of the decided dispatch that carried `primary` — one dispatch carrying that role alone.
 
 **Exit 1 runs the resolved roster unchanged**; the first non-documentation path any worktree's run
 printed is recorded beside the verdict. An empty touched-path set is exit 1 too. One worktree at

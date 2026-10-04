@@ -39,13 +39,15 @@
 # `mutation`'s pass is never rendered: its brief and its throwaway copy stay
 # typed by the parent. A bundle naming it renders every other role, the
 # shared INDEPENDENT PASSES paragraph and a file name carrying the whole
-# bundle; mutation alone is refused. MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison
+# bundle; a mutation-alone bundle renders the shared paragraphs and no PASS
+# section — the brief stays typed beside the rendered path. MODEL HANDSHAKE,
+# CONTEXT BUNDLE, the relocation-comparison
 # pointer and the reproducer rule stay typed in the Agent call too.
 #
 # Exit codes:
 #   0  written; its path on stdout
 #   1  a placeholder is left unfilled — each named on stderr; nothing written
-#   2  cannot answer — usage, a relative path, mutation alone or an unknown slot, a
+#   2  cannot answer — usage, a relative path, an unknown slot, a
 #      missing template, block, touched list, standards, principles or
 #      calibration file
 #

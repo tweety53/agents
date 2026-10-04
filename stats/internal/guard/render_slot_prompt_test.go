@@ -232,9 +232,27 @@ func TestRenderSlotPromptUnresolvedPlaceholder(t *testing.T) {
 		t.Errorf("a render with an unfilled placeholder was written: %v", err)
 	}
 
+	// A mutation-alone dispatch renders the shared paragraphs and no PASS
+	// section — no ENTRY CONTEXT either, mutation reading no diff file — and
+	// the parent types the brief beside the rendered path.
 	r, _ = fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
-	if r.rc != 2 || !strings.Contains(r.err, "mutation") {
-		t.Errorf("mutation alone: exit %d stderr %q; want 2, mutation refused", r.rc, r.err)
+	wantMutation := fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation.md"
+	if r.rc != 0 || strings.TrimSpace(r.stdout) != wantMutation {
+		t.Fatalf("mutation alone: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, wantMutation)
+	}
+	mb, err := os.ReadFile(wantMutation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"**NO DELEGATION:**", "**WORKTREES:**"} {
+		if !strings.Contains(string(mb), s) {
+			t.Errorf("mutation-alone render lacks %q", s)
+		}
+	}
+	for _, s := range []string{"## PASS", "**ENTRY CONTEXT:**"} {
+		if strings.Contains(string(mb), s) {
+			t.Errorf("mutation-alone render carries %q", s)
+		}
 	}
 	// A bundle carrying mutation renders every other role and the shared
 	// INDEPENDENT PASSES paragraph, with no PASS section for mutation.

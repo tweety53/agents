@@ -88,7 +88,9 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// mutation's brief and throwaway copy stay typed by the parent, but a
 	// bundle naming it still gets every other role's pass, the shared
-	// INDEPENDENT PASSES paragraph and a file name carrying the whole bundle.
+	// INDEPENDENT PASSES paragraph and a file name carrying the whole bundle;
+	// a mutation-alone dispatch renders the shared paragraphs and no PASS
+	// section — the parent types the brief beside the rendered path.
 	slots := strings.Split(slotArg, "+")
 	var roles []string
 	for _, s := range slots {
@@ -99,9 +101,6 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		default:
 			roles = append(roles, s)
 		}
-	}
-	if len(roles) == 0 {
-		return refuse("mutation alone is not rendered — its brief and its throwaway copy stay typed by the parent")
 	}
 
 	sdd := canon + "/.superpowers/sdd/"
@@ -118,7 +117,9 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return ""
 	}
-	if diffPath(roles[0]) == "" {
+	switch kind {
+	case "final", "late-fix", "fix-round", "delta":
+	default:
 		return usage()
 	}
 	read := func(p string) (string, bool) {
@@ -166,11 +167,15 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			emit(strings.Replace(b, "<abs-worktree>", wt, 1))
 		}
 	}
-	entry, ok := block(panel, "review-panel.md", "ENTRY CONTEXT")
-	if !ok {
-		return 2
+	// Entry context is a diff-reading concept: mutation reads no diff file,
+	// so a mutation-alone render carries no ENTRY CONTEXT and no touched list.
+	if len(roles) > 0 {
+		entry, ok := block(panel, "review-panel.md", "ENTRY CONTEXT")
+		if !ok {
+			return 2
+		}
+		emit(entry)
 	}
-	emit(entry)
 	// One touched list per distinct diff; a delta bundle names each pass's.
 	seen := map[string]bool{}
 	for _, id := range roles {
