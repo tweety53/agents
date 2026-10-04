@@ -172,6 +172,32 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		}
 	})
 
+	// A forge merged the PR with a merge commit and deleted the remote
+	// branch; a fetch --prune removed its tracking ref, and the main
+	// checkout has not been refreshed yet — run 2 refreshes it last.
+	t.Run("PR merged, remote branch pruned, main checkout behind", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		fx.g.git(fx.repo, "reset", "-q", "--hard", fx.mergeBase)
+		fx.g.git(fx.repo, "checkout", "-q", "--detach")
+		fx.g.git(fx.repo, "merge", "-q", "--no-ff", "-m", "Merge pull request #1", "spectre/demo")
+		fx.g.git(fx.repo, "push", "-q", "-f", "origin", "HEAD:main")
+		fx.g.git(fx.repo, "checkout", "-q", "main")
+		fx.g.git(fx.repo, "branch", "-q", "--set-upstream-to=origin/spectre/demo", "spectre/demo")
+		fx.g.git("", "--git-dir", fx.dir+"/origin.git", "branch", "-D", "spectre/demo")
+		fx.g.git(fx.repo, "fetch", "-q", "--prune", "origin")
+		code, out, errb := fx.run(t, nil)
+		if code != 0 {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+		}
+		if l := rcwLines(out, "REMOVED: "); len(l) != 2 || l[1] != "REMOVED: spectre/demo" {
+			t.Errorf("REMOVED lines %q, want the worktree then the branch", l)
+		}
+		if fx.hasRef("refs/heads/spectre/demo") {
+			t.Error("the merged branch survived")
+		}
+	})
+
 	t.Run("a failed gate removes nothing", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)

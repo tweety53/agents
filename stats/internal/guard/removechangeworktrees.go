@@ -186,6 +186,18 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	_ = git("-C", repo, "worktree", "prune").Run()
 	branch := "spectre/" + name
 	if git("-C", repo, "show-ref", "--verify", "--quiet", "refs/heads/"+branch).Run() == nil {
+		// -d judges against the branch's upstream, else the main checkout's
+		// HEAD — which run 2 refreshes only after cleanup, and which a forge
+		// merge never moved. Pointing the upstream at origin/<base> first
+		// makes -d judge against where the change landed, even after the
+		// forge deleted origin/spectre/<name> and a prune removed its ref.
+		upstream, _ := capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+		if base := recordedBase(git, repo, branch); base != "" {
+			upstream = "origin/" + base
+		}
+		if upstream = strings.TrimSpace(upstream); upstream != "" {
+			_ = git("-C", repo, "branch", "-q", "--set-upstream-to="+upstream, branch).Run()
+		}
 		// -d, never -D: it must be free to refuse an unmerged branch.
 		if out, err := git("-C", repo, "branch", "-d", branch).CombinedOutput(); err != nil {
 			failed = true

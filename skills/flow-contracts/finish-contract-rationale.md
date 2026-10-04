@@ -57,10 +57,12 @@ layout alone would leave that commit missing on every later re-run. Archived-nes
 canonical repository alone because only it holds the change directory; a satellite worktree has
 nothing to judge it by.
 
-The merge-and-push route pushes `spectre/<name>` before `<base>`: the branch's upstream is
-`origin/spectre/<name>`, last pushed at its pre-reshape tip, and `git branch -d` at run 2 refuses
-a branch not merged into its upstream — a cleanup that would end `LEFTOVER` and fail again on every
-re-run. A rejected push of `<base>` re-resolves the base before re-syncing because a rejected push
+The merge-and-push route pushes `spectre/<name>` before `<base>`, so `origin/spectre/<name>` never
+stays at its pre-reshape tip. Run 2's `git branch -d` does not depend on it: `remove-change-worktrees.sh`
+points the branch's upstream at `origin/<base>` first, because `-d` refuses a branch not merged into
+its upstream — else into the main checkout's `HEAD`, which run 2 refreshes only after cleanup — and a
+forge merge deletes `origin/spectre/<name>`; judged against either, a merged branch would end the
+cleanup `LEFTOVER` and fail again on every re-run. A rejected push of `<base>` re-resolves the base before re-syncing because a rejected push
 fetches nothing: `origin/<base>` would still name the tip the push was refused against, and the
 re-sync would rebase onto it and be refused again.
 

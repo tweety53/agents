@@ -29,7 +29,11 @@
 #     skipped, and nothing outside the fence is ever run. Then the sibling
 #     check-worktree-processes.sh.
 #   `worktree remove --force` for each copy, then each apply worktree;
-#   `worktree prune`; `branch -d spectre/<name>` (never -D) when it exists;
+#   `worktree prune`; `branch -d spectre/<name>` (never -D) when it exists,
+#     its upstream first set to origin/<base> (the base recorded as
+#     branch.spectre/<name>.flowBase, else origin/HEAD's) so -d judges
+#     against where the change landed, not a pruned origin/spectre/<name>
+#     or the not-yet-refreshed main checkout;
 #   and `push origin --delete spectre/<name>`, not gated on the local steps —
 #   a "remote ref does not exist" refusal is already gone, and prunes the
 #   stale tracking ref with `fetch --prune`.
