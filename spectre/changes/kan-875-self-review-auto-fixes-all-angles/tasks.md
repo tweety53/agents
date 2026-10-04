@@ -362,7 +362,7 @@ This task commits nothing; its figures are committed with the change's artifacts
 
 ---
 
-- [ ] 7. Skill: every fix-loop step is a one-shot subagent (fix round 1)
+- [x] 7. Skill: every fix-loop step is a one-shot subagent (fix round 1)
 
 **Files:** `skills/flow-self-review/SKILL.md`
 **Tests:** none — skill prose; no guard reads step 3's wording
@@ -380,12 +380,12 @@ This task commits nothing; its figures are committed with the change's artifacts
 Operator instruction at the human gate: the initial fix, every review-finding fix, every review and
 every re-review run as one-shot subagents — the session fixes nothing inline.
 
-  - [ ] **Step 1: Replace the opening paragraph's inline-fix sentence** (`SKILL.md` lines 13–17,
+  - [x] **Step 1: Replace the opening paragraph's inline-fix sentence** (`SKILL.md` lines 13–17,
     from `**The pass and its fixes run inline` to `resolves.`) with the block below.
-  - [ ] **Step 2: Replace step 3's body** from `**Every finding that is not \`big\` is fixed and
+  - [x] **Step 2: Replace step 3's body** from `**Every finding that is not \`big\` is fixed and
     landed without asking**` through item 3 with the block below; item 4 (**Land once**) and the
     `<agents-base>` paragraph stay as they are.
-  - [ ] **Step 3: Verify** `grep -n 'inline' skills/flow-self-review/SKILL.md` names no fix-loop
+  - [x] **Step 3: Verify** `grep -n 'inline' skills/flow-self-review/SKILL.md` names no fix-loop
     step, and `scripts/check-references.sh` plus every `scripts/check-*.sh` guard the
     `## lint` section names exit clean.
     **Failure looks like:** a remaining "fixes inline", "This session fixes them itself", or the
@@ -395,7 +395,7 @@ every re-review run as one-shot subagents — the session fixes nothing inline.
 
 ````markdown verified:authored for this change
 **The pass runs inline, in this session, on whatever model it is already on; its fixes never do**
-— step 3 runs every fix, review and re-review as a one-shot `opus` dispatch. The pass's model is
+— step 3 runs every fix, review and re-review as a one-shot `opus` dispatch. The model is
 picked by picking the model this session runs on (`/model`) before invoking this command, not by
 anything this skill itself resolves.
 ````
@@ -438,3 +438,7 @@ not carry.
    dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once
    under way.
 ````
+
+Correction (2026-10-04): the opening block's last sentence keeps the original "The model is picked …"
+wording verbatim rather than "The pass's model is picked …" — the preceding sentence already scopes it
+to the pass, and the unchanged sentence needs no verbatim-moves entry.
