@@ -236,8 +236,8 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	// already-merged change over a condition nothing in that session can
 	// correct — the trade **Creation and cleanup**
 	// (`skills/flow-contracts/workspace-isolation.md`) rejects. Skipped is never
-	// passed, and the clause is relayed word for word by step 6 of **Run 2 — the
-	// branch is merged** (`skills/flow-contracts/pipeline.md`).
+	// passed, and the clause is relayed word for word by step 4 of **Run 2 — the
+	// branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
 	localRef := "refs/heads/spectre/" + name
 	switch refState(localRef) {
 	case "present":

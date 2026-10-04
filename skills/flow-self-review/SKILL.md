@@ -7,9 +7,9 @@ compatibility: Requires the change's default branch to be checked out and a save
 ---
 
 Run a change's self-review reasoning pass — the only one the pipeline has — from the context
-bundle run 2 step 9 saved (`skills/flow-contracts/finish-contract-run2.md` step 9 is canonical
-for that bundle's shape) or **5. Verify** (`skills/flow-fast/SKILL.md`) saved on the change
-branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
+bundle `/flow`'s run 1 (**Save the self-review context bundle**,
+`skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
+(`skills/flow-fast/SKILL.md`) saved on the change branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
 filing-and-rating prompt, the store record and the report. **The pass runs inline, in this session, on whatever model it is already on; its fixes never do**
 — step 3 runs every fix, review and re-review as a one-shot `opus` dispatch. The model is
 picked by picking the model this session runs on (`/model`) before invoking this command, not by
@@ -187,7 +187,7 @@ it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before
 unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: report it and stop before the
 commit, never commit a report the guard could not read.
 Commit both paths in one commit through the landing chain's one script — the same invocation
-`skills/flow/archive.md` step 9 lands the context bundle with, differing in the asserted branch,
+`skills/flow/integrate.md` step 4 lands the context bundle with, differing in the asserted branch,
 the report path, the removed context-bundle path and the `--push` — since the round-trip through the six-angle
 pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking
 rather than trusted from step 1 alone:

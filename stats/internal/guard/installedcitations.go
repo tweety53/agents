@@ -766,10 +766,9 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 	case cicSpectreRef.MatchString(tok):
 		return false
 	// GIT_BRANCH_CHORE_RE — kan-239's sibling for the pipeline's other
-	// branch shapes: `chore/archive-<name>`, which `/flow`'s archive run
-	// creates and names, and `chore/self-review-<name>`, which run 2 no
-	// longer creates but which survives as real branches from before that
-	// change. Same shape, same bounds, for the same reason: a branch name is
+	// branch shapes: `chore/archive-<name>` and `chore/self-review-<name>`,
+	// which run 2 no longer creates but which survive as real branches, and
+	// in the rationale, from before those changes. Same shape, same bounds, for the same reason: a branch name is
 	// not a filesystem path; `chore/archive-<name>/spec.md` stays reportable.
 	case cicChoreRef.MatchString(tok):
 		return false

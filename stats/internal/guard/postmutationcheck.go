@@ -11,7 +11,7 @@ import (
 
 // snapshotTreeState and checkTreeRestored are the post-guard sanity check
 // KAN-448 part 1 mechanizes, for the guards that mutate the working tree
-// (break-and-prove, mutate-and-verify, prepare-archive-branch): snapshot
+// (break-and-prove, mutate-and-verify): snapshot
 // `git status --porcelain=v2 --untracked-files=normal` and `git stash list`
 // before the first mutation, and check afterwards that the tree still matches
 // the snapshot — any NEW stash entry or status line is residue the guard

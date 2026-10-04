@@ -9,7 +9,7 @@ Do the work the way a careful engineer does it by hand — read, edit, verify, c
 record it the way `/flow` does: every `flow.*` stage mark below, in this order, under one
 session token, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
 `/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`, no state file
-and no three states, no staged-diff gate, no archive branch, and no pipeline guard. Dispatch and a review panel exist only where the recorded
+and no three states, no staged-diff gate, no archive, and no pipeline guard. Dispatch and a review panel exist only where the recorded
 decision names them (**Dynamic decisions** below). The only isolation is git's: a
 worktree on its own branch. `prepare-workspace.sh`, the per-change
 database, bucket, ports and cache index of **Workspace isolation**
@@ -270,9 +270,9 @@ flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness
 Save the context bundle `/flow-self-review <name>` consumes, on this branch, as its own commit;
 no reasoning pass runs and nothing is asked. Write
 `<project>/docs/self-review/<name>-context.md`, physically under `<worktree>`, as, in order: the stdout of `flow self-review
-bundle -change <name>` run from the worktree — of the six sources run 2 step 9 judges a change
+bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
 by, a `/flow-fast` run can never have tasks.md, design.md and narrative.md (no spectre
-artifacts and no archive branch), so those three report `skipped` by design, never silently;
+artifacts and no archive), so those three report `skipped` by design, never silently;
 the git-log source resolves from the main checkout the command resolves, as the change branch's
 commits; the ledger and panel render from the store when the run wrote rows — then
 `## Session narrative`, one paragraph this session writes on what it

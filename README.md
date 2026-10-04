@@ -75,7 +75,7 @@ flowchart TD
         impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff + run instructions"]
         g2{{"you: review the diff — the stack is running"}}
         land{"/flow (bare)<br/>how to land?"}
-        pr["two commits → push → open PR<br/>issue → In Review"]
+        pr["two commits → archive → self-review bundle<br/>→ push → open PR<br/>issue → In Review"]
         g3{{"you: merge the PR, then /flow"}}
         impl --> g2
         g2 -- "/flow #lt;what to fix#gt;<br/>or just describe it" --> impl
@@ -85,10 +85,10 @@ flowchart TD
     end
 
     subgraph S3 ["FINISHED"]
-        archive["<b>Archive</b><br/>verify merge → archive the change → remove worktrees<br/>→ self-review → push chore/archive-* PR"]
+        archive["<b>Clean up</b><br/>verify merge → remove worktrees and branches<br/>→ issue → Done → fast-forward the main checkout"]
     end
 
-    land -- "merge and push" --> archive
+    land -- "merge and push:<br/>archive → bundle → push to base" --> archive
     g3 --> archive
 ```
 
@@ -97,7 +97,8 @@ flowchart TD
   same session.
 - **Merge status alone decides** whether a bare `/flow` integrates or archives, so a PR merged on
   the forge and one `/flow` merged itself look the same.
-- **Archive runs no tests or linters** and never pushes the base branch.
+- **Run 2 runs no tests or linters** and commits nothing: the archive and the self-review bundle
+  ride the change's own branch, landing with the code.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and archive.
@@ -163,15 +164,15 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.landing-question` | The landing question (run 1) | `/flow`, `/flow-fast` |
 | `flow.preserve-sessions` | Preserve the session records (run 1) | `/flow`, `/flow-fast` |
 | `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
+| `flow.sync-archive` | Archive the change on its branch (run 1) | `/flow`, `/flow-fast` |
+| `flow.commit-archive` | Commit the archive (run 1) | `/flow`, `/flow-fast` |
+| `flow.self-review` | Save the self-review context bundle (run 1) | `/flow`, `/flow-fast` |
 | `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast` |
 | `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
-| `flow.sync-archive` | Position the checkout and archive (run 2) | `/flow`, `/flow-fast` |
-| `flow.commit-archive` | Commit the archive (run 2) | `/flow`, `/flow-fast` |
 | `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |
 | `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
 | `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast` |
-| `flow.self-review` | Self-review (run 2) | `/flow`, `/flow-fast` |
-| `flow.push-archive` | Push the archive branch and open its PR (run 2) | `/flow`, `/flow-fast` |
+| `flow.push-archive` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast` |
 | `plan.session` | Plan session — the whole `/flow-plan` invocation | `/flow-plan` |
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.

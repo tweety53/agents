@@ -222,12 +222,12 @@ mistake this guards against.
 
 **`FINISHED`** has **no regenerated block**: the state is terminal and finished changes are omitted
 from the report, so there is nothing left waiting on the operator to hand off. bare `/flow`
-run 2 does print a terminal block — what it synced, archived, removed and verified — and every field
+run 2 does print a terminal block — what it removed and verified — and every field
 of it is run-only, because it reports what that run did rather than what the change now is. One
 renderer means nothing to keep in step, which is why that block takes no template here. A run 2
 that **stops** on a cleanup leftover is not this case: it leaves the change
 at `IN_PROGRESS` and prints its own interrupted-run report, every field of which is likewise
-run-only — what that run synced, archived and left behind, which the state file does not record.
+run-only — what that run left behind, which the state file does not record.
 `/flow-status` regenerates one of the two `IN_PROGRESS` renderings above for such a change, by
 the test just given. A **withdrawal's** terminal block (**The withdrawal route**,
 `skills/flow/withdrawal.md`) is the same case: run-only, printed once by the run that withdrew

@@ -144,7 +144,7 @@ exec %q "$@"
 		fx := newFx(t)
 		writeReport(t, fx, "kan-x")
 		base := head(t, fx)
-		return fx, base, run(t, fx, fx.repo, "chore/archive-kan-x", subj("kan-x"), fmt.Sprintf(rep, "kan-x"))
+		return fx, base, run(t, fx, fx.repo, "spectre/kan-x", subj("kan-x"), fmt.Sprintf(rep, "kan-x"))
 	}
 	// Case 4: the site-1 landing, pushed to a bare origin.
 	site1 := func(t *testing.T) (*lsrrFx, guardResult) {
@@ -271,7 +271,7 @@ exec %q "$@"
 		}},
 		{"test_land_branch_mismatch_stops_everything: the mismatch names both branches", func(t *testing.T) {
 			_, _, r := mismatch(t)
-			check(t, r.stdout == "" && r.err == "LAND-BRANCH-MISMATCH: expected chore/archive-kan-x, found main — nothing added, committed, pulled or pushed\n", r, "line")
+			check(t, r.stdout == "" && r.err == "LAND-BRANCH-MISMATCH: expected spectre/kan-x, found main — nothing added, committed, pulled or pushed\n", r, "line")
 		}},
 		{"test_land_branch_mismatch_stops_everything: nothing was staged", func(t *testing.T) {
 			fx, _, r := mismatch(t)

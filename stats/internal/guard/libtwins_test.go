@@ -187,8 +187,8 @@ func TestProjectSectionParity(t *testing.T) {
 }
 
 // TestGitExecSignalStatus pins gitExec's status for a git killed by a signal
-// at bash's 128+n: mutate-and-verify and prepare-archive-branch return it as
-// their own exit (set -e), where a raw ExitCode() of -1 left mutate-and-verify
+// at bash's 128+n: mutate-and-verify returns it as
+// its own exit (set -e), where a raw ExitCode() of -1 left mutate-and-verify
 // exiting 255, outside its 0/2/3/4 contract. The alias's shell SIGTERMs its
 // parent, the git gitExec started.
 func TestGitExecSignalStatus(t *testing.T) {

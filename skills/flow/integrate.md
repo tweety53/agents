@@ -20,8 +20,8 @@ checkout.
 
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
 worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw read of the state file's
-`worktrees` map. Its `<base-ref>` argument is `origin/$BASE`, `$BASE` being what
-`resolve-base-branch.sh` prints for that worktree.
+`worktrees` map. Its `<base-ref>` argument is `origin/$BASE`, `$BASE` being what running
+`resolve-base-branch.sh <worktree>` prints — the same `<base>` every route below lands on.
 
 - **`RUN1`** → this file (integrate)
 - **`RUN2`** from every worktree → `skills/flow/archive.md` <!-- refs-guard:allow -->
@@ -41,6 +41,11 @@ flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <har
 ```
 
 ## 1. Check for unfinished work
+
+**A worktree whose change is already archived** ends `flow.unfinished-work-gate` `completed` at
+once and runs **2**, then **5** — the rest of **1**, **3** and **4**
+are skipped, unmarked, per **Run 1 — the branch is not merged**
+(`skills/flow-contracts/finish-contract-run1.md`).
 
 Run `check-unfinished-work.sh <worktree> <name> <canonical-worktree>` once per worktree in the
 resolved set — before the landing question and before any git action.
@@ -80,7 +85,7 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <n
 Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the
 branch onto the base** (`skills/flow/sync-onto-base.md`), which is canonical for
 the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the
-after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`, or the merge-and-push route's merge conflicted and the sync is re-run. No
+after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`, or the merge-and-push route's push was rejected and the sync is re-run. No
 `MOVED` verdict anywhere → report the counts and go straight to the landing question.
 
 Run `project-get.sh <main-checkout> "default landing route" --enum "pull request" "merge and push" manual`:
@@ -169,7 +174,66 @@ operator chose to integrate over at **1**. The state file is **not** committed.
 flow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
 ```
 
-## 4. Take the chosen route, write the state, and transition Jira
+## 4. Archive and save the self-review context bundle
+
+In `<canonical-worktree>`, on `spectre/<name>`, per **Archive on the change branch** and **Save the
+self-review context bundle** (`skills/flow-contracts/finish-contract-run1.md`), canonical for both.
+
+```bash
+flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
+```
+
+Run `spectre archive "<name>"` in `<canonical-worktree>`. It `git mv`s `<project>/spectre/changes/<name>/` into
+`<project>/spectre/changes/archive/<name>/` and leaves the rename staged; it does not commit —
+the next mark does.
+
+**One call per change, parent and each `<name>-fix-N` sibling alike** — run `spectre archive
+"<name>-fix-N"` for every sub-change in this same step.
+
+**`spectre archive` refuses four things; `--force` overrides three of them.** Unchecked tasks, a
+missing `tasks.md`, and a `tasks.md` carrying no task at all each exit `1` and say `(use --force
+to archive anyway)`. A destination that already exists also exits `1`, and `--force` does
+**not** override that one. **`/flow` never passes `--force`.** Report the refusal, stop, and
+leave the change at `IN_PROGRESS`.
+
+```bash
+flow stage end   -command '/flow' -stage flow.sync-archive -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> -session-token mf-<literal-token> <name>
+```
+
+```bash
+commit-archive.sh <canonical-worktree> <name>
+```
+
+`ARCHIVE-COMMITTED: <sha>` or `ARCHIVE-NOTHING-STAGED` (exit 0) continue.
+`ARCHIVE-WRONG-BRANCH: <found>` or the scope guard's `SCOPE-VIOLATION` lines (exit 1), or exit
+2, stop the commit and leave the change at `IN_PROGRESS`. The `DONE-WHEN-PATH:` lines of the
+Done-when cross-check refuse the commit the same way, before anything is staged or copied.
+
+```bash
+flow stage end   -command '/flow' -stage flow.commit-archive -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
+```
+
+Write the bundle's stdout, then `## Session narrative`, to
+`<project>/docs/self-review/<name>-context.md` in `<canonical-worktree>`, and commit it there, not
+pushing here:
+
+```bash
+land-self-review-report.sh "<canonical-worktree>" "spectre/<name>" \
+  "docs(self-review): <name> self-review context bundle" \
+  docs/self-review/<name>-context.md
+```
+
+A branch mismatch or a commit that FAILS is reported and stops the run at `IN_PROGRESS`. A staged
+index holding anything beyond the chain's own path refuses the commit the same way
+(`LAND-FOREIGN-STAGED`).
+
+```bash
+flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
+```
+
+## 5. Take the chosen route, write the state, and transition Jira
 
 ```bash
 flow stage begin -command '/flow' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
@@ -180,9 +244,11 @@ This stage carries three sub-steps under one mark: the git route, the state writ
 Per **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) → run 1. Push with `-u` so
 the branch has an upstream.
 
-**Every git step here can fail, and none of them may fail silently.** A rejected push, a merge
-conflict, a commit blocked by a hook, or `gh pr create` erroring must be **reported with the
-command's own output**, and the run must **stop** leaving the change at `IN_PROGRESS`.
+**Every git step here can fail, and none of them may fail silently.** A rejected push, a commit
+blocked by a hook, or `gh pr create` erroring must be **reported with the
+command's own output**, and the run must **stop** leaving the change at `IN_PROGRESS` — save the
+merge-and-push route's one re-sync after a rejected push (**The routes**,
+`skills/flow-contracts/finish-contract-run1.md`).
 
 **Human confirmation is a legitimate substitute for an API probe** on a forge with no usable CLI. If
 the answer is No, leave `prUrl` null and say what to do next.
@@ -220,7 +286,7 @@ Next:
 /flow <name>
 ```
 
-| Route taken in step 4 | Heading |
+| Route taken in step 5 | Heading |
 |--------------------|---------|
 | pull request | *waiting on the merge* |
 | **merge and push** | *merged and waiting on run 2* — continue below |

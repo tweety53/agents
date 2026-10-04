@@ -20,8 +20,8 @@ flow's pipeline and its contract definitions.
 | File | Load it when you need to |
 |------|--------------------------|
 | [pipeline.md](pipeline.md) | **Run any `/flow*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, the handoff output shape, IntelliJ commands, guard resolution and stage marks |
-| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure, base-branch resolution, and resolving a change's worktrees. **Loaded by `skills/flow/integrate.md`; `/flow-status` also reads single sections of it** |
-| [finish-contract-run2.md](finish-contract-run2.md) | `/flow`'s archive run: run 2's procedure and worktree cleanup. **Loaded by `skills/flow/archive.md`; `/flow-self-review` also reads its step 9** |
+| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure — the archive and the self-review context bundle included — base-branch resolution, and resolving a change's worktrees. **Loaded by `skills/flow/integrate.md`; `/flow-status` and `/flow-self-review` also read single sections of it** |
+| [finish-contract-run2.md](finish-contract-run2.md) | `/flow`'s archive run: run 2's procedure and worktree cleanup. **Loaded by `skills/flow/archive.md`** |
 | [finish-hand-fallbacks.md](finish-hand-fallbacks.md) | The by-hand procedure for each script the two finish contracts call. **Loaded by either contract only when the guard presence check named one of its scripts missing** |
 | [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/flow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its full shape, monotonic state writes, carry-forward |

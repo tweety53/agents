@@ -20,9 +20,9 @@ Run 2 is terminal, and before step 10 merged its own pull request with `--delete
 request outlived the run, so no later run existed to delete the branch it was
 opened from — this repository already carries five such leftovers, chore/archive-kan-197,
 chore/archive-kan-200, chore/archive-kan-209, chore/self-review-kan-201 and chore/self-review-kan-236,
-which is the evidence, not a guess, that nothing removed them. The local archive branch is still removed by nothing. Whether some future run should
-gain that duty is design.md's open question `archive-branch-cleanup`, deliberately left open rather
-than decided here.
+which is the evidence, not a guess, that nothing removed them. The archive branch itself is gone
+since 2026-10-04: run 1 archives on the change branch, which run 2 removes (**one task, one
+worktree**, `skills/flow-contracts/finish-contract-rationale.md`).
 
 **This is the one row whose removal is verified by asking rather than by looking**, and the reason
 is that "ran the removal" is not "verified gone": a removal that reported success against a stale
@@ -81,4 +81,4 @@ URL would leave it advertised and unrepublishable.
 
 ### Rendered ledger and panel record
 
-`the renders target the canonical worktree only` — (kan-399); `copied into the archive commit at run 2 step 4` … `chore/archive-<name>` — (kan-552).
+`the renders target the canonical worktree only` — (kan-399); `copied into run 1's archive commit` … `spectre/<name>` — (kan-552).

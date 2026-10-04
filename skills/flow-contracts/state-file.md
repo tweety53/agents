@@ -95,7 +95,7 @@ field is how it gets erased.
 - `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
   that worktree's merge base. `{}` when none exist or all were removed. **A `FINISHED` change may
   legitimately carry a non-empty map** — per **Run 2 — the branch is merged**
-  (`finish-contract-run2.md`) step 8, a worktree that could not be removed stays listed and findable.
+  (`finish-contract-run2.md`) step 5, a worktree that could not be removed stays listed and findable.
   See **A change spanning repositories is one record** below.
 
   **A value is either JSON `null` or a 40-character lowercase hexadecimal sha, and nothing else** —

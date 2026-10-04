@@ -75,7 +75,7 @@ placeholder.
 |---------|------|---------------|
 | `/flow`'s creating run | start of the run, immediately after the key resolves | **In Progress** |
 | bare `/flow` | run 1, after the chosen route completes — every route | **In Review** |
-| bare `/flow` | after the archive move and state write | **Done** |
+| bare `/flow` | run 2, after the `FINISHED` state write | **Done** |
 
 No other command transitions the issue.
 

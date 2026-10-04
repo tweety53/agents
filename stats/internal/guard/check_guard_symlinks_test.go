@@ -1120,7 +1120,6 @@ func TestShimSiblingsDeclared(t *testing.T) {
 		"check-guard-symlinks.sh":            {"lib"},
 		"check-dispatch-paragraphs.sh":       {"lib"},
 		"mutate-and-verify.sh":               {"lib"},
-		"prepare-archive-branch.sh":          {"lib"},
 		"check-base-moved.sh":                {"lib"},
 		"check-panel-fix-single-dispatch.sh": {"lib"},
 		"prove-reproducer.sh":                {"lib"},

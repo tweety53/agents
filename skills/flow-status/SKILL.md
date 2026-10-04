@@ -170,11 +170,11 @@ Next-command mapping:
 |-------|------|
 | `STARTED` | read the artifact, then `/flow <name>` (or re-run `/flow`'s creating run to revise) |
 | `IN_PROGRESS`, branch not merged | review the diff — the stack is running, then `/flow <name>` (or re-run `/flow`'s implement phase to fix) |
-| `IN_PROGRESS`, branch merged | `/flow <name>` — it will archive |
+| `IN_PROGRESS`, branch merged | `/flow <name>` — it will clean up |
 | `FINISHED` | — |
 
 The `IN_PROGRESS` row splits on merge status because bare `/flow` behaves differently either
-side of it: it integrates before the merge and archives after. Say which run the operator is
+side of it: it integrates — and archives — before the merge and cleans up after. Say which run the operator is
 about to get. A branch with no commits of its own is *not
 merged*, and an inconclusive answer takes the not-merged row and says the check could not be
 completed.

@@ -20,10 +20,6 @@
 # would need the same physical-form resolution the strays already require,
 # for a fact the porcelain format already guarantees.
 #
-# `_landing-<name>` NEEDS NO RULE OF ITS OWN. It is created at
-# <project>/.worktrees/_landing-<name>, already at or under the root this
-# guard checks, so it is reported like any other in-tree worktree: not at all.
-#
 # PATHS ARE COMPARED IN PHYSICAL FORM. The project root is resolved with
 # `cd … && pwd -P` before the comparison, matching what `git worktree list`
 # itself already reports — git resolves a worktree's path (through /tmp's

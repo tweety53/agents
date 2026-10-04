@@ -69,7 +69,7 @@ line, every repository's findings — this guard's and `check-foreign-staged.sh`
 shown together and the run stops to ask the question below exactly once; **an exit 2 with no
 verdict** — a checkout whose branch, default branch or status cannot be read — stops and asks the
 same way, an inability never reading as `DRIFT-CLEAN`. A checkout clean but behind its default
-branch is ordinary not-pulled state and never a finding here; the archive's own refresh step owns
+branch is ordinary not-pulled state and never a finding here; run 2's refresh step owns
 bringing it forward.
 
 > **Main checkouts carry foreign staged work or drift — how should the run proceed?**
@@ -77,6 +77,14 @@ bringing it forward.
 > - **Continue — leave it in place**
 
 ### Run 1 — the branch is not merged
+
+**A worktree whose change is already archived has finished every step through the bundle.** Its
+`<project>/spectre/changes/archive/<name>/` exists and `<project>/spectre/changes/<name>/` does
+not — an earlier run 1 got that far and stopped at the route. A re-run checks whether the base
+moved, syncs onto it per **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`), and
+goes straight to the route: the unfinished-work gate, the reshape, the two-commit chain, the
+archive and the bundle are skipped, not repeated — `spectre archive` already refused any unchecked
+task, and a reshape would fold the bundle commit into the implementation commit.
 
 **Check for unfinished work first — before the landing question and before any git action.**
 `check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]` prints one verdict line and
@@ -158,8 +166,9 @@ implementation commit, then that last planning commit.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with
-the worktree at run 2; the store is the terminal record, and run 2 renders from it what the
-self-review bundle needs (**Temporary artifacts registry**, `artifacts-registry.md`). The proposal
+the worktree at run 2; the store is the terminal record, and **Save the self-review context
+bundle** below renders from it what the bundle needs (**Temporary artifacts registry**,
+`artifacts-registry.md`). The proposal
 artifact source stays in the state directory until run 2 removes it; run 1 copies nothing.
 
 The planning path, `<project>/spectre/changes/`, is cleared from the index before the first `add` and excluded from it by
@@ -171,16 +180,83 @@ failure rule and the symlink case — is the chain **The guarded two-commit chai
 `<agents repo>/scripts/commit-split.sh` is what runs it, at both this
 call site and the implement phase's PR-exception path.
 
+### Archive on the change branch
+
+After the two-commit chain and before any route pushes, in the canonical apply worktree on
+`spectre/<name>` — the planning, archive and self-review commits land on the same branch, and so
+the same pull request, as the code:
+
+1. **Archive the change** — `spectre archive <name>` moves it into
+   `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**.
+   **One call per change, parent and sub-change alike.** A `<name>-fix-N` sub-change is a flat
+   sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
+   refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
+   each sub-change is archived by its own call in this same step. Never left behind, never archived
+   alone. **There is nothing to sync into
+   `<project>/spectre/specs/` first**.
+2. **Commit the archive on `spectre/<name>`**, as its own commit after the two-commit chain. A
+   finished change never leaves the archive move uncommitted in the working tree.
+
+   **The staging is `git add -A`, and this commit's diff is verified scoped to
+   `<project>/spectre/changes/`
+   before it is made** — `check-archive-scope.sh <canonical-worktree> "spectre/changes/"`, run between
+   the add and the commit. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
+   rather than let a stray path land on `spectre/<name>` unremarked. **An exit 2 with
+   nothing on stdout** — a worktree that is not a readable git worktree, or no
+   allowed-prefix given — refuses the commit the same way: the guard's header is
+   explicit that an inability to answer is never reported as a verdict, so an unreadable tree is
+   never read as `SCOPE-OK`.
+
+   **Before the `git add -A`, the rendered ledger and panel record are preserved into this
+   commit.** The canonical apply worktree's `<abs-worktree>/.superpowers/sdd/ledgers/<name>.md`
+   and `<abs-worktree>/.superpowers/sdd/reviews/<name>-panel.md` are copied into
+   `<project>/spectre/changes/archive/<name>/` as `ledger.md` and `panel.md` — each when
+   present, an absent file copying nothing — where they ride the archive commit under the scope
+   the check above verifies.
+
+   **Before any of that, the Done-when cross-check refuses the commit** — `check-done-when-paths`
+   runs in-process on the worktree, printing one `DONE-WHEN-PATH: <path> — <file>` line
+   per path a `## Done when` section of the worktree's tracked markdown names that the index does
+   not track, and its exit 1 refuses the commit exactly as a `SCOPE-VIOLATION` does, leaving the
+   change at `IN_PROGRESS` — the archive's answer to a done criterion satisfied by uncommitted
+   files, whose authoring side is the design rule of **The checklist**
+   (`skills/flow/brainstorm-planner.md`), and an exit 2 refuses the commit too, never read as a
+   pass.
+
+### Save the self-review context bundle
+
+Then, still on `spectre/<name>` in the canonical apply worktree, before any route pushes. Self-review
+is always deferred: no reasoning pass and no prompt run here. The session fetches the
+bundle with
+`flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
+panel record rendered from the store, or, when the store yields no render for that record, read
+from the copies the archive commit carries, the archived `tasks.md`,
+`design.md` and `narrative.md`
+read out of `spectre/<name>` in the repository the command resolves from its
+own location (the main checkout its working directory sits in — the store carries no repository
+roots for the pipeline's changes), and the `git log --stat` of the implementation, planning and
+archive commits — and prints it as one Markdown document. A source that is absent is reported
+`skipped: <source> (absent)` inside the bundle, never fatal.
+The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the
+archived `narrative.md` is already a bundle section, and a change predating the narrative rule
+has the bundle report it skipped), writes the whole to
+`<project>/docs/self-review/<name>-context.md` in the worktree, and
+commits it on `spectre/<name>` with subject `docs(self-review): <name> self-review context
+bundle`. An already-committed bundle is skipped, not rewritten. The pass then runs in `/flow-self-review <name>`
+(`skills/flow-self-review/SKILL.md`), canonical for the six angles, what is fixed and what may
+be filed, the filing-and-rating prompt and the report, which deletes the bundle in its report commit. A
+deferred pass covers what the bundle holds and nothing beyond it — the report's
+`**Deferred:**` line states that.
+
+### The routes
+
+Every route runs from the apply worktree; none touches the main checkout or any other worktree.
+
 | Route | Then |
 |-------|------|
-| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl` |
-| **Merge and push** | push `--force-with-lease`; `classify-untracked.sh <project>/.worktrees/_landing-<name>` first when the landing worktree already exists — the archive pre-flight, **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) step 2's class rule, settling its assets through the operator — then `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`. **`<base>` is not pushed here, and the landing worktree stays** — run 2's same-invocation continuation archives on top of this local merge and pushes `<base>` once, carrying the merge, the archive and the self-review output together (**Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`, step 10). A merge conflict here means the base moved after the sync: `git -C <landing-worktree> merge --abort`, remove the landing worktree, and re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and this route once |
+| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code, planning, archive and bundle commits |
+| **Merge and push** | `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive and the bundle, already committed, ride the rebase — and push once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
-
-`<archive-branch>` equal to `<base>` itself — the merge-and-push route's own use above — means
-"position `<landing-worktree>` on `<base>` itself", and `prepare-archive-branch.sh` accepts it; see
-that script's own header. The main checkout is never checked out, staged or committed by this
-route — the landing worktree carries the merge in its place, and run 2 the push.
 
 Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/flow <name>` again.
 

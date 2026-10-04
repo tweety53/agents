@@ -194,28 +194,20 @@ run_guard "$REPO"
 assert_stray "case 5b: sibling directory sharing .worktrees as a string prefix" "$PREFIX_SIBLING_PHYS" "detached" 1
 
 # ---------------------------------------------------------------------------
-# Case 6: the _landing-<name> worktree is in-tree, no rule of its own needed.
-# ---------------------------------------------------------------------------
-new_repo
-git -C "$REPO" worktree add -q "$REPO/.worktrees/_landing-example" -b landing-branch >/dev/null
-run_guard "$REPO"
-assert_ok "case 6: _landing worktree is in-tree"
-
-# ---------------------------------------------------------------------------
-# Case 7: a non-worktree argument cannot be answered.
+# Case 6: a non-worktree argument cannot be answered.
 # ---------------------------------------------------------------------------
 NOT_A_REPO="$(mktemp -d "${TMPDIR:-/tmp}/worktree-location-notrepo.XXXXXX")"
 SANDBOXES+=("$NOT_A_REPO")
 run_guard "$NOT_A_REPO"
-assert_cannot_answer "case 7: exit 2 on a non-worktree argument"
+assert_cannot_answer "case 6: exit 2 on a non-worktree argument"
 
 # ---------------------------------------------------------------------------
-# Case 8: KAN-197-style mutation — this suite must detect a guard that always
+# Case 7: KAN-197-style mutation — this suite must detect a guard that always
 # prints LOCATION-OK. A suite that cannot is not a suite.
 # ---------------------------------------------------------------------------
 if [ -n "${CHECK_WORKTREE_LOCATION_GUARD:-}" ]; then
   # Skipped when this run IS the mutant run, which is how the recursion ends.
-  printf 'skip: case 8 (mutation) (this run is itself the mutant run)\n'
+  printf 'skip: case 7 (mutation) (this run is itself the mutant run)\n'
 else
   MUTANT_DIR="$WORK/mutant"
   mkdir -p "$MUTANT_DIR"
@@ -227,15 +219,15 @@ else
   chmod +x "$MUTANT"
 
   if cmp -s "$GUARD" "$MUTANT"; then
-    fail "case 8 (mutation): the mutation did not apply — the guard no longer carries the line this case edits, so nothing was mutated"
+    fail "case 7 (mutation): the mutation did not apply — the guard no longer carries the line this case edits, so nothing was mutated"
   else
-    pass "case 8 (mutation): the mutation applied"
+    pass "case 7 (mutation): the mutation applied"
     set +e
     CHECK_WORKTREE_LOCATION_GUARD="$MUTANT" "$SCRIPT_DIR/test-check-worktree-location.sh" >/dev/null 2>&1
     MUTANT_RC=$?
     set -e
-    [ "$MUTANT_RC" -ne 0 ] && pass "case 8 (mutation): a guard that always prints LOCATION-OK fails this suite" \
-      || fail "case 8 (mutation): a guard that always prints LOCATION-OK passed this suite, which therefore detects nothing"
+    [ "$MUTANT_RC" -ne 0 ] && pass "case 7 (mutation): a guard that always prints LOCATION-OK fails this suite" \
+      || fail "case 7 (mutation): a guard that always prints LOCATION-OK passed this suite, which therefore detects nothing"
   fi
 fi
 

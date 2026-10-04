@@ -18,9 +18,9 @@
 # THE MAIN-CHECKOUT ASSERTION (KAN-462 §4, design.md:
 # main-checkout-is-asserted-not-moved). A would-be RUN2 verdict is REFUSEd
 # instead when the main checkout — resolved from <worktree> via `git
-# rev-parse --git-common-dir`, never taken as an argument — is not fit to
-# host the landing worktree that run 2's own prepare-archive-branch.sh derives
-# from it afterwards: `REFUSE: main checkout <path> is on <branch>, not
+# rev-parse --git-common-dir`, never taken as an argument — is not on its
+# expected post-merge footing, the one run 2's closing refresh-main-checkout.sh
+# fast-forwards from: `REFUSE: main checkout <path> is on <branch>, not
 # <base>` when its current branch differs from <base-ref> with any `origin/`
 # prefix stripped; `REFUSE: main checkout <path> has tracked changes` when
 # `status --porcelain --untracked-files=no` is non-empty; `REFUSE: stray

@@ -146,5 +146,5 @@ run — generates its own rather than reusing an earlier run's.
   **Review panel** (`skills/flow/review-panel.md`).
 - Never skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
 - Never advance the state past what the phase in force is entitled to write — a fix never moves
-  the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 of the archive branch
+  the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 (`skills/flow/archive.md`)
   and **The withdrawal route** (`skills/flow/withdrawal.md`) write `FINISHED`.

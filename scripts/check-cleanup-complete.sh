@@ -130,15 +130,12 @@
 #   entirely within the review panel stage, immediately after that slot's dispatch
 #   closes; it never survives to run 2, so there is nothing here for this guard to
 #   find gone
-# registry-row-not-checked: Archive branch — nothing in this pipeline removes it;
-#   run 2 is terminal and the pull request it opens outlives the run, so there is
-#   no later run to delete the branch it was opened from (kan-239)
 # registry-row-not-checked: State file — never removed; it is the terminal record
 # registry-row-not-checked: Claimed cache index — this pipeline removes nothing and this guard checks nothing; the index is probed rather than derived, so run 2 has no derivation to repeat. A project that writes its claim where a probe can see it may release it in its own `remove` command and report it through `survivors`; that is the project's tooling and this marker does not claim it
-# registry-row-not-checked: Self-review context bundle — written on `defer` and
-#   committed on the archive branch, which run 2 does not touch again after
-#   step 9; it is removed only by `/flow-self-review`, a separate command run
-#   later, not by anything this guard's cleanup checks derive from
+# registry-row-not-checked: Self-review context bundle — committed by run 1 on
+#   the change branch and landed on the base with it; it is removed only by
+#   `/flow-self-review`, a separate command run later, not by anything this
+#   guard's cleanup checks derive from
 #
 # ABSENCE IS THE ANSWER HERE, not a gap in the evidence. The run-1 gate treats
 # a file it cannot find as outstanding, because a missing record proves nothing
@@ -196,8 +193,8 @@
 # sub-change is a FLAT SIBLING of its parent under spectre/changes/, never a
 # directory inside it -- `spectre new` refuses an id that is not a single flat
 # directory name -- so `spectre archive <name>` cannot reach one and each
-# sub-change needs its own call (run 2 step 3,
-# skills/flow-contracts/finish-contract-run2.md). Before this row the guard
+# sub-change needs its own call (Archive on the change branch,
+# skills/flow-contracts/finish-contract-run1.md). Before this row the guard
 # reported COMPLETE with the parent archived and the child left behind, and
 # nothing anywhere said so.
 #

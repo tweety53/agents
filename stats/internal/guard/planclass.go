@@ -305,7 +305,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// Rolls are reproducible per change name (the directory holding
 	// <tasks.md>): each the first 8 hex digits of a SHA-256, mod 100.
-	name := pabBasename(gdcDirname(tasksFile))
+	name := uwBasename(gdcDirname(tasksFile))
 	roll := func(s string) uint64 {
 		v, _ := strconv.ParseUint(sha256Hex(s)[:8], 16, 64)
 		return v % 100

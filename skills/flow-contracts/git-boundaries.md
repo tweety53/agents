@@ -19,10 +19,8 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in) and the **Planning commits** below, **pushing after each** — no merge or PR |
 | `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** and planning commits the same way, pushing after each — no merge or PR |
 | `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes `--force-with-lease`** to the PR branch — implementation, then whatever planning delta the last planning commit left |
-| bare `/flow` | run 1 | **Reshapes** — keeps every planning commit, collapses task and fixup commits — then **commits twice** — implementation, then the planning delta — and pushes `--force-with-lease`; opens a PR or merges, by the operator's choice |
-| bare `/flow` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — in the landing worktree, and removes worktrees and branches |
-| bare `/flow` | run 2, during self-review | **Commits** the self-review context bundle on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
-| bare `/flow` | run 2, after self-review | **Pushes** once, carrying both commits, from the landing worktree, per step 10 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`): `<base>`, fast-forwarded to `chore/archive-<name>`, on the merge-and-push continuation; otherwise `chore/archive-<name>`, whose pull request it opens and merges |
+| bare `/flow` | run 1 | **Reshapes** — keeps every planning commit, collapses task and fixup commits — then **commits twice** — implementation, then the planning delta — then **commits** the archive and the self-review context bundle, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
+| bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 6 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
 | `/flow-status` | — | None — read-only |
 | `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
 
@@ -30,7 +28,8 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 `flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
 capture — it reads the main checkout before then and writes nothing — and every write, stage,
 commit and push in the table above happens in a worktree. The main checkout is never checked out,
-staged, committed or written, whatever branch it sits on.
+staged, committed or written, whatever branch it sits on — save run 2's fast-forward of it, which
+`refresh-main-checkout.sh` refuses whenever it could lose anything.
 
 ## Planning commits
 

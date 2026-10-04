@@ -32,27 +32,41 @@ Moved verbatim from the contract, where it opened the sentence whose call-site l
 "That rule and the commands it binds are not restated here; what follows is specific to bare
 `/flow`:".
 
-## finish-contract-run2.md — Run 2 — the branch is merged
+## finish-contract-run1.md — one task, one worktree (2026-10-04)
 
-Step 2, the pre-flight classifies — incident behind `classify-untracked.sh`: KAN-411.
+The operator's rule: one task gets one worktree, and its planning, archive and self-review
+artifacts land on the same pull request as the code, as separate commits. So run 1 archives the
+change and saves its self-review context bundle on `spectre/<name>`, in the apply worktree, before
+any route pushes, and run 2 only cleans up.
 
-Step 2, moved verbatim from the hand fallback (now in `finish-hand-fallbacks.md`, KAN-859), where it followed "The guard is never skipped for
-want of the script.": The steps are stated in full rather than cited, for the reason the resolver's
-own fallback above gives: the guard being absent takes its header with it.
+Rejected, and removed: a second, throwaway landing worktree `<project>/.worktrees/_landing-<name>`
+and a second branch `chore/archive-<name>`. Run 1's merge-and-push route positioned that worktree
+on `<base>` itself and merged there, which moved the local `<base>` ref under the main checkout:
+the main checkout then showed the change reverse-staged until run 2 reset its index (observed in
+KAN-875's landing). Run 2 then archived on `chore/archive-<name>` and landed it through a second
+push or pull request — two landings per change, and a window in which the code had landed with its
+change still open.
 
-Step 3, moved verbatim from the contract, where it closed "**There is nothing to sync into
+A re-run of run 1 on an already-archived change skips straight to the route because
+`reshape-branch.sh` keeps only commits touching `<project>/spectre/changes/`: the bundle commit
+touches `<project>/docs/self-review/` alone, so a reshape would fold it into the implementation commit.
+
+## finish-contract-run1.md — Archive on the change branch
+
+Step 1, moved verbatim from the contract, where it closed "**There is nothing to sync into
 `<project>/spectre/specs/` first**": , and no sync step is ever to be added back.
 
-Step 4, moved verbatim from the contract, where it followed "rather than let a stray path land on
-`chore/archive-<name>` unremarked.": This has happened: an archive commit made this way reverted
+Step 2, moved verbatim from the contract, where it followed "rather than let a stray path land on
+`spectre/<name>` unremarked.": This has happened: an archive commit made this way reverted
 skill-file content another change had shipped minutes earlier.
 
-Step 4, the archive-scope guard's cannot-answer exit — incident: KAN-601.
+Step 2, the archive-scope guard's cannot-answer exit — incident: KAN-601.
 
-Step 9, moved verbatim from the contract, where it followed **This procedure is canonical here.**:
-Step 9 of `skills/flow/archive.md`'s own run 2 carries only what is specific to *executing* it: the
-script invocation and its arguments, the exact prompt wording, and the report-commit shell. It is
-not a second statement of this rule.
+## finish-contract-run1.md — Save the self-review context bundle
+
+`skills/flow/integrate.md`'s step 4 carries only what is specific to *executing* it: the
+script invocation and its arguments and the commit shell. It is not a second statement of this
+rule.
 
 ## Moved by KAN-859 — the finish session trims
 
@@ -160,7 +174,7 @@ Moved verbatim (KAN-859), where it followed "otherwise `git merge-base --is-ance
 That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge.
 
-### finish-contract-run2.md — step 3, the archived leaf (KAN-859)
+### finish-contract-run1.md — Archive on the change branch, the archived leaf (KAN-859)
 
 Moved verbatim (KAN-859); the run-loaded copy keeps the bold claim alone:
 
@@ -168,52 +182,49 @@ Moved verbatim (KAN-859); the run-loaded copy keeps the bold claim alone:
    `spectre archive` adds none: a prefix re-added here would describe a move the tool does not
    perform.
 
-### finish-contract-run2.md — step 3, no spec sync (KAN-859)
+### finish-contract-run1.md — Archive on the change branch, no spec sync (KAN-859)
 
 Moved verbatim (KAN-859); the run-loaded copy keeps the bold claim alone:
 
 **There is nothing to sync into
    `<project>/spectre/specs/` first**: a change edits that
-   tree directly on its own branch, so its spec edits reached the base branch with the merge step 1
-   proved.
+   tree directly on its own branch, so its spec edits reach the base branch with the same merge.
 
-### finish-contract-run2.md — step 4, why the scope check (KAN-859)
+### finish-contract-run1.md — Archive on the change branch, why the scope check (KAN-859)
 
-Moved verbatim (KAN-859), where it followed "run between the add and the commit.":
+Moved (KAN-859), where it followed "run between the add and the commit.":
 
-`add -A` stages the whole landing worktree, not only the archive move, so
-   a landing worktree step 2 failed to actually fast-forward — silently, or by a skipped guard run
-   by hand and gotten wrong — stages and commits whatever else that stale tree carried right
-   alongside it.
+`add -A` stages the whole worktree, not only the archive move, so it stages and commits whatever
+   else the tree carried right alongside it.
 
-### finish-contract-run2.md — step 4, why the renders are preserved (KAN-859)
+### finish-contract-run1.md — Archive on the change branch, why the renders are preserved (KAN-859)
 
-Moved verbatim (KAN-859), where it followed "under the scope the check above verifies."; `archive.md`'s pointer to it was cut as a duplicate:
+Moved (KAN-859), where it followed "under the scope the check above verifies.":
 
 The store's rows are the terminal record, but rows that never
-   reached it leave the worktree renders the only copies, and step 5 destroys those with the
-   worktree; the committed copies are what step 9's bundle serves when the store renders report
+   reached it leave the worktree renders the only copies, and run 2's cleanup destroys those with the
+   worktree; the committed copies are what the bundle serves when the store renders report
    skipped.
 
-### finish-contract-run2.md — step 7, the `SKIPPED:` relay (KAN-859)
+### finish-contract-run2.md — step 4, the `SKIPPED:` relay (KAN-859)
 
 Moved verbatim (KAN-859), where it followed the `COMPLETE: <repo> — … — SKIPPED:` example:
 
 A run that reported only "cleanup verified" would have told the
    operator the opposite of what the guard said, while following this table to the letter.
 
-### finish-contract-run2.md — step 7, not a cue to restart the stack (KAN-859)
+### finish-contract-run2.md — step 4, not a cue to restart the stack (KAN-859)
 
 Moved verbatim (KAN-859), where it followed "**None of this is a cue to bring the stack back up.**":
 
 Once check 5 in **Worktree cleanup** below
    has stopped the project's declared stack, every later run-2 step that touches it — a
-   reported-and-continued removal failure at step 5 above, or a `SKIPPED:` clause on a `COMPLETE:`
+   reported-and-continued removal failure at step 2 above, or a `SKIPPED:` clause on a `COMPLETE:`
    line here — is that same stack's absence showing up again, correctly, one step later. Restarting
    it to make one of those steps succeed undoes what check 5 was for and answers a question this
    procedure never asked.
 
-### finish-contract-run2.md — step 7, a leftover blocks `FINISHED` (KAN-859)
+### finish-contract-run2.md — step 4, a leftover blocks `FINISHED` (KAN-859)
 
 Moved verbatim (KAN-859), where it followed "**A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**":
 
@@ -223,24 +234,12 @@ Moved verbatim (KAN-859), where it followed "**A leftover blocks the `FINISHED` 
    `IN_PROGRESS` instead, the change stays listed, stays re-runnable, and the state file it already
    has is the durable record; no new field is invented to carry a fact the state itself carries.
 
-### finish-contract-run2.md — step 11, why the refresh (KAN-859)
+### finish-contract-run2.md — step 6, why the refresh
 
-Moved verbatim (KAN-859), where it opened the paragraph after the `refresh-main-checkout.sh` call:
-
-No step above checks out, stages or commits the main checkout — but step 2 positioned
-`<landing-worktree>` on `<base>` itself, and fast-forwarding and merging there moved the
-`<base>` pointer the main checkout's HEAD names while its index and worktree stayed at the
-old tip. Left alone, `git status` there shows the landing in reverse as staged changes, and
-a later session that trusts it commits, stashes or resets the ghost.
-
-### finish-contract-run2.md — the Jira `Done` transition (KAN-859)
-
-Moved verbatim (KAN-859), where it followed "**The Jira `Done` transition fires before step 9, not after it.**":
-
-Per **Jira integration**
-(`skills/flow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
-archive move and the state write — that transition has already happened by the time step 9 begins,
-so self-review has nothing to delay: there is no Jira write left in run 2 for it to sit in front of.
+Nothing in the pipeline moves the local `<base>` ref: every change lands from its own apply
+worktree, as a push of its branch or a forge merge, so the operator's main checkout is simply
+behind `origin/<base>` afterwards. Step 6 fast-forwards it so it shows the landed change, and only
+when nothing in it could be lost; anything else is the operator's to settle.
 
 ### finish-contract-run2.md — Worktree cleanup, check 3's comment (KAN-859)
 
@@ -323,8 +322,7 @@ Moved verbatim (KAN-859), where it followed "**The remote branch is deleted with
 
 - **The remote branch is deleted without a further prompt.** Run 2 is reached only by proving the
   branch is an ancestor of the base branch, so its commits are in the base branch and nothing can be
-  lost — on the merge-and-push continuation the local `<base>`, not yet pushed until step 10, whose
-  failure step 10 reports with the push command — which is why this is not gated the way check 4's disclosure is.
+  lost — which is why this is not gated the way check 4's disclosure is.
 
 ### finish-contract-run2.md — the remote branch, a refused push (KAN-859)
 

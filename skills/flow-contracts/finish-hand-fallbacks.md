@@ -71,31 +71,7 @@ of `[A-Za-z0-9._]` — so a leading `-` a downstream git call would read as an o
 so is a leading `/` — and every character in the name, start to end, is one of `[A-Za-z0-9._/-]`,
 which is what rules out control characters and anything else outside that set.
 
-## `classify-untracked.sh` and `prepare-archive-branch.sh` — Run 2, step 2
-
-When the script is absent, classify by hand to the same three classes and say so in the handoff.
-
-**When the script is absent** — a harness whose repository does not carry it — perform the same
-positioning by hand, in this order, against `<landing-worktree>`, creating it via `git -C
-<main-checkout> worktree add --force <landing-worktree> <base>` when it does not already exist
-(`--force` because the main checkout is ordinarily already on `<base>` at this point, per
-`check-finish-preflight.sh`'s own main-checkout assertion (**Finish contract**,
-`skills/flow-contracts/finish-contract-run1.md`), and git otherwise refuses a second worktree on
-a branch already checked out), and say in the handoff that it was done manually. The guard is never
-skipped for want of the script.
-Run the wrapped, credential-free fetch first, so an
-unreachable remote refuses quickly rather than hanging. Then read `HEAD`: **refuse a detached
-`HEAD`.** Then read the working tree with `git -C <landing-worktree> status --porcelain` — the
-same test the preflight's signal 3 uses — and **refuse a dirty tree wherever it is found, on
-`<base>` as well as off it**, naming both the branch found and `<base>`; uncommitted changes
-would otherwise ride onto the archive branch unremarked. On a clean tree, check out `<base>` if
-the checkout is not already on it, then fast-forward it to `origin/<base>`, **refusing a base
-that cannot fast-forward** rather than merging or resetting it. Finally create
-`chore/archive-<name>` from that base and check it out — or, when it already exists, **reuse it
-only if it is descended from `origin/<base>`** and refuse it otherwise. Apply each refusal in
-that order and never accept a guess in place of any of them.
-
-## `commit-archive.sh` — Run 2, step 4
+## `commit-archive.sh` — Run 1, Archive on the change branch
 
 The rendered ledger and panel record are preserved into this commit first — each
 when present, an absent file copying nothing; `<canonical-worktree>` resolves as run 1 resolves
@@ -106,28 +82,28 @@ bash -c 'for pair in "ledgers/<name>.md ledger.md" "reviews/<name>-panel.md pane
   set -- $pair
   [ -f "<canonical-worktree>/.superpowers/sdd/$1" ] \
     && cp "<canonical-worktree>/.superpowers/sdd/$1" \
-          "<landing-worktree>/spectre/changes/archive/<name>/$2"
+          "<canonical-worktree>/spectre/changes/archive/<name>/$2"
 done'
-[ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
-  && git -C <landing-worktree> add -A \
-  && check-archive-scope.sh <landing-worktree> "spectre/changes/" \
-  && { git -C <landing-worktree> diff --cached --quiet \
-       || git -C <landing-worktree> commit -m "chore(spectre): archive <name>"; }
+[ "$(git -C <canonical-worktree> branch --show-current)" = "spectre/<name>" ] \
+  && git -C <canonical-worktree> add -A \
+  && check-archive-scope.sh <canonical-worktree> "spectre/changes/" \
+  && { git -C <canonical-worktree> diff --cached --quiet \
+       || git -C <canonical-worktree> commit -m "chore(spectre): archive <name>"; }
 ```
 
 A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
 at `IN_PROGRESS`. The subject is the fixed literal shown, per **Commit scopes name the module**
 (`<agents repo>/rules/commit-scope-is-the-module.mdc`). The self-review bundle (`flow
-self-review bundle`, step 9) resolves this commit by matching that subject line whole —
+self-review bundle`) resolves this commit by matching that subject line whole —
 **reproduce it exactly.**
 
-## `check-archive-scope.sh` — Run 2, step 4
+## `check-archive-scope.sh` — Run 1, Archive on the change branch
 
 **When absent**, run
-`git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside
-`<project>/spectre/changes/`, the prefix step 4's guard call passes.
+`git -C <canonical-worktree> diff --cached --name-only` by hand and refuse any path outside
+`<project>/spectre/changes/`, the prefix the archive commit's guard call passes.
 
-## `check-cleanup-complete.sh` — Run 2, step 7
+## `check-cleanup-complete.sh` — Run 2, step 4
 
 **When the script is absent** — a repository that does not carry it — check the same registry rows
 by hand, in the same order, and say in the handoff that the verification was done manually. The
