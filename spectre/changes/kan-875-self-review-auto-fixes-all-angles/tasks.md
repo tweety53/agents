@@ -3,7 +3,7 @@
 > **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
 > `check-task-commit-fields.sh` passes on that task's commit.
 > **Relocation:** no
-> **Tasks appended:** 1
+> **Tasks appended:** 2
 
 **Goal:** `/flow-self-review` fixes and lands every non-`big` finding across all six angles on one
 branch behind one `opus` review loop, records every finding's outcome in the flow store, and files
@@ -442,3 +442,52 @@ not carry.
 Correction (2026-10-04): the opening block's last sentence keeps the original "The model is picked …"
 wording verbatim rather than "The pass's model is picked …" — the preceding sentence already scopes it
 to the pass, and the unchanged sentence needs no verbatim-moves entry.
+
+---
+
+- [ ] 8. Skill: verify and integrate every self-review fix end to end (fix round 1)
+
+**Files:** `skills/flow-self-review/SKILL.md`
+**Tests:** none — skill prose; no guard reads step 3's wording
+**Regression:** none — prose.
+**Baseline:** before=0 after=0
+<!-- predicted: no test files in this task -->
+**Commit:** `fix(flow-self-review): verify and land every fix end to end`
+**After:** Task 5, 7
+**Build:** green
+
+**Decision:** self-review-fix-end-to-end
+
+Operator instruction at the human gate: the self-review fixes run proper implement/fix/review/
+verify/integrate cycles and end on agents `main`.
+
+  - [ ] **Step 1: Insert the Verify item** as step 3's new item 4, between item 3 (**Fix the
+    review's findings**) and **Land once**, with the block below.
+  - [ ] **Step 2: Replace the Land item** (old item 4) with the block below, renumbered 5.
+  - [ ] **Step 3: Verify** the reference and verbatim-move guards of `## lint` exit clean.
+    **Failure looks like:** a landing that can proceed without a green `## lint` and `## test`, or a
+    pass that can end with a fix not on `origin/<agents-base>`.
+
+### Task 8 — the new Verify item
+
+````markdown verified:authored for this change
+4. **Verify** — once a review comes back clean, this session runs every
+   `<agents repo>/.flow/project.md` `## lint` and `## test` line in the fix worktree, each
+   output through `tail`. A red line is fixed by a fresh dispatch of step 3, key
+   `self-review-<name>-fix-v<v>`, its prompt carrying the failing command and its output
+   verbatim; then step 2, then this step again, `<v>` plus one. A red branch never lands, and a
+   red line is never waived — **Fewest operator actions** governs this loop as it does the review.
+````
+
+### Task 8 — the new Land item
+
+````markdown verified:authored for this change
+5. **Land once** by `<agents repo>`'s `## default landing route`
+   (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
+   step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
+   branch. A rebase onto a moved `origin/<agents-base>` runs step 4 again before the push. The
+   pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
+   finding's sha is read off `<agents-base>` after the landing, never from
+   the branch before its rebase; on a route that opens a pull request, once that pull request
+   merges.
+````

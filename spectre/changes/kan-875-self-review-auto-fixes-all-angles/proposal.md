@@ -17,6 +17,9 @@ outcome recorded in the flow store, and the pass kept cheap — by structure, no
 - The fixes run in one-shot `opus` subagents, never inline (fix round 1): one fixer for every
   finding, one fresh reviewer per round over the whole branch, one fresh fixer per round of review
   findings — all on one `<agents repo>` worktree branch, one commit per finding, landed once.
+- The fix loop runs end to end (fix round 1): a clean review is followed by the agents repo's full
+  `## lint` and `## test` on the branch, a red check loops back through fix and review, and only a
+  green branch lands on `<agents-base>` — the pass ends with every fix on agents `main`.
 - Every finding's outcome — angle, finding, `fixed`/`filed`/`declined`, sha or key, blast radius —
   is a row in a new `self_review_findings` table, written by `flow self-review finding` and read by
   `flow self-review findings`.

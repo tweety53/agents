@@ -49,6 +49,21 @@ instruction at the human gate (fix round 1).
 one subagent running the whole loop — a fixer reviewing its own diff is not a review, and
 `flow-high` cannot dispatch a reviewer.
 
+### Self-review fixes run end to end, landed on the agents base
+
+**ID:** self-review-fix-end-to-end
+**Status:** active
+**Chosen:** the fix loop is a full implement → review → fix → re-review → verify → integrate cycle:
+once a review comes back clean the session runs every `<agents repo>` `## lint` and `## test` line
+on the fix branch; a red line goes back through a one-shot fix dispatch and a fresh review before
+verifying again; only a green branch lands, by the default landing route, without asking, and a
+rebase at landing that moves the branch verifies again before the push. The pass is done only when
+every fixed finding's commit is on `origin/<agents-base>`. Operator instruction at the human gate
+(fix round 1): "Proper implement/fix/review/verify/integrate cycles … I expect the changes on agents
+main after it is done."
+**Considered:** lint inside the fixer alone (Task 5's wording) — the fixer runs only the lint lines
+its files need and no tests, so a fix that breaks a guard harness would land red.
+
 ### A reviewer-rejected fix becomes big
 
 **ID:** rejected-fix-to-prompt
