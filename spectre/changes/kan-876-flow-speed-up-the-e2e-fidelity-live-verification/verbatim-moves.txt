@@ -28,3 +28,5 @@ Global Constraints names the stack's start row and any build the tasks run again
 When the change under plan touches a long-running service, a daemon, a store, a scheduler or anything else holding runtime state, `design.md` carries a `## Live check` section naming what to exercise against the real thing — the running system against its real state, not its fakes — the before/after figures to record, and what the change **not** working would look like, so a null result is recognisable as failure rather than read as success: a check that only asserts a command exited 0 cannot tell a repaired system from an untouched one.
 When the planner judges the change has no runtime to verify against, the section is one line saying so — the justification is required, the check is not.
 `flow.verify` runs it (**Live check**, `skills/flow/verify-and-handoff.md`); no task in `tasks.md` does.
+\### Close the stage
+The verifier row's `end` (**Recording.**, above) is recorded after this check, not before it: `-outcome blocked -cause test-failure` on a failure look, `-cause environment` on a stack that will not start.

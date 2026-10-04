@@ -86,6 +86,8 @@ flow dev stack (`<project>/CLAUDE.md`).
     `scripts/check-markdown-integrity.py` and `scripts/check-guard-symlinks.sh`; each exits 0.
   - [x] **Step 4: Commit** `skills/flow/implement.md` alone, with the `**Commit:**` subject.
 
+Correction (2026-10-05): the panel (F6, F4) found that the section restated the run-instructions start rule, and the restatement had already drifted: it retried a failed start, where run-instructions relays a refused start and never retries. The section now cites **Resolve the run instructions** for how to start the stack, keeps only when and where it starts, and states what each `check-dev-stack-fresh.sh` exit means.
+
 Correction (2026-10-05): the plan placed the new `###` heading directly after the `sdd-dispatch.md` load directive, mid section 4; there it would have become the parent heading of the rest of section 4 (about 520 lines). It shipped as section 4's last subsection, after the `flow.sdd-tdd` stage close, so no existing content changes heading. Its opening clause ("Before the first task … goes out") locates it in time, and phase files are read in full at stage start.
 
 - [x] 2. Verify: the live check, and reuse of the running stack
@@ -139,6 +141,8 @@ the run instructions**.
   - [x] **Step 5: Verify.** Run `scripts/check-references.sh`, `scripts/check-verbatim-moves.sh`,
     `scripts/check-markdown-integrity.py` and `scripts/check-guard-symlinks.sh`; each exits 0.
   - [x] **Step 6: Commit** the file, with the `**Commit:**` subject.
+
+Correction (2026-10-05): the panel (F1) found that Step 2's placement put the session-records load, the ledger render and the `flow.verify` stage close under the conditional `### Live check` heading. A `### Close the stage` heading now follows the Live check paragraph, so those three steps are back under a heading of their own. The same panel round also changed the start condition to any non-zero `check-dev-stack-fresh.sh` exit (F2), named the change directory through **A change's directory** (F5), and stated when the verifier row closes (F3).
 
 - [x] 3. Planner: fan-out, live check and spec-timing rules
 
