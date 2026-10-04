@@ -51,7 +51,7 @@ the same section, it also ends `flow.unfinished-work-gate` `completed` at once a
 unmarked. **With new work** every other step runs.
 
 Run `check-unfinished-work.sh <worktree> <name> <canonical-worktree>` once per worktree in the
-resolved set — before the landing question and before any git action.
+resolved set — before the landing question and before any git action but the undo of an uncommitted archive (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
 
 Then run `check-visual-verify-dispatched.sh <worktree> <name> <recorded-merge-base>` once per
 worktree in the same set, per **Run 1 — the branch is not merged**

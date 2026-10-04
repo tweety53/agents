@@ -116,7 +116,7 @@ either way: the base-moved check and **Sync the branch onto the base**
 `ARCHIVE-NOTHING-STAGED` once the archive commit exists and nothing it copies has changed, the
 bundle step, and the route.
 
-**Check for unfinished work first — before the landing question and before any git action.**
+**Check for unfinished work first — before the landing question and before any git action but the undo of an uncommitted archive above.**
 `check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]` prints one verdict line and
 exits 0 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the
 worktree. Run it once per worktree in the set found by **Resolving a change's worktrees** below —
