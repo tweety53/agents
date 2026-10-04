@@ -42,7 +42,7 @@ the affected main checkouts carry.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
 `git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated — the same
-resolution the preflight's own main-checkout assertion performs. `check-foreign-staged.sh` runs
+resolution the preflight's own stray-worktree assertion performs. `check-foreign-staged.sh` runs
 once per distinct main checkout, and its header is canonical for the verdict grammar it prints. On
 `STAGED-CLEAN` from every repository the run continues into the preflight with nothing more said.
 On any `STAGED-FOREIGN`, every repository's listing is shown together and the run stops to ask,
@@ -54,7 +54,7 @@ question a `STAGED-FOREIGN` asks, with nothing to list; an inability is never re
 **Stop** leaves the change where its state has it with nothing staged, committed, pushed, reset or
 stashed by the run; the operator commits, stashes or resets the residue themselves and re-runs.
 **Continue** carries the listing into the handoff and proceeds — and relaxes nothing: every later
-gate keeps exactly the behavior it already had, the preflight's main-checkout assertion included.
+gate keeps exactly the behavior it already had.
 The relay includes the guard's own hand-verification procedure per **Hand-verifying a guard
 verdict** (`skills/flow-contracts/pipeline.md`).
 

@@ -22,13 +22,12 @@ import (
 // nothing beyond "staged".
 //
 // WHY ONLY STAGED ENTRIES. Staged work is what a resumed run is tempted to
-// `git reset` or `git stash` when the preflight's main-checkout assertion
-// refuses — the high-judgment surgery kan-437's run 2 performed inline
-// across three repos. Unstaged worktree modifications also refuse that
-// assertion, but they are not the reset/stash target class and naming them
-// "foreign staged work" would be false; they stay the preflight's own
-// finding to report. Untracked files are hidden from the status read
-// entirely, exactly as the preflight's assertion hides them.
+// `git reset` or `git stash` when a main checkout stands in its way — the
+// high-judgment surgery kan-437's run 2 performed inline across three repos.
+// Unstaged worktree modifications are not the reset/stash target class and
+// naming them "foreign staged work" would be false; they stay
+// check-main-checkout-drift's DRIFT-DIRTY finding. Untracked files are
+// hidden from the status read entirely.
 func init() { Registry["check-foreign-staged"] = checkForeignStaged }
 
 func checkForeignStaged(args []string, env Env, stdout, stderr io.Writer) int {

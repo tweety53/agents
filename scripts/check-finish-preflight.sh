@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # check-finish-preflight.sh — decide whether /flow should integrate
-# (run 1) or archive (run 2), or refuse because it cannot tell.
+# (run 1) or clean up (run 2), or refuse because it cannot tell.
 #
 # Usage: check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->
 #
 # Prints ONE verdict line to stdout:
 #   RUN1: <reason>    integrate — the branch has not reached the base branch
-#   RUN2: <reason>    archive   — the branch is merged and nothing is outstanding
+#   RUN2: <reason>    clean up  — the branch is merged and nothing is outstanding
 #   REFUSE: <reason>  stop and ask the operator
 #
 # Exit 0 whenever a verdict was reached; exit 2 when the tree cannot be read.
@@ -15,19 +15,15 @@
 # is the exact confusion this script exists to remove. Exit 2 keeps the
 # meaning this repository's other guards give it.
 #
-# THE MAIN-CHECKOUT ASSERTION (KAN-462 §4, design.md:
-# main-checkout-is-asserted-not-moved). A would-be RUN2 verdict is REFUSEd
-# instead when the main checkout — resolved from <worktree> via `git
-# rev-parse --git-common-dir`, never taken as an argument — is not on its
-# expected post-merge footing, the one run 2's closing refresh-main-checkout.sh
-# fast-forwards from: `REFUSE: main checkout <path> is on <branch>, not
-# <base>` when its current branch differs from <base-ref> with any `origin/`
-# prefix stripped; `REFUSE: main checkout <path> has tracked changes` when
-# `status --porcelain --untracked-files=no` is non-empty; `REFUSE: stray
-# worktree(s): …` when `check-worktree-location.sh <main-checkout>` exits 1,
-# relaying its STRAY lines. This check runs last, immediately before the
-# RUN2 line it can still turn into a REFUSE — it never affects a RUN1 or an
-# earlier REFUSE, since only run 2 ever touches the main checkout at all.
+# THE STRAY-WORKTREE ASSERTION. A would-be RUN2 verdict is REFUSEd instead
+# — `REFUSE: stray worktree(s): …` — when `check-worktree-location.sh
+# <main-checkout>` exits 1, relaying its STRAY lines; the main checkout is
+# resolved from <worktree> via `git rev-parse --git-common-dir`, never taken
+# as an argument. This check runs last, immediately before the RUN2 line it
+# can still turn into a REFUSE — it never affects a RUN1 or an earlier
+# REFUSE. The main checkout's own branch and tracked state are not asserted:
+# run 2 only fast-forwards it, refresh-main-checkout.sh refuses by name what
+# it cannot fast-forward, and that refusal never blocks FINISHED.
 #
 # WHY SIGNAL ORDER IS THE WHOLE FIX. A branch with no commits of its own is an
 # ancestor of EVERY branch, so `merge-base --is-ancestor` answers "merged" on a
@@ -56,10 +52,8 @@
 # than the raw argument, so each names the ref the test actually ran against.
 #
 # HOW TO HAND-VERIFY A REFUSE VERDICT (KAN-446). Re-derive the refused signal
-# by hand: which of the branch states, the main checkout's branch, its
-# tracked changes, or stray worktrees fired. A main checkout mid-rebase or
-# carrying an unrelated staged file is a typical structural cause — fix the
-# cause, never the verdict.
+# by hand: which of the branch states, the worktree's uncommitted entries, or
+# stray worktrees fired — fix the cause, never the verdict.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

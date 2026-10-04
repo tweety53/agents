@@ -113,9 +113,11 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		return 0
 	}
 
-	// (e) The main-checkout assertion — see "THE MAIN-CHECKOUT ASSERTION" in
-	//     the shim's header (KAN-462 §4, design.md
-	//     main-checkout-is-asserted-not-moved) for the REFUSE grammar below.
+	// (e) The stray-worktree assertion — see "THE STRAY-WORKTREE ASSERTION"
+	//     in the shim's header for the REFUSE grammar below. The main
+	//     checkout's branch and tracked state are not asserted: run 2 only
+	//     fast-forwards it, and refresh-main-checkout.sh refuses by name
+	//     whatever it cannot fast-forward.
 	common, ok := capture(git("-C", worktree, "rev-parse", "--git-common-dir"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve the main checkout from %s\n", worktree)
@@ -132,30 +134,6 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	if err != nil {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve the main checkout from %s\n", worktree)
 		return 2
-	}
-
-	strippedBase := strings.TrimPrefix(baseRef, "origin/")
-	branch, ok := capture(git("-C", mainCheckout, "branch", "--show-current"))
-	if !ok {
-		fmt.Fprintf(stderr, "check-finish-preflight: cannot read the current branch of the main checkout %s\n", mainCheckout)
-		return 2
-	}
-	if branch != strippedBase {
-		if branch == "" {
-			branch = "(detached HEAD)"
-		}
-		fmt.Fprintf(stdout, "REFUSE: main checkout %s is on %s, not %s\n", mainCheckout, branch, strippedBase)
-		return 0
-	}
-
-	mcStatus, ok := capture(git("-C", mainCheckout, "status", "--porcelain", "--untracked-files=no"))
-	if !ok {
-		fmt.Fprintf(stderr, "check-finish-preflight: cannot read the main checkout status in %s\n", mainCheckout)
-		return 2
-	}
-	if mcStatus != "" {
-		fmt.Fprintf(stdout, "REFUSE: main checkout %s has tracked changes\n", mainCheckout)
-		return 0
 	}
 
 	// check-worktree-location stays bash (design.md: exec-unported-siblings),

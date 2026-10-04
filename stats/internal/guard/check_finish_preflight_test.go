@@ -15,7 +15,7 @@ import (
 // repositories, built fresh per case: a linked worktree records absolute
 // paths, so it cannot be copied from a template. The guard runs in-process
 // with FLOW_GUARD_WORKTREE_LOCATION set as the shim exports it, so the
-// main-checkout assertion execs this checkout's real
+// stray-worktree assertion execs this checkout's real
 // scripts/check-worktree-location.sh —
 // except case 20, whose root carries a non-executable copy. The shared
 // plumbing (fxGit, stubGit, runGuard, the bm* checks) is
@@ -254,18 +254,14 @@ func TestCheckFinishPreflight(t *testing.T) {
 			{"usage message states the base-ref rule", func(r guardResult, _ *bmFx) bool {
 				return strings.Contains(r.err, "prefers refs/remotes/origin/<base-ref>")
 			}}}},
-		// 17-19: the main-checkout assertion (KAN-462 §4) turns a would-be RUN2
-		// into a REFUSE.
+		// 17-18: the main checkout's branch and tracked state are not
+		// asserted — run 2 only fast-forwards it — so neither turns a RUN2
+		// into a REFUSE. 19: a stray worktree still does.
 		{setup: func(fx *fpFx) { merged(fx); fx.g.git(fx.main, "checkout", "-q", "-b", "other") }, checks: []bmCheck{
-			bmPrefix("main checkout off base -> REFUSE", "REFUSE"),
-			{"main checkout off base: REFUSE names the branch found", func(r guardResult, _ *bmFx) bool {
-				i := strings.Index(r.out, "main checkout")
-				return i >= 0 && strings.Contains(r.out[i:], "other")
-			}},
-			bmRC("main checkout off base: exit 0 — the verdict carries the answer", 0)}},
+			bmPrefix("main checkout off base -> RUN2", "RUN2"),
+			bmRC("main checkout off base: exit 0", 0)}},
 		{setup: func(fx *fpFx) { merged(fx); fx.g.appendLine(fx.main+"/file.txt", "dirty") }, checks: []bmCheck{
-			bmPrefix("main checkout has tracked changes -> REFUSE", "REFUSE"),
-			bmHas("main checkout tracked changes: REFUSE names the reason", "tracked changes")}},
+			bmPrefix("main checkout has tracked changes -> RUN2", "RUN2")}},
 		{setup: func(fx *fpFx) {
 			merged(fx)
 			fx.g.git(fx.main, "worktree", "add", "-q", "--detach", fpStray(fx.dir), "main")
@@ -411,9 +407,9 @@ func TestCheckFinishPreflight(t *testing.T) {
 			fx.g.write(fx.repo+"/two.txt", "dirty")
 			return fx.dir, []string{fx.repo, "main", fx.recorded}
 		}},
-		{"port: the main checkout is named by its physical path, as pwd -P gave it", func(fx *fpFx) (string, []string) {
+		{"port: the main checkout is resolved to its physical path, as pwd -P gave it", func(fx *fpFx) (string, []string) {
 			merged(fx)
-			fx.g.git(fx.main, "checkout", "-q", "-b", "other")
+			fx.g.git(fx.main, "worktree", "add", "-q", "--detach", fpStray(fx.dir), "main")
 			// Only a relative --git-common-dir (the main checkout's own `.git`)
 			// leaves the physical path to pwd -P; git prints a linked
 			// worktree's already resolved.
