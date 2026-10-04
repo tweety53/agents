@@ -50,6 +50,30 @@ var ErrFindingLinkInvalid = errors.New("store: finding lineage link is invalid")
 // can land one.
 var ErrCategoryNotDeferred = errors.New("store: deferral category is deferred-only")
 
+// ErrWithdrawnReasonMissing is returned by SetFindingStatus and
+// UpsertFinding when a status is the bare word `withdrawn` -- no reason
+// after it, or only whitespace (KAN-791). A finding leaves the board only
+// into `fixed` or `withdrawn <reason>`, and a reasonless withdrawal is the
+// silent drop the contract forbids: the CLI's validateFindingStatus refuses
+// the same shape, but an HTTP write and a journalled replay land here, not
+// in the validator, so the store refuses it too rather than storing a
+// status the next pass cannot audit. The reason rides inside the status
+// text itself -- no new column -- exactly as the CLI judges it.
+var ErrWithdrawnReasonMissing = errors.New("store: withdrawn status carries no reason")
+
+// withdrawnWithoutReason reports whether status is the bare word
+// `withdrawn` -- a prefix match whose remainder, whitespace-trimmed, is
+// empty. A value like `withdrawnfoo` carries text and stays the CLI's
+// spacing rule to refuse; the store's line is the missing reason, and the
+// guards' open-finding predicates draw it in the same place (KAN-791).
+func withdrawnWithoutReason(status string) bool {
+	rest, ok := strings.CutPrefix(status, "withdrawn")
+	if !ok {
+		return false
+	}
+	return strings.TrimSpace(rest) == ""
+}
+
 // ErrFindingPatternInvalid is returned by UpsertFinding when a finding's
 // pattern names nothing: a value that normalizes to the empty string --
 // punctuation, separators only -- would label an occurrence the registry's
@@ -568,6 +592,13 @@ func severityIsMinor(severity string) bool {
 // the column NULL: a finding no single dispatch raised is a legitimate
 // case, and this column records the raising slot where it is known rather
 // than refusing the finding where it is not.
+//
+// A status that is the bare word `withdrawn` is refused with
+// ErrWithdrawnReasonMissing before the statement runs (KAN-791), the same
+// before-the-statement posture the category rule above takes: a
+// reasonless withdrawal is the silent drop the finding-status contract
+// forbids, and the raise path must no more land one than the update path
+// may rewrite into one.
 func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in records.Finding) (records.Finding, bool, error) {
 	var (
 		out         records.Finding
@@ -591,6 +622,9 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 	// called deferred.
 	if strings.HasPrefix(in.Status, "deferred") && !severityIsMinor(in.Severity) {
 		return records.Finding{}, false, fmt.Errorf("%w: %s in %s/%s has severity %s, not Minor", ErrDeferredNotMinor, in.Ref, projectKey, change, in.Severity)
+	}
+	if withdrawnWithoutReason(in.Status) {
+		return records.Finding{}, false, fmt.Errorf("%w: %s in %s/%s", ErrWithdrawnReasonMissing, in.Ref, projectKey, change)
 	}
 
 	err := s.pool.QueryRow(ctx, `
@@ -738,11 +772,22 @@ func normalizePattern(s string) string {
 // SELECT distinguishes the two: a row found is ErrDeferredNotMinor, no row
 // is ErrFindingNotFound, the same sentinel every other status's zero-row
 // case already returns.
+// A status that is the bare word `withdrawn` is refused with
+// ErrWithdrawnReasonMissing before the statement runs (KAN-791): a
+// reasonless withdrawal is the silent drop the finding-status contract
+// forbids, and this function -- not the CLI's validator -- is the last
+// gate an HTTP write or a replayed journal entry crosses, so the store
+// refuses the shape too rather than storing a status the next pass cannot
+// audit.
 func (s *Store) SetFindingStatus(ctx context.Context, projectKey, change, ref, status, category string) error {
 	deferred := strings.HasPrefix(status, "deferred")
 
 	if category != "" && !deferred {
 		return fmt.Errorf("%w: %s in %s/%s", ErrCategoryNotDeferred, ref, projectKey, change)
+	}
+
+	if withdrawnWithoutReason(status) {
+		return fmt.Errorf("%w: %s in %s/%s", ErrWithdrawnReasonMissing, ref, projectKey, change)
 	}
 
 	query := `

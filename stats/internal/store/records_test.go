@@ -613,6 +613,70 @@ func TestSetFindingStatusDeferredAcceptsLowercaseMinor(t *testing.T) {
 	}
 }
 
+// TestWithdrawnStatusCarriesAReason pins the withdrawal half of the
+// finding-status contract (KAN-791): a finding leaves the board only into
+// `fixed` or `withdrawn <reason>`, so a bare `withdrawn` -- the word with
+// no reason after it, or only whitespace -- names nothing a reader could
+// act on and is refused by both write paths, the CLI's validateFindingStatus
+// mirrored where the CLI cannot reach: an HTTP write and a journalled
+// replay land here, not in the validator. A reasoned withdrawal succeeds on
+// both paths, so the refusal is about the missing reason and nothing else.
+func TestWithdrawnStatusCarriesAReason(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-withdrawn-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	open := baseFinding("F1", 0)
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", open); err != nil {
+		t.Fatalf("UpsertFinding F1: %v", err)
+	}
+
+	for _, status := range []string{"withdrawn", "withdrawn   "} {
+		err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", status, "")
+		if !errors.Is(err, store.ErrWithdrawnReasonMissing) {
+			t.Errorf("SetFindingStatus(%q) = %v, want ErrWithdrawnReasonMissing", status, err)
+		}
+	}
+	// The refusal must leave no rewrite behind -- the same
+	// no-row-after-refusal rule TestUpsertFindingDeferredMinorOnly's F9
+	// mutation fix states for the deferred path.
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord after the refused withdrawals: %v", err)
+	}
+	for _, f := range rec.Findings {
+		if f.Ref == "F1" && f.Status != "open" {
+			t.Errorf("F1 status = %q after a refused bare withdrawal, want unchanged (open)", f.Status)
+		}
+	}
+
+	bare := baseFinding("F2", 0)
+	bare.Status = "withdrawn"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", bare); !errors.Is(err, store.ErrWithdrawnReasonMissing) {
+		t.Errorf("UpsertFinding with a bare withdrawn status: err = %v, want ErrWithdrawnReasonMissing", err)
+	}
+	var landed int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM findings f JOIN changes c ON c.id = f.change_id WHERE c.project_key = $1 AND f.ref = $2",
+		projectKey, "F2",
+	).Scan(&landed); err != nil {
+		t.Fatalf("count findings after the refused raise: %v", err)
+	}
+	if landed != 0 {
+		t.Fatalf("findings rows for the refused ref = %d, want 0 -- the refusal must leave nothing behind", landed)
+	}
+
+	if err := st.SetFindingStatus(ctx, projectKey, "kan-1", "F1", "withdrawn the fix is deliberately elsewhere", ""); err != nil {
+		t.Errorf("SetFindingStatus with a reasoned withdrawal: %v", err)
+	}
+	reasoned := baseFinding("F3", 0)
+	reasoned.Status = "withdrawn the defect was a missing test, not source"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", reasoned); err != nil {
+		t.Errorf("UpsertFinding with a reasoned withdrawal: %v", err)
+	}
+}
+
 // TestMergeDispatchMetricsDeepMerges pins that a dispatch's metrics bag is
 // merged recursively, not concatenated: a top-level `||` loses "input"
 // here, which is exactly the defect jsonb_deep_merge already exists to
