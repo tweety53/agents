@@ -1,25 +1,60 @@
 import { atom, read, update } from 'claude-code'
-import type { Register } from 'claude-code'
+import type { Register, Timer } from 'claude-code'
 
-import type { Flow, Main, Phase, Row, RowState } from '../types'
+import type { Flow, Main, Phase, Row, RowState, StatusLine } from '../types'
 
 const rows = atom({ plugin: 'subagent-board', key: 'rows' } as const, [] as Row[])
 const runs = atom({ plugin: 'subagent-board', key: 'runs' } as const, {} as Record<string, string>)
 const NO_FLOW: Flow = { phase: null, change: null, ticket: null, stage: null }
 const flow = atom({ plugin: 'subagent-board', key: 'flow' } as const, NO_FLOW)
 const main = atom({ plugin: 'subagent-board', key: 'main' } as const, null as Main | null)
+const lines = atom({ plugin: 'subagent-board', key: 'lines' } as const, {} as Record<string, StatusLine>)
 
 const MAX_ROWS = 5
 
-const EMOJI: Record<RowState, string> = { 'in progress': '🔄', done: '✅', blocked: '⛔', pending: '⏳' }
+const EMOJI: Record<RowState, string> = { 'in progress': '🔄', 'in review': '🔍', done: '✅', blocked: '⛔', pending: '⏳' }
 // The task-list look: its marker and colour per state; `claude` is the theme's accent (orange). A pending
 // marker keeps the text's own colour.
-const MARK: Record<RowState, string> = { 'in progress': '◼', done: '✔', blocked: '✘', pending: '◻' }
-const MARK_COLOR: Record<RowState, string | undefined> = { 'in progress': 'claude', done: 'success', blocked: 'error', pending: undefined }
+const MARK: Record<RowState, string> = { 'in progress': '◼', 'in review': '◼', done: '✔', blocked: '✘', pending: '◻' }
+const MARK_COLOR: Record<RowState, string | undefined> = {
+  'in progress': 'claude',
+  'in review': 'claude',
+  done: 'success',
+  blocked: 'error',
+  pending: undefined,
+}
 
 // A description that already carries its plan numbering keeps it: one task, "Task 3/22 (spec text)",
-// or a /flow task group, "Tasks 3+4+7/22 (port guards)" (skills/flow/implement.md, **Dispatch sites**).
-const NUMBERED = /^(Tasks? \d+(?:\+\d+)*\/\d+)\s*/
+// or a /flow task group, "Tasks 3+4+7/22 (port guards)" (skills/flow/implement.md, **Dispatch sites**), or a
+// status line's range, "Tasks 23–25/25 (e2e)".
+const NUMBERED = /^(Tasks? \d+(?:[+–-]\d+)*\/\d+)\s*/
+
+// The plan task numbers a "Task(s) …/n" prefix names: "Tasks 3+4/22" → 3, 4; "Tasks 23–25/25" → 23, 24, 25.
+export const taskNums = (text: string): number[] =>
+  (NUMBERED.exec(text)?.[1]?.match(/\d+(?:[–-]\d+)?(?=[+/])/g) ?? []).flatMap(p => {
+    const [a = 0, b = a] = p.split(/[–-]/).map(Number)
+    return Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i)
+  })
+
+// "4m12s": a row's elapsed time; "1.2M tok": its tokens.
+const clockText = (ms: number): string => {
+  const s = Math.floor(ms / 1000)
+  const m = Math.floor(s / 60)
+  const pad = (k: number) => String(k).padStart(2, '0')
+  return s < 60 ? `${s}s` : m < 60 ? `${m}m${pad(s % 60)}s` : `${Math.floor(m / 60)}h${pad(m % 60)}m`
+}
+const tokText = (n: number): string =>
+  `${n < 1e3 ? n : n < 1e6 ? `${(n / 1e3).toFixed(1)}k` : `${(n / 1e6).toFixed(1)}M`} tok`
+
+// " · 4m12s · 1.2M tok" for a subagent row: elapsed until `now` while it runs, frozen at its end; empty for the
+// rows no spawn started (main, pending, status lines), and tokens only once a response has reported them.
+const stats = (row: Row, now: number): string =>
+  row.start === undefined
+    ? ''
+    : [clockText((row.end ?? now) - row.start), row.tokens ? tokText(row.tokens) : '']
+        .filter(Boolean)
+        .map(x => ` · ${x}`)
+        .join('')
 
 // What a running row is doing, read from its description, and the state word it shows; first match
 // wins, so a panel fix is a fix. Each word is matched from its start, so "prefix", "preview" or
@@ -44,25 +79,43 @@ export const look = (row: Row): { emoji: string; word: string; mark: string; col
 }
 
 // One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, and `run`
-// is padded to `width` so the marker column lines up. The main agent's row, n 0, is "main", never a task.
-export const parts = (row: Row, total: number, run = '', width = 0, first = true) => {
-  const m = NUMBERED.exec(row.desc)
+// is padded to `width` so the marker column lines up. The main agent's row, n 0, is "main", never a task;
+// a status-line row shows its unit as written.
+export const parts = (row: Row, total: number, run = '', width = 0, first = true, now = 0) => {
+  const m = row.unit === undefined ? NUMBERED.exec(row.desc) : null
   const desc = m ? row.desc.slice(m[0].length).replace(/^\((.*)\)$/, '$1') : row.desc
   const l = look(row)
   return {
     lead: first ? '⎿ ' : '  ',
     run: run.padEnd(width),
     mark: l.mark,
-    unit: m?.[1] ?? (row.n === 0 ? 'main' : `Task ${row.n}/${total}`),
+    unit: row.unit ?? m?.[1] ?? (row.n === 0 ? 'main' : `Task ${row.n}/${total}`),
     desc: desc ? ` (${desc})` : '',
     state: l.word,
     color: l.color,
+    stats: stats(row, now),
   }
 }
 
-export const line = (row: Row, total: number, run = '', width = 0, first = true): string => {
-  const p = parts(row, total, run, width, first)
-  return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}`
+export const line = (row: Row, total: number, run = '', width = 0, first = true, now = 0): string => {
+  const p = parts(row, total, run, width, first, now)
+  return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}${p.stats}`
+}
+
+// A be-brief status line, "<emoji> <unit> — <state>" (rules/be-brief.mdc), alone on its line.
+const STATUS = /^[✅🔄🔍⏳⛔]\uFE0F? (.+?) — (done|in progress|in review|pending|blocked)$/gmu
+
+// Each status line of a response, in order, as its unit and state.
+export const statusLines = (text: string): [string, RowState][] =>
+  [...text.matchAll(STATUS)].map(([, unit = '', state]) => [unit, state as RowState])
+
+// The main loop's open status lines as rows, after the subagent rows; a unit whose task numbers a subagent row
+// already names is left to that row.
+export const lineRows = (ls: Record<string, StatusLine>, subs: Row[]): Row[] => {
+  const taken = new Set(subs.flatMap(r => taskNums(r.desc)))
+  return Object.entries(ls)
+    .filter(([, l]) => !taskNums(l.unit).some(k => taken.has(k)))
+    .map(([key, l]) => ({ id: `line:${key}`, n: 0, desc: '', unit: l.unit, state: l.state }))
 }
 
 // A plan's column-0 task line, "- [ ] 23. Title" or "- [x] 23. Title"; its step checkboxes are indented.
@@ -72,9 +125,9 @@ const TASK = /^- \[([ x])\] (\d+)\. (.*)$/gm
 // running /flow change has not dispatched yet, derived from its tasks.md on every draw.
 export const pendingRows = (tasksMd: string, rs: Row[]): Row[] => {
   const tasks = [...tasksMd.matchAll(TASK)]
-  const taken = new Set(rs.flatMap(r => NUMBERED.exec(r.desc)?.[1]?.match(/\d+(?=[+/])/g) ?? []))
+  const taken = new Set(rs.flatMap(r => taskNums(r.unit ?? r.desc)))
   return tasks
-    .filter(([, box, n = '']) => box === ' ' && !taken.has(n))
+    .filter(([, box, n = '']) => box === ' ' && !taken.has(Number(n)))
     .map(([, , n = '', title = '']) => ({ id: `pending-${n}`, n: Number(n), desc: `Task ${n}/${tasks.length} (${title})`, state: 'pending' }))
 }
 
@@ -163,13 +216,17 @@ export const hintTail = (f: Flow, t: string): string | undefined => {
 }
 
 export const register: Register = on => {
+  // Redraws the band each second while a subagent row runs, so its elapsed time ticks.
+  let tick: Timer | undefined
+
   on('agent.spawn', async ($, e, next) => {
     const result = await next(e)
     const id = result.deny === undefined ? result.agentId : undefined
     if (id) {
+      const start = await $.clock.now()
       const kept = await update($, rows, (rs): Row[] => {
         const n = (rs.at(-1)?.n ?? 0) + 1
-        return trim([...rs, { id, n, desc: e.description, state: 'in progress' }])
+        return trim([...rs, { id, n, desc: e.description, state: 'in progress', start }])
       })
       // Drop the labels of rows trimmed away; keep the new agent's, which its first step may have set already.
       await update($, runs, rs => Object.fromEntries(Object.entries(rs).filter(([k]) => kept.some(r => r.id === k))))
@@ -180,6 +237,8 @@ export const register: Register = on => {
   // A subagent's first model request names the model and effort it actually runs on. A main-loop step
   // means the main turn runs: its first starts the main row afresh, and any later step starts it when it is
   // missing, as when the plugin loads mid-turn or a main-loop step arrives after the main turn.complete.
+  // A subagent's response sets its row's tokens to what that response carried, as Claude Code's own agent
+  // count does: the latest, never a sum. A main-loop response's status lines update `lines`.
   on('turn.step', async function* ($, e, next) {
     const id = e.agentId
     const label = runLabel(e.model, e.effort)
@@ -188,14 +247,34 @@ export const register: Register = on => {
     } else if (!id && (e.index === 0 || !(await read($, main)))) {
       await update($, main, () => ({ desc: '', run: label }))
     }
-    return yield* next(e)
+    const result = yield* next(e)
+    const u = result.usage
+    if (id && u) {
+      const tokens = u.input_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens + u.output_tokens
+      await update($, rows, rs => rs.map(r => (r.id === id ? { ...r, tokens } : r)))
+    }
+    const said = id ? [] : statusLines(result.answer)
+    if (said.length) {
+      // ponytail: a unit whose done line never comes stays until the session ends; it shows only while the band does.
+      await update($, lines, ls => {
+        const out = { ...ls }
+        for (const [unit, state] of said) {
+          const key = unit.replace(/\s*\(.*\)$/, '')
+          if (state === 'done') delete out[key]
+          else out[key] = { unit, state }
+        }
+        return out
+      })
+    }
+    return result
   })
 
   on('turn.complete', async ($, e, next) => {
     const id = e.agentId
     if (id) {
       const state: RowState = e.reason === 'answer' ? 'done' : 'blocked'
-      await update($, rows, rs => rs.map(r => (r.id === id ? { ...r, state } : r)))
+      const end = await $.clock.now()
+      await update($, rows, rs => rs.map(r => (r.id === id ? { ...r, state, end } : r)))
     } else {
       await update($, main, () => null)
     }
@@ -231,6 +310,13 @@ export const register: Register = on => {
     // The main agent's row, first and only while its turn runs; it stays out of rows, so trim and the
     // task numbering never see it.
     const rs: Row[] = m ? [{ id: 'main', n: 0, desc: m.desc, state: 'in progress' }, ...subs] : subs
+    const ticking = subs.some(r => r.state === 'in progress')
+    if (ticking && !tick) {
+      tick = $.clock.every(1000, () => $.ui.invalidate('ui.render'))
+    } else if (!ticking && tick) {
+      tick.cancel()
+      tick = undefined
+    }
     // Shown while the main turn or a subagent runs; once all have finished the band hides and the hint line's tally stays.
     if (e.props.hasSurvey || !rs.some(r => r.state === 'in progress')) {
       return next(e)
@@ -241,17 +327,23 @@ export const register: Register = on => {
     const plan = change
       ? await $.fs.read(`.worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '')
       : ''
-    // The main row plus at most MAX_ROWS others: the board's rows first, then the earliest pending ones;
-    // past MAX_ROWS running rows, only the earliest show, while the hint line's tally still counts them all.
-    const all = [...rs.filter(r => r.n === 0), ...[...subs, ...pendingRows(plan, subs)].slice(0, MAX_ROWS)]
+    // The main row plus at most MAX_ROWS others: the board's rows first, then the main loop's open status lines,
+    // then the earliest pending tasks no row above names; past MAX_ROWS running rows, only the earliest show,
+    // while the hint line's tally still counts them all.
+    const said = lineRows(await read($, lines), subs)
+    const all = [
+      ...rs.filter(r => r.id === 'main'),
+      ...[...subs, ...said, ...pendingRows(plan, [...subs, ...said])].slice(0, MAX_ROWS),
+    ]
     const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
     const width = Math.max(0, ...all.map(r => labels[r.id]?.length ?? 0))
     const total = subs.at(-1)?.n ?? 0
+    const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
         {all.map((r, i) => {
-          const p = parts(r, total, labels[r.id], width, i === 0)
+          const p = parts(r, total, labels[r.id], width, i === 0, now)
           const isDone = r.state === 'done'
           return (
             <Text key={r.id}>
@@ -260,6 +352,7 @@ export const register: Register = on => {
               <Text bold={r.state === 'in progress'} dimColor={isDone} strikethrough={isDone}>{`${p.unit}${p.desc}`}</Text>
               <Text dimColor>{' — '}</Text>
               <Text color={r.state === 'blocked' ? p.color : undefined} dimColor={isDone}>{p.state}</Text>
+              <Text dimColor>{p.stats}</Text>
             </Text>
           )
         })}

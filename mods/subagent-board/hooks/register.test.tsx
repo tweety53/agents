@@ -1,6 +1,6 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
-import { flowAfter, hintTail, line, pendingRows, runLabel, tally, trim } from './register'
+import { flowAfter, hintTail, line, lineRows, pendingRows, runLabel, statusLines, tally, trim } from './register'
 
 const BAND = {
   plugin: 'subagent-board',
@@ -45,6 +45,7 @@ test('trim never drops a running row', () => {
 })
 
 test('finished rows stay across prompts; past five the oldest finished goes', async ($, on) => {
+  mock.clock(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('turn.complete', () => ({ text: '' }))
@@ -74,9 +75,9 @@ test('finished rows stay across prompts; past five the oldest finished goes', as
 
   for (const surface of ['terminal', 'desktop'] as const) {
     expect(await shown(surface)).toEqual([
-      '⎿ ✔ Task 1/3 (Explore auth) — done',
-      '  ◼ Task 2/3 (Read diff) — in progress',
-      '  ✘ Task 3/3 (Run tests) — blocked',
+      '⎿ ✔ Task 1/3 (Explore auth) — done · 0s',
+      '  ◼ Task 2/3 (Read diff) — in progress · 0s',
+      '  ✘ Task 3/3 (Run tests) — blocked · 0s',
     ])
   }
 
@@ -84,11 +85,11 @@ test('finished rows stay across prompts; past five the oldest finished goes', as
   await $.agent.spawn(spawn('Five'))
   await $.agent.spawn(spawn('Six'))
   expect(await shown('terminal')).toEqual([
-    '⎿ ◼ Task 2/6 (Read diff) — in progress',
-    '  ✘ Task 3/6 (Run tests) — blocked',
-    '  ◼ Task 4/6 (Four) — in progress',
-    '  ◼ Task 5/6 (Five) — in progress',
-    '  ◼ Task 6/6 (Six) — in progress',
+    '⎿ ◼ Task 2/6 (Read diff) — in progress · 0s',
+    '  ✘ Task 3/6 (Run tests) — blocked · 0s',
+    '  ◼ Task 4/6 (Four) — in progress · 0s',
+    '  ◼ Task 5/6 (Five) — in progress · 0s',
+    '  ◼ Task 6/6 (Six) — in progress · 0s',
   ])
 })
 
@@ -98,6 +99,7 @@ test('tally counts rows by state, leaving zeros out', () => {
 })
 
 test('hint line gets the tally as its tail once a subagent exists', async ($, on) => {
+  mock.clock(on)
   const tails: (string | undefined)[] = []
   on('agent.spawn', () => ({ model: 'opus', agentId: 'ag1' }))
   on('ui.render', (r, e) => {
@@ -187,6 +189,7 @@ test('a running row shows its kind as its state word; a finished one its state',
 })
 
 test('rows carry their run label; the band hides once all finish; ticket and phase reach the hint', async ($, on) => {
+  mock.clock(on)
   on('agent.spawn', () => ({ model: 'claude-opus-5-5', agentId: 'ag1' }))
   on('turn.complete', () => ({ text: '' }))
   on('turn.step', async function* (_$, e) {
@@ -214,7 +217,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
   for await (const _ of step) {
     // drain
   }
-  expect(await shown()).toEqual(['⎿ opus-high ◼ Task 2/7 (wire band) — in progress'])
+  expect(await shown()).toEqual(['⎿ opus-high ◼ Task 2/7 (wire band) — in progress · 0s'])
 
   await $.turn.complete(complete('ag1', 'answer'))
   expect(await shown()).toEqual([])
@@ -223,6 +226,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
 })
 
 test('a denied Bash call leaves the flow state as it was', async ($, on) => {
+  mock.clock(on)
   on('tool.call', () => ({ deny: 'no' }))
   const tails: (string | undefined)[] = []
   on('ui.render', (r, e) => {
@@ -236,6 +240,7 @@ test('a denied Bash call leaves the flow state as it was', async ($, on) => {
 })
 
 test('rows take the task-list styles: a done row green-ticked, dim and struck; a running row bold', async ($, on) => {
+  mock.clock(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('turn.complete', () => ({ text: '' }))
@@ -262,6 +267,7 @@ test('rows take the task-list styles: a done row green-ticked, dim and struck; a
 })
 
 test("the main agent's running turn is a row of its own, outside the task numbering", async ($, on) => {
+  mock.clock(on)
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
   on('turn.complete', () => ({ text: '' }))
   on('turn.step', async function* (_$, e) {
@@ -298,16 +304,17 @@ test("the main agent's running turn is a row of its own, outside the task number
   await $.tool.call(sub)
   expect(await shown()).toEqual([
     '⎿ opus-high ◼ main (Run guard tests) — verify',
-    '  sonnet    ◼ Task 1/1 (Explore auth) — in progress',
+    '  sonnet    ◼ Task 1/1 (Explore auth) — in progress · 0s',
   ])
 
   await $.turn.complete({ ...complete('ag1', 'answer'), agentId: undefined })
-  expect(await shown()).toEqual(['⎿ sonnet ◼ Task 1/1 (Explore auth) — in progress'])
+  expect(await shown()).toEqual(['⎿ sonnet ◼ Task 1/1 (Explore auth) — in progress · 0s'])
   await $.turn.complete(complete('ag1', 'answer'))
   expect(await shown()).toEqual([])
 })
 
 test("the main row names a Bash command's description while the command runs", async ($, on) => {
+  mock.clock(on)
   let release = () => {}
   const gate = new Promise<void>(resolve => {
     release = resolve
@@ -360,6 +367,7 @@ test('pendingRows lists the unticked plan tasks no row has taken', () => {
 })
 
 test("the running /flow change's pending tasks follow the dispatched rows", async ($, on) => {
+  mock.clock(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('tool.call', () => ({ result: '' }))
@@ -381,22 +389,23 @@ test("the running /flow change's pending tasks follow the dispatched rows", asyn
   }
 
   await $.agent.spawn(spawn('Explore auth'))
-  expect(await shown()).toEqual(['⎿ ◼ Task 1/1 (Explore auth) — in progress'])
+  expect(await shown()).toEqual(['⎿ ◼ Task 1/1 (Explore auth) — in progress · 0s'])
   expect(reads).toEqual([])
 
   await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
   await $.agent.spawn(spawn('Task 20/25 (Step 20)'))
   await $.agent.spawn(spawn('Tasks 21+22/25 (pair)'))
   expect(await shown()).toEqual([
-    '⎿ ◼ Task 1/3 (Explore auth) — in progress',
-    '  ◼ Task 20/25 (Step 20) — in progress',
-    '  ◼ Tasks 21+22/25 (pair) — in progress',
+    '⎿ ◼ Task 1/3 (Explore auth) — in progress · 0s',
+    '  ◼ Task 20/25 (Step 20) — in progress · 0s',
+    '  ◼ Tasks 21+22/25 (pair) — in progress · 0s',
     '  ◻ Task 23/25 (Step 23) — pending',
     '  ◻ Task 24/25 (Step 24) — pending',
   ])
 })
 
 test('the band draws at most main plus five rows: dispatched rows first, then the earliest pending', async ($, on) => {
+  mock.clock(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('turn.step', async function* (_$, e) {
@@ -424,9 +433,9 @@ test('the band draws at most main plus five rows: dispatched rows first, then th
   await $.agent.spawn(spawn('Task 3/25 (Step 3)'))
   expect(await shown()).toEqual([
     '⎿ opus ◼ main — in progress',
-    '       ◼ Task 1/25 (Step 1) — in progress',
-    '       ◼ Task 2/25 (Step 2) — in progress',
-    '       ◼ Task 3/25 (Step 3) — in progress',
+    '       ◼ Task 1/25 (Step 1) — in progress · 0s',
+    '       ◼ Task 2/25 (Step 2) — in progress · 0s',
+    '       ◼ Task 3/25 (Step 3) — in progress · 0s',
     '       ◻ Task 4/25 (Step 4) — pending',
     '       ◻ Task 5/25 (Step 5) — pending',
   ])
@@ -434,6 +443,140 @@ test('the band draws at most main plus five rows: dispatched rows first, then th
   for (const k of [4, 5, 6, 7]) await $.agent.spawn(spawn(`Task ${k}/25 (Step ${k})`))
   expect(await shown()).toEqual([
     '⎿ opus ◼ main — in progress',
-    ...[1, 2, 3, 4, 5].map(k => `       ◼ Task ${k}/25 (Step ${k}) — in progress`),
+    ...[1, 2, 3, 4, 5].map(k => `       ◼ Task ${k}/25 (Step ${k}) — in progress · 0s`),
+  ])
+})
+
+test("a subagent row's elapsed time and tokens follow its state", () => {
+  const row = { id: 'a', n: 3, desc: 'Task 3/8 (desc)', state: 'in progress', start: 1000 } as const
+  expect(line(row, 8, 'opus-medium', 11, true, 1000 + 252_000)).toBe('⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s')
+  expect(line({ ...row, tokens: 1_234_567 }, 8, '', 0, true, 1000 + 7_000)).toBe('⎿ ◼ Task 3/8 (desc) — in progress · 7s · 1.2M tok')
+  expect(line({ ...row, state: 'done', end: 1000 + 3_600_000 + 65_000, tokens: 45_200 }, 8, '', 0, true, 9e9)).toBe('⎿ ✔ Task 3/8 (desc) — done · 1h01m · 45.2k tok')
+  expect(line({ ...row, tokens: 850 }, 8, '', 0, true, 1000)).toBe('⎿ ◼ Task 3/8 (desc) — in progress · 0s · 850 tok')
+  expect(line({ id: 'p', n: 4, desc: 'Task 4/8 (later)', state: 'pending' }, 8, '', 0, true, 5000)).toBe('⎿ ◻ Task 4/8 (later) — pending')
+})
+
+test('a running row ticks and takes its latest response tokens; a finished row freezes', async ($, on) => {
+  const clock = mock.clock(on)
+  let n = 0
+  on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
+  on('turn.complete', () => ({ text: '' }))
+  const usage = (input: number, output: number) => ({ model: 'claude-opus-5-5', input_tokens: input, output_tokens: output, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 100_000 })
+  let next = usage(0, 0)
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: next }
+  })
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  const step = async (index: number) => {
+    for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1, agentId: 'ag1' })) {
+      // drain
+    }
+  }
+  const rows = async (ui: { findAll: (q: { type: 'Text' }) => Promise<{ text: string }[]> }) =>
+    (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
+
+  await $.agent.spawn(spawn('Task 3/8 (desc)'))
+  next = usage(50_000, 2_000)
+  await step(0)
+  next = usage(130_000, 3_000)
+  await step(1)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 0s · 1.2M tok'])
+  await clock.advance(252_000)
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s · 1.2M tok'])
+  await ui.unmount()
+
+  await $.agent.spawn(spawn('Task 4/8 (other)'))
+  await $.turn.complete(complete('ag1', 'answer'))
+  await clock.advance(60_000)
+  const after = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await rows(after))[0]).toBe('⎿ opus-medium ✔ Task 3/8 (desc) — done · 4m12s · 1.2M tok')
+  await after.unmount()
+})
+
+test('statusLines reads the be-brief status lines and nothing else', () => {
+  const text = [
+    'Some prose — not a line.',
+    '⏳ Full backend test suite — pending',
+    '🔄 Tasks 23–25/25 (e2e, fidelity, live) — in progress',
+    '🔍 Review panel (primary + principles) — in review',
+    '⛔ Task 4/8 (port) — blocked',
+    '✅ Task 22/22 (spec text) — done',
+    '🔄 Task 5/8 — fixing',
+  ].join('\n')
+  expect(statusLines(text)).toEqual([
+    ['Full backend test suite', 'pending'],
+    ['Tasks 23–25/25 (e2e, fidelity, live)', 'in progress'],
+    ['Review panel (primary + principles)', 'in review'],
+    ['Task 4/8 (port)', 'blocked'],
+    ['Task 22/22 (spec text)', 'done'],
+  ])
+})
+
+test('lineRows leaves out a unit a subagent row already numbers', () => {
+  const lines = {
+    'Full backend test suite': { unit: 'Full backend test suite', state: 'pending' },
+    'Tasks 23–25/25': { unit: 'Tasks 23–25/25 (e2e, fidelity, live)', state: 'in progress' },
+    'Task 3/25': { unit: 'Task 3/25 (port)', state: 'in progress' },
+  } as const
+  const subs = [{ id: 'a', n: 1, desc: 'Tasks 2+3/25 (pair)', state: 'in progress' }] as const
+  expect(lineRows(lines, [...subs]).map(r => line(r, 1, '', 0, false))).toEqual([
+    '  ◻ Full backend test suite — pending',
+    '  ◼ Tasks 23–25/25 (e2e, fidelity, live) — in progress',
+  ])
+})
+
+test("the main loop's status lines are rows: latest line per unit, done drops off, no unit twice", async ($, on) => {
+  mock.clock(on)
+  let n = 0
+  on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', () => ({ value: PLAN }))
+  let answer = ''
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  const say = async (text: string, agentId?: string) => {
+    answer = text
+    for await (const _ of $.turn.step({ turnId: 't1', index: 1, model: 'claude-opus-5-5', messageCount: 1, agentId })) {
+      // drain
+    }
+  }
+  const shown = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2}) *\S.* — \S/.test(t.text)).map(t => t.text)
+    await ui.unmount()
+    return texts
+  }
+
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
+  await $.agent.spawn(spawn('Task 20/25 (Step 20)'))
+  await say('⏳ Full backend test suite — pending\n🔄 Task 20/25 (Step 20) — in progress\n🔄 Tasks 21–22/25 (pair) — in progress')
+  // A subagent's own status lines are its own business.
+  await say('⏳ Subagent unit — pending', 'ag1')
+  expect(await shown()).toEqual([
+    '⎿ opus ◼ main — in progress',
+    '       ◼ Task 20/25 (Step 20) — in progress · 0s',
+    '       ◻ Full backend test suite — pending',
+    '       ◼ Tasks 21–22/25 (pair) — in progress',
+    '       ◻ Task 23/25 (Step 23) — pending',
+    '       ◻ Task 24/25 (Step 24) — pending',
+  ])
+
+  await say('🔄 Full backend test suite (gradle) — in progress\n✅ Tasks 21–22/25 (pair) — done')
+  expect(await shown()).toEqual([
+    '⎿ opus ◼ main — in progress',
+    '       ◼ Task 20/25 (Step 20) — in progress · 0s',
+    '       ◼ Full backend test suite (gradle) — in progress',
+    '       ◻ Task 21/25 (Step 21) — pending',
+    '       ◻ Task 22/25 (Step 22) — pending',
+    '       ◻ Task 23/25 (Step 23) — pending',
   ])
 })

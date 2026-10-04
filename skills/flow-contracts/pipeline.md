@@ -203,11 +203,14 @@ key where the change name leads with one, the phase, and the running stage's emo
 — read from the run's own `flow stage` marks (**Stage marks**, below) — followed by a tally of those
 rows by emoji. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
 shows on the main agent's own `main` row, first on the band while the main turn runs, labelled with its
-latest Bash command's description, if any, and never numbered as a task. After the subagent rows,
-the band lists each task of the running change's plan that is still unticked and named by no row's
-`Task <x>/<n>` prefix as a `pending` row, read from the change's `tasks.md` in its worktree on every
-draw — never stored. The band draws at most five rows besides the `main` row: the subagent rows first, then
-the earliest pending rows in whatever room is left.
+latest Bash command's description, if any, and never numbered as a task. A subagent row also shows
+its elapsed time and its latest response's token count. Work the main agent runs itself under a
+status line of its own (`rules/be-brief.mdc`) shows as a row for each unit whose latest such line is
+not done, after the subagent rows, unless a subagent row already names its task numbers. After
+those, the band lists each task of the running change's plan that is still unticked and named by no
+row's `Task <x>/<n>` prefix as a `pending` row, read from the change's `tasks.md` in its worktree on
+every draw — never stored. The band draws at most five rows besides the `main` row: the subagent
+rows first, then the status-line rows, then the earliest pending rows in whatever room is left.
 
 **Every subagent dispatch's description is the board row's label**, in the shape
 **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states — no emoji and
