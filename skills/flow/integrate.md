@@ -42,9 +42,9 @@ flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <har
 
 ## 1. Check for unfinished work
 
-**A change already archived** — decided once, in the canonical repository, for every worktree,
-per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) — first
-finishes an archive a stopped run 1 left unfinished, per the same section, then skips
+**An archive a stopped run 1 left uncommitted is undone first**, per **Run 1 — the branch is not
+merged** (`skills/flow-contracts/finish-contract-run1.md`). **A change already archived** — decided
+once, in the canonical repository, for every worktree, per the same section — skips
 **4**'s `flow.sync-archive` mark with its `spectre archive` call, unmarked. **Without new work**, per
 the same section, it also ends `flow.unfinished-work-gate` `completed` at once and runs **2**, then
 **4** from `flow.commit-archive` on, then **5**; the rest of **1** and all of **3** are skipped,
