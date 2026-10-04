@@ -279,7 +279,9 @@ artifacts and no archive), so those three report `skipped` by design, never sile
 the git-log source resolves from the main checkout the command resolves, as the change branch's
 commits; the ledger and panel render from the store when the run wrote rows — then
 `## Session narrative`, one paragraph this session writes on what it
-did and where it struggled. A durable process lesson the run paid for is promoted to the
+did and where it struggled, recording every approach tried and abandoned with why it failed
+(**Append this run's own narrative first**, `skills/flow/verify-and-handoff.md`). A durable
+process lesson the run paid for is promoted to the
 lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`). A re-run replaces the file. Commit and push it through the landing
 chain, asserting the change branch:
 
