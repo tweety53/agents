@@ -277,7 +277,7 @@ func TestCheckSelfReviewReport(t *testing.T) {
 			return csrRun(t, nil, csrReport(t, strings.Replace(csrCompliant, "filed: KAN-201\n", "maybe later\n", 1)))
 		}, []check{
 			{"case 22: an unrecognized finding-line disposition is caught", rcIs(1)},
-			{"case 22: the violation names the unrecognized disposition rule", has("finding line disposition is neither `filed: <KEY>` nor `declined`")},
+			{"case 22: the violation names the unrecognized disposition rule", has("finding line disposition is none of `fixed: <sha>`, `filed: <KEY>` or `declined`")},
 		}},
 		{func(t *testing.T) csrResult {
 			return csrRun(t, nil, csrReport(t, strings.Join([]string{
@@ -363,6 +363,26 @@ func TestCheckSelfReviewReport(t *testing.T) {
 		}, []check{
 			{"case 33: an unreadable five-angle list is 'cannot answer'", rcIs(2)},
 			{"case 33: the die message names the unreadable list", has("cannot read the five-angle report list")},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix,
+				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: abc1234"), csrImp, csrAuto, csrStats, csrSpeed}, "\n")))
+		}, []check{
+			{"case 34: a fixed finding naming a sha exits 0", rcIs(0)},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix,
+				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed:"), csrImp, csrAuto, csrStats, csrSpeed}, "\n")))
+		}, []check{
+			{"case 35: a fixed finding with no sha is caught", rcIs(1)},
+			{"case 35: finding names the missing sha", has("fixed", "no sha")},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix,
+				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: KAN-9"), csrImp, csrAuto, csrStats, csrSpeed}, "\n")))
+		}, []check{
+			{"case 36: a fixed finding naming a non-sha is caught", rcIs(1)},
+			{"case 36: finding names the malformed sha", has("fixed", "malformed sha", "KAN-9")},
 		}},
 
 		// Beyond the harness: the exact output of a clean run and of a

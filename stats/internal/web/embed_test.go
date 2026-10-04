@@ -504,6 +504,14 @@ func (fakeStore) RetireHazard(context.Context, string, string) (records.Hazard, 
 	return records.Hazard{}, nil
 }
 
+func (fakeStore) RecordSelfReviewFinding(context.Context, string, records.SelfReviewFinding) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, nil
+}
+
+func (fakeStore) ListSelfReviewFindings(context.Context, string, string) ([]records.SelfReviewFinding, error) {
+	return nil, nil
+}
+
 func (fakeStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
 	return records.SuiteRun{}, nil
 }

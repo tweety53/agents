@@ -34,6 +34,11 @@ type selfreviewStore interface {
 	// records-source loss from a panel that never ran, which the bundle
 	// names loudly when the run holds no dispatch rows (KAN-621).
 	StageCompleted(ctx context.Context, projectKey, change, stage string) (bool, error)
+
+	// RecordSelfReviewFinding and ListSelfReviewFindings back the findings
+	// route: one row per self-review finding and its outcome (KAN-875).
+	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
+	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
 }
 
 // selfreviewHandler serves GET
@@ -117,4 +122,40 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(bundle))
+}
+
+// recordFinding serves POST /api/v1/self-review/{project}/{change}/findings:
+// one self-review finding and its outcome. The change comes from the path,
+// never the body. A store validation refusal is 400 through mapStoreError.
+func (h *selfreviewHandler) recordFinding(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.SelfReviewFinding
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	in.Change = change
+
+	out, err := h.store.RecordSelfReviewFinding(r.Context(), project, in)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record self-review finding for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+// listFindings serves GET /api/v1/self-review/{project}/{change}/findings:
+// the change's self-review findings in the order they were recorded.
+func (h *selfreviewHandler) listFindings(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	out, err := h.store.ListSelfReviewFindings(r.Context(), project, change)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list self-review findings for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }

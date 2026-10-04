@@ -331,6 +331,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/cost-status", rh.costStatus)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/render/{kind}", rh.renderRecord)
 	mux.HandleFunc("GET /api/v1/self-review/{project}/{change}/bundle", srb.bundle)
+	mux.HandleFunc("POST /api/v1/self-review/{project}/{change}/findings", srb.recordFinding)
+	mux.HandleFunc("GET /api/v1/self-review/{project}/{change}/findings", srb.listFindings)
 	mux.HandleFunc("GET /api/v1/lessons/resolve", lh.resolve)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
@@ -554,6 +556,8 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 	case errors.Is(err, store.ErrCategoryNotDeferred):
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrFindingPatternInvalid):
+		return http.StatusBadRequest, err.Error()
+	case errors.Is(err, store.ErrSelfReviewFindingInvalid):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):
 		return http.StatusNotFound, err.Error()

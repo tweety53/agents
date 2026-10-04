@@ -1,7 +1,10 @@
 package api_test
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -10,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/selfreview"
+	"github.com/tweety53/agents/stats/internal/store"
 	"testing"
 )
 
@@ -279,5 +284,85 @@ func TestSelfReviewBundleHandlerStageReadFailureIs5xx(t *testing.T) {
 	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", t.TempDir()))
 	if code != http.StatusInternalServerError {
 		t.Fatalf("GET bundle with a failing stage read = %d (%s), want 500", code, body)
+	}
+}
+
+// RecordSelfReviewFinding mirrors store.Store.RecordSelfReviewFinding's
+// disposition refusal -- the one rule the endpoint test drives -- and
+// allocates ids in insertion order.
+func (f *fakeStore) RecordSelfReviewFinding(_ context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error) {
+	switch in.Disposition {
+	case "fixed", "filed", "declined":
+	default:
+		return records.SelfReviewFinding{}, fmt.Errorf("%w: disposition %q", store.ErrSelfReviewFindingInvalid, in.Disposition)
+	}
+	out := in
+	out.ID = int64(len(f.selfReviewFindings) + 1)
+	f.selfReviewFindings = append(f.selfReviewFindings, selfReviewFindingRecord{finding: out, projectKey: projectKey})
+	return out, nil
+}
+
+// ListSelfReviewFindings mirrors store.Store.ListSelfReviewFindings: one
+// change's rows in insertion order, never nil.
+func (f *fakeStore) ListSelfReviewFindings(_ context.Context, projectKey, change string) ([]records.SelfReviewFinding, error) {
+	out := []records.SelfReviewFinding{}
+	for _, r := range f.selfReviewFindings {
+		if r.projectKey == projectKey && r.finding.Change == change {
+			out = append(out, r.finding)
+		}
+	}
+	return out, nil
+}
+
+// selfReviewFindingRecord is fakeStore's in-memory self_review_findings row.
+type selfReviewFindingRecord struct {
+	finding    records.SelfReviewFinding
+	projectKey string
+}
+
+// TestSelfReviewFindingsEndpoint drives POST and GET
+// /api/v1/self-review/{project}/{change}/findings: a valid row is 201 and
+// echoed back, a store validation refusal is 400, and the read returns the
+// posted rows in order.
+func TestSelfReviewFindingsEndpoint(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + "/api/v1/self-review/proj/kan-1/findings"
+
+	for _, body := range []map[string]any{
+		{"angle": "myflow-fix", "note": "guard gap", "disposition": "fixed", "ref": "abc1234", "blastRadius": 2},
+		{"angle": "myflow-cost", "note": "redesign", "disposition": "filed", "ref": "KAN-9"},
+	} {
+		resp, raw := postJSON(t, url, body)
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("POST %v = %d (%s), want 201", body, resp.StatusCode, raw)
+		}
+		var got records.SelfReviewFinding
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatalf("decode POST body %s: %v", raw, err)
+		}
+		if got.ID == 0 || got.Change != "kan-1" || got.Ref != body["ref"] {
+			t.Errorf("POST echoed %+v, want an id, change kan-1 and ref %v", got, body["ref"])
+		}
+	}
+
+	if resp, raw := postJSON(t, url, map[string]any{"angle": "myflow-fix", "note": "x", "disposition": "bogus"}); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST bogus = %d (%s), want 400", resp.StatusCode, raw)
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("GET findings: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET findings = %d, want 200", resp.StatusCode)
+	}
+	var got []records.SelfReviewFinding
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode GET body: %v", err)
+	}
+	if len(got) != 2 || got[0].Disposition != "fixed" || got[1].Disposition != "filed" ||
+		got[0].BlastRadius == nil || *got[0].BlastRadius != 2 {
+		t.Errorf("GET = %+v, want the fixed row (blast radius 2) then the filed row", got)
 	}
 }

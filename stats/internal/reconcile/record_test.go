@@ -96,6 +96,14 @@ func (nopRecordStore) RetireHazard(context.Context, string, string) (records.Haz
 	return records.Hazard{}, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) RecordSelfReviewFinding(context.Context, string, records.SelfReviewFinding) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListSelfReviewFindings(context.Context, string, string) ([]records.SelfReviewFinding, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
 	return records.SuiteRun{}, errRecordStoreNotExercised
 }
@@ -374,6 +382,14 @@ func (f *fakeRecordStore) ListHazards(context.Context, string, string, bool) ([]
 func (f *fakeRecordStore) RetireHazard(_ context.Context, projectKey, name string) (records.Hazard, error) {
 	f.record(fmt.Sprintf("retire hazard %s/%s", projectKey, name))
 	return records.Hazard{}, nil
+}
+
+func (*fakeRecordStore) RecordSelfReviewFinding(context.Context, string, records.SelfReviewFinding) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, nil
+}
+
+func (*fakeRecordStore) ListSelfReviewFindings(context.Context, string, string) ([]records.SelfReviewFinding, error) {
+	return nil, nil
 }
 
 func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status, category string) error {

@@ -119,6 +119,12 @@ type RecordStore interface {
 	ListHazards(ctx context.Context, projectKey, shape string, includeInactive bool) ([]records.Hazard, error)
 	RetireHazard(ctx context.Context, projectKey, name string) (records.Hazard, error)
 
+	// RecordSelfReviewFinding and ListSelfReviewFindings are KAN-875's
+	// self-review outcome rows, on RecordStore for the reason the hazard
+	// methods state above.
+	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
+	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
+
 	// InsertSuiteRun and ListSuiteRuns are KAN-252's suite-runtime
 	// methods -- per-run, per-machine figures project.md cites instead of
 	// pasting measured durations into prose -- and on RecordStore for the

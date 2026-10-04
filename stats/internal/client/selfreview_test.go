@@ -3,6 +3,7 @@ package client_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // TestGetSelfReviewBundleReturnsTheBodyVerbatim pins the transport rule
@@ -134,5 +136,69 @@ func TestGetSelfReviewBundleAcceptsExactCapBody(t *testing.T) {
 	}
 	if len(got) != 1<<20 {
 		t.Errorf("body = %d bytes, want the whole %d", len(got), 1<<20)
+	}
+}
+
+// TestClientSelfReviewFindings pins the findings pair's wire shape against
+// the handler's: the write POSTs the row as JSON to the findings route and
+// decodes the 201 echo, a 400 is ErrRecordRejected (a caller mistake, not
+// a store miss), and the read GETs the same route and decodes the array.
+func TestClientSelfReviewFindings(t *testing.T) {
+	var gotMethod, gotPath string
+	var gotBody records.SelfReviewFinding
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath = r.Method, r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodPost:
+			if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+				t.Errorf("decode request body: %v", err)
+			}
+			if gotBody.Disposition == "bogus" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":"invalid self-review finding"}`))
+				return
+			}
+			gotBody.ID = 7
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(gotBody)
+		default:
+			_, _ = w.Write([]byte(`[{"id":7,"change":"demo","angle":"myflow-fix","note":"n","disposition":"declined","recordedAt":"2026-10-04T00:00:00Z"}]`))
+		}
+	}))
+	defer srv.Close()
+	c := client.New(srv.URL, srv.Client())
+	ctx := context.Background()
+
+	two := 2
+	out, err := c.RecordSelfReviewFinding(ctx, "proj", "demo", records.SelfReviewFinding{
+		Angle: "myflow-fix", Note: "n", Disposition: "fixed", Ref: "abc1234", BlastRadius: &two,
+	})
+	if err != nil {
+		t.Fatalf("RecordSelfReviewFinding: %v", err)
+	}
+	if gotMethod != http.MethodPost || gotPath != "/api/v1/self-review/proj/demo/findings" {
+		t.Errorf("request = %s %s", gotMethod, gotPath)
+	}
+	if gotBody.Change != "demo" || gotBody.Ref != "abc1234" || gotBody.BlastRadius == nil || *gotBody.BlastRadius != 2 {
+		t.Errorf("posted body = %+v, want change demo, ref abc1234, blast radius 2", gotBody)
+	}
+	if out.ID != 7 {
+		t.Errorf("returned ID = %d, want the daemon's 7", out.ID)
+	}
+
+	if _, err := c.RecordSelfReviewFinding(ctx, "proj", "demo", records.SelfReviewFinding{Disposition: "bogus"}); !errors.Is(err, client.ErrRecordRejected) {
+		t.Errorf("bogus write err = %v, want ErrRecordRejected", err)
+	}
+
+	list, err := c.ListSelfReviewFindings(ctx, "proj", "demo")
+	if err != nil {
+		t.Fatalf("ListSelfReviewFindings: %v", err)
+	}
+	if gotMethod != http.MethodGet || gotPath != "/api/v1/self-review/proj/demo/findings" {
+		t.Errorf("list request = %s %s", gotMethod, gotPath)
+	}
+	if len(list) != 1 || list[0].ID != 7 || list[0].Disposition != "declined" {
+		t.Errorf("list = %+v", list)
 	}
 }
