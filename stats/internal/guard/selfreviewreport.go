@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 func init() { Registry["check-self-review-report"] = checkSelfReviewReport }
@@ -35,9 +37,9 @@ var (
 	srrFindingShape = regexp.MustCompile(`^-[[:space:]]*\*\*\[`)
 	srrFindingLine  = regexp.MustCompile(`^-[[:space:]]\*\*\[([^]]+)\]\*\*[[:space:]](.+)$`)
 	srrFiled        = regexp.MustCompile(`^filed:[[:space:]]*(.*)$`)
-	srrIssueKey     = regexp.MustCompile(`^[A-Z][A-Z0-9]*-[0-9]+$`)
+	srrIssueKey     = records.IssueKey
 	srrFixed        = regexp.MustCompile(`^fixed:[[:space:]]*(.*)$`)
-	srrSha          = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+	srrSha          = records.SelfReviewSha
 	srrH2           = regexp.MustCompile(`^##[[:space:]]`)
 	srrHeading      = regexp.MustCompile(`^#+[[:space:]]`)
 	srrAngleRow     = regexp.MustCompile(`^[[:space:]]*[0-9]+[[:space:]]*$`)

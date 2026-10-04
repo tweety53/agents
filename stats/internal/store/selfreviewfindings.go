@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -15,11 +14,6 @@ import (
 // is negative. The handler maps it
 // to 400: a caller's mistake, never a store failure.
 var ErrSelfReviewFindingInvalid = errors.New("store: invalid self-review finding")
-
-var (
-	selfReviewSha = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
-	selfReviewKey = regexp.MustCompile(`^[A-Z][A-Z0-9]*-[0-9]+$`)
-)
 
 // validateSelfReviewFinding is the boundary for the rules the table's CHECK
 // cannot state: which ref shape each disposition carries.
@@ -32,11 +26,11 @@ func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 	}
 	switch f.Disposition {
 	case "fixed":
-		if !selfReviewSha.MatchString(f.Ref) {
+		if !records.SelfReviewSha.MatchString(f.Ref) {
 			return fmt.Errorf("%w: fixed needs a 7-40 character lowercase hex sha as ref, got %q", ErrSelfReviewFindingInvalid, f.Ref)
 		}
 	case "filed":
-		if !selfReviewKey.MatchString(f.Ref) {
+		if !records.IssueKey.MatchString(f.Ref) {
 			return fmt.Errorf("%w: filed needs an issue key as ref, got %q", ErrSelfReviewFindingInvalid, f.Ref)
 		}
 	case "declined":

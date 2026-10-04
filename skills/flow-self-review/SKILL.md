@@ -11,7 +11,8 @@ bundle run 2 step 9 saved (`skills/flow-contracts/finish-contract-run2.md` step 
 for that bundle's shape) or **5. Verify** (`skills/flow-fast/SKILL.md`) saved on the change
 branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
 filing-and-rating prompt, the store record and the report. **The pass and its fixes run inline, in this session, on
-whatever model it is already on** — the one dispatch is the fix branch's reviewer (step 3). The model is picked by picking the model
+whatever model it is already on** — its only dispatches are the fix branch's reviewers, one per
+review round (step 3). The model is picked by picking the model
 this session runs on (`/model`) before invoking this command, not by anything this skill itself
 resolves.
 
@@ -74,27 +75,36 @@ about the project's own product code reaches outside `<agents repo>`, so it is a
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
-whole pass. A pass with none creates no worktree and dispatches nothing.
+whole pass. A pass with none creates no worktree and dispatches nothing. **The fixes need an `opus`
+session** (`design.md`, `inline-fix-one-branch-one-reviewer`): on any other model, step 3 fixes
+nothing and every finding is offered in step 4 as a `big` one is.
+
+`<agents-base>` is `<agents repo>`'s own default branch —
+`git -C <agents repo> symbolic-ref --short refs/remotes/origin/HEAD` with its `origin/` prefix
+dropped — never the project's `<default-branch>`, which step 1 binds and which `<agents repo>` may
+not carry.
 
 1. **Fix, inline.** This session fixes them itself — it already holds the context a fresh fixer
    would re-load. It works in its own worktree,
-   `git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<default-branch>`
+   `git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<agents-base>`
    — never the main checkout — and makes one commit per finding with a module scope, adding one
    test or guard that fails without the fix wherever the fix changes behaviour, and running the
    `<agents repo>/.flow/project.md` `## lint` lines its files need.
 2. **Review** — one fresh dispatch on `opus`, `subagent_type: flow-high`, key
-   `self-review-<name>-review-<r>`, over `git diff origin/<default-branch>...self-review-<name>`,
+   `self-review-<name>-review-<r>`, over `git diff origin/<agents-base>...self-review-<name>`,
    its prompt naming each finding beside its commit and carrying the paragraphs **Every dispatch
    in the loop is one-shot** (**Pipeline defects found mid-run**) names for a review. It is
    one-shot: no `SendMessage` to it once it returns.
-3. **Fix the review's findings inline**, then step 2 again, `<r>` plus one, until a review comes
+3. **Fix the review's findings inline**, each folded into the commit of the finding it fixes
+   (`git commit --fixup <that commit>`, then `git rebase --autosquash origin/<agents-base>`), so
+   every finding stays one commit; then step 2 again, `<r>` plus one, until a review comes
    back clean, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A commit
    the review judges not to fix its finding, or to make things worse, is dropped from the branch,
    and its finding is offered in step 4 as a `big` one is; so is a fix found `big` once under way.
 4. **Land once** by `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
-   branch. Each fixed finding's sha is read off `<default-branch>` after the landing, never from
+   branch. Each fixed finding's sha is read off `<agents-base>` after the landing, never from
    the branch before its rebase; on a route that opens a pull request, once that pull request
    merges.
 
