@@ -5,16 +5,17 @@ import type { Flow, Main, Phase, Row, RowState } from '../types'
 
 const rows = atom({ plugin: 'subagent-board', key: 'rows' } as const, [] as Row[])
 const runs = atom({ plugin: 'subagent-board', key: 'runs' } as const, {} as Record<string, string>)
-const NO_FLOW: Flow = { phase: null, ticket: null, stage: null }
+const NO_FLOW: Flow = { phase: null, change: null, ticket: null, stage: null }
 const flow = atom({ plugin: 'subagent-board', key: 'flow' } as const, NO_FLOW)
 const main = atom({ plugin: 'subagent-board', key: 'main' } as const, null as Main | null)
 
 const MAX_ROWS = 5
 
-const EMOJI: Record<RowState, string> = { 'in progress': '🔄', done: '✅', blocked: '⛔' }
-// The task-list look: its marker and colour per state; `claude` is the theme's accent (orange).
-const MARK: Record<RowState, string> = { 'in progress': '◼', done: '✔', blocked: '✘' }
-const MARK_COLOR: Record<RowState, string> = { 'in progress': 'claude', done: 'success', blocked: 'error' }
+const EMOJI: Record<RowState, string> = { 'in progress': '🔄', done: '✅', blocked: '⛔', pending: '⏳' }
+// The task-list look: its marker and colour per state; `claude` is the theme's accent (orange). A pending
+// marker keeps the text's own colour.
+const MARK: Record<RowState, string> = { 'in progress': '◼', done: '✔', blocked: '✘', pending: '◻' }
+const MARK_COLOR: Record<RowState, string | undefined> = { 'in progress': 'claude', done: 'success', blocked: 'error', pending: undefined }
 
 // A description that already carries its plan numbering keeps it: one task, "Task 3/22 (spec text)",
 // or a /flow task group, "Tasks 3+4+7/22 (port guards)" (skills/flow/implement.md, **Dispatch sites**).
@@ -32,7 +33,7 @@ const KINDS: [RegExp, string, string][] = [
 
 // How a row shows: a running row by its kind's word (in review, fix, visual verify, verify), a finished one by its state.
 // `emoji` is what the hint line's tally counts it under; `mark` and `color` are its marker on the band.
-export const look = (row: Row): { emoji: string; word: string; mark: string; color: string } => {
+export const look = (row: Row): { emoji: string; word: string; mark: string; color: string | undefined } => {
   const kind = row.state === 'in progress' ? KINDS.find(([re]) => re.test(row.desc)) : undefined
   return {
     emoji: kind?.[1] ?? EMOJI[row.state],
@@ -62,6 +63,19 @@ export const parts = (row: Row, total: number, run = '', width = 0, first = true
 export const line = (row: Row, total: number, run = '', width = 0, first = true): string => {
   const p = parts(row, total, run, width, first)
   return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}`
+}
+
+// A plan's column-0 task line, "- [ ] 23. Title" or "- [x] 23. Title"; its step checkboxes are indented.
+const TASK = /^- \[([ x])\] (\d+)\. (.*)$/gm
+
+// The plan's unticked tasks no board row names in its "Task(s) …/n" numbering, as pending rows: what the
+// running /flow change has not dispatched yet, derived from its tasks.md on every draw.
+export const pendingRows = (tasksMd: string, rs: Row[]): Row[] => {
+  const tasks = [...tasksMd.matchAll(TASK)]
+  const taken = new Set(rs.flatMap(r => NUMBERED.exec(r.desc)?.[1]?.match(/\d+(?=[+/])/g) ?? []))
+  return tasks
+    .filter(([, box, n = '']) => box === ' ' && !taken.has(n))
+    .map(([, , n = '', title = '']) => ({ id: `pending-${n}`, n: Number(n), desc: `Task ${n}/${tasks.length} (${title})`, state: 'pending' }))
 }
 
 // "opus-high" from the model id and effort a request went out with.
@@ -136,7 +150,7 @@ export const flowAfter = (command: string, current: Flow): Flow => {
     const phase = (Object.keys(PHASE_KEYS) as Phase[]).find(ph => PHASE_KEYS[ph].includes(key)) ?? f.phase
     const name = rest.trim().split(/\s+/).at(-1) ?? ''
     const ticket = TICKET.exec(name)?.[1]?.toUpperCase() ?? f.ticket
-    f = phase ? { phase, ticket, stage: key } : NO_FLOW
+    f = phase ? { phase, change: name.replace(/^['"]|['"]$/g, '') || f.change, ticket, stage: key } : NO_FLOW
   }
   return f
 }
@@ -221,13 +235,20 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !rs.some(r => r.state === 'in progress')) {
       return next(e)
     }
+    // The running change's plan, read from its worktree (`<project>/.worktrees/<name>`, where /flow ticks it);
+    // absent, no pending rows.
+    const { change } = await read($, flow)
+    const plan = change
+      ? await $.fs.read(`.worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '')
+      : ''
+    const all = [...rs, ...pendingRows(plan, subs)]
     const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
-    const width = Math.max(0, ...rs.map(r => labels[r.id]?.length ?? 0))
+    const width = Math.max(0, ...all.map(r => labels[r.id]?.length ?? 0))
     const total = subs.at(-1)?.n ?? 0
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
-        {rs.map((r, i) => {
+        {all.map((r, i) => {
           const p = parts(r, total, labels[r.id], width, i === 0)
           const isDone = r.state === 'done'
           return (

@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { flowAfter, hintTail, line, runLabel, tally, trim } from './register'
+import { flowAfter, hintTail, line, pendingRows, runLabel, tally, trim } from './register'
 
 const BAND = {
   plugin: 'subagent-board',
@@ -129,17 +129,17 @@ test('a run label follows the lead, padded so the marker column lines up', () =>
   expect(line(row, 6, '', 9)).toBe('⎿           ✔ Task 2/6 (Count rules files) — done')
 })
 
-const NO_FLOW = { phase: null, ticket: null, stage: null }
+const NO_FLOW = { phase: null, change: null, ticket: null, stage: null }
 const mark = (verb: string, key: string, name = 'kan-873-port-guards') =>
   verb === 'begin'
     ? `flow stage begin -command '/flow' -stage flow.${key} -harness claude -session-token mf-x ${name}`
     : `flow stage end -command '/flow' -stage flow.${key} -outcome completed ${name}`
 
 test("flowAfter follows flow stage marks and the change name's ticket", () => {
-  const impl = { phase: 'flow-implement', ticket: 'KAN-873', stage: 'sdd-tdd' } as const
+  const impl = { phase: 'flow-implement', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: 'sdd-tdd' } as const
   expect(flowAfter('ls -la', NO_FLOW)).toBe(NO_FLOW)
-  expect(flowAfter(mark('begin', 'brainstorm'), NO_FLOW)).toEqual({ phase: 'flow-plan', ticket: 'KAN-873', stage: 'brainstorm' })
-  expect(flowAfter(mark('begin', 'brainstorm', 'add-dark-mode'), NO_FLOW)).toEqual({ phase: 'flow-plan', ticket: null, stage: 'brainstorm' })
+  expect(flowAfter(mark('begin', 'brainstorm'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: 'brainstorm' })
+  expect(flowAfter(mark('begin', 'brainstorm', 'add-dark-mode'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'add-dark-mode', ticket: null, stage: 'brainstorm' })
   expect(flowAfter(mark('begin', 'decide'), NO_FLOW)).toEqual(NO_FLOW)
   expect(flowAfter(mark('begin', 'decide'), impl)).toEqual({ ...impl, stage: 'decide' })
   expect(flowAfter(mark('begin', 'sdd-tdd'), NO_FLOW)).toEqual(impl)
@@ -152,7 +152,7 @@ test("flowAfter follows flow stage marks and the change name's ticket", () => {
 })
 
 test('hintTail joins the ticket, the phase, the running stage and the tally', () => {
-  const impl = { phase: 'flow-implement', ticket: 'KAN-873', stage: null } as const
+  const impl = { phase: 'flow-implement', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: null } as const
   expect(hintTail(NO_FLOW, '')).toBeUndefined()
   expect(hintTail(NO_FLOW, '✅ 5')).toBe('· ✅ 5')
   expect(hintTail({ ...NO_FLOW, phase: 'flow-plan' }, '')).toBe('· flow-plan')
@@ -341,4 +341,58 @@ test("the main row names a Bash command's description while the command runs", a
   release()
   await call
   expect(texts).toEqual(['⎿ opus-high ◼ main (Run guard tests) — verify'])
+})
+
+const PLAN = [
+  '# Plan',
+  '',
+  ...Array.from({ length: 25 }, (_, i) => `- [${i < 19 ? 'x' : ' '}] ${i + 1}. Step ${i + 1}\n  - [ ] a step checkbox, not a task`),
+].join('\n')
+
+test('pendingRows lists the unticked plan tasks no row has taken', () => {
+  const taken = [{ id: 'a', n: 1, desc: 'Task 20/25 (Step 20)', state: 'in progress' }, { id: 'b', n: 2, desc: 'Tasks 21+22/25 (pair)', state: 'done' }] as const
+  expect(pendingRows(PLAN, [...taken]).map(r => line(r, 0, '', 0, false))).toEqual([
+    '  ◻ Task 23/25 (Step 23) — pending',
+    '  ◻ Task 24/25 (Step 24) — pending',
+    '  ◻ Task 25/25 (Step 25) — pending',
+  ])
+  expect(pendingRows('', [])).toEqual([])
+})
+
+test("the running /flow change's pending tasks follow the dispatched rows", async ($, on) => {
+  let n = 0
+  on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
+  on('tool.call', () => ({ result: '' }))
+  const reads: string[] = []
+  on('fs.read', (_$, e) => {
+    reads.push(e.path)
+    if (!e.path.endsWith('/.worktrees/kan-873-port-guards/spectre/changes/kan-873-port-guards/tasks.md')) throw new Error('ENOENT')
+    return { value: PLAN }
+  })
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  const shown = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
+    await ui.unmount()
+    return texts
+  }
+
+  await $.agent.spawn(spawn('Explore auth'))
+  expect(await shown()).toEqual(['⎿ ◼ Task 1/1 (Explore auth) — in progress'])
+  expect(reads).toEqual([])
+
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
+  await $.agent.spawn(spawn('Task 20/25 (Step 20)'))
+  await $.agent.spawn(spawn('Tasks 21+22/25 (pair)'))
+  expect(await shown()).toEqual([
+    '⎿ ◼ Task 1/3 (Explore auth) — in progress',
+    '  ◼ Task 20/25 (Step 20) — in progress',
+    '  ◼ Tasks 21+22/25 (pair) — in progress',
+    '  ◻ Task 23/25 (Step 23) — pending',
+    '  ◻ Task 24/25 (Step 24) — pending',
+    '  ◻ Task 25/25 (Step 25) — pending',
+  ])
 })
