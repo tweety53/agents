@@ -772,6 +772,7 @@ func normalizePattern(s string) string {
 // SELECT distinguishes the two: a row found is ErrDeferredNotMinor, no row
 // is ErrFindingNotFound, the same sentinel every other status's zero-row
 // case already returns.
+//
 // A status that is the bare word `withdrawn` is refused with
 // ErrWithdrawnReasonMissing before the statement runs (KAN-791): a
 // reasonless withdrawal is the silent drop the finding-status contract

@@ -139,6 +139,13 @@ func (f *fakeStore) UpsertFinding(_ context.Context, projectKey, change string, 
 			return in, false, nil
 		}
 	}
+	// The bare-withdrawn refusal mirrors store.UpsertFinding the same way
+	// its SetFindingStatus mirror does below (KAN-791), so a POST of the
+	// bare word answers the 409 production answers, never a 201 the real
+	// store would refuse.
+	if rest, ok := strings.CutPrefix(in.Status, "withdrawn"); ok && strings.TrimSpace(rest) == "" {
+		return records.Finding{}, false, fmt.Errorf("%w: %s in %s/%s", store.ErrWithdrawnReasonMissing, in.Ref, projectKey, change)
+	}
 	f.findings = append(f.findings, findingRecord{finding: in, projectKey: projectKey, changeName: change})
 	return in, true, nil
 }

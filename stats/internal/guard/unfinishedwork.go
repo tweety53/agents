@@ -200,13 +200,14 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// guard was recovering one fact, "is any finding still open", by
 	// re-implementing a document grammar defined in another file's prose. A
 	// finding is a JSON object in the store, with no cells to split and no
-	// table boundary to track. Write-time validation guarantees every stored
-	// status is exactly `open`, `fixed`, `withdrawn <reason>` or `deferred
-	// <reason>` -- refused at the CLI's validator and, since KAN-791, at the
-	// store itself, so the guarantee no longer rides on the CLI alone. A
-	// bare `withdrawn` that predates that rule, if one exists, is open here:
-	// the predicate's own withdrawn test (below) requires the reason. There
-	// is no branch for any other malformed status.
+	// table boundary to track. Write-time validation keeps every stored
+	// status to the closed vocabulary the CLI's validator judges -- and,
+	// since KAN-791, the store itself refuses the bare `withdrawn` shape
+	// (the one shape an HTTP write or a replay could land below the CLI) --
+	// so the guarantee no longer rides on the CLI alone. A bare `withdrawn`
+	// that predates that rule, if one exists, is open here: the predicate's
+	// own withdrawn test (below) requires the reason. There is no branch for
+	// any other malformed status.
 	//
 	// THE STORE IS QUERIED ONCE, and a failed `flow record findings` is exit
 	// 2, "cannot determine anything" -- never OUTSTANDING and never CLEAR. A
