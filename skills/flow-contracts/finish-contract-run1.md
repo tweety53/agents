@@ -90,12 +90,19 @@ directory**, `skills/flow-contracts/pipeline.md`).
 `chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree's range holds
 neither — `<merge-base>` being the merge base the reshape below would otherwise take. Everything at
 or below it is kept untouched — a reshape from that merge base itself would fold the archive and
-bundle commits into the implementation commit. The re-run **carries new work** when a commit sits
-above the canonical worktree's base or that worktree holds an uncommitted change, judged at the
-unfinished-work gate, before this run's own narrative append — every fix run commits its plan
-there.
+bundle commits into the implementation commit. The re-run **carries new work** when any worktree
+in the set has a commit above its own base or holds an uncommitted tracked change, judged at the
+unfinished-work gate, before this run's own narrative append.
 
-A re-run of an archived change skips `spectre archive`. **Without new work** it also skips, before
+**An archive a stopped run 1 left unfinished is finished first**, in the canonical worktree, before
+the unfinished-work gate and before the base above is found: `spectre archive "<name>-fix-N"` for
+every `<name>-fix-N` sibling still under `<project>/spectre/changes/` — a run that stopped between
+the parent's call and a sibling's — then, when that archived a sibling or `<merge-base>..HEAD` holds
+no `chore(spectre): archive <name>` commit — a run that stopped between `spectre archive` and
+`commit-archive.sh` — `commit-archive.sh`, so the staged move lands as its own archive commit and
+never rides the next `chore(spectre): plan`.
+
+A re-run of an archived change skips `spectre archive` for `<name>` itself. **Without new work** it also skips, before
 it, the unfinished-work gate, the reshape and the two-commit chain — `spectre archive` already
 refused any unchecked task, and nothing above the base needs committing. **With new work** it
 skips none of them: the unfinished-work gate reads the archived `tasks.md`, and the reshape takes

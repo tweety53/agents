@@ -60,8 +60,8 @@ recorded the way the mode records a taken default (**Auto-resolution**,
 
 **A change already archived is never asked**: the append is taken, into the archived directory
 (**A change's directory**, `skills/flow-contracts/pipeline.md`). A `<name>-fix-N` sub-change
-scaffolded live beside an archived parent would never be archived — the archived re-run of
-integrate skips `spectre archive`.
+scaffolded live beside an archived parent would be archived only by the archived re-run's catch-up
+for a run 1 stopped mid-archive, committed ahead of the fix's own implementation commit.
 
 The parent writes the append, or the sub-change's own proposal and plan. Whichever brief the
 budget answer named, it keeps the counter true: every task its append adds raises the `**Tasks
