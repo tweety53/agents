@@ -137,6 +137,25 @@ else
   fail "a quoted template opens no section and a fence line closes nothing (rc=$RC: $OUT)"
 fi
 
+r5="$(new_repo)"
+track "$r5" "a/b/tickets/t.md" "## Done when
+Notes: \`notes/x.md\`.
+"
+run_guard "$r5"
+if [ "$RC" -eq 1 ] && grep -q "^DONE-WHEN-PATH: notes/x.md — a/b/tickets/t.md$" <<<"$OUT"; then
+  pass "a path no directory of its document resolves is refused"
+else
+  fail "a path no directory of its document resolves is refused (rc=$RC: $OUT)"
+fi
+
+track "$r5" "a/b/notes/x.md" "x"
+run_guard "$r5"
+if [ "$RC" -eq 0 ] && [ "$OUT" = "DONE-WHEN-OK: $r5" ]; then
+  pass "a path relative to an ancestor of its document answers DONE-WHEN-OK"
+else
+  fail "a path relative to an ancestor of its document answers DONE-WHEN-OK (rc=$RC: $OUT)"
+fi
+
 r4="$(new_repo)"
 run_guard "$r4"
 if [ "$RC" -eq 0 ] && [ "$OUT" = "DONE-WHEN-OK: $r4" ]; then

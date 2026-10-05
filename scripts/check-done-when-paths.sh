@@ -20,6 +20,14 @@
 # peer-qualified name (`peer:shots/27.png`) are judged as named — the last
 # fails unless that exact path is tracked in THIS index.
 #
+# A named path counts as tracked when it is in the index read relative to the
+# repository root, to the naming file's own directory, or to any directory
+# between the two — so `notes/step-1.md` named by
+# `docs/design/offline/tickets/step-1.md` resolves to the tracked
+# `docs/design/offline/notes/step-1.md`. A leading `./` is folded away and
+# leading `../` segments are kept; each reading is cleaned (`path.Join`), and
+# one that climbs above the root is never tracked.
+#
 # Prints one DONE-WHEN-PATH line per missing path with the file that named
 # it, then ONE verdict line:
 #   DONE-WHEN-OK: <worktree>                 every named path is tracked

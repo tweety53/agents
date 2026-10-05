@@ -168,6 +168,18 @@ func TestCheckDoneWhenPaths(t *testing.T) {
 					"## Done when\n* A change opened via `/myflow-start <ISSUE-KEY> <slug>` and archived.\n")
 			},
 			0, "DONE-WHEN-OK: REPO\n"},
+		{"case 20: a path relative to an ancestor of its document resolves — gymie's handoff tickets",
+			[]string{"a/b/tickets/t.md", "a/b/notes/x.md", "a/b/tickets/shots/1.png"},
+			func(dir string) {
+				dwFile(t, dir, "a/b/tickets/t.md", "## Done when\nNotes: `notes/x.md`, `../notes/x.md`, shot `shots/1.png`.\n")
+			},
+			0, "DONE-WHEN-OK: REPO\n"},
+		{"case 21: a path no directory of its document resolves stays a violation",
+			[]string{"a/b/tickets/t.md", "c/notes/x.md", "x.md"},
+			func(dir string) {
+				dwFile(t, dir, "a/b/tickets/t.md", "## Done when\nNotes: `notes/x.md`, `../../../../x.md`.\n")
+			},
+			1, "DONE-WHEN-PATH: notes/x.md — a/b/tickets/t.md\nDONE-WHEN-PATH: ../../../../x.md — a/b/tickets/t.md\nDONE-WHEN-VIOLATION: REPO — 2\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
