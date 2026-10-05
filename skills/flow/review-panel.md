@@ -832,7 +832,11 @@ the **AskUserQuestion** it states.
 **Every fix subagent's dispatch prompt also carries the MUTATION PROOF paragraph**:
 
 > **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
-> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> end your turn — not only the test cases this round adds. The fix commit lands before the first
+> flip — a flip's restore (`git checkout --`) reverts to the last commit, so an uncommitted fix
+> dies with the first restore — and a flip's killing-test failure is trusted as proof only once
+> the mutation is asserted landed: the mutated bytes, read back from disk, are the ones the flip
+> wrote. Mutate the mechanism: revert it in a
 > scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
 > landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
 > never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
