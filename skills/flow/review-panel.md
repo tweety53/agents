@@ -37,7 +37,9 @@ is not confirmed conflict-free, so the run never takes that risk on itself; 1 is
 `REFUSE`, or anything it cannot answer — and an empty resolved set stop and ask. An exit 3 from any
 worktree is one prompt for the whole change, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), which that contract's **Auto-resolution** resolves on
-its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction:
+its recommended **Stop**; **Rebase** and **Continue** run only on an explicit operator instruction —
+silence is not one, and an unanswered ask takes **Stop** (**Unanswered mid-run asks**,
+`skills/flow-contracts/pipeline.md`):
 
 > **The base branch has moved and touches paths this change also touched — how should the
 > panel proceed?**

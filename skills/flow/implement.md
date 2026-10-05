@@ -128,7 +128,9 @@ flow record dispatch begin -change <name> -role <role> -model <the model origina
 A **second** mismatch closes the retry row `-outcome fallback` too and the parent asks the
 operator directly through **AskUserQuestion**, naming the requested model and both models that
 actually answered, options **Continue on `<the model the second handshake named>`** — proceed on
-that running agent, no third dispatch — or **Stop the run**. **A mark or a record never blocks** —
+that running agent, no third dispatch — or **Stop the run**. Silence takes **Continue** — the only
+option that moves the run forward, the substitution already on the record in the two fallback rows
+(**Unanswered mid-run asks**, `skills/flow-contracts/pipeline.md`). **A mark or a record never blocks** —
 proceed on the handshake's outcome regardless of whether any `flow` call reached the store.
 
 On a single-model harness, **Harness mapping** (`skills/flow-contracts/model-policy.md`) states when a
