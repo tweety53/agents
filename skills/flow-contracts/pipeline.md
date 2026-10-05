@@ -121,6 +121,21 @@ it from those same reports by a different approach. Where the evidence itself ma
 defect is first reproduced another way — another reproducer, another capture route. A further
 round without progress changes the approach again; none of them stops the run.
 
+## Unanswered mid-run asks
+
+**An operator ask that goes unanswered — the operator absent, the prompt stalled — resolves to
+the safest course that still makes progress, and never hangs the run on it.** Of the ask's own
+options, silence takes the one whose risk to the change is lowest among those that move it
+forward; an option that stops the run is taken only where every option that moves it forward is
+unsafe, and silence is never consent to an irreversible or outward-facing action (**What still
+stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). The run neither re-asks
+nor invents a course the options do not name. A silence outcome a call site states for itself —
+a marked default, a gate that acts only on an explicit operator instruction — governs over this
+rule. The resolution is recorded with the reasoning: a panel run in the pass log
+(`flow record pass`), any other run in its narrative (**Write `IN_PROGRESS`**,
+`skills/flow/verify-and-handoff.md`), naming the options considered and why the one taken is the
+safest that still makes progress.
+
 ## Pipeline defects found mid-run
 
 **A `/flow` or `/flow-fast` run that hits a defect in the pipeline itself fixes it within the
