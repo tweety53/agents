@@ -228,7 +228,8 @@ fix commit's body; a mutant nothing kills is an unfinished fix, its killing test
 section's commit rule before the run lands. Commit
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form, no
 attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch
-backup**, `skills/flow-contracts/git-boundaries.md`). A backing-out commit — a reverted prototype,
+backup**, `skills/flow-contracts/git-boundaries.md`). A branch rewritten by an auto-rebase pushes
+with `--force-with-lease`, never a bare `git push`, and never `--force`. A backing-out commit — a reverted prototype,
 a withdrawn task — carries the rejection reason in its body (**Revert and back-out commits**,
 `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
 record; no task-fields guard reads it, and section 5's lint and tests are the only close a commit
