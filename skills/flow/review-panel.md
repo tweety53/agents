@@ -455,6 +455,13 @@ on that assumption fails with a wrong-project error before it demonstrates anyth
 reproducer's first failure must be the defect, not the directory. Carry this requirement on
 every slot's dispatch prompt.
 
+**The authoring pattern (KAN-884): a reproducer's two legs run in their own trees, and its
+declarations sit in the window.** The pre-fix leg reads the tree that leg runs in — its
+defect-logic reads cwd-relative to that leg's worktree, never an archived HEAD of the live
+worktree, which is what lets `prove-reproducer.sh` hold both legs. The `# demonstrates:` and
+`# premise:` declarations sit inside the first-10-lines window the checker reads, above the
+script's body, so the window rule above resolves them without a bounce.
+
 **A reproducer is authored, or repaired, only with both recorded exits.** Before the finding's
 reproducer line is recorded, its author has executed the script in both directions and recorded
 both exits: once against a scratch worktree at the pre-fix commit, where it must read defect
