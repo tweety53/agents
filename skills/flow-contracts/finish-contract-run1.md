@@ -108,9 +108,9 @@ A re-run of an archived change skips `spectre archive`. **Without new work** it 
 it, the unfinished-work gate, the reshape and the two-commit chain — `spectre archive` already
 refused any unchecked task, and nothing above the base needs committing. **With new work** it
 skips none of them: the unfinished-work gate reads the archived `tasks.md`, and the reshape takes
-the archived re-run's base as its `<merge-base>` argument, so the planning commits above the base
-are kept, the task and fixup commits above it collapse into a new implementation commit, and
-`chore(spectre): plan` carries the archived directory's planning delta. Everything else runs
+the archived re-run's base as its `<merge-base>` argument, so the commits above the base fold into
+a new implementation commit and a `chore(spectre): plan` carrying the archived directory's
+planning delta. Everything else runs
 either way: the base-moved check and **Sync the branch onto the base**
 (`skills/flow/sync-onto-base.md`), `commit-archive.sh`, which prints
 `ARCHIVE-NOTHING-STAGED` once the archive commit exists and nothing it copies has changed, the
@@ -176,24 +176,21 @@ route, so nothing about the single-repository path changes.
 `reshape-branch.sh <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
-`<rebased-merge-base>`, for a worktree **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) rebased**. Every
-planning commit on the branch — each commit touching `<project>/spectre/changes/`: the plan-gate,
-link, reviewer-dispatch, fix-run and write-in-progress commits of **Planning commits**
-(`git-boundaries.md`) and `/flow-plan`'s capture commit — is kept as its own commit, in order, with
-its message and author, rebuilt on the merge base. Every per-task and fixup commit `/flow`'s
-implement phase made is collapsed back into the working tree, uncommitted, so the two-commit chain
-below commits it as one implementation commit on top of the kept planning commits. **Planning
-commits are never squashed into one**, at integrate or on any landing route. The script runs
-`check-planning-commit-location.sh` first and stops on its verdict. **When the script cannot be
-located**, stop and report it; never substitute `reset --soft`, which folds the planning commits
-away.
+`<rebased-merge-base>`, for a worktree **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) rebased**. It
+runs `check-planning-commit-location.sh` first and stops on its verdict, then `git reset --soft`
+to that merge base: every commit the run made on the branch — task, fixup and planning commits
+alike, the planning ones being the plan-gate, link, reviewer-dispatch, fix-run and
+write-in-progress commits of **Planning commits** (`git-boundaries.md`) and `/flow-plan`'s capture
+commit — folds back into the index, uncommitted. **Planning commits are squashed into one on
+landing**: they exist on the branch during the run, never on the base. **When the script cannot be
+located**, stop and report it.
 
 All three routes then commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
-reshaped diff carries, then whatever `<project>/spectre/changes/` planning delta the kept planning
-commits left — this run's narrative and anything the operator edited — subject the fixed literal
-`chore(spectre): plan`. The landed branch is therefore: the kept planning commits, the
-implementation commit, then that last planning commit.
+reshaped diff carries, then the whole `<project>/spectre/changes/` planning delta — every planning
+commit's content, this run's narrative and anything the operator edited — subject the fixed literal
+`chore(spectre): plan`. The landed branch is therefore: the implementation commit, then that one
+planning commit.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with

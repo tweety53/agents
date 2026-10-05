@@ -19,7 +19,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in) and the **Planning commits** below, **pushing after each** — no merge or PR |
 | `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** and planning commits the same way, pushing after each — no merge or PR |
 | `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes `--force-with-lease`** to the PR branch — implementation, then whatever planning delta the last planning commit left |
-| bare `/flow` | run 1 | **Reshapes** — keeps every planning commit, collapses task and fixup commits — then **commits twice** — implementation, then the planning delta — then **commits** the archive and the self-review context bundle, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
+| bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base, planning commits included — then **commits twice** — implementation, then the planning delta — then **commits** the archive and the self-review context bundle, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
 | bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 6 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
 | `/flow-status` | — | None — read-only |
 | `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
@@ -62,8 +62,7 @@ check-planning-commit-location.sh <abs-worktree> <name> \
 it, exactly as the two-commit chain (`skills/flow-contracts/git-boundaries-commit-chain.md`) skips. `<peer>` is the peer name the link command was
 given. **`spectre link` is never run with `--force`**: it refuses while the canonical change
 directory carries uncommitted modifications, and the answer to that refusal is the planning commit
-above, never an override. Integrate's reshape (**Branch backup** below) keeps every planning commit
-as the separate commit it was made as, so the landed branch carries each one.
+above, never an override.
 
 **A planning commit lands only in the change's own worktree, on `spectre/<name>`.**
 `check-planning-commit-location.sh <abs-worktree> <name>` answers `PLANNING-COMMIT-LOCATION-OK` (exit

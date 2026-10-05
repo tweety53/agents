@@ -120,9 +120,10 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 //     spectre/changes/, docs/research/ and docs/superpowers/ — anything
 //     else resolves NOTHING rather than a confident wrong answer — and
 //     listed directly before its planning commit. The merge-base gate is
-//     what keeps the oldest planning commit's parent out: the reshape
-//     rebuilds every kept planning commit on the merge base, so that
-//     parent is the base tip, a commit of some other change; the bundle
+//     what keeps the oldest planning commit's parent out: before
+//     integrate's reshape the first planning commit sits on the merge
+//     base — and changes landed from 2026-09-24 to 2026-10-05 kept it
+//     there — so that parent is the base tip, a commit of some other change; the bundle
 //     subject is what keeps an archived re-run's first planning commit's
 //     parent out, the previous run's self-review bundle commit.
 //
@@ -232,8 +233,8 @@ func atOrBelow(g Runner, repo, commit, bound string) bool {
 // reserved subject — and kept anyway: each guards this function's own git
 // queries against a future edit to commit-split.sh's staging shape, which
 // no test of this function can see. The bundle subject rejection is live:
-// an archived re-run's first kept planning commit sits on the previous
-// run's bundle commit.
+// an archived re-run's first planning commit sits on the previous run's
+// bundle commit until the re-run's reshape.
 func isRealImplCommit(g Runner, repo, impl, nameRe string) bool {
 	if impl == "" {
 		return false

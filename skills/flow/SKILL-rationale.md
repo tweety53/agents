@@ -938,8 +938,7 @@ so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path
 
 Moved verbatim from the paragraph after the `reshape-branch.sh` call, where it followed "never the state file's now-stale pre-rebase value for that worktree."; the duplicate `reset --soft` sentence after it was cut, **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) being canonical for it:
 
-This keeps every planning commit as its own commit on the merge base and collapses every per-task
-and fixup commit back into the working tree, uncommitted; using the
+This folds every commit since the merge base back into the index, uncommitted; using the
 stale value here would also collapse in the upstream commits the rebase just brought in, silently
 smuggling them into the implementation commit below.
 

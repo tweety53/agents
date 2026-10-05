@@ -43,13 +43,14 @@ destroy. Committing the folder once the operator has approved it — and again a
 boundary where the run itself edits it — removes both, while the task-commit check keeps planning
 out of every implementation commit.
 
-**Why integrate keeps the planning commits instead of folding them into one.** Folding them made
-the landed branch carry one `chore(spectre): plan` whose diff was every plan edit at once — the
-operator had approved each of them already, at the plan gate and at every later boundary, and was
-shown the same material again as one new commit. Kept, each lands as the commit that was approved,
-and only the delta no planning commit carried reaches integrate's own planning commit. Task and
-fixup commits are still collapsed: they are reviewed per task in flight, and land as one
-implementation commit.
+**Why integrate folds the planning commits into one on landing.** From 2026-09-24 (commit
+0c406421) to 2026-10-05 integrate kept every planning commit as the separate commit it was made
+as, rebuilding each on the merge base, so the operator was not shown already-approved plan edits
+again as one new commit. Rejected on 2026-10-05 by operator decision: a /flow change landed 30–40
+commits all titled `chore(spectre): plan`, and gymie PR #88 (develop → main) carried about 85 of
+them — identical subjects that say nothing apart and bury the implementation commits in the base's
+history. The commits stay on the branch during the run, where they back the branch up and give
+reviewers the committed plan; landing needs only their sum.
 
 **Why a location guard on planning commits.** `spectre link` must run from a repository's primary
 checkout to resolve its peers file, so the directory a link commit is made from is one `cd` away

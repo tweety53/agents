@@ -2,15 +2,13 @@ package guard
 
 import (
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 )
 
-// Every case of scripts/test-reshape-branch.sh, one subtest per case, each
-// assertion named after the harness's ok: label. reshape-branch runs
-// in-process, followed by commit-split exactly as integrate runs them, each
-// calling check-planning-commit-location in-process.
+// reshape-branch runs in-process, followed by commit-split exactly as
+// integrate runs them, each calling check-planning-commit-location
+// in-process.
 
 type rbFx struct{ main, wt, base string }
 
@@ -65,7 +63,7 @@ func TestReshapeBranch(t *testing.T) {
 		}
 	}
 
-	t.Run("1 planning commits survive; task and fixup commits collapse", func(t *testing.T) {
+	t.Run("1 every commit folds; the landed branch is one implementation and one planning commit", func(t *testing.T) {
 		t.Parallel()
 		fx := rbNew(t)
 		w := fx.wt
@@ -87,75 +85,44 @@ func TestReshapeBranch(t *testing.T) {
 
 		rc, out := fx.reshape(t, w, w, "demo", fx.base)
 		check(t, rc == 0, "reshape exit", "rc=%d out=%s", rc, out)
-		check(t, strings.Contains(out, "RESHAPED: "+w+" — 3 planning commit(s) kept on "+fx.base[:12]),
-			"reshape verdict names three kept commits", "%s", out)
+		check(t, strings.HasSuffix(out, "\nRESHAPED: "+w+" — reset to "+fx.base[:12]), "reshape verdict", "%q", out)
+		check(t, splitGit(t, w, nil, "rev-parse", "HEAD") == fx.base, "HEAD is the merge base", "HEAD moved elsewhere")
 		if rc, out := runSplitGuard(t, commitSplit, w,
 			w, "demo", "feat(src): the change", "chore(spectre): plan\n\noutstanding: none"); rc != 0 {
 			t.Fatalf("commit-split rc=%d out=%s", rc, out)
 		}
 
 		subjects := splitGit(t, w, nil, "log", "--reverse", "--format=%s", fx.base+"..HEAD")
-		want := "chore(spectre): plan\nchore(spectre): link peer\nchore(spectre): plan\nfeat(src): the change\nchore(spectre): plan"
-		check(t, subjects == want, "planning commits kept, in order, around one implementation commit", "subjects:\n%s", subjects)
-		authors := splitGit(t, w, nil, "log", "--reverse", "--format=%an", fx.base+"..HEAD~2")
-		check(t, authors == "planner\nlinker\nreviewer", "planning commits keep their authors", "authors: %q", authors)
+		check(t, subjects == "feat(src): the change\nchore(spectre): plan",
+			"one implementation commit, then one planning commit", "subjects:\n%s", subjects)
 		check(t, splitGit(t, w, nil, "rev-parse", "HEAD^{tree}") == wantTree,
 			"final tree equals the pre-reshape branch plus working tree", "tree differs")
-
-		for _, c := range strings.Fields(splitGit(t, w, nil, "rev-list", fx.base+"..HEAD")) {
-			paths := strings.Split(splitGit(t, w, nil, "diff-tree", "--no-commit-id", "--name-only", "-r", c), "\n")
-			subject := splitGit(t, w, nil, "log", "-1", "--format=%s", c)
-			for _, p := range paths {
-				leak := strings.HasPrefix(subject, "chore") && !strings.HasPrefix(p, "spectre/changes/demo/") ||
-					strings.HasPrefix(subject, "feat") && strings.HasPrefix(p, "spectre/changes/")
-				check(t, !leak, "each commit carries only its own side of the split", "%s %q carries %s", c, subject, p)
-			}
-		}
-		last := splitGit(t, w, nil, "show", "--name-only", "--format=", "HEAD")
-		check(t, strings.Contains("\n"+last+"\n", "\nspectre/changes/demo/narrative.md\n"),
-			"uncommitted planning delta is the last planning commit", "%s", last)
+		impl := splitGit(t, w, nil, "show", "--name-only", "--format=", "HEAD~1")
+		// link.md rides the implementation commit by the two-commit chain's own rule.
+		check(t, impl == "spectre/changes/demo/link.md\nsrc/a.txt\nsrc/b.txt", "implementation commit carries src and link.md", "%q", impl)
+		plan := splitGit(t, w, nil, "show", "--name-only", "--format=", "HEAD")
+		check(t, plan == "spectre/changes/demo/narrative.md\nspectre/changes/demo/proposal.md\nspectre/changes/demo/tasks.md",
+			"planning commit carries the whole planning delta", "%q", plan)
 		check(t, strings.Contains(splitGit(t, w, nil, "log", "-1", "--format=%B", "HEAD"), "outstanding: none"),
-			"last planning commit carries integrate's message", "message lost")
+			"planning commit carries integrate's message", "message lost")
 	})
 
-	t.Run("1b a planning commit keeps its message byte for byte, trailing blank lines included", func(t *testing.T) {
-		t.Parallel()
-		fx := rbNew(t)
-		writeFile(t, fx.wt+"/spectre/changes/demo/proposal.md", "proposal\n")
-		splitGit(t, fx.wt, nil, "add", "-A")
-		splitGit(t, fx.wt, nil, "commit", "-q", "--cleanup=verbatim", "-m", "chore(spectre): plan\n\nbody\n\n")
-		// The raw commit object, untrimmed: its message is everything after
-		// the first blank line.
-		msg := func() string {
-			out, err := exec.Command(fixtureGit, "-C", fx.wt, "cat-file", "commit", "HEAD").Output()
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, m, _ := strings.Cut(string(out), "\n\n")
-			return m
-		}
-		want := msg()
-		rc, out := fx.reshape(t, fx.wt, fx.wt, "demo", fx.base)
-		check(t, rc == 0, "reshape exit", "rc=%d out=%s", rc, out)
-		check(t, msg() == want, "message kept", "got %q, want %q", msg(), want)
-	})
-
-	t.Run("2 no planning commits: the reshape is a plain reset --soft", func(t *testing.T) {
+	t.Run("2 no planning commits: HEAD at the base, task work staged", func(t *testing.T) {
 		t.Parallel()
 		fx := rbNew(t)
 		writeFile(t, fx.wt+"/src/a.txt", "task\n")
 		fx.commitAs(t, "impl", "feat(src): task\n\nTask-Id: 1", "src")
 		rc, out := fx.reshape(t, fx.wt, fx.wt, "demo", fx.base)
-		check(t, rc == 0 && strings.Contains(out, "0 planning commit(s)"), "nothing kept", "rc=%d out=%s", rc, out)
+		check(t, rc == 0 && strings.HasSuffix(out, "\nRESHAPED: "+fx.wt+" — reset to "+fx.base[:12]), "reshape verdict", "rc=%d out=%s", rc, out)
 		check(t, splitGit(t, fx.wt, nil, "rev-parse", "HEAD") == fx.base, "HEAD is the merge base", "HEAD moved elsewhere")
 		check(t, splitGit(t, fx.wt, nil, "diff", "--cached", "--name-only", "--", "src/a.txt") == "src/a.txt",
 			"task work kept staged", "task work lost from the index")
 	})
 
 	// A run 1 that stopped between `spectre archive` and commit-archive.sh
-	// left the archive rename staged; a resumed reshape keeps it staged and
-	// the working tree as found — only HEAD moves.
-	t.Run("2b a staged archive rename survives the reshape staged", func(t *testing.T) {
+	// left the archive rename staged; a resumed reshape keeps the archived
+	// directory staged and the working tree as found — only HEAD moves.
+	t.Run("2b a staged archive survives the reshape staged", func(t *testing.T) {
 		t.Parallel()
 		fx := rbNew(t)
 		w := fx.wt
@@ -167,10 +134,10 @@ func TestReshapeBranch(t *testing.T) {
 		splitGit(t, w, nil, "mv", "spectre/changes/demo", "spectre/changes/archive/demo")
 		want := fx.expectedTree(t)
 		rc, out := fx.reshape(t, w, w, "demo", fx.base)
-		check(t, rc == 0 && strings.Contains(out, "1 planning commit(s)"), "planning commit kept", "rc=%d out=%s", rc, out)
+		check(t, rc == 0, "reshape exit", "rc=%d out=%s", rc, out)
 		staged := splitGit(t, w, nil, "diff", "--cached", "--name-status", "-M", "--", "spectre/changes/")
-		check(t, staged == "R100\tspectre/changes/demo/tasks.md\tspectre/changes/archive/demo/tasks.md",
-			"rename still staged", "staged under spectre/changes/: %q", staged)
+		check(t, staged == "A\tspectre/changes/archive/demo/tasks.md",
+			"archive still staged", "staged under spectre/changes/: %q", staged)
 		check(t, fx.expectedTree(t) == want, "working tree and index as found", "the tree moved")
 	})
 

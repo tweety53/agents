@@ -474,9 +474,10 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 // integrate: a fix run after run 1 archived the change commits a new
 // implementation commit and a planning commit over the ARCHIVED directory
 // on the change branch, and the regenerated bundle describes those after
-// run 1's pair and the archive commit. The branch has the reshaped shape:
+// run 1's pair and the archive commit. The branch has the shape a
+// reshape that kept planning commits (2026-09-24 to 2026-10-05) left:
 // the kickoff planning commit sits on the merge base, whose tip is another
-// change's commit, and the fix run's own kept planning commit sits on the
+// change's commit, and the fix run's own planning commit sits on the
 // previous run's bundle commit — neither parent is the change's
 // implementation.
 func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
