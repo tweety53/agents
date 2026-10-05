@@ -165,9 +165,11 @@ text after it is the passage, verbatim.
 - *The refusal exits are never repaired by editing the plan* — (KAN-601)
 - *…record its size as the change's first task-count observation — the planned figure every later fix round's growth is measured against* — (KAN-415)
 
-### brainstorm-planner.md — D. Writing plans (live-verification task)
+### brainstorm-planner.md — D. Writing plans (live check)
 
 - ***Write a live-verification task when the change touches a running service or persistent state.** … the justification is required, the task is not.* — This is deliberately not an integration-test stage on every change: a step that usually resolves to "nothing to do" trains everyone to skip it.
+- *…never a live-verification task …* — (KAN-876) KAN-754's live task ran after the spec and capture tasks in one serial group and repeated, against a stack of its own, what `flow.verify` and visual verify already do against the running app.
+- *Write end-to-end spec and fidelity-capture tasks to run side by side* — (KAN-876) KAN-754 chained its fidelity task after its spec task with no file dependency, and the chain merge then ran them in series.
 
 ### verify-and-handoff.md — Inline verify
 
@@ -1024,7 +1026,7 @@ API names are per-framework and per-project; the parent naming the motions from 
 ## brainstorm-planner.md — Model and effort, the verification-only group (opus-low-verification)
 
 The operator asked for `opus` at `low` on implementer groups that only verify an already-built
-feature — end-to-end specs, fidelity captures against design frames, a live-verification record.
+feature — end-to-end specs, fidelity captures against design frames.
 A gymie run had decided such a group (Tasks 23–25) `opus`/`medium`. The group writes tests and records against a fixed target, not production code, so it is pinned at
 `low` whatever `effort_roll` says. It stays `opus` because judging a capture or a live walk is
-judgement the `sonnet` allowance does not cover.
+judgement the `sonnet` allowance does not cover. KAN-876 folded the live-verification record into `flow.verify`; the pin now covers spec and capture groups.

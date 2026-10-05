@@ -55,8 +55,7 @@ export were performed manually and why.
 
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**
-(`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
-exports, lints, tests, and hands off.
+(`skills/flow-contracts/project-configuration.md`), and this step starts them only for **Live check** below, through the project's own `## run`.
 
 **After the panel closes, the parent edits no source outside the in-run fix loop.** Source
 changes only through **The loop** (`skills/flow/verify-fix-loop.md`) or a fix run the operator
@@ -121,6 +120,26 @@ recorded before the first command in the list; `end` after the `## Report` is wr
 `-outcome completed`, or `-outcome blocked -cause <cause>` when a command failed twice —
 `test-failure` for a command of the branch that failed twice, `environment` where the
 environment itself failed twice (a missing build prerequisite).
+
+### Live check
+
+**Runs only when `design.md` carries a `## Live check` section naming something to exercise**
+(**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`); a one-line
+no-runtime section, or none, skips it. After the lint and test list, with the parent's own Bash
+calls: when the stack's worktree-resolved URLs do not answer, or `check-dev-stack-fresh.sh
+<worktree>` exits non-zero, start it as **One stack for the verification tasks**
+(`skills/flow/implement.md`) does; then exercise what the section names and write each
+before/after figure, beside the failure look the section states, to `live-verification.md` in
+the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`), a
+planning path the write-in-progress planning commit carries. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
+shows the failure look is the branch's own defect and takes **The loop**
+(`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
+command's environment cause does. The verifier row's `end` (**Recording.**, above) is recorded
+after this check, not before it: `-outcome blocked -cause test-failure` on a failure look,
+`-cause environment` on a stack that will not start. The stack stays up for **Visual
+verification** and **Resolve the run instructions**.
+
+### Close the stage
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
@@ -267,7 +286,10 @@ Resolve the run instructions the start below uses and `/flow-status` prints as i
   still serving pre-fix code, the operator reviews one thing and runs another. But the same
   applies on a first run: a handoff is meant to hand off a running stack, not a command that starts
   one, so before this stage ends, rebuild and restart every application the run instructions above
-  name — the ones just resolved, and no others — from the project's `## run` commands.
+  name — the ones just resolved, and no others — from the project's `## run` commands. **A stack already serving this
+  worktree's build is left running**: when its URLs answer and `check-dev-stack-fresh.sh
+  <worktree>` exits 0 before the start, the start is skipped — the stack the verification tasks
+  or **Live check** started is the one handed off. Exit 1 or 2 starts it as above.
 
   Resolve the start from the two keys the project already declares, in order: its `## stop`, when
   it declares a command, then its `## run`. **A `## stop` that deliberately declares no command

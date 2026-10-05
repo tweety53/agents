@@ -935,3 +935,16 @@ flow stage end -command '/flow' -stage flow.sdd-tdd -outcome completed <name>
 ```
 
 Once this stage completes, continue into `skills/flow/review-panel.md`.
+
+### One stack for the verification tasks
+
+**Before the first task whose `**Files:**` only add end-to-end specs, fidelity captures or their
+baselines goes out** — dispatched under `sdd`, or started by the parent on an `inline` run — the
+parent starts the canonical worktree's stack once, by the start rule of **Resolve the run
+instructions** (`skills/flow/verify-and-handoff.md`) — its failure, refused-start and
+protected-service handling included — then runs any build the plan's Global Constraints name
+for those tasks, then `check-dev-stack-fresh.sh <canonical-worktree>`: exit 1 is a failed start,
+and exit 2 puts `Freshness: unverified — <the guard's reason>` in every such task's prompt.
+Every such task, and every wave copy it runs in, runs against that stack's worktree-resolved
+URLs, which its prompt names, and starts, stops and rebuilds nothing. The stack stays up for
+`flow.verify`.

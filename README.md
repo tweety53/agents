@@ -124,7 +124,7 @@ then prints a `## Decision` table and asks **Proceed to implementation?** before
    | `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
    | `small` | inline | — | `primary`+`principles`, delta re-runs |
    | `regular` | inline | — | adds `failure-modes`+`mutation`, delta re-runs |
-   | `big` | `sdd`: subagent implementers, one per task group | `medium` on an `effort` roll below 80, else `low`/`medium`/`high` per group, from how hard its tasks are; a verification-only group (end-to-end specs, fidelity captures, a live-verification record) always `low` | same roster as `regular`, full re-runs |
+   | `big` | `sdd`: subagent implementers, one per task group | `medium` on an `effort` roll below 80, else `low`/`medium`/`high` per group, from how hard its tasks are; a verification-only group (end-to-end specs, fidelity captures) always `low` | same roster as `regular`, full re-runs |
 
    A `compact` roll shrinks any roster except `micro`'s to `primary`+`principles`. A round runs at
    most two review dispatches, with up to three roles each. A `micro` change (at most two tasks,

@@ -255,6 +255,19 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > predecessors or `none` — the declarations alone run the follow-on after the feature task — and
 > the parent's full-suite run after the last group still covers the pair.
 
+> **Write end-to-end spec and fidelity-capture tasks to run side by side.** Each such task's
+> `**After:**` names only the feature tasks whose behaviour it exercises — never another
+> verification task, since one spec file never needs another's commit — and each seeds its own
+> accounts and data, so the tasks share one running stack (**One stack for the verification
+> tasks**, `skills/flow/implement.md`) without touching each other's state. Global Constraints
+> names the stack's start row and any build the tasks run against; no task's steps start, stop
+> or rebuild the stack.
+
+> **Write a spec so it never waits out a production timing.** A scenario that depends on a
+> production timeout, retry backoff or polling interval plans a test-only override that
+> shortens it — the production value unchanged — in the task that adds the spec, and a suite
+> whose specs are independent runs on the test runner's parallel workers.
+
 > **Write a capture for every frame on the change's frame list.** When the design is specified by
 > mockup frames and the project declares `mockups`, every frame id `design.md` cites is named in
 > some task's `**Files:**` or steps, as the capture spec screenshot of the view that frame draws
@@ -263,15 +276,17 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > and name the task covering each; a frame no task covers is a plan gap, closed by adding the
 > capture to the task that builds that view or by a capture task of its own.
 
-> **Write a live-verification task when the change touches a running service or persistent
-> state.** When the change under plan touches a long-running service, a daemon, a store, a
-> scheduler or anything else holding runtime state, the plan carries a final task that exercises
-> the real thing — the running system against its real state, not its fakes — and records the
-> before/after figures it observed. That task also states what the change **not** working would
-> look like, so a null result is recognisable as failure rather than read as success: a task that
-> only asserts the command exited 0 cannot tell a repaired system from an untouched one. When the
-> planner judges the change has no runtime to verify against, it writes one line in the plan
-> saying so — the justification is required, the task is not.
+> **Write a live check when the change touches a running service or persistent state — never a
+> live-verification task.** When the change under plan touches a long-running service, a daemon,
+> a store, a scheduler or anything else holding runtime state, `design.md` carries a
+> `## Live check` section naming what to exercise against the real thing — the running system
+> against its real state, not its fakes — the before/after figures to record, and what the
+> change **not** working would look like, so a null result is recognisable as failure rather
+> than read as success: a check that only asserts a command exited 0 cannot tell a repaired
+> system from an untouched one. `flow.verify` runs it (**Live check**,
+> `skills/flow/verify-and-handoff.md`); no task in `tasks.md` does. When the planner judges the
+> change has no runtime to verify against, the section is one line saying so — the
+> justification is required, the check is not.
 
 > **Write a verification change so its found defects become their own tasks.** When a plan's task
 > exists to exercise a surface and report what it finds — a final-verification pass over a feature
@@ -457,7 +472,11 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    groups — a chain judged too long for one implementer's context, or a real parallel-wave benefit
    the mechanical grouping's fold pass declined — with a one-line `groups_override` reason;
    **never merge across the mechanical result**, since merging two groups it kept apart would
-   collapse a real parallel wave. `groups_override` is `null` when the mechanical grouping is
+   collapse a real parallel wave. **A mechanical group holding two or more
+   verification-only bundles** — end-to-end specs or fidelity captures, none named in another's
+   after-set — **is split, one group per such bundle**, `groups_override` naming the parallel
+   wave, since the chain merge joins each to the group holding the feature task it waits on and
+   runs them in series. `groups_override` is `null` when the mechanical grouping is
    taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
    reason when `groups_override` is set. **Each group carries its own `model` and `effort`**:
    step 2's implementer value by default, or a different pair the planner picks for that group
@@ -506,7 +525,7 @@ decision` refuses a decision whose pairs name any other model. Pairs may repeat 
 or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. The rerun
 pair's effort is fixed at `low` (step 3). **A verification-only implementer group is `opus` at `low`, fixed, whatever the
 roll** — a group whose every task only adds end-to-end specs, fidelity captures or baselines
-against design frames, or a live-verification record of an already-built feature, and changes no
+against design frames of an already-built feature, and changes no
 production code. **When `effort_roll < 80`, every other `effort` is
 `medium`**, save a pair carrying a hard seam, which may take `high`, its `reason` naming the seam.
 When `effort_roll ≥ 80`, every other `effort` is the
