@@ -16,7 +16,7 @@ halves live in the one repo and are covered below.
 
 **This repository is Bash + Python + Go, not Bash-only.** Several `scripts/*.py` guards (`check-task-build-green.py`, `check-plan-shape.py`, `check-task-commit-fields.py`, `check-markdown-integrity.py`, among others) run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-planning-commit-location`, `check-archive-scope`, `check-main-checkout-drift`, `refresh-main-checkout`, `land-self-review-report`, `check-self-review-report`, `break-and-prove`, `prepare-workspace` and `check-panel-docs-only` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
 
-**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash.
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash. A new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — `run-guard-tests.sh` refuses the suite before anything runs while the companion is missing, a Go test in `stats/internal/guard/<name>_test.go` standing in for it (kan-903).
 
 ### artifact tree
 
@@ -77,7 +77,10 @@ cd stats/web && npm test
 through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with
 no edit needed here. It points `FLOW_GUARD_CACHE_DIR` at its own temp directory, so a ported
 guard's shim builds `flow-guard` from this tree there rather than in the operator's cache;
-`scripts/test-go-guards.sh` runs the Go guard tests (`stats/internal/guard/`) as one harness.
+`scripts/test-go-guards.sh` runs the Go guard tests (`stats/internal/guard/`) as one harness. A
+new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — plans declare the
+companion task and review panels look for it, and the runner refuses the suite before anything
+runs while the companion is missing (kan-903).
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
 canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
