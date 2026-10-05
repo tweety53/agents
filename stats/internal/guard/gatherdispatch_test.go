@@ -557,6 +557,32 @@ func TestGatherDispatchContext(t *testing.T) {
 		{"a satellite's canonical leaf symlink outside the content dir is refused, exit 0", sat("", true, func(t *testing.T, f *gdcFx) {
 			gdcReplaceWithSymlink(t, secret(t, f, "56")+"/secret.md", f.canonChange+"/proposal.md")
 		}), all(exit(0), lacks("TOP-SECRET-56"), has("refused: proposal.md (canonical canon:demo) (resolves outside the change directory)"))},
+		// An ## apps worktree given no spectre link holds no change directory
+		// at all: its change-root is the canonical worktree's change
+		// directory, accepted because it sits inside the seventh argument,
+		// while project commands and HEAD stay this worktree's own.
+		{"undeclared app worktree: change-root inside the canonical worktree, own commands and head kept", func(t *testing.T, f *gdcFx) gdcResult {
+			canonChange := f.base + "/canon/spectre/changes/demo"
+			if err := os.RemoveAll(f.repo + "/spectre"); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, canonChange+"/tasks.md", "CANON-TASKS-BODY\n")
+			writeFile(t, f.repo+"/.flow/project.md", "# app project\n\n## lint\n\nAPP-LINT-MARKER\n")
+			writeFile(t, f.base+"/canon/.flow/project.md", "# canon project\n\n## lint\n\nCANON-LINT-MARKER\n")
+			return f.runArgs(f.repo, canonChange, "demo", f.principles, f.output, "", f.base+"/canon", "cross-repo")
+		}, all(exit(0), has("CANON-TASKS-BODY", "APP-LINT-MARKER"), lacks("CANON-LINT-MARKER"),
+			func(t *testing.T, f *gdcFx, r gdcResult) {
+				sha, err := exec.Command(fixtureGit, "-C", f.repo, "rev-parse", "--short", "HEAD").Output()
+				if err != nil {
+					t.Fatal(err)
+				}
+				has("head: "+strings.TrimSpace(string(sha)))(t, f, r)
+			})},
+		{"change-root inside the canonical worktree without the seventh argument: still exit 2", func(t *testing.T, f *gdcFx) gdcResult {
+			canonChange := f.base + "/canon/spectre/changes/demo"
+			writeFile(t, canonChange+"/tasks.md", "CANON-TASKS-BODY\n")
+			return f.runArgs(f.repo, canonChange, "demo", f.principles, f.output)
+		}, all(exit(2), errHas("resolves outside the worktree"))},
 		{"a ## Parts-only link.md is not a satellite: ordinary absent-leaf handling", func(t *testing.T, f *gdcFx) gdcResult {
 			gdcRemove(t, f.changeRoot+"/tasks.md")
 			writeFile(t, f.changeRoot+"/link.md", "## Parts\n\n`peerz:some-part`\n")

@@ -84,7 +84,16 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves through a symlink somewhere between the repository root and the leaf\n", changeRoot)
 		return 2
 	}
-	if !withinRoot(changeRootReal, worktreeReal) {
+	// An ## apps worktree created without a spectre link
+	// (skills/flow/cross-repo-worktrees.md) holds no change directory, so
+	// its change-root is the canonical worktree's: containment is then
+	// checked against <canonical-worktree>, validated like <worktree>.
+	inCanonical := false
+	if canonical != "" {
+		real, mismatch := validatePath(env, canonical)
+		inCanonical = real != "" && !mismatch && isDir(real) && withinRoot(changeRootReal, real)
+	}
+	if !withinRoot(changeRootReal, worktreeReal) && !inCanonical {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves outside the worktree '%s'\n", changeRoot, worktree)
 		return 2
 	}

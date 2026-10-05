@@ -19,7 +19,10 @@
 #
 # <worktree> and <change-root> are absolute paths; <change-root> is expected
 # to sit under <worktree> (spectre/changes/<name>/, but this script does not
-# assume that literal shape — it only requires containment). <principles-path>
+# assume that literal shape — it only requires containment), or under
+# <canonical-worktree> when <worktree> is an ## apps repository given a
+# worktree without a spectre link (skills/flow/cross-repo-worktrees.md), which
+# holds no change directory of its own. <principles-path>
 # is the absolute path of engineering-principles.md, resolved by the CALLER
 # (skills/flow/review-panel.md's own [PRINCIPLES_PATH] rule) and never derived
 # here — it may legitimately sit OUTSIDE <worktree> entirely, e.g. under a
@@ -95,7 +98,9 @@
 # mechanism rather than several bounded, individually-bypassable checks.
 # They must additionally resolve to an existing directory (not merely pass
 # the lexical/real comparison), and <change-root> must resolve INSIDE
-# <worktree> — a change-root outside the repository is a malformed
+# <worktree> — or, when the seventh argument is given, inside
+# <canonical-worktree>, which must then itself resolve to an existing
+# directory with no divergence — a change-root outside both is a malformed
 # invocation, not a legitimate absence.
 # <principles-path> is normalized and resolved the same way but is NEVER
 # refused for a divergence found in step 3, and carries no existence or
@@ -147,7 +152,8 @@
 #      the same change's tracked content, reached through a link whose peer
 #      name and change id change-plan.sh allowlist-checks character for
 #      character. The invocation-level containment rules above are
-#      unchanged — <change-root> must still sit inside <worktree>, exit 2.
+#      unchanged — <change-root> must still sit inside <worktree> or
+#      <canonical-worktree>, exit 2.
 #   2. A satellite whose canonical plan cannot be reached is NOT a refusal:
 #      the three plan leaves are reported as skipped with the distinct
 #      label "(satellite plan unresolved — link.md at <path>)" and the run
@@ -185,7 +191,8 @@
 # empty result as "hazards (none)".
 #
 # <canonical-worktree>, when given, is validated nowhere beyond what
-# change-plan.sh's own [ -f ] probes imply — the same trust level as
+# change-plan.sh's own [ -f ] probes imply and the change-root containment
+# above — the same trust level as
 # check-unfinished-work.sh's third argument: a caller-supplied worktree
 # path, not attacker-influenced change content, and every name concatenated
 # under it (the canonical change id) is allowlist-checked inside

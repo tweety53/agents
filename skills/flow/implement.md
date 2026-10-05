@@ -418,7 +418,8 @@ section is filtered by it; a gather made without it carries only always-on hazar
 
 In every gather (`skills/flow/sdd-dispatch.md`, `skills/flow/review-panel.md`), `<changeRoot>` is
 the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`) resolved
-inside this worktree, and
+inside this worktree — or inside `<canonical-worktree>` when this worktree holds none, an
+`## apps` repository given no `spectre link` (`skills/flow/cross-repo-worktrees.md`) — and
 `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
 `skills/flow/`, always.
 
