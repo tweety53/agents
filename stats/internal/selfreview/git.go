@@ -105,12 +105,14 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 //   - an archive commit is a commit whose subject is exactly
 //     `chore(spectre): archive <name>`;
 //   - a planning commit is a commit that BOTH carries a plan-commit
-//     subject — the current fixed literal `chore(spectre): plan`, or either
+//     subject — a prefix match on `chore(spectre): plan`, which covers the
+//     bare literal of changes landed before 2026-10-05 and the
+//     `chore(spectre): plan <name>[ — <boundary>]` subjects since, or either
 //     pre-rename wording scoped to the change — AND touched the change's
 //     live spectre/changes/<name>/ path or its archived
 //     spectre/changes/archive/<name>/ one. Path alone is not
 //     commit-specific (the archive commit itself touches both); subject
-//     alone is not change-specific (the fixed literal is identical across
+//     alone is not change-specific (the bare literal is identical across
 //     changes). The archived path is what finds an archived re-run's
 //     planning commit;
 //   - each planning commit's implementation commit is its first parent,

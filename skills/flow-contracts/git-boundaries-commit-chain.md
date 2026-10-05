@@ -18,14 +18,13 @@ git -C <abs-worktree> reset -q -- spectre/changes/ \
        || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
   && git -C <abs-worktree> add -A \
   && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "chore(spectre): plan"; }
+       || git -C <abs-worktree> commit -m "chore(spectre): plan <name>"; }
 ```
 
 `<module>` is derived from the reshaped diff — the module carrying the change's substance, or a
 broader area where it spans several, never a list. That is the same rule the creating run's
 writing-plans stage applies to each task's `**Commit:**` field. The
-planning message's subject is a **fixed literal**, never derived — every planning commit stages the
-same planning path in every change, so there is nothing about it that varies. At integrate its
+planning message's subject is `chore(spectre): plan <name>`, never derived from the diff. At integrate its
 message also lists anything the operator integrated over
 (**1. Check for unfinished work**, `skills/flow/integrate.md`).
 

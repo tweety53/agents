@@ -68,7 +68,7 @@ func TestReshapeBranch(t *testing.T) {
 		fx := rbNew(t)
 		w := fx.wt
 		writeFile(t, w+"/spectre/changes/demo/proposal.md", "proposal\n")
-		fx.commitAs(t, "planner", "chore(spectre): plan", "spectre/changes/demo")
+		fx.commitAs(t, "planner", "chore(spectre): plan demo — plan gate", "spectre/changes/demo")
 		writeFile(t, w+"/src/a.txt", "task 1\n")
 		fx.commitAs(t, "impl", "feat(src): task 1\n\nTask-Id: 1", "src")
 		writeFile(t, w+"/spectre/changes/demo/link.md", "link\n")
@@ -78,7 +78,7 @@ func TestReshapeBranch(t *testing.T) {
 		writeFile(t, w+"/src/b.txt", "task 2\nfixup\n")
 		fx.commitAs(t, "impl", "fixup! feat(src): task 2", "src")
 		writeFile(t, w+"/spectre/changes/demo/tasks.md", "tasks ticked\n")
-		fx.commitAs(t, "reviewer", "chore(spectre): plan", "spectre/changes/demo")
+		fx.commitAs(t, "reviewer", "chore(spectre): plan demo — before review", "spectre/changes/demo")
 		writeFile(t, w+"/src/a.txt", "task 1\noperator edit\n")
 		writeFile(t, w+"/spectre/changes/demo/narrative.md", "narrative\n")
 		wantTree := fx.expectedTree(t)
@@ -88,12 +88,12 @@ func TestReshapeBranch(t *testing.T) {
 		check(t, strings.HasSuffix(out, "\nRESHAPED: "+w+" — reset to "+fx.base[:12]), "reshape verdict", "%q", out)
 		check(t, splitGit(t, w, nil, "rev-parse", "HEAD") == fx.base, "HEAD is the merge base", "HEAD moved elsewhere")
 		if rc, out := runSplitGuard(t, commitSplit, w,
-			w, "demo", "feat(src): the change", "chore(spectre): plan\n\noutstanding: none"); rc != 0 {
+			w, "demo", "feat(src): the change", "chore(spectre): plan demo\n\noutstanding: none"); rc != 0 {
 			t.Fatalf("commit-split rc=%d out=%s", rc, out)
 		}
 
 		subjects := splitGit(t, w, nil, "log", "--reverse", "--format=%s", fx.base+"..HEAD")
-		check(t, subjects == "feat(src): the change\nchore(spectre): plan",
+		check(t, subjects == "feat(src): the change\nchore(spectre): plan demo",
 			"one implementation commit, then one planning commit", "subjects:\n%s", subjects)
 		check(t, splitGit(t, w, nil, "rev-parse", "HEAD^{tree}") == wantTree,
 			"final tree equals the pre-reshape branch plus working tree", "tree differs")
@@ -127,7 +127,7 @@ func TestReshapeBranch(t *testing.T) {
 		fx := rbNew(t)
 		w := fx.wt
 		writeFile(t, w+"/spectre/changes/demo/tasks.md", "- [x] 1. task\n")
-		fx.commitAs(t, "planner", "chore(spectre): plan", "spectre/changes/demo")
+		fx.commitAs(t, "planner", "chore(spectre): plan demo — plan gate", "spectre/changes/demo")
 		writeFile(t, w+"/src/a.txt", "task\n")
 		fx.commitAs(t, "impl", "feat(src): task\n\nTask-Id: 1", "src")
 		mkdir(t, w+"/spectre/changes/archive")

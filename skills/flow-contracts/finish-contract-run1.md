@@ -85,7 +85,7 @@ holds no `chore(spectre): archive <name>` commit — a run 1 that stopped betwee
 directory, and every `<project>/spectre/changes/archive/<name>-fix-N/` beside it, back under
 `<project>/spectre/changes/`. **When `<project>/spectre/changes/<name>/` also exists, stop and ask** — `git mv` would nest the archive inside it, hiding the fix run's tasks from the gate; the operator checks the live copy holds nothing the archived one lacks, removes it, and re-runs. The change is then not archived, and this run archives it as a first
 run 1 does: any fix run's work is gated, reshaped and committed by the two-commit chain, and the
-move lands after it as its own archive commit, never riding `chore(spectre): plan`.
+move lands after it as its own archive commit, never riding `chore(spectre): plan <name>`.
 
 **Whether the change is already archived is decided once per change, in the canonical
 repository, and holds for every worktree in the set.** It is archived when the canonical
@@ -109,7 +109,7 @@ it, the unfinished-work gate, the reshape and the two-commit chain — `spectre 
 refused any unchecked task, and nothing above the base needs committing. **With new work** it
 skips none of them: the unfinished-work gate reads the archived `tasks.md`, and the reshape takes
 the archived re-run's base as its `<merge-base>` argument, so the commits above the base fold into
-a new implementation commit and a `chore(spectre): plan` carrying the archived directory's
+a new implementation commit and a `chore(spectre): plan <name>` carrying the archived directory's
 planning delta. Everything else runs
 either way: the base-moved check and **Sync the branch onto the base**
 (`skills/flow/sync-onto-base.md`), `commit-archive.sh`, which prints
@@ -188,8 +188,7 @@ located**, stop and report it.
 All three routes then commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
 reshaped diff carries, then the whole `<project>/spectre/changes/` planning delta — every planning
-commit's content, this run's narrative and anything the operator edited — subject the fixed literal
-`chore(spectre): plan`. The landed branch is therefore: the implementation commit, then that one
+commit's content, this run's narrative and anything the operator edited. The landed branch is therefore: the implementation commit, then that one
 planning commit.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and

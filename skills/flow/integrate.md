@@ -162,12 +162,11 @@ Then stage and commit twice, in this order:
 ```bash
 commit-split.sh <worktree> <name> \
   "<type>(<module>): <what the implementation does>" \
-  "chore(spectre): plan"
+  "chore(spectre): plan <name>"
 ```
 
-`<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff. The
-planning message's subject is the fixed literal `chore(spectre): plan`; on **Continue** at **1** its
-message also lists the outstanding work, as below.
+`<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff. On
+**Continue** at **1** the planning message also lists the outstanding work, as below.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all under **The guarded two-commit chain**

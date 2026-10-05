@@ -479,7 +479,8 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 // the kickoff planning commit sits on the merge base, whose tip is another
 // change's commit, and the fix run's own planning commit sits on the
 // previous run's bundle commit — neither parent is the change's
-// implementation.
+// implementation. Run 1's planning commits carry the bare subject of
+// changes landed before 2026-10-05, the re-run's the named ones since.
 func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
 	repo := gitRepo(t)
 	commitAll(t, repo, "other.go", "package other\n", "feat(other): another change on the base")
@@ -494,10 +495,10 @@ func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
 	runGit(t, repo, "checkout", "spectre/demo")
 	commitAll(t, repo, "docs/self-review/demo-context.md", "bundle\n",
 		"docs(self-review): demo self-review context bundle")
-	fixPlan := commitAll(t, repo, "spectre/changes/archive/demo/narrative.md", "fix run\n", "chore(spectre): plan")
+	fixPlan := commitAll(t, repo, "spectre/changes/archive/demo/narrative.md", "fix run\n", "chore(spectre): plan demo — fix-run tasks")
 	implSHA := commitAll(t, repo, "app.go", "package main\n\nfunc f() {}\n", "fix(demo): the fix run's change")
 	planSHA := commitAll(t, repo, "spectre/changes/archive/demo/tasks.md", "- [x] 1. do it\n- [x] 2. fix\n",
-		"chore(spectre): plan")
+		"chore(spectre): plan demo")
 	runGit(t, repo, "checkout", "main")
 
 	got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
@@ -521,7 +522,7 @@ func TestBundleAssemblyListsEveryCommitOfArchivedRerun(t *testing.T) {
 		"docs(self-review): demo self-review context bundle")
 	impl2 := commitAll(t, repo, "app.go", "package main\n\nfunc f() {}\n", "fix(demo): the fix run's change")
 	plan2 := commitAll(t, repo, "spectre/changes/archive/demo/tasks.md", "- [x] 1. do it\n- [x] 2. fix\n",
-		"chore(spectre): plan")
+		"chore(spectre): plan demo")
 	runGit(t, repo, "checkout", "main")
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})

@@ -250,7 +250,7 @@ everything to the PR branch; otherwise this step commits nothing more.
 On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <canonical-worktree>` (the same member the
 ledger render above targets); then `commit-split.sh <worktree>
-<name> "<impl-msg>" "chore(spectre): plan"`; then push the branch
+<name> "<impl-msg>" "chore(spectre): plan <name>"`; then push the branch
 `--force-with-lease`, since the split reshaped it. `<impl-msg>`
 covers working-tree edits the operator made at the human gate without staging them — derive it the
 same way a fixup commit's subject is derived — `fix(<module>): <what changed since the last task

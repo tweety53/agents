@@ -209,7 +209,7 @@ below), `kickoff-worktree.sh <project> <name>` with its siblings
 ```bash
 check-planning-commit-location.sh <worktree> <name> \
   && git -C <worktree> add spectre/changes/<name> \
-  && git -C <worktree> commit -m "chore(spectre): plan" \
+  && git -C <worktree> commit -m "chore(spectre): plan <name> — captured" \
   && git -C <worktree> push origin spectre/<name>
 ```
 

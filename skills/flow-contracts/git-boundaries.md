@@ -22,7 +22,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base, planning commits included — then **commits twice** — implementation, then the planning delta — then **commits** the archive and the self-review context bundle, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
 | bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 6 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
 | `/flow-status` | — | None — read-only |
-| `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
+| `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan <name> — captured` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
 
 **No command writes the main checkout.** `/flow` creates `<project>/.worktrees/<name>` inside
 `flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
@@ -40,12 +40,12 @@ task-commit check — and is pushed plain (**Branch backup** below):
 
 | Boundary | Carries | Subject |
 |----------|---------|---------|
-| The plan gate answers **Yes** (**Plan review gate**, `skills/flow/brainstorm-planner.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
+| The plan gate answers **Yes** (**Plan review gate**, `skills/flow/brainstorm-planner.md`) | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — plan gate` |
 | After each `spectre link` in `flow.isolate-workspace` (`skills/flow/implement.md`), before the next link | each `<project>/spectre/changes/<name>/link.md` the link wrote — the canonical worktree's and the satellite's — in the worktree holding it | `chore(spectre): link <peer>` |
 | After the merge-order record write in `flow.isolate-workspace` (`skills/flow/implement.md`) | each `<project>/spectre/changes/<name>/link.md` that write created or extended — the canonical worktree's | `chore(spectre): merge order` |
-| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
-| `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
-| `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan` |
+| Before every reviewer dispatch — a gated per-task reviewer bundle, a panel round, a re-run | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — before review` |
+| `flow.document-fix` has appended a fix run's tasks, before the first implementer dispatch | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — fix-run tasks` |
+| `flow.write-in-progress` has appended the narrative, before the handoff | `<project>/spectre/changes/<name>/` | `chore(spectre): plan <name> — narrative` |
 
 `<project>/spectre/changes/<name>/` in **Carries** is the change's directory — its archived path
 once integrate's run 1 archived it (**A change's directory**, `skills/flow-contracts/pipeline.md`).
