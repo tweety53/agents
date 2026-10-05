@@ -94,7 +94,11 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		inCanonical = real != "" && !mismatch && isDir(real) && withinRoot(changeRootReal, real)
 	}
 	if !withinRoot(changeRootReal, worktreeReal) && !inCanonical {
-		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves outside the worktree '%s'\n", changeRoot, worktree)
+		if canonical != "" {
+			fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves outside the worktree '%s' and the canonical worktree '%s'\n", changeRoot, worktree, canonical)
+		} else {
+			fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves outside the worktree '%s'\n", changeRoot, worktree)
+		}
 		return 2
 	}
 	// --- principles-path: normalized and resolved the same way, but never

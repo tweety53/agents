@@ -583,6 +583,18 @@ func TestGatherDispatchContext(t *testing.T) {
 			writeFile(t, canonChange+"/tasks.md", "CANON-TASKS-BODY\n")
 			return f.runArgs(f.repo, canonChange, "demo", f.principles, f.output)
 		}, all(exit(2), errHas("resolves outside the worktree"))},
+		{"seventh argument given, change-root outside both the worktree and the canonical worktree: still exit 2", func(t *testing.T, f *gdcFx) gdcResult {
+			mkdir(t, f.base+"/canon")
+			elsewhere := f.base + "/elsewhere/spectre/changes/demo"
+			writeFile(t, elsewhere+"/tasks.md", "ELSEWHERE-TASKS-BODY\n")
+			return f.runArgs(f.repo, elsewhere, "demo", f.principles, f.output, "", f.base+"/canon")
+		}, all(exit(2), errHas("resolves outside the worktree"), errHas("and the canonical worktree"), lacks("ELSEWHERE-TASKS-BODY"))},
+		{"seventh argument reached through a symlink: change-root inside its target still exit 2", func(t *testing.T, f *gdcFx) gdcResult {
+			canonChange := f.base + "/canon/spectre/changes/demo"
+			writeFile(t, canonChange+"/tasks.md", "CANON-TASKS-BODY\n")
+			gdcSymlink(t, f.base+"/canon", f.base+"/canon-link")
+			return f.runArgs(f.repo, canonChange, "demo", f.principles, f.output, "", f.base+"/canon-link")
+		}, all(exit(2), errHas("resolves outside the worktree"), lacks("CANON-TASKS-BODY"))},
 		{"a ## Parts-only link.md is not a satellite: ordinary absent-leaf handling", func(t *testing.T, f *gdcFx) gdcResult {
 			gdcRemove(t, f.changeRoot+"/tasks.md")
 			writeFile(t, f.changeRoot+"/link.md", "## Parts\n\n`peerz:some-part`\n")
