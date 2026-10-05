@@ -119,3 +119,13 @@ the commit names them. The guarded two-commit chain (**The guarded two-commit ch
 pathspec-scoped commit would drop.
 
 A `/flow-fast` branch's commit series is its whole record, and the route reads it back before anything lands — `check-fast-route-record.sh <worktree> <base>` in section 5's verify stage (`skills/flow-fast/SKILL.md`) asserts every commit since the merge base against the contract canonical in the guard's own header, a hit fixed and re-run under the route's commit rule.
+
+## Revert and back-out commits
+
+**A back-out's commit body carries the rejection reason.** When a landed-then-reverted prototype
+or a withdrawn task is backed out, the revert/back-out commit's body states what was wrong and
+what would have to change for the design to come back, so a later run inherits the verdict with
+the artifact instead of re-deriving the rejected position from indirect evidence. KAN-703 is the
+case that paid for it: a run whose design space held a reverted prototype re-derived the
+prototype's intended polarity from contract wording because the revert's body recorded only
+`This reverts commit <sha>` — that the code left, never why.

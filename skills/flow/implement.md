@@ -474,7 +474,11 @@ Every implementer dispatch **must** carry:
 > `check-task-commit-planning-paths.sh` fails at the boundary. Never
 > `<project>/spectre/changes/` either — the excludes do not licence a second, deliberate add of it.
 > **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
-> `**Files:**` names one, edit it and commit it here, in this task's own commit.
+> `**Files:**` names one, edit it and commit it here, in this task's own commit. **A withdrawn
+> task is backed out, not erased**: when work an earlier commit landed is withdrawn, the
+> backing-out commit's body carries the rejection reason — what was wrong, and what would have to
+> change for it to come back (**Revert and back-out commits**,
+> `skills/flow-contracts/git-boundaries.md`).
 
 **A `Build: red` task is dispatched with its `Squash-with:` partner, in one bundle.** The
 implementer runs the red task first — writes its tests, runs them, and reports the failing
