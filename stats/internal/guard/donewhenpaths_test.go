@@ -180,6 +180,12 @@ func TestCheckDoneWhenPaths(t *testing.T) {
 				dwFile(t, dir, "a/b/tickets/t.md", "## Done when\nNotes: `notes/x.md`, `../../../../x.md`.\n")
 			},
 			1, "DONE-WHEN-PATH: notes/x.md — a/b/tickets/t.md\nDONE-WHEN-PATH: ../../../../x.md — a/b/tickets/t.md\nDONE-WHEN-VIOLATION: REPO — 2\n"},
+		{"case 22: a wrapped `../` keeps its climb, and a root-absolute name resolves nowhere",
+			[]string{"a/b/tickets/t.md", "a/b/tickets/notes/y.md", "a/b/tickets/docs/z.md"},
+			func(dir string) {
+				dwFile(t, dir, "a/b/tickets/t.md", "## Done when\nSee (../notes/y.md), <../notes/y.md> and `/docs/z.md`.\n")
+			},
+			1, "DONE-WHEN-PATH: ../notes/y.md — a/b/tickets/t.md\nDONE-WHEN-PATH: /docs/z.md — a/b/tickets/t.md\nDONE-WHEN-VIOLATION: REPO — 2\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

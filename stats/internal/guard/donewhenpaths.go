@@ -123,8 +123,12 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 // is a tracked path — so a handoff ticket at docs/design/offline/tickets/
 // naming `notes/step-1.md` resolves to docs/design/offline/notes/step-1.md.
 // Each candidate is path.Join-cleaned; one that climbs above the root (`..`)
-// is never tracked.
+// is never tracked, and neither is a root-absolute `/…` name.
 func dwResolves(tracked map[string]bool, dir, named string) bool {
+	// A root-absolute name matches no index entry, as before this search.
+	if strings.HasPrefix(named, "/") {
+		return false
+	}
 	for {
 		p := path.Join(dir, named)
 		if p != ".." && !strings.HasPrefix(p, "../") && tracked[p] {
@@ -158,6 +162,9 @@ func dwPaths(line string) []string {
 		}
 		// Folded before the edge trim: that trim's cutset carries `.`, so a
 		// leading `./` would otherwise lose only its dot and become `/…`.
+		// Leading punctuation goes first, its cutset without `.`, so a wrapped
+		// `(../notes/x.md)` or `<../notes/x.md>` reaches the folds below intact.
+		f = strings.TrimLeft(f, "()[],;:!?\"'<>")
 		f = strings.TrimPrefix(f, "./")
 		// Leading `../` segments are set aside for the same reason, so a
 		// document-relative `../notes/x.md` keeps its climb.
