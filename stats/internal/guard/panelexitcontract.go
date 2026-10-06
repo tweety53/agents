@@ -393,14 +393,62 @@ func pcAudit(ref, tree, reproPath string, prefixTrees map[string][]string, canno
 // premise is a violation like any demonstrates miss: the premise names what
 // the reproducer's checks read, and checks running against nothing are the
 // vacuous pass this audit exists to deny.
+//
+// KAN-904 adds the reference marker: every declared premise's path must
+// appear somewhere in the script outside its own `# premise:` declaration
+// lines — the guard-visible half of the authoring rule's body assertion.
+// A declaration the script never names is the declared-but-unasserted
+// premise that escapes both of KAN-839's enforcement points: this audit
+// resolves it, the prose-only assertion enforces nothing, and a fix renaming
+// the target still reads the vacuous green the premise rule exists to kill.
 func pcPremiseAudit(ref, tree, reproPath string, prefixTrees map[string][]string, cannot func(string)) []string {
 	var v []string
+	var declared []string
 	for _, l := range headLines(reproPath, 10) {
 		if strings.HasPrefix(l, pcPremiseDeclare) {
 			v = append(v, pcResolveCitation(ref, tree, l, pcPremiseDeclare, "premise", prefixTrees, cannot)...)
+			if d := pcDeclPath(l, prefixTrees); d != "" {
+				declared = append(declared, d)
+			}
 		}
 	}
+	if len(declared) == 0 {
+		return v
+	}
+	b, err := os.ReadFile(reproPath)
+	if err != nil {
+		return append(v, fmt.Sprintf("%s's reproducer script '%s' could not be read — its premise declarations cannot be checked for a body reference", ref, reproPath))
+	}
+	lines := strings.Split(string(b), "\n")
+	for _, d := range declared {
+		if slices.ContainsFunc(lines, func(l string) bool {
+			return !strings.HasPrefix(l, pcPremiseDeclare) && strings.Contains(l, d)
+		}) {
+			continue
+		}
+		v = append(v, fmt.Sprintf("%s's reproducer declares the premise '%s' but its script never references that path outside the declaration — a declared-but-unasserted premise is the vacuous instrument this audit denies (KAN-904): the checks read nothing the premise names, so a renamed target enumerates nothing and still exits 0", ref, d))
+	}
 	return v
+}
+
+// pcDeclPath is one premise declaration's cited path — the field
+// pcResolveCitation resolves against a tree: the declaration's first field
+// after the `# premise: ` marker, the optional `<tree-basename>:` prefix
+// (KAN-795) stripped when exactly one indexed tree answers to it — the same
+// strip pcResolveCitation performs — cut before the line number. Only the
+// unambiguous strip is resolved here: an ambiguous basename prefix
+// cannot-answers in pcResolveCitation and the finding is skipped before any
+// verdict reads this path, so the reference check never prints a path it
+// guessed.
+func pcDeclPath(decl string, prefixTrees map[string][]string) string {
+	rest := strings.TrimPrefix(decl, pcPremiseDeclare)
+	if head, remainder, ok := strings.Cut(rest, ":"); ok {
+		if trees, match := prefixTrees[head]; match && len(trees) == 1 {
+			rest = remainder
+		}
+	}
+	dpath, _, _ := strings.Cut(rest, ":")
+	return dpath
 }
 
 // pcResolveCitation resolves one declaration line against tree — the checks

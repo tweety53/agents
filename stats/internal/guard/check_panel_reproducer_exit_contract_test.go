@@ -597,10 +597,27 @@ func TestCheckPanelReproducerExitContract(t *testing.T) {
 		base := filepath.Base(s.wt)
 		s.repro(t, "repro.sh", "# demonstrates: "+base+":target.txt:2:defect present here\nexit 9")
 		got, out := s.run(t, "prefixed-alias")
-		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK (1 runnable")
+		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
 		if strings.Contains(out, "ambiguous") {
 			t.Fatalf("the canonical basename read ambiguous despite the dedupe:\n%s", out)
 		}
+	})
+
+	// KAN-904's reference marker, cross-repo arm: the prefix names the tree
+	// the citation resolves against, but the body runs IN that tree, so the
+	// reference it must carry is the plain relative path.
+	t.Run("case 44: a prefixed premise's body reference is the plain relative path", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		peer := filepath.Join(t.TempDir(), "gymie-frontend")
+		if err := os.MkdirAll(peer, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		withPeers(t, s, true, peer)
+		writeFile(t, filepath.Join(peer, "peer-premise.txt"), "peer premise line\n")
+		s.repro(t, "repro.sh", "# demonstrates: target.txt:2:defect present here\n# premise: gymie-frontend:peer-premise.txt:1:peer premise line\ncat peer-premise.txt >/dev/null\nexit 9")
+		got, out := s.run(t, "premise-prefixed-referenced")
+		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
 	})
 }
 
@@ -670,6 +687,28 @@ func TestPanelExitContractPremiseAudit(t *testing.T) {
 		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
 		s.repro(t, "repro.sh", "# mutation-reproducer\n# premise: absent.txt:1:no such line\nexit 0")
 		got, out := s.run(t, "premise-mutation-exempt")
+		rrExpect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
+	})
+
+	// KAN-904's reference marker: a declared premise's path must appear in
+	// the script outside its own `# premise:` declaration — the guard-visible
+	// half of the authoring rule's body assertion. The premise below resolves
+	// (other.txt:1 carries the content), so only the marker can fail it.
+	t.Run("a declared-but-unreferenced premise exits 1 (KAN-904)", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		writeFile(t, filepath.Join(s.wt, "other.txt"), "line one\nother content\n")
+		s.repro(t, "repro.sh", decl+"# premise: other.txt:2:other content\nexit 9")
+		got, out := s.run(t, "premise-unreferenced")
+		rrExpect(t, got, out, 1, "declared-but-unasserted")
+	})
+
+	t.Run("a premise the body references violates nothing", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		writeFile(t, filepath.Join(s.wt, "other.txt"), "line one\nother content\n")
+		s.repro(t, "repro.sh", decl+"# premise: other.txt:2:other content\ncat other.txt >/dev/null\nexit 9")
+		got, out := s.run(t, "premise-referenced")
 		rrExpect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK")
 	})
 }
