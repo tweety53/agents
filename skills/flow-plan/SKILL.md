@@ -100,7 +100,9 @@ than in inference, and confirm a pattern's use elsewhere before generalising fro
 Ask every pending question whose wording does not depend on another pending answer in one
 **AskUserQuestion** call, up to four per call; a dependent question waits for the next turn. Don't
 funnel the user through a fixed line of questioning — surface the interesting directions and let
-them follow what resonates.
+them follow what resonates. An unanswered call just ends its turn — nothing is selected, and the
+pending questions stay pending for the operator's next reply (**Unanswered mid-run asks**,
+`skills/flow-contracts/pipeline.md`).
 
 ---
 
@@ -256,7 +258,9 @@ you where the call is routine, and recorded as a decision in its thread's sectio
 rejected alternative named, and under `## Decisions` with its `**ID:**`. There is no **Open /
 undesigned** section, and `## Open questions` is present and empty: an item still open when the
 convergence check closes is one more **AskUserQuestion** round, never a bullet deferred to
-`/flow <name>`, which resumes the change as planned and asks nothing again.
+`/flow <name>`, which resumes the change as planned and asks nothing again. Silence in that
+round decides nothing — the item stays open and the capture does not close (**Unanswered
+mid-run asks**, `skills/flow-contracts/pipeline.md`).
 
 ### Template
 

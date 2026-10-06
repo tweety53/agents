@@ -62,7 +62,8 @@ from the current value read in step 1:
   exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero
   slots fails at step 3 with exit 2, rather than turning review off.
 If the operator keeps the list unchanged, say so and stop — do not call `settings set` for a no-op
-write.
+write. Silence on the ask keeps the current list — the seeded selection, unchanged (**Unanswered
+mid-run asks**, `skills/flow-contracts/pipeline.md`).
 
 ### 3. Write the change
 
