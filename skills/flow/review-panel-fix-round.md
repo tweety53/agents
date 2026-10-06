@@ -195,7 +195,8 @@ tree, the file exists, the line exists, the content appears on that line. A repr
 citation does not resolve, or whose script cannot be read to audit, is never run — a verdict spent
 on an unresolvable instrument is the green flip the audit exists to deny. The audit also resolves
 every `# premise:` declaration the same way, tolerantly: absence of premise lines violates
-nothing, and a declared-but-unresolvable premise joins exit 1's violation classes;
+nothing, and a declared-but-unresolvable premise joins exit 1's violation classes, as does a
+declared-but-unreferenced one — a premise the script's body never names (KAN-904);
 mutation-declared reproducers skip it as they skip the demonstrates audit (KAN-839). Findings at any other
 status claim nothing about the current tree and are skipped, as are the exemption and bare-`none`
 forms the lexical guard above owns, and a mutation-declared reproducer skips the audit: what it

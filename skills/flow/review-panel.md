@@ -432,7 +432,10 @@ resolve in every tree the script runs in, unlike the demonstrates citation, whic
 the defect was and must resolve only against the defect-present tree. The script's body asserts
 every declared premise before its real checks run: a missing premise is a loud failure naming
 it on stderr, exiting non-zero — never exit 0, the vacuous pass a rename must never produce
-(KAN-839). Carry the premise rule on every slot's dispatch prompt. **The exemption form is available to Minor
+(KAN-839). The marker the dispatch audit reads (KAN-904): the script must reference each declared
+premise path — `check-panel-reproducer-exit-contract.sh` refuses a declared premise the
+script never names outside the `# premise:` declaration itself, the declared-but-unasserted
+premise that reads a vacuous green. Carry the premise rule on every slot's dispatch prompt. **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `check-panel-reproducers.sh` accepts and the parent can run — and the guard rejects the exemption
 at Important. A demonstrating command needing a pipe, a
