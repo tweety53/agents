@@ -128,12 +128,16 @@ git -C <project>/.worktrees/<name> config branch.<name>.flowBase <base>   # --ba
 git -C <project>/.worktrees/<name> push -u origin <name>
 ```
 
+Then the project's declared `## worktree setup` (**Project configuration**,
+`skills/flow-contracts/project-configuration.md`) runs once, from the worktree root, before
+anything else touches the tree — the fenced command lines only, in order, in the foreground; the
+key's exit 1 (absent) continues with nothing run, and a command's non-zero exit ends the run
+naming the command and its output.
+
 **From here on, on every run, `<base>` is what `resolve-base-branch.sh <worktree>` prints** — the
 recorded base when there is one — so a re-run lands where the creating run cut.
 
-Nothing else: no `## worktree setup` command, no database, no bucket. A project whose build needs
-generated files or installed dependencies gets them the moment section 5's first test run asks
-for them, in the worktree, by the project's own ordinary commands. Every section from here on
+Still nothing else: no database, no bucket. Every section from here on
 reads and writes the worktree alone; the main checkout is never checked out, staged, committed or
 written.
 
