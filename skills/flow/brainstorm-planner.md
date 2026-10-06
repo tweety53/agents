@@ -350,19 +350,29 @@ with `**Build:**` per **The build-green tag**
   not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
   underscore swallows it.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
-- `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, counted statically from
-  test declarations (`@Test` and its language equivalents), never from a test run, and each
-  task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field
-  names. The counts are exact integers: `after=~N` is unparseable by the guard and
-  silently disables the re-measurement. A Baseline that records a plan-provenance `<!-- measured:
-  <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
+- `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, on ONE convention the
+  plan states in its own header (`> **Baseline convention:**`, seeded below), so later tasks
+  cannot drift between counting methods: **chain-position absolutes against each commit's
+  parent** — `before` is the count at this task's own commit's parent and `after` at the commit,
+  every task measured at its own position in the chain, never a plan-time pair that a fixup
+  landing earlier in the chain stales; when a fixup shifts the counts, the guard's re-measurement
+  failure names the numbers it measured and the declaration is restated from them, never
+  re-derived by hand; **split by source set** — each Baseline counts one source set's own counter
+  (one module's `@Test` annotations, one suite's cases), never one tree-wide number that a change
+  anywhere shifts; **a word-boundary-safe counter** — whole tokens anchored, so `@Test` never
+  substring-matches `@Testcontainers` (KAN-626); and **no pinned ref** — the recorded command
+  carries no tree, sha, branch or revision argument anywhere inside it (KAN-661). The counts are
+  counted statically from test declarations (`@Test` and its language equivalents), never from a
+  test run, and each task's delta its own: `after` is `before` plus the tests the task's own
+  `**Tests:**` field names. The counts are exact integers: `after=~N` is unparseable by the guard
+  and silently disables the re-measurement. A Baseline that records a plan-provenance `<!--
+  measured: <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
   `check-task-commit-fields.sh` re-runs that command at the commit's parent and at the commit, and
   a count differing from the declared one fails the task — record a command whose stdout is one
   integer (a `| grep -c` pipeline is the shape), and read
   "never from a test run" as constraining how the declared numbers are derived at plan time, not
-  the guard's re-measurement. The recorded command names no ref of its own — no tree, sha, branch
-  or revision argument anywhere inside it: the re-measurement checks each of its two points out
-  itself and runs the command in that working tree. The
+  the guard's re-measurement. The re-measurement checks each of its two points out itself and
+  runs the command in that working tree. The
   comment's `@ <ref>` is the provenance annotation, never part of the command.
 - `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
   the task's own `**Files:**` field carries, per **Commit scopes name the module**
@@ -402,6 +412,21 @@ or `**Relocation:** no`. This line is required and explicit on every plan — ne
 comparison (generated later in the pipeline, by `generate-relocation-comparison.sh`,
 run before the review panel's `final-review.diff`) to the union
 of every task's own `**Files:**` field across the plan.
+
+Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
+fields — the exact line below, copied verbatim, so every plan states its baselines' convention the
+same way and no later task can drift between conventions (KAN-678):
+
+```markdown
+> **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
+> `before` is the count at this task's commit's parent and `after` at the commit, each task
+> measured at its own position, never a plan-wide pair — split by source set, counted by a
+> word-boundary-safe counter (`@Test` never matches `@Testcontainers`), with any `measured:`
+> command naming no ref of its own.
+```
+
+A plan that declares `**Baseline:**` fields and carries no such line fails `check-plan-shape.sh`
+(F12). A plan whose tasks declare no Baselines states no convention and writes no line.
 
 Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
 project's configured plan-provenance guard and its configured build-green guard, if the project
