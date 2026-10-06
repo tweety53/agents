@@ -98,6 +98,24 @@ func TestAskSilence(t *testing.T) {
 		}
 	})
 
+	t.Run("unreadable corpus file refuses with exit 2", func(t *testing.T) {
+		t.Parallel()
+		root := asFixtureRoot(t)
+		p := filepath.Join(root, "skills", "locked.md")
+		writeFile(t, p, "# H\n\nplain prose, no asks.\n")
+		if err := os.Chmod(p, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(p, 0o644) })
+		code, _, stderr := asRunWithRoot(t, root)
+		if code != 2 {
+			t.Errorf("rc=%d, want 2 — an unreadable file is cannot-answer, not a violation\nstderr:\n%s", code, stderr)
+		}
+		if !strings.Contains(stderr, "exists but cannot be read") {
+			t.Errorf("refusal does not name the unreadable file:\n%s", stderr)
+		}
+	})
+
 	t.Run("empty corpus is OK", func(t *testing.T) {
 		t.Parallel()
 		root := asFixtureRoot(t)
@@ -343,6 +361,24 @@ func TestAskSilenceCorpusParity(t *testing.T) {
 		"dangling symlink skipped": func(t *testing.T, root string) {
 			mkdir(t, filepath.Join(root, "skills", "sub"))
 			symlink(t, filepath.Join(root, "skills", "sub", "nowhere.md"), filepath.Join(root, "skills", "sub", "dangling"))
+		},
+		"excluded-name symlink skipped": func(t *testing.T, root string) {
+			// A symlink NAMED node_modules hiding Markdown: exclusions win
+			// for link paths too, so neither side refuses (F8, class a).
+			outside := t.TempDir()
+			writeFile(t, filepath.Join(outside, "hidden.md"), "# hidden\n")
+			mkdir(t, filepath.Join(root, "skills", "x"))
+			symlink(t, outside, filepath.Join(root, "skills", "x", "node_modules"))
+		},
+		"chained symlink refused": func(t *testing.T, root string) {
+			// link → dir → link → .md: the hide test follows the chain the
+			// way find -L does, and both sides refuse (F8, class b).
+			mid := t.TempDir()
+			deep := t.TempDir()
+			writeFile(t, filepath.Join(deep, "deep.md"), "# deep\n")
+			symlink(t, deep, filepath.Join(mid, "inner"))
+			mkdir(t, filepath.Join(root, "skills", "sub"))
+			symlink(t, mid, filepath.Join(root, "skills", "sub", "outer"))
 		},
 	}
 

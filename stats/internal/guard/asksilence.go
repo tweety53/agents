@@ -37,7 +37,8 @@ import (
 //
 // LIMITS, deliberately. The detection is lexical, never semantic: a site
 // whose outcome is stated in words outside the vocabulary fails, and the
-// remedy is to state the outcome or cite the section — never to widen the
+// remedy is to state the outcome, delegate the ask, or cite the section —
+// never to widen the
 // vocabulary to hide one. A delegation's target is not checked, so a section
 // can pass by pointing at prose that itself states nothing; that is the
 // preposition list's price, paid for not parsing prose. Text inside a fenced
@@ -79,8 +80,8 @@ var (
 
 type asSection struct {
 	heading string // the heading line, trimmed; "(preamble)" before the first heading
-	start   int    // 1-based line the section body starts at
-	body    string // the section's text outside code fences, headings excluded
+	start   int    // 1-based line the section starts at, its heading included
+	body    string // the section's text outside code fences, its heading line included
 }
 
 func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
@@ -158,8 +159,9 @@ func asPasses(body string) bool {
 }
 
 // asSections splits one file into sections at Markdown headings, outside
-// code fences. The heading line opens the next section and is not part of
-// any body; the preamble before a file's first heading is its own section.
+// code fences. The heading line opens the next section and is part of the
+// body it opens — a section naming the tool only in its heading is still an
+// ask site; the preamble before a file's first heading is its own section.
 func asSections(text string) []asSection {
 	var secs []asSection
 	cur := asSection{heading: "(preamble)", start: 1}
@@ -253,6 +255,12 @@ func asCorpus(root string, stderr io.Writer) ([]string, int) {
 			}
 			switch {
 			case d.Type()&fs.ModeSymlink != 0:
+				// Exclusions win for link paths too, exactly as the bash
+				// sweep's owned_corpus_excluded skip does: a link named
+				// node_modules hides nothing this corpus is missing.
+				if asExcluded(asRel(root, p)) {
+					return nil
+				}
 				// A symlink is never descended into; one pointing at a
 				// directory that would reach Markdown is refused, one
 				// pointing at a file — or a dangling one — is not this
@@ -286,7 +294,9 @@ func asCorpus(root string, stderr io.Writer) ([]string, int) {
 // directory holding any .md or .mdc file — the coarse predicate
 // owned-corpus.sh walks its link list with, deliberately: a refusal is loud
 // and resolved by a human, a silent skip quietly shrinks the corpus. A link
-// to a file, and a dangling one, hide nothing.
+// to a file, and a dangling one, hide nothing. The walk follows symlinks
+// the way find -L does — a link→dir→link→.md chain is a hiding link — and
+// skips a loop silently, which is find -L's measured behaviour.
 func asHidesMarkdown(p string) bool {
 	target, err := filepath.EvalSymlinks(p)
 	if err != nil {
@@ -296,18 +306,42 @@ func asHidesMarkdown(p string) bool {
 	if err != nil || !info.IsDir() {
 		return false
 	}
-	hides := false
-	err = filepath.WalkDir(target, func(q string, d fs.DirEntry, err error) error {
+	visited := map[string]bool{target: true}
+	var walk func(dir string) bool
+	walk = func(dir string) bool {
+		entries, err := os.ReadDir(dir)
 		if err != nil {
-			return err
+			return false // an unreadable directory is moved past, as find -L moves past it
 		}
-		if d.Type().IsRegular() && asOwnedName(d.Name()) {
-			hides = true
-			return filepath.SkipAll
+		for _, ent := range entries {
+			full := filepath.Join(dir, ent.Name())
+			resolved := full
+			if ent.Type()&fs.ModeSymlink != 0 {
+				resolved, err = filepath.EvalSymlinks(full)
+				if err != nil {
+					continue // a dangling link hides nothing
+				}
+			}
+			fi, err := os.Stat(resolved) // Stat follows the whole chain
+			if err != nil {
+				continue
+			}
+			switch {
+			case fi.IsDir():
+				if visited[resolved] {
+					continue // a loop: find -L skips it silently
+				}
+				visited[resolved] = true
+				if walk(resolved) {
+					return true
+				}
+			case fi.Mode().IsRegular() && asOwnedName(ent.Name()):
+				return true
+			}
 		}
-		return nil
-	})
-	return err != nil || hides
+		return false
+	}
+	return walk(target)
 }
 
 // asRel is filepath.Rel with the separator normalised, for exclusion tests.
