@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# check-ask-silence.sh — fail when a run-loaded ask site states neither its
-# own silence outcome nor a citation of the pipeline contract's **Unanswered
-# mid-run asks** section.
+# check-ask-silence.sh — fail when a run-loaded ask site states none of its
+# own silence outcome, a delegation of the ask, or a citation of the pipeline
+# contract's **Unanswered mid-run asks** section.
 #
 # Why this exists. KAN-880, deferred from KAN-772's self-review: the
 # corpus-wide survey of AskUserQuestion ask sites' silence outcomes was
@@ -24,7 +24,7 @@
 #
 # Verdicts:
 #
-#   ASK-SILENCE-OK:   <root> — N ask section(s), each citing or stating its silence outcome
+#   ASK-SILENCE-OK:   <root> — N ask section(s), each citing, delegating, or stating its silence outcome
 #   ASK-SILENCE-OK:   <root> — no AskUserQuestion site in the corpus
 #   ASK-SILENCE-FAIL: <root> — N ask section(s) of M state no silence outcome; state the outcome, delegate the ask, or cite Unanswered mid-run asks
 #

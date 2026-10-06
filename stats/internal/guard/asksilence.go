@@ -51,14 +51,16 @@ import (
 // *.md and *.mdc files directly at the root; the exclusions node_modules,
 // .superpowers, spectre/changes/archive and docs/superpowers; a symlinked
 // scope root refused rather than skipped, and a nested symlinked directory
-// refused when following it would reach any .md or .mdc, exactly as that
-// library refuses them. Drift between the two definitions is a real defect:
-// change them together or move the walk behind one implementation.
+// refused when following it would reach any .md or .mdc or when it cannot be
+// looked through at all, exactly as that library refuses them. Drift between
+// the two definitions is a real defect: change them together or move the
+// walk behind one implementation.
 //
 // Exit 0 when every ask section passes (and when the corpus holds none), 1
 // on violation(s), 2 when the corpus cannot be answered at all —
 // FLOW_GUARD_REPO_ROOT unset, a missing or unreadable scope root, a symlink
-// hiding Markdown, or a corpus file that exists but cannot be read.
+// hiding Markdown or one find -L cannot look through, or a corpus file that
+// exists but cannot be read.
 func init() {
 	Registry["check-ask-silence"] = checkAskSilence
 }
@@ -133,7 +135,7 @@ func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "ASK-SILENCE-OK: %s — no AskUserQuestion site in the corpus\n", root)
 		return 0
 	}
-	fmt.Fprintf(stdout, "ASK-SILENCE-OK: %s — %d ask section(s), each citing or stating its silence outcome\n", root, sections)
+	fmt.Fprintf(stdout, "ASK-SILENCE-OK: %s — %d ask section(s), each citing, delegating, or stating its silence outcome\n", root, sections)
 	return 0
 }
 
