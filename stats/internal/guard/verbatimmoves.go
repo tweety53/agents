@@ -152,11 +152,11 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", bad, review, label)
 	if bad != 0 {
+		ack := "<spec-root>/changes/<change>/" + vmAckFile
 		if fast := vmFastChangeRoot(root); fast != "" {
-			fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in %s/%s.\n", fast, vmAckFile)
-		} else {
-			fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in <spec-root>/changes/<change>/%s.\n", vmAckFile)
+			ack = fast + "/" + vmAckFile
 		}
+		fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in %s.\n", ack)
 		return 1
 	}
 	return 0
@@ -167,8 +167,10 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 // /flow run's tasks.md lives in its spectre change root, and its
 // .superpowers/sdd/<change>/ holds panel reports alone. A match is a flow-fast
 // worktree, and the FAIL reply names that change's own acknowledgement path;
-// no match keeps the /flow path. The first match in sorted order is the one
-// change root a flow-fast worktree holds.
+// no match keeps the /flow path. Several change roots — no run shape produces
+// them — name the first in sorted order, and the choice stays safe either way:
+// vmAcks reads every home under .superpowers/sdd/, so an acknowledgement
+// written to any change root's file is honoured.
 func vmFastChangeRoot(root string) string {
 	matches, err := filepath.Glob(filepath.Join(root, ".superpowers", "sdd", "*", "tasks.md"))
 	if err != nil {
