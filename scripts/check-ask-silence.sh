@@ -10,36 +10,23 @@
 # (`skills/flow-contracts/pipeline.md`) drifted silently. This guard is that
 # survey, re-run on every lint pass.
 #
-# THE UNIT is the Markdown section — a heading to the next heading — of an
-# owned-corpus file that mentions AskUserQuestion outside a code fence. A
-# section passes when it cites the contract, states a silence outcome in the
-# contract's own vocabulary (silence, silent, unanswered, default,
-# recommended, explicit, without asking), or delegates the ask with one of
-# the prepositions `per **` / `applies **` / `under **` / `exactly as **`.
-# The detection is lexical, never semantic; the full contract, its limits
-# and the corpus definition live in the Go port's doc comment,
-# stats/internal/guard/asksilence.go, whose table tests
+# THE CONTRACT lives in one home: the Go port's doc comment,
+# stats/internal/guard/asksilence.go — the ask-site unit, the pass reasons
+# and their exact vocabulary, the heuristic's limits, the corpus definition
+# and the exit codes. This header states only the shape: a Markdown section
+# mentioning AskUserQuestion outside a code fence must cite the contract,
+# state a silence outcome, or delegate the ask; every violation names
+# `file:line` and the section heading, and the remedy is to state the
+# outcome, delegate the ask, or cite the section — never to widen the
+# vocabulary to hide one. The doc comment's table tests
 # (stats/internal/guard/check_ask_silence_test.go) stand in the
 # test-check-*.sh companion's place.
-#
-# THE CORPUS mirrors scripts/lib/owned-corpus.sh — the scope roots skills/,
-# rules/, spectre/specs/, commands-claude/ and .flow/ plus the .md/.mdc
-# files directly at the root; a symlinked scope root is refused, and a
-# nested symlinked directory is refused when it would hide Markdown. Change
-# the two definitions together.
 #
 # Verdicts:
 #
 #   ASK-SILENCE-OK:   <root> — N ask section(s), each citing or stating its silence outcome
 #   ASK-SILENCE-OK:   <root> — no AskUserQuestion site in the corpus
 #   ASK-SILENCE-FAIL: <root> — N ask section(s) of M state no silence outcome; state the outcome, delegate the ask, or cite Unanswered mid-run asks
-#
-# Every violation names `file:line` and the section heading; the remedy is
-# to state the outcome, delegate the ask, or cite the section — never to
-# widen the vocabulary to hide one.
-#
-# Exit codes: 0 every ask section passes (and when the corpus holds none),
-# 1 violation(s) found, 2 the corpus cannot be answered at all.
 #
 # The guard runs as the Go port in stats/internal/guard/asksilence.go. The
 # binary does not live in this checkout, so this shim exports

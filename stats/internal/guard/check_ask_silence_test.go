@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -119,7 +121,7 @@ func TestAskSilence(t *testing.T) {
 		if code != 1 {
 			t.Errorf("rc=%d\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
 		}
-		if !strings.Contains(stderr, "skills/s.md:6") {
+		if !strings.Contains(stderr, "skills/s.md:5") {
 			t.Errorf("violation does not name file:line:\n%s", stderr)
 		}
 		if !strings.Contains(stderr, `"## The ask"`) {
@@ -280,4 +282,103 @@ func TestAskSilence(t *testing.T) {
 			t.Errorf("rc=%d, want 1 — `per the` carries no bolded target\nstderr:\n%s", code, stderr)
 		}
 	})
+}
+
+// TestAskSilenceCorpusParity pins the Go corpus twin against
+// scripts/lib/owned-corpus.sh — the one definition of the run-loaded
+// Markdown this port cannot source — by running both walkers over the same
+// seeded fixture roots and failing on any difference in the refusal status
+// or the produced file set (shared-helper-go-twins, per helper-parity-tests,
+// the libtwins_test.go mechanism). The table tests above cannot do this:
+// their fixtures are laid out FROM askSilenceScopes, so the suite is
+// structurally blind to scope drift.
+func TestAskSilenceCorpusParity(t *testing.T) {
+	t.Parallel()
+
+	newRoot := func(t *testing.T) string {
+		t.Helper()
+		root := t.TempDir()
+		for _, dir := range askSilenceScopes {
+			mkdir(t, filepath.Join(root, dir))
+		}
+		return root
+	}
+
+	bashSide := func(t *testing.T, root string) (int, []string) {
+		t.Helper()
+		res := bashLib(t, "owned-corpus.sh", "owned_corpus_files", root)
+		return res.status, asRelSet(t, root, strings.Split(res.stdout, "\x00"))
+	}
+	goSide := func(t *testing.T, root string) (int, []string) {
+		t.Helper()
+		var stderr bytes.Buffer
+		files, code := asCorpus(root, &stderr)
+		return code, asRelSet(t, root, files)
+	}
+
+	scenarios := map[string]func(t *testing.T, root string){
+		"plain corpus": func(t *testing.T, root string) {
+			writeFile(t, filepath.Join(root, "README.md"), "# root\n")
+			writeFile(t, filepath.Join(root, "skills", "a", "deep.md"), "# x\n")
+			writeFile(t, filepath.Join(root, "rules", "r.mdc"), "# x\n")
+			writeFile(t, filepath.Join(root, ".flow", "p.md"), "# x\n")
+			writeFile(t, filepath.Join(root, "skills", "skip.txt"), "not owned\n")
+			writeFile(t, filepath.Join(root, "skills", "x", "node_modules", "v.md"), "# x\n")
+			writeFile(t, filepath.Join(root, "skills", "x", ".superpowers", "s.md"), "# x\n")
+			writeFile(t, filepath.Join(root, "spectre", "changes", "archive", "o", "a.md"), "# x\n")
+			writeFile(t, filepath.Join(root, "docs", "superpowers", "v.md"), "# x\n")
+		},
+		"hiding symlink refused": func(t *testing.T, root string) {
+			outside := t.TempDir()
+			writeFile(t, filepath.Join(outside, "hidden.md"), "# hidden\n")
+			mkdir(t, filepath.Join(root, "skills", "sub"))
+			symlink(t, outside, filepath.Join(root, "skills", "sub", "link"))
+		},
+		"bare file symlink skipped": func(t *testing.T, root string) {
+			outside := t.TempDir()
+			writeFile(t, filepath.Join(outside, "plain.md"), "# plain\n")
+			mkdir(t, filepath.Join(root, "skills", "sub"))
+			symlink(t, filepath.Join(outside, "plain.md"), filepath.Join(root, "skills", "sub", "link.md"))
+		},
+		"dangling symlink skipped": func(t *testing.T, root string) {
+			mkdir(t, filepath.Join(root, "skills", "sub"))
+			symlink(t, filepath.Join(root, "skills", "sub", "nowhere.md"), filepath.Join(root, "skills", "sub", "dangling"))
+		},
+	}
+
+	for name, seed := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			bashRoot, goRoot := newRoot(t), newRoot(t)
+			seed(t, bashRoot)
+			seed(t, goRoot)
+			bStatus, bSet := bashSide(t, bashRoot)
+			gStatus, gSet := goSide(t, goRoot)
+			if bStatus != gStatus {
+				t.Fatalf("refusal status differs: bash %d, go %d", bStatus, gStatus)
+			}
+			if bStatus == 0 && !slices.Equal(bSet, gSet) {
+				t.Errorf("corpus sets differ\n  bash: %v\n    go: %v", bSet, gSet)
+			}
+		})
+	}
+}
+
+// asRelSet converts one side's paths (absolute, NUL-separated, or already a
+// slice) into the sorted slash-relative set the two sides compare over.
+func asRelSet(t *testing.T, root string, paths []string) []string {
+	t.Helper()
+	rel := []string{}
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		r, err := filepath.Rel(root, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rel = append(rel, filepath.ToSlash(r))
+	}
+	sort.Strings(rel)
+	return rel
 }

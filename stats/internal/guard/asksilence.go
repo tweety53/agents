@@ -55,8 +55,8 @@ import (
 //
 // Exit 0 when every ask section passes (and when the corpus holds none), 1
 // on violation(s), 2 when the corpus cannot be answered at all —
-// FLOW_GUARD_REPO_ROOT unset, a missing or unreadable scope root, or a
-// symlink hiding Markdown.
+// FLOW_GUARD_REPO_ROOT unset, a missing or unreadable scope root, a symlink
+// hiding Markdown, or a corpus file that exists but cannot be read.
 func init() {
 	Registry["check-ask-silence"] = checkAskSilence
 }
@@ -98,9 +98,11 @@ func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 	for _, path := range files {
 		b, err := os.ReadFile(path)
 		if err != nil {
+			// An unreadable file is the corpus not answerable in full —
+			// the same refusal owned_corpus_files makes for a missing
+			// scope root, never a partial answer counted as violations.
 			fmt.Fprintf(stderr, askSilenceName+": %s exists but cannot be read — %v\n", path, err)
-			violations++
-			continue
+			return 2
 		}
 		for _, sec := range asSections(string(b)) {
 			if !strings.Contains(sec.body, asTool) {
@@ -174,7 +176,10 @@ func asSections(text string) []asSection {
 			inFence = !inFence
 		case !inFence && strings.HasPrefix(trimmed, asHeadingMark) && isHeadingLine(trimmed):
 			flush()
-			cur = asSection{heading: trimmed, start: line + 1}
+			// The heading opens the section and is part of its body: a
+			// section naming the tool only in its heading is still an ask
+			// site, and the violation line anchors at the heading itself.
+			cur = asSection{heading: trimmed, start: line, body: raw}
 		default:
 			if !inFence {
 				cur.body += raw
