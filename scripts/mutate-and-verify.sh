@@ -9,11 +9,13 @@
 # strong pass, then unconditionally restore and verify the touched files
 # are clean. WHICH mechanism to mutate and whether a survivor is real or
 # equivalent stay the caller's own judgment calls — this script only does
-# the mechanics. Run it only with the fix committed: the unconditional
-# restore is `git checkout --`, which reverts to the last commit, so a fix
-# left uncommitted dies with the first restore — and a harness's after-run
-# is proof only once the mutation is asserted landed, the mutated bytes
-# read back from disk the ones the patch wrote.
+# the mechanics. Commit the fix before the first flip: a touched file
+# carrying uncommitted changes is refused outright (exit 2, nothing
+# mutated), and the unconditional restore is `git checkout --`, which
+# reverts the file to its index state — commit-first is what makes that
+# restore well-defined. A harness's after-run is proof only once the
+# mutation is asserted landed, the mutated bytes read back from disk the
+# ones the patch wrote.
 #
 # Exit codes (mirrors run-reproducer.sh's own philosophy: the code reports
 # this script's own mechanics, never a verdict on the mutation):

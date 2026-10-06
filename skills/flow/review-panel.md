@@ -833,8 +833,8 @@ the **AskUserQuestion** it states.
 
 > **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
 > end your turn — not only the test cases this round adds. The fix commit lands before the first
-> flip — a flip's restore (`git checkout --`) reverts to the last commit, so an uncommitted fix
-> dies with the first restore — and a flip's killing-test failure is trusted as proof only once
+> flip — a flip's restore (`git checkout --`) reverts the file to its index state, so an unstaged
+> fix dies with the first restore — and a flip's killing-test failure is trusted as proof only once
 > the mutation is asserted landed: the mutated bytes, read back from disk, are the ones the flip
 > wrote. Mutate the mechanism: revert it in a
 > scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
