@@ -31,7 +31,10 @@ This is the normal case: the branch is pushed with every commit (**Branch backup
 (`git add -- <the changed paths>` — a pathspec commit reads tracked paths only) and is a plain
 `git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**Branch backup**, `skills/flow-contracts/git-boundaries.md`),
 so it carries only the paths the finding named, whatever else the index holds — pushed
-plain like any other commit, and every downstream commit keeps its sha.
+plain like any other commit, and every downstream commit keeps its sha. **A branch a
+round-boundary auto-rebase has rewritten pushes with `--force-with-lease`, never a bare
+`git push` and never `--force`** — the rebase replaced the shas the remote still holds, so the
+plain push above is then rejected.
 **Rewrite-based folding is for unpushed history only**: the fixup targets the **original** task
 commit (`<task-sha>`), and the autosquash folds it in immediately, before anything pushes — one
 call, with the changed paths:
