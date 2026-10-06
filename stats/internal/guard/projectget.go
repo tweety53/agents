@@ -18,7 +18,8 @@ func init() {
 
 func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	// --enum <literal>... resolves a single-line-literal key: the body's
-	// head is matched byte-for-byte against the literals.
+	// head is matched against the literals — on equality or on a leading,
+	// word-bounded literal (pgEnum).
 	enum := len(args) > 3 && args[2] == "--enum"
 	if len(args) != 2 && !enum {
 		fmt.Fprintln(stderr, "usage: project-get.sh <project-root> <key>")
@@ -83,21 +84,30 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	return 2
 }
 
-// pgEnum prints the literal body's head matches and exits 0; a head matching
+// pgEnum prints the literal the body's head matches and exits 0; a head matching
 // none exits 3 with one stderr line quoting it. The head is the first
 // non-blank line, whitespace-trimmed, surrounding backticks removed, trimmed
-// again (skills/flow-contracts/project-configuration.md).
+// again (skills/flow-contracts/project-configuration.md). The head matches a
+// literal when it equals it or begins with it and the byte after the literal
+// cannot extend it into a longer word — prose the operator writes after the
+// literal on the head line is for the reader, never read (kan-716).
 func pgEnum(body, key string, literals []string, stdout, stderr io.Writer) int {
 	head, _, _ := strings.Cut(body, "\n")
 	head = strings.TrimSpace(strings.Trim(strings.TrimSpace(head), "`"))
 	for _, l := range literals {
-		if head == l {
+		if head == l || (strings.HasPrefix(head, l) && !pgWordByte(head[len(l)])) {
 			fmt.Fprintln(stdout, l)
 			return 0
 		}
 	}
 	fmt.Fprintf(stderr, "project-get: '## %s' head '%s' matches none of: '%s'\n", key, head, strings.Join(literals, "' '"))
 	return 3
+}
+
+// pgWordByte reports whether b can extend a matched literal into a longer
+// word: a letter, digit or underscore, the same set Go's \w admits.
+func pgWordByte(b byte) bool {
+	return b == '_' || ('a' <= b && b <= 'z') || ('A' <= b && b <= 'Z') || ('0' <= b && b <= '9')
 }
 
 // pgGit is envGit with GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE removed
