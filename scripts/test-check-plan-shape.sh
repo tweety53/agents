@@ -927,6 +927,45 @@ case "$OUT" in
 esac
 
 # ===========================================================================
+# Case 35 (F12): a plan whose task declares a **Baseline:** field but whose
+# header states no **Baseline convention:** line — one stated convention is
+# what keeps later tasks from drifting between counting methods (KAN-678).
+# ===========================================================================
+new_fixture
+{
+  printf -- '> **Execution:** `/flow` implements this plan.\n\n'
+  printf -- '> **Relocation:** no\n\n'
+  printf -- '- [ ] 1. Add a test\n\n'
+  printf '**Files:** `src/app/profile/src/test/CounterTest.kt`\n'
+  printf '**Tests:** `counter renders`\n'
+  printf '**Baseline:** before=3 after=4\n'
+  printf '**Commit:** `feat(profile): add counter test`\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 35 (F12): a Baseline plan with no convention line fails" || fail "case 35 (F12): rc=$RC out=$OUT"
+case "$OUT" in
+  *"states no **Baseline convention:** header line"*) pass "case 35 (F12): names the missing convention" ;;
+  *) fail "case 35 (F12): expected the F12 message, out=$OUT" ;;
+esac
+assert_mutation_removes_finding "F12" "$TASKS_MD" "Baseline convention" "case 35 (F12) mutation"
+
+# ===========================================================================
+# Case 36 (F12 absent): a plan whose tasks declare no **Baseline:** field
+# writes no convention line and is untouched by F12.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. A plan without Baselines\n\n'
+  printf '**Files:** `scripts/foo.sh`\n'
+  printf '**Tests:** `scripts/test-foo.sh`\n'
+  printf '**Commit:** `feat(scripts): add foo`\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 36 (F12 absent): a Baseline-free plan needs no convention line" || fail "case 36 (F12 absent): rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 36 (F12 absent): no output" || fail "case 36 (F12 absent): expected no output, got: $OUT"
+assert_mutation_removes_finding "F12" "$TASKS_MD" "Baseline convention" "case 36 (F12 absent) mutation"
+
+# ===========================================================================
 # Unlanded archives: the scan cannot list the archived changes the base does
 # not carry -> exit 2, never a scan that silently skips them. A copy of the
 # guard in a scratch tree with no stats/ beside it cannot build flow-guard;
