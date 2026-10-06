@@ -10,7 +10,7 @@ Follow that skill exactly. One invocation runs from the Jira key to the landed c
 issue and name per
 **Resolution (how `jiraIssue` is decided)** and **Change naming** (`skills/flow-contracts/jira-integration.md`),
 move it to In Progress per **Transitions** there, create a git worktree on a branch named after the change (git isolation only
-— no workspace setup, database or bucket), write `tasks.md` and decide how to implement it per
+— no database or bucket), write `tasks.md` and decide how to implement it per
 the plan's class — inline, or implementer subagents per group, with the review panel the class
 calls for — run the project's
 `## lint` and the tests the change touches, commit the self-review context bundle on the branch
