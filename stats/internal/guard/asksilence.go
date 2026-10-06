@@ -10,8 +10,9 @@ import (
 	"strings"
 )
 
-// checkAskSilence is scripts/check-ask-silence.sh: that script's header
-// comment is the contract — fail when a run-loaded ask site states neither
+// checkAskSilence is scripts/check-ask-silence.sh's guard, and this comment
+// is the contract's one home — the shim header defers here. It fails when a
+// run-loaded ask site states neither
 // its own silence outcome nor a citation of the pipeline contract's
 // **Unanswered mid-run asks** section (skills/flow-contracts/pipeline.md).
 // KAN-880, deferred from KAN-772's self-review: the corpus-wide survey of
