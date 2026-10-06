@@ -12,8 +12,8 @@ import (
 
 // checkAskSilence is scripts/check-ask-silence.sh's guard, and this comment
 // is the contract's one home — the shim header defers here. It fails when a
-// run-loaded ask site states neither
-// its own silence outcome nor a citation of the pipeline contract's
+// run-loaded ask site states none of its own silence outcome, a delegation
+// of the ask, or a citation of the pipeline contract's
 // **Unanswered mid-run asks** section (skills/flow-contracts/pipeline.md).
 // KAN-880, deferred from KAN-772's self-review: the corpus-wide survey of
 // AskUserQuestion sites was hand-run once, and nothing re-ran it, so a
@@ -118,7 +118,7 @@ func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 			if relErr != nil {
 				rel = path
 			}
-			fmt.Fprintf(stderr, "%s:%d: ASK-SILENCE: section %q mentions %s and states neither its own silence outcome nor a citation of Unanswered mid-run asks (skills/flow-contracts/pipeline.md)\n",
+			fmt.Fprintf(stderr, "%s:%d: ASK-SILENCE: section %q mentions %s and states no silence outcome, no delegation of the ask, and no citation of Unanswered mid-run asks (skills/flow-contracts/pipeline.md)\n",
 				rel, sec.start, sec.heading, asTool)
 			violations++
 		}
@@ -264,8 +264,14 @@ func asCorpus(root string, stderr io.Writer) ([]string, int) {
 				// A symlink is never descended into; one pointing at a
 				// directory that would reach Markdown is refused, one
 				// pointing at a file — or a dangling one — is not this
-				// rule's subject and is skipped.
-				if asHidesMarkdown(p) {
+				// rule's subject and is skipped. A target that cannot be
+				// read through is cannot-answer, exactly as the bash sweep's
+				// failing `find -L` capture is.
+				hides, err := asHidesMarkdown(p)
+				if err != nil {
+					return fmt.Errorf("cannot look through the symlinked directory: %s — %v", p, err)
+				}
+				if hides {
 					return fmt.Errorf("symlinked directory hides Markdown from the corpus: %s", p)
 				}
 				return nil
@@ -296,22 +302,24 @@ func asCorpus(root string, stderr io.Writer) ([]string, int) {
 // and resolved by a human, a silent skip quietly shrinks the corpus. A link
 // to a file, and a dangling one, hide nothing. The walk follows symlinks
 // the way find -L does — a link→dir→link→.md chain is a hiding link — and
-// skips a loop silently, which is find -L's measured behaviour.
-func asHidesMarkdown(p string) bool {
+// skips a loop silently, which is find -L's measured behaviour. A directory
+// that cannot be read is an error, not a hidden-nothing: find -L fails on
+// it and the bash capture refuses, so the twin does too.
+func asHidesMarkdown(p string) (bool, error) {
 	target, err := filepath.EvalSymlinks(p)
 	if err != nil {
-		return false
+		return false, nil
 	}
 	info, err := os.Stat(target)
 	if err != nil || !info.IsDir() {
-		return false
+		return false, nil
 	}
 	visited := map[string]bool{target: true}
-	var walk func(dir string) bool
-	walk = func(dir string) bool {
+	var walk func(dir string) (bool, error)
+	walk = func(dir string) (bool, error) {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			return false // an unreadable directory is moved past, as find -L moves past it
+			return false, err
 		}
 		for _, ent := range entries {
 			full := filepath.Join(dir, ent.Name())
@@ -332,14 +340,15 @@ func asHidesMarkdown(p string) bool {
 					continue // a loop: find -L skips it silently
 				}
 				visited[resolved] = true
-				if walk(resolved) {
-					return true
+				hides, err := walk(resolved)
+				if err != nil || hides {
+					return hides, err
 				}
 			case fi.Mode().IsRegular() && asOwnedName(ent.Name()):
-				return true
+				return true, nil
 			}
 		}
-		return false
+		return false, nil
 	}
 	return walk(target)
 }

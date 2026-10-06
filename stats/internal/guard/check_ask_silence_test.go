@@ -380,6 +380,19 @@ func TestAskSilenceCorpusParity(t *testing.T) {
 			mkdir(t, filepath.Join(root, "skills", "sub"))
 			symlink(t, mid, filepath.Join(root, "skills", "sub", "outer"))
 		},
+		"unreadable dir behind link refused": func(t *testing.T, root string) {
+			// link → dir(mode 000): find -L fails on it and the bash
+			// capture refuses; the twin refuses too (F11).
+			locked := t.TempDir()
+			writeFile(t, filepath.Join(locked, "secret.md"), "# secret\n")
+			mkdir(t, filepath.Join(root, "skills", "sub"))
+			symlink(t, locked, filepath.Join(root, "skills", "sub", "locked"))
+			path := filepath.Join(root, "skills", "sub", "locked")
+			if err := os.Chmod(path, 0o000); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(path, 0o755) })
+		},
 	}
 
 	for name, seed := range scenarios {
