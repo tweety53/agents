@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """check-plan-shape.py — check that a `tasks.md` is SHAPED so the guard
 that will later judge its commits (`check-task-commit-fields.py`) can
-actually read it. Eleven findings, F1-F11 (F1-F6's canonical definitions,
+actually read it. Twelve findings, F1-F12 (F1-F6's canonical definitions,
 decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
 parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
 second copy is a Single Source of Truth violation, the same class of drift
@@ -34,7 +34,7 @@ Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it
      without ambiguity (including a file with zero findings; a file with
      zero TASKS is F5, not clean — see below).
-  1  one or more of F1-F11 found. Printed one per line as
+  1  one or more of F1-F12 found. Printed one per line as
      `file:line: message`, naming the task id (F5 excepted: a file with no
      tasks has no task id to name).
   2  invocation error — wrong argument count, or the file cannot be read.
@@ -136,6 +136,17 @@ field-shaped line inside a worked example is not a declaration.
       once per unordered pair at the LATER task's `**Files:**` line,
       naming both tasks and the path. A task whose fence never closes is
       skipped as an owner, F3b's convention: its fields are unread.
+
+  F12 A plan whose tasks declare a `**Baseline:**` field while no non-fenced
+      line in the file opens the blockquote `> **Baseline convention:**` —
+      the plan states no convention, so its baselines' counting method is
+      unstated and later tasks can drift between conventions (the three
+      conventions one kan-517 plan ran on: KAN-678). Reported once, anchored
+      at the FIRST declaring task's `**Baseline:**` line and naming that
+      task; a task whose fence never closes is skipped as a declarer, F3b's
+      convention. The canonical line the plan must seed is
+      skills/flow/brainstorm-planner.md's `**Baseline convention:**` header
+      line; the guard checks that ONE is stated, never which.
 
 A duplicate task id (two task lines sharing one id) is check-task-build-
 green.py's own violation, not this guard's: `collect_task_ids` de-
@@ -242,6 +253,13 @@ INDENTED_FIELD_RE = re.compile(r"^[ \t]+" + FIELD_RE.pattern.lstrip("^"))
 # TEST_SHAPED_PATTERNS — the four glob shapes design.md's F4 row names for
 # a "test-shaped path".
 TEST_SHAPED_PATTERNS = ("test-*", "*_test.go", "*.test.*", "*.spec.ts")
+
+# BASELINE_CONVENTION_RE — the blockquote opener of the seeded
+# `**Baseline convention:**` header line (skills/flow/brainstorm-planner.md
+# states the exact line). F12 checks that ONE is stated, never which: the
+# guard's job is that the plan carries its convention, not that it matches
+# this prose byte for byte.
+BASELINE_CONVENTION_RE = re.compile(r"^>\s*\*\*Baseline convention:\*\*")
 
 
 def _is_test_shaped(path: str) -> bool:
@@ -482,6 +500,55 @@ def check_file(path: str) -> List[str]:
 
     violations.extend(_check_after_references(path, lines))
     violations.extend(_check_file_ownership(path, lines))
+    violations.extend(_check_baseline_convention(path, lines))
+    return violations
+
+
+def _check_baseline_convention(path: str, lines: List[str]) -> List[str]:
+    """F12 — a plan declaring `**Baseline:**` fields states its convention.
+
+    The declaring task is the first whose non-fenced body carries a
+    `**Baseline:**` field line (`_first_field_line`, the same reader F1's
+    scanner uses); a task whose fence never closes is skipped, F3b's
+    convention: its fields are unread. The stated convention is any
+    non-fenced line whose opener matches BASELINE_CONVENTION_RE — the plan
+    must state ONE, wherever the header block sits; the guard never judges
+    its wording. Reported once, at the declaring task's `**Baseline:**`
+    line.
+    """
+    violations: List[str] = []
+    declaring_task: Optional[str] = None
+    declaring_line = 1
+    for task in iter_tasks(lines):
+        if unclosed_fence(task.lines) is not None:
+            continue  # F3b: this task's fields are unread
+        field = _first_field_line(task.lines, task.body_start, "Baseline")
+        if field is not None:
+            declaring_task = task.id
+            declaring_line = field.line
+            break
+    if declaring_task is None:
+        return violations
+    stated = False
+    in_fence = False
+    for line in lines:
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if BASELINE_CONVENTION_RE.match(line):
+            stated = True
+            break
+    if not stated:  # F12
+        violations.append(
+            f"{path}:{declaring_line}: task {declaring_task} declares "
+            "**Baseline:** fields but the plan states no **Baseline "
+            "convention:** header line — one stated convention is what "
+            "keeps later tasks from drifting between counting methods; "
+            "seed the `> **Baseline convention:**` line "
+            "(skills/flow/brainstorm-planner.md)"
+        )
     return violations
 
 
