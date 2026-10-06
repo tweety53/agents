@@ -72,6 +72,8 @@ var dpEntries = map[string]dpEntry{
 		[]string{"re-reads your", "by line range", "never re-read a file already in your context", "Never print a generated file"}, nil},
 	"readonly": {"**READ-ONLY REVIEW:**",
 		[]string{"never mutate it", "no file edit outside your own report file", "a claim nobody can check"}, nil},
+	"fixround": {"**FIX-ROUND SCOPE:**",
+		[]string{"this is a fix-round re-review", "and nothing else on the branch", "never the module, repository or live-spec suite"}, nil},
 }
 
 // dpSite is one row of SITE_ENTRY/SITE_PATHS/SITE_MIN_BLOCKS/SITE_VARIANTS:
@@ -85,8 +87,9 @@ type dpSite struct {
 	variants []string
 }
 
-// dpSites is the site table, in the bash table's order -- the order its
-// violations print in.
+// dpSites is the site table -- the rows the port inherited, in the bash
+// table's order, then the rows added since; a site's violations print in
+// table order.
 var dpSites = []dpSite{
 	{"reproduce", "skills/flow/review-panel.md", 1, []string{"reviewer"}},
 	{"reproduce", "skills/flow/implement.md", 3, []string{"reviewer", "implementer"}},
@@ -118,6 +121,7 @@ var dpSites = []dpSite{
 	{"budget", "skills/flow/implement.md", 1, nil},
 	{"budget", "skills/flow/review-panel.md", 1, nil},
 	{"readonly", "skills/flow/implement.md", 1, nil},
+	{"fixround", "skills/flow/review-panel-fix-round.md", 1, nil},
 }
 
 func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int {

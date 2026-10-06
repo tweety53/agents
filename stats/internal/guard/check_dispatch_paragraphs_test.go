@@ -49,13 +49,16 @@ type dpCase struct {
 
 // dpFixture is new_root plus the case's files: every root carries a
 // visual-verify.md and a visual-verify-tooling-analysis.md, each with its
-// three required blocks at its one dispatch site, which a case may overwrite.
+// three required blocks at its one dispatch site, and a
+// review-panel-fix-round.md with its one required block, which a case may
+// overwrite.
 func dpFixture(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	flow := filepath.Join(root, "skills", "flow")
 	writeFile(t, filepath.Join(flow, "visual-verify.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "visual-verify-tooling-analysis.md"), dpCleanVisualVerify+"\n")
+	writeFile(t, filepath.Join(flow, "review-panel-fix-round.md"), dpCleanFixRound+"\n")
 	for name, body := range files {
 		writeFile(t, filepath.Join(flow, name), body+"\n")
 	}
@@ -143,7 +146,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 30 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 31 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -184,7 +187,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 30 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 31 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -1036,6 +1039,42 @@ var dpCases = []dpCase{
 			dpRC("case 90: exits 1", 1),
 			dpHas("case 90: names the missing phrase", "a claim nobody can check"),
 		}},
+	{files: map[string]string{
+		"review-panel-fix-round.md": "No FIX-ROUND SCOPE paragraph here at all, just prose.",
+		"review-panel.md":           dpCleanReviewPanel,
+		"implement.md":              dpCleanImplement,
+	},
+		checks: []dpCheck{
+			dpRC("case 92: no FIX-ROUND SCOPE block in review-panel-fix-round.md exits 1", 1),
+			dpHas("case 92: names the FIX-ROUND SCOPE min-blocks violation at its own threshold", "review-panel-fix-round.md", "requires at least 1 block(s) carrying the label \"**FIX-ROUND SCOPE:**\", found 0"),
+		}},
+	{files: map[string]string{
+		"review-panel-fix-round.md": dpFixRoundScopeBlockNoReReview,
+		"review-panel.md":           dpCleanReviewPanel,
+		"implement.md":              dpCleanImplement,
+	},
+		checks: []dpCheck{
+			dpRC("case 93: exits 1", 1),
+			dpHas("case 93: names the dropped phrase", "missing the required phrase: \"this is a fix-round re-review\""),
+		}},
+	{files: map[string]string{
+		"review-panel-fix-round.md": dpFixRoundScopeBlockNoNothingElse,
+		"review-panel.md":           dpCleanReviewPanel,
+		"implement.md":              dpCleanImplement,
+	},
+		checks: []dpCheck{
+			dpRC("case 94: exits 1", 1),
+			dpHas("case 94: names the dropped phrase", "missing the required phrase: \"and nothing else on the branch\""),
+		}},
+	{files: map[string]string{
+		"review-panel-fix-round.md": dpFixRoundScopeBlockNoSuite,
+		"review-panel.md":           dpCleanReviewPanel,
+		"implement.md":              dpCleanImplement,
+	},
+		checks: []dpCheck{
+			dpRC("case 95: exits 1", 1),
+			dpHas("case 95: names the dropped phrase", "missing the required phrase: \"never the module, repository or live-spec suite\""),
+		}},
 }
 
 // The harness's fixture paragraphs.
@@ -1571,6 +1610,38 @@ const (
 		"> implementer inherits, and a restore you perform is an assertion nothing verifies: gymie\n" +
 		"> KAN-635's reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning\n" +
 		"> artifacts, and reported the tree restored."
+	dpFixRoundScopeBlock = "> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given\n" +
+		"> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the\n" +
+		"> enclosing function or section — and nothing else on the branch. Run only the tests and\n" +
+		"> specs that diff touches, never the module, repository or live-spec suite. The fix report at\n" +
+		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
+		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
+		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
+		"> claims — and say which of those it was."
+	dpFixRoundScopeBlockNoReReview = "> **FIX-ROUND SCOPE:** a fix-round re-review with a narrowed scope. Its scope is the fix diff you were given\n" +
+		"> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the\n" +
+		"> enclosing function or section — and nothing else on the branch. Run only the tests and\n" +
+		"> specs that diff touches, never the module, repository or live-spec suite. The fix report at\n" +
+		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
+		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
+		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
+		"> claims — and say which of those it was."
+	dpFixRoundScopeBlockNoNothingElse = "> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given\n" +
+		"> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the\n" +
+		"> enclosing function or section — and nothing beyond it. Run only the tests and\n" +
+		"> specs that diff touches, never the module, repository or live-spec suite. The fix report at\n" +
+		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
+		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
+		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
+		"> claims — and say which of those it was."
+	dpFixRoundScopeBlockNoSuite = "> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given\n" +
+		"> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the\n" +
+		"> enclosing function or section — and nothing else on the branch. Run only the tests and\n" +
+		"> specs that diff touches, never a full suite run. The fix report at\n" +
+		"> `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,\n" +
+		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
+		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
+		"> claims — and say which of those it was."
 )
 
 // CLEAN_REVIEW_PANEL, CLEAN_IMPLEMENT_NO_READONLY and CLEAN_IMPLEMENT: case
@@ -1584,3 +1655,7 @@ var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutp
 // site -- the verifier in visual-verify.md, the tooling analyst in
 // visual-verify-tooling-analysis.md -- carrying its three blocks.
 var dpCleanVisualVerify = dpDoc(dpToolsBlock, dpHandshakeBlock, dpDelegationBlock)
+
+// dpCleanFixRound is review-panel-fix-round.md at its one dispatch site,
+// carrying its one block.
+var dpCleanFixRound = dpDoc(dpFixRoundScopeBlock)
