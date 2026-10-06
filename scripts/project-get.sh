@@ -22,8 +22,10 @@
 #
 # --enum RESOLVES A SINGLE-LINE-LITERAL KEY (skills/flow-contracts/
 # project-configuration.md). The body's head — its first non-blank line,
-# whitespace-trimmed, surrounding backticks removed, trimmed again — is
-# matched byte-for-byte against each <literal>:
+# whitespace-trimmed, surrounding backticks removed, trimmed again — matches
+# a <literal> on equality, or when the literal leads it at a word boundary
+# (the byte after it cannot extend it into a longer word); the rest of the
+# head line is prose for the reader, never read:
 #   0  the head matches; the literal alone is on stdout.
 #   1  unchanged: the file or the key is absent.
 #   2  unchanged; also `--enum` given no literal.
