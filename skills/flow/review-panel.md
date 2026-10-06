@@ -346,6 +346,8 @@ Every bundle prompt also carries this paragraph verbatim:
 
 **No de-duplication across roles**: the same defect raised by two passes is two `F<n>` rows.
 
+**A finding recorded under a joined slot that a per-role re-run must cover is withdrawn with the chain named, and re-recorded under each raising role.** The joined row's `-slot` names the bundle and no single role, so a fix round's slot coverage (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) and `check-panel-findings-closed.sh` have no row they can close. Withdraw it — `flow record status -change <name> -ref F<n> -status 'withdrawn <reason>'`, the reason naming the chain: the joined row it leaves and the per-role re-run that needs single-role rows — then record the defect once per raising role, `flow record finding` under each role's own single-role `-slot` with the bundle's `-dispatch-seq`.
+
 **Re-runs are re-grouped by the same grouping**, carrying only the roles re-running this round — a
 group whose other members are clean dispatches with its re-running members only — on decided and
 `default` panels alike; the full-roster fallback above separates them one per role when the
