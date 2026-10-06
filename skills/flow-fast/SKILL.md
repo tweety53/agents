@@ -131,8 +131,9 @@ git -C <project>/.worktrees/<name> push -u origin <name>
 Then the project's declared `## worktree setup` (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`) runs once, from the worktree root, before
 anything else touches the tree — the fenced command lines only, in order, in the foreground; the
-key's exit 1 (absent) continues with nothing run, and a command's non-zero exit ends the run
-naming the command and its output.
+key's exit 1 (absent) continues with nothing run, its exit 2 stops the run, and a command's
+non-zero exit ends the run naming the command and its output. A re-run reusing an existing
+worktree runs nothing here — the creating run already ran it.
 
 **From here on, on every run, `<base>` is what `resolve-base-branch.sh <worktree>` prints** — the
 recorded base when there is one — so a re-run lands where the creating run cut.
