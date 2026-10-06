@@ -148,7 +148,9 @@ written.
 flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Make every judgment call yourself and name it in the summary;
+Make every judgment call yourself and name it in the summary, each with its rejected
+alternative and the one-line reason it lost, however small the call — size never exempts one
+(**Decisions**, `skills/flow/brainstorm-planner.md`);
 a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast
 <key>`, and asks nothing after it. Only with `## handoff` `required`, and only where two
 readings would lead to materially different work, ask once, batched, through

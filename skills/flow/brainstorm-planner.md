@@ -173,6 +173,12 @@ task's own commit.
 chose, the alternatives on the table, and the tradeoff that ruled each one out. **A design that
 forced no choices records none.**
 
+**Size never exempts a judgment call.** A small decision —
+where a file lives, what a change or file is named, what a task's scope takes in — is recorded
+like any other, its `**Considered:**` naming the rejected alternative and the one-line reason it
+lost; the small ones are the ones a later reader re-litigates first, because nothing else in the
+record explains why the obvious alternative was not taken.
+
 ```markdown
 ### <the decision>
 
