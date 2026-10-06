@@ -74,6 +74,8 @@ var dpEntries = map[string]dpEntry{
 		[]string{"never mutate it", "no file edit outside your own report file", "a claim nobody can check"}, nil},
 	"fixround": {"**FIX-ROUND SCOPE:**",
 		[]string{"this is a fix-round re-review", "and nothing else on the branch", "never the module, repository or live-spec suite"}, nil},
+	"proofruns": {"**PROOF RUNS:**",
+		[]string{"size the run count to the flake rate you measured", "never a fixed count per step", "shows the check failing with the mechanism removed"}, nil},
 }
 
 // dpSite is one row of SITE_ENTRY/SITE_PATHS/SITE_MIN_BLOCKS/SITE_VARIANTS:
@@ -122,6 +124,7 @@ var dpSites = []dpSite{
 	{"budget", "skills/flow/review-panel.md", 1, nil},
 	{"readonly", "skills/flow/implement.md", 1, nil},
 	{"fixround", "skills/flow/review-panel-fix-round.md", 1, nil},
+	{"proofruns", "skills/flow/implement.md", 1, nil},
 }
 
 func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int {

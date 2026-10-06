@@ -135,7 +135,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 	// d71a2327 on the same fixture.
 	clean := dpCases[0].files
 	noRange := map[string]string{"review-panel.md": dpCleanReviewPanel,
-		"implement.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange)}
+		"implement.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange, dpProofRunsBlock)}
 	extras := []struct {
 		label  string
 		files  map[string]string
@@ -146,7 +146,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 31 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 32 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -187,7 +187,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 31 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 32 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -302,7 +302,7 @@ func dpInOrder(s string, want []string) bool {
 var dpCases = []dpCase{
 	{files: map[string]string{
 		"review-panel.md": dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock),
-		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpOutputBudgetBlock, dpReadonlyBlock),
+		"implement.md":    dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock, dpOutputBudgetBlock, dpReadonlyBlock, dpProofRunsBlock),
 	},
 		checks: []dpCheck{
 			dpRC("case 1: both sites correct exits 0", 0),
@@ -1075,6 +1075,38 @@ var dpCases = []dpCase{
 			dpRC("case 95: exits 1", 1),
 			dpHas("case 95: names the dropped phrase", "missing the required phrase: \"never the module, repository or live-spec suite\""),
 		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock),
+	},
+		checks: []dpCheck{
+			dpRC("case 96: no PROOF RUNS block in implement.md exits 1", 1),
+			dpHas("case 96: names the PROOF RUNS min-blocks violation at its own threshold", "implement.md", "requires at least 1 block(s) carrying the label \"**PROOF RUNS:**\", found 0"),
+		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoFlakeRate),
+	},
+		checks: []dpCheck{
+			dpRC("case 97: exits 1", 1),
+			dpHas("case 97: names the dropped phrase", "missing the required phrase: \"size the run count to the flake rate you measured\""),
+		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoFixedCount),
+	},
+		checks: []dpCheck{
+			dpRC("case 98: exits 1", 1),
+			dpHas("case 98: names the dropped phrase", "missing the required phrase: \"never a fixed count per step\""),
+		}},
+	{files: map[string]string{
+		"review-panel.md": dpCleanReviewPanel,
+		"implement.md":    dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlockNoMechanismRemoved),
+	},
+		checks: []dpCheck{
+			dpRC("case 99: exits 1", 1),
+			dpHas("case 99: names the dropped phrase", "missing the required phrase: \"shows the check failing with the mechanism removed\""),
+		}},
 }
 
 // The harness's fixture paragraphs.
@@ -1642,6 +1674,26 @@ const (
 		"> and the failure with the fix reverted. Check that proof against the diff; reproduce it\n" +
 		"> yourself only where it is missing, does not match the diff, or does not show the failure it\n" +
 		"> claims — and say which of those it was."
+	dpProofRunsBlock = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
+		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
+		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
+		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
+		"> shows the check failing with the mechanism removed."
+	dpProofRunsBlockNoFlakeRate = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
+		"> the run count to the step count, 10–15 runs by default, never a fixed count per\n" +
+		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
+		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
+		"> shows the check failing with the mechanism removed."
+	dpProofRunsBlockNoFixedCount = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
+		"> the run count to the flake rate you measured, 10–15 runs by default, never an arbitrary count per\n" +
+		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
+		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
+		"> shows the check failing with the mechanism removed."
+	dpProofRunsBlockNoMechanismRemoved = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
+		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
+		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
+		"> the proof `~/.claude/rules/fix-determinism-at-the-source.md` requires: a determinism fix still\n" +
+		"> shows the check failing with the mechanism reverted."
 )
 
 // CLEAN_REVIEW_PANEL, CLEAN_IMPLEMENT_NO_READONLY and CLEAN_IMPLEMENT: case
@@ -1649,7 +1701,7 @@ const (
 // against.
 var dpCleanReviewPanel = dpDoc(dpReviewerBlock, dpVerbatimBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpMutationBlock, dpPixelProbeBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpIndependentBlock, dpDelegationBlock, dpDelegationBlock, dpEntryContextBlock, dpFindingsInputBlock, dpContextBundleFailureBlock, dpOutputBudgetBlock)
 var dpCleanImplementNoReadonly = dpDoc(dpReviewerBlock, dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpReviewerBlock, dpForegroundBlock, dpForegroundBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpToolsBlock, dpHandshakeBlock, dpHandshakeBlock, dpDelegationBlock, dpDelegationBlock)
-var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock)
+var dpCleanImplement = dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlock, dpProofRunsBlock)
 
 // dpCleanVisualVerify is one visual-verify site file at its one dispatch
 // site -- the verifier in visual-verify.md, the tooling analyst in
