@@ -143,10 +143,12 @@ func TestProjectGetEnum(t *testing.T) {
 		{"a backticked head", "## default landing route\n`merge and push`\n", route, 0, "merge and push\n", ""},
 		{"a padded head", "## default landing route\n   ` pull request `  \t\n", route, 0, "pull request\n", ""},
 		{"prose after the literal on the head line", "## default landing route\nmerge and push — the standing choice since kan-512\n\nprose below\n", route, 0, "merge and push\n", ""},
+		{"punctuation after the literal ends the word", "## default landing route\nmanual, see kan-404\n", route, 0, "manual\n", ""},
 		{"a word extending a literal matches nothing", "## default landing route\nmanually\n", route, 3, "",
 			"project-get: '## default landing route' head 'manually' matches none of: 'pull request' 'merge and push' 'manual'\n"},
 		{"a suffix extending a literal matches nothing", "## default landing route\nmerge and pushed\n", route, 3, "",
 			"project-get: '## default landing route' head 'merge and pushed' matches none of: 'pull request' 'merge and push' 'manual'\n"},
+		{"a literal that opens a longer one does not shadow it", "## default landing route\nmerge and push — prose\n", []string{"--enum", "merge", "merge and push", "manual"}, 0, "merge and push\n", ""},
 		{"absent key", "## lint\nx\n", route, 1, "", "project-get: <root>/.flow/project.md declares no '## default landing route' section\n"},
 		{"no match", "## default landing route\n`Pull Request`\n", route, 3, "",
 			"project-get: '## default landing route' head 'Pull Request' matches none of: 'pull request' 'merge and push' 'manual'\n"},
@@ -170,6 +172,15 @@ func TestProjectGetEnum(t *testing.T) {
 			}
 		})
 	}
+	t.Run("a word extending a handoff literal matches nothing", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+		writeFile(t, root+"/.flow/project.md", "## handoff\nnonempty\n")
+		got := pgGo(root, "handoff", "--enum", "required", "none")
+		if want := (pgRes{3, "", "project-get: '## handoff' head 'nonempty' matches none of: 'required' 'none'\n"}); got != want {
+			t.Errorf("got:  %+v\nwant: %+v", got, want)
+		}
+	})
 	t.Run("no file", func(t *testing.T) {
 		t.Parallel()
 		if got := pgGo(append([]string{t.TempDir(), "default landing route"}, route...)...); got.rc != 1 {

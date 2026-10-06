@@ -19,7 +19,7 @@ func init() {
 func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	// --enum <literal>... resolves a single-line-literal key: the body's
 	// head is matched against the literals — on equality or on a leading,
-	// word-bounded literal (pgEnum).
+	// word-bounded literal (pgEnum), the longest match winning.
 	enum := len(args) > 3 && args[2] == "--enum"
 	if len(args) != 2 && !enum {
 		fmt.Fprintln(stderr, "usage: project-get.sh <project-root> <key>")
@@ -90,18 +90,24 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 // again (skills/flow-contracts/project-configuration.md). The head matches a
 // literal when it equals it or begins with it and the byte after the literal
 // cannot extend it into a longer word — prose the operator writes after the
-// literal on the head line is for the reader, never read (kan-716).
+// literal on the head line is for the reader, never read (kan-716). When
+// several literals match, the longest wins, so a literal that word-boundedly
+// opens a longer one never shadows it.
 func pgEnum(body, key string, literals []string, stdout, stderr io.Writer) int {
 	head, _, _ := strings.Cut(body, "\n")
 	head = strings.TrimSpace(strings.Trim(strings.TrimSpace(head), "`"))
+	best, found := "", false
 	for _, l := range literals {
-		if head == l || (strings.HasPrefix(head, l) && !pgWordByte(head[len(l)])) {
-			fmt.Fprintln(stdout, l)
-			return 0
+		if matched := head == l || (strings.HasPrefix(head, l) && !pgWordByte(head[len(l)])); matched && (!found || len(l) > len(best)) {
+			best, found = l, true
 		}
 	}
-	fmt.Fprintf(stderr, "project-get: '## %s' head '%s' matches none of: '%s'\n", key, head, strings.Join(literals, "' '"))
-	return 3
+	if !found {
+		fmt.Fprintf(stderr, "project-get: '## %s' head '%s' matches none of: '%s'\n", key, head, strings.Join(literals, "' '"))
+		return 3
+	}
+	fmt.Fprintln(stdout, best)
+	return 0
 }
 
 // pgWordByte reports whether b can extend a matched literal into a longer
