@@ -202,6 +202,57 @@ func TestCheckVerbatimMoves(t *testing.T) {
 	}
 }
 
+// TestCheckVerbatimMovesFailReplyNamesRunShapePath pins the FAIL reply's
+// acknowledgement path against the run shape the worktree itself detects: a
+// change root under .superpowers/sdd/ holding tasks.md — the plan only a
+// flow-fast run writes there — makes the reply name that change's own
+// verbatim-moves.txt and never the spectre path; its absence keeps the /flow
+// path and names no flow-fast path.
+func TestCheckVerbatimMovesFailReplyNamesRunShapePath(t *testing.T) {
+	t.Parallel()
+	edit := map[string]string{
+		vmPipe: "# Pipeline\n\n**This table is canonical.** Every row is a transition.\n\n" + vmMark + "\n\n" + vmWhy + "\n",
+	}
+	failing := func(t *testing.T, root string) string {
+		t.Helper()
+		rc, _, errb := vmRun(root)
+		if rc != 1 {
+			t.Fatalf("rc = %d, want 1\nstderr:\n%s", rc, errb)
+		}
+		return errb
+	}
+	t.Run("a flow-fast change root present names its own path", func(t *testing.T) {
+		t.Parallel()
+		root := vmRepo(t, vmBase)
+		for rel, body := range edit {
+			writeFile(t, filepath.Join(root, rel), body)
+		}
+		writeFile(t, filepath.Join(root, ".superpowers/sdd/demo/tasks.md"), "# plan\n")
+		errb := failing(t, root)
+		want := filepath.Join(root, ".superpowers/sdd/demo") + "/" + vmAckFile
+		if !strings.Contains(errb, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, errb)
+		}
+		if strings.Contains(errb, "<spec-root>") {
+			t.Errorf("stderr names the /flow path beside a flow-fast change root:\n%s", errb)
+		}
+	})
+	t.Run("no flow-fast change root keeps the /flow path", func(t *testing.T) {
+		t.Parallel()
+		root := vmRepo(t, vmBase)
+		for rel, body := range edit {
+			writeFile(t, filepath.Join(root, rel), body)
+		}
+		errb := failing(t, root)
+		if !strings.Contains(errb, "<spec-root>/changes/<change>/"+vmAckFile) {
+			t.Errorf("stderr lacks the /flow path:\n%s", errb)
+		}
+		if strings.Contains(errb, ".superpowers") {
+			t.Errorf("stderr names a flow-fast path with no change root present:\n%s", errb)
+		}
+	})
+}
+
 // TestCheckVerbatimMovesSymlinkSkipped pins the prototype's `not
 // p.is_symlink()`: skills/flow/scripts/ holds symlinks into scripts/, and a
 // symlinked Markdown file is the same text counted twice.

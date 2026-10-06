@@ -152,10 +152,33 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", bad, review, label)
 	if bad != 0 {
-		fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in <spec-root>/changes/<change>/%s or <worktree>/.superpowers/sdd/<name>/%s.\n", vmAckFile, vmAckFile)
+		if fast := vmFastChangeRoot(root); fast != "" {
+			fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in %s/%s.\n", fast, vmAckFile)
+		} else {
+			fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in <spec-root>/changes/<change>/%s.\n", vmAckFile)
+		}
 		return 1
 	}
 	return 0
+}
+
+// vmFastChangeRoot detects the run shape by the one artifact only a flow-fast
+// run writes there: tasks.md under <root>/.superpowers/sdd/<change>/ — a
+// /flow run's tasks.md lives in its spectre change root, and its
+// .superpowers/sdd/<change>/ holds panel reports alone. A match is a flow-fast
+// worktree, and the FAIL reply names that change's own acknowledgement path;
+// no match keeps the /flow path. The first match in sorted order is the one
+// change root a flow-fast worktree holds.
+func vmFastChangeRoot(root string) string {
+	matches, err := filepath.Glob(filepath.Join(root, ".superpowers", "sdd", "*", "tasks.md"))
+	if err != nil {
+		return ""
+	}
+	sort.Strings(matches)
+	if len(matches) == 0 {
+		return ""
+	}
+	return filepath.Dir(matches[0])
 }
 
 // vmDefaultBase is the merge base of HEAD with the change's base, resolved
