@@ -84,7 +84,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   the fix's own tasks. A deliberate reword or addition to the run-loaded corpus is listed, exactly as
   the guard's FAIL lines print it after `::`, in the acknowledgement file the run shape owns:
   `<project>/spectre/changes/<change>/verbatim-moves.txt` on a `/flow` run,
-  `<changeRoot>/verbatim-moves.txt` — `<worktree>/.superpowers/sdd/<change>/` — on this one,
+  `<changeRoot>/verbatim-moves.txt` — `<abs-worktree>/.superpowers/sdd/<change>/` — on this one,
   never `<project>/spectre/`.
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
   (`skills/flow/brainstorm-planner.md`) as written — the
