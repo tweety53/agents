@@ -1,9 +1,9 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { flowAfter, hintTail, line, lineRows, pendingRows, runLabel, statusLines, tally, trim } from './register'
+import { flowAfter, hintTail, line, lineRows, pendingRows, runLabel, statusLines, tally, taskCount, trim } from './register'
 
 const BAND = {
-  plugin: 'subagent-board',
+  plugin: 'flow-task-list',
   component: 'AbovePrompt',
   props: { hasSurvey: false, isWorking: true, maxRows: 20, bodyColumns: 100, scroll: { offset: 0, bodyRows: 20 }, view: {} },
 } as const
@@ -107,7 +107,7 @@ test('hint line gets the tally as its tail once a subagent exists', async ($, on
     const { Text } = r.ui.resolve(e)
     return <Text>hint</Text>
   })
-  const HINT = { plugin: 'subagent-board', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: 'esc to interrupt' } } as const
+  const HINT = { plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: 'esc to interrupt' } } as const
 
   for (const surface of ['terminal', 'desktop'] as const) {
     await (await $.ui.mount({ ...HINT, surface })).unmount()
@@ -115,7 +115,7 @@ test('hint line gets the tally as its tail once a subagent exists', async ($, on
   await $.agent.spawn(spawn('One'))
   await (await $.ui.mount({ ...HINT, surface: 'terminal' })).unmount()
 
-  expect(tails).toEqual([undefined, undefined, '· 🔄 1'])
+  expect(tails).toEqual([undefined, undefined, '🔄 1'])
 })
 
 test('runLabel names the model family and effort', () => {
@@ -131,40 +131,66 @@ test('a run label follows the lead, padded so the marker column lines up', () =>
   expect(line(row, 6, '', 9)).toBe('⎿           ✔ Task 2/6 (Count rules files) — done')
 })
 
-const NO_FLOW = { phase: null, change: null, ticket: null, stage: null }
+const NO_FLOW = { phase: null, change: null, ticket: null }
 const mark = (verb: string, key: string, name = 'kan-873-port-guards') =>
   verb === 'begin'
     ? `flow stage begin -command '/flow' -stage flow.${key} -harness claude -session-token mf-x ${name}`
     : `flow stage end -command '/flow' -stage flow.${key} -outcome completed ${name}`
 
 test("flowAfter follows flow stage marks and the change name's ticket", () => {
-  const impl = { phase: 'flow-implement', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: 'sdd-tdd' } as const
+  const impl = { phase: 'flow-implement', change: 'kan-873-port-guards', ticket: 'KAN-873' } as const
   expect(flowAfter('ls -la', NO_FLOW)).toBe(NO_FLOW)
-  expect(flowAfter(mark('begin', 'brainstorm'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: 'brainstorm' })
-  expect(flowAfter(mark('begin', 'brainstorm', 'add-dark-mode'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'add-dark-mode', ticket: null, stage: 'brainstorm' })
+  expect(flowAfter(mark('begin', 'brainstorm'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'kan-873-port-guards', ticket: 'KAN-873' })
+  expect(flowAfter(mark('begin', 'brainstorm', 'add-dark-mode'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'add-dark-mode', ticket: null })
   expect(flowAfter(mark('begin', 'decide'), NO_FLOW)).toEqual(NO_FLOW)
-  expect(flowAfter(mark('begin', 'decide'), impl)).toEqual({ ...impl, stage: 'decide' })
+  expect(flowAfter(mark('begin', 'decide'), impl)).toEqual(impl)
   expect(flowAfter(mark('begin', 'sdd-tdd'), NO_FLOW)).toEqual(impl)
-  expect(flowAfter(`${mark('end', 'sdd-tdd')} && ${mark('begin', 'review-panel')}`, impl)).toEqual({ ...impl, stage: 'review-panel' })
-  expect(flowAfter(mark('end', 'sdd-tdd'), impl)).toEqual({ ...impl, stage: null })
+  expect(flowAfter(`${mark('end', 'sdd-tdd')} && ${mark('begin', 'review-panel')}`, impl)).toEqual(impl)
   expect(flowAfter(mark('end', 'review-panel'), impl)).toBe(impl)
-  expect(flowAfter(mark('begin', 'preflight'), impl)).toEqual({ ...impl, phase: 'flow-integrate', stage: 'preflight' })
+  expect(flowAfter(mark('begin', 'preflight'), impl)).toEqual({ ...impl, phase: 'flow-integrate' })
   expect(flowAfter(mark('end', 'write-in-progress'), impl)).toEqual(NO_FLOW)
   expect(flowAfter(mark('end', 'refresh-main-checkout'), { ...impl, phase: 'flow-integrate' })).toEqual(NO_FLOW)
 })
 
-test('hintTail joins the ticket, the phase, the running stage and the tally', () => {
-  const impl = { phase: 'flow-implement', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: null } as const
-  expect(hintTail(NO_FLOW, '')).toBeUndefined()
-  expect(hintTail(NO_FLOW, '✅ 5')).toBe('· ✅ 5')
-  expect(hintTail({ ...NO_FLOW, phase: 'flow-plan' }, '')).toBe('· flow-plan')
-  expect(hintTail({ ...impl, ticket: null }, '✅ 5')).toBe('· flow-implement -> ✅ 5')
-  expect(hintTail(impl, '✅ 5')).toBe('· KAN-873 flow-implement -> ✅ 5')
-  expect(hintTail({ ...impl, stage: 'review-panel' }, '🔍 2')).toBe('· KAN-873 flow-implement 🔍 -> 🔍 2')
-  expect(hintTail({ ...impl, stage: 'document-fix' }, '')).toBe('· KAN-873 flow-implement 🔨')
-  expect(hintTail({ ...impl, stage: 'verify' }, '')).toBe('· KAN-873 flow-implement 🧪')
-  expect(hintTail({ ...impl, stage: 'visual-verify' }, '')).toBe('· KAN-873 flow-implement 👀')
-  expect(hintTail({ ...impl, stage: 'sdd-tdd' }, '')).toBe('· KAN-873 flow-implement')
+// No leading "· " (the engine puts " · " before a tail), no "->", " │ " between the main agent's part and
+// the subagent tally, and the plan's task count after the phase.
+test('hintTail: the ticket, the phase and the task count, " │ ", then the tally', () => {
+  const impl = { phase: 'flow-implement', change: 'kan-873-port-guards', ticket: 'KAN-873' } as const
+  expect(hintTail(NO_FLOW, '', '')).toBeUndefined()
+  expect(hintTail(NO_FLOW, '', '✅ 5')).toBe('✅ 5')
+  expect(hintTail({ ...NO_FLOW, phase: 'flow-plan' }, '', '')).toBe('flow-plan')
+  expect(hintTail({ ...impl, ticket: null }, '', '✅ 5')).toBe('flow-implement │ ✅ 5')
+  expect(hintTail(impl, '', '✅ 5')).toBe('KAN-873 flow-implement │ ✅ 5')
+  expect(hintTail(impl, '19/25', '👀 1  ✅ 4')).toBe('KAN-873 flow-implement 19/25 │ 👀 1  ✅ 4')
+  expect(hintTail(impl, '19/25', '')).toBe('KAN-873 flow-implement 19/25')
+})
+
+test('taskCount counts the ticked column-0 tasks over all of them, never a step checkbox', () => {
+  expect(taskCount(PLAN)).toBe('19/25')
+  expect(taskCount('- [x] 1. One\n- [ ] 2. Two\n  - [x] **Step 1**\n')).toBe('1/2')
+  expect(taskCount('# no tasks yet\n')).toBe('')
+  expect(taskCount('')).toBe('')
+})
+
+test("the hint line shows the plan's X/N and a visual-verify stage's eyes once, from the running verifier row", async ($, on) => {
+  mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
+  on('agent.spawn', () => ({ model: 'opus', agentId: 'ag1' }))
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', (_$, e) => {
+    if (e.path !== '/u/Projects/agents-worktrees/kan-873-port-guards/spectre/changes/kan-873-port-guards/tasks.md') throw new Error('ENOENT')
+    return { value: PLAN }
+  })
+  const tails: (string | undefined)[] = []
+  on('ui.render', (r, e) => {
+    if (e.component === 'PromptHint') tails.push(e.props.tail)
+    const { Text } = r.ui.resolve(e)
+    return <Text>hint</Text>
+  })
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'visual-verify') })
+  await $.agent.spawn(spawn('visual-verify login page'))
+  await (await $.ui.mount({ plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
+  expect(tails).toEqual(['KAN-873 flow-implement 19/25 │ 👀 1'])
 })
 
 test('a running row shows its kind as its state word; a finished one its state', () => {
@@ -210,7 +236,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
     await ui.unmount()
     return texts
   }
-  const HINT = { plugin: 'subagent-board', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' } } as const
+  const HINT = { plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' } } as const
 
   await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
   await $.agent.spawn(spawn('Task 2/7 (wire band)'))
@@ -223,7 +249,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
   await $.turn.complete(complete('ag1', 'answer'))
   expect(await shown()).toEqual([])
   await (await $.ui.mount({ ...HINT, surface: 'terminal' })).unmount()
-  expect(tails.at(-1)).toBe('· KAN-873 flow-implement -> ✅ 1')
+  expect(tails.at(-1)).toBe('KAN-873 flow-implement │ ✅ 1')
 })
 
 test('a denied Bash call leaves the flow state as it was', async ($, on) => {
@@ -236,7 +262,7 @@ test('a denied Bash call leaves the flow state as it was', async ($, on) => {
     return <Text>hint</Text>
   })
   await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
-  await (await $.ui.mount({ plugin: 'subagent-board', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
+  await (await $.ui.mount({ plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
   expect(tails).toEqual([undefined])
 })
 
@@ -450,53 +476,45 @@ test('the band draws at most main plus five rows: dispatched rows first, then th
   ])
 })
 
-test("a subagent row's elapsed time and tokens follow its state", () => {
+test("a subagent row's elapsed time follows its state", () => {
   const row = { id: 'a', n: 3, desc: 'Task 3/8 (desc)', state: 'in progress', start: 1000 } as const
   expect(line(row, 8, 'opus-medium', 11, true, 1000 + 252_000)).toBe('⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s')
-  expect(line({ ...row, tokens: 1_234_567 }, 8, '', 0, true, 1000 + 7_000)).toBe('⎿ ◼ Task 3/8 (desc) — in progress · 7s · 1.2M tok')
-  expect(line({ ...row, state: 'done', end: 1000 + 3_600_000 + 65_000, tokens: 45_200 }, 8, '', 0, true, 9e9)).toBe('⎿ ✔ Task 3/8 (desc) — done · 1h01m · 45.2k tok')
-  expect(line({ ...row, tokens: 850 }, 8, '', 0, true, 1000)).toBe('⎿ ◼ Task 3/8 (desc) — in progress · 0s · 850 tok')
+  expect(line({ ...row, state: 'done', end: 1000 + 3_600_000 + 65_000 }, 8, '', 0, true, 9e9)).toBe('⎿ ✔ Task 3/8 (desc) — done · 1h01m')
+  expect(line(row, 8, '', 0, true, 1000)).toBe('⎿ ◼ Task 3/8 (desc) — in progress · 0s')
   expect(line({ id: 'p', n: 4, desc: 'Task 4/8 (later)', state: 'pending' }, 8, '', 0, true, 5000)).toBe('⎿ ◻ Task 4/8 (later) — pending')
 })
 
-test('a running row ticks and takes its latest response tokens; a finished row freezes', async ($, on) => {
+test('a running row ticks and shows no token count; a finished row freezes', async ($, on) => {
   const clock = mock.clock(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('turn.complete', () => ({ text: '' }))
-  const usage = (input: number, output: number) => ({ model: 'claude-opus-5-5', input_tokens: input, output_tokens: output, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 100_000 })
-  let next = usage(0, 0)
+  const usage = { model: 'claude-opus-5-5', input_tokens: 130_000, output_tokens: 3_000, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 100_000 }
   on('turn.step', async function* (_$, e) {
-    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: next }
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage }
   })
   on('ui.render', (r, e) => {
     const { Box } = r.ui.resolve(e)
     return <Box />
   })
-  const step = async (index: number) => {
-    for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1, agentId: 'ag1' })) {
-      // drain
-    }
-  }
   const rows = async (ui: { findAll: (q: { type: 'Text' }) => Promise<{ text: string }[]> }) =>
     (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
 
   await $.agent.spawn(spawn('Task 3/8 (desc)'))
-  next = usage(50_000, 2_000)
-  await step(0)
-  next = usage(130_000, 3_000)
-  await step(1)
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1, agentId: 'ag1' })) {
+    // drain
+  }
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 0s · 1.2M tok'])
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 0s'])
   await clock.advance(252_000)
-  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s · 1.2M tok'])
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s'])
   await ui.unmount()
 
   await $.agent.spawn(spawn('Task 4/8 (other)'))
   await $.turn.complete(complete('ag1', 'answer'))
   await clock.advance(60_000)
   const after = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await rows(after))[0]).toBe('⎿ opus-medium ✔ Task 3/8 (desc) — done · 4m12s · 1.2M tok')
+  expect((await rows(after))[0]).toBe('⎿ opus-medium ✔ Task 3/8 (desc) — done · 4m12s')
   await after.unmount()
 })
 

@@ -80,8 +80,8 @@ call that names no row is not made.
 shape.** A dispatch carrying plan tasks — an implementer, a gated reviewer bundle — names them
 by plan id over the plan's task count, then a few words in parentheses: `Task 3/22 (port guard)`
 for one task, `Tasks 3+4+7/22 (review)` for a group, its ids in the order its key lists them. Every other row is its key and a few
-words, with no parentheses: `panel-1-primary correctness review`. The `subagent-board` mod
-(`mods/subagent-board/`) reads that prefix to number its row.
+words, with no parentheses: `panel-1-primary correctness review`. The `flow-task-list` mod
+(`mods/flow-task-list/`) reads that prefix to number its row.
 
 **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
 `SendMessage` to a child that has written its report. Whatever a

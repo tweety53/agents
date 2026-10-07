@@ -1,14 +1,14 @@
 import { atom, read, update } from 'claude-code'
-import type { Register, Timer } from 'claude-code'
+import type { Hook, Register, Timer } from 'claude-code'
 
 import type { Flow, Main, Phase, Row, RowState, StatusLine } from '../types'
 
-const rows = atom({ plugin: 'subagent-board', key: 'rows' } as const, [] as Row[])
-const runs = atom({ plugin: 'subagent-board', key: 'runs' } as const, {} as Record<string, string>)
-const NO_FLOW: Flow = { phase: null, change: null, ticket: null, stage: null }
-const flow = atom({ plugin: 'subagent-board', key: 'flow' } as const, NO_FLOW)
-const main = atom({ plugin: 'subagent-board', key: 'main' } as const, null as Main | null)
-const lines = atom({ plugin: 'subagent-board', key: 'lines' } as const, {} as Record<string, StatusLine>)
+const rows = atom({ plugin: 'flow-task-list', key: 'rows' } as const, [] as Row[])
+const runs = atom({ plugin: 'flow-task-list', key: 'runs' } as const, {} as Record<string, string>)
+const NO_FLOW: Flow = { phase: null, change: null, ticket: null }
+const flow = atom({ plugin: 'flow-task-list', key: 'flow' } as const, NO_FLOW)
+const main = atom({ plugin: 'flow-task-list', key: 'main' } as const, null as Main | null)
+const lines = atom({ plugin: 'flow-task-list', key: 'lines' } as const, {} as Record<string, StatusLine>)
 
 const MAX_ROWS = 5
 
@@ -36,25 +36,17 @@ export const taskNums = (text: string): number[] =>
     return Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i)
   })
 
-// "4m12s": a row's elapsed time; "1.2M tok": its tokens.
+// "4m12s": a row's elapsed time.
 const clockText = (ms: number): string => {
   const s = Math.floor(ms / 1000)
   const m = Math.floor(s / 60)
   const pad = (k: number) => String(k).padStart(2, '0')
   return s < 60 ? `${s}s` : m < 60 ? `${m}m${pad(s % 60)}s` : `${Math.floor(m / 60)}h${pad(m % 60)}m`
 }
-const tokText = (n: number): string =>
-  `${n < 1e3 ? n : n < 1e6 ? `${(n / 1e3).toFixed(1)}k` : `${(n / 1e6).toFixed(1)}M`} tok`
 
-// " · 4m12s · 1.2M tok" for a subagent row: elapsed until `now` while it runs, frozen at its end; empty for the
-// rows no spawn started (main, pending, status lines), and tokens only once a response has reported them.
-const stats = (row: Row, now: number): string =>
-  row.start === undefined
-    ? ''
-    : [clockText((row.end ?? now) - row.start), row.tokens ? tokText(row.tokens) : '']
-        .filter(Boolean)
-        .map(x => ` · ${x}`)
-        .join('')
+// " · 4m12s" for a subagent row: elapsed until `now` while it runs, frozen at its end; empty for the rows no
+// spawn started (main, pending, status lines).
+const stats = (row: Row, now: number): string => (row.start === undefined ? '' : ` · ${clockText((row.end ?? now) - row.start)}`)
 
 // What a running row is doing, read from its description, and the state word it shows; first match
 // wins, so a panel fix is a fix. Each word is matched from its start, so "prefix", "preview" or
@@ -121,6 +113,12 @@ export const lineRows = (ls: Record<string, StatusLine>, subs: Row[]): Row[] => 
 // A plan's column-0 task line, "- [ ] 23. Title" or "- [x] 23. Title"; its step checkboxes are indented.
 const TASK = /^- \[([ x])\] (\d+)\. (.*)$/gm
 
+// "19/25": the plan's ticked tasks over all its tasks, derived from its tasks.md on every draw; empty without tasks.
+export const taskCount = (tasksMd: string): string => {
+  const boxes = [...tasksMd.matchAll(TASK)].map(([, box]) => box)
+  return boxes.length ? `${boxes.filter(b => b === 'x').length}/${boxes.length}` : ''
+}
+
 // The plan's unticked tasks no board row names in its "Task(s) …/n" numbering, as pending rows: what the
 // running /flow change has not dispatched yet, derived from its tasks.md on every draw.
 export const pendingRows = (tasksMd: string, rs: Row[]): Row[] => {
@@ -137,7 +135,7 @@ export const runLabel = (model: string, effort?: string | number): string => {
   return effort === undefined ? family : `${family}-${effort}`
 }
 
-// "🔄 1  🔍 2  ✅ 4": the board's rows counted by their kind's emoji (the stage emoji's vocabulary), running kinds first. The space
+// "🔄 1  🔍 2  ✅ 4": the board's rows counted by their kind's emoji, running kinds first. The space
 // after each emoji keeps the count clear of it where the terminal draws the emoji wider than it measures.
 export const tally = (rs: Row[]): string => {
   const order = [EMOJI['in progress'], ...KINDS.map(([, e]) => e), EMOJI.done, EMOJI.blocked]
@@ -181,14 +179,6 @@ const STAGE_MARK = /\bflow stage (begin|end)\b([^;&|\n]*)/g
 // A change name's leading tracker key: "kan-873-port-guards" → "KAN-873".
 const TICKET = /^['"]?([a-z][a-z0-9]*-\d+)(?=-|['"]?$)/i
 
-// The stages whose running gets an emoji on the hint line, after the phase.
-const STAGE_EMOJI: Record<string, string> = {
-  'document-fix': '🔨',
-  'review-panel': '🔍',
-  'visual-verify': '👀',
-  verify: '🧪',
-}
-
 // The flow state after a Bash command's `flow stage` marks; `current` when it carries none that move it.
 export const flowAfter = (command: string, current: Flow): Flow => {
   let f = current
@@ -197,23 +187,30 @@ export const flowAfter = (command: string, current: Flow): Flow => {
     if (!key) continue
     if (verb === 'end') {
       if (LAST_KEYS.includes(key)) f = NO_FLOW
-      else if (f.stage === key) f = { ...f, stage: null }
       continue
     }
     const phase = (Object.keys(PHASE_KEYS) as Phase[]).find(ph => PHASE_KEYS[ph].includes(key)) ?? f.phase
     const name = rest.trim().split(/\s+/).at(-1) ?? ''
     const ticket = TICKET.exec(name)?.[1]?.toUpperCase() ?? f.ticket
-    f = phase ? { phase, change: name.replace(/^['"]|['"]$/g, '') || f.change, ticket, stage: key } : NO_FLOW
+    f = phase ? { phase, change: name.replace(/^['"]|['"]$/g, '') || f.change, ticket } : NO_FLOW
   }
   return f
 }
 
-// "· KAN-873 flow-implement 🔍 -> ✅ 5", each part only where it exists.
-export const hintTail = (f: Flow, t: string): string | undefined => {
-  const stage = f.stage ? STAGE_EMOJI[f.stage] : undefined
-  const head = f.phase ? [f.ticket, f.phase, stage].filter(Boolean).join(' ') : ''
-  return head && t ? `· ${head} -> ${t}` : head || t ? `· ${head || t}` : undefined
+// "KAN-873 flow-implement 19/25 │ 🔍 2  ✅ 5": the main agent's part — tracker key, phase, the plan's task count
+// — " │ ", then the subagent rows' tally, each part only where it exists. No leading separator: the engine
+// puts " · " between its own line and the tail. The running stage gets no emoji of its own: the tally
+// already counts the rows running it under that emoji, and a second copy read as two of them.
+export const hintTail = (f: Flow, count: string, t: string): string | undefined => {
+  const head = f.phase ? [f.ticket, f.phase, count].filter(Boolean).join(' ') : ''
+  return [head, t].filter(Boolean).join(' │ ') || undefined
 }
+
+// The running change's plan, read from its worktree (`<dirname project>/<basename project>-worktrees/<name>`,
+// beside the main checkout, where /flow ticks it); absent, ''. `session.root()` is the launch directory —
+// `session.cwd()` follows the shell, so a `cd stats && …` would aim it at `stats-worktrees/`.
+const planOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<string> =>
+  change ? $.fs.read(`${await $.session.root()}-worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '') : ''
 
 export const register: Register = on => {
   // Redraws the band each second while a subagent row runs, so its elapsed time ticks.
@@ -237,8 +234,7 @@ export const register: Register = on => {
   // A subagent's first model request names the model and effort it actually runs on. A main-loop step
   // means the main turn runs: its first starts the main row afresh, and any later step starts it when it is
   // missing, as when the plugin loads mid-turn or a main-loop step arrives after the main turn.complete.
-  // A subagent's response sets its row's tokens to what that response carried, as Claude Code's own agent
-  // count does: the latest, never a sum. A main-loop response's status lines update `lines`.
+  // A main-loop response's status lines update `lines`.
   on('turn.step', async function* ($, e, next) {
     const id = e.agentId
     const label = runLabel(e.model, e.effort)
@@ -248,11 +244,6 @@ export const register: Register = on => {
       await update($, main, () => ({ desc: '', run: label }))
     }
     const result = yield* next(e)
-    const u = result.usage
-    if (id && u) {
-      const tokens = u.input_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens + u.output_tokens
-      await update($, rows, rs => rs.map(r => (r.id === id ? { ...r, tokens } : r)))
-    }
     const said = id ? [] : statusLines(result.answer)
     if (said.length) {
       // ponytail: a unit whose done line never comes stays until the session ends; it shows only while the band does.
@@ -300,7 +291,8 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
-    const tail = hintTail(await read($, flow), tally(await read($, rows)))
+    const f = await read($, flow)
+    const tail = hintTail(f, taskCount(await planOf($, f.change)), tally(await read($, rows)))
     return next(tail ? { ...e, props: { ...e.props, tail } } : e)
   })
 
@@ -321,13 +313,7 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !rs.some(r => r.state === 'in progress')) {
       return next(e)
     }
-    // The running change's plan, read from its worktree (`<dirname project>/<basename project>-worktrees/<name>`,
-    // beside the main checkout, where /flow ticks it); absent, no pending rows. `session.root()` is the launch
-    // directory — `session.cwd()` follows the shell, so a `cd stats && …` would aim it at `stats-worktrees/`.
-    const { change } = await read($, flow)
-    const plan = change
-      ? await $.fs.read(`${await $.session.root()}-worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '')
-      : ''
+    const plan = await planOf($, (await read($, flow)).change)
     // The main row plus at most MAX_ROWS others: the board's rows first, then the main loop's open status lines,
     // then the earliest pending tasks no row above names; past MAX_ROWS running rows, only the earliest show,
     // while the hint line's tally still counts them all.

@@ -1,1 +1,1 @@
-{ "name": "subagent-board", "version": "0.1.0", "description": "Pinned band above the prompt listing subagents as '⎿ <model-effort> <marker> Task X/N (desc) — state'", "types": "./types/index.d.ts" }
+{ "name": "flow-task-list", "version": "0.1.0", "description": "Pinned band above the prompt listing subagents as '⎿ <model-effort> <marker> Task X/N (desc) — state'", "types": "./types/index.d.ts" }

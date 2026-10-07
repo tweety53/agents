@@ -212,14 +212,14 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 ## Progress visibility
 
 **`/flow` registers nothing with the harness's task-list mechanism.** Its live progress view on
-Claude Code is the `subagent-board` mod (`mods/subagent-board/`): a band above the prompt with one
+Claude Code is the `flow-task-list` mod (`mods/flow-task-list/`): a band above the prompt with one
 row per subagent, drawn from each dispatch's description, and a hint-line tail naming the tracker
-key where the change name leads with one, the phase, and the running stage's emoji where it has one
-— read from the run's own `flow stage` marks (**Stage marks**, below) — followed by a tally of those
-rows by emoji. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
+key where the change name leads with one and the phase — read from the run's own `flow stage` marks
+(**Stage marks**, below) — and the plan's ticked tasks over its total (`19/25`), read from the
+change's `tasks.md` on every draw, followed by ` │ ` and a tally of those rows by emoji. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
 shows on the main agent's own `main` row, first on the band while the main turn runs, labelled with its
 latest Bash command's description, if any, and never numbered as a task. A subagent row also shows
-its elapsed time and its latest response's token count. Work the main agent runs itself under a
+its elapsed time. Work the main agent runs itself under a
 status line of its own (`rules/be-brief.mdc`) shows as a row for each unit whose latest such line is
 not done, after the subagent rows, unless a subagent row already names its task numbers. After
 those, the band lists each task of the running change's plan that is still unticked and named by no
@@ -278,7 +278,7 @@ text at all.
 - the handoff block;
 - everything on the **Never compress** list of `rules/be-brief.mdc`, in full.
 
-**Progress visibility** above is unaffected: the subagent-board mod's view, and the equivalent block
+**Progress visibility** above is unaffected: the flow-task-list mod's view, and the equivalent block
 a harness without it prints, are not the run's status prose.
 
 ## Stage marks
