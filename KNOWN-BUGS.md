@@ -30,3 +30,10 @@
   commit deleted the bash harness this entry names, so no current test can carry the failure.
 <!-- measured: scripts/break-and-prove.sh stats/internal/guard/runreproducer.go --patch <the reorder to the post-kill read> -- go -C stats test ./internal/guard/ -run TestRunReproducerSurvivorNamedWhenReapedAtKill -count=1 @ branch kan-774-flow-prove-and-fix-the-exit-3-message-race-in — survivors [], want [64801] with the read after the kill; PASS restored -->
 
+
+- `skills/flow/review-panel.md` MUTATION PROOF paragraph — the cited `break-and-prove.sh <file>
+  (--sed <expr> | --patch <patch>) -- <test-command>` signature omits `[--clean <command>]`, the
+  forced clean re-run the script's header says exists because Gradle skips a re-run and records a
+  stale green; a fixer on a Gradle project following the citation alone falls into that trap —
+  Minor, deferred from the kan-916 self-review fix review — introduced by aee79446 (docs(flow):
+  name break-and-prove.sh in the MUTATION PROOF paragraph).
