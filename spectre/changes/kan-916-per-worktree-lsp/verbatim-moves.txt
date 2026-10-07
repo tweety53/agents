@@ -1,0 +1,85 @@
+# Task 7 (docs(flow): name the sibling worktree layout) — every run-loaded sentence naming
+# <project>/.worktrees/ or the retired kickoff step 2 rewords to the sibling <project>-worktrees/
+# layout on purpose (design.md: sibling-worktrees-layout).
+"/Users/tweety53/Projects/agents/.worktrees/<name>": "5ee4c9a…",
+"/Users/tweety53/Projects/other/.worktrees/<name>": "b31f7c2…"
+**A re-run is detected, never recorded**: `<project>/.worktrees/<name>` already existing means an earlier run left the branch unlanded.
+**Does the worktree exist** — `git worktree list` naming `<project>/.worktrees/<name>`.
+Every other entry gets the kickoff recipe in its own repository — `<project>` in the commands below is that entry's repository root, not this change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 3): when `git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b spectre/<name> origin/<default-branch>` — or `origin/<base>` when `git -C <this change's worktree> config --get branch.<branch>.flowBase` prints a `<base>`, `<branch>` being `spectre/<name>`, which is then recorded in that repository too, by `git -C <that worktree> config branch.<branch>.flowBase <base>` — after `check-worktree-location.sh <that repo>`, with the merge base `git -C <that worktree> rev-parse HEAD` prints persisted into the state file's `worktrees` map by `flow state add-worktree <name> <that worktree> <merge-base>`, and `git -C <that worktree> push -u origin spectre/<name>` per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+Every repository keeps its worktrees under `<project>/.worktrees/` — enforced by `check-worktree-location.sh`.
+From this point on, the main checkout is never read, checked out, staged, committed or written by any phase of `/flow`; every path below resolves inside `<project>/.worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the plan and the decision JSON.
+It works in its own worktree, `git -C <agents repo> worktree add -b fix-<slug> <agents repo>/.worktrees/<slug> origin/<agents-base>` — never the main checkout, never the change's own worktree — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), adds one test or guard that fails without the fix, updates a saved memory that encoded the defect, runs the `<agents repo>/.flow/project.md` `## lint` lines its files need, and commits with a module scope.
+Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between the `STARTED` write and that step: run steps 1–5 now, then continue below.
+Resume `<project>/.worktrees/<name>`, created at `flow.kickoff`.
+Run the kickoff steps 1–5 in one call — 1 `check-worktree-location.sh <project>`; 2 `.worktrees` ignored through `<project>/.git/info/exclude`, never a commit on any branch; 3 the worktree add, on `spectre/<name>` tracking the remote branch when a `/flow-plan` capture or an earlier run pushed it, else a new `spectre/<name>` from `origin/<default-branch>` — never HEAD: the main checkout may be on any branch and is never moved; 4 the project's `## worktree setup` commands (**Project configuration**, `skills/flow-contracts/project-configuration.md`); 5 the push, per **Branch backup** (`skills/flow-contracts/git-boundaries.md`):
+Save the design to `<project>/.worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
+The kickoff creates every worktree at `<project>/.worktrees/<name>` (**Git boundaries**, `skills/flow-contracts/git-boundaries.md`), but a worktree made by hand or by an older run can sit anywhere, so the set is read, never composed.
+The kickoff steps 1–5 in the same section — `<project>/.worktrees/<name>` on `spectre/<name>`,
+The kickoff worktree's own entry never waits for this stage: it is recorded where the worktree is created — `skills/flow/brainstorm.md` step 3 — so on a first creating run this stage finds it already present, and the paragraph's rule above keeps governing each additional worktree.
+This mode writes nothing until a capture: **Capturing a new change** creates `<project>/.worktrees/<name>` through `/flow`'s kickoff and writes there; a `design.md` addition is written in that change's own worktree — `<project>/.worktrees/<name>`, found from `git worktree list`.
+`/flow` creates `<project>/.worktrees/<name>` inside `flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at capture — it reads the main checkout before then and writes nothing — and every write, stage, commit and push in the table above happens in a worktree.
+`<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its basename is what keys the rolls — and `<project>/.superpowers/` joins `<project>/.worktrees/` in `<project>/.git/info/exclude`.
+`<changeRoot>` is always `<project>/.worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
+`git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<agents-base>` — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), then dispatches key `self-review-<name>-fix`, its prompt carrying every non-`big` finding with its evidence and counted blast radius.
+`spectre new` scaffolds `<project>/.worktrees/<name>/spectre/changes/<name>/`, and refuses three ways: exit `2` and *no tree found* when the project holds no `<project>/spectre/` tree at all; exit `2` and `invalid change id` when `<name>` is not a single flat directory name; and exit `1` and `<path> already exists` when the change is already there — **the ordinary case when resuming at `STARTED`** per above.
+created inside `flow.kickoff` (steps 1–5 of **A.
+git -C <project> worktree remove <project>/.worktrees/<name>
+git -C <project>/.worktrees/<name> config branch.<name>.flowBase <base> # --base only
+git -C <project>/.worktrees/<name> push -u origin <name>
+git worktree add <project>/.worktrees/<name> -b <name> origin/<base>
+grep -qx '.worktrees/' .git/info/exclude 2>/dev/null || echo '.worktrees/' >> .git/info/exclude
+"/Users/tweety53/Projects/agents-worktrees/<name>": "5ee4c9a…",
+"/Users/tweety53/Projects/other-worktrees/<name>": "b31f7c2…"
+**A re-run is detected, never recorded**: `<project>-worktrees/<name>` already existing means an earlier run left the branch unlanded.
+**Does the worktree exist** — `git worktree list` naming `<project>-worktrees/<name>`.
+Every repository keeps its worktrees under `<project>-worktrees/`, the sibling of its main checkout — enforced by `check-worktree-location.sh`.
+From this point on, the main checkout is never read, checked out, staged, committed or written by any phase of `/flow`; every path below resolves inside `<project>-worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the plan and the decision JSON.
+It works in its own worktree, `git -C <agents repo> worktree add -b fix-<slug> <agents repo>-worktrees/<slug> origin/<agents-base>` — never the main checkout, never the change's own worktree — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), adds one test or guard that fails without the fix, updates a saved memory that encoded the defect, runs the `<agents repo>/.flow/project.md` `## lint` lines its files need, and commits with a module scope.
+Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between the `STARTED` write and that step: run steps 1–4 now, then continue below.
+Resume `<project>-worktrees/<name>`, created at `flow.kickoff`.
+Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
+The kickoff creates every worktree at `<project>-worktrees/<name>` (**Git boundaries**, `skills/flow-contracts/git-boundaries.md`), but a worktree made by hand or by an older run can sit anywhere, so the set is read, never composed.
+The kickoff steps 1–4 in the same section — `<project>-worktrees/<name>` on `spectre/<name>`,
+The kickoff worktree's own entry never waits for this stage: it is recorded where the worktree is created — `skills/flow/brainstorm.md` step 2 — so on a first creating run this stage finds it already present, and the paragraph's rule above keeps governing each additional worktree.
+This mode writes nothing until a capture: **Capturing a new change** creates `<project>-worktrees/<name>` through `/flow`'s kickoff and writes there; a `design.md` addition is written in that change's own worktree — `<project>-worktrees/<name>`, found from `git worktree list`.
+`/flow` creates `<project>-worktrees/<name>` inside `flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at capture — it reads the main checkout before then and writes nothing — and every write, stage, commit and push in the table above happens in a worktree.
+`<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its basename is what keys the rolls — and `<project>/.superpowers/` is listed in `<project>/.git/info/exclude`.
+`<changeRoot>` is always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
+`git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>` — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), then dispatches key `self-review-<name>-fix`, its prompt carrying every non-`big` finding with its evidence and counted blast radius.
+`spectre new` scaffolds `<project>-worktrees/<name>/spectre/changes/<name>/`, and refuses three ways: exit `2` and *no tree found* when the project holds no `<project>/spectre/` tree at all; exit `2` and `invalid change id` when `<name>` is not a single flat directory name; and exit `1` and `<path> already exists` when the change is already there — **the ordinary case when resuming at `STARTED`** per above.
+created inside `flow.kickoff` (steps 1–4 of **A.
+git -C <project> worktree remove <project>-worktrees/<name>
+git -C <project>-worktrees/<name> config branch.<name>.flowBase <base> # --base only
+git -C <project>-worktrees/<name> push -u origin <name>
+git worktree add <project>-worktrees/<name> -b <name> origin/<base>
+# Task 7 fix — the two kickoff step citations the renumbering (1–5 → 1–4) missed.
+**Load `skills/flow/brainstorm.md`** only when the resume point is not `skills/flow/implement.md`: a missing worktree runs its steps 1–5, and a resume at **B** or **D** runs under its **Run brainstorming and planning directly**.
+Run `project-get.sh <that worktree> "worktree setup"` and handle it exactly as step 4 of **A.
+Run `project-get.sh <that worktree> "worktree setup"` and handle it exactly as step 3 of **A.
+# Task 8 — new run-loaded text: kickoff waits for the LSP index, cleanup run 2 migrates .worktrees worktrees.
+**Immediately before check 6, `remove-change-worktrees` stops the worktree's `worktree-lsp` children** — every language server a `worktree-lsp` wrapper runs at or under the worktree — so a session's own LSP servers never hold it; check 6 reports any that still do.
+**Then wait for the worktree's language servers, still inside `flow.kickoff`.
+A language with no tracked file, or a session with no LSP tool, is skipped with one line naming it.
+A moved worktree of this change is removed at its new path — the script rewrote the state file's `worktrees` map.
+Each worktree this stage creates then waits for its language servers exactly as **A.
+Exit 0: every worktree was moved (`MIGRATED:`) or left in place because a process holds it (`HELD:`), nothing to move included — continue; a `HELD:` worktree of this change is then check 6's to report.
+Exit 1 (`FAILED:`) or 2: stop at `IN_PROGRESS` and report the script's lines.
+For each language the `worktree-lsp` plugin (`mods/worktree-lsp/`) wraps — Go (`'*.go'`) and Kotlin (`'*.kt'`) — call the LSP tool's `documentSymbol` on the first file `git -C <abs-worktree> ls-files '<glob>'` prints.
+Once per repository, before its worktree removal, move any worktree an older kickoff created under `<main-checkout>/.worktrees/` to the sibling layout, so the strict location guard never reads it there:
+The call returns once that worktree's server has finished indexing, so the run waits here rather than querying a cold index later.
+Then copy the matching ready line — `<RFC3339> <server> <abs-worktree> ready <ms>` — from `${XDG_CACHE_HOME:-$HOME/.cache}/worktree-lsp/index.log` into the run's narrative.
+Then, on a creating run, wait for the new worktree's language servers exactly as **A.
+migrate-worktrees.sh <main-checkout>
+# Task 8 review Minors — run 2 HELD wording, kickoff wait path made absolute.
+Exit 0: every worktree was moved (`MIGRATED:`) or left in place because a process holds it (`HELD:`), nothing to move included — continue; a `HELD:` worktree of this change stays at its old path, for the language-server stop and check 6 below.
+For each language the `worktree-lsp` plugin (`mods/worktree-lsp/`) wraps — Go (`'*.go'`) and Kotlin (`'*.kt'`) — call the LSP tool's `documentSymbol` on `<abs-worktree>/` joined with the first path `git -C <abs-worktree> ls-files '<glob>'` prints, which is relative to the worktree.
+Once per repository, before its worktree removal, move any worktree an older kickoff created under `<project>/.worktrees/` to the sibling layout, so the strict location guard never reads it there:
+A check 5 failure on any worktree removes none, and stops none of their servers.
+# Panel round 1, F1/F2 — the migration moves before the preflight (run 1 and run 2 alike) and names
+# every repository in one call (design.md: migrate-before-preflight).
+\### Migrate retired-layout worktrees before the preflight
+A moved worktree of this change is named at its new path from then on — the script rewrote the state file's `worktrees` map — so the worktree set every later step uses is resolved after this call.
+Before `check-finish-preflight.sh` runs for any worktree — on run 1 and run 2 alike — move any worktree an older kickoff created under `<project>/.worktrees/` to the sibling layout, so the strict location guard never reads it there: the preflight's stray-worktree assertion refuses such a worktree, and no later step would ever move it.
+Exit 0: every worktree was moved (`MIGRATED:`) or left in place because a process holds it (`HELD:`), nothing to move included — continue; a `HELD:` worktree of this change stays at its old path, where the preflight refuses it as a stray worktree until the operator releases it and re-runs.
+One call names every distinct main checkout, resolved from the worktree set as **Surface foreign staged work before the preflight** above resolves them, so a cross-repo change's record is rewritten for every repository it names:
+migrate-worktrees.sh <main-checkout> [<main-checkout>...]
