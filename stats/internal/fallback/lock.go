@@ -1,12 +1,10 @@
 package fallback
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
-	"time"
 )
 
 // Platform note: this file's locking is built on syscall.Flock, a Unix
@@ -53,8 +51,7 @@ func openLockFile(journalPath string) (*os.File, error) {
 // instant the holding process exits or dies -- even mid-hold -- so there
 // is no way a crash leaves this lock permanently held, and therefore no
 // deadlock path a caller needs to defend against with a timeout of its
-// own. (AppendJournalEntry, whose caller-facing guarantee is different,
-// uses the bounded tryLockJournal below instead.)
+// own. AppendJournalEntry takes this same lock around its open+write.
 //
 // This locks a *sidecar* file (journalPath + ".lock"), never the journal
 // file itself, and that choice is load-bearing, not incidental.  flock's
@@ -91,85 +88,4 @@ func LockJournal(journalPath string) (unlock func(), err error) {
 		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 		_ = f.Close()
 	}, nil
-}
-
-// appendLockTimeout bounds how long AppendJournalEntry waits for
-// journalPath's sidecar lock before giving up and writing without it.
-//
-// This is measured, not guessed: retirePrefix's own critical section
-// (re-read the journal, write a temp file, fsync it, close it, rename it
-// into place) is not the microseconds a first pass at this comment
-// assumed -- fsync alone routinely costs low single-digit milliseconds on
-// ordinary local disks, this project's own dev machine included (a
-// throwaway benchmark of exactly that create+write+sync+rename sequence,
-// run 500 times, averaged ~4.5ms). Sizing this timeout against a wrong,
-// smaller estimate is exactly how F1's fix would have quietly reintroduced
-// its own version of the bug: a bound tighter than the section it is
-// meant to wait out turns "occasionally proceeds without the lock" into
-// "routinely does," under exactly the sustained-contention conditions
-// (`flow journal flush` in a health-check or CI loop) F1's report named
-// as the real exposure. 50ms -- roughly ten times the measured critical
-// section -- leaves headroom for that section running slower than
-// measured here without meaningfully being noticed: the CLI's own store
-// round trip already budgets 2s (defaultTimeout, cmd/flow/state.go)
-// before falling back to this path at all, so an additional worst-case
-// 50ms on top of that is not the kind of latency a pipeline command's own
-// human-facing timing would register. The never-block guarantee is still
-// what actually bounds this -- AppendJournalEntry's caller must never be
-// made to wait *unboundedly* -- and losing this race window's protection
-// in the genuinely rare case of a double-timeout (lock still contended
-// *and* the exact open/write race window landing in the same append) is
-// strictly better than stalling the operator's pipeline on a contended
-// lock.
-const appendLockTimeout = 50 * time.Millisecond
-
-// appendLockPollInterval is how often tryLockJournal retries its
-// non-blocking flock attempt while waiting up to appendLockTimeout. Set
-// well below the section it is polling for (see appendLockTimeout's own
-// doc comment for that section's measured ~4.5ms cost) so a lock that
-// frees up is noticed promptly rather than losing a large slice of
-// appendLockTimeout's budget to coarse polling granularity.
-const appendLockPollInterval = time.Millisecond
-
-// tryLockJournal attempts to acquire journalPath's sidecar lock, retrying
-// a non-blocking flock (LOCK_EX|LOCK_NB) every appendLockPollInterval
-// until timeout elapses. Polling rather than a single blocking flock call
-// racing a timer is deliberate: it keeps the caller's actual wait bounded
-// by timeout to within one poll interval, with no leftover goroutine
-// blocked on the kernel call past that bound (a blocking flock call has no
-// timeout parameter of its own to cancel it).
-//
-// ok is false, with a nil unlock and a nil error, if the timeout elapsed
-// without acquiring the lock -- AppendJournalEntry proceeds without it in
-// that case, per the never-block guarantee appendLockTimeout's own doc
-// comment names. A non-nil error means something other than contention
-// went wrong opening the lock file itself (a permissions error, a full
-// disk); AppendJournalEntry treats that the same way -- proceed anyway --
-// since the lock is best-effort infrastructure, not a gate on the actual
-// journal write.
-func tryLockJournal(journalPath string, timeout time.Duration) (unlock func(), ok bool, err error) {
-	f, err := openLockFile(journalPath)
-	if err != nil {
-		return nil, false, err
-	}
-
-	deadline := time.Now().Add(timeout)
-	for {
-		flockErr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-		if flockErr == nil {
-			return func() {
-				_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-				_ = f.Close()
-			}, true, nil
-		}
-		if !errors.Is(flockErr, syscall.EWOULDBLOCK) {
-			_ = f.Close()
-			return nil, false, fmt.Errorf("fallback: try-lock %s: %w", LockFilePath(journalPath), flockErr)
-		}
-		if time.Now().After(deadline) {
-			_ = f.Close()
-			return nil, false, nil
-		}
-		time.Sleep(appendLockPollInterval)
-	}
 }

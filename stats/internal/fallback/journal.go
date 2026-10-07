@@ -54,32 +54,31 @@ type Entry struct {
 // O_APPEND's atomicity guarantee: no read-modify-write step between two
 // appenders, no in-memory state shared across calls.
 //
-// What this function *does* now take is a best-effort, tightly bounded
-// attempt at journalPath's sidecar advisory lock (tryLockJournal,
-// appendLockTimeout -- both in lock.go) before opening path. This exists
-// for a different race than appender-versus-appender: appender-versus-
-// *retirer*. internal/reconcile's retirePrefix compacts the journal by
-// writing a temp file and renaming it over path; if this function's
-// os.OpenFile below resolves the pre-rename inode an instant before that
-// rename, and this function's Write executes after it, the appended bytes
-// land on the now-unlinked old inode and are lost once every handle to it
-// closes -- a real, measured loss (F1: a 20,000-entry stress reproducer
-// lost ~71% of entries with no lock at all). Holding the sidecar lock
-// across open+write closes that window entirely, because retirePrefix
-// holds the same lock across its own read-current/write-temp/rename
-// section (LockJournal's own doc comment has the full story, including
-// why the lock is a sidecar file rather than an flock on the journal
-// itself).
+// What this function *does* take, before opening path, is journalPath's
+// sidecar advisory lock (LockJournal, lock.go), held across open+write.
+// This exists for a different race than appender-versus-appender:
+// appender-versus-*retirer*. internal/reconcile's retirePrefix compacts
+// the journal by writing a temp file and renaming it over path; if this
+// function's os.OpenFile below resolves the pre-rename inode, and its
+// Write lands after retirePrefix re-read that inode, the appended bytes go
+// to an inode the rename then unlinks -- lost silently, since every caller
+// discards this function's error. retirePrefix holds the same lock across
+// its own re-read/write-temp/rename section, so holding it here closes
+// that window outright.
 //
-// The wait for that lock is capped at appendLockTimeout and never blocks
-// past it: if the lock is not acquired within the timeout, this function
-// proceeds without it. That is a deliberate priority order, not a
-// leftover gap -- the non-blocking fallback path must never become a
-// place a CLI writer is made to wait meaningfully, and that guarantee
-// outranks this race's protection. Losing an entry to the vanishingly
-// rare case of a genuine double-timeout (lock contended *and* the exact
-// open/write race window both landing in the same append) is strictly
-// better than stalling the operator's pipeline on a contended lock.
+// The wait for the lock is unbounded on purpose. A previous version gave
+// up after 50ms and wrote unlocked, on the premise that the retire section
+// never runs that long; it does -- File.Sync on macOS is F_FULLFSYNC, and
+// under load (twelve parallel race-detector runs of
+// TestConcurrentAppendVersusRetirePreservesEveryEntry) roughly 35 of 600
+// appends timed out per run, and every one of 52 runs lost between 4 and
+// 24 entries. The wait is bounded in practice by retirePrefix's
+// local-disk section, and flock is released by the kernel the instant
+// its holder exits or dies, so no crash leaves an appender waiting.
+//
+// A failure to open the lock file itself (permissions, a full disk) still
+// proceeds without the lock: retirePrefix opens the same file and fails
+// the same way, refusing to retire, so no rename can race this write.
 func AppendJournalEntry(path, project, name string, body []byte, recordedAt time.Time) (err error) {
 	entry := Entry{
 		RecordedAt: recordedAt.UTC(),
@@ -96,12 +95,7 @@ func AppendJournalEntry(path, project, name string, body []byte, recordedAt time
 		return fmt.Errorf("fallback: create journal directory for %s: %w", path, err)
 	}
 
-	// Best-effort, bounded: unlock is nil and safe to call unconditionally
-	// only when locked is true, so it is called via the guarded closure
-	// below rather than unconditionally deferred.
-	unlock, locked, lockErr := tryLockJournal(path, appendLockTimeout)
-	_ = lockErr // best-effort: proceed without the lock on any failure too.
-	if locked {
+	if unlock, lockErr := LockJournal(path); lockErr == nil {
 		defer unlock()
 	}
 

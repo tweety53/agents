@@ -676,13 +676,13 @@ func TestConcurrentAppendVersusRetirePreservesEveryEntry(t *testing.T) {
 			// reconnectPingInterval, not back to back) but a deliberate
 			// one for this test: without it, the retirer holds the
 			// sidecar lock for very close to 100% of wall-clock time
-			// against 600 back-to-back appends, which pushes occasional
-			// appends past even a generous bound purely on scheduler/GC
-			// tail latency rather than on the race this test exists to
-			// catch. This keeps duty cycle high enough to still exercise
-			// the race hard (the mutation check below still reliably
-			// loses hundreds of entries with the lock removed) while
-			// giving appends a realistic chance to interleave.
+			// against 600 back-to-back appends, starving the appender
+			// (which waits on that lock) rather than exercising the race
+			// this test exists to catch. This keeps duty cycle high
+			// enough to still exercise the race hard (the mutation check
+			// below still reliably loses hundreds of entries with the
+			// lock removed) while giving appends a realistic chance to
+			// interleave.
 			time.Sleep(200 * time.Microsecond)
 		}
 	}()

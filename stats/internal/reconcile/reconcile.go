@@ -897,8 +897,8 @@ func isDefinitiveRecordOutcome(err error) bool {
 // once every open handle to it closed. That was measured, not
 // hypothetical: an unlocked 20,000-entry stress reproducer lost roughly
 // 71% of entries this way (F1). AppendJournalEntry now takes the same
-// sidecar lock (with a short, bounded wait -- see its own doc comment for
-// why it must never block unboundedly) before its own open+write, which
+// sidecar lock, waiting for it unboundedly (its own doc comment says why
+// a bounded wait reopened this window), before its own open+write, which
 // removes the window entirely rather than merely narrowing it. See
 // fallback.LockJournal's doc comment for why the lock is a *sidecar* file
 // (path + ".lock") rather than an flock taken on the journal file itself
