@@ -1,0 +1,144 @@
+# Task 3: cheap fix-loop pairs, targeted verify, fixes on the change branch, in-run fixes as store rows (design.md cheap-dispatch-pairs, targeted-verify, every-fix-a-row, fixes-ride-the-change).
+(`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the branch.
+**Fix the review's findings** — key `self-review-<name>-fix-<r>`, its prompt carrying the
+**Fix** — this session creates the worktree,
+**Land once** by `<agents repo>`'s `## default landing route`
+**Review** — key `self-review-<name>-review-<r>`, over
+**The pass runs inline, in this session, on whatever model it is already on; its fixes never do** — step 3 runs every fix, review and re-review as a one-shot `opus` dispatch.
+**This session changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`): each numbered step below that does is a fresh dispatch on `opus`, `subagent_type: flow-high`, its prompt carrying the paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`) names — a review's READ-ONLY REVIEW too — with **The handshake** there applying to each reply.
+**Verify** — once a review comes back clean, this session runs every
+Each fix is folded into the commit of the finding it fixes (`git commit --fixup <that commit>`, then `git rebase --autosquash origin/<agents-base>`), so every finding stays one commit; a commit the review judges not to fix its finding, or to make things worse, is dropped from the branch.
+Each runs on `opus`, `subagent_type: flow-high`, its key per the steps below and `<k>` counting this run's in-run fixes.
+`<agents repo>/.flow/project.md` `## lint` and `## test` line in the fix worktree, each output through `tail`.
+`git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>` — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), then dispatches key `self-review-<name>-fix`, its prompt carrying every non-`big` finding with its evidence and counted blast radius.
+`git diff origin/<agents-base>...self-review-<name>`, its prompt naming each finding beside its commit.
+**Both refusals bind the standalone command only.
+**Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt carrying the
+**Fix** — on `self-review-<name>`, this session creates the worktree,
+**Land once.
+**Review** — key `self-review-<name>-review-<r>` on the review pair, over
+**The fixer pair** is `subagent_type: flow-medium` on `opus`, or on `sonnet` when every fix it carries is a literal edit with nothing it can break, the one-line reason recorded with the dispatch.
+**The pass runs inline, in this session, on whatever model it is already on; its fixes never do** — step 3 runs every fix, review and re-review as a one-shot `flow-medium` dispatch: the fix on `opus`, or `sonnet` when every fix is a literal edit with nothing it can break; the first review on `opus`; every re-review on `sonnet`.
+**The review pair** is `flow-medium` on `opus` for the first review (`<r>` = 1) and `flow-medium` on `sonnet` for every re-review after a fix.
+**This session changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`): each numbered step below that does is a fresh dispatch on the pair it names, its prompt carrying the paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`) names — a review's READ-ONLY REVIEW too — with **The handshake** there applying to each reply.
+**Verify** — once a review comes back clean, this session runs, in the fix worktree, only the
+A deferred fix records no row here; the self-review pass records it once it decides it.
+A landed fix is also one row in the flow store, recorded once its sha is on `<agents-base>`:
+A pass run inside `/flow`'s integrate or `/flow-fast`'s verify holds its bundle in memory, runs on the change branch, and starts at step 2.
+An `In-run pipeline fix:` line naming a sha already has its row (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`) and gets no second one.
+Each fix is folded into the commit of the finding it fixes (`git commit --fixup <that commit>`, then `git rebase --autosquash <fix-base>`), so every finding stays one commit; a commit the review judges not to fix its finding, or to make things worse, is dropped from the branch.
+Each runs on `subagent_type: flow-medium`, its key per the steps below and `<k>` counting this run's in-run fixes: the fix and every fixer on `opus`, or on `sonnet` when the fix is a literal edit with nothing it can break, the one-line reason recorded with the dispatch; the first review on `opus`; every re-review after a fix on `sonnet`.
+It then dispatches key `self-review-<name>-fix` on the fixer pair, its prompt carrying every non-`big` finding with its evidence and counted blast radius.
+On `self-review-<name>`, land by `<agents repo>`'s `## default landing route` (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the branch.
+On `spectre/<name>` nothing lands here: the fix commits ride the run's own
+The no-progress escalation of **Fewest operator actions** above stays on `flow-high`.
+`<agents repo>/.flow/project.md` `## lint` lines the touched files need, plus the tests covering them: `go test` of the touched packages, the `scripts/test-*.sh` harness of a touched script, `npx vitest run <file>` of a touched SPA file — each output through `tail`, never the full `## lint` or `## test` list.
+`<fix-branch>` and `<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose change's canonical repository is `<agents repo>`, the change's own `spectre/<name>` in its own worktree, based at the archive commit the branch holds when the pass starts; standalone, or inside any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
+`git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>` — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`); on `spectre/<name>` the change's worktree is already set up.
+`git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its commit.
+flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref <sha> -blast-radius <N> -note '<the defect, one line>'
+route, and each fixed finding's sha is its commit on `spectre/<name>`.
+# Task 4: the self-review pass runs inside /flow's integrate and /flow-fast's verify; the report, not a bundle, is committed (design.md in-run-pass-at-integrate, fixes-ride-the-change, filing-ask-stays).
+"docs(self-review): <name> self-review context bundle" \
+\### Save the self-review context bundle
+**An archived re-run's base** is the newest commit in `<merge-base>..HEAD` whose subject is `docs(self-review): <name> self-review context bundle`, else the newest whose subject is `chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree's range holds neither — `<merge-base>` being the merge base the reshape below would otherwise take.
+**Self-review is always deferred — this section is canonical for `/flow-fast`'s self-review.
+**Self-review:** deferred — docs/self-review/<name>-context.md
+A deferred pass covers what the bundle holds and nothing beyond it — the report's `**Deferred:**` line states that.
+A re-run replaces the file.
+A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive and the bundle, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`.
+An already-committed bundle is skipped, not rewritten — save on an archived re-run with new work (**Run 1 — the branch is not merged** above), which regenerates it as a new commit.
+Archive and save the self-review context bundle
+Commit and push it through the landing chain, asserting the change branch:
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/integrate.md` step 4 lands the context bundle with, differing in the asserted branch, the report path, the removed context-bundle path and the `--push` — since the round-trip through the six-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+Delete `<bundle>`.
+Everything at or below it is kept untouched — a reshape from that merge base itself would fold the archive and bundle commits into the implementation commit.
+Everything else runs either way: the base-moved check and **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`), `commit-archive.sh`, which prints `ARCHIVE-NOTHING-STAGED` once the archive commit exists and nothing it copies has changed, the bundle step, and the route.
+In `<canonical-worktree>`, on `spectre/<name>`, per **Archive on the change branch** and **Save the self-review context bundle** (`skills/flow-contracts/finish-contract-run1.md`), canonical for both.
+One invocation runs from the Jira key to the landed change: resolve the issue and name per **Resolution (how `jiraIssue` is decided)** and **Change naming** (`skills/flow-contracts/jira-integration.md`), move it to In Progress per **Transitions** there, create a git worktree on a branch named after the change (git isolation only — no database or bucket), write `tasks.md` and decide how to implement it per the plan's class — inline, or implementer subagents per group, with the review panel the class calls for — run the project's `## lint` and the tests the change touches, commit the self-review context bundle on the branch for `/flow-self-review`, print the change summary, then — unless the project's `## handoff` is `none` — stop for the operator to review the branch; land by the project's `## default landing route` (asking only when none is declared), move the issue to In Review, and — on merge and push — remove the worktree and branch and move the issue to Done.
+Print the change summary: what changed and why, grouped by area, one or two sentences each; what was verified and how; anything deliberately left out; the bundle path when section 5 saved one.
+Run 1 already archived the change and saved its self-review context bundle on the change branch (**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`), so run 2 archives, commits and pushes nothing: it cleans up once the branch has merged.
+Run a change's self-review reasoning pass — the only one the pipeline has — from the context bundle `/flow`'s run 1 (**Save the self-review context bundle**, `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify** (`skills/flow-fast/SKILL.md`) saved on the change branch before landing.
+Save the context bundle `/flow-self-review <name>` consumes, on this branch, as its own commit; no reasoning pass runs and nothing is asked.
+Self-review is always deferred: no reasoning pass and no prompt run here.
+The PR carries the code, planning, archive and bundle commits.
+The archive and the self-review context bundle are run 1's (`skills/flow/integrate.md`).
+The bundle lands with the change on every route.
+The pass then runs in `/flow-self-review <name>` (`skills/flow-self-review/SKILL.md`), canonical for the six angles, what is fixed and what may be filed, the filing-and-rating prompt and the report, which deletes the bundle in its report commit.
+The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the archived `narrative.md` is already a bundle section, and a change predating the narrative rule has the bundle report it skipped), writes the whole to `<project>/docs/self-review/<name>-context.md` in the worktree, and commits it on `spectre/<name>` with subject `docs(self-review): <name> self-review context bundle`.
+Then, still on `spectre/<name>` in the canonical apply worktree, before any route pushes.
+They are worktree-lifetime files, removed with the worktree at run 2; the store is the terminal record, and **Save the self-review context bundle** below renders from it what the bundle needs (**Temporary artifacts registry**, `artifacts-registry.md`).
+Write `<project>/docs/self-review/<name>-context.md`, physically under `<worktree>`, as, in order: the stdout of `flow self-review bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change by, a `/flow-fast` run can never have tasks.md, design.md and narrative.md (no spectre artifacts and no archive), so those three report `skipped` by design, never silently; the git-log source resolves from the main checkout the command resolves, as the change branch's commits; the ledger and panel render from the store when the run wrote rows — then `## Session narrative`, one paragraph this session writes on what it did and where it struggled, recording every approach tried and abandoned with why it failed (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+Write the bundle's stdout, then `## Session narrative`, to `<project>/docs/self-review/<name>-context.md` in `<canonical-worktree>`, and commit it there, not pushing here:
+`/flow-self-review <name>` then runs the pass on `<base>` and deletes the bundle in its report commit.
+`flow.self-review` marks the deferred bundle of section 5 alone — never a reasoning pass.
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*) license: MIT compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+docs/self-review/<name>-context.md
+docs/self-review/<name>-context.md \
+name: flow-self-review description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle.
+| Self-review context bundle | run 1, **Save the self-review context bundle** (`skills/flow-contracts/finish-contract-run1.md`) | `<project>/docs/self-review/<name>-context.md`, committed on `spectre/<name>` and landing on `<base>` with the change | `/flow-self-review <name>`, in the same commit as the report |
+| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure — the archive and the self-review context bundle included — base-branch resolution, and resolving a change's worktrees.
+| `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved.
+| bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base, planning commits included — then **commits twice** — implementation, then the planning delta — then **commits** the archive and the self-review context bundle, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
+\### Run the self-review pass
+**An archived re-run's base** is the newest commit in `<merge-base>..HEAD` whose subject is `docs(self-review): <name> self-review report`, else the newest whose subject is `chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree's range holds neither — `<merge-base>` being the merge base the reshape below would otherwise take.
+**Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.
+**Self-review:** docs/self-review/<name>-self-review.md
+A bundle an older run committed as `<project>/docs/self-review/<name>-context.md` is still consumed by `/flow-self-review <name>`, the fallback.
+A committed report skips the pass, except on an archived re-run with new work (**Run 1 — the branch is not merged** above), which runs it again as a new commit.
+A pass covers what the bundle holds and nothing beyond it — the report's `**Deferred:**` line states that.
+Archive and run the self-review pass
+Assemble the bundle in memory, never written to `<project>/docs/self-review/` or committed, as, in order: the stdout of `flow self-review bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change by, a `/flow-fast` run can never have tasks.md, design.md and narrative.md (no spectre artifacts and no archive), so those three report `skipped` by design, never silently; the git-log source resolves from the main checkout the command resolves, as the change branch's commits; the ledger and panel render from the store when the run wrote rows — then `## Session narrative`, one paragraph this session writes on what it did and where it struggled, recording every approach tried and abandoned with why it failed (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+Commit both paths in one commit through the landing chain's one script — the same invocation `skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch, the removed context-bundle path and the `--push` — since the round-trip through the six-angle pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking rather than trusted from step 1 alone:
+Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its run's own section.
+Everything at or below it is kept untouched — a reshape from that merge base itself would fold the archive and report commits into the implementation commit.
+Hold the bundle's stdout, then `## Session narrative`, in memory; run the pass over it; then commit the report in `<canonical-worktree>`, not pushing here:
+It then writes the report per that file's step 7 — its `**Deferred:**` line naming `the in-run bundle` as the bundle path — and commits it on `spectre/<name>`, not pushing here; the route pushes it:
+On the change's own branch nothing lands here: the fix commits ride the run's
+Print the change summary: what changed and why, grouped by area, one or two sentences each; what was verified and how; anything deliberately left out; the self-review report path and its fixed shas when section 5 committed one.
+Run 1 already archived the change and ran its self-review pass on the change branch (**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`), so run 2 archives, commits and pushes nothing: it cleans up once the branch has merged.
+The PR carries the code, planning, archive, self-review fix and report commits.
+The report and the fixes land with the change on every route.
+The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the archived `narrative.md` is already a bundle section, and a change predating the narrative rule has the bundle report it skipped) and holds the whole in memory — it is never written to `<project>/docs/self-review/` or committed.
+Then, still on `spectre/<name>` in the canonical apply worktree, after the archive commit and before any route pushes.
+They are worktree-lifetime files, removed with the worktree at run 2; the store is the terminal record, and **Run the self-review pass** below renders from it what the bundle needs (**Temporary artifacts registry**, `artifacts-registry.md`).
+Write the report per that file's step 7, its `**Deferred:**` line naming `the in-run bundle` as the bundle path, then commit and push it through the landing chain, asserting the change branch:
+`<fix-branch>` and `<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose change's canonical repository is `<agents repo>`, the change's own branch in its own worktree — `spectre/<name>` on `/flow`, `<name>` on `/flow-fast` — based at the commit the branch holds when the pass starts; standalone, or inside any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
+`flow.self-review` marks section 5's in-run self-review pass.
+`git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>` — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`); on the change's own branch its worktree is already set up.
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*) license: MIT compatibility: Standalone, requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+docs/self-review/<name>-self-review.md
+docs/self-review/<name>-self-review.md \
+name: flow-self-review description: Run a change's self-review pass, inline on this session's model — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle.
+own route, and each fixed finding's sha is its commit on that branch.
+| [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure — the archive and the self-review pass included — base-branch resolution, and resolving a change's worktrees.
+| `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, inline on this session's model, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify.
+| bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base, planning commits included — then **commits twice** — implementation, then the planning delta — then **commits** the archive, each self-review fix and the self-review report, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
+# Gated review fix 1: change-branch fixed shas re-read before each push, rows recorded after it lands; /flow-fast skips a committed report; stale descriptions.
+It reads the context bundle a `/flow` or `/flow-fast` run saved, runs the six-angle reasoning pass inline, fixes and lands every finding that is not big, files the big ones, rates, records each finding in the flow store, writes the report, deletes the bundle, and lands both on the default branch.
+description: Run a change's self-review pass, inline on this session's model, from the context bundle /flow or /flow-fast saved; fix and land every non-big finding, file the big ones
+**7. Land**'s rebase rewrites the fix commits, so its push carries their shas per step 5 of `/flow-self-review`: re-read and the report amended before the push, the `fixed` rows recorded after it lands.
+A report already committed on `<name>` (`docs/self-review/<name>-self-review.md`) skips the pass: a fix re-run never records its findings twice.
+An `In-run pipeline fix:` line naming a sha gets no second row when `flow self-review findings -change <name>` already lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
+It reads the context bundle an older `/flow` or `/flow-fast` run saved — newer runs run the same pass in-run — runs the six-angle reasoning pass inline, fixes and lands every finding that is not big, files the big ones, rates, records each finding in the flow store, writes the report, deletes the bundle, and lands both on the default branch.
+So the report's `fixed:` lines carry each commit's sha on the branch when written, and immediately before each push the route makes, the run re-reads each fix commit's sha by its subject (`git log --format='%h %s' origin/<base>..HEAD`), rewrites any `fixed:` line that changed and amends the report commit — the branch tip — with it.
+Step 6 records the `fixed` rows only after the route's push succeeds, with those shas; `filed` and `declined` rows are recorded in the pass as usual.
+The route then carries the fix commits' shas per step 5 of `/flow-self-review`: before each push it re-reads them and amends the report, and once a push lands it records the `fixed` rows.
+description: Run a change's self-review pass, inline on this session's model, from the context bundle an older /flow or /flow-fast run saved; fix and land every non-big finding, file the big ones
+own route, and a rebase that route runs after the pass rewrites their shas.
+A report already committed on `<name>` (`<project>/docs/self-review/<name>-self-review.md`) skips the pass: a fix re-run never records its findings twice.
+So the report's `fixed:` lines carry each commit's sha on the branch when written, and immediately before each push the route makes, the run re-reads each fix commit's sha by its subject (`git log --format='%h %s' HEAD --not origin/<base>`), rewrites any `fixed:` line that changed and amends the report commit — the branch tip — with it.
+# Gated review fix 2: the landing push re-reads fix shas and records fixed rows from the report.
+**7. Land**'s landing push carries the fix commits' shas per step 5 of `/flow-self-review`, in whichever invocation makes it.
+**The landing push** — the one that puts the commits on `<base>` on merge and push, the branch push on a pull-request or manual route — is preceded, in whichever invocation makes it, by a re-read of each fix commit's sha by its subject (`git log --format='%h %s' HEAD --not origin/<base>`); a changed sha rewrites its `fixed:` line, committed as a new report commit through `land-self-review-report.sh` with the report's own subject.
+A pull request merged by squash or rebase rewrites the shas once more, and no commit then carries a fix's own sha.
+Once that push succeeds, the same invocation records one `fixed` row per `fixed:` line whose sha `flow self-review findings -change <name>` does not list yet, its angle and note read off the line and no blast radius.
+The report's `fixed:` lines carry each commit's sha on the branch when written.
+The route's landing push carries the fix commits' shas per step 5 of `/flow-self-review`.
+own route, whose rebase can rewrite their shas, so the committed report is their record and step 6 records no `fixed` row for them.
+One call per finding, every disposition alike, before the report is written:
+**The landing push** — the one that puts the commits on `<base>` on merge and push, the branch push on a pull-request or manual route — each attempt of it, a retry after a rejected push included, is preceded, in whichever invocation makes it, by a re-read of each fix commit's sha by its subject (`git log --format='%h %s' HEAD --not origin/<base>`); a changed sha rewrites its `fixed:` line, committed as a new report commit through `land-self-review-report.sh` with the report's own subject.
+Once that push succeeds, the same invocation records one `fixed` row per `fixed:` line whose sha `flow self-review findings -change <name>` does not list yet, its angle and note read off the line and no blast radius; a rewrite after rows were already recorded adds a second row under the new sha.
+One call per finding, every disposition alike, before the report is written — save a `fixed` finding on the change's own branch, whose row step 5's landing push records:
+**An archived re-run's base** is the newest commit in `<merge-base>..HEAD` whose subject is `docs(self-review): <name> self-review report` — or, from a run before KAN-927, `docs(self-review): <name> self-review context bundle` — else the newest whose subject is `chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree's range holds neither — `<merge-base>` being the merge base the reshape below would otherwise take.
+A committed report skips the pass, an archived re-run with new work (**Run 1 — the branch is not merged** above) included, so no finding is recorded or offered twice.
