@@ -21,6 +21,7 @@ import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
 import { Reviewers } from "./views/Reviewers";
 import { Runs } from "./views/Runs";
+import { SelfReview } from "./views/SelfReview";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
 import { Trend } from "./views/Trend";
@@ -36,6 +37,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   decisions: "Decisions",
   runs: "Runs",
   "flow-health": "Flow health",
+  "self-review": "Self-review fixes",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
@@ -47,6 +49,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   decisions: Decisions,
   runs: Runs,
   "flow-health": FlowHealth,
+  "self-review": SelfReview,
 };
 
 function isViewName(v: string): v is ViewName {

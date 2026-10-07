@@ -54,7 +54,7 @@ them:
 | **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
 
 `flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
-the deferred bundle of section 5 alone — never a reasoning pass.
+section 5's in-run self-review pass.
 
 ## Dynamic decisions
 
@@ -283,10 +283,11 @@ flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <na
 flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-**Self-review is always deferred — this section is canonical for `/flow-fast`'s self-review.**
-Save the context bundle `/flow-self-review <name>` consumes, on this branch, as its own commit;
-no reasoning pass runs and nothing is asked. Write
-`<project>/docs/self-review/<name>-context.md`, physically under `<worktree>`, as, in order: the stdout of `flow self-review
+**Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.**
+A report already committed on `<name>` (`<project>/docs/self-review/<name>-self-review.md`) skips the pass:
+a fix re-run never records its findings twice.
+Assemble the bundle in memory, never written to `<project>/docs/self-review/` or committed, as, in
+order: the stdout of `flow self-review
 bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
 by, a `/flow-fast` run can never have tasks.md, design.md and narrative.md (no spectre
 artifacts and no archive), so those three report `skipped` by design, never silently;
@@ -296,20 +297,25 @@ commits; the ledger and panel render from the store when the run wrote rows — 
 did and where it struggled, recording every approach tried and abandoned with why it failed
 (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`). A durable
 process lesson the run paid for is promoted to the
-lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`). A re-run replaces the file. Commit and push it through the landing
-chain, asserting the change branch:
+lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
+
+Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
+inline, canonical for the six angles, the fix loop, where the fixes land — on `<name>` itself
+when `<worktree>` is `<agents repo>`'s — the filing-and-rating prompt and the store rows. Write
+the report per that file's step 7, its `**Deferred:**` line naming `the in-run bundle` as the
+bundle path, then commit and push it through the landing chain, asserting the change branch:
 
 ```bash
 land-self-review-report.sh "<worktree>" "<name>" \
-  "docs(self-review): <name> self-review context bundle" \
-  docs/self-review/<name>-context.md \
+  "docs(self-review): <name> self-review report" \
+  docs/self-review/<name>-self-review.md \
   --push "<name>"
 ```
 
-The bundle lands with the change on every route. A staged index holding anything beyond the
-chain's own path refuses the commit (`LAND-FOREIGN-STAGED`) — clear the staging or land from a
-clean checkout, never around it. `/flow-self-review <name>` then runs the pass
-on `<base>` and deletes the bundle in its report commit.
+The report and the fixes land with the change on every route. **7. Land**'s landing push carries the fix
+commits' shas per step 5 of `/flow-self-review`, in whichever invocation makes it. A staged index holding anything
+beyond the chain's own path refuses the commit (`LAND-FOREIGN-STAGED`) — clear the staging or land
+from a clean checkout, never around it.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
@@ -318,8 +324,8 @@ flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <ha
 ```
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
-what was verified and how; anything deliberately left out; the bundle path when section 5
-saved one. This is the one report the run prints.
+what was verified and how; anything deliberately left out; the self-review report path and
+its fixed shas when section 5 committed one. This is the one report the run prints.
 
 **Then the handoff, decided by `## handoff`** (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`): `none` continues to section 6 in this same

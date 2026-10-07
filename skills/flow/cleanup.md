@@ -9,7 +9,7 @@ worktree.
 **`skills/flow-contracts/finish-contract-run2.md` is canonical for the full procedure.** In outline,
 each numbered step below is bracketed by its own mark, with one exception that runs inside the
 mark of the step before: step 3 (remove the proposal artifact source) inside step 2's
-`flow.cleanup`. **Six steps, five marks.** The archive and the self-review context bundle are run
+`flow.cleanup`. **Six steps, five marks.** The archive and the self-review pass are run
 1's (`skills/flow/integrate.md`).
 
 ```bash
@@ -98,7 +98,7 @@ flow stage end -command '/flow' -stage flow.refresh-main-checkout -outcome compl
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
-**Self-review:** deferred — docs/self-review/<name>-context.md
+**Self-review:** docs/self-review/<name>-self-review.md
 **Main checkout:** fast-forwarded | already current | <the REFRESH-REFUSED line>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>

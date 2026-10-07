@@ -45,7 +45,8 @@ export type ViewName =
   | "reviewers"
   | "decisions"
   | "runs"
-  | "flow-health";
+  | "flow-health"
+  | "self-review";
 
 export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
@@ -56,6 +57,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "decisions",
   "runs",
   "flow-health",
+  "self-review",
 ];
 
 /** The "cost-per-change" statistics endpoint slug -- not a navigable
@@ -324,6 +326,20 @@ export interface PanelRoundsRow {
   critical: number;
   important: number;
   minor: number;
+}
+
+/** Mirrors selfReviewRowDTO. `commitUrl` is "" unless the finding is
+ * `fixed` and the daemon knows its checkout's GitHub commit base. */
+export interface SelfReviewRow {
+  recordedAt: string;
+  project: string;
+  change: string;
+  angle: string;
+  note: string;
+  disposition: "fixed" | "filed" | "declined";
+  ref: string;
+  blastRadius: number | null;
+  commitUrl: string;
 }
 
 /** Mirrors trendPointDTO. */

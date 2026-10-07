@@ -16,14 +16,16 @@ import (
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-// isHealthView reports whether name is one of the flow-health views.
+// isHealthView reports whether name is one of the flow-health views, or the
+// self-review view: neither counts a token measurement nor carries a model.
 func isHealthView(name viewName) bool {
-	return name == viewGuards || name == viewStageRedo || name == viewPanelRounds
+	return name == viewGuards || name == viewStageRedo || name == viewPanelRounds || name == viewSelfReview
 }
 
-// healthRows answers the three flow-health views. None takes a model
-// restriction: a guard run carries no model, and a stage's re-entries and a
-// change's panel rounds are counted across every model that ran them, so a
+// healthRows answers the three flow-health views and the self-review view.
+// None takes a model restriction: a guard run and a self-review finding carry
+// no model, and a stage's re-entries and a change's panel rounds are counted
+// across every model that ran them, so a
 // model filter is refused rather than silently ignored -- the runs view's
 // posture.
 func (h *statsHandler) healthRows(ctx context.Context, name viewName, period store.Period, project, model *string) (rows any, status int, msg string) {
@@ -45,6 +47,13 @@ func (h *statsHandler) healthRows(ctx context.Context, name viewName, period sto
 			return nil, s, m
 		}
 		return toStageRedoDTOs(got), 0, ""
+	case viewSelfReview:
+		got, err := h.store.SelfReviewFindingsInPeriod(ctx, period, project)
+		if err != nil {
+			s, m := mapStoreError(h.logger, "self-review findings", err)
+			return nil, s, m
+		}
+		return toSelfReviewDTOs(got, h.commitBase), 0, ""
 	default: // viewPanelRounds
 		got, err := h.store.PanelRounds(ctx, period, project)
 		if err != nil {

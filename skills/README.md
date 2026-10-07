@@ -48,7 +48,7 @@ still apply.
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `/flow-settings` | `flow-settings` | Reads/writes the harness-wide reviewer slots every `/flow` run reads from |
-| `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
+| `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, inline on this session's model, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
 **Level 1 — the stages of each command** (`README.md`) and are deliberately not

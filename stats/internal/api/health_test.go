@@ -122,7 +122,7 @@ func TestHealthViewsCarryTheirNumbersThrough(t *testing.T) {
 // measurement" says nothing about guard runs, attempts or panel rounds, and
 // the SPA hides a panel's rows when it is set.
 func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
-	for _, view := range []string{"guards", "stage-redo", "panel-rounds"} {
+	for _, view := range []string{"guards", "stage-redo", "panel-rounds", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{
 				allRecordedRunsUnmeasured: true,
@@ -140,7 +140,7 @@ func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
 }
 
 func TestHealthViewsRefuseAModelRestriction(t *testing.T) {
-	for _, view := range []string{"guards", "stage-redo", "panel-rounds"} {
+	for _, view := range []string{"guards", "stage-redo", "panel-rounds", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{})
 			status, _, body := getStats(t, ts, periodPath(view)+"&model=opus")

@@ -209,3 +209,25 @@ func TestDaemonWiresTheRealStore(t *testing.T) {
 		t.Error("the daemon wired harvest.NoDeps: nothing is priced, no session token is bound, no dispatch is charged")
 	}
 }
+
+// TestCommitBaseFromRemote maps an origin remote to the base a fixed
+// self-review finding's commit link is built on: both GitHub remote forms
+// map to the https commit base, anything else -- another host, no remote
+// to "", which renders the ref as plain text.
+func TestCommitBaseFromRemote(t *testing.T) {
+	cases := map[string]string{
+		"git@github.com:o/r.git":        "https://github.com/o/r/commit",
+		"https://github.com/o/r.git":    "https://github.com/o/r/commit",
+		"https://github.com/o/r":        "https://github.com/o/r/commit",
+		"ssh://git@github.com/o/r.git":  "https://github.com/o/r/commit",
+		"https://github.com/o/r/":       "https://github.com/o/r/commit",
+		"git@gitlab.com:o/r.git":        "",
+		"https://bitbucket.org/o/r.git": "",
+		"":                              "",
+	}
+	for remote, want := range cases {
+		if got := commitBaseFromRemote(remote); got != want {
+			t.Errorf("commitBaseFromRemote(%q) = %q, want %q", remote, got, want)
+		}
+	}
+}

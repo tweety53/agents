@@ -36,7 +36,7 @@ Moved verbatim from the contract, where it opened the sentence whose call-site l
 
 The operator's rule: one task gets one worktree, and its planning, archive and self-review
 artifacts land on the same pull request as the code, as separate commits. So run 1 archives the
-change and saves its self-review context bundle on `spectre/<name>`, in the apply worktree, before
+change and runs its self-review pass on `spectre/<name>`, in the apply worktree, before
 any route pushes, and run 2 only cleans up.
 
 Rejected, and removed: a second, throwaway landing worktree `<project>-worktrees/_landing-<name>`
@@ -76,7 +76,7 @@ skill-file content another change had shipped minutes earlier.
 
 Step 2, the archive-scope guard's cannot-answer exit — incident: KAN-601.
 
-## finish-contract-run1.md — Save the self-review context bundle
+## finish-contract-run1.md — Run the self-review pass
 
 `skills/flow/integrate.md`'s step 4 carries only what is specific to *executing* it: the
 script invocation and its arguments and the commit shell. It is not a second statement of this

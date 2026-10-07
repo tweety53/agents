@@ -69,6 +69,9 @@ type StatsStore interface {
 	GuardActivity(ctx context.Context, period store.Period, project *string) ([]store.GuardActivityRow, error)
 	StageRedo(ctx context.Context, period store.Period, project *string) ([]store.StageRedoRow, error)
 	PanelRounds(ctx context.Context, period store.Period, project *string) ([]store.PanelRoundsRow, error)
+	// SelfReviewFindingsInPeriod backs the "self-review" view: every
+	// self-review finding recorded in the period, newest first.
+	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
 	// ExcludedNoModel), the latter GET /api/v1/models's only source.
@@ -99,6 +102,9 @@ var _ StatsStore = (*store.Store)(nil)
 type statsHandler struct {
 	store  StatsStore
 	logger *slog.Logger
+	// commitBase is WithCommitBase's value: the URL a fixed self-review
+	// finding's sha is appended to, or "" for no link.
+	commitBase string
 }
 
 // viewName is one of the statistics views' URL slugs, taken from
@@ -117,6 +123,7 @@ const (
 	viewGuards           viewName = "guards"
 	viewStageRedo        viewName = "stage-redo"
 	viewPanelRounds      viewName = "panel-rounds"
+	viewSelfReview       viewName = "self-review"
 )
 
 // knownViews is every accepted {view} path value, used both to dispatch and
@@ -126,7 +133,7 @@ const (
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
 	viewCacheEfficiency, viewReviewers, viewDecisions, viewRuns,
-	viewGuards, viewStageRedo, viewPanelRounds,
+	viewGuards, viewStageRedo, viewPanelRounds, viewSelfReview,
 }
 
 func acceptedViewNames() string {
@@ -556,7 +563,7 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toChangeRunsDTOs(rows), 0, ""
 
-	case viewGuards, viewStageRedo, viewPanelRounds:
+	case viewGuards, viewStageRedo, viewPanelRounds, viewSelfReview:
 		return h.healthRows(ctx, name, period, project, model)
 
 	default:
@@ -1218,4 +1225,38 @@ func (h *statsHandler) listModels(w http.ResponseWriter, r *http.Request) {
 		Project: project,
 		Models:  models,
 	})
+}
+
+type selfReviewRowDTO struct {
+	RecordedAt  string `json:"recordedAt"`
+	Project     string `json:"project"`
+	Change      string `json:"change"`
+	Angle       string `json:"angle"`
+	Note        string `json:"note"`
+	Disposition string `json:"disposition"`
+	Ref         string `json:"ref"`
+	BlastRadius *int   `json:"blastRadius"`
+	// CommitURL links a fixed finding's sha under commitBase; "" for a
+	// filed or declined finding, or when the daemon has no commit base.
+	CommitURL string `json:"commitUrl"`
+}
+
+func toSelfReviewDTOs(rows []store.SelfReviewFindingRow, commitBase string) []selfReviewRowDTO {
+	out := make([]selfReviewRowDTO, len(rows))
+	for i, r := range rows {
+		out[i] = selfReviewRowDTO{
+			RecordedAt:  r.RecordedAt.UTC().Format(time.RFC3339Nano),
+			Project:     r.ProjectKey,
+			Change:      r.Change,
+			Angle:       r.Angle,
+			Note:        r.Note,
+			Disposition: r.Disposition,
+			Ref:         r.Ref,
+			BlastRadius: r.BlastRadius,
+		}
+		if r.Disposition == "fixed" && commitBase != "" {
+			out[i].CommitURL = commitBase + "/" + r.Ref
+		}
+	}
+	return out
 }

@@ -590,8 +590,8 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
 
     await screen.findByRole("cell", { name: "5. The review panel" });
     // The four surviving statistics views from design.md's `stats-ui-cut`
-    // plus `reviewers`, `decisions`, `runs` and `flow-health`.
-    expect(VIEW_NAMES).toHaveLength(8);
+    // plus `reviewers`, `decisions`, `runs`, `flow-health` and `self-review`.
+    expect(VIEW_NAMES).toHaveLength(9);
     // Per-dispatch rows appear only under an expanded stage run.
     expect(screen.queryByTestId("dispatch-row")).not.toBeInTheDocument();
   });

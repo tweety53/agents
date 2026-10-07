@@ -184,10 +184,10 @@ operator chose to integrate over at **1**. The state file is **not** committed.
 flow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
 ```
 
-## 4. Archive and save the self-review context bundle
+## 4. Archive and run the self-review pass
 
-In `<canonical-worktree>`, on `spectre/<name>`, per **Archive on the change branch** and **Save the
-self-review context bundle** (`skills/flow-contracts/finish-contract-run1.md`), canonical for both.
+In `<canonical-worktree>`, on `spectre/<name>`, per **Archive on the change branch** and **Run the
+self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for both.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
@@ -225,14 +225,13 @@ flow stage end   -command '/flow' -stage flow.commit-archive -outcome completed 
 flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Write the bundle's stdout, then `## Session narrative`, to
-`<project>/docs/self-review/<name>-context.md` in `<canonical-worktree>`, and commit it there, not
-pushing here:
+Hold the bundle's stdout, then `## Session narrative`, in memory; run the pass over it; then
+commit the report in `<canonical-worktree>`, not pushing here:
 
 ```bash
 land-self-review-report.sh "<canonical-worktree>" "spectre/<name>" \
-  "docs(self-review): <name> self-review context bundle" \
-  docs/self-review/<name>-context.md
+  "docs(self-review): <name> self-review report" \
+  docs/self-review/<name>-self-review.md
 ```
 
 A branch mismatch or a commit that FAILS is reported and stops the run at `IN_PROGRESS`. A staged

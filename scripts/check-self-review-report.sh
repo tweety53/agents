@@ -99,9 +99,10 @@
 # under KAN-211 as a known limit of the all-bash shape — is now that read's
 # own error too.
 #
-# SELF-REVIEW CONTEXT BUNDLES ARE NOT REPORTS (KAN-512). Run 1 commits
-# `docs/self-review/<name>-context.md` on every run (canonical: **Save the
-# self-review context bundle**, `skills/flow-contracts/finish-contract-run1.md`), and
+# SELF-REVIEW CONTEXT BUNDLES ARE NOT REPORTS (KAN-512). A run before KAN-927
+# committed `docs/self-review/<name>-context.md` (run 1 now runs the pass
+# in-run instead: **Run the self-review pass**,
+# `skills/flow-contracts/finish-contract-run1.md`), and
 # `/flow-self-review <name>` deletes it once it runs the deferred pass. It is
 # a bundle awaiting a reasoning pass, never a report of one — the directory
 # walk excludes `*-context.md` outright so a pending bundle is neither scanned for

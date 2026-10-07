@@ -388,6 +388,10 @@ func (fakeStore) StageRedo(context.Context, store.Period, *string) ([]store.Stag
 	return nil, nil
 }
 
+func (fakeStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
+	return nil, nil
+}
+
 func (fakeStore) PanelRounds(context.Context, store.Period, *string) ([]store.PanelRoundsRow, error) {
 	return nil, nil
 }

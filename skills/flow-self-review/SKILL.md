@@ -1,17 +1,20 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, inline on this session's model, from the context bundle `/flow` or `/flow-fast` saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, inline on this session's model — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
-compatibility: Requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
+compatibility: Standalone, requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
 ---
 
-Run a change's self-review reasoning pass — the only one the pipeline has — from the context
-bundle `/flow`'s run 1 (**Save the self-review context bundle**,
+Run a change's self-review reasoning pass — the only one the pipeline has — over the bundle
+`/flow`'s run 1 (**Run the self-review pass**,
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
-(`skills/flow-fast/SKILL.md`) saved on the change branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
+(`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
+bundle an older run saved on the change branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
 filing-and-rating prompt, the store record and the report. **The pass runs inline, in this session, on whatever model it is already on; its fixes never do**
-— step 3 runs every fix, review and re-review as a one-shot `opus` dispatch. The model is
+— step 3 runs every fix, review and re-review as a one-shot `flow-medium` dispatch: the fix on
+`opus`, or `sonnet` when every fix is a literal edit with nothing it can break; the first review
+on `opus`; every re-review on `sonnet`. The model is
 picked by picking the model this session runs on (`/model`) before invoking this command, not by
 anything this skill itself resolves.
 
@@ -31,6 +34,9 @@ per-change state file, and marks no `flow stage` call.
 
 `git branch --show-current` must be `<default-branch>` (the project's own default branch). A
 checkout on any other branch: print the branch and stop.
+
+**Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
+`/flow-fast`'s verify holds its bundle in memory, runs on the change branch, and starts at step 2.
 
 ### 2. Read the bundle and run the six angles
 
@@ -76,42 +82,70 @@ about the project's own product code reaches outside `<agents repo>`, so it is a
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
 whole pass. A pass with none creates no worktree and dispatches nothing. **This session changes
 and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`): each numbered step
-below that does is a fresh dispatch on `opus`, `subagent_type: flow-high`, its prompt carrying the
+below that does is a fresh dispatch on the pair it names, its prompt carrying the
 paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**,
 `skills/flow-contracts/pipeline.md`) names — a review's READ-ONLY REVIEW too — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
-it returns.
+it returns. The no-progress escalation of **Fewest operator actions**
+(`skills/flow-contracts/pipeline.md`) still runs on `flow-high`.
 
-`<agents-base>` is the one **Pipeline defects found mid-run** binds.
+**The fixer pair** is `subagent_type: flow-medium` on `opus`, or on `sonnet` when every fix it
+carries is a literal edit with nothing it can break, the one-line reason recorded with the
+dispatch. **The review pair** is `flow-medium` on `opus` for the first review (`<r>` = 1) and
+`flow-medium` on `sonnet` for every re-review after a fix.
 
-1. **Fix** — this session creates the worktree,
+`<agents-base>` is the one **Pipeline defects found mid-run** binds. `<fix-branch>` and
+`<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose
+change's canonical repository is `<agents repo>`, the change's own branch in its own
+worktree — `spectre/<name>` on `/flow`, `<name>` on `/flow-fast` — based at the commit the branch
+holds when the pass starts; standalone, or inside
+any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
+
+1. **Fix** — on `self-review-<name>`, this session creates the worktree,
    `git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>`
    — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it
-   (`project-get.sh <agents repo> 'worktree setup'`), then dispatches key `self-review-<name>-fix`, its prompt carrying
+   (`project-get.sh <agents repo> 'worktree setup'`); on the change's own branch its worktree is
+   already set up. It then dispatches key `self-review-<name>-fix` on the fixer pair, its prompt carrying
    every non-`big` finding with its evidence and counted blast radius. The fixer works in that
    worktree and makes one commit per finding with a module scope, adding one test or guard that
    fails without the fix wherever the fix changes behaviour, and running the
    `<agents repo>/.flow/project.md` `## lint` lines its files need. It reports each finding's
    commit, or a finding it found `big` once under way, left uncommitted. It never merges or
    pushes.
-2. **Review** — key `self-review-<name>-review-<r>`, over
-   `git diff origin/<agents-base>...self-review-<name>`, its prompt naming each finding beside its
+2. **Review** — key `self-review-<name>-review-<r>` on the review pair, over
+   `git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its
    commit.
-3. **Fix the review's findings** — key `self-review-<name>-fix-<r>`, its prompt carrying the
+3. **Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt carrying the
    review's report verbatim. Each fix is folded into the commit of the finding it fixes
-   (`git commit --fixup <that commit>`, then `git rebase --autosquash origin/<agents-base>`), so
+   (`git commit --fixup <that commit>`, then `git rebase --autosquash <fix-base>`), so
    every finding stays one commit; a commit the review judges not to fix its finding, or to make
    things worse, is dropped from the branch. Then step 2 again, `<r>` plus one, until a review
    comes back clean, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A
    dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once
    under way.
-4. **Verify** — once a review comes back clean, this session runs every
-   `<agents repo>/.flow/project.md` `## lint` and `## test` line in the fix worktree, each
-   output through `tail`. A red line is fixed by a fresh dispatch of step 3, key
+4. **Verify** — once a review comes back clean, this session runs, in the fix worktree, only the
+   `<agents repo>/.flow/project.md` `## lint` lines the touched files need, plus the tests
+   covering them: `go test` of the touched packages, the `scripts/test-*.sh` harness of a touched
+   script, `npx vitest run <file>` of a touched SPA file — each output through `tail`, never the
+   full `## lint` or `## test` list. A red line is fixed by a fresh dispatch of step 3, key
    `self-review-<name>-fix-v<v>`, its prompt carrying the failing command and its output
    verbatim; then step 2, then this step again, `<v>` plus one. A red branch never lands, and a
    red line is never waived — **Fewest operator actions** governs this loop as it does the review.
-5. **Land once** by `<agents repo>`'s `## default landing route`
+5. **Land once.** On the change's own branch nothing lands here: the fix commits ride the run's
+   own route, whose rebase can rewrite their shas, so the committed report is their record and
+   step 6 records no `fixed` row for them. The report's `fixed:` lines carry each commit's sha on
+   the branch when written. **The landing push** — the one that puts the commits on `<base>` on
+   merge and push, the branch push on a pull-request or manual route — each attempt of it, a
+   retry after a rejected push included, is preceded, in whichever invocation makes it, by a
+   re-read of each fix commit's sha by its subject
+   (`git log --format='%h %s' HEAD --not origin/<base>`); a changed sha rewrites its `fixed:` line,
+   committed as a new report commit through `land-self-review-report.sh` with the report's own
+   subject. Once that push succeeds, the same invocation records one `fixed` row per `fixed:` line
+   whose sha `flow self-review findings -change <name>` does not list yet, its angle and note
+   read off the line and no blast radius; a rewrite after rows were already recorded adds a
+   second row under the new sha. A pull request merged by squash or rebase rewrites the
+   shas once more, and no commit then carries a fix's own sha. On `self-review-<name>`,
+   land by `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
    branch. A rebase onto a moved `origin/<agents-base>` runs item 4, **Verify**, again before the push. The
@@ -159,14 +193,17 @@ this session: print `⚠ Jira: skipped — <reason>` and record that finding `de
 
 ### 6. Record every finding in the flow store
 
-One call per finding, every disposition alike, before the report is written:
+One call per finding, every disposition alike, before the report is written — save a `fixed`
+finding on the change's own branch, whose row step 5's landing push records:
 
 ```bash
 flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined [-ref <sha|KEY>] [-blast-radius <N>] -note '<the finding, one line>'
 ```
 
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`;
-`-blast-radius` is step 3's count, omitted for a product-code finding. A store failure is one
+`-blast-radius` is step 3's count, omitted for a product-code finding. An `In-run pipeline fix:`
+line naming a sha gets no second row when `flow self-review findings -change <name>` already
+lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues — the report below is the durable record.
 
 ### 7. Write the report, delete the bundle, land it
@@ -181,14 +218,15 @@ title:
 **Deferred:** reasoning pass run on <model named in this session's own system prompt> from <bundle path>
 ```
 
-Delete `<bundle>`. Run `<project>/scripts/check-self-review-report.sh` when the project declares
+Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its
+run's own section. Run `<project>/scripts/check-self-review-report.sh` when the project declares
 it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before committing.
 **Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an
 unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: report it and stop before the
 commit, never commit a report the guard could not read.
 Commit both paths in one commit through the landing chain's one script — the same invocation
-`skills/flow/integrate.md` step 4 lands the context bundle with, differing in the asserted branch,
-the report path, the removed context-bundle path and the `--push` — since the round-trip through the six-angle
+`skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch,
+the removed context-bundle path and the `--push` — since the round-trip through the six-angle
 pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking
 rather than trusted from step 1 alone:
 

@@ -166,19 +166,21 @@ func deriveFinishCommits(g Runner, repo, rev, name string) []string {
 	return out
 }
 
-// reservedShapes is the one declaration of the four reserved subject
+// reservedShapes is the one declaration of the five reserved subject
 // shapes — the current plan-commit literal (a prefix match, no `$`, exactly
 // as the gather anchored it), the pre-rename wording scoped to the change,
-// the exact archive subject, and the exact self-review bundle subject.
-// deriveFinishCommits greps with the first three and isRealImplCommit
-// rejects against all four; one declaration is what keeps the gate and the
+// the exact archive subject, the exact self-review bundle subject a run
+// before KAN-927 committed, and the exact self-review report subject run 1
+// commits since. deriveFinishCommits greps with the first three and
+// isRealImplCommit rejects against all five; one declaration is what keeps the gate and the
 // query from drifting apart.
-func reservedShapes(nameRe string) struct{ planNew, planOld, archive, bundle string } {
-	return struct{ planNew, planOld, archive, bundle string }{
+func reservedShapes(nameRe string) struct{ planNew, planOld, archive, bundle, report string } {
+	return struct{ planNew, planOld, archive, bundle, report string }{
 		planNew: `^chore\(spectre\): plan`,
 		planOld: `^chore\(` + nameRe + `\): plan(, test guide and| and) session records`,
 		archive: `^chore\(spectre\): archive ` + nameRe + `$`,
 		bundle:  `^docs\(self-review\): ` + nameRe + ` self-review context bundle$`,
+		report:  `^docs\(self-review\): ` + nameRe + ` self-review report$`,
 	}
 }
 
@@ -234,9 +236,9 @@ func atOrBelow(g Runner, repo, commit, bound string) bool {
 // parent and a plan-commit subject never sits one commit below another
 // reserved subject — and kept anyway: each guards this function's own git
 // queries against a future edit to commit-split.sh's staging shape, which
-// no test of this function can see. The bundle subject rejection is live:
-// an archived re-run's first planning commit sits on the previous run's
-// bundle commit until the re-run's reshape.
+// no test of this function can see. The bundle and report subject
+// rejections are live: an archived re-run's first planning commit sits on
+// the previous run's bundle or report commit until the re-run's reshape.
 func isRealImplCommit(g Runner, repo, impl, nameRe string) bool {
 	if impl == "" {
 		return false
@@ -249,7 +251,7 @@ func isRealImplCommit(g Runner, repo, impl, nameRe string) bool {
 
 	subject := trimmedOutput(g.Output(repo, "log", "-1", "--format=%s", impl))
 	shapes := reservedShapes(nameRe)
-	for _, re := range []string{shapes.planNew, shapes.planOld, shapes.archive, shapes.bundle} {
+	for _, re := range []string{shapes.planNew, shapes.planOld, shapes.archive, shapes.bundle, shapes.report} {
 		if matched, err := regexp.MatchString(re, subject); err == nil && matched {
 			return false
 		}

@@ -18,13 +18,14 @@ const VIEWS: { view: string; label: string; query: string }[] = [
   { view: "decisions", label: "Decisions", query: PINNED_QUERY },
   { view: "runs", label: "Runs", query: RUNS_QUERY },
   { view: "flow-health", label: "Flow health", query: PINNED_QUERY },
+  { view: "self-review", label: "Self-review fixes", query: PINNED_QUERY },
 ];
 
 test.describe("full app suite", () => {
   for (const { view, label, query } of VIEWS) {
     test(`${view} screen`, async ({ page }) => {
       await page.goto(`/#/${view}?${query}`);
-      await expect(page.getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
+      await expect(page.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
       await expect(page).toHaveScreenshot(`full-${view}.png`, { fullPage: true });
     });
   }

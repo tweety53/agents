@@ -173,8 +173,9 @@ type Option func(*serverOptions)
 // It exists as its own type, rather than fields tacked onto Server, so a
 // caller reads what New optionally accepts in one place.
 type serverOptions struct {
-	spa       http.Handler
-	guardRuns GuardRunStore
+	spa        http.Handler
+	guardRuns  GuardRunStore
+	commitBase string
 }
 
 // WithSPA mounts h at "/" as the daemon's user interface, task 12's
@@ -188,6 +189,16 @@ type serverOptions struct {
 func WithSPA(h http.Handler) Option {
 	return func(o *serverOptions) {
 		o.spa = h
+	}
+}
+
+// WithCommitBase sets the URL a fixed self-review finding's sha is appended
+// to in the self-review stats view -- "https://github.com/<owner>/<repo>/commit"
+// in production, derived from the daemon checkout's origin remote. Passing
+// none, or "", renders every ref as plain text.
+func WithCommitBase(base string) Option {
+	return func(o *serverOptions) {
+		o.commitBase = base
 	}
 }
 
@@ -295,7 +306,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 
 	h := &changeHandler{store: cs, logger: logger}
 	sh := &stageHandler{store: ss, logger: logger}
-	sth := &statsHandler{store: sts, logger: logger}
+	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase}
 	rh := &recordHandler{store: rs, logger: logger}
 	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, logger: logger}
 	lh := &lessonsHandler{store: rs, logger: logger}

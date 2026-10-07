@@ -874,6 +874,10 @@ func (stubStageStore) StageRedo(context.Context, store.Period, *string) ([]store
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
+	return nil, nil
+}
+
 func (stubStageStore) PanelRounds(context.Context, store.Period, *string) ([]store.PanelRoundsRow, error) {
 	return nil, errStageStoreNotImplemented
 }

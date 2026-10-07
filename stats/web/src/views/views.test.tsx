@@ -12,6 +12,7 @@ import { CacheEfficiency } from "./CacheEfficiency";
 import { Decisions } from "./Decisions";
 import { FlowHealth } from "./FlowHealth";
 import { Reviewers } from "./Reviewers";
+import { SelfReview } from "./SelfReview";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
@@ -221,6 +222,12 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       p90Seconds: null,
     },
   ]),
+  "self-review": envelope("self-review", [
+    { recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, commitUrl: "https://github.com/o/r/commit/abc1234" },
+    { recordedAt: "2026-01-11T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-cost", note: "cheaper reviewer", disposition: "fixed", ref: "def5678", blastRadius: null, commitUrl: "https://github.com/o/r/commit/def5678" },
+    { recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "needs a redesign", disposition: "filed", ref: "KAN-9", blastRadius: null, commitUrl: "" },
+    { recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "not worth it", disposition: "declined", ref: "", blastRadius: null, commitUrl: "" },
+  ]),
   "panel-rounds": envelope("panel-rounds", [
     { project: "agents", change: "kan-1", startedAt: "2026-01-10T10:00:00Z", rounds: 3, findings: 7, critical: 1, important: 2, minor: 4 },
     { project: "agents", change: "kan-2", startedAt: "2026-01-09T10:00:00Z", rounds: 2, findings: 0, critical: 0, important: 0, minor: 0 },
@@ -292,6 +299,37 @@ describe("views render their fixture response's actual values", () => {
 
     within(screen.getByRole("region", { name: "Slots" })).getByText("2");
     within(screen.getByRole("region", { name: "Total dispatches" })).getByText("3");
+  });
+
+  it("renders self-review fixes", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<SelfReview period={period} project={undefined} />);
+
+    // A fixed finding's ref links to its commit; a filed one's key is text.
+    const link = await screen.findByRole("link", { name: "abc1234" });
+    expect(link).toHaveAttribute("href", "https://github.com/o/r/commit/abc1234");
+    expect(screen.getByRole("cell", { name: "KAN-9" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "KAN-9" })).not.toBeInTheDocument();
+
+    within(screen.getByRole("region", { name: "Fixed" })).getByText("2");
+    within(screen.getByRole("region", { name: "Filed" })).getByText("1");
+
+    // Per change: fixed / filed / declined, derived from the rows.
+    const perChange = screen.getByRole("region", { name: "Per change" });
+    const kan1 = within(perChange).getByRole("cell", { name: "kan-1" }).closest("tr")!;
+    expect(within(kan1).getAllByRole("cell").map((c) => c.textContent)).toEqual(["kan-1", "2", "1", "0"]);
+    const kan2 = within(perChange).getByRole("cell", { name: "kan-2" }).closest("tr")!;
+    expect(within(kan2).getAllByRole("cell").map((c) => c.textContent)).toEqual(["kan-2", "0", "0", "1"]);
+
+    // The outcome column filters the findings table.
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter by Outcome" }), "declined");
+    expect(screen.getByRole("cell", { name: "not worth it" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "guard misses a case" })).not.toBeInTheDocument();
+    unmount();
+
+    fetchStatsViewMock.mockResolvedValueOnce(envelope("self-review", []));
+    render(<SelfReview period={period} project={undefined} />);
+    expect(await screen.findByText("No self-review findings in this period.")).toBeInTheDocument();
   });
 
   // Also covers kan-472 task 23's grouping/dispatches/implementer-groups columns, asserted below.

@@ -1,7 +1,7 @@
 # Finish contract — run 2 (the branch is merged)
 
 **This file is canonical for `/flow`'s cleanup run** — run 2's procedure and worktree cleanup.
-Run 1 already archived the change and saved its self-review context bundle on the change branch
+Run 1 already archived the change and ran its self-review pass on the change branch
 (**Archive on the change branch**, `skills/flow-contracts/finish-contract-run1.md`), so run 2
 archives, commits and pushes nothing: it cleans up once the branch has merged.
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -78,6 +79,9 @@ func (f *fakeStore) StageRedo(_ context.Context, _ store.Period, _ *string) ([]s
 func (f *fakeStore) PanelRounds(_ context.Context, _ store.Period, _ *string) ([]store.PanelRoundsRow, error) {
 	return nil, nil
 }
+func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
+	return nil, nil
+}
 func (f *fakeStore) CountRunsWithoutModel(_ context.Context, _ store.Period, _ *string) (int, error) {
 	return 0, nil
 }
@@ -119,6 +123,7 @@ type statsFake struct {
 	guardActivity    []store.GuardActivityRow
 	stageRedo        []store.StageRedoRow
 	panelRounds      []store.PanelRoundsRow
+	selfReview       []store.SelfReviewFindingRow
 	aggErr           error
 
 	countRunsWithoutModel    int
@@ -191,6 +196,10 @@ func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]s
 }
 func (f *statsFake) ListRuns(_ context.Context, _ store.Period, _ *string, _ *string) ([]store.ChangeRuns, error) {
 	return f.runs, f.aggErr
+}
+func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, p *string) ([]store.SelfReviewFindingRow, error) {
+	f.lastProject = p
+	return f.selfReview, f.aggErr
 }
 func (f *statsFake) GuardActivity(_ context.Context, _ store.Period, p *string) ([]store.GuardActivityRow, error) {
 	f.lastProject = p
@@ -1946,4 +1955,92 @@ func dsnForDatabase(dbName string) string {
 		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
 	}
 	return out
+}
+
+// TestStatsSelfReviewView asserts the self-review view's wire shape: one row
+// per finding, and a fixed row's commitUrl built from the server's commit
+// base -- empty for filed and declined rows, and for every row when the
+// server has no base.
+func TestStatsSelfReviewView(t *testing.T) {
+	at := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
+	three := 3
+	sts := &statsFake{selfReview: []store.SelfReviewFindingRow{
+		{ProjectKey: "agents-a740d89c", SelfReviewFinding: records.SelfReviewFinding{
+			Change: "kan-1", Angle: "flow-fix", Note: "guard misses a case", Disposition: "fixed",
+			Ref: "abc1234", BlastRadius: &three, RecordedAt: at}},
+		{ProjectKey: "agents-a740d89c", SelfReviewFinding: records.SelfReviewFinding{
+			Change: "kan-1", Angle: "flow-cost", Note: "needs a redesign", Disposition: "filed",
+			Ref: "KAN-9", RecordedAt: at}},
+		{ProjectKey: "agents-a740d89c", SelfReviewFinding: records.SelfReviewFinding{
+			Change: "kan-2", Angle: "flow-speed", Note: "not worth it", Disposition: "declined",
+			RecordedAt: at}},
+	}}
+
+	serve := func(opts ...api.Option) *httptest.Server {
+		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
+		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), newFakeStore(), nil, opts...)
+		if err != nil {
+			t.Fatalf("api.New: %v", err)
+		}
+		ts := httptest.NewServer(srv.Handler())
+		t.Cleanup(ts.Close)
+		return ts
+	}
+	type row struct {
+		RecordedAt  string `json:"recordedAt"`
+		Project     string `json:"project"`
+		Change      string `json:"change"`
+		Angle       string `json:"angle"`
+		Note        string `json:"note"`
+		Disposition string `json:"disposition"`
+		Ref         string `json:"ref"`
+		BlastRadius *int   `json:"blastRadius"`
+		CommitURL   string `json:"commitUrl"`
+	}
+	fetch := func(ts *httptest.Server) []row {
+		status, env, body := getStats(t, ts, periodPath("self-review"))
+		if status != http.StatusOK {
+			t.Fatalf("status %d, body %s", status, body)
+		}
+		var rows []row
+		if err := json.Unmarshal(env.Rows, &rows); err != nil {
+			t.Fatalf("decode rows: %v (body %s)", err, body)
+		}
+		if len(rows) != 3 {
+			t.Fatalf("rows = %+v, want 3", rows)
+		}
+		return rows
+	}
+
+	rows := fetch(serve(api.WithCommitBase("https://github.com/o/r/commit")))
+	want := row{RecordedAt: "2026-08-10T09:00:00Z", Project: "agents-a740d89c", Change: "kan-1",
+		Angle: "flow-fix", Note: "guard misses a case", Disposition: "fixed", Ref: "abc1234",
+		BlastRadius: &three, CommitURL: "https://github.com/o/r/commit/abc1234"}
+	if got := rows[0]; got.RecordedAt != want.RecordedAt || got.Project != want.Project ||
+		got.Change != want.Change || got.Angle != want.Angle || got.Note != want.Note ||
+		got.Disposition != want.Disposition || got.Ref != want.Ref || got.CommitURL != want.CommitURL ||
+		got.BlastRadius == nil || *got.BlastRadius != 3 {
+		t.Errorf("fixed row = %+v, want %+v", got, want)
+	}
+	if rows[1].CommitURL != "" || rows[2].CommitURL != "" {
+		t.Errorf("filed/declined rows carry a commitUrl: %+v", rows[1:])
+	}
+	if rows[1].Ref != "KAN-9" {
+		t.Errorf("filed row ref = %q, want KAN-9", rows[1].Ref)
+	}
+
+	for _, r := range fetch(serve()) {
+		if r.CommitURL != "" {
+			t.Errorf("no commit base, yet row %+v carries a commitUrl", r)
+		}
+	}
+
+	// The project filter reaches the store.
+	status, _, body := getStats(t, serve(), periodPath("self-review")+"&project=agents-a740d89c")
+	if status != http.StatusOK {
+		t.Fatalf("project-filtered: status %d, body %s", status, body)
+	}
+	if sts.lastProject == nil || *sts.lastProject != "agents-a740d89c" {
+		t.Errorf("store saw project %v, want agents-a740d89c", sts.lastProject)
+	}
 }

@@ -90,7 +90,7 @@ var Table = []Stage{
 	{Key: "flow.commit-two", Name: "Two commits, implementation first (run 1)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.sync-archive", Name: "Archive the change on its branch (run 1)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.commit-archive", Name: "Commit the archive (run 1)", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.self-review", Name: "Save the self-review context bundle (run 1)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.self-review", Name: "Run the self-review pass (run 1)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.landing-routes", Name: "The landing routes, including moving the issue to In Review (run 1) ▸", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{Flow, FlowFast}},

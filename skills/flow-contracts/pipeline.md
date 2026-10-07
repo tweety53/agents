@@ -156,8 +156,11 @@ deferred to self-review, and so is one found `big` once under way, which stops t
 dropped — never the project's `<default-branch>`, which `<agents repo>` may not carry.
 
 **Every dispatch in the loop is one-shot.** No `SendMessage` to a finished child, and no child
-parks a question for a resume. Each runs on `opus`, `subagent_type: flow-high`, its key per the
-steps below and `<k>` counting this run's in-run fixes. Each prompt carries the MODEL HANDSHAKE,
+parks a question for a resume. Each runs on `subagent_type: flow-medium`, its key per the
+steps below and `<k>` counting this run's in-run fixes: the fix and every fixer on `opus`, or on
+`sonnet` when the fix is a literal edit with nothing it can break, the one-line reason recorded
+with the dispatch; the first review on `opus`; every re-review after a fix on `sonnet`. The
+no-progress escalation of **Fewest operator actions** above stays on `flow-high`. Each prompt carries the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
 (`skills/flow/implement.md`) verbatim, the review's READ-ONLY REVIEW too, and **The handshake**
 there applies to each reply:
@@ -192,6 +195,14 @@ turn with one of its children in flight.
 ```text
 In-run pipeline fix: <agents sha | deferred> — <the defect, one line> (blast radius <N> files)
 ```
+
+A landed fix is also one row in the flow store, recorded once its sha is on `<agents-base>`:
+
+```bash
+flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref <sha> -blast-radius <N> -note '<the defect, one line>'
+```
+
+A deferred fix records no row here; the self-review pass records it once it decides it.
 
 ## Wrong state for this command
 

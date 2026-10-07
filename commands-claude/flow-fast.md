@@ -13,8 +13,8 @@ move it to In Progress per **Transitions** there, create a git worktree on a bra
 — no database or bucket), write `tasks.md` and decide how to implement it per
 the plan's class — inline, or implementer subagents per group, with the review panel the class
 calls for — run the project's
-`## lint` and the tests the change touches, commit the self-review context bundle on the branch
-for `/flow-self-review`, print the change summary, then — unless the project's `## handoff` is `none` — stop for the
+`## lint` and the tests the change touches, run the self-review pass and commit its report on
+the branch, print the change summary, then — unless the project's `## handoff` is `none` — stop for the
 operator to review the branch; land by the project's `## default landing route` (asking only
 when none is declared), move the issue to In Review, and —
 on merge and push — remove the worktree and branch and move the issue to Done. Every `flow.*`

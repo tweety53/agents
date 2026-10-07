@@ -52,7 +52,7 @@ asked. No command takes a flag.
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-settings` | Global reviewer slots |
-| `/flow-self-review <name>` | Runs a self-review pass a run deferred |
+| `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
 
 ## How the pipeline works
 
@@ -166,7 +166,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
 | `flow.sync-archive` | Archive the change on its branch (run 1) | `/flow`, `/flow-fast` |
 | `flow.commit-archive` | Commit the archive (run 1) | `/flow`, `/flow-fast` |
-| `flow.self-review` | Save the self-review context bundle (run 1) | `/flow`, `/flow-fast` |
+| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast` |
 | `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast` |
 | `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
 | `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |

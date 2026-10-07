@@ -482,28 +482,36 @@ func TestDeriveFinishCommitsSiblingArchiveSubjectLoses(t *testing.T) {
 // implementation. Run 1's planning commits carry the bare subject of
 // changes landed before 2026-10-05, the re-run's the named ones since.
 func TestDeriveFinishCommitsFollowsArchivedRerun(t *testing.T) {
-	repo := gitRepo(t)
-	commitAll(t, repo, "other.go", "package other\n", "feat(other): another change on the base")
-	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
-	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
-	runGit(t, repo, "checkout", "-b", "work")
-	kickoff := commitAll(t, repo, "spectre/changes/demo/proposal.md", "# demo\n", "chore(spectre): plan")
-	impl1 := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
-	plan1 := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
-	runGit(t, repo, "rm", "-q", "-r", "spectre/changes/demo")
-	archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"proposal.md": "# demo\n", "tasks.md": "- [x] 1. do it\n"})
-	runGit(t, repo, "checkout", "spectre/demo")
-	commitAll(t, repo, "docs/self-review/demo-context.md", "bundle\n",
-		"docs(self-review): demo self-review context bundle")
-	fixPlan := commitAll(t, repo, "spectre/changes/archive/demo/narrative.md", "fix run\n", "chore(spectre): plan demo — fix-run tasks")
-	implSHA := commitAll(t, repo, "app.go", "package main\n\nfunc f() {}\n", "fix(demo): the fix run's change")
-	planSHA := commitAll(t, repo, "spectre/changes/archive/demo/tasks.md", "- [x] 1. do it\n- [x] 2. fix\n",
-		"chore(spectre): plan demo")
-	runGit(t, repo, "checkout", "main")
+	// The previous run's tip is a context-bundle commit on a run before
+	// KAN-927, its self-review report commit since.
+	for _, c := range []struct{ file, subject string }{
+		{"demo-context.md", "docs(self-review): demo self-review context bundle"},
+		{"demo-self-review.md", "docs(self-review): demo self-review report"},
+	} {
+		t.Run(c.file, func(t *testing.T) {
+			repo := gitRepo(t)
+			commitAll(t, repo, "other.go", "package other\n", "feat(other): another change on the base")
+			runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
+			runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+			runGit(t, repo, "checkout", "-b", "work")
+			kickoff := commitAll(t, repo, "spectre/changes/demo/proposal.md", "# demo\n", "chore(spectre): plan")
+			impl1 := commitAll(t, repo, "app.go", "package main\n", "feat(demo): do the thing")
+			plan1 := commitAll(t, repo, "spectre/changes/demo/tasks.md", "- [x] 1. do it\n", "chore(spectre): plan")
+			runGit(t, repo, "rm", "-q", "-r", "spectre/changes/demo")
+			archiveSHA := writeArchiveBranch(t, repo, "demo", map[string]string{"proposal.md": "# demo\n", "tasks.md": "- [x] 1. do it\n"})
+			runGit(t, repo, "checkout", "spectre/demo")
+			commitAll(t, repo, "docs/self-review/"+c.file, "bundle\n", c.subject)
+			fixPlan := commitAll(t, repo, "spectre/changes/archive/demo/narrative.md", "fix run\n", "chore(spectre): plan demo — fix-run tasks")
+			implSHA := commitAll(t, repo, "app.go", "package main\n\nfunc f() {}\n", "fix(demo): the fix run's change")
+			planSHA := commitAll(t, repo, "spectre/changes/archive/demo/tasks.md", "- [x] 1. do it\n- [x] 2. fix\n",
+				"chore(spectre): plan demo")
+			runGit(t, repo, "checkout", "main")
 
-	got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
-	if want := []string{kickoff, impl1, plan1, archiveSHA, fixPlan, implSHA, planSHA}; !slices.Equal(got, want) {
-		t.Errorf("got %v, want %v — neither the base tip nor the bundle commit is an implementation commit", got, want)
+			got := deriveFinishCommits(ExecRunner{}, repo, "spectre/demo", "demo")
+			if want := []string{kickoff, impl1, plan1, archiveSHA, fixPlan, implSHA, planSHA}; !slices.Equal(got, want) {
+				t.Errorf("got %v, want %v — neither the base tip nor the %s commit is an implementation commit", got, want, c.file)
+			}
+		})
 	}
 }
 

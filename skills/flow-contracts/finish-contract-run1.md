@@ -115,11 +115,12 @@ somewhere after it, and any fix run since wrote into the archived directory (**A
 directory**, `skills/flow-contracts/pipeline.md`).
 
 **An archived re-run's base** is the newest commit in `<merge-base>..HEAD` whose subject is
-`docs(self-review): <name> self-review context bundle`, else the newest whose subject is
+`docs(self-review): <name> self-review report` — or, from a run before KAN-927,
+`docs(self-review): <name> self-review context bundle` — else the newest whose subject is
 `chore(spectre): archive <name>`, else `<merge-base>` itself — a satellite worktree's range holds
 neither — `<merge-base>` being the merge base the reshape below would otherwise take. Everything at
 or below it is kept untouched — a reshape from that merge base itself would fold the archive and
-bundle commits into the implementation commit. The re-run **carries new work** when a commit sits
+report commits into the implementation commit. The re-run **carries new work** when a commit sits
 above the canonical worktree's base — every fix run commits its plan there, whichever repositories
 its tasks touched — or any worktree in the set holds an uncommitted tracked change, judged at the
 unfinished-work gate, before this run's own narrative append.
@@ -134,7 +135,7 @@ planning delta. Everything else runs
 either way: the base-moved check and **Sync the branch onto the base**
 (`skills/flow/sync-onto-base.md`), `commit-archive.sh`, which prints
 `ARCHIVE-NOTHING-STAGED` once the archive commit exists and nothing it copies has changed, the
-bundle step, and the route.
+self-review pass, and the route.
 
 **Check for unfinished work first — before the landing question and before any git action but the undo of an uncommitted archive above.**
 `check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]` prints one verdict line and
@@ -213,8 +214,8 @@ planning commit.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with
-the worktree at run 2; the store is the terminal record, and **Save the self-review context
-bundle** below renders from it what the bundle needs (**Temporary artifacts registry**,
+the worktree at run 2; the store is the terminal record, and **Run the self-review pass** below
+renders from it what the bundle needs (**Temporary artifacts registry**,
 `artifacts-registry.md`). The proposal
 artifact source stays in the state directory until run 2 removes it; run 1 copies nothing.
 
@@ -270,10 +271,10 @@ the same pull request, as the code:
    (`skills/flow/brainstorm-planner.md`), and an exit 2 refuses the commit too, never read as a
    pass.
 
-### Save the self-review context bundle
+### Run the self-review pass
 
-Then, still on `spectre/<name>` in the canonical apply worktree, before any route pushes. Self-review
-is always deferred: no reasoning pass and no prompt run here. The session fetches the
+Then, still on `spectre/<name>` in the canonical apply worktree, after the archive commit and
+before any route pushes. The session fetches the
 bundle with
 `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
 panel record rendered from the store, or, when the store yields no render for that record, read
@@ -286,15 +287,28 @@ archive commit of the change, oldest first — and prints it as one Markdown doc
 `skipped: <source> (absent)` inside the bundle, never fatal.
 The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the
 archived `narrative.md` is already a bundle section, and a change predating the narrative rule
-has the bundle report it skipped), writes the whole to
-`<project>/docs/self-review/<name>-context.md` in the worktree, and
-commits it on `spectre/<name>` with subject `docs(self-review): <name> self-review context
-bundle`. An already-committed bundle is skipped, not rewritten — save on an archived re-run with
-new work (**Run 1 — the branch is not merged** above), which regenerates it as a new commit. The pass then runs in `/flow-self-review <name>`
-(`skills/flow-self-review/SKILL.md`), canonical for the six angles, what is fixed and what may
-be filed, the filing-and-rating prompt and the report, which deletes the bundle in its report commit. A
-deferred pass covers what the bundle holds and nothing beyond it — the report's
-`**Deferred:**` line states that.
+has the bundle report it skipped) and holds the whole in memory — it is never written to
+`<project>/docs/self-review/` or committed.
+
+Over that bundle the session runs steps 2–6 of `/flow-self-review`
+(`skills/flow-self-review/SKILL.md`), inline, canonical for the six angles, the fix loop and its
+dispatch pairs, where the fixes land, the filing-and-rating prompt and the store rows. It then
+writes the report per that file's step 7 — its `**Deferred:**` line naming `the in-run bundle`
+as the bundle path — and commits it on `spectre/<name>`, not pushing here; the route pushes it:
+
+```bash
+land-self-review-report.sh "<canonical-worktree>" "spectre/<name>" \
+  "docs(self-review): <name> self-review report" \
+  docs/self-review/<name>-self-review.md
+```
+
+The route's landing push carries the fix commits' shas per step 5 of `/flow-self-review`.
+
+A committed report skips the pass, an archived re-run with new work (**Run 1 — the branch is not
+merged** above) included, so no finding is recorded or offered twice. A pass
+covers what the bundle holds and nothing beyond it — the report's `**Deferred:**` line states
+that. A bundle an older run committed as `<project>/docs/self-review/<name>-context.md` is still consumed
+by `/flow-self-review <name>`, the fallback.
 
 ### The routes
 
@@ -302,8 +316,8 @@ Every route runs from the apply worktree; none touches the main checkout or any 
 
 | Route | Then |
 |-------|------|
-| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code, planning, archive and bundle commits. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
-| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive and the bundle, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
+| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code, planning, archive, self-review fix and report commits. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
+| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the archive, the self-review fixes and the report, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
 Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/flow <name>` again.

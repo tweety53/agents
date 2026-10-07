@@ -87,3 +87,39 @@ func (s *Store) ListSelfReviewFindings(ctx context.Context, projectKey, change s
 	}
 	return out, nil
 }
+
+// SelfReviewFindingRow is one row of the self-review stats view: a finding
+// with the project it was recorded under.
+type SelfReviewFindingRow struct {
+	ProjectKey string
+	records.SelfReviewFinding
+}
+
+// SelfReviewFindingsInPeriod lists every self-review finding recorded within
+// period, optionally restricted to one project, newest first.
+func (s *Store) SelfReviewFindingsInPeriod(ctx context.Context, period Period, project *string) ([]SelfReviewFindingRow, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT project_key, id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, recorded_at
+		FROM self_review_findings
+		WHERE recorded_at >= $1 AND recorded_at < $2
+		  AND ($3::text IS NULL OR project_key = $3)
+		ORDER BY recorded_at DESC, id DESC
+	`, period.From, period.To, project)
+	if err != nil {
+		return nil, fmt.Errorf("store: self-review findings in period: %w", err)
+	}
+	defer rows.Close()
+
+	out := []SelfReviewFindingRow{}
+	for rows.Next() {
+		var r SelfReviewFindingRow
+		if err := rows.Scan(&r.ProjectKey, &r.ID, &r.Change, &r.Angle, &r.Note, &r.Disposition, &r.Ref, &r.BlastRadius, &r.RecordedAt); err != nil {
+			return nil, fmt.Errorf("store: self-review findings in period: scan: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: self-review findings in period: %w", err)
+	}
+	return out, nil
+}

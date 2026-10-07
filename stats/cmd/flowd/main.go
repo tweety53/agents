@@ -20,7 +20,9 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -160,7 +162,8 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st))
+	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st),
+		api.WithCommitBase(commitBaseFromRemote(originRemote())))
 	if err != nil {
 		// api.New calls config.Config.Validate itself, which keeps
 		// internal/api correct for any other caller, but the loopback
@@ -419,4 +422,31 @@ func logReconcileResult(logger *slog.Logger, trigger string, result reconcile.Re
 		logger.Info("flowd journal replay", "trigger", trigger,
 			"journals", result.Journals, "applied", result.Applied, "refused", result.Refused)
 	}
+}
+
+// originRemote is the daemon working directory's `git remote get-url
+// origin`, or "" when git, the checkout or the remote is missing -- the
+// self-review view then renders refs as plain text, never fails to start.
+func originRemote() string {
+	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// commitBaseFromRemote maps a GitHub origin remote, in its scp-like ssh,
+// ssh:// or https form, to its https commit base. Any other remote maps to "".
+func commitBaseFromRemote(remote string) string {
+	var repo string
+	for _, prefix := range []string{"git@github.com:", "ssh://git@github.com/", "https://github.com/"} {
+		if rest, ok := strings.CutPrefix(remote, prefix); ok {
+			repo = rest
+			break
+		}
+	}
+	if repo == "" {
+		return ""
+	}
+	return "https://github.com/" + strings.TrimSuffix(strings.TrimSuffix(repo, "/"), ".git") + "/commit"
 }
