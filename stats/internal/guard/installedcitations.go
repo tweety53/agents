@@ -859,9 +859,15 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 // collapses three corpus wordings of the same concept ("the running
 // command's own skill directory" and two variants); pipeline.md's "Guard
 // resolution" section is canonical for what it means.
+//
+// `<project>-worktrees` and `<agents repo>-worktrees` are the sibling root
+// every /flow worktree lives under (kan-916, design.md:
+// sibling-worktrees-layout) — beside the checkout, not inside it, the same
+// criterion again.
 var cicPlaceholderRoots = map[string]bool{
 	"<agents repo>": true, "<project>": true, "<abs-worktree>": true,
 	"<changeRoot>": true, "<state-dir>": true, "<skill-dir>": true,
+	"<project>-worktrees": true, "<agents repo>-worktrees": true,
 }
 
 // cicNamesRoot is judges_ok: true when token — already classified as a

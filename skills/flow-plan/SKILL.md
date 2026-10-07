@@ -60,9 +60,9 @@ here; the store attaches the open plan session to the change the moment the capt
 nothing.
 
 **Every read is of the main checkout, read-only.** This mode writes nothing until a capture:
-**Capturing a new change** creates `<project>/.worktrees/<name>` through `/flow`'s kickoff and
+**Capturing a new change** creates `<project>-worktrees/<name>` through `/flow`'s kickoff and
 writes there; a `design.md` addition is written in that change's own worktree —
-`<project>/.worktrees/<name>`, found from `git worktree list`. The main checkout is never checked
+`<project>-worktrees/<name>`, found from `git worktree list`. The main checkout is never checked
 out, staged, committed or written, whatever branch it sits on.
 
 ---
@@ -172,7 +172,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    already resolved above, so its candidate lookup, the name, the In Progress transition and the
    `STARTED` write are what runs. A lookup that finds an existing change for this key is the
    existing-change destination above, never a second change.
-2. The kickoff steps 1–5 in the same section — `<project>/.worktrees/<name>` on `spectre/<name>`,
+2. The kickoff steps 1–4 in the same section — `<project>-worktrees/<name>` on `spectre/<name>`,
    pushed, cut from `--base <branch>` when the argument carries one (`skills/flow/SKILL.md`). `flow.kickoff` itself is not marked (**The session does the thinking itself**, above).
 3. **C. Create the change and its artifacts** (`skills/flow/brainstorm-planner.md`) — `spectre
    new` in the worktree, then the three artifacts. `design.md`'s body is **The Fixed Section

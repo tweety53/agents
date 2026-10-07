@@ -18,6 +18,11 @@ staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.
 for it: run `check-foreign-staged.sh` and `check-main-checkout-drift.sh` once per distinct main
 checkout.
 
+**Then migrate retired-layout worktrees** —
+**Migrate retired-layout worktrees before the preflight**
+(`skills/flow-contracts/finish-contract-run1.md`) is canonical for it: run `migrate-worktrees.sh`
+once, naming every distinct main checkout.
+
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
 worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw read of the state file's
 `worktrees` map. Its `<base-ref>` argument is `origin/$BASE`, `$BASE` being what running

@@ -26,8 +26,12 @@
 #     worktree as its directory under `bash -o pipefail -c`, bounded at 60
 #     seconds (own process group, SIGTERM, a 2-second grace, SIGKILL); a file,
 #     key or fence that is absent means no command is declared, the check is
-#     skipped, and nothing outside the fence is ever run. Then the sibling
-#     check-worktree-processes.sh.
+#     skipped, and nothing outside the fence is ever run. Then, unless check
+#     5 failed for any of them — nothing is then removed, every index
+#     kept — every language server a worktree-lsp wrapper runs at or under
+#     each worktree is stopped (lspmux.StopUnder: SIGTERM, a 5-second grace, SIGKILL; a failure
+#     to stop is a stderr line, and check 6 reports what still holds it), and
+#     the sibling check-worktree-processes.sh runs.
 #   `worktree remove --force` for each copy, then each apply worktree;
 #   `worktree prune`; `branch -d spectre/<name>` (never -D) when it exists,
 #     its upstream first set to origin/<base> (the base check 3's

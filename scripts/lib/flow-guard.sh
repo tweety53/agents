@@ -16,10 +16,12 @@
 #
 # THE KEY. The cache key is the SHA-256 of the per-file SHA-256 lines of
 # exactly the sources the binary is built from — stats/go.mod, stats/go.sum,
-# and the non-test .go files of stats/cmd/flow-guard/ and
-# stats/internal/guard/ (the only package it imports from this module) —
-# named relative to stats/, so two checkouts with the same sources share one
-# binary and a _test.go edit never forces a rebuild. The binary lives at
+# and the non-test .go files of stats/cmd/flow-guard/, stats/internal/guard/
+# and stats/internal/lspmux/ (the only packages it imports from this module;
+# remove-change-worktrees calls lspmux.StopUnder) — named relative to stats/,
+# so two checkouts with the same sources share one binary and a _test.go edit
+# never forces a rebuild. A tree without internal/lspmux/ keys without it.
+# The binary lives at
 # <cache>/<key>/flow-guard, where <cache> is FLOW_GUARD_CACHE_DIR if set (the
 # test suites point it at a temporary directory, so no test writes into the
 # operator's real cache), else ${XDG_CACHE_HOME:-$HOME/.cache}/flow-guard.
@@ -54,8 +56,8 @@ flow_guard_key() {
   (
     cd "$1" || exit 1
     files=(go.mod go.sum)
-    for f in cmd/flow-guard/*.go internal/guard/*.go; do
-      case "$f" in *_test.go) ;; *) files+=("$f") ;; esac
+    for f in cmd/flow-guard/*.go internal/guard/*.go internal/lspmux/*.go; do
+      case "$f" in *_test.go | 'internal/lspmux/*.go') ;; *) files+=("$f") ;; esac
     done
     if command -v sha256sum >/dev/null 2>&1; then
       sum() { sha256sum "$@"; }

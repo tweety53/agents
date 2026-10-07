@@ -40,7 +40,12 @@ const kwName = "kan-1-demo"
 // ("" for none). withFlow puts the real flow CLI on PATH.
 func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 	t.Helper()
-	tmp := t.TempDir()
+	// Physical, as git records a worktree's path and the location guard
+	// compares it.
+	tmp, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	fx := kwFx{origin: tmp + "/origin.git", project: tmp + "/project"}
 	var g fxGit
 	g.git("", "init", "-q", "--bare", "-b", "main", fx.origin)
@@ -158,7 +163,7 @@ func TestKickoffWorktree(t *testing.T) {
 		fx := kwNew(t, kwSetupMD, true)
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName)
-		wt := fx.project + "/.worktrees/" + kwName
+		wt := fx.project + "-worktrees/" + kwName
 		mb := fx.git(t, fx.origin, "rev-parse", "main")
 		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+mb+"\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
@@ -193,7 +198,7 @@ func TestKickoffWorktree(t *testing.T) {
 		tip := fx.git(t, other, "rev-parse", "HEAD")
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName)
-		wt := fx.project + "/.worktrees/" + kwName
+		wt := fx.project + "-worktrees/" + kwName
 		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
@@ -202,43 +207,12 @@ func TestKickoffWorktree(t *testing.T) {
 		}
 	})
 
-	t.Run(".worktrees not ignored: appended to info/exclude once", func(t *testing.T) {
-		t.Parallel()
-		fx := kwNew(t, "", true)
-		fx.started(t)
-		exclude := fx.git(t, fx.project, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude")
-		if r := fx.run(t, fx.project, kwName); r.rc != 0 {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
-		}
-		b, _ := os.ReadFile(exclude)
-		if n := strings.Count("\n"+string(b), "\n.worktrees/\n"); n != 1 || !strings.HasSuffix(string(b), "\n.worktrees/\n") {
-			t.Errorf("info/exclude = %q", b)
-		}
-		if st := fx.git(t, fx.project, "status", "--porcelain"); st != "" {
-			t.Errorf("project status = %q, want clean (nothing committed or untracked)", st)
-		}
-	})
-
-	t.Run(".worktrees already ignored: info/exclude untouched", func(t *testing.T) {
-		t.Parallel()
-		fx := kwNew(t, "", true)
-		fx.started(t)
-		exclude := fx.git(t, fx.project, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude")
-		writeFile(t, exclude, ".worktrees\n")
-		if r := fx.run(t, fx.project, kwName); r.rc != 0 {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
-		}
-		if b, _ := os.ReadFile(exclude); string(b) != ".worktrees\n" {
-			t.Errorf("info/exclude = %q", b)
-		}
-	})
-
 	t.Run("a failing setup command stops with exit 1, worktree already persisted", func(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "## worktree setup\n\n```bash\ntouch first-ran\nsh -c 'echo boom; exit 3'\ntouch never-ran\n```\n", true)
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName)
-		wt := fx.project + "/.worktrees/" + kwName
+		wt := fx.project + "-worktrees/" + kwName
 		if r.rc != 1 || !strings.Contains(r.err, "sh -c 'echo boom; exit 3'") || !strings.Contains(r.err, "boom") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
@@ -264,8 +238,8 @@ func TestKickoffWorktree(t *testing.T) {
 		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "kickoff-worktree: no flow binary on PATH") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
-		if _, err := os.Stat(fx.project + "/.worktrees"); err == nil {
-			t.Errorf(".worktrees exists: a worktree was added")
+		if _, err := os.Stat(fx.project + "-worktrees"); err == nil {
+			t.Errorf("<project>-worktrees exists: a worktree was added")
 		}
 	})
 
@@ -279,7 +253,7 @@ func TestKickoffWorktree(t *testing.T) {
 		if r.rc != 1 || !strings.Contains(r.out, "STRAY: ") || !strings.Contains(r.out, "LOCATION-STRAY: ") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
-		if _, err := os.Stat(fx.project + "/.worktrees/" + kwName); err == nil {
+		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
 			t.Errorf("a worktree was added after the location guard refused")
 		}
 	})
@@ -307,7 +281,7 @@ func TestKickoffWorktree(t *testing.T) {
 		tip := fx.git(t, other, "rev-parse", "HEAD")
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName, "feature/offline-mode")
-		wt := fx.project + "/.worktrees/" + kwName
+		wt := fx.project + "-worktrees/" + kwName
 		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
@@ -324,7 +298,7 @@ func TestKickoffWorktree(t *testing.T) {
 		if r.rc != 1 || !strings.Contains(r.err, "kickoff-worktree: origin/feature/nope does not exist") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
-		if _, err := os.Stat(fx.project + "/.worktrees/" + kwName); err == nil {
+		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
 			t.Errorf("a worktree was added for a missing base")
 		}
 	})
@@ -337,4 +311,52 @@ func TestKickoffWorktree(t *testing.T) {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
 	})
+}
+
+// TestKickoffWorktreeSiblingLayout pins kickoff on the sibling layout
+// (design.md: sibling-worktrees-layout): the worktree is created at
+// <parent>/<repo>-worktrees/<name>, outside the repository, nothing is
+// written to info/exclude, and the `worktree:` line names that path.
+func TestKickoffWorktreeSiblingLayout(t *testing.T) {
+	t.Parallel()
+	fx := kwNew(t, "", true)
+	fx.started(t)
+	exclude := fx.git(t, fx.project, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude")
+	before, _ := os.ReadFile(exclude)
+	r := fx.run(t, fx.project, kwName)
+	wt := filepath.Dir(fx.project) + "/project-worktrees/" + kwName
+	if r.rc != 0 || !strings.HasPrefix(r.stdout, "worktree: "+wt+"\n") {
+		t.Fatalf("rc=%d out=%s", r.rc, r.out)
+	}
+	if b := fx.git(t, wt, "branch", "--show-current"); b != "spectre/"+kwName {
+		t.Errorf("branch = %q", b)
+	}
+	if after, _ := os.ReadFile(exclude); string(after) != string(before) {
+		t.Errorf("info/exclude changed: %q -> %q", before, after)
+	}
+	if st := fx.git(t, fx.project, "status", "--porcelain", "--ignored"); st != "" {
+		t.Errorf("project status = %q, want clean (the worktree is outside the repository)", st)
+	}
+}
+
+// A project reached through a symlink gets its worktree beside the physical
+// checkout — the root the location guard resolves — so the next kickoff's
+// location check does not report it STRAY.
+func TestKickoffWorktreeSymlinkedProject(t *testing.T) {
+	t.Parallel()
+	fx := kwNew(t, "", true)
+	fx.started(t)
+	link := filepath.Dir(fx.project) + "/link/via"
+	mkdir(t, filepath.Dir(link))
+	if err := os.Symlink(fx.project, link); err != nil {
+		t.Fatal(err)
+	}
+	r := fx.run(t, link, kwName)
+	wt := fx.project + "-worktrees/" + kwName
+	if r.rc != 0 || !strings.HasPrefix(r.stdout, "worktree: "+wt+"\n") {
+		t.Fatalf("rc=%d out=%s", r.rc, r.out)
+	}
+	if loc := runGuard("check-worktree-location", []string{link}, Env{Getenv: os.Getenv}); loc.rc != 0 {
+		t.Errorf("location check after kickoff: %+v", loc)
+	}
 }

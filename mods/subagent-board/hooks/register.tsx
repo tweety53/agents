@@ -321,11 +321,12 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !rs.some(r => r.state === 'in progress')) {
       return next(e)
     }
-    // The running change's plan, read from its worktree (`<project>/.worktrees/<name>`, where /flow ticks it);
-    // absent, no pending rows.
+    // The running change's plan, read from its worktree (`<dirname project>/<basename project>-worktrees/<name>`,
+    // beside the main checkout, where /flow ticks it); absent, no pending rows. `session.root()` is the launch
+    // directory — `session.cwd()` follows the shell, so a `cd stats && …` would aim it at `stats-worktrees/`.
     const { change } = await read($, flow)
     const plan = change
-      ? await $.fs.read(`.worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '')
+      ? await $.fs.read(`${await $.session.root()}-worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '')
       : ''
     // The main row plus at most MAX_ROWS others: the board's rows first, then the main loop's open status lines,
     // then the earliest pending tasks no row above names; past MAX_ROWS running rows, only the earliest show,

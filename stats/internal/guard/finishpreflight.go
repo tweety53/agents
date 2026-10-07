@@ -136,11 +136,10 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 
-	// check-worktree-location stays bash (design.md: exec-unported-siblings),
-	// exec'd from beside the shim with the bash's argv. The shim exports its
-	// path as $SCRIPT_DIR/check-worktree-location.sh — the bash guard's own
-	// spelling, and the one check-guard-symlinks rule 2 reads to require the
-	// sibling wherever the shim is carried.
+	// check-worktree-location is exec'd as a sibling script, from beside the
+	// shim with the shim's argv. The shim exports its path as
+	// $SCRIPT_DIR/check-worktree-location.sh — the spelling check-guard-symlinks
+	// rule 2 reads to require the sibling wherever the shim is carried.
 	location := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION")
 	if location == "" {
 		fmt.Fprintln(stderr, "check-finish-preflight: FLOW_GUARD_WORKTREE_LOCATION is unset — run scripts/check-finish-preflight.sh, which sets it")

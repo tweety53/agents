@@ -1,0 +1,21 @@
+{
+  "name": "worktree-lsp",
+  "version": "0.1.0",
+  "description": "gopls and kotlin-lsp, one server per git worktree behind one connection: a request waits until its worktree's server finished indexing, workspace symbols fan out to every server, and a worktree's servers stop at /flow cleanup or when it is removed",
+  "lspServers": {
+    "gopls": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/worktree-lsp",
+      "args": ["--", "gopls"],
+      "extensionToLanguage": { ".go": "go" },
+      "startupTimeout": 120000,
+      "requestTimeout": 1800000
+    },
+    "kotlin-lsp": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/worktree-lsp",
+      "args": ["--", "kotlin-lsp", "--stdio"],
+      "extensionToLanguage": { ".kt": "kotlin", ".kts": "kotlin" },
+      "startupTimeout": 120000,
+      "requestTimeout": 1800000
+    }
+  }
+}

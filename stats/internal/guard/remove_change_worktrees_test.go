@@ -1,10 +1,13 @@
 package guard
 
 import (
+	"bufio"
 	"bytes"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -482,4 +485,81 @@ func TestRemoveChangeWorktreesStopCommand(t *testing.T) {
 		}
 		fx.assertUntouched(t)
 	})
+}
+
+// A language server a worktree-lsp wrapper runs in the apply worktree is
+// stopped before check 6 (lspmux.StopUnder), so cleanup removes the worktree
+// rather than reporting it HELD.
+func TestRemoveChangeWorktreesStopsLSPChildren(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stopped before check 6", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		server := rcwStartLSP(t, fx.dir, fx.wt)
+		code, stdout, stderr := fx.run(t, nil)
+		if code != 0 || rcwExists(fx.wt) {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
+		}
+		if syscall.Kill(server, 0) == nil {
+			t.Errorf("the language server %d outlived cleanup", server)
+		}
+	})
+
+	// A worktree whose ## stop failed is not removed, so its servers keep
+	// their index for the next run rather than paying a cold re-index.
+	t.Run("left running when check 5 failed for another worktree", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		c := fx.copy()
+		fx.stop(t, "```bash\ncase \"$PWD\" in *-wave-group-2) exit 7;; esac\n```")
+		server := rcwStartLSP(t, fx.dir, fx.wt)
+		code, stdout, stderr := fx.run(t, nil, "--proceed")
+		if code != 1 || !rcwExists(fx.wt) || !rcwExists(c) {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
+		}
+		if syscall.Kill(server, 0) != nil {
+			t.Errorf("the language server %d was stopped although nothing is removed", server)
+		}
+	})
+
+	t.Run("left running when check 5 failed", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		fx.stop(t, "```bash\nexit 7\n```")
+		server := rcwStartLSP(t, fx.dir, fx.wt)
+		code, stdout, stderr := fx.run(t, nil)
+		if code != 1 || !rcwExists(fx.wt) {
+			t.Fatalf("exit %d, worktree present %v\nstdout:\n%s\nstderr:\n%s", code, rcwExists(fx.wt), stdout, stderr)
+		}
+		if syscall.Kill(server, 0) != nil {
+			t.Errorf("the language server %d was stopped although the worktree stays", server)
+		}
+	})
+}
+
+// rcwStartLSP starts a fake worktree-lsp wrapper in dir whose one language
+// server runs with its cwd in wt, and returns the server's pid.
+func rcwStartLSP(t *testing.T, dir, wt string) int {
+	t.Helper()
+	wrapper := exec.Command("/bin/bash", "-c", `(cd "$1" && exec sleep 60) & echo $!; wait`, "bash", wt)
+	wrapper.Args[0] = "worktree-lsp" // ps reports argv[0], as for the built wrapper the plugin execs
+	wrapper.Dir = dir
+	out, err := wrapper.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := wrapper.Start(); err != nil {
+		t.Fatal(err)
+	}
+	line, err := bufio.NewReader(out).ReadString('\n')
+	server, _ := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || server == 0 {
+		t.Fatalf("reading the server's pid: %q %v", line, err)
+	}
+	t.Cleanup(func() {
+		_ = syscall.Kill(server, syscall.SIGKILL)
+		_ = wrapper.Wait()
+	})
+	return server
 }

@@ -14,8 +14,10 @@ landing as staged changes. This hook denies the tools that create such residue:
     redirect, `cp` destinations, or `mv`/`rm` sources and destinations.
 
 "Main checkout" is the worktree whose git dir IS the common dir — a linked worktree's `--git-dir`
-is `<common>/worktrees/<name>`, so `.worktrees/<change>` and `<repo>-worktrees/<change>` alike
-pass. "Default branch" is what `origin/HEAD` points at; when the remote head is unknown, a checkout
+is `<common>/worktrees/<name>`, so `<repo>-worktrees/<change>` beside the main checkout passes,
+as does a pre-migration `.worktrees/<change>` inside it. A path into a worktree that does not exist
+yet passes too, when its nearest existing ancestor is either root. The deny reason suggests the
+sibling `<dirname top>/<basename top>-worktrees/<change>` only. "Default branch" is what `origin/HEAD` points at; when the remote head is unknown, a checkout
 of main, master or develop counts. A main checkout on a feature branch is not protected — leaving
 the default branch is how work gets a branch of its own.
 
@@ -92,18 +94,40 @@ def existing_dir(path):
     return p
 
 
+def is_main_checkout(p):
+    """True when p is the toplevel of a main checkout — not a subdirectory, not a linked worktree."""
+    top = git(p, "rev-parse", "--show-toplevel")
+    git_dir = git(p, "rev-parse", "--absolute-git-dir")
+    common = git(p, "rev-parse", "--git-common-dir")
+    if not top or not git_dir or not common:
+        return False
+    if not os.path.isabs(common):
+        common = os.path.join(p, common)
+    return os.path.realpath(top) == os.path.realpath(p) and os.path.realpath(git_dir) == os.path.realpath(common)
+
+
+def worktree_root(d):
+    """True when d is a worktree root: `<main>-worktrees` beside a main checkout `<main>`, or the
+    pre-migration `<main>/.worktrees` the hook no longer suggests."""
+    name = os.path.basename(d)
+    if name == ".worktrees":
+        return True
+    main = name[: -len("-worktrees")]
+    return name.endswith("-worktrees") and bool(main) and is_main_checkout(os.path.join(os.path.dirname(d), main))
+
+
 def protected(path):
     """(toplevel, branch) when path lies in a main checkout on its default branch, else None."""
     d = existing_dir(path)
     if d is None:
         return None
-    if os.path.basename(d) == ".worktrees" and os.path.abspath(path) != d:
-        # the nearest existing ancestor is the sanctioned worktree root, so a
-        # missing component below it is a future worktree — never main-checkout
-        # content; a not-yet-existing worktree is where work goes. The
-        # `.worktrees/` root convention is owned by scripts/check-worktree-location.sh;
-        # this rule mirrors it for path resolution, and the root itself — path == d —
-        # stays protected like any other main-checkout directory.
+    if worktree_root(d) and os.path.abspath(path) != d:
+        # the nearest existing ancestor is a worktree root, so a missing component
+        # below it is a future worktree — never main-checkout content; a
+        # not-yet-existing worktree is where work goes. The root convention is owned
+        # by scripts/check-worktree-location.sh; this rule mirrors it for path
+        # resolution, and the root itself — path == d — stays protected like any
+        # other main-checkout directory.
         return None
     top = git(d, "rev-parse", "--show-toplevel")
     if not top:
@@ -335,7 +359,7 @@ def deny_reason(top, branch):
         "target every pipeline run pushes to, and anything left behind becomes residue no later "
         "session owns.\n\n"
         "Work in a worktree on a branch of its own instead:\n\n"
-        f"  git -C {top} worktree add {top}/.worktrees/<change> -b <change> origin/{branch}\n\n"
+        f"  git -C {top} worktree add {top}-worktrees/<change> -b <change> origin/{branch}\n\n"
         "then edit, commit and push there, and land with a push of `<change>:"
         f"{branch}` or a pull request. To bring this checkout up to date afterwards, "
         f"`git -C {top} pull --ff-only` is allowed. Reads are always allowed. If the user "

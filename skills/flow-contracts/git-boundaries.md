@@ -24,7 +24,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/flow-status` | — | None — read-only |
 | `/flow-plan` | change captured | **Commits once** — the planning artifacts, `chore(spectre): plan <name> — captured` — on `spectre/<name>` in the change worktree, and pushes it (**Capturing a new change**, `skills/flow-plan/SKILL.md`); nothing else, ever |
 
-**No command writes the main checkout.** `/flow` creates `<project>/.worktrees/<name>` inside
+**No command writes the main checkout.** `/flow` creates `<project>-worktrees/<name>` inside
 `flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
 capture — it reads the main checkout before then and writes nothing — and every write, stage,
 commit and push in the table above happens in a worktree. The main checkout is never checked out,

@@ -1,0 +1,1 @@
+../../../scripts/migrate-worktrees.sh

@@ -718,7 +718,7 @@ A run that stops, is interrupted, or is resumed after a context compaction anywh
 
 ### implement.md — 2. Isolate the workspace, additional worktrees (KAN-857)
 
-The working directory is what resolves the peers file's relative entries — `ResolvePeer` stats a declared peer path against the process working directory, so from inside a worktree `../<peer>` resolves into `<project>/.worktrees/` and the link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side `link.md` into the worktree, where `check-unfinished-work.sh` reads it at integrate.
+The working directory is what resolves the peers file's relative entries — `ResolvePeer` stats a declared peer path against the process working directory, so from inside a worktree `../<peer>` resolves into `<project>-worktrees/` and the link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side `link.md` into the worktree, where `check-unfinished-work.sh` reads it at integrate.
 
 **A refusal is a hard failure of this stage**: report it and stop the run — a change whose cross-repo link cannot be established lands at integrate with a false OUTSTANDING verdict that forces hand verification.
 

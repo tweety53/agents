@@ -64,7 +64,7 @@ dispatch's model is the recorded decision's pair, per **Model and effort**
 Every dispatch's `description` follows **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
 
 `<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
-basename is what keys the rolls — and `<project>/.superpowers/` joins `<project>/.worktrees/` in
+basename is what keys the rolls — and `<project>/.superpowers/` is listed in
 `<project>/.git/info/exclude`. Every `skills/flow/` section cited below runs as written, with
 these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it
 reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha
@@ -111,7 +111,7 @@ constraints on a summary-derived name. Then transition the issue to **In Progres
 flow stage mark  -command '/flow-fast' -stages flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-**A re-run is detected, never recorded**: `<project>/.worktrees/<name>` already existing means an
+**A re-run is detected, never recorded**: `<project>-worktrees/<name>` already existing means an
 earlier run left the branch unlanded. Reuse it and skip the creation below. With an argument,
 it is fix instructions and sections 2–5 run again on the branch; bare, sections 2–5 have nothing
 to do and mark through, and the run continues at section 6.
@@ -122,10 +122,9 @@ points at:
 
 ```bash
 git fetch origin
-grep -qx '.worktrees/' .git/info/exclude 2>/dev/null || echo '.worktrees/' >> .git/info/exclude
-git worktree add <project>/.worktrees/<name> -b <name> origin/<base>
-git -C <project>/.worktrees/<name> config branch.<name>.flowBase <base>   # --base only
-git -C <project>/.worktrees/<name> push -u origin <name>
+git worktree add <project>-worktrees/<name> -b <name> origin/<base>
+git -C <project>-worktrees/<name> config branch.<name>.flowBase <base>   # --base only
+git -C <project>-worktrees/<name> push -u origin <name>
 ```
 
 Then the project's declared `## worktree setup` (**Project configuration**,
@@ -134,6 +133,9 @@ anything else touches the tree — the fenced command lines only, in order, in t
 key's exit 1 (absent) continues with nothing run, its exit 2 stops the run, and a command's
 non-zero exit ends the run naming the command and its output. A re-run reusing an existing
 worktree runs nothing here — the creating run already ran it.
+
+Then, on a creating run, wait for the new worktree's language servers exactly as **A. Resolve the
+change and write `STARTED`** (`skills/flow/brainstorm.md`) does after `kickoff-worktree.sh`.
 
 **From here on, on every run, `<base>` is what `resolve-base-branch.sh <worktree>` prints** — the
 recorded base when there is one — so a re-run lands where the creating run cut.
@@ -417,7 +419,7 @@ flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -s
 ```
 
 ```bash
-git -C <project> worktree remove <project>/.worktrees/<name>
+git -C <project> worktree remove <project>-worktrees/<name>
 git -C <project> branch -D <name>
 git -C <project> push origin --delete <name>
 ```

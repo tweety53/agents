@@ -87,7 +87,7 @@ without duplicating the ones already applied.
 
 ```json
 "worktrees": {
-  "/Users/tweety53/Projects/agents/.worktrees/<name>": "5ee4c9a…",
-  "/Users/tweety53/Projects/other/.worktrees/<name>": "b31f7c2…"
+  "/Users/tweety53/Projects/agents-worktrees/<name>": "5ee4c9a…",
+  "/Users/tweety53/Projects/other-worktrees/<name>": "b31f7c2…"
 }
 ```

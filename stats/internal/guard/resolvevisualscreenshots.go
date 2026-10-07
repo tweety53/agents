@@ -178,9 +178,10 @@ func rvsWorktreeOn(cmd *exec.Cmd, branch string) string {
 // '*.png' -print`, filtered: regular files only, symlinks neither followed
 // nor matched (find without -L; WalkDir follows none, the root included).
 //
-// `.worktrees/` holds other changes' checkouts of the same files: sweeping
-// them in returns one PNG name per checkout, and a zip built from the list
-// refuses the repeats.
+// `.worktrees/` held other changes' checkouts of the same files before the
+// sibling `<repo>-worktrees/` layout, and still does for one not yet migrated:
+// sweeping them in returns one PNG name per checkout, and a zip built from the
+// list refuses the repeats.
 //
 // THE MATCH IS ANCHORED AT A PATH-SEGMENT BOUNDARY: a path is kept when any
 // `/`-separated segment of it starts with spec, so `visual-baseline.spec.ts-…`

@@ -130,6 +130,18 @@ k3="$(flow_guard_key "$FIX/stats")"
 [ -n "$k0" ] && [ "$k0" = "$k1" ] && [ "$k1" != "$k2" ] && [ "$k2" != "$k3" ]
 check "case 5: the cache key ignores _test.go and tracks internal/guard and go.mod (k0=$k0 k1=$k1 k2=$k2 k3=$k3)" $?
 
+# 5b. internal/lspmux, which the guard imports, is keyed like internal/guard:
+#     adding or editing a non-test file changes the key, a _test.go does not.
+mkdir -p "$FIX/stats/internal/lspmux"
+printf 'package lspmux\n' > "$FIX/stats/internal/lspmux/stop_test.go"
+k4="$(flow_guard_key "$FIX/stats")"
+printf 'package lspmux\n' > "$FIX/stats/internal/lspmux/stop.go"
+k5="$(flow_guard_key "$FIX/stats")"
+printf '// edit\n' >> "$FIX/stats/internal/lspmux/stop.go"
+k6="$(flow_guard_key "$FIX/stats")"
+[ -n "$k4" ] && [ "$k4" = "$k3" ] && [ "$k4" != "$k5" ] && [ "$k5" != "$k6" ]
+check "case 5b: the cache key tracks internal/lspmux's non-test files (k3=$k3 k4=$k4 k5=$k5 k6=$k6)" $?
+
 # 6. No go and nothing cached: the guard's own cannot-answer code, the cause
 #    named, never a verdict. A word no earlier case built, since two trees
 #    with the same sources share one cached binary.

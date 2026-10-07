@@ -348,3 +348,26 @@ func repoDirs(t *testing.T, dir string) []string {
 	}
 	return out
 }
+
+// The worktree-lsp mod replaces the official LSP plugins, but settings.json is the user's own:
+// global prints the disable command for each one still enabled, and never edits the file.
+func TestOfficialLSPPluginsWarned(t *testing.T) {
+	g := newGroup(t)
+	home := g.newHome()
+	settings := filepath.Join(home, ".claude/settings.json")
+	enabled := `{"enabledPlugins":{"gopls-lsp@claude-plugins-official": true,"kotlin-lsp@claude-plugins-official":true}}` + "\n"
+	g.seedFile(settings, 0o644, enabled)
+	g.runSetup(fixture, home, "global", "")
+	g.assertRCZero("the install succeeds", g.rc, g.log)
+	g.assertContains("an enabled gopls-lsp is reported", g.log, "claude plugin disable gopls-lsp@claude-plugins-official")
+	g.assertContains("an enabled kotlin-lsp is reported", g.log, "claude plugin disable kotlin-lsp@claude-plugins-official")
+	if b, err := os.ReadFile(settings); err != nil || string(b) != enabled {
+		g.fail("settings.json is left as the user wrote it", fmt.Sprintf("now %q (%v)", b, err))
+	}
+
+	home = g.newHome()
+	g.seedFile(filepath.Join(home, ".claude/settings.json"), 0o644, `{"enabledPlugins":{"gopls-lsp@claude-plugins-official":false}}`+"\n")
+	g.runSetup(fixture, home, "global", "")
+	g.assertRCZero("the install succeeds", g.rc, g.log)
+	g.assertNotContains("a disabled or absent official LSP plugin is not reported", g.log, "claude plugin disable")
+}

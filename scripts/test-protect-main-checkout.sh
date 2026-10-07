@@ -39,6 +39,13 @@
 #       /flow branch's change open                                   -> deny
 #   43. Bash `sed -i '' … <outside file>` from the main checkout     -> allow
 #       (BSD sed's empty suffix argument is not a path)
+#   44. sibling layout: Edit in an existing <repo>-worktrees/<change> -> allow
+#   45. sibling layout: Write into a not-yet-existing <repo>-worktrees/<change>
+#       whose parent directory is itself a protected main checkout     -> allow
+#   46. sibling layout: the deny reason suggests <repo>-worktrees/<change>,
+#       never .worktrees/
+#   47. sibling layout: Write into <X>-worktrees/<new> beside a directory X
+#       that is no main checkout, inside a protected checkout          -> deny
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -181,6 +188,25 @@ expect "40 HEAD:main push with the change archived" allow \
 echo x >"$ROOT/outside.txt"
 expect "43 BSD sed -i with an empty suffix, file outside" allow \
   "$(run "$MAIN" Bash "{\"command\":$(q "sed -i '' 's/x/y/' $ROOT/outside.txt")}")"
+
+# 44-47: the sibling layout, <dirname main>/<basename main>-worktrees/<change>
+git_q -C "$MAIN" worktree add "$ROOT/main-worktrees/sib" -b sib
+expect "44 sibling layout: Edit in an existing sibling worktree" allow \
+  "$(run "$ROOT" Edit "{\"file_path\":$(q "$ROOT/main-worktrees/sib/f.txt"),\"old_string\":\"a\",\"new_string\":\"b\"}")"
+git_q init -q -b develop "$ROOT/noorigin/inner"
+mkdir -p "$ROOT/noorigin/inner-worktrees"
+expect "45 sibling layout: Write into a not-yet-existing sibling worktree" allow \
+  "$(run "$ROOT" Write "{\"file_path\":$(q "$ROOT/noorigin/inner-worktrees/new/x"),\"content\":\"x\"}")"
+mkdir -p "$ROOT/noorigin/lib" "$ROOT/noorigin/lib-worktrees"
+expect "47 sibling layout: <X>-worktrees beside a plain directory is main-checkout content" deny \
+  "$(run "$ROOT" Write "{\"file_path\":$(q "$ROOT/noorigin/lib-worktrees/new/x"),\"content\":\"x\"}")"
+reason="$(printf '{"tool_name":"Write","tool_input":{"file_path":%s,"content":"x"},"cwd":"%s"}' \
+  "$(q "$MAIN/new.txt")" "$ROOT" | python3 "$HOOK")"
+if grep -qF "worktree add $ROOT/main-worktrees/<change>" <<<"$reason" && ! grep -qF '.worktrees' <<<"$reason"; then
+  pass "46 sibling layout: deny reason suggests the sibling path"
+else
+  fail "46 sibling layout: deny reason does not suggest $ROOT/main-worktrees/<change>: $reason"
+fi
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature

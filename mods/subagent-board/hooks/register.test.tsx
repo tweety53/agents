@@ -190,6 +190,7 @@ test('a running row shows its kind as its state word; a finished one its state',
 
 test('rows carry their run label; the band hides once all finish; ticket and phase reach the hint', async ($, on) => {
   mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
   on('agent.spawn', () => ({ model: 'claude-opus-5-5', agentId: 'ag1' }))
   on('turn.complete', () => ({ text: '' }))
   on('turn.step', async function* (_$, e) {
@@ -366,15 +367,16 @@ test('pendingRows lists the unticked plan tasks no row has taken', () => {
   expect(pendingRows('', [])).toEqual([])
 })
 
-test("the running /flow change's pending tasks follow the dispatched rows", async ($, on) => {
+test("sibling layout: the running /flow change's pending tasks, read from <repo>-worktrees/<change>, follow the dispatched rows", async ($, on) => {
   mock.clock(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('tool.call', () => ({ result: '' }))
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
   const reads: string[] = []
   on('fs.read', (_$, e) => {
     reads.push(e.path)
-    if (!e.path.endsWith('/.worktrees/kan-873-port-guards/spectre/changes/kan-873-port-guards/tasks.md')) throw new Error('ENOENT')
+    if (e.path !== '/u/Projects/agents-worktrees/kan-873-port-guards/spectre/changes/kan-873-port-guards/tasks.md') throw new Error('ENOENT')
     return { value: PLAN }
   })
   on('ui.render', (r, e) => {
@@ -406,6 +408,7 @@ test("the running /flow change's pending tasks follow the dispatched rows", asyn
 
 test('the band draws at most main plus five rows: dispatched rows first, then the earliest pending', async ($, on) => {
   mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('turn.step', async function* (_$, e) {
@@ -531,6 +534,7 @@ test('lineRows leaves out a unit a subagent row already numbers', () => {
 
 test("the main loop's status lines are rows: latest line per unit, done drops off, no unit twice", async ($, on) => {
   mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
   let n = 0
   on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
   on('tool.call', () => ({ result: '' }))

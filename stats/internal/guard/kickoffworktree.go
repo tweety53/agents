@@ -4,20 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
 
 // kickoffWorktree is scripts/kickoff-worktree.sh: `/flow`'s kickoff steps
-// 1–5 (skills/flow/brainstorm.md **A**) in order — the location guard, the
-// .worktrees ignore, the worktree add persisted through `flow state
-// add-worktree`, the project's `## worktree setup` commands, the branch
-// push. The shim's header is the contract: 0 all five done (`worktree:` and
-// `merge-base:` on stdout), 1 a step stopped the run (its lines relayed; the
-// worktree is already persisted when step 3 got that far), 2 usage or it
-// cannot answer.
+// 1–4 (skills/flow/brainstorm.md **A**) in order — the location guard, the
+// worktree add at the sibling <project>-worktrees/ root (design.md:
+// sibling-worktrees-layout) persisted through `flow state add-worktree`, the
+// project's `## worktree setup` commands, the branch push. The shim's header
+// is the contract: 0 all four done (`worktree:` and `merge-base:` on
+// stdout), 1 a step stopped the run (its lines relayed; the worktree is
+// already persisted when step 2 got that far), 2 usage or it cannot answer.
 func init() {
 	Registry["kickoff-worktree"] = kickoffWorktree
 }
@@ -81,10 +80,10 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
-	// Before step 1: a worktree step 3 could not persist is never created.
+	// Before step 1: a worktree step 2 could not persist is never created.
 	flow, ok := lookPath(env, "flow")
 	if !ok {
-		fmt.Fprintf(stderr, "%s: no flow binary on PATH — step 3 could not persist the worktree, so none is created\n", self)
+		fmt.Fprintf(stderr, "%s: no flow binary on PATH — step 2 could not persist the worktree, so none is created\n", self)
 		return 2
 	}
 	relay := func(rc int, out string) int {
@@ -100,34 +99,17 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		return relay(rc, out)
 	}
 
-	// 2. .worktrees ignored, through info/exclude — never a commit.
-	if rc, _ := kwRun(env, project, git, "check-ignore", "-q", ".worktrees"); rc != 0 {
-		rc, out := kwRun(env, project, git, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude")
-		if rc != 0 {
-			return relay(1, out)
-		}
-		exclude := strings.TrimSpace(out)
-		b, err := os.ReadFile(exclude)
-		if err != nil && !os.IsNotExist(err) {
-			fmt.Fprintf(stderr, "%s: read %s: %v\n", self, exclude, err)
-			return 1
-		}
-		if !strings.Contains("\n"+string(b), "\n.worktrees/\n") {
-			if len(b) > 0 && !bytes.HasSuffix(b, []byte("\n")) {
-				b = append(b, '\n')
-			}
-			if err := os.MkdirAll(filepath.Dir(exclude), 0o755); err == nil {
-				err = os.WriteFile(exclude, append(b, ".worktrees/\n"...), 0o644)
-			}
-			if err != nil {
-				fmt.Fprintf(stderr, "%s: append .worktrees/ to %s: %v\n", self, exclude, err)
-				return 1
-			}
-		}
+	// 2. Fetch, add in one of two forms, persist before anything else runs.
+	// The worktree lives beside the main checkout's physical path — the
+	// root the location guard resolves — outside the repository, so nothing
+	// needs ignoring; `git worktree add` creates the root on first use.
+	physical, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: cannot resolve %s: %v\n", self, project, err)
+		return 2
 	}
-
-	// 3. Fetch, add in one of two forms, persist before anything else runs.
-	branch, wt := "spectre/"+name, filepath.Join(project, ".worktrees", name)
+	branch := "spectre/" + name
+	wt := filepath.Join(siblingRoot(physical), name)
 	if rc, out := kwRun(env, "", git, "-C", project, "fetch", "origin"); rc != 0 {
 		return relay(1, out)
 	}
@@ -171,7 +153,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	// 4. The project's worktree setup, fenced lines only, in order.
+	// 3. The project's worktree setup, fenced lines only, in order.
 	// stdout alone is the section body; a warning project-get prints on
 	// stderr is relayed, never parsed as a command.
 	get := exec.Command(projectGet, wt, "worktree setup")
@@ -193,7 +175,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		return relay(2, getErr.String())
 	}
 
-	// 5. The branch exists on the remote from its first minute.
+	// 4. The branch exists on the remote from its first minute.
 	if rc, out := kwRun(env, "", git, "-C", wt, "push", "-u", "origin", branch); rc != 0 {
 		return relay(1, out)
 	}

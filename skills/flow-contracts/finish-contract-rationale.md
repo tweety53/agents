@@ -39,7 +39,7 @@ artifacts land on the same pull request as the code, as separate commits. So run
 change and saves its self-review context bundle on `spectre/<name>`, in the apply worktree, before
 any route pushes, and run 2 only cleans up.
 
-Rejected, and removed: a second, throwaway landing worktree `<project>/.worktrees/_landing-<name>`
+Rejected, and removed: a second, throwaway landing worktree `<project>-worktrees/_landing-<name>`
 and a second branch `chore/archive-<name>`. Run 1's merge-and-push route positioned that worktree
 on `<base>` itself and merged there, which moved the local `<base>` ref under the main checkout:
 the main checkout then showed the change reverse-staged until run 2 reset its index (observed in

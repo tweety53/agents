@@ -164,7 +164,7 @@ there applies to each reply:
 
 1. **Fix** — `pipeline-fix-<k>`, its prompt carrying the defect, its evidence and the counted
    blast radius. It works in its own worktree,
-   `git -C <agents repo> worktree add -b fix-<slug> <agents repo>/.worktrees/<slug> origin/<agents-base>`
+   `git -C <agents repo> worktree add -b fix-<slug> <agents repo>-worktrees/<slug> origin/<agents-base>`
    — never the main checkout, never the change's own worktree — runs `<agents repo>`'s
    `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), adds one test or guard that
    fails without the fix, updates a saved memory that encoded the defect, runs the

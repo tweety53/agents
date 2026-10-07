@@ -39,8 +39,9 @@ type fpFx struct {
 }
 
 // newRepo is new_repo: MAIN_REPO on main with file.txt in one commit, and
-// REPO a linked worktree of it under MAIN_REPO/.worktrees/ — in-tree, so
-// check-worktree-location reports no stray — on demo/branch at that commit.
+// REPO a linked worktree of it under MAIN_REPO-worktrees/ — the sibling
+// layout, so check-worktree-location reports no stray — on demo/branch at
+// that commit.
 func (fx *fpFx) newRepo(cloneOf string) {
 	fx.main = fx.dir + "/main"
 	if cloneOf == "" {
@@ -55,7 +56,7 @@ func (fx *fpFx) newRepo(cloneOf string) {
 		fx.g.git(fx.main, "push", "-q", "origin", "main")
 	}
 	fx.recorded = fx.g.git(fx.main, "rev-parse", "HEAD")
-	fx.repo = fx.main + "/.worktrees/demo"
+	fx.repo = fx.main + "-worktrees/demo"
 	fx.g.git(fx.main, "worktree", "add", "-q", "-b", "demo/branch", fx.repo, "main")
 }
 
@@ -328,7 +329,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 					r.err == "check-finish-preflight: FLOW_GUARD_WORKTREE_LOCATION is unset — run scripts/check-finish-preflight.sh, which sets it\n"
 			}}}},
 		// A relative worktree argument resolves against the working directory.
-		{setup: merged, args: func(fx *fpFx) []string { return []string{"main/.worktrees/demo", "main", fx.recorded} },
+		{setup: merged, args: func(fx *fpFx) []string { return []string{"main-worktrees/demo", "main", fx.recorded} },
 			checks: []bmCheck{
 				{"port: a relative worktree resolves against the working directory", func(r guardResult, _ *bmFx) bool {
 					return r.rc == 0 && strings.HasPrefix(r.stdout, "RUN2: ")
@@ -397,6 +398,11 @@ func TestCheckFinishPreflight(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// The location rule itself moved to the sibling layout after d71a2327
+	// (kan-916), so both sides exec this checkout's location guard — the
+	// comparison stays on check-finish-preflight's own logic.
+	writeExec(t, filepath.Join(bashDir, "check-worktree-location.sh"),
+		"#!/usr/bin/env bash\nexec "+fpRepoRoot+"/scripts/check-worktree-location.sh \"$@\"\n")
 	parity := []struct {
 		label string
 		setup func(fx *fpFx) (dir string, args []string)
@@ -413,7 +419,6 @@ func TestCheckFinishPreflight(t *testing.T) {
 			// Only a relative --git-common-dir (the main checkout's own `.git`)
 			// leaves the physical path to pwd -P; git prints a linked
 			// worktree's already resolved.
-			fx.g.write(fx.main+"/.git/info/exclude", ".worktrees/\n")
 			link := fx.dir + "/link"
 			if err := os.Symlink(fx.dir, link); err != nil {
 				fx.g.err = err
@@ -458,7 +463,7 @@ func fpLocation(body string) func(t *testing.T, fx *fpFx) {
 	}
 }
 
-// fpStray is case 19's worktree outside <main>/.worktrees/, physical as the
+// fpStray is case 19's worktree outside <main>-worktrees/, physical as the
 // harness's `pwd -P` made it.
 func fpStray(dir string) string {
 	real, err := filepath.EvalSymlinks(dir)

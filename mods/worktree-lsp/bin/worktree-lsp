@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# worktree-lsp — the command .claude-plugin/plugin.json starts for each
+# language server. It builds stats/cmd/worktree-lsp from the agents checkout
+# this file physically lives in and execs the binary (design.md,
+# plugin-as-mod-build-exec): the plugin folder is linked into ~/.claude/skills,
+# so `cd -P` resolves the link to the checkout; the Go build cache makes every
+# start after the first a link step; and a merged change is live at the next
+# session with no install step. It execs the built binary rather than
+# `go run`, which does not forward SIGTERM: a signal to this pid reaches the
+# wrapper itself. The binary lives under ${XDG_CACHE_HOME:-$HOME/.cache}/
+# worktree-lsp/<checksum of the checkout path>, built under a per-process name
+# and renamed into place, so two servers starting at once never exec a
+# half-written file. GOOS, GOARCH and GOFLAGS are removed from the build's
+# environment so a cross-compiling shell never builds a foreign binary.
+# stdout carries only LSP traffic: go's own output goes to stderr.
+set -euo pipefail
+here="$(cd -P "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+stats="$(cd -P "$here/../../../stats" && pwd)"
+dir="${XDG_CACHE_HOME:-$HOME/.cache}/worktree-lsp/$(printf '%s' "$stats" | cksum | cut -d' ' -f1)"
+mkdir -p "$dir"
+trap 'rm -f "$dir/worktree-lsp.$$"' EXIT # a build killed midway leaves no per-pid file
+(cd "$stats" && env -u GOOS -u GOARCH -u GOFLAGS go build -o "$dir/worktree-lsp.$$" ./cmd/worktree-lsp) >&2
+mv -f "$dir/worktree-lsp.$$" "$dir/worktree-lsp"
+trap - EXIT
+exec "$dir/worktree-lsp" "$@"

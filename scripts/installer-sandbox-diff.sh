@@ -4,7 +4,7 @@
 #
 # Usage: installer-sandbox-diff.sh <old-tree> <new-tree>
 #
-#   scripts/installer-sandbox-diff.sh ../agents.main .worktrees/kan-536-…   # refactored installer vs main
+#   scripts/installer-sandbox-diff.sh ../agents.main ../agents-worktrees/kan-536-…   # refactored installer vs main
 #
 # The installed result is compared as a normalized manifest of everything the
 # installer created under each sandbox HOME, one line per entry:

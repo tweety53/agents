@@ -4,7 +4,7 @@ Loaded by `skills/flow/SKILL.md` on a run finding `STARTED`, and by **A. Resolve
 name resolves to a change already recorded at `STARTED`.
 
 **Load `skills/flow/brainstorm.md`** only when the resume point is not `skills/flow/implement.md`:
-a missing worktree runs its steps 1–5, and a resume at **B** or **D** runs under its **Run
+a missing worktree runs its steps 1–4, and a resume at **B** or **D** runs under its **Run
 brainstorming and planning directly**.
 
 **Load `skills/flow/withdrawal.md`** only when `total == 0` below.
@@ -19,10 +19,10 @@ reaching `IN_PROGRESS` — an interrupted session, a context limit, an earlier s
 (the name and the `STARTED` write both already exist) and determine where the run actually left off
 by reading, not by assuming:
 
-- **Does the worktree exist** — `git worktree list` naming `<project>/.worktrees/<name>`. It is
-  created inside `flow.kickoff` (steps 1–5 of **A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between
-  the `STARTED` write and that step: run steps 1–5 now, then continue below. `<changeRoot>` is
-  always `<project>/.worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
+- **Does the worktree exist** — `git worktree list` naming `<project>-worktrees/<name>`. It is
+  created inside `flow.kickoff` (steps 1–4 of **A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between
+  the `STARTED` write and that step: run steps 1–4 now, then continue below. `<changeRoot>` is
+  always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
 - `spectre list --json`'s entry for this change's `done`/`total`, run in the worktree —
   `total == 0` means no plan exists yet: the run first opens with the withdrawal route's resume
   ask (**The withdrawal route**, `skills/flow/withdrawal.md`) — resume brainstorming, the default, or withdraw — and a

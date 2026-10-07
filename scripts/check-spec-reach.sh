@@ -21,8 +21,9 @@
 # the same argument quoted lists 0 files.
 #
 # WHAT IS ENUMERATED: every `*.spec.ts` under the checkout, `node_modules`,
-# `.git` and `.worktrees` pruned — a `/flow` apply worktree under
-# `.worktrees/<change>/` carries its own full copy of every spec (KAN-30's
+# `.git` and `.worktrees` pruned — a `/flow` apply worktree not yet migrated
+# to the sibling `<repo>-worktrees/` layout, under `.worktrees/<change>/`,
+# carries its own full copy of every spec (KAN-30's
 # own gymie-playwright worktree, the first one ever created under a
 # checkout this guard reads, is what surfaced this). Not Playwright's wider
 # default testMatch (`.test.ts`,

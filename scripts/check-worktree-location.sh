@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # check-worktree-location.sh — refuse any registered worktree that lives
-# outside <project>/.worktrees/, the strict layout every /flow worktree is
-# created under (design.md's strict-worktrees-guard decision, KAN-462 §11).
+# outside <parent>/<project>-worktrees/, the sibling of the main checkout every
+# /flow worktree is created under (kan-916 design.md's sibling-worktrees-layout
+# decision; the strict guard itself is KAN-462 §11). Outside the repository
+# `git check-ignore` exits 128, so Claude Code's LSP filter drops nothing.
 #
 # Usage: check-worktree-location.sh <project>
 #
 # Prints one STRAY line per offender, then ONE verdict line:
-#   STRAY: <path> (<branch>|detached)      per worktree outside .worktrees/
+#   STRAY: <path> (<branch>|detached)      per worktree outside <project>-worktrees/
 #   LOCATION-OK: <project>                 every worktree is at or under it
 #   LOCATION-STRAY: <project> — <n>        <n> worktree(s) are not
 #
@@ -27,58 +29,18 @@
 # read from porcelain need no separate resolution of their own.
 #
 # "AT OR UNDER" IS NOT "STARTS WITH". A path matches when it equals
-# <project>/.worktrees or begins with it plus a slash — a bare string-prefix
-# test would report <project>-worktrees/x as in-tree, the retired sibling
-# layout this guard exists to catch (KAN-462's proposal.md).
+# <project>-worktrees or begins with it plus a slash — a bare string-prefix
+# test would report <project>-worktrees-old/x as in-tree. <project>/.worktrees/,
+# the retired in-repo layout, is STRAY like any other path.
+#
+# flow-guard is built from this checkout, never taken from PATH:
+# scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
+# cannot-answer code) with the cause when it cannot.
 set -euo pipefail
-
-SELF="check-worktree-location"
-
-die() {
-  printf '%s: %s\n' "$SELF" "$*" >&2
+# $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[ -r "$SCRIPT_DIR/lib/flow-guard.sh" ] && . "$SCRIPT_DIR/lib/flow-guard.sh" || {
+  echo "check-worktree-location: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-
-[ "$#" -eq 1 ] || die "usage: check-worktree-location.sh <project>"
-
-ROOT="$(cd "$1" 2>/dev/null && pwd -P)" || die "$1 is not a directory"
-PORCELAIN="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)" \
-  || die "cannot list the worktrees of $ROOT"
-
-# One pass over the porcelain records. n counts every `worktree` line seen so
-# far; the main checkout is always first (n == 1 at its record) and is never
-# flagged. count accumulates the number of STRAY lines printed, carried out
-# via the trailing COUNT: line rather than a second command substitution that
-# `set -e` could trip over on a zero result.
-#
-# `printf '%s\n\n'`, not `'%s\n'`: `$(...)` strips every trailing newline from
-# `$PORCELAIN`, including the blank line that terminates the LAST record, so a
-# single appended newline reconstructs a porcelain stream with no closing
-# blank line and the final worktree's record never reaches the `/^$/` block
-# below. The second newline restores that terminator regardless of how many
-# `git worktree list --porcelain` actually emitted.
-RESULT="$(printf '%s\n\n' "$PORCELAIN" | awk -v root="$ROOT/.worktrees" '
-  /^worktree / { n++; w = substr($0, 10); b = "detached" }
-  /^branch /   { b = $2 }
-  /^$/         {
-    if (n > 1 && w != root && index(w, root "/") != 1) {
-      print "STRAY: " w " (" b ")"
-      count++
-    }
-    w = ""
-  }
-  END { print "COUNT:" count + 0 }
-')"
-
-STRAY_LINES="$(printf '%s\n' "$RESULT" | sed '$d')"
-COUNT="$(printf '%s\n' "$RESULT" | tail -n 1)"
-COUNT="${COUNT#COUNT:}"
-
-[ -n "$STRAY_LINES" ] && printf '%s\n' "$STRAY_LINES"
-
-if [ "$COUNT" -gt 0 ]; then
-  printf 'LOCATION-STRAY: %s — %s\n' "$ROOT" "$COUNT"
-  exit 1
-fi
-printf 'LOCATION-OK: %s\n' "$ROOT"
-exit 0
+flow_guard_exec check-worktree-location 2 "check-worktree-location:" "$@"

@@ -85,7 +85,7 @@ it returns.
 `<agents-base>` is the one **Pipeline defects found mid-run** binds.
 
 1. **Fix** — this session creates the worktree,
-   `git -C <agents repo> worktree add -b self-review-<name> <agents repo>/.worktrees/self-review-<name> origin/<agents-base>`
+   `git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>`
    — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it
    (`project-get.sh <agents repo> 'worktree setup'`), then dispatches key `self-review-<name>-fix`, its prompt carrying
    every non-`big` finding with its evidence and counted blast radius. The fixer works in that

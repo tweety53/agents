@@ -69,15 +69,15 @@ first thing this invocation writes once the name is fixed, ahead of even the des
 **Then create the worktree, still inside `flow.kickoff` — before brainstorming, before any file
 is read or written for this change.** From this point on, the main checkout is never read, checked
 out, staged, committed or written by any phase of `/flow`; every path below resolves inside
-`<project>/.worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the
+`<project>-worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the
 plan and the decision JSON.
 
-Run the kickoff steps 1–5 in one call — 1 `check-worktree-location.sh <project>`; 2 `.worktrees`
-ignored through `<project>/.git/info/exclude`, never a commit on any branch; 3 the worktree add, on
+Run the kickoff steps 1–4 in one call — 1 `check-worktree-location.sh <project>`; 2 the worktree
+add at `<project>-worktrees/<name>`, the sibling of the main checkout, on
 `spectre/<name>` tracking the remote branch when a `/flow-plan` capture or an earlier run pushed
 it, else a new `spectre/<name>` from `origin/<default-branch>` — never HEAD: the main checkout may
-be on any branch and is never moved; 4 the project's `## worktree setup` commands (**Project
-configuration**, `skills/flow-contracts/project-configuration.md`); 5 the push, per **Branch
+be on any branch and is never moved; 3 the project's `## worktree setup` commands (**Project
+configuration**, `skills/flow-contracts/project-configuration.md`); 4 the push, per **Branch
 backup** (`skills/flow-contracts/git-boundaries.md`):
 
 ```bash
@@ -93,6 +93,15 @@ state record before this step returns** — the script does, through `flow state
 after the add, so a later step's failure leaves the worktree recorded. Exit 1 or 2 stops the run
 with the script's own lines: **a command's non-zero exit ends your turn** naming the command and
 its output.
+
+**Then wait for the worktree's language servers, still inside `flow.kickoff`.** For each language
+the `worktree-lsp` plugin (`mods/worktree-lsp/`) wraps — Go (`'*.go'`) and Kotlin (`'*.kt'`) —
+call the LSP tool's `documentSymbol` on `<abs-worktree>/` joined with the first path
+`git -C <abs-worktree> ls-files '<glob>'` prints, which is relative to the worktree. The call returns once that worktree's server has finished indexing, so the run waits here
+rather than querying a cold index later. Then copy the matching ready line —
+`<RFC3339> <server> <abs-worktree> ready <ms>` — from
+`${XDG_CACHE_HOME:-$HOME/.cache}/worktree-lsp/index.log` into the run's narrative. A language with
+no tracked file, or a session with no LSP tool, is skipped with one line naming it.
 
 ```bash
 flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>

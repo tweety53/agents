@@ -193,7 +193,7 @@ what `/flow`'s cleanup phase cleans up, and what resolves an app's root when a h
 path. It is the record, not the iteration set: a step that needs "the worktrees" resolves that set
 first, per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), rather than
 looping over this map directly. The scalar `branch` names the shared branch only. Every repository
-keeps its worktrees under `<project>/.worktrees/` — enforced by `check-worktree-location.sh`.
+keeps its worktrees under `<project>-worktrees/`, the sibling of its main checkout — enforced by `check-worktree-location.sh`.
 
 The **order** those repositories land in is not recorded here at all: it lives in the canonical
 `link.md`'s `## Merge order`, which **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)

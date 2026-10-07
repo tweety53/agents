@@ -8,13 +8,17 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/lspmux"
 )
 
 // removeChangeWorktrees is scripts/remove-change-worktrees.sh: that script's
 // header is the contract. It runs Worktree cleanup
 // (skills/flow-contracts/finish-contract-run2.md) for one repository: the
 // six checks on every apply worktree of spectre/<name> and checks 5-6 on
-// every wave-group copy, all before anything is removed; then the removals,
+// every wave-group copy, all before anything is removed — with the language
+// servers worktree-lsp runs under each stopped just before its check 6
+// (lspmux.StopUnder); then the removals,
 // the local branch and the remote branch. Check 5 reads the `## stop` key in
 // project-configuration.md's shape, through kwFenced as `## worktree setup` is.
 func init() { Registry["remove-change-worktrees"] = removeChangeWorktrees }
@@ -137,7 +141,8 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	if stopBody != "" && stopCmd == "" {
 		fmt.Fprintln(stdout, "SKIPPED: check 5 — ## stop declares no fenced command")
 	}
-	for _, wt := range append(slices.Clone(copies), wts...) {
+	all := append(slices.Clone(copies), wts...)
+	for _, wt := range all {
 		if stopCmd != "" {
 			timeout, grace := ccDefaultTimeout, ccDefaultGrace
 			if env.SurvivorsTimeout > 0 {
@@ -155,6 +160,20 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 				fail(wt, 5, "the ## stop command timed out after %s", timeout.Round(time.Second))
 			case rc != 0:
 				fail(wt, 5, "the ## stop command exited %d", rc)
+			}
+		}
+	}
+	// A check 5 failure anywhere removes nothing, so every worktree keeps
+	// its language servers and their index.
+	stopped := !failed
+	for _, wt := range all {
+		// The language servers a worktree-lsp wrapper runs here hold the
+		// worktree by cwd; stopping them is cleanup's own job, so check 6
+		// judges only what is left. A failure to stop leaves check 6 to
+		// report what still holds it.
+		if stopped {
+			if err := lspmux.StopUnder(wt); err != nil {
+				fmt.Fprintf(stderr, "remove-change-worktrees: stopping the language servers under %s: %v\n", wt, err)
 			}
 		}
 		procs := exec.Command(scriptDir+"/check-worktree-processes.sh", wt)

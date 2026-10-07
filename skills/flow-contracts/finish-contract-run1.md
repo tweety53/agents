@@ -76,6 +76,26 @@ bringing it forward.
 > - **Stop — I'll clean it up and re-run** *(default, recommended)*
 > - **Continue — leave it in place**
 
+### Migrate retired-layout worktrees before the preflight
+
+Before `check-finish-preflight.sh` runs for any worktree — on run 1 and run 2 alike — move any
+worktree an older kickoff created under `<project>/.worktrees/` to the sibling layout, so the strict
+location guard never reads it there: the preflight's stray-worktree assertion refuses such a
+worktree, and no later step would ever move it. One call names every distinct main checkout,
+resolved from the worktree set as **Surface foreign staged work before the preflight** above
+resolves them, so a cross-repo change's record is rewritten for every repository it names:
+
+```bash
+migrate-worktrees.sh <main-checkout> [<main-checkout>...]
+```
+
+Exit 0: every worktree was moved (`MIGRATED:`) or left in place because a process holds it
+(`HELD:`), nothing to move included — continue; a `HELD:` worktree of this change stays at its old
+path, where the preflight refuses it as a stray worktree until the operator releases it and
+re-runs. Exit 1 (`FAILED:`) or 2: stop at `IN_PROGRESS` and report the script's lines. A moved
+worktree of this change is named at its new path from then on — the script rewrote the state file's
+`worktrees` map — so the worktree set every later step uses is resolved after this call.
+
 ### Run 1 — the branch is not merged
 
 **An archive a stopped run 1 left uncommitted is undone first**, in the canonical worktree, before
@@ -331,7 +351,7 @@ git -C "$REPO" worktree list --porcelain \
   | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/spectre/<name>") print w}'
 ```
 
-**Never guess a path.** The kickoff creates every worktree at `<project>/.worktrees/<name>`
+**Never guess a path.** The kickoff creates every worktree at `<project>-worktrees/<name>`
 (**Git boundaries**, `skills/flow-contracts/git-boundaries.md`), but a worktree made by hand or by
 an older run can sit anywhere, so the set is read, never composed.
 

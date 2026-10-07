@@ -264,7 +264,7 @@ flow stage end -command '/flow' -stage flow.load-context -outcome completed <nam
 flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Resume `<project>/.worktrees/<name>`, created at `flow.kickoff`. Never implement on the
+Resume `<project>-worktrees/<name>`, created at `flow.kickoff`. Never implement on the
 default branch without explicit consent.
 
 **Persist each worktree's merge base and absolute path to the state file as soon as the worktree
@@ -283,7 +283,7 @@ It exits 2 on a relative path or a malformed sha, and 1 when no `STARTED` record
 writing nothing either way. Do this once per worktree, immediately after
 `spectre link` succeeds for it (or immediately after resuming it, on a fix or resumed run), not
 batched at the end. The kickoff worktree's own entry never waits for this stage: it is recorded
-where the worktree is created — `skills/flow/brainstorm.md` step 3 — so on a first creating run
+where the worktree is created — `skills/flow/brainstorm.md` step 2 — so on a first creating run
 this stage finds it already present, and the paragraph's rule above keeps governing each
 additional worktree.
 

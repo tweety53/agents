@@ -558,8 +558,8 @@ install_commands() {
 }
 
 # install_mods <claude-skills-dir>
-# Links each mods/<name>/ — a Claude Code function-hooks plugin — into the user's skills folder,
-# from which Claude Code auto-loads a plugin folder and hot-reloads it on save. Claude Code only:
+# Links each mods/<name>/ — a Claude Code plugin: function hooks or LSP servers — into the user's
+# skills folder, from which Claude Code auto-loads a plugin folder and hot-reloads it on save. Claude Code only:
 # ZCode has no function-hooks surface, so its skills folder never gets one. Runs after
 # install_skills on the same folder, whose prune already dropped links to deleted mods.
 install_mods() {
@@ -571,6 +571,23 @@ install_mods() {
     [[ -d "$mod_dir" ]] || continue
     mod_name=$(basename "$mod_dir")
     link_into "$mod_dir" "$target_dir/$mod_name" "$mod_name"
+  done
+}
+
+# warn_official_lsp_plugins <settings.json>
+# The worktree-lsp mod serves .go, .kt and .kts itself; while Claude Code's official gopls-lsp or
+# kotlin-lsp plugin is still enabled in <settings.json>, print the command that disables each.
+# Never edits the file — install_hooks' rule: it is the user's own.
+warn_official_lsp_plugins() {
+  local settings="$1" plugin rc
+  [[ -f "$settings" ]] || return 0
+  for plugin in gopls-lsp@claude-plugins-official kotlin-lsp@claude-plugins-official; do
+    rc=0
+    grep -Eq "\"$plugin\"[[:space:]]*:[[:space:]]*true" "$settings" || rc=$?
+    require_grep_ok "$rc" "checking $settings for the $plugin plugin"
+    (( rc == 0 )) || continue
+    warn "$plugin is enabled in $settings, and worktree-lsp replaces it. Disable it with:"
+    warn "  claude plugin disable $plugin"
   done
 }
 
@@ -1082,6 +1099,7 @@ install_global() {
 
   install_skills "$home_dir/.claude/skills"
   install_mods "$home_dir/.claude/skills"
+  warn_official_lsp_plugins "$home_dir/.claude/settings.json"
   # ZCode needs its own copy: its AGENTS.md block names the /flow* skills, and user scope
   # (~/.zcode/skills) is where that client resolves them from.
   install_skills "$home_dir/.zcode/skills"

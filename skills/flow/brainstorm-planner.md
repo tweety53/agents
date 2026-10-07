@@ -19,7 +19,7 @@ the design.
   lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived
   narratives for it.
 
-- Save the design to `<project>/.worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
+- Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
   path is gitignored: never stage or commit it, even where the brainstorming skill says to, and
   never write it to the main checkout.
@@ -147,7 +147,7 @@ flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness
 spectre new "<name>"   # working directory: the worktree flow.kickoff created
 ```
 
-`spectre new` scaffolds `<project>/.worktrees/<name>/spectre/changes/<name>/`, and refuses three ways: exit `2` and
+`spectre new` scaffolds `<project>-worktrees/<name>/spectre/changes/<name>/`, and refuses three ways: exit `2` and
 *no tree found* when the project holds no `<project>/spectre/` tree at all; exit `2` and `invalid
 change id` when `<name>` is not a single flat directory name; and exit `1` and `<path> already
 exists` when the change is already there — **the ordinary case when resuming at `STARTED`** per

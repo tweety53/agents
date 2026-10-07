@@ -1105,8 +1105,8 @@ var gsPins = map[string]string{
 	"TestCheckGuardSymlinks/collation/en_US.UTF-8": "GUARD-SYMLINKS-OK: <repo> — 1 guard(s) across 3 skill(s) validated\n  Flow-a 1 · flow-b 1 · flow-C 1\n--- stderr\n--- exit 0\n",
 }
 
-// TestShimSiblingsDeclared runs rule 2 over each of the ten shims KAN-841
-// wrote, as they stand in this checkout's scripts/: a skill carrying the shim
+// TestShimSiblingsDeclared runs rule 2 over each shim in its table — KAN-841
+// wrote ten, later changes the rest — as they stand in this checkout's scripts/: a skill carrying the shim
 // alone must be told it also needs lib/ — the loader every shim sources — and
 // check-finish-preflight's check-worktree-location.sh, which its Go guard
 // execs from beside the shim. Rule 2 derives both from the shim's
@@ -1128,6 +1128,7 @@ func TestShimSiblingsDeclared(t *testing.T) {
 		"fold-fixup.sh":                      {"lib", "guard-autosquash.sh"},
 		"commit-archive.sh":                  {"lib"},
 		"remove-change-worktrees.sh":         {"lib", "check-worktree-processes.sh"},
+		"migrate-worktrees.sh":               {"lib", "check-worktree-processes.sh"},
 	}
 	for shim, siblings := range shims {
 		t.Run(shim, func(t *testing.T) {

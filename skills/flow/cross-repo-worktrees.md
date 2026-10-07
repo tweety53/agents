@@ -8,7 +8,7 @@ repository holding no worktree for this change, `## visual verification` names a
 **Every worktree this stage creates — a linked peer's, or an `## apps` entry's below — runs its
 repository's `## worktree setup` before anything else touches it**: before its `spectre link`, its
 link or planning commit, and any task. Run `project-get.sh <that worktree> "worktree setup"` and
-handle it exactly as step 4 of **A. Resolve the change and write `STARTED`**
+handle it exactly as step 3 of **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) does for the kickoff worktree — only the fenced command lines, from
 that worktree's root, in order, in the foreground; exit 1 says the key is absent and continues;
 exit 2 stops the run; a command's non-zero exit ends the turn naming the command and its output. A
@@ -33,10 +33,10 @@ entry whose repository already holds one, and creates nothing for it; for each r
 
 Every other entry gets the kickoff recipe in its own
 repository — `<project>` in the commands below is that entry's repository root, not this
-change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 3): when
+change's — in the form that run's state calls for (`skills/flow/brainstorm.md` step 2): when
 `git -C <that repo> rev-parse -q --verify origin/spectre/<name>` succeeds — the branch an
-earlier run pushed — `git worktree add <project>/.worktrees/<name> spectre/<name>`, a local
-branch tracking that remote one; otherwise `git worktree add <project>/.worktrees/<name> -b
+earlier run pushed — `git worktree add <project>-worktrees/<name> spectre/<name>`, a local
+branch tracking that remote one; otherwise `git worktree add <project>-worktrees/<name> -b
 spectre/<name> origin/<default-branch>` — or `origin/<base>` when
 `git -C <this change's worktree> config --get branch.<branch>.flowBase` prints a `<base>`,
 `<branch>` being `spectre/<name>`, which is then recorded in that repository too, by
@@ -49,7 +49,10 @@ map by `flow state add-worktree <name> <that worktree> <merge-base>`, and
 (`skills/flow-contracts/git-boundaries.md`). No `spectre link` runs for these worktrees — they
 are declared apps, not peers — and each of them joins this run's resolved worktree set. **A
 worktree add that fails is a hard failure of this stage**, reported and stopping the run exactly
-like a refused link. The worktree of the repository `## visual verification`'s `regression checkout` names,
+like a refused link. Each worktree this stage creates then waits for its language servers exactly as
+**A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`) does for the kickoff
+worktree — the step runs once per repository worktree, with that worktree as `<abs-worktree>`.
+The worktree of the repository `## visual verification`'s `regression checkout` names,
 once created — or resumed without a `node_modules` — gets its own toolchain: that section's
 `setup` command runs from the worktree's root, in the foreground, and a non-zero exit is a hard
 failure of this stage like a failed worktree add. Never a symlink to the main checkout's

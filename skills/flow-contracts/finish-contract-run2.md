@@ -142,6 +142,11 @@ the handoff's **Remote branch:** — deleted, already gone, or not deleted. Exit
 run; relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the wave-group copies below,
 ask only what they ask, then call again with `--proceed`.
 
+**Immediately before check 6, `remove-change-worktrees` stops the worktree's `worktree-lsp`
+children** — every language server a `worktree-lsp` wrapper runs at or under the worktree — so a
+session's own LSP servers never hold it; check 6 reports any that still do. A check 5 failure on any
+worktree removes none, and stops none of their servers.
+
 **Check 6 requires the orchestrating shell's own cwd to be outside every worktree in the resolved
 set before it runs.** `cd` out first, for every worktree, before
 this check runs for any of them.
