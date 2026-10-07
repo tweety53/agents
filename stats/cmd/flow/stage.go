@@ -347,7 +347,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 
 	// The transcript records a mark's command text before the shell expands
 	// it, so a token written as -session-token $TOKEN is never found by the
-	// harvester's search (internal/harvest's isSessionMarkCommand). A row
+	// harvester's search (internal/harvest's sessionTokensInMark). A row
 	// born with its session_id already set skips that search entirely
 	// (store.UnresolvedSessionTokens selects session_id IS NULL): binding
 	// from CLAUDE_CODE_SESSION_ID here, when the caller did not pass

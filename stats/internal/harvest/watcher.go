@@ -398,6 +398,27 @@ type Watcher struct {
 	// nothing.
 	retriedTokens map[string]bool
 
+	// retriedScanDone is set once scanRetriedTokens has completed one full
+	// pass over every transcript on disk (design.md,
+	// retried-scan-once-per-process): the bytes that pass read sit behind a
+	// committed offset and never change, and every byte past it reaches
+	// matchSessionTokens through RunOnce's ordinary per-file path, so a
+	// second pass could find nothing the first did not. A pass with any read
+	// failure other than a vanished file leaves it false, so the next cycle
+	// runs the pass again.
+	retriedScanDone bool
+
+	// seenOffsets remembers, per transcript path, the committed offset this
+	// Watcher last read up to or committed (design.md,
+	// skip-unchanged-by-size). RunOnce skips the offset lookup and the read
+	// for a path whose current size equals it: the ordinary path already
+	// treats offset == size as "nothing new", so the skip changes no
+	// outcome, only the store query and file open an idle cycle paid per
+	// transcript. Any other size -- growth, truncation, a path not yet
+	// seen -- takes the ordinary path. Not persisted and not mutex-guarded,
+	// for the same reasons tokenCycles is not.
+	seenOffsets map[string]int64
+
 	// pendingDispatchMeta remembers, per subagent transcript path whose
 	// most recently committed batch carried dispatch tokens but no
 	// descriptors (ReadDispatchMeta found no sidecar at commit time), the
@@ -499,6 +520,7 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		tokenCycles:         make(map[string]int),
 		gaveUpTokens:        make(map[string]bool),
 		retriedTokens:       make(map[string]bool),
+		seenOffsets:         make(map[string]int64),
 		pendingDispatchMeta: make(map[string]map[int64]string),
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
@@ -582,6 +604,17 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 				return touchedFiles, ctx.Err()
 			}
 
+			// skip-unchanged-by-size (design.md): a size equal to the offset
+			// this Watcher last saw committed means nothing new to read, the
+			// same verdict the newOffset == offset branch below reaches -- so
+			// only the late-sidecar backfill that branch runs is kept.
+			if info, err := os.Stat(path); err == nil {
+				if seen, ok := w.seenOffsets[path]; ok && seen == info.Size() {
+					w.maybeBackfillDispatchMeta(ctx, path)
+					continue
+				}
+			}
+
 			offset, found, err := w.sink.GetHarvestOffset(ctx, path)
 			if err != nil {
 				w.warn("harvest: get committed offset failed, will retry", "path", path, "error", err)
@@ -604,6 +637,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 				// find may have landed since then (F4), so give it one
 				// chance before moving on rather than skipping this path
 				// outright.
+				w.seenOffsets[path] = offset
 				w.maybeBackfillDispatchMeta(ctx, path)
 				continue
 			}
@@ -659,6 +693,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 				continue
 			}
 			touchedFiles++
+			w.seenOffsets[path] = newOffset
 
 			// The second, dispatch-grain attribution pass over the very same
 			// records, in the same batch -- deliberately here, after
@@ -795,14 +830,26 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 // "never re-attribute usage" (tasks.md, task 6.2's own "non-negotiable
 // properties").
 //
+// The scan runs once per Watcher lifetime, not once per cycle (design.md,
+// retried-scan-once-per-process): every retried token is seeded at the
+// same moment, the bytes one pass reads never change, and anything written
+// after it reaches matchSessionTokens through RunOnce's own per-file path.
+// Measured on 2,643 transcripts with 104 retried tokens, a pass cost ~90 s
+// of CPU, so running it on every 5 s cycle pinned a core for as long as
+// any retried token stayed pending. A pass counts as done when its only
+// read failures are files that vanished between discovery and the read
+// (fs.ErrNotExist): a file no longer on disk has no marks left to find.
+// Any other failure leaves the pass to run again next cycle, and so does a
+// store failure while acting on a retried token's matches
+// (rescanIfRetried, resolveSessionTokens).
+//
 // The per-token cycle bound (maxSessionTokenResolutionCycles,
 // resolveSessionTokens) is untouched by this method: a retried token
 // this scan still cannot find still counts a cycle in w.tokenCycles on
 // every RunOnce, exactly as before, and still gives up again once that
-// bound is reached -- a token whose marks genuinely are not on disk
-// anywhere rescans on a bounded schedule, not forever.
+// bound is reached.
 //
-// isSessionMarkCommand -- reached the same way the ordinary path reaches
+// sessionTokensInMark -- reached the same way the ordinary path reaches
 // it, through matchSessionTokens -- is what keeps the
 // mention-versus-invocation distinction (matchSessionTokens' own doc
 // comment, KAN-172 finding F4) and the ambiguity rule identical on this
@@ -816,7 +863,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 // anything looser than a real mark invocation here would walk straight
 // back into that bug.
 func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]string, matched map[string]map[string]bool) {
-	if len(w.retriedTokens) == 0 {
+	if w.retriedScanDone || len(w.retriedTokens) == 0 {
 		return
 	}
 	toScan := make(map[int64]string, len(pending))
@@ -833,16 +880,21 @@ func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]stri
 		return
 	}
 
+	done := true
 	for _, set := range sets {
 		for _, path := range set.files {
 			commands, err := set.source.ReadAllCmds(path)
 			if err != nil {
 				w.warn("harvest: scan transcript for a retried session token failed, will retry", "path", path, "error", err)
+				if !errors.Is(err, fs.ErrNotExist) {
+					done = false
+				}
 				continue
 			}
 			w.matchSessionTokens(toScan, commands, matched)
 		}
 	}
+	w.retriedScanDone = done
 }
 
 // dispatchAgentIDForPath names the dispatch a transcript path belongs to --
@@ -1513,7 +1565,7 @@ func (w *Watcher) seedPersistedGiveUps(ctx context.Context) {
 // own doc comment on "withholding a batch that revealed a sessionToken").
 //
 // A sessionToken is matched only when the command is genuinely a mark
-// carrying it -- isSessionMarkCommand, below -- never by the token's bare
+// carrying it -- sessionTokensInMark, below -- never by the token's bare
 // presence in the command text. KAN-172's final review panel (finding F4)
 // caught a bare `strings.Contains(cmd.Command, sessionToken)` here: any
 // command that merely MENTIONED a pending sessionToken -- a diagnostic
@@ -1529,10 +1581,14 @@ func (w *Watcher) matchSessionTokens(pending map[int64]string, commands []Comman
 	if len(pending) == 0 || len(commands) == 0 {
 		return false
 	}
+	want := make(map[string]bool, len(pending))
+	for _, sessionToken := range pending {
+		want[sessionToken] = true
+	}
 	matchedHere := false
 	for _, cmd := range commands {
-		for _, sessionToken := range pending {
-			if !isSessionMarkCommand(cmd.Command, sessionToken) {
+		for _, sessionToken := range sessionTokensInMark(cmd.Command) {
+			if !want[sessionToken] {
 				continue
 			}
 			matchedHere = true
@@ -1558,22 +1614,27 @@ func (w *Watcher) matchSessionTokens(pending map[int64]string, commands []Comman
 // marks are emitted inside shell blocks carrying variable assignments,
 // directory changes and other statements ahead of the invocation, on the
 // same line or a later one (design.md, "recognise a mark by its
-// invocation, not by its position"; isSessionMarkCommand's own doc
+// invocation, not by its position"; sessionTokensInMark's own doc
 // comment has the fuller history).
 var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end|mark)\b`)
 
-// isSessionMarkCommand reports whether command is genuinely a stage mark
-// carrying sessionToken as the value of its own -session-token flag --
-// the fix for KAN-172 finding F4 (matchSessionTokens' own doc comment
-// above has the defect and its live reproduction), reworked by KAN-174
-// below. It requires both of the following:
+// sessionTokensInMark returns every value command binds to its own
+// -session-token flag when command is genuinely a stage mark, and nil
+// otherwise -- the fix for KAN-172 finding F4 (matchSessionTokens' own doc
+// comment above has the defect and its live reproduction), reworked by
+// KAN-174 below. A token is returned only when both of the following hold:
 //
 //  1. the command invokes `stage begin` or `stage end`, anywhere in the
 //     command text (stageMarkInvocationPattern);
-//  2. sessionToken is the exact value bound to -session-token in that
+//  2. the token is the exact value bound to -session-token in that
 //     same command, whether written as two fields ("-session-token
 //     TOKEN") or joined with "=" ("-session-token=TOKEN") -- both are
 //     valid to the flag package cmd/flow/stage.go builds on.
+//
+// It returns the values rather than testing one token so matchSessionTokens
+// pays one pass over a command whatever the number of pending tokens
+// (design.md, match-by-token-set): measured against 104 pending tokens and
+// 117,003 commands, testing each token against each command cost 66 s of CPU.
 //
 // Requirement 2 is field-based (strings.Fields), not a second substring
 // test on the whole command: a token that merely follows the word
@@ -1630,33 +1691,30 @@ var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end|mark
 // claim a reviewer disproved by tracing the code. The justification above
 // is checked against this package's actual matching and withholding logic
 // (matchSessionTokens, resolveSessionTokens), not merely asserted.
-func isSessionMarkCommand(command, sessionToken string) bool {
+func sessionTokensInMark(command string) []string {
 	if !stageMarkInvocationPattern.MatchString(command) {
-		return false
+		return nil
 	}
+	var tokens []string
 	fields := strings.Fields(command)
 	for i, field := range fields {
 		switch {
 		case field == "-session-token" || field == "--session-token":
-			if i+1 < len(fields) && trimTokenQuotes(fields[i+1]) == sessionToken {
-				return true
+			if i+1 < len(fields) {
+				tokens = append(tokens, trimTokenQuotes(fields[i+1]))
 			}
 		case strings.HasPrefix(field, "-session-token="):
-			if trimTokenQuotes(field[len("-session-token="):]) == sessionToken {
-				return true
-			}
+			tokens = append(tokens, trimTokenQuotes(field[len("-session-token="):]))
 		case strings.HasPrefix(field, "--session-token="):
-			if trimTokenQuotes(field[len("--session-token="):]) == sessionToken {
-				return true
-			}
+			tokens = append(tokens, trimTokenQuotes(field[len("--session-token="):]))
 		}
 	}
-	return false
+	return tokens
 }
 
 // trimTokenQuotes strips a single layer of surrounding straight quotes a
 // shell-quoted flag value might carry ("-session-token 'mf-abc'" or
-// "-session-token=\"mf-abc\""), so isSessionMarkCommand compares the same
+// "-session-token=\"mf-abc\""), so sessionTokensInMark returns the same
 // literal validateSessionToken accepted, not a quoted rendering of it.
 func trimTokenQuotes(s string) string {
 	return strings.Trim(s, `"'`)
@@ -1715,6 +1773,7 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 			bound, err := w.deps.BindSession(ctx, sessionToken, sessionID)
 			if err != nil {
 				w.warn("harvest: bind session failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
+				w.rescanIfRetried(sessionToken)
 				continue
 			}
 			// bound == 0 means every run carrying this token was in fact
@@ -1735,6 +1794,7 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 				"stage_run_ids", stageRunIDs, "sessions", sessionIDs)
 			if err := w.deps.RecordSessionTokenGiveUp(ctx, sessionToken, reasonSessionAmbiguous, time.Now()); err != nil {
 				w.warn("harvest: persist give-up failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
+				w.rescanIfRetried(sessionToken)
 				continue
 			}
 			// Same never-block guarantee as the case 0 branch above: a
@@ -1746,6 +1806,18 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 			w.gaveUpTokens[sessionToken] = true
 			delete(w.tokenCycles, sessionToken)
 		}
+	}
+}
+
+// rescanIfRetried re-arms scanRetriedTokens' once-per-process pass when a
+// retried token's matches could not be acted on: those matches came from
+// bytes only that pass reads, so retrying the bind or the refusal next cycle
+// needs the pass to run again, or the token would count down to a
+// session-never-bound give-up it never earned (design.md,
+// retried-scan-once-per-process).
+func (w *Watcher) rescanIfRetried(sessionToken string) {
+	if w.retriedTokens[sessionToken] {
+		w.retriedScanDone = false
 	}
 }
 

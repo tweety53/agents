@@ -15,3 +15,8 @@ var EncodePatchesForTest = encodePatches
 // conservation, spread remainder) is more directly pinned by calling it
 // straight than by driving full attribution records at it.
 var SplitInt64ForTest = splitInt64
+
+// MatchSessionTokensForTest exposes matchSessionTokens to harvest_test's
+// black-box tests -- its many-tokens contract is pinned more directly by
+// calling it straight than by driving a binder per token through RunOnce.
+var MatchSessionTokensForTest = (*Watcher).matchSessionTokens

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -2249,7 +2250,7 @@ func TestMarkRecognizedWhereverItSitsInTheCommand(t *testing.T) {
 // broadened for KAN-174: removing the position anchor must not reopen the
 // bare-containment defect F4 fixed. None of these commands perform the
 // invocation -- they only carry the token as data -- so the
-// `-session-token`-value check (requirement 2 of isSessionMarkCommand)
+// `-session-token`-value check (requirement 2 of sessionTokensInMark)
 // must still refuse every one of them.
 func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
 	tests := []struct {
@@ -2290,7 +2291,7 @@ func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
 // TestEchoedMarkExampleIsAnAcceptedResidual is design.md's "accept the
 // echoed-example false positive, and say so" decision, locked in as a
 // test rather than left as prose: dropping the position anchor
-// (isSessionMarkCommand's own doc comment) means a command that only
+// (sessionTokensInMark's own doc comment) means a command that only
 // PRINTS a mark-shaped string -- echo "flow stage begin ...
 // -session-token <token> ..." -- now satisfies both remaining
 // requirements (contains "stage begin"/"stage end"; binds the token as
@@ -3004,6 +3005,240 @@ func TestScanRetriedTokensReadsRolloutCommands(t *testing.T) {
 	}
 	if sink.commitCount != 0 {
 		t.Fatalf("commitCount = %d, want 0: the retry scan must never re-attribute the file's usage", sink.commitCount)
+	}
+}
+
+// newRetriedScanCounter builds a Watcher over one transcript that carries no
+// mark for a persisted give-up's token, so the token stays pending on every
+// cycle, and counts the Claude source's ReadAllCmds calls. firstErr, when
+// non-nil, is what the first call returns instead of reading.
+func newRetriedScanCounter(t *testing.T, firstErr func(path string) error) (*harvest.Watcher, *int) {
+	t.Helper()
+	dir := t.TempDir()
+	const token = "mf-scan-once"
+	binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 811}
+	binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
+	path := filepath.Join(dir, "unrelated.jsonl")
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-other","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"echo nothing to see"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+	src := harvest.NewClaudeSource(dir)
+	inner := src.ReadAllCmds
+	reads := 0
+	src.ReadAllCmds = func(p string) ([]harvest.CommandRecord, error) {
+		reads++
+		if reads == 1 && firstErr != nil {
+			return nil, firstErr(p)
+		}
+		return inner(p)
+	}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	w := harvest.NewWatcher([]harvest.Source{src}, newFakeHarvestSink(), harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	return w, &reads
+}
+
+func runCycles(t *testing.T, w *harvest.Watcher, n int) {
+	t.Helper()
+	for i := range n {
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce (cycle %d): %v", i, err)
+		}
+	}
+}
+
+func TestRetriedTokenScanReadsEachTranscriptOnce(t *testing.T) {
+	w, reads := newRetriedScanCounter(t, nil)
+	runCycles(t, w, 5)
+	if *reads != 1 {
+		t.Fatalf("ReadAllCmds called %d times over 5 cycles, want 1: bytes behind a committed offset never change, so one whole-file pass per process is enough", *reads)
+	}
+}
+
+func TestRetriedTokenScanRerunsAfterReadError(t *testing.T) {
+	t.Run("transient error reruns", func(t *testing.T) {
+		w, reads := newRetriedScanCounter(t, func(string) error { return errors.New("transient") })
+		runCycles(t, w, 3)
+		if *reads != 2 {
+			t.Fatalf("ReadAllCmds called %d times over 3 cycles, want 2: a pass with a transient read failure is not done, so the next cycle runs it again", *reads)
+		}
+	})
+	t.Run("vanished file counts as scanned", func(t *testing.T) {
+		w, reads := newRetriedScanCounter(t, func(p string) error { return fmt.Errorf("harvest: open %s: %w", p, fs.ErrNotExist) })
+		runCycles(t, w, 3)
+		if *reads != 1 {
+			t.Fatalf("ReadAllCmds called %d times over 3 cycles, want 1: a file gone from disk has no marks left to find, so it must not keep the scan alive", *reads)
+		}
+	})
+}
+
+// flakyStoreBinder fails its first bindFails BindSession calls and its first
+// giveUpFails RecordSessionTokenGiveUp calls with a transient error -- the
+// "will retry" branches resolveSessionTokens logs and continues past.
+type flakyStoreBinder struct {
+	*countingSessionTokenBinder
+	bindFails, giveUpFails int
+}
+
+func (f *flakyStoreBinder) BindSession(ctx context.Context, token, sessionID string) (int64, error) {
+	if f.bindFails > 0 {
+		f.bindFails--
+		return 0, errors.New("transient store error")
+	}
+	return f.countingSessionTokenBinder.BindSession(ctx, token, sessionID)
+}
+
+func (f *flakyStoreBinder) RecordSessionTokenGiveUp(ctx context.Context, token, reason string, at time.Time) error {
+	if f.giveUpFails > 0 {
+		f.giveUpFails--
+		return errors.New("transient store error")
+	}
+	return f.countingSessionTokenBinder.RecordSessionTokenGiveUp(ctx, token, reason, at)
+}
+
+// TestRetriedTokenScanRerunsAfterFailedResolve pins that the once-per-process
+// scan counts as done only once its matches were acted on: a store failure
+// while binding or refusing a retried token must not leave the token to be
+// retried from an empty match set, since its marks sit in bytes only the
+// scan reads.
+func TestRetriedTokenScanRerunsAfterFailedResolve(t *testing.T) {
+	const token = "mf-flaky-resolve"
+	markLine := func(sessionID string) string {
+		return `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"` + sessionID + `","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token ` + token + `"}}]}}` + "\n"
+	}
+	newWatcher := func(t *testing.T, binder *flakyStoreBinder, sessions ...string) *harvest.Watcher {
+		t.Helper()
+		dir := t.TempDir()
+		sink := newFakeHarvestSink()
+		for _, sessionID := range sessions {
+			path := filepath.Join(dir, sessionID+".jsonl")
+			line := markLine(sessionID)
+			if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+				t.Fatalf("write %s: %v", path, err)
+			}
+			sink.offsets[path] = int64(len(line)) // already fully harvested
+		}
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		return harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	}
+	newBinder := func() *countingSessionTokenBinder {
+		b := &countingSessionTokenBinder{sessionToken: token, stageRunID: 77}
+		b.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
+		return b
+	}
+
+	t.Run("failed bind is retried from the scan", func(t *testing.T) {
+		inner := newBinder()
+		w := newWatcher(t, &flakyStoreBinder{countingSessionTokenBinder: inner, bindFails: 1}, "session-x")
+		runCycles(t, w, 3)
+		if inner.bound[77] != "session-x" {
+			t.Fatalf("bound = %v, want stage run 77 bound to session-x: a transient BindSession failure must be retried with the scan's match", inner.bound)
+		}
+	})
+	t.Run("failed ambiguity give-up is retried as ambiguous", func(t *testing.T) {
+		inner := newBinder()
+		w := newWatcher(t, &flakyStoreBinder{countingSessionTokenBinder: inner, giveUpFails: 1}, "session-x", "session-y")
+		runCycles(t, w, 3)
+		if len(inner.giveUpCalls) != 1 || inner.giveUpCalls[0].Reason != "matched more than one session" {
+			t.Fatalf("give-up calls = %+v, want one recorded as ambiguous: a failed give-up record must be retried with the scan's two matches", inner.giveUpCalls)
+		}
+	})
+}
+
+func TestManyPendingTokensEachBindToTheirOwnMark(t *testing.T) {
+	pending := make(map[int64]string, 200)
+	for i := range 200 {
+		pending[int64(i)] = fmt.Sprintf("mf-t%d", i)
+	}
+	commands := []harvest.CommandRecord{
+		{SessionID: "s-a", Command: "flow stage begin -session-token mf-t7"},
+		{SessionID: "s-b", Command: "flow stage end --session-token='mf-t42'"},
+		{SessionID: "s-c", Command: "flow stage mark -session-token=mf-t42 x"},
+		{SessionID: "s-d", Command: "grep mf-t9 log.txt"},
+		{SessionID: "s-e", Command: "echo -session-token mf-t11"},
+	}
+	matched := map[string]map[string]bool{}
+	w := harvest.NewWatcher(nil, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), harvest.NoDeps{}, nil)
+
+	if !harvest.MatchSessionTokensForTest(w, pending, commands, matched) {
+		t.Fatal("matchSessionTokens = false, want true: two pending tokens carry a mark")
+	}
+	want := map[string]map[string]bool{
+		"mf-t7":  {"s-a": true},
+		"mf-t42": {"s-b": true, "s-c": true},
+	}
+	if fmt.Sprint(matched) != fmt.Sprint(want) {
+		t.Fatalf("matched = %v, want %v: a mention or a command with no mark verb must bind nothing", matched, want)
+	}
+}
+
+// lookupCountingSink counts GetHarvestOffset calls per path, so a test can
+// tell a skipped transcript from one the watcher looked up again.
+type lookupCountingSink struct {
+	*fakeHarvestSink
+	lookups map[string]int
+}
+
+func (s *lookupCountingSink) GetHarvestOffset(ctx context.Context, path string) (int64, bool, error) {
+	s.lookups[path]++
+	return s.fakeHarvestSink.GetHarvestOffset(ctx, path)
+}
+
+const unchangedTranscriptLine = `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-other","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"echo nothing to see"}}]}}` + "\n"
+
+func newLookupCountingWatcher(t *testing.T) (*harvest.Watcher, *lookupCountingSink, string) {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "transcript.jsonl")
+	if err := os.WriteFile(path, []byte(unchangedTranscriptLine), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+	sink := &lookupCountingSink{fakeHarvestSink: newFakeHarvestSink(), lookups: map[string]int{}}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	return w, sink, path
+}
+
+func TestUnchangedTranscriptSkipsOffsetLookup(t *testing.T) {
+	w, sink, path := newLookupCountingWatcher(t)
+	runCycles(t, w, 1)
+	if sink.lookups[path] != 1 {
+		t.Fatalf("lookups after cycle 1 = %d, want 1", sink.lookups[path])
+	}
+	runCycles(t, w, 2)
+	if sink.lookups[path] != 1 {
+		t.Fatalf("lookups after cycle 3 = %d, want 1: a transcript whose size equals the offset this watcher last committed has nothing new to read", sink.lookups[path])
+	}
+}
+
+func TestGrownTranscriptIsReadAfterSkip(t *testing.T) {
+	w, sink, path := newLookupCountingWatcher(t)
+	runCycles(t, w, 2)
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("open %s: %v", path, err)
+	}
+	if _, err := f.WriteString(unchangedTranscriptLine); err != nil {
+		t.Fatalf("append %s: %v", path, err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close %s: %v", path, err)
+	}
+	runCycles(t, w, 1)
+	if sink.lookups[path] != 2 {
+		t.Fatalf("lookups after growth = %d, want 2: a grown transcript must be read", sink.lookups[path])
+	}
+	if want := int64(2 * len(unchangedTranscriptLine)); sink.offsets[path] != want {
+		t.Fatalf("committed offset = %d, want %d: the appended line must be harvested", sink.offsets[path], want)
+	}
+
+	if err := os.Truncate(path, int64(len(unchangedTranscriptLine))); err != nil {
+		t.Fatalf("truncate %s: %v", path, err)
+	}
+	runCycles(t, w, 1)
+	if sink.lookups[path] != 3 {
+		t.Fatalf("lookups after truncation = %d, want 3: a truncated transcript is read, never skipped", sink.lookups[path])
 	}
 }
 
