@@ -845,7 +845,7 @@ the **AskUserQuestion** it states.
 
 > **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
 > end your turn — not only the test cases this round adds. The fix commit lands before the first
-> flip — a flip's restore (`git checkout --`) reverts the file to its index state, so an unstaged
+> flip — a flip restored with `git checkout --` reverts the file to its index state, so an unstaged
 > fix dies with the first restore — and a flip's killing-test failure is trusted as proof only once
 > the mutation is asserted landed: the mutated bytes, read back from disk, are the ones the flip
 > wrote. Mutate the mechanism: revert it in a
@@ -859,7 +859,11 @@ the **AskUserQuestion** it states.
 > that your fix's own test tests what it claims.
 > `mutate-and-verify.sh <patch-file> <harness>` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
-> mutate is your judgment, not the script's. Each mutation alters one mechanism — where a single
+> mutate is your judgment, not the script's.
+> `break-and-prove.sh <file> (--sed <expr> | --patch <patch>) -- <test-command>` mechanizes a
+> single-file flip: it mutates `<file>`, asserts the test fails, restores `<file>` from a
+> pre-mutation byte snapshot rather than `git checkout --`, so uncommitted edits on it survive, and
+> asserts the restored run passes. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
 > mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
 > your turn ends. Where your fix changed a guard script — a check that exists to fail on a defect
