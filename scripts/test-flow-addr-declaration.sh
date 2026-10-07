@@ -35,7 +35,7 @@
 #      and never a third resolver — so every store-touching command honors
 #      FLOW_ADDR, and only the record family consults FLOW_RECORDS_ADDR.
 #
-# THE SIX CASES run the assertion against the real root and the unmutated
+# THE SEVEN CASES run the assertion against the real root and the unmutated
 # copy (both must pass) and against one drift mutation each (every one must
 # fail). The mutation cases make the harness self-pinning: an assertion
 # loosened into vacuity stops failing the mutations and the harness reports
@@ -189,8 +189,8 @@ fi
 # the record seam
 make_root "$SANDBOX/m-outside" || exit 2
 sed -i.bak 's/registerConnFlags(/registerRecordConnFlags(/' \
-  "$SANDBOX/m-outside/stats/cmd/flow/suite.go" &&
-  rm -f "$SANDBOX/m-outside/stats/cmd/flow/suite.go.bak"
+  "$SANDBOX/m-outside/stats/cmd/flow/hazard.go" &&
+  rm -f "$SANDBOX/m-outside/stats/cmd/flow/hazard.go.bak"
 run_case mutate-record-seam-outside-family fail "$SANDBOX/m-outside"
 
 # mutate-record-seam-default: registerRecordConnFlags stops resolving
@@ -215,9 +215,17 @@ run_case mutate-family-verb-switches-seam fail "$SANDBOX/m-switch"
 # still parses and the case fails through assertion 3's set comparison —
 # the drift the case name claims — not through the sentence-parse guard.
 make_root "$SANDBOX/m-decl" || exit 2
-sed -i.bak 's/, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`)/)/' "$SANDBOX/m-decl/.flow/project.md" &&
+sed -i.bak 's/, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`//' "$SANDBOX/m-decl/.flow/project.md" &&
   rm -f "$SANDBOX/m-decl/.flow/project.md.bak"
 run_case mutate-declaration-drops-verb fail "$SANDBOX/m-decl"
+
+# mutate-family-suite-switches-seam: `flow suite` (declared in the family so
+# its runtime rows outlive a worktree) falls back to the FLOW_ADDR-only seam
+make_root "$SANDBOX/m-suite" || exit 2
+sed -i.bak 's/registerRecordConnFlags(fset, &f)/registerConnFlags(fset, \&f)/' \
+  "$SANDBOX/m-suite/stats/cmd/flow/suite.go" &&
+  rm -f "$SANDBOX/m-suite/stats/cmd/flow/suite.go.bak"
+run_case mutate-family-suite-switches-seam fail "$SANDBOX/m-suite"
 
 # mutate-literal-addr-registration: a registration takes a hardcoded default
 make_root "$SANDBOX/m-literal" || exit 2

@@ -620,9 +620,11 @@ type recordIdentityFlags struct {
 // The -addr default is resolveRecordsAddr(), and this registration is the
 // one place that decision is wired: the record family's rows must outlive an
 // apply worktree, so this is the only flag set that resolves
-// FLOW_RECORDS_ADDR. `flow self-review bundle` and `flow lesson resolve`
-// register through here too, for the same reason. Every verb outside the record family -- hazard,
-// suite, spec, tasks -- registers registerConnFlags instead, whose address
+// FLOW_RECORDS_ADDR. `flow self-review bundle`, `flow lesson resolve` and
+// `flow suite record`/`list` register through here too, for the same reason:
+// suite runtimes are medianed across runs, so a worktree's rows must reach
+// the persistent store. Every verb outside the record family -- hazard,
+// spec, tasks -- registers registerConnFlags instead, whose address
 // follows FLOW_ADDR alone.
 func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
 	fset.StringVar(&f.addr, "addr", resolveRecordsAddr(), "flowd base URL")
@@ -632,7 +634,7 @@ func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
 
 // registerConnFlags is registerRecordConnFlags for every store-touching
 // verb outside the record family: the same three flags, with -addr
-// resolved from FLOW_ADDR alone. Hazard, suite, spec and tasks telemetry
+// resolved from FLOW_ADDR alone. Hazard, spec and tasks telemetry
 // lives and dies with the run that produced it, so it follows the run's
 // daemon; only the record family outlives the workspace.
 func registerConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {

@@ -1872,7 +1872,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("suite", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
+		noteAddrUsage(flag.NewFlagSet("hazard", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
 
 		if !strings.Contains(stderr.String(), "flow: using FLOW_ADDR=http://127.0.0.1:4299") {
 			t.Errorf("stderr = %q, want the run address named", stderr.String())
@@ -1923,7 +1923,7 @@ func TestRiderVerbsRegisterTheRunAddress(t *testing.T) {
 	t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
 
 	var f recordIdentityFlags
-	fset := flag.NewFlagSet("suite", flag.ContinueOnError)
+	fset := flag.NewFlagSet("hazard", flag.ContinueOnError)
 	registerConnFlags(fset, &f)
 
 	if f.addr != "http://127.0.0.1:4299" {

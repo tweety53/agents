@@ -42,6 +42,11 @@ list prints rows newest first, then one summary line per (suite, host):
 the median duration of the last 10 passing runs -- a failed run's duration
 is diagnostic, never a runtime figure, and one cold-cache run must not move
 the number. -json emits the store's array alone.
+
+Both verbs resolve the store address from FLOW_RECORDS_ADDR when it is set,
+then FLOW_ADDR: the summary compares runs across changes, so a row recorded
+in an apply worktree must outlive that worktree's daemon. An explicit -addr
+still wins.
 `
 
 // suiteSummaryWindow is how many passing runs each per-(suite, host)
@@ -77,7 +82,7 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 	fset := flag.NewFlagSet("flow suite record", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f)
 	suite := fset.String("suite", "", "the name this runtime figure belongs to (required)")
 
 	// Parse stops at --; everything after it is the child command, handed
@@ -142,7 +147,7 @@ func runSuiteList(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	fset := flag.NewFlagSet("flow suite list", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f)
 	suite := fset.String("suite", "", "list only this suite (optional)")
 	limit := fset.Int("limit", 20, "how many rows to read")
 	asJSON := fset.Bool("json", false, "print the store's array alone")

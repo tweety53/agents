@@ -262,6 +262,43 @@ func TestSuiteListJSON(t *testing.T) {
 	}
 }
 
+// TestSuiteResolvesTheRecordsAddress pins that both suite verbs default
+// -addr to FLOW_RECORDS_ADDR over FLOW_ADDR: a worktree's FLOW_ADDR names
+// its own short-lived daemon, and runtime rows recorded there would never
+// reach the cross-run median the persistent store serves.
+func TestSuiteResolvesTheRecordsAddress(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var recorded, listed bool
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			recorded = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"suite":"probe","host":"h","durationMs":10,"exitCode":0,"ranAt":"2026-09-09T12:00:00Z"}`))
+			return
+		}
+		listed = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
+	t.Setenv("FLOW_ADDR", deadPortURL(t))
+
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(),
+		[]string{"suite", "record", "-timeout", "500ms", "-C", repo, "-suite", "probe", "--", "/bin/sh", "-c", "true"},
+		strings.NewReader(""), &stdout, &stderr); code != 0 || !recorded {
+		t.Fatalf("suite record exit = %d, recorded at FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, recorded, stderr.String())
+	}
+	if code := run(context.Background(),
+		[]string{"suite", "list", "-json", "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr); code != 0 || !listed {
+		t.Fatalf("suite list exit = %d, read from FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, listed, stderr.String())
+	}
+}
+
 // deadPortURL is a URL whose port nothing answers on -- the unreachable
 // store the fallback tests need. It binds then closes a listener, so the
 // port is released but almost certainly unclaimed.
