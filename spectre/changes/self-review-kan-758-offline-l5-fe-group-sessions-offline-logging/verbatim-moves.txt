@@ -1,2 +1,6 @@
 # Operator-dispatched self-review fix: a run's first panel round is read from the store, never from session memory.
 **A run's first round is the number `flow record next-round -change <name>` prints**, never one carried from session memory or an earlier run's handoff, and each later round of the run is one more — so a later run never reuses a round an earlier run of the change already recorded under.
+# Operator-dispatched self-review fix: visual verify's step 3 checks the inline verify closed green before any verifier is dispatched.
+Exit 1 → no verifier is dispatched: **Verify** has not closed green, so the run returns to it and visual verification starts again only once it has.
+Before it, in the same Bash call, run `check-verify-green.sh <abs-worktree> <name> mf-<literal-token>` once per stage; its header is canonical for the verdict.
+Exit 0 → continue.

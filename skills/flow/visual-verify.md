@@ -172,6 +172,12 @@ it is gone.
    each check's rule. Exit 0 → every check passed. Exit 1 → each `FAIL:` line names a failing check
    and its evidence. Exit 2 → it cannot answer; treat it as a failing check, carrying its stderr.
 
+   Before it, in the same Bash call, run `check-verify-green.sh <abs-worktree> <name> mf-<literal-token>`
+   once per stage; its header is canonical for the verdict. Exit 0 → continue. Exit 1 → no verifier is
+   dispatched: **Verify** has not closed green, so the run returns to it and visual verification
+   starts again only once it has. Exit 2 → it cannot answer; treat it as a failing check, carrying
+   its stderr.
+
    **Any failing check ends the stage here**: no verifier is dispatched, the stage's `end` mark
    carries `-outcome stopped`, and the report names every failing check with the evidence above.
    The run proceeds to the `IN_PROGRESS` handoff, which names the environment cause — the operator
