@@ -150,6 +150,26 @@ func TestWritePanelDiffParity(t *testing.T) {
 	}
 }
 
+func TestWritePanelDiffFinalRemovesStaleLateFix(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	var g fxGit
+	w := wpdNewWT(t, &g, dir+"/wt1")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	for _, args := range [][]string{{"late-fix", w.path, w.path, w.held}, {"final", w.path, w.path, w.mb}} {
+		if r := runGuard("write-panel-diff", args, Env{Dir: dir, Getenv: os.Getenv}); r.rc != 0 {
+			t.Fatalf("%s: exit %d\n%s", args[0], r.rc, r.out)
+		}
+	}
+	for _, f := range []string{"late-fix.diff", "late-fix.diff.touched"} {
+		if _, err := os.Stat(w.path + "/.superpowers/sdd/" + f); !os.IsNotExist(err) {
+			t.Errorf("%s survived a final write (err %v)", f, err)
+		}
+	}
+}
+
 func TestWritePanelDiffRefusals(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

@@ -13,6 +13,8 @@
 #   final-review.diff | late-fix.diff | fix-round-<N>.diff |
 #   slot-delta-<round>-<slot>.diff
 #   <that file>.touched — the [TOUCHED_FILES] list
+# A `final` write also removes any late-fix.diff and its .touched: a full
+# pass 1 makes them stale, and a slot must never read them in its place.
 #
 # Both are sectioned per worktree, in argument order, each section opened by
 #   # worktree: <wt> — merge base <sha>

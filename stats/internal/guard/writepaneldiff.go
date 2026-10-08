@@ -2,8 +2,10 @@ package guard
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -123,6 +125,17 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 		if err := wpdWriteAtomic(filepath.Join(dir, f.name), f.body); err != nil {
 			fmt.Fprintf(stderr, "write-panel-diff: %v\n", err)
 			return 2
+		}
+	}
+	// A final write opens a full pass 1, so a late-fix.diff left by an
+	// earlier run is stale by construction: removed, so no slot can read it
+	// in place of final-review.diff.
+	if kind == "final" {
+		for _, f := range []string{"late-fix.diff", "late-fix.diff.touched"} {
+			if err := os.Remove(filepath.Join(dir, f)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintf(stderr, "write-panel-diff: %v\n", err)
+				return 2
+			}
 		}
 	}
 	fmt.Fprintf(stdout, "%s\n%s.touched\n", path, path)
