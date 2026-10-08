@@ -22,7 +22,9 @@
 #                 app root naming the Default (a `port` row: `:<default>` not
 #                 followed by a digit) on a line not naming the row's Variable
 #                 fails, unless the `## visual verification` `start` command
-#                 names the Variable or the resolved value.
+#                 names the Variable or the resolved value, or the Default
+#                 appears only inside `${VAR:fallback}` references whose VAR
+#                 the `start` command names or stdin exports.
 #   3. origins  — a configuration-shaped file (`.env*`, `*.json`, `*.y*ml`,
 #                 `*.toml`, `*.ini`, `*.properties`, `*.conf`, `*.config.*`;
 #                 never a production `*.prod.*` file)

@@ -235,7 +235,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 				vpWalk(wtAbs, a.dir, func(rel string) bool {
 					return !vpMarkdown(rel)
 				}, func(rel string, n int, l string, _ []string) {
-					if hit(l) && !vpNames(l, r.variable) {
+					if hit(vpStripOverridden(l, exported, b.start)) && !vpNames(l, r.variable) {
 						fails = append(fails, fmt.Sprintf("FAIL: base-url — %s:%d: names %s's default %s, which neither $%s nor the start command overrides (resolved: %s)", rel, n, r.variable, r.def, r.variable, r.value))
 					}
 				})
@@ -257,13 +257,8 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 					}
 				}
 			}
-			// A URL inside `${VAR:fallback}` is a default the environment
-			// overrides: the list passes when the start command or an
-			// exported variable names any VAR of the reference.
-			for _, m := range vpEnvRef.FindAllStringSubmatch(text, -1) {
-				if _, ok := exported[m[1]]; ok || vpNames(b.start, m[1]) {
-					return
-				}
+			if vpOverridden(text, exported, b.start) {
+				return
 			}
 			found := map[string]bool{}
 			for _, m := range vpURL.FindAllString(text, -1) {
@@ -397,6 +392,52 @@ func vpAnswers(port, rawURL string) bool {
 		}
 	}
 	return false
+}
+
+// vpOverridden is whether text holds a `${VAR:fallback}` reference whose VAR
+// the start command names or stdin exports: the fallback is a default the
+// environment overrides, never the live value (checks 2 and 3).
+func vpOverridden(text string, exported map[string]string, start string) bool {
+	for _, m := range vpEnvRef.FindAllStringSubmatch(text, -1) {
+		if _, ok := exported[m[1]]; ok || vpNames(start, m[1]) {
+			return true
+		}
+	}
+	return false
+}
+
+// vpStripOverridden is text with every `${VAR:fallback}` span whose VAR
+// the start command names or stdin exports removed, through its matching
+// `}`: an overridden fallback is never the live value, while a Default
+// outside such a span still is (check 2).
+func vpStripOverridden(text string, exported map[string]string, start string) string {
+	var b strings.Builder
+	i := 0
+	for _, m := range vpEnvRef.FindAllStringSubmatchIndex(text, -1) {
+		if m[0] < i {
+			continue
+		}
+		v := text[m[2]:m[3]]
+		if _, ok := exported[v]; !ok && !vpNames(start, v) {
+			continue
+		}
+		end, depth := len(text), 0
+		for j := m[0] + 1; j < len(text); j++ {
+			if text[j] == '{' {
+				depth++
+			} else if text[j] == '}' {
+				if depth--; depth == 0 {
+					end = j + 1
+					break
+				}
+			}
+		}
+		b.WriteString(text[i:m[0]])
+		b.WriteByte(' ')
+		i = end
+	}
+	b.WriteString(text[i:])
+	return b.String()
 }
 
 // vpNames is whether text names the variable as a whole word.

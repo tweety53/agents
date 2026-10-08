@@ -257,6 +257,16 @@ func TestCheckVisualPreflightBaseURL(t *testing.T) {
 			".flow/project.md": vpIsolation + start("API_PORT=$API_PORT npm run dev"),
 			"web/src/api.ts":   "export const base = \"http://localhost:8080/api\"\n"},
 			vpWant{code: 1, contains: []string{"FAIL: base-url — web/src/api.ts:1:", "API_BASE_URL"}}},
+		{"an env reference's fallback, the variable named by start", map[string]string{
+			".flow/project.md": vpIsolation + start("FRONTEND_URL=$FRONTEND_URL npm run dev"),
+			"web/src/app.yml":  "frontend: ${FRONTEND_URL:http://localhost:8080}\n"},
+			vpWant{code: 0, omits: []string{"FAIL:"}}},
+		{"an env reference's fallback, no override, still judged", map[string]string{"web/src/app.yml": "frontend: ${FRONTEND_URL:http://localhost:8080}\n"},
+			vpWant{code: 1, contains: []string{"FAIL: base-url — web/src/app.yml:1:"}}},
+		{"an overridden env reference beside a Default outside it, still judged", map[string]string{
+			".flow/project.md": vpIsolation + start("API_HOST=$API_HOST npm run dev"),
+			"web/src/app.yml":  "base: http://${API_HOST:localhost}:8080\n"},
+			vpWant{code: 1, contains: []string{"FAIL: base-url — web/src/app.yml:1:", "API_PORT"}}},
 		{"skipped dirs, Markdown, binaries and paths outside the app root", map[string]string{
 			"web/node_modules/x/index.js": "fetch(\"//localhost:8080\")\n",
 			"web/dist/app.js":             "fetch(\"//localhost:8080\")\n",
