@@ -148,6 +148,14 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 
 	var out strings.Builder
 	emit := func(s string) { out.WriteString(s + "\n\n") }
+	// The shared blocks are written for pass 1; a pass reading any other
+	// diff is pointed at the one its PASS section names, never the branch.
+	named := func(b string) string {
+		if kind == "final" {
+			return b
+		}
+		return strings.ReplaceAll(b, "`final-review.diff`", "the **Diff file:** each PASS section names")
+	}
 	for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ", "WORKTREES"} {
 		b, ok := block(panel, "review-panel.md", label)
 		if !ok {
@@ -156,7 +164,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		if label == "WORKTREES" {
 			b = strings.Replace(b, "`<abs-worktree-1>`, `<abs-worktree-2>`, …", "`"+strings.Join(wts, "`, `")+"`", 1)
 		}
-		emit(b)
+		emit(named(b))
 	}
 	for _, wt := range wts {
 		if isFile(wt + "/.superpowers/sdd/citation-check.md") {
@@ -174,7 +182,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		if !ok {
 			return 2
 		}
-		emit(entry)
+		emit(named(entry))
 	}
 	// One touched list per distinct diff; a delta bundle names each pass's.
 	seen := map[string]bool{}
@@ -198,7 +206,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		if !ok {
 			return 2
 		}
-		emit(b)
+		emit(named(b))
 	}
 	if len(reports) > 0 {
 		fixRound, ok := read(skill + "/review-panel-fix-round.md")

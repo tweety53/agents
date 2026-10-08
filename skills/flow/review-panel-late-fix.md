@@ -24,7 +24,8 @@ none; the `-diff-base` its clean dispatches recorded names the canonical worktre
 peer worktree's since-close sha comes from the panel record's per-worktree sha list.
 `<base-verdict>` is that worktree's **Check base movement first** line this round. Exit 0 → the
 reduction fires; exit 1 → the full path, each failed condition on its own line; exit 2 → it cannot
-answer, read as the full path.
+answer, read as the full path; exit 3 → **The append scope** below — the full path for the
+roster, never for the read scope.
 
 **On trigger, pass 1 is one dispatch: `primary` alone**, plus every slot the operator named at
 this stage's start, reading not the whole `final-review.diff` but only
@@ -57,3 +58,24 @@ or with every finding it raised a Minor the parent fixed inline under the standi
 `primary`'s read on the since-close range leaves every slot it did not dispatch current —
 the reduction's own conditions, already clean and already verified with the machinery untouched,
 being what the full roster's coverage rests on for that delta.
+
+## The append scope
+
+**A fix run whose late-fix check fails on its size or scope-growth condition alone — exit 3 —
+keeps the decided roster and narrows only the read scope.** Pass 1 runs the roster a full pass 1
+would: the same `panel.dispatches`, pairs and ceilings, and on a `default` panel its
+settings-store grouping. Every dispatch reads `<abs-worktree>/.superpowers/sdd/late-fix.diff`,
+written over the since-close range by the same `write-panel-diff.sh late-fix` call the late-fix
+reduction makes, whose exits read as the pass-1 write's, and rendered with `-diff late-fix`,
+never the whole `final-review.diff` — the render points every shared paragraph at that diff.
+Mutation, which reads no diff file, takes each worktree's since-close sha as its diff base in
+place of the merge base its MUTATION ENTRY CONTEXT names.
+
+Every entry check still runs as any round's, against the merge base — base movement, the
+diff-size cap and the docs-only guard, whose reduction to `primary` still applies. The append scope is
+recorded with `flow record pass -round <round>`:
+`append scope: <n> changed lines since <sha>`.
+
+A Critical or Important finding it raises feeds the ordinary fix-round loop and **voids nothing**:
+the full roster already read the delta, so a severe finding says nothing about the read being too
+narrow. A clean close moves the close sha to the round's HEAD, as any close does.

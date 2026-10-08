@@ -173,12 +173,18 @@ func TestRenderSlotPrompt(t *testing.T) {
 		{"fix-round", "fix-round-2.diff"},
 	} {
 		t.Run("-diff "+tc.kind, func(t *testing.T) {
-			r, got := fx.run(t, skill, skill, "2", fx.canon, fx.plan, "primary", "-diff", tc.kind, "--", fx.canon)
+			r, got := fx.run(t, skill, skill, "2", fx.canon, fx.plan, "primary+principles", "-diff", tc.kind, "--", fx.canon)
 			if r.rc != 0 {
 				t.Fatalf("exit %d\n%s", r.rc, r.out)
 			}
 			if !strings.Contains(got, "**Diff file:** "+sdd+tc.file+"\n") || !strings.Contains(got, tc.file+"-touched.go") {
 				t.Errorf("want %s and its touched list", tc.file)
+			}
+			// The shared ENTRY CONTEXT and INDEPENDENT PASSES blocks name
+			// final-review.diff; a pass reading another diff must not be
+			// pointed back at the whole branch.
+			if tc.kind != "final" && strings.Contains(got, "`final-review.diff`") {
+				t.Errorf("-diff %s render still points a pass at `final-review.diff`", tc.kind)
 			}
 		})
 	}

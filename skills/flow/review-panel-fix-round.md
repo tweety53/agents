@@ -18,7 +18,8 @@ entry check is an entry step, and the round does not re-run it.
 
 **Pass 1 runs the roster **The docs-only reduction** or **The late-fix reduction** chose — the
 resolved roster, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
-where the reduction's trigger holds — plus every slot the operator named at this stage's start
+where the reduction's trigger holds, or the decided roster on the since-close delta under the
+append scope — plus every slot the operator named at this stage's start
 that it did not already carry.** Only re-runs after a fix are scoped. Record
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with

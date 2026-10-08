@@ -20,7 +20,9 @@
 #      CONTEXT followed by the diff's .touched list (write-panel-diff.sh) —
 #      each pass's own on a delta bundle; INDEPENDENT PASSES when more than
 #      one slot; FIX-ROUND SCOPE from review-panel-fix-round.md, naming the
-#      -fix-report path(s), only when -fix-report is given;
+#      -fix-report path(s), only when -fix-report is given; on any -diff
+#      but final, every `final-review.diff` in WORKTREES, ENTRY CONTEXT and
+#      INDEPENDENT PASSES reads `the **Diff file:** each PASS section names`;
 #   2. one `## PASS <id>` section per slot, in the order given: the fenced
 #      body of <skill-dir>/<id>-reviewer-prompt.md, dedented, every
 #      placeholder filled per review-panel.md's placeholder table (**The

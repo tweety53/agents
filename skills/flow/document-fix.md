@@ -75,10 +75,12 @@ is where a fix round is most tempted to assert a check nobody made: `check-task-
 refuses the close of a task whose record carries the evidence-free shape, per **Plan
 provenance**'s evidence rule (`skills/flow-contracts/plan-provenance.md`).
 
-**An appended task is implemented and panel-checked exactly as plan-time work — the append never
-narrows the panel.** The operator flag that prompted it is not a verification of its premise: its
+**An appended task is implemented and panel-checked exactly as plan-time work — by the full
+decided roster.** The operator flag that prompted it is not a verification of its premise: its
 work lands in the fix run's diff and takes the panel beside every other task's, and the narrow
 late-fix path stays closed to an append (**The late-fix reduction**, `skills/flow/review-panel.md`).
+Its read scope is the since-close delta under **The append scope**
+(`skills/flow/review-panel-late-fix.md`).
 Beside the plan-time paragraphs, the appended task's dispatch also carries the MUTATION PROOF
 paragraph (`skills/flow/review-panel.md`): the fix's own condition is mutated and a named test
 confirmed to fail before the run's panel stage closes, the reported `fix-mutation:` lines checked

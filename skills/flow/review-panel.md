@@ -167,7 +167,7 @@ substituted in the dispatch prompt with the value named here:
 
 | Placeholder | Template | The parent substitutes |
 |---|---|---|
-| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction or the append scope; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
 | `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory the dispatch context bundle reads (`<changeRoot>`, or a satellite's canonical change directory) |
 | `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
 | `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
@@ -257,7 +257,8 @@ Record the verdict, the printed path where there is one, and the roster actually
 fields above.
 
 **This and the late-fix reduction below are the only automatic reductions, and they only ever
-remove.** No slot is ever added by diff
+remove; the append scope (`skills/flow/review-panel-late-fix.md`) narrows the read scope and
+removes no slot.** No slot is ever added by diff
 size, touched area, or any other automatic trigger: beyond the reduced or resolved roster,
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
@@ -283,7 +284,7 @@ grouped into those dispatches.
 **Load `skills/flow/review-panel-late-fix.md` only when** this run is a fix run — a `/flow`
 invocation whose argument is fix instructions, or a plain message at `IN_PROGRESS`
 (`skills/flow/SKILL.md`) — before this stage opens its first round; it carries
-the reduction's conditions, its single dispatch and what voids it.
+the reduction's conditions, its single dispatch, what voids it, and the append scope.
 
 ### Bundled dispatch
 
@@ -565,7 +566,9 @@ one path each**, naming its absolute path alongside `final-review.diff`:
 > in this diff's blast radius.
 
 **Every slot's dispatch prompt also carries the ENTRY CONTEXT paragraph**, the round's
-`[TOUCHED_FILES]` list inlined directly beneath it:
+`[TOUCHED_FILES]` list inlined directly beneath it — on a pass reading any diff but
+`final-review.diff`, the render names that pass's own diff in its place, as it does in
+INDEPENDENT PASSES and WORKTREES:
 
 > **ENTRY CONTEXT:** `final-review.diff` is your entry artifact, and the touched-files list in
 > this prompt is your named entry context — begin from those two, not from a whole-tree

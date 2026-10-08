@@ -30,7 +30,9 @@ docs-only branch to `primary` alone, and so does **The late-fix reduction**
 (`skills/flow/review-panel.md`) on a qualifying fix run: the experimental slot is never part of
 either reduced roster, and is dispatched again when a later round reclassifies the run off the
 reduction — a docs-only guard reclassification, or a late-fix round whose Critical or Important
-voids the reduction for the rest of the run.
+voids the reduction for the rest of the run. **The append scope**
+(`skills/flow/review-panel-late-fix.md`) narrows the read scope alone, so the experimental slot
+rides an append-scope pass 1 as it rides a full one.
 
 It runs at most once per change, whether or not the roster is `compact` — the experimental roll and
 the compact roll are independent per **Decide** (`skills/flow/brainstorm-planner.md`) — and never at all on a `default`

@@ -14,7 +14,8 @@ import (
 // header comment is the contract -- the five conditions of the late-fix
 // reduction (skills/flow/review-panel-late-fix.md), exit 0 reduce (the
 // `late-fix reduction:` line), 1 full path (one line per failed condition),
-// 2 cannot answer.
+// 2 cannot answer, 3 append scope (the `append scope:` line -- only
+// conditions 3 and/or 4 failed).
 func init() {
 	Registry["check-late-fix-trigger"] = checkLateFixTrigger
 }
@@ -51,8 +52,10 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 		return out, ok
 	}
 	var failed []string
+	appendScope := true // every failed condition is 3 or 4
 	fail := func(n int, format string, a ...any) {
 		failed = append(failed, fmt.Sprintf("full path: condition %d — "+format, append([]any{n}, a...)...))
+		appendScope = appendScope && (n == 3 || n == 4)
 	}
 
 	// Condition 1: the findings are closed, and every worktree names a
@@ -168,6 +171,10 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 		fail(5, "the delta touches the panel's own machinery: %s", strings.Join(machinery, ", "))
 	}
 
+	if len(failed) > 0 && appendScope {
+		fmt.Fprintf(stdout, "append scope: %d changed lines since %s\n", lines, triples[1])
+		return 3
+	}
 	if len(failed) > 0 {
 		fmt.Fprintln(stdout, strings.Join(failed, "\n"))
 		return 1

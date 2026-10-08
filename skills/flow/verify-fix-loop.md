@@ -38,7 +38,7 @@ One round runs these steps in order:
    states its dispatch, its prompt carrying the FIX-ROUND SCOPE paragraph of **Panel re-runs**
    (`skills/flow/review-panel-fix-round.md`). That file's finding, voiding and staleness rules
    apply as written — a clean or Minor-only read leaves every slot it did not dispatch current.
-   `check-late-fix-trigger.sh` is not run: its scope-growth condition refuses every appended task,
+   `check-late-fix-trigger.sh` is not run: its scope-growth condition denies every appended task the `primary`-alone reduction,
    and this task's premise is a defect a verifier measured, not an operator's unverified flag.
    The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its

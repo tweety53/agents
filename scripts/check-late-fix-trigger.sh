@@ -29,6 +29,7 @@
 # Prints on stdout:
 #   exit 0  late-fix reduction: <n> changed lines since <canonical since-close-sha>
 #   exit 1  full path: condition <k> — <reason>   (one line per failed condition)
+#   exit 3  append scope: <n> changed lines since <canonical since-close sha>
 #
 # Exit codes:
 #   0  reduce
@@ -36,6 +37,9 @@
 #   2  cannot answer — usage, a worktree/sha pair that fails
 #      panel_validate_worktree, a git failure, or check-panel-findings-closed
 #      exit 2 (its stderr passed through); the caller reads it as full path
+#   3  append scope — conditions 1, 2 and 5 hold and only 3 and/or 4 failed:
+#      pass 1 runs the decided roster on the since-close delta
+#      (skills/flow/review-panel-late-fix.md, The append scope)
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

@@ -51,7 +51,8 @@ func TestCheckLateFixTrigger(t *testing.T) {
 		args     func(fx, peer *lftFx) []string // nil: {demo, tasks, wt, since, CLEAR}
 		findings string                         // "": no findings
 		code     int
-		out      string // exit 0: the whole stdout; exit 1: the one line's prefix; exit 2: a stderr substring
+		lines    int    // exit 1: stdout's line count, 0 meaning 1
+		out      string // exit 0: the whole stdout; exit 1: the first line's prefix; exit 2: a stderr substring; exit 3: the one line's prefix
 	}{
 		{label: "every condition holds", code: 0, out: "late-fix reduction: 1 changed lines since $SINCE\n"},
 		{label: "condition 1 — an open finding", findings: open, code: 1, out: "full path: condition 1 — "},
@@ -59,23 +60,26 @@ func TestCheckLateFixTrigger(t *testing.T) {
 			args: func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, "-", "CLEAR:"} }},
 		{label: "condition 2 — the base moved", code: 1, out: "full path: condition 2 — ",
 			args: func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, fx.since, "MOVED:"} }},
-		{label: "condition 3 — over 40 lines", code: 1, out: "full path: condition 3 — ",
+		{label: "append scope — over 40 lines", code: 3, out: "append scope: ",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.lines("a.txt", 40) }},
-		{label: "condition 3 — summed across worktrees", code: 1, out: "full path: condition 3 — 41 changed lines",
+		{label: "append scope — summed across worktrees", code: 3, out: "append scope: 41 changed lines since $SINCE\n",
 			setup: func(t *testing.T, fx, peer *lftFx) { fx.lines("a.txt", 20); peer.lines("a.txt", 19) },
 			args: func(fx, peer *lftFx) []string {
 				return []string{"demo", fx.tasks, fx.wt, fx.since, "CLEAR:", peer.wt, peer.since, "CLEAR:"}
 			}},
-		{label: "condition 3 — a binary numstat entry", code: 1, out: "full path: condition 3 — ",
+		{label: "append scope — a binary numstat entry", code: 3, out: "append scope: ",
 			setup: func(t *testing.T, fx, _ *lftFx) {
 				if err := os.WriteFile(fx.wt+"/blob.bin", []byte{0, 1, 2, 0}, 0o644); err != nil {
 					t.Fatal(err)
 				}
 				fx.g.git(fx.wt, "add", "blob.bin")
 			}},
-		{label: "condition 4 — a new task line", code: 1, out: "full path: condition 4 — ",
+		{label: "append scope — a new task line", code: 3, out: "append scope: ",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.appendLine(fx.tasks, "- [ ] 2. a second task") }},
-		{label: "condition 4 — an untracked tasks.md", code: 1, out: "full path: condition 4 — ",
+		{label: "full path — a new task line with a moved base", code: 1, lines: 2, out: "full path: condition 2 — ",
+			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.appendLine(fx.tasks, "- [ ] 2. a second task") },
+			args:  func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, fx.since, "MOVED:"} }},
+		{label: "append scope — an untracked tasks.md", code: 3, out: "append scope: ",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.write(fx.wt+"/untracked-tasks.md", "- [ ] 1. x") },
 			args: func(fx, _ *lftFx) []string {
 				return []string{"demo", fx.wt + "/untracked-tasks.md", fx.wt, fx.since, "CLEAR:"}
@@ -123,12 +127,15 @@ func TestCheckLateFixTrigger(t *testing.T) {
 			}
 			r := runGuard("check-late-fix-trigger", args, lftEnv(dir, findings))
 			want := strings.ReplaceAll(tc.out, "$SINCE", fx.since)
+			lines := max(tc.lines, 1)
 			switch {
 			case r.rc != tc.code:
 				t.Errorf("exit %d, want %d\n%s", r.rc, tc.code, r.out)
 			case tc.code == 0 && r.stdout != want:
 				t.Errorf("stdout %q, want %q", r.stdout, want)
-			case tc.code == 1 && (strings.Count(r.stdout, "\n") != 1 || !strings.HasPrefix(r.stdout, want)):
+			case tc.code == 1 && (strings.Count(r.stdout, "\n") != lines || !strings.HasPrefix(r.stdout, want)):
+				t.Errorf("stdout %q, want exactly %d line(s), the first starting %q", r.stdout, lines, want)
+			case tc.code == 3 && (strings.Count(r.stdout, "\n") != 1 || !strings.HasPrefix(r.stdout, want)):
 				t.Errorf("stdout %q, want exactly one line starting %q", r.stdout, want)
 			case tc.code == 2 && (r.stdout != "" || !strings.Contains(r.err, want)):
 				t.Errorf("stdout %q stderr %q, want nothing on stdout and stderr naming %q", r.stdout, r.err, want)
