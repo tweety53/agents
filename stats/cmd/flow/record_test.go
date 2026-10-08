@@ -4490,3 +4490,48 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 		t.Errorf("records endpoint hit %d time(s), want 0 -- handoff-lines reads no findings", recordReads)
 	}
 }
+
+// TestRunRecordNextRound pins the round a panel run opens with: one past
+// the highest round any pass, finding or mutation row carries, 0 for a
+// change the store has never heard of, and no number on a failed read.
+func TestRunRecordNextRound(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	for _, tc := range []struct {
+		name, body string
+		status     int
+		want       string
+	}{
+		{"highest row's round plus one", `{"change":"demo","dispatches":[],
+		  "findings":[{"ref":"F1","round":2,"slot":"primary","severity":"Minor","note":"n","status":"fixed"}],
+		  "passes":[{"id":1,"round":4,"note":"a"},{"id":2,"round":1,"note":"b"}],
+		  "mutations":[{"id":1,"round":3,"path":"p","mutated":"m","test":"t"}]}`, http.StatusOK, "5"},
+		{"no rows", ``, http.StatusNotFound, "0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "next-round", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
+				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
+			}
+		})
+	}
+
+	t.Run("unreachable store prints no number", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "next-round", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
+			strings.NewReader(""), &stdout, &stderr)
+		if code == 0 || stdout.Len() != 0 {
+			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
+		}
+	})
+}

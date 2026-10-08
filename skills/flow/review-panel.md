@@ -17,6 +17,9 @@ about a panel run the parent records as it arises with `flow record pass` or `fl
 (`-change <name> -round <n>`, the round `0` for the initial panel and `1..n` for a fix round).
 `flow record render -kind panel` renders them into the panel record's pass-log section under
 `<abs-worktree>/.superpowers/sdd/reviews/` in the canonical worktree, beside the findings.
+**A run's first round is the number `flow record next-round -change <name>` prints**, never one
+carried from session memory or an earlier run's handoff, and each later round of the run is one
+more — so a later run never reuses a round an earlier run of the change already recorded under.
 
 ## Check base movement first
 

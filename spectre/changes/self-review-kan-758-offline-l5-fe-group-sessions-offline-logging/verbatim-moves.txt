@@ -1,0 +1,2 @@
+# Operator-dispatched self-review fix: a run's first panel round is read from the store, never from session memory.
+**A run's first round is the number `flow record next-round -change <name>` prints**, never one carried from session memory or an earlier run's handoff, and each later round of the run is one more — so a later run never reuses a round an earlier run of the change already recorded under.

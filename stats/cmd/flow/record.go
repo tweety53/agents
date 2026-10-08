@@ -252,6 +252,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -name pattern
        flow record dispatches [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record next-round [-addr url] [-timeout dur] [-C dir]
+                             -change name
        flow record verdict  [-addr url] [-timeout dur] [-C dir]
                              -change name -guard guard -worktree path -verdict line
        flow record verdict false-positive [-addr url] [-timeout dur] [-C dir]
@@ -306,6 +308,12 @@ the committed panel record, and the hand-written file is retired. -round is
 0 for the initial panel's entries and 1..n for a fix round's; mutation's
 three fields are the contract line's own -- on the exemption form, -mutated
 carries "none" and -test the reason.
+
+next-round prints the panel round a run opens next for a change: one more
+than the highest -round any pass, finding or mutation row of it carries, or
+0 when it has none. The round comes from the store, never from a session's
+memory, so a later run never reuses a round an earlier run recorded under.
+A failed read exits 1 and prints no number.
 
 journal-count prints how many of those journalled writes are still pending
 for a change -- one decimal count on stdout, and "unknown" where no count
@@ -531,6 +539,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordFindingPattern(ctx, args[1:], stdout, stderr)
 	case "dispatches":
 		return runRecordDispatches(ctx, args[1:], stdout, stderr)
+	case "next-round":
+		return runRecordNextRound(ctx, args[1:], stdout, stderr)
 	case "verdict":
 		return runRecordVerdict(ctx, args[1:], stdout, stderr)
 	case "verdicts":
@@ -1915,6 +1925,48 @@ func runRecordDispatches(ctx context.Context, args []string, stdout, stderr io.W
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))
+	return 0
+}
+
+// runRecordNextRound implements `flow record next-round`: one more than the
+// highest round any pass, finding or mutation row of the change carries, or
+// 0 for a change with none -- the round a panel run opens with, read from the
+// store so a later run cannot reuse an earlier run's round.
+func runRecordNextRound(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record next-round", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if callErr != nil && !errors.Is(callErr, client.ErrNotFound) {
+		fmt.Fprintf(stderr, "flow: next-round: %v\n", callErr)
+		return 1
+	}
+
+	next := 0
+	for _, r := range run.Passes {
+		next = max(next, r.Round+1)
+	}
+	for _, r := range run.Findings {
+		next = max(next, r.Round+1)
+	}
+	for _, r := range run.Mutations {
+		next = max(next, r.Round+1)
+	}
+	fmt.Fprintln(stdout, next)
 	return 0
 }
 
