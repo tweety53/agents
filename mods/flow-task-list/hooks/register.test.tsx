@@ -124,6 +124,13 @@ test('runLabel names the model family and effort', () => {
   expect(runLabel('custom-model', 3)).toBe('custom-model-3')
 })
 
+test('a row nested under the main row leads with an indented corner on every row', () => {
+  const row = { id: 'r', n: 3, desc: 'Task 3/16 (port guards)', state: 'in progress' } as const
+  expect(line(row, 16, 'sonnet-low', 11, false, 0, true)).toBe('  ⎿ sonnet-low  ◼ Task 3/16 (port guards) — in progress')
+  expect(line(row, 16, 'opus-medium', 11, true, 0, true)).toBe('  ⎿ opus-medium ◼ Task 3/16 (port guards) — in progress')
+  expect(line({ id: 'p', n: 4, desc: 'Task 4/16 (later)', state: 'pending' }, 16, '', 0, false, 0, true)).toBe('  ⎿ ◻ Task 4/16 (later) — pending')
+})
+
 test('a run label follows the lead, padded so the marker column lines up', () => {
   const row = { id: 'a', n: 2, desc: 'Count rules files', state: 'done' } as const
   expect(line(row, 6, 'opus-high', 9)).toBe('⎿ opus-high ✔ Task 2/6 (Count rules files) — done')
@@ -150,6 +157,24 @@ test("flowAfter follows flow stage marks and the change name's ticket", () => {
   expect(flowAfter(mark('begin', 'preflight'), impl)).toEqual({ ...impl, phase: 'flow-integrate' })
   expect(flowAfter(mark('end', 'write-in-progress'), impl)).toEqual(NO_FLOW)
   expect(flowAfter(mark('end', 'refresh-main-checkout'), { ...impl, phase: 'flow-integrate' })).toEqual(NO_FLOW)
+})
+
+test('flowAfter resolves the change name from shell variables set earlier in the command', () => {
+  const name = 'kan-924-audit-the-app-for-duplicate-api-storage-postgres'
+  const verify = { phase: 'flow-implement', change: name, ticket: 'KAN-924' } as const
+  // The shape the parent session writes.
+  expect(flowAfter(`N=${name}; cd /x; flow stage begin -command '/flow' -stage flow.verify -harness claude-code -session-token mf-x $N`, NO_FLOW)).toEqual(verify)
+  expect(flowAfter(`export N="${name}" && flow stage begin -command '/flow' -stage flow.verify \${N}`, NO_FLOW)).toEqual(verify)
+  expect(flowAfter(`N='${name}'; flow stage begin -command '/flow' -stage flow.verify "$N"`, NO_FLOW)).toEqual(verify)
+})
+
+test('flowAfter never lets a name that is no plain change name replace the known change', () => {
+  const impl = { phase: 'flow-implement', change: 'kan-873-port-guards', ticket: 'KAN-873' } as const
+  expect(flowAfter(`flow stage begin -command '/flow' -stage flow.verify -session-token mf-x $N`, impl)).toEqual(impl)
+  expect(flowAfter(`flow stage begin -command '/flow' -stage flow.verify \${N}`, impl)).toEqual(impl)
+  expect(flowAfter(`M=x; flow stage begin -command '/flow' -stage flow.verify $N`, impl)).toEqual(impl)
+  expect(flowAfter(`flow stage begin -command '/flow' -stage flow.verify a/b`, impl)).toEqual(impl)
+  expect(flowAfter(`flow stage begin -command '/flow' -stage flow.preflight $N`, impl)).toEqual({ ...impl, phase: 'flow-integrate' })
 })
 
 // No leading "· " (the engine puts " · " before a tail), no "->", " │ " between the main agent's part and
@@ -331,7 +356,7 @@ test("the main agent's running turn is a row of its own, outside the task number
   await $.tool.call(sub)
   expect(await shown()).toEqual([
     '⎿ opus-high ◼ main (Run guard tests) — verify',
-    '  sonnet    ◼ Task 1/1 (Explore auth) — in progress · 0s',
+    '  ⎿ sonnet ◼ Task 1/1 (Explore auth) — in progress · 0s',
   ])
 
   await $.turn.complete({ ...complete('ag1', 'answer'), agentId: undefined })
@@ -462,17 +487,17 @@ test('the band draws at most main plus five rows: dispatched rows first, then th
   await $.agent.spawn(spawn('Task 3/25 (Step 3)'))
   expect(await shown()).toEqual([
     '⎿ opus ◼ main — in progress',
-    '       ◼ Task 1/25 (Step 1) — in progress · 0s',
-    '       ◼ Task 2/25 (Step 2) — in progress · 0s',
-    '       ◼ Task 3/25 (Step 3) — in progress · 0s',
-    '       ◻ Task 4/25 (Step 4) — pending',
-    '       ◻ Task 5/25 (Step 5) — pending',
+    '  ⎿ ◼ Task 1/25 (Step 1) — in progress · 0s',
+    '  ⎿ ◼ Task 2/25 (Step 2) — in progress · 0s',
+    '  ⎿ ◼ Task 3/25 (Step 3) — in progress · 0s',
+    '  ⎿ ◻ Task 4/25 (Step 4) — pending',
+    '  ⎿ ◻ Task 5/25 (Step 5) — pending',
   ])
 
   for (const k of [4, 5, 6, 7]) await $.agent.spawn(spawn(`Task ${k}/25 (Step ${k})`))
   expect(await shown()).toEqual([
     '⎿ opus ◼ main — in progress',
-    ...[1, 2, 3, 4, 5].map(k => `       ◼ Task ${k}/25 (Step ${k}) — in progress · 0s`),
+    ...[1, 2, 3, 4, 5].map(k => `  ⎿ ◼ Task ${k}/25 (Step ${k}) — in progress · 0s`),
   ])
 })
 
@@ -585,20 +610,20 @@ test("the main loop's status lines are rows: latest line per unit, done drops of
   await say('⏳ Subagent unit — pending', 'ag1')
   expect(await shown()).toEqual([
     '⎿ opus ◼ main — in progress',
-    '       ◼ Task 20/25 (Step 20) — in progress · 0s',
-    '       ◻ Full backend test suite — pending',
-    '       ◼ Tasks 21–22/25 (pair) — in progress',
-    '       ◻ Task 23/25 (Step 23) — pending',
-    '       ◻ Task 24/25 (Step 24) — pending',
+    '  ⎿ ◼ Task 20/25 (Step 20) — in progress · 0s',
+    '  ⎿ ◻ Full backend test suite — pending',
+    '  ⎿ ◼ Tasks 21–22/25 (pair) — in progress',
+    '  ⎿ ◻ Task 23/25 (Step 23) — pending',
+    '  ⎿ ◻ Task 24/25 (Step 24) — pending',
   ])
 
   await say('🔄 Full backend test suite (gradle) — in progress\n✅ Tasks 21–22/25 (pair) — done')
   expect(await shown()).toEqual([
     '⎿ opus ◼ main — in progress',
-    '       ◼ Task 20/25 (Step 20) — in progress · 0s',
-    '       ◼ Full backend test suite (gradle) — in progress',
-    '       ◻ Task 21/25 (Step 21) — pending',
-    '       ◻ Task 22/25 (Step 22) — pending',
-    '       ◻ Task 23/25 (Step 23) — pending',
+    '  ⎿ ◼ Task 20/25 (Step 20) — in progress · 0s',
+    '  ⎿ ◼ Full backend test suite (gradle) — in progress',
+    '  ⎿ ◻ Task 21/25 (Step 21) — pending',
+    '  ⎿ ◻ Task 22/25 (Step 22) — pending',
+    '  ⎿ ◻ Task 23/25 (Step 23) — pending',
   ])
 })

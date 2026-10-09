@@ -70,15 +70,15 @@ export const look = (row: Row): { emoji: string; word: string; mark: string; col
   }
 }
 
-// One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, and `run`
-// is padded to `width` so the marker column lines up. The main agent's row, n 0, is "main", never a task;
-// a status-line row shows its unit as written.
-export const parts = (row: Row, total: number, run = '', width = 0, first = true, now = 0) => {
+// One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, or, for a row
+// `nested` under the main agent's row, "  ⎿ " on each; `run` is padded to `width` so the marker column
+// lines up. The main agent's row, n 0, is "main", never a task; a status-line row shows its unit as written.
+export const parts = (row: Row, total: number, run = '', width = 0, first = true, now = 0, nested = false) => {
   const m = row.unit === undefined ? NUMBERED.exec(row.desc) : null
   const desc = m ? row.desc.slice(m[0].length).replace(/^\((.*)\)$/, '$1') : row.desc
   const l = look(row)
   return {
-    lead: first ? '⎿ ' : '  ',
+    lead: nested ? '  ⎿ ' : first ? '⎿ ' : '  ',
     run: run.padEnd(width),
     mark: l.mark,
     unit: row.unit ?? m?.[1] ?? (row.n === 0 ? 'main' : `Task ${row.n}/${total}`),
@@ -89,8 +89,8 @@ export const parts = (row: Row, total: number, run = '', width = 0, first = true
   }
 }
 
-export const line = (row: Row, total: number, run = '', width = 0, first = true, now = 0): string => {
-  const p = parts(row, total, run, width, first, now)
+export const line = (row: Row, total: number, run = '', width = 0, first = true, now = 0, nested = false): string => {
+  const p = parts(row, total, run, width, first, now, nested)
   return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}${p.stats}`
 }
 
@@ -177,12 +177,23 @@ const LAST_KEYS = ['writing-plans', 'write-in-progress', 'landing-routes', 'refr
 // One `flow stage begin|end ... <name>` mark, up to the next shell separator.
 const STAGE_MARK = /\bflow stage (begin|end)\b([^;&|\n]*)/g
 // A change name's leading tracker key: "kan-873-port-guards" → "KAN-873".
-const TICKET = /^['"]?([a-z][a-z0-9]*-\d+)(?=-|['"]?$)/i
+const TICKET = /^([a-z][a-z0-9]*-\d+)(?=-|$)/i
+// A plain `VAR=value` assignment, its value bare or quoted.
+const ASSIGN = /(?:^|[\s;&|])([A-Za-z_]\w*)=('[^']*'|"[^"]*"|[^\s;&|'"]*)/g
+const unquote = (s: string): string => s.replace(/^(['"])(.*)\1$/, '$2')
+
+// The change name a mark ends with, its `$VAR` and `${VAR}` resolved from the plain assignments before it
+// in the same command; null when what is left is not a plain change name.
+const changeName = (word: string, before: string): string | null => {
+  const vars = Object.fromEntries([...before.matchAll(ASSIGN)].map(([, k = '', v = '']) => [k, unquote(v)]))
+  const name = unquote(word).replace(/\$(?:\{(\w+)\}|(\w+))/g, (ref, a, b) => vars[a ?? b] ?? ref)
+  return /^[\w.-]+$/.test(name) ? name : null
+}
 
 // The flow state after a Bash command's `flow stage` marks; `current` when it carries none that move it.
 export const flowAfter = (command: string, current: Flow): Flow => {
   let f = current
-  for (const [, verb, rest = ''] of command.matchAll(STAGE_MARK)) {
+  for (const { 1: verb, 2: rest = '', index } of command.matchAll(STAGE_MARK)) {
     const key = /-stage\s+flow\.([\w-]+)/.exec(rest)?.[1]
     if (!key) continue
     if (verb === 'end') {
@@ -190,9 +201,10 @@ export const flowAfter = (command: string, current: Flow): Flow => {
       continue
     }
     const phase = (Object.keys(PHASE_KEYS) as Phase[]).find(ph => PHASE_KEYS[ph].includes(key)) ?? f.phase
-    const name = rest.trim().split(/\s+/).at(-1) ?? ''
-    const ticket = TICKET.exec(name)?.[1]?.toUpperCase() ?? f.ticket
-    f = phase ? { phase, change: name.replace(/^['"]|['"]$/g, '') || f.change, ticket } : NO_FLOW
+    // A name that is no plain change name (an unset `$N`, a stray word) never replaces the known change.
+    const name = changeName(rest.trim().split(/\s+/).at(-1) ?? '', command.slice(0, index))
+    const ticket = name ? (TICKET.exec(name)?.[1]?.toUpperCase() ?? f.ticket) : f.ticket
+    f = phase ? { phase, change: name ?? f.change, ticket } : NO_FLOW
   }
   return f
 }
@@ -323,14 +335,17 @@ export const register: Register = on => {
       ...[...subs, ...said, ...pendingRows(plan, [...subs, ...said])].slice(0, MAX_ROWS),
     ]
     const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
-    const width = Math.max(0, ...all.map(r => labels[r.id]?.length ?? 0))
+    // The marker column lines up among the rows sharing a lead: with the main row shown, the rows nested under
+    // it; the main row's label is not padded.
+    const width = Math.max(0, ...all.filter(r => r.id !== 'main').map(r => labels[r.id]?.length ?? 0))
     const total = subs.at(-1)?.n ?? 0
     const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
         {all.map((r, i) => {
-          const p = parts(r, total, labels[r.id], width, i === 0, now)
+          // While the main row shows, every row after it is nested one level under it.
+          const p = parts(r, total, labels[r.id], r.id === 'main' ? 0 : width, i === 0, now, m !== null && i > 0)
           const isDone = r.state === 'done'
           return (
             <Text key={r.id}>
