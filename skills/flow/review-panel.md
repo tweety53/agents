@@ -866,7 +866,7 @@ the **AskUserQuestion** it states.
 > `mutate-and-verify.sh <patch-file> <harness>` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script's.
-> `break-and-prove.sh <file> (--sed <expr> | --patch <patch>) -- <test-command>` mechanizes a
+> `break-and-prove.sh [--clean <command>] <file> (--sed <expr> | --patch <patch>) -- <test-command>` mechanizes a
 > single-file flip: it mutates `<file>`, asserts the test fails, restores `<file>` from a
 > pre-mutation byte snapshot rather than `git checkout --`, so uncommitted edits on it survive, and
 > asserts the restored run passes. Each mutation alters one mechanism — where a single
