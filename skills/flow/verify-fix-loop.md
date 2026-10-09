@@ -44,15 +44,16 @@ One round runs these steps in order:
    and this task's premise is a defect a verifier measured, not an operator's unverified flag.
    The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
-   `begin` mark, then **Visual verification** from its step 1, so the fix's own lint, tests and
+   `begin` mark, then **Visual verification** from its `begin` mark, so the fix's own lint, tests and
    captures are what the handoff reports. This round's `verify` and `visual-verify` dispatch keys
    carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix. **The `visual-verify`
-   re-run is scoped to the round's own diff** in every worktree a verifier of this run already
-   verified: its prompt names a round base — the HEAD step 3 of **Steps 3–13**
-   (`skills/flow/visual-verify.md`) read for that worktree's previous verifier dispatch — which
-   the verifier's step 7 substitutes for `specs`' `<merge-base>`, and its `motions:` names only
-   the motions `git diff <round base>..HEAD` adds, changes or removes, plus every motion this
-   round's defects name. A worktree no verifier of this run has verified runs the stage unscoped.
+   re-run is scoped to the round's own diff** in every worktree with a round base — the HEAD step
+   12 of **Steps 3–13** (`skills/flow/visual-verify.md`) read after that worktree's previous
+   verifier dispatch: its prompt names that base, which the verifier's step 7 substitutes for
+   `specs`' `<merge-base>`, and its `motions:` names only the motions `git diff <round
+   base>..HEAD` adds, changes or removes, plus every motion this round's defects name. A worktree
+   whose round diff is empty is not dispatched. A worktree with no round base — no verifier of
+   this run has verified it, or the parent no longer holds the sha — runs the stage unscoped.
    The confirming re-run
    verifies a fresh build, never a stale stack: before this round's re-run reports the fix
    confirmed live, rebuild the stack from the branch HEAD — current source through the project's
@@ -65,10 +66,9 @@ One round runs these steps in order:
    confirmation.
 
 **One full run closes the loop.** A scoped re-run whose final report carries no fixable defect is
-followed by **Visual verification** once more from its step 1, unscoped — no round base, every
-motion of the change — against the same HEAD and stack, its dispatch keys suffixed `-fix-<k>-full`
-before any `-<worktree basename>` suffix; **Verify** is not re-run, since nothing changed after its
-own re-run. A fixable defect it reports opens the next round; its clean report is the one the
+followed by **Visual verification** once more from its `begin` mark, unscoped — no round base,
+every motion of the change — its dispatch keys suffixed `-fix-<k>-full` before any `-<worktree
+basename>` suffix. A fixable defect it reports opens the next round; its clean report is the one the
 handoff reports.
 
 ## No cap

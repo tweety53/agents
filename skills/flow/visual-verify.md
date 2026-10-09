@@ -62,10 +62,8 @@ own system prompt>`.
 
 > **REPORT FORMAT:** Before writing `## Report`, read the header of
 > `<agents repo>/scripts/check-verify-report.sh` — the check your report must pass before it is
-> read; a report it rejects costs a remainder dispatch. Two forms it rejects most: a `blocked`
-> status without `— <reason>` citing the failing `exit <n>`, and a `- motion:` count other than
-> `<n>/<n>`, `<n>` the motions this prompt names — a strip recorded beyond them goes on a
-> sub-bullet, uncounted. Report every departure you see in this one pass.
+> read; a report it rejects costs a remainder dispatch. Report every departure you see in this
+> one pass.
 
 **Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
 opus -effort low`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
@@ -135,7 +133,8 @@ The parent classifies each defect the fix instructions name, from those reports,
 verifier dispatch. On a fix run with at least one miss, **the parent dispatches one tooling
 analyst per worktree with a miss, after step 3's pre-flight passes and before that worktree's
 verifier**, and that verifier runs the sweeps it writes. A worktree with no miss dispatches
-none.
+none. A scoped round (**The loop**, `skills/flow/verify-fix-loop.md`) passed only the motions
+its prompt named and the specs its `verify` ran.
 
 **Load `skills/flow/visual-verify-tooling-analysis.md`** only when a worktree has at least one
 miss — it carries the analyst's dispatch, its prompt and recording, the verifier's re-run with
@@ -187,8 +186,7 @@ states.
    once per stage; its header is canonical for the verdict. Exit 0 → continue. Exit 1 → no verifier is
    dispatched: **Verify** has not closed green, so the run returns to it and visual verification
    starts again only once it has. Exit 2 → it cannot answer; treat it as a failing check, carrying
-   its stderr. The same call reads `git -C <abs-worktree> rev-parse HEAD`, the HEAD this dispatch
-   verifies — a later fix round's base (**The loop**, `skills/flow/verify-fix-loop.md`).
+   its stderr.
 
    **Any failing check ends the stage here**: no verifier is dispatched, the stage's `end` mark
    carries `-outcome stopped`, and the report names every failing check with the evidence above.
@@ -241,7 +239,8 @@ states.
     `<changeRoot>/visual-verification/` is committed with the change root.
     **The full app suite rides the same commit**: `full-app-suite.spec.ts`, its PNGs and
     `full-app-suite.zip` (step 8) join the pathspec above, in the same checkout the capture spec
-    lands in.
+    lands in. Last, read `git -C <abs-worktree> rev-parse HEAD` — a later fix round's base
+    (**The loop**, `skills/flow/verify-fix-loop.md`).
 13. **Stop the stack only if step 5 or step 6 started it** — the parent, once the verifier's report is in. A stack the operator already had running is left
     alone.
 

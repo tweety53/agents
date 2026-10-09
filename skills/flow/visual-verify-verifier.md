@@ -11,6 +11,9 @@ motion step and the `## Report` template, run as written.
    replace the checked-in suite, never extend it. An absent `specs`, an empty output or a non-zero
    exit substitutes nothing, and `verify` runs its whole suite. A `verify` with no `<specs>` runs as
    declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
+   Under a round base the output feeds `verify` alone, and an empty one runs no `verify` spec — the
+   report's `verify:` line reads `not run — no spec since the round base`; step 8 takes its capture
+   spec from `specs` run against the merge base.
    A `specs` with no `<merge-base>` cannot take a round base: it runs as declared, its full list,
    and the report names `specs: not scoped — specs has no <merge-base>`.
    A non-zero `verify` exit blocks, a failing test this change did not introduce included
@@ -524,7 +527,7 @@ is canonical for them — and the parent runs that guard on the report before re
 - <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
-  - <a strip recorded beyond the named motions, one sub-bullet each, uncounted>
+  - <a strip recorded beyond the named motions>
 - visual-verification.md: written | not written — <reason>
 - steps: 4 <status> | 7 <status> | 8 <status> | 9 <status> | 10 <status> | 11 <status> | motion <status>
 ```
