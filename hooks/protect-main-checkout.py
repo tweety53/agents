@@ -11,7 +11,10 @@ landing as staged changes. This hook denies the tools that create such residue:
   * Edit / Write / MultiEdit / NotebookEdit on a path inside such a checkout;
   * Bash commands that run a mutating git verb there (`git commit`, `git -C <main> add`,
     `cd <main> && git reset ...`), or write into it with `sed -i`, `tee`, a `>`/`>>`
-    redirect, `cp` destinations, or `mv`/`rm` sources and destinations.
+    redirect, `cp` destinations, or `mv`/`rm` sources and destinations. A heredoc body is
+    scanned like any other line, except where the whole command is one plain data write —
+    `cat > ABS <<EOF`, `cat >> ABS <<EOF` or `tee [-a] ABS <<EOF` to a literal absolute path,
+    its body and closing line, nothing after — where only ABS is judged.
 
 "Main checkout" is the worktree whose git dir IS the common dir — a linked worktree's `--git-dir`
 is `<common>/worktrees/<name>`, so `<repo>-worktrees/<change>` beside the main checkout passes,
@@ -175,6 +178,34 @@ def tokenize(command):
         return command.split()
 
 
+LITERAL_ABS = r"(/[^\s'\"$`\\;&|<>(){}*?\[\]~!#]+)"
+DATA_WRITE_RE = re.compile(
+    rf"[ \t]*(?:cat[ \t]+>>?[ \t]*{LITERAL_ABS}|tee(?:[ \t]+-a)?[ \t]+{LITERAL_ABS}(?:[ \t]+>[ \t]*/dev/null)?)"
+    r"[ \t]+<<[ \t]*(?:'(\w+)'|\"(\w+)\"|(\w+))[ \t]*\r?"
+)
+
+
+def data_write_target(command):
+    """ABS when the whole command is one plain heredoc data write — `cat > ABS <<DELIM`,
+    `cat >> ABS <<DELIM` or `tee [-a] ABS [>/dev/null] <<DELIM` with ABS a literal absolute
+    path, its body, a closing line equal to DELIM (a trailing `\\r` tolerated), then only blank
+    lines — else None. Such a body is stdin data, so only ABS is judged; any other command is
+    scanned whole, body included, so the hook is never weaker than a plain token scan. An
+    unquoted delimiter's body runs `$(...)` and backticks, so one holding either is no data."""
+    lines = command.split("\n")
+    m = DATA_WRITE_RE.fullmatch(lines[0])
+    if not m:
+        return None
+    target, delim = m.group(1) or m.group(2), m.group(3) or m.group(4) or m.group(5)
+    for k, line in enumerate(lines[1:], 1):
+        if line.rstrip("\r") == delim:
+            body = "\n".join(lines[1:k])
+            if m.group(5) and ("$(" in body or "`" in body):
+                return None
+            return target if all(not rest.strip() for rest in lines[k + 1 :]) else None
+    return None
+
+
 def logical_lines(command):
     """The command split into logical lines: a newline outside quotes cuts, a
     backslash-newline outside quotes joins, and a quoted newline stays inside
@@ -267,6 +298,9 @@ def bash_hits(command, cwd, landings=None):
     before path resolution, positionally: a token sees the assignments that
     came before it, in this line and earlier lines, never the ones after —
     and an assignment's value is kept literal, unexpanded."""
+    target = data_write_target(command)
+    if target:
+        return [target]
     hits = []
     cur = cwd
     env = {}

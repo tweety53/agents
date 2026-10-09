@@ -46,6 +46,30 @@
 #       never .worktrees/
 #   47. sibling layout: Write into <X>-worktrees/<new> beside a directory X
 #       that is no main checkout, inside a protected checkout          -> deny
+#   48. heredoc append into a sibling worktree, cwd = main, body naming
+#       `rm` and `>`                                                   -> allow (a body is data)
+#   49. Bash `rm <sibling worktree>/file` with cwd = main             -> allow
+#   50. Bash `rm f.txt` with cwd = main                               -> deny (relative)
+#   51. heredoc write to <main>/file from elsewhere                   -> deny
+#   52. a line after the heredoc's closing delimiter, `rm f.txt`      -> deny
+#   53. `bash <<EOF` whose body runs `rm <main>/file`                 -> deny (a body fed to a shell is code)
+#   54. `echo "<<EOF"`, then `rm f.txt`, cwd = main                   -> deny (a quoted `<<` opens nothing)
+#   55. `true # <<EOF`, then `rm f.txt`, cwd = main                  -> deny (a commented `<<` opens nothing)
+#   56. `echo $((1<<N))`, then `rm f.txt`, cwd = main                -> deny (an arithmetic shift opens nothing)
+#   57. `cat <<E"OF"` closed by `EOF`, then `rm f.txt`, cwd = main   -> deny (the delimiter is unquoted whole)
+#   58. `/bin/bash <<EOF` whose body runs `rm f.txt`, cwd = main     -> deny (a shell named by path)
+#   59. `. /dev/stdin <<EOF` whose body runs `rm f.txt`, cwd = main  -> deny (`.` runs its input)
+#   60. `dash <<EOF` whose body runs `rm f.txt`, cwd = main           -> deny (only a plain data write drops a body)
+#   61. `cat <<EOF | dash`, body `rm f.txt`, cwd = main               -> deny
+#   62. `$SHELL <<EOF`, body `rm f.txt`, cwd = main                    -> deny
+#   63. `x=$(cat <<EOF` ... `EOF`, `)`, `eval "$x"`, cwd = main        -> deny
+#   64. `read -r -d '' c <<EOF` ... `eval "$c"`, cwd = main           -> deny
+#   65. `cat <<EOF > <sibling>/s.sh` ... `sh <sibling>/s.sh`, cwd = main -> deny
+#   66. data write closed by `EOF\r`, then `rm f.txt`, cwd = main      -> deny (only blank lines may follow)
+#   67. `echo ${x:-<<EOF}`, then `rm f.txt`, cwd = main               -> deny
+#   68. `tee -a <sibling>/f <<'EOF'`, body naming `rm`, cwd = main    -> allow (a plain data write)
+#   69. `cat >> <main>/f.txt <<EOF` from elsewhere                    -> deny (the target is judged)
+#   70. `cat >> <sibling>/f <<EOF`, body `$(rm f.txt)`, cwd = main   -> deny (an unquoted body substitutes)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -207,6 +231,102 @@ if grep -qF "worktree add $ROOT/main-worktrees/<change>" <<<"$reason" && ! grep 
 else
   fail "46 sibling layout: deny reason does not suggest $ROOT/main-worktrees/<change>: $reason"
 fi
+
+SIB="$ROOT/main-worktrees/sib"
+expect "48 heredoc append into a sibling worktree, body naming rm and >" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat >> $SIB/f.txt <<'EOF'
+then rm the stale file and cp it > there
+EOF")}")"
+expect "49 rm of an absolute sibling-worktree path from main" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "rm $SIB/tmp")}")"
+expect "50 relative rm with cwd main" deny "$(run "$MAIN" Bash "{\"command\":\"rm f.txt\"}")"
+expect "51 heredoc write into main" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $MAIN/f.txt <<EOF
+x
+EOF")}")"
+expect "52 a line after the heredoc is scanned again" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat >> $SIB/f.txt <<-EOF
+	x
+	EOF
+rm f.txt")}")"
+expect "53 heredoc fed to a shell stays scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "bash <<'EOF'
+rm $MAIN/f.txt
+EOF")}")"
+
+expect "54 a quoted << opens no heredoc" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'echo "<<EOF"
+rm f.txt
+EOF')}")"
+expect "55 a commented << opens no heredoc" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'true # <<EOF
+rm f.txt
+EOF')}")"
+expect "56 an arithmetic shift opens no heredoc" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'echo $((1<<N))
+rm f.txt')}")"
+expect "57 a partly quoted delimiter is unquoted whole" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'cat <<E"OF" >/dev/null
+x
+EOF
+rm f.txt')}")"
+expect "58 a shell named by path keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q '/bin/bash <<EOF
+rm f.txt
+EOF')}")"
+expect "59 a body sourced by . stays scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q '. /dev/stdin <<EOF
+rm f.txt
+EOF')}")"
+expect "60 dash fed a heredoc keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'dash <<EOF
+rm f.txt
+EOF')}")"
+expect "61 a heredoc piped into a shell keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'cat <<EOF | dash
+rm f.txt
+EOF')}")"
+expect "62 \$SHELL fed a heredoc keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q '$SHELL <<EOF
+rm f.txt
+EOF')}")"
+expect "63 a heredoc captured then eval'd keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'x=$(cat <<EOF
+rm f.txt
+EOF
+)
+eval "$x"')}")"
+expect "64 a heredoc read then eval'd keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "read -r -d '' c <<EOF
+rm f.txt
+EOF
+eval \"\$c\"")}")"
+expect "65 a heredoc written to a script then run keeps its body scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat <<EOF > $SIB/s.sh
+rm f.txt
+EOF
+sh $SIB/s.sh")}")"
+expect "66 a CRLF closing line does not end the scan" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat >> $SIB/f.txt <<EOF
+x
+EOF"$'\r'"
+rm f.txt")}")"
+expect "67 a << inside a parameter expansion opens no heredoc" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q 'echo ${x:-<<EOF}
+rm f.txt
+EOF')}")"
+expect "68 tee -a heredoc into a sibling worktree, body naming rm" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "tee -a $SIB/f.txt <<'EOF'
+then rm the stale file
+EOF")}")"
+expect "69 heredoc append into main" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat >> $MAIN/f.txt <<EOF
+x
+EOF")}")"
+expect "70 an unquoted heredoc body's command substitution stays scanned" deny \
+  "$(run "$MAIN" Bash "{\"command\":$(q "cat >> $SIB/f.txt <<EOF
+\$(rm f.txt)
+EOF")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature
