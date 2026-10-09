@@ -22,7 +22,7 @@ declare module 'claude-code' {
       flow: Flow
       // The main agent's turn while it runs; null between turns.
       main: Main | null
-      // The main loop's latest status line per unit, keyed by the unit without its "(few words)"; a done line deletes its key.
+      // The main loop's latest status line per unit, keyed by its leading name (`unitKey`); a done line deletes its key, and a blocked one lasts until the next main turn starts.
       lines: Record<string, StatusLine>
     }
   }

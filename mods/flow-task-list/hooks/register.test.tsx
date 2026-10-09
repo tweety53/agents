@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { landed, landedIn } from './landed'
-import { band, flowAfter, hintTail, line, lineRows, pendingRows, planTasks, runLabel, statusLines, tally, taskCount, trim } from './register'
+import { band, flowAfter, hintTail, line, lineRows, pendingRows, planTasks, runLabel, statusLines, tally, taskCount, trim, unitKey } from './register'
 
 const BAND = {
   plugin: 'flow-task-list',
@@ -43,22 +43,25 @@ test('formats numbered and unnumbered rows', () => {
   expect(line({ id: 'f', n: 6, desc: 'panel-1 primary review', state: 'done' }, P22, '', 0, false)).toBe('  ✔ panel-1 primary review — done')
 })
 
-test('only a row naming tasks of the running plan is numbered; any other row shows unnumbered', () => {
+test('only a row naming tasks of the running plan is numbered; any other row shows its text as written', () => {
   const at = (desc: string, plan: number[]) => line({ id: 'x', n: 4, desc, state: 'in progress' }, plan)
   // An in-run pipeline fix, a panel, a fix round: no plan task, so no number, whatever the spawn order.
   expect(at('pipeline-fix-1 flow-task-list landed count', P22)).toBe('⎿ ◼ pipeline-fix-1 flow-task-list landed count — fix')
   expect(at('panel-1-primary correctness review', P22)).toBe('⎿ ◼ panel-1-primary correctness review — in review')
-  // A prefix naming a number the plan lacks, or another plan's size, or with no plan running.
-  expect(at('Task 23/22 (other)', P22)).toBe('⎿ ◼ other — in progress')
-  expect(at('Task 3/9 (other plan)', P22)).toBe('⎿ ◼ other plan — in progress')
-  expect(at('Tasks 3+30/22 (pair)', P22)).toBe('⎿ ◼ pair — in progress')
-  expect(at('Task 3/22 (port)', [])).toBe('⎿ ◼ port — in progress')
+  // A prefix naming a number the plan lacks, or another plan's size, or with no plan running: the text as written.
+  expect(at('Task 23/22 (other)', P22)).toBe('⎿ ◼ Task 23/22 (other) — in progress')
+  expect(at('Task 3/9 (other plan)', P22)).toBe('⎿ ◼ Task 3/9 (other plan) — in progress')
+  expect(at('Tasks 3+30/22 (pair)', P22)).toBe('⎿ ◼ Tasks 3+30/22 (pair) — in progress')
+  expect(at('Task 3/22 (port)', [])).toBe('⎿ ◼ Task 3/22 (port) — in progress')
   expect(at('Task 3/22 (port)', P22)).toBe('⎿ ◼ Task 3/22 (port) — in progress')
   // The main agent's row is never a task, even when its command's description names one.
   expect(line({ id: 'main', n: 0, desc: 'Task 3/22 (port)', state: 'in progress' }, P22)).toBe('⎿ ◼ main (Task 3/22 (port)) — in progress')
-  // A status line naming no plan task, or another plan's task, shows its unit without a number.
+  // A status line naming no plan task, or another plan's task, shows its unit as written, never a bare remainder.
   expect(line({ id: 'line:a', n: 0, desc: '', unit: 'Self-review (pass 1)', state: 'in progress' }, P22)).toBe('⎿ ◼ Self-review (pass 1) — in progress')
-  expect(line({ id: 'line:b', n: 0, desc: '', unit: 'Task 4/8 (port)', state: 'blocked' }, P22)).toBe('⎿ ✘ port — blocked')
+  expect(line({ id: 'line:b', n: 0, desc: '', unit: 'Task 4/8 (port)', state: 'blocked' }, P22)).toBe('⎿ ✘ Task 4/8 (port) — blocked')
+  expect(line({ id: 'line:d', n: 0, desc: '', unit: 'Task 26/26 review', state: 'in review' }, Array.from({ length: 28 }, (_, i) => i + 1))).toBe(
+    '⎿ ◼ Task 26/26 review — in review',
+  )
   expect(line({ id: 'line:c', n: 0, desc: '', unit: 'Tasks 3–4/22 (pair)', state: 'blocked' }, P22)).toBe('⎿ ✘ Tasks 3–4/22 (pair) — blocked')
 })
 
@@ -326,6 +329,9 @@ test('a running row shows its kind as its state word; a finished one its state',
   expect(at('Tasks 3+4/22 (review)')).toBe('⎿ ◼ Tasks 3+4/22 (review) — in review')
   expect(at('panel-1-primary correctness review')).toBe('⎿ ◼ panel-1-primary correctness review — in review')
   expect(at('panel-fix-1 findings 1-6')).toBe('⎿ ◼ panel-fix-1 findings 1-6 — fix')
+  // The kind whose word comes first wins.
+  expect(at('Review in-run fix 6 (Tasks 27-28)')).toBe('⎿ ◼ Review in-run fix 6 (Tasks 27-28) — in review')
+  expect(at('Fix review findings')).toBe('⎿ ◼ Fix review findings — fix')
   expect(at('visual-verify login page')).toBe('⎿ ◼ visual-verify login page — visual verify')
   expect(at('Run tests')).toBe('⎿ ◼ Run tests — verify')
   expect(at('strip prefix')).toBe('⎿ ◼ strip prefix — in progress')
@@ -372,7 +378,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
   for await (const _ of step) {
     // drain
   }
-  expect(await shown()).toEqual(['⎿ opus-high ◼ wire band — in progress · 0s'])
+  expect(await shown()).toEqual(['⎿ opus-high ◼ Task 2/7 (wire band) — in progress · 0s'])
 
   await $.turn.complete(complete('ag1', 'answer'))
   expect(await shown()).toEqual([])
@@ -677,16 +683,16 @@ test('a running row ticks and shows no token count; a finished row freezes', asy
     // drain
   }
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ desc — in progress · 0s'])
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 0s'])
   await clock.advance(252_000)
-  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ desc — in progress · 4m12s'])
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s'])
   await ui.unmount()
 
   await $.agent.spawn(spawn('Task 4/8 (other)'))
   await $.turn.complete(complete('ag1', 'answer'))
   await clock.advance(60_000)
   const after = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await rows(after))[0]).toBe('⎿ opus-medium ✔ desc — done · 4m12s')
+  expect((await rows(after))[0]).toBe('⎿ opus-medium ✔ Task 3/8 (desc) — done · 4m12s')
   await after.unmount()
 })
 
@@ -699,6 +705,10 @@ test('statusLines reads the be-brief status lines and nothing else', () => {
     '⛔ Task 4/8 (port) — blocked',
     '✅ Task 22/22 (spec text) — done',
     '🔄 Task 5/8 — fixing',
+    '⛔ Visual verify (final full run) — blocked. Two new failing specs.',
+    '✅ Visual verify (final): Quick mode — done. Clean.',
+    '🔍 Flow pipeline change — in review again, after the fixes',
+    '✅ Task 6/8 — done, landed',
   ].join('\n')
   expect(statusLines(text)).toEqual([
     ['Full backend test suite', 'pending'],
@@ -706,6 +716,10 @@ test('statusLines reads the be-brief status lines and nothing else', () => {
     ['Review panel (primary + principles)', 'in review'],
     ['Task 4/8 (port)', 'blocked'],
     ['Task 22/22 (spec text)', 'done'],
+    ['Visual verify (final full run)', 'blocked'],
+    ['Visual verify (final): Quick mode', 'done'],
+    ['Flow pipeline change', 'in review'],
+    ['Task 6/8', 'done'],
   ])
 })
 
@@ -772,5 +786,65 @@ test("the main loop's status lines are rows: latest line per unit, done drops of
     '  ⎿ ◻ Task 21/25 (Step 21) — pending',
     '  ⎿ ◻ Task 22/25 (Step 22) — pending',
     '  ⎿ ◻ Task 23/25 (Step 23) — pending',
+  ])
+})
+
+test('unitKey: one key for a unit written two ways', () => {
+  expect(unitKey('Visual verify (final full run)')).toBe('Visual verify')
+  expect(unitKey('Visual verify (final): Quick mode')).toBe('Visual verify')
+  expect(unitKey('Flow pipeline change review')).toBe('Flow pipeline change')
+  expect(unitKey('Flow pipeline change (narrow re-verify in the fix loop)')).toBe('Flow pipeline change')
+  expect(unitKey('Tasks 23–25/25 (e2e)')).toBe('Tasks 23–25/25')
+  expect(unitKey('Full backend test suite')).toBe('Full backend test suite')
+})
+
+test("the operator's session: closing lines close their rows, a blocked row lasts until the next main turn", async ($, on) => {
+  mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
+  let n = 0
+  on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', () => ({ value: PLAN }))
+  let answer = ''
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('turn.complete', () => ({ text: '' }))
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  const say = async (text: string, index = 1) => {
+    answer = text
+    for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-opus-5-5', messageCount: 1 })) {
+      // drain
+    }
+  }
+  const shown = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2}) *\S.* — \S/.test(t.text)).map(t => t.text)
+    await ui.unmount()
+    return texts.filter(t => !/ ◻ /.test(t))
+  }
+
+  await $.agent.spawn(spawn('Review in-run fix 6 (Tasks 27-28)'))
+  await say('🔄 Visual verify (final full run) — in progress')
+  await say('⛔ Visual verify (final full run) — blocked. Two new failing specs.')
+  await say('🔄 Visual verify (final): the Quick mode check first, then the full suite if that is clean — in progress')
+  await say('✅ Visual verify (final): Quick mode — done. Clean.\n🔍 Flow pipeline change review — in review')
+  await say('✅ Flow pipeline change (narrow re-verify in the fix loop) — done')
+  await say('⛔ Visual verify (final): full suite — blocked. Three specs.')
+  expect(await shown()).toEqual([
+    '⎿ opus ◼ main — in progress',
+    '  ⎿ ◼ Review in-run fix 6 (Tasks 27-28) — in review · 0s',
+    '  ⎿ ✘ Visual verify (final): full suite — blocked',
+  ])
+  // The next main turn's first step drops the blocked row; the open review stays.
+  await say('🔍 Flow pipeline change — in review again, after the fixes')
+  await say('', 0)
+  expect(await shown()).toEqual([
+    '⎿ opus ◼ main — in progress',
+    '  ⎿ ◼ Review in-run fix 6 (Tasks 27-28) — in review · 0s',
+    '  ⎿ ◼ Flow pipeline change — in review',
   ])
 })

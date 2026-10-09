@@ -50,20 +50,24 @@ const clockText = (ms: number): string => {
 // spawn started (main, pending, status lines).
 const stats = (row: Row, now: number): string => (row.start === undefined ? '' : ` · ${clockText((row.end ?? now) - row.start)}`)
 
-// What a running row is doing, read from its description, and the state word it shows; first match
-// wins, so a panel fix is a fix. Each word is matched from its start, so "prefix", "preview" or
-// "latest" names no kind.
+// What a running row is doing, read from its description, and the state word it shows; the kind whose word
+// comes first in the description wins, so "Review … fix" is a review and "Fix review findings" a fix. Each
+// word is matched from its start, so "prefix", "preview" or "latest" names no kind.
 const KINDS: [RegExp, string, string][] = [
   [/\bfix/i, '🔨', 'fix'],
   [/\bvisual[- ]verif/i, '👀', 'visual verify'],
-  [/\b(?:review|panel)/i, '🔍', 'in review'],
+  [/\b(?:review|panel(?!-fix))/i, '🔍', 'in review'],
   [/\b(?:verif|tests?\b|lint)/i, '🧪', 'verify'],
 ]
 
 // How a row shows: a running row by its kind's word (in review, fix, visual verify, verify), a finished one by its state.
 // `emoji` is what the hint line's tally counts it under; `mark` and `color` are its marker on the band.
 export const look = (row: Row): { emoji: string; word: string; mark: string; color: string | undefined } => {
-  const kind = row.state === 'in progress' ? KINDS.find(([re]) => re.test(row.desc)) : undefined
+  const at = (re: RegExp) => row.desc.search(re)
+  const kind =
+    row.state === 'in progress'
+      ? KINDS.filter(([re]) => at(re) >= 0).sort(([a], [b]) => at(a) - at(b))[0]
+      : undefined
   return {
     emoji: kind?.[1] ?? EMOJI[row.state],
     word: kind?.[2] ?? row.state,
@@ -75,8 +79,8 @@ export const look = (row: Row): { emoji: string; word: string; mark: string; col
 // One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, or, for a row
 // `nested` under the main agent's row, "  ⎿ " on each; `run` is padded to `width` so the marker column
 // lines up. A row keeps its "Task(s) …/n" prefix only when every number it names is a task of the running
-// plan, `plan` (its task numbers), and n is that plan's size; any other row — the main agent's "main", a
-// pipeline fix, a panel, a fix round, a status line naming no plan task — shows unnumbered.
+// plan, `plan` (its task numbers), and n is that plan's size; a row numbered for another plan keeps its text
+// as written, so "Task 26/26 review" never shrinks to "review"; the main agent's row is "main".
 export const parts = (row: Row, plan: number[], run = '', width = 0, first = true, now = 0, nested = false) => {
   const text = row.unit ?? row.desc
   const m = NUMBERED.exec(text)
@@ -84,7 +88,7 @@ export const parts = (row: Row, plan: number[], run = '', width = 0, first = tru
   const ours = !!m && nums.length > 0 && nums.every(k => plan.includes(k)) && Number(m[1]?.split('/')[1]) === plan.length
   const rest = (m ? text.slice(m[0].length) : text).replace(/^\((.*)\)$/, '$1')
   const l = look(row)
-  const [unit, desc] = row.id === 'main' ? ['main', row.desc] : ours ? [m[1] ?? '', rest] : [m ? rest : text, '']
+  const [unit, desc] = row.id === 'main' ? ['main', row.desc] : ours ? [m[1] ?? '', rest] : [text, '']
   return {
     lead: nested ? '  ⎿ ' : first ? '⎿ ' : '  ',
     run: run.padEnd(width),
@@ -102,8 +106,15 @@ export const line = (row: Row, plan: number[], run = '', width = 0, first = true
   return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}${p.stats}`
 }
 
-// A be-brief status line, "<emoji> <unit> — <state>" (rules/be-brief.mdc), alone on its line.
-const STATUS = /^[✅🔄🔍⏳⛔]\uFE0F? (.+?) — (done|in progress|in review|pending|blocked)$/gmu
+// A be-brief status line, "<emoji> <unit> — <state>" (rules/be-brief.mdc), at the start of its line; text after
+// the state word (". Two new failing specs.", " again") is read past, a word running on from it ("fixing") is not.
+const STATUS = /^[✅🔄🔍⏳⛔]\uFE0F? (.+?) — (done|in progress|in review|pending|blocked)(?=$|[., ])/gmu
+
+// The unit's leading name, its key in `lines`: the text before any "(", ":" or " —", without a trailing
+// " review", so "Visual verify (final): Quick mode" and "Visual verify (final full run)" are one unit, and
+// "Flow pipeline change review" and "Flow pipeline change (narrow re-verify)" another.
+export const unitKey = (unit: string): string =>
+  (unit.split(/\(|:| —/)[0] ?? '').trim().replace(/ review$/i, '') || unit
 
 // Each status line of a response, in order, as its unit and state.
 export const statusLines = (text: string): [string, RowState][] =>
@@ -275,7 +286,7 @@ export const register: Register = on => {
   // A subagent's first model request names the model and effort it actually runs on. A main-loop step
   // means the main turn runs: its first starts the main row afresh, and any later step starts it when it is
   // missing, as when the plugin loads mid-turn or a main-loop step arrives after the main turn.complete.
-  // A main-loop response's status lines update `lines`.
+  // A main-loop response's status lines update `lines`; a blocked line's row lasts until the next main turn starts.
   on('turn.step', async function* ($, e, next) {
     const id = e.agentId
     const label = runLabel(e.model, e.effort)
@@ -283,15 +294,19 @@ export const register: Register = on => {
       await update($, runs, rs => ({ ...rs, [id]: label }))
     } else if (!id && (e.index === 0 || !(await read($, main)))) {
       await update($, main, () => ({ desc: '', run: label }))
+      if (e.index === 0) {
+        await update($, lines, ls => Object.fromEntries(Object.entries(ls).filter(([, l]) => l.state !== 'blocked')))
+      }
     }
     const result = yield* next(e)
     const said = id ? [] : statusLines(result.answer)
     if (said.length) {
-      // ponytail: a unit whose done line never comes stays until the session ends; it shows only while the band does.
+      // ponytail: a unit left in progress, in review or pending whose closing line never comes stays until the
+      // session ends; it shows only while the band does.
       await update($, lines, ls => {
         const out = { ...ls }
         for (const [unit, state] of said) {
-          const key = unit.replace(/\s*\(.*\)$/, '')
+          const key = unitKey(unit)
           if (state === 'done') delete out[key]
           else out[key] = { unit, state }
         }
