@@ -58,6 +58,15 @@ own system prompt>`.
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
+**The prompt also carries the REPORT FORMAT paragraph**, `<agents repo>` resolved:
+
+> **REPORT FORMAT:** Before writing `## Report`, read the header of
+> `<agents repo>/scripts/check-verify-report.sh` — the check your report must pass before it is
+> read; a report it rejects costs a remainder dispatch. Two forms it rejects most: a `blocked`
+> status without `— <reason>` citing the failing `exit <n>`, and a `- motion:` count other than
+> `<n>/<n>`, `<n>` the motions this prompt names — a strip recorded beyond them goes on a
+> sub-bullet, uncounted. Report every departure you see in this one pass.
+
 **Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
 opus -effort low`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
 more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
@@ -144,7 +153,8 @@ declared, and its `mockup frame` value when declared; the worktree-resolved URL 
 matched; the project's `## run` commands; the views touched; `<changeRoot>`; the relay contract
 above, with its report path resolved for this dispatch's `<key>`; `sweeps-<n>.md`'s path
 when **A missed defect — the tooling analysis** above completed this round, with the re-run rule
-its loaded file states, as written; the change's motions, named as the paragraph below states; and
+its loaded file states, as written; the change's motions, named as the paragraph below states; the
+round base when **The loop** (`skills/flow/verify-fix-loop.md`) scopes this re-run; and
 to read the absolute path of
 `visual-verify-verifier.md` beside this file and run its steps 4 and 7–11 and its motion step as written against the stack steps 5 and 6 left serving the
 worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
@@ -153,7 +163,8 @@ worktree's build, starting, stopping and restarting nothing, committing and push
 <trigger> → <end state>` line per motion, or `motions: none`. A motion is every animation,
 transition, entrance, exit, slide or gesture `design.md` or `proposal.md` names, and every one
 the diff adds, changes or removes — a removed entrance included, since its frames are what prove
-it is gone.
+it is gone. A scoped re-run names the subset **The loop** (`skills/flow/verify-fix-loop.md`)
+states.
 
 3. **Pre-flight the workspace, before anything is dispatched.** The verifier's one re-dispatch
    cannot repair an environment that cannot pass. With the parent's own Bash call, before the
@@ -176,7 +187,8 @@ it is gone.
    once per stage; its header is canonical for the verdict. Exit 0 → continue. Exit 1 → no verifier is
    dispatched: **Verify** has not closed green, so the run returns to it and visual verification
    starts again only once it has. Exit 2 → it cannot answer; treat it as a failing check, carrying
-   its stderr.
+   its stderr. The same call reads `git -C <abs-worktree> rev-parse HEAD`, the HEAD this dispatch
+   verifies — a later fix round's base (**The loop**, `skills/flow/verify-fix-loop.md`).
 
    **Any failing check ends the stage here**: no verifier is dispatched, the stage's `end` mark
    carries `-outcome stopped`, and the report names every failing check with the evidence above.

@@ -18,7 +18,8 @@
 #   n/a — <reason>       steps 4 and 10 only, and `motion` when <motions named> is 0
 #   blocked — <reason>   the reason citing a non-zero `exit <n>`
 # and `motion done` with <motions named> above 0 also needs a
-# `- motion: <n>/<n>` line, <n> that count. Every other status — absent,
+# `- motion: <n>/<n>` line, <n> that count — a strip recorded beyond the
+# named motions goes on a sub-bullet, never into <n>. Every other status — absent,
 # `not done`, an n/a on a required step, a block citing no failing exit — is
 # an undone step.
 #

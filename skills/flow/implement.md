@@ -62,7 +62,7 @@ These seven rows are **every** Agent-tool dispatch the parent may make, across s
 | gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `micro`/`small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot\|slot+slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
-| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
 | in-run pipeline fix, review and fixer, one each per loop step | `implementer` for the fix and the fixer, `reviewer` for the review | `pipeline-fix-<k>`, `pipeline-fix-<k>-review-<r>`, `pipeline-fix-<k>-fix-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 

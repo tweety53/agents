@@ -25,6 +25,8 @@ One round runs these steps in order:
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
    this stage's round in this run. Its planning commit and the re-decide run as that file states.
+   **One round appends one task**, carrying every defect the report names — never a task or a
+   round per defect.
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
    guard and its review gate. The implementer's dispatch also carries the MUTATION PROOF
@@ -44,7 +46,14 @@ One round runs these steps in order:
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
    `begin` mark, then **Visual verification** from its step 1, so the fix's own lint, tests and
    captures are what the handoff reports. This round's `verify` and `visual-verify` dispatch keys
-   carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix. The confirming re-run
+   carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix. **The `visual-verify`
+   re-run is scoped to the round's own diff** in every worktree a verifier of this run already
+   verified: its prompt names a round base — the HEAD step 3 of **Steps 3–13**
+   (`skills/flow/visual-verify.md`) read for that worktree's previous verifier dispatch — which
+   the verifier's step 7 substitutes for `specs`' `<merge-base>`, and its `motions:` names only
+   the motions `git diff <round base>..HEAD` adds, changes or removes, plus every motion this
+   round's defects name. A worktree no verifier of this run has verified runs the stage unscoped.
+   The confirming re-run
    verifies a fresh build, never a stale stack: before this round's re-run reports the fix
    confirmed live, rebuild the stack from the branch HEAD — current source through the project's
    own build commands, brought up the way step 5 of **Steps 3–13** (`skills/flow/visual-verify.md`)
@@ -54,6 +63,13 @@ One round runs these steps in order:
    rebuild is itself a defect-finder: a defect the fresh build exposes that the fix's own task
    does not cover is reported the way any stage-found defect is, never absorbed into the fix's
    confirmation.
+
+**One full run closes the loop.** A scoped re-run whose final report carries no fixable defect is
+followed by **Visual verification** once more from its step 1, unscoped — no round base, every
+motion of the change — against the same HEAD and stack, its dispatch keys suffixed `-fix-<k>-full`
+before any `-<worktree basename>` suffix; **Verify** is not re-run, since nothing changed after its
+own re-run. A fixable defect it reports opens the next round; its clean report is the one the
+handoff reports.
 
 ## No cap
 

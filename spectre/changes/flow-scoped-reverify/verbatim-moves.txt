@@ -1,0 +1,22 @@
+# Operator, 2026-10-09 (KAN-924): a fix round's visual re-run is scoped to the round's own diff, one full run closes the loop,
+# one round appends one task for every defect, and the verifier prompt carries the report format the guard enforces.
+Its prompt states: the absolute worktree path; the `KEY=value` lines **Verify** (`skills/flow/verify-and-handoff.md`) exported for it; this section's resolved `setup`, `verify`, `capture` and `specs` commands and `screenshots` root, its resolved `mockups` root when declared, and its `mockup frame` value when declared; the worktree-resolved URL of each app `ui paths` matched; the project's `## run` commands; the views touched; `<changeRoot>`; the relay contract above, with its report path resolved for this dispatch's `<key>`; `sweeps-<n>.md`'s path when **A missed defect — the tooling analysis** above completed this round, with the re-run rule its loaded file states, as written; the change's motions, named as the paragraph below states; and to read the absolute path of `visual-verify-verifier.md` beside this file and run its steps 4 and 7–11 and its motion step as written against the stack steps 5 and 6 left serving the worktree's build, starting, stopping and restarting nothing, committing and pushing nothing.
+`<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base, and substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs replace the checked-in suite, never extend it.
+| `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted.
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+**One full run closes the loop.
+**One round appends one task**, carrying every defect the report names — never a task or a round per defect.
+**REPORT FORMAT:** Before writing `## Report`, read the header of `<agents repo>/scripts/check-verify-report.sh` — the check your report must pass before it is read; a report it rejects costs a remainder dispatch.
+**The prompt also carries the REPORT FORMAT paragraph**, `<agents repo>` resolved:
+- <a strip recorded beyond the named motions, one sub-bullet each, uncounted>
+- motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
+A `specs` with no `<merge-base>` cannot take a round base: it runs as declared, its full list, and the report names `specs: not scoped — specs has no <merge-base>`.
+A fixable defect it reports opens the next round; its clean report is the one the handoff reports.
+A scoped re-run whose final report carries no fixable defect is followed by **Visual verification** once more from its step 1, unscoped — no round base, every motion of the change — against the same HEAD and stack, its dispatch keys suffixed `-fix-<k>-full` before any `-<worktree basename>` suffix; **Verify** is not re-run, since nothing changed after its own re-run.
+A worktree no verifier of this run has verified runs the stage unscoped.
+Report every departure you see in this one pass.
+The same call reads `git -C <abs-worktree> rev-parse HEAD`, the HEAD this dispatch verifies — a later fix round's base (**The loop**, `skills/flow/verify-fix-loop.md`).
+Two forms it rejects most: a `blocked` status without `— <reason>` citing the failing `exit <n>`, and a `- motion:` count other than `<n>/<n>`, `<n>` the motions this prompt names — a strip recorded beyond them goes on a sub-bullet, uncounted.
+`<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base — or for the round base, when the prompt names one — and substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs replace the checked-in suite, never extend it.
+| `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted — a fix round's re-run substitutes its round base for `<merge-base>` (**The loop**, `skills/flow/verify-fix-loop.md`).
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |

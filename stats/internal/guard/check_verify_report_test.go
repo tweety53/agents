@@ -21,6 +21,9 @@ func TestCheckVerifyReport(t *testing.T) {
 		{"setup and mockups n/a", "- steps: 4 n/a — setup not declared | 7 done | 8 done | 9 done | 10 n/a — mockups not declared | 11 done | motion n/a — no motions named\n", "0", 0, "COMPLETE"},
 		{"blocked on a cited exit", "- steps: 4 done | 7 blocked — verify exit 1 | 8 blocked — step 7 exit 1 | 9 blocked — step 7 exit 1 | 10 blocked — step 7 exit 1 | 11 done | motion n/a — no motions named\n", "0", 0, "COMPLETE"},
 		{"motions recorded", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion done\n- motion: 2/2 — swipe: clean; exit: clean\n", "2", 0, "COMPLETE"},
+		// KAN-924: a fifth strip beyond four named motions counted into the line ("5/4") cost a remainder; it is a sub-bullet.
+		{"extra strip on a sub-bullet", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion done\n- motion: 2/2 — swipe: clean; exit: clean\n  - enter: strip motion/enter, clean\n", "2", 0, "COMPLETE"},
+		{"extra strip counted", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion done\n- motion: 3/2 — swipe: clean; exit: clean; enter: clean\n", "2", 1, "motion: no `- motion: 2/2` line"},
 		// KAN-870: the verifier ran tests and capture and listed 9-11 as not done.
 		{"steps 9-11 not done", "- steps: 4 done | 7 done | 8 done | 9 not done | 10 not done | 11 not done | motion n/a — no motions named\n", "0", 1, "9 not done; 10 not done; 11 not done"},
 		{"no steps line", "## Report\n- verify: exit 0\n", "0", 1, "4 absent; 7 absent; 8 absent; 9 absent; 10 absent; 11 absent; motion absent"},
