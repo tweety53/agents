@@ -3,6 +3,8 @@ import type { Hook, Register, Timer } from 'claude-code'
 
 import type { Flow, Main, Phase, Row, RowState, StatusLine } from '../types'
 
+import { landedIn } from './landed'
+
 const rows = atom({ plugin: 'flow-task-list', key: 'rows' } as const, [] as Row[])
 const runs = atom({ plugin: 'flow-task-list', key: 'runs' } as const, {} as Record<string, string>)
 const NO_FLOW: Flow = { phase: null, change: null, ticket: null }
@@ -72,16 +74,22 @@ export const look = (row: Row): { emoji: string; word: string; mark: string; col
 
 // One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, or, for a row
 // `nested` under the main agent's row, "  ⎿ " on each; `run` is padded to `width` so the marker column
-// lines up. The main agent's row, n 0, is "main", never a task; a status-line row shows its unit as written.
-export const parts = (row: Row, total: number, run = '', width = 0, first = true, now = 0, nested = false) => {
-  const m = row.unit === undefined ? NUMBERED.exec(row.desc) : null
-  const desc = m ? row.desc.slice(m[0].length).replace(/^\((.*)\)$/, '$1') : row.desc
+// lines up. A row keeps its "Task(s) …/n" prefix only when every number it names is a task of the running
+// plan, `plan` (its task numbers), and n is that plan's size; any other row — the main agent's "main", a
+// pipeline fix, a panel, a fix round, a status line naming no plan task — shows unnumbered.
+export const parts = (row: Row, plan: number[], run = '', width = 0, first = true, now = 0, nested = false) => {
+  const text = row.unit ?? row.desc
+  const m = NUMBERED.exec(text)
+  const nums = taskNums(text)
+  const ours = !!m && nums.length > 0 && nums.every(k => plan.includes(k)) && Number(m[1]?.split('/')[1]) === plan.length
+  const rest = (m ? text.slice(m[0].length) : text).replace(/^\((.*)\)$/, '$1')
   const l = look(row)
+  const [unit, desc] = row.id === 'main' ? ['main', row.desc] : ours ? [m[1] ?? '', rest] : [m ? rest : text, '']
   return {
     lead: nested ? '  ⎿ ' : first ? '⎿ ' : '  ',
     run: run.padEnd(width),
     mark: l.mark,
-    unit: row.unit ?? m?.[1] ?? (row.n === 0 ? 'main' : `Task ${row.n}/${total}`),
+    unit,
     desc: desc ? ` (${desc})` : '',
     state: l.word,
     color: l.color,
@@ -89,8 +97,8 @@ export const parts = (row: Row, total: number, run = '', width = 0, first = true
   }
 }
 
-export const line = (row: Row, total: number, run = '', width = 0, first = true, now = 0, nested = false): string => {
-  const p = parts(row, total, run, width, first, now, nested)
+export const line = (row: Row, plan: number[], run = '', width = 0, first = true, now = 0, nested = false): string => {
+  const p = parts(row, plan, run, width, first, now, nested)
   return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}${p.stats}`
 }
 
@@ -113,6 +121,9 @@ export const lineRows = (ls: Record<string, StatusLine>, subs: Row[]): Row[] => 
 // A plan's column-0 task line, "- [ ] 23. Title" or "- [x] 23. Title"; its step checkboxes are indented.
 const TASK = /^- \[([ x])\] (\d+)\. (.*)$/gm
 
+// The plan's task numbers, in order.
+export const planTasks = (tasksMd: string): number[] => [...tasksMd.matchAll(TASK)].map(([, , k]) => Number(k))
+
 // "19/25": the plan's done tasks over all its tasks, derived from its tasks.md on every draw; empty without tasks.
 // A task is done when it is ticked or its implementation commit has `landed` on the change branch: a gated
 // task's tick waits on its reviewer (skills/flow/implement.md), so ticks alone lag the work by a review round.
@@ -122,16 +133,13 @@ export const taskCount = (tasksMd: string, done: number[] = []): string => {
   return tasks.length ? `${n}/${tasks.length}` : ''
 }
 
-// The task numbers in the `Task-Id:` trailers `git log` printed, one value per line.
-export const landed = (log: string): number[] => (log.match(/\d+/g) ?? []).map(Number)
-
-// The plan's unticked tasks no board row names in its "Task(s) …/n" numbering, as pending rows: what the
-// running /flow change has not dispatched yet, derived from its tasks.md on every draw.
-export const pendingRows = (tasksMd: string, rs: Row[]): Row[] => {
+// The plan's tasks neither ticked nor `done` (landed) that no board row names in its "Task(s) …/n" numbering,
+// as pending rows: what the running /flow change has not dispatched yet, derived from its tasks.md on every draw.
+export const pendingRows = (tasksMd: string, rs: Row[], done: number[] = []): Row[] => {
   const tasks = [...tasksMd.matchAll(TASK)]
   const taken = new Set(rs.flatMap(r => taskNums(r.unit ?? r.desc)))
   return tasks
-    .filter(([, box, n = '']) => box === ' ' && !taken.has(Number(n)))
+    .filter(([, box, n = '']) => box === ' ' && !done.includes(Number(n)) && !taken.has(Number(n)))
     .map(([, , n = '', title = '']) => ({ id: `pending-${n}`, n: Number(n), desc: `Task ${n}/${tasks.length} (${title})`, state: 'pending' }))
 }
 
@@ -230,14 +238,8 @@ export const hintTail = (f: Flow, count: string, t: string): string | undefined 
 const planOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<string> =>
   change ? $.fs.read(`${await $.session.root()}-worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '') : ''
 
-// The tasks whose `Task-Id:` commits are on the change branch since it left the main checkout's branch; none
-// when git cannot say.
-const landedOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<number[]> => {
-  if (!change) return []
-  const argv = ['git', '-C', `${await $.session.root()}-worktrees/${change}`, 'log', '--format=%(trailers:key=Task-Id,valueonly)', 'main-worktree/HEAD..HEAD']
-  const r = await $.process.run(argv).catch(() => null)
-  return r?.exitCode === 0 ? landed(r.stdout) : []
-}
+const landedOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<number[]> =>
+  change ? landedIn(argv => $.process.run(argv), `${await $.session.root()}-worktrees/${change}`) : []
 
 export const register: Register = on => {
   // Redraws the band each second while a subagent row runs, so its elapsed time ticks.
@@ -340,27 +342,28 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !rs.some(r => r.state === 'in progress')) {
       return next(e)
     }
-    const plan = await planOf($, (await read($, flow)).change)
+    const change = (await read($, flow)).change
+    const plan = await planOf($, change)
     // The main row plus at most MAX_ROWS others: the board's rows first, then the main loop's open status lines,
     // then the earliest pending tasks no row above names; past MAX_ROWS running rows, only the earliest show,
     // while the hint line's tally still counts them all.
     const said = lineRows(await read($, lines), subs)
     const all = [
       ...rs.filter(r => r.id === 'main'),
-      ...[...subs, ...said, ...pendingRows(plan, [...subs, ...said])].slice(0, MAX_ROWS),
+      ...[...subs, ...said, ...pendingRows(plan, [...subs, ...said], await landedOf($, change))].slice(0, MAX_ROWS),
     ]
     const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
     // The marker column lines up among the rows sharing a lead: with the main row shown, the rows nested under
     // it; the main row's label is not padded.
     const width = Math.max(0, ...all.filter(r => r.id !== 'main').map(r => labels[r.id]?.length ?? 0))
-    const total = subs.at(-1)?.n ?? 0
+    const tasks = planTasks(plan)
     const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
         {all.map((r, i) => {
           // While the main row shows, every row after it is nested one level under it.
-          const p = parts(r, total, labels[r.id], r.id === 'main' ? 0 : width, i === 0, now, m !== null && i > 0)
+          const p = parts(r, tasks, labels[r.id], r.id === 'main' ? 0 : width, i === 0, now, m !== null && i > 0)
           const isDone = r.state === 'done'
           return (
             <Text key={r.id}>

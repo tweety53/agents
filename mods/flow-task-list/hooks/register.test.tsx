@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { flowAfter, hintTail, landed, line, lineRows, pendingRows, runLabel, statusLines, tally, taskCount, trim } from './register'
+import { landed, landedIn } from './landed'
+import { flowAfter, hintTail, line, lineRows, pendingRows, planTasks, runLabel, statusLines, tally, taskCount, trim } from './register'
 
 const BAND = {
   plugin: 'flow-task-list',
@@ -30,13 +31,35 @@ const complete = (agentId: string, reason: 'answer' | 'error') => ({
 
 const running = (n: number) => ({ id: `r${n}`, n, desc: 'x', state: 'in progress' }) as const
 
+const P22 = Array.from({ length: 22 }, (_, i) => i + 1)
+const P5 = [1, 2, 3, 4, 5]
+
 test('formats numbered and unnumbered rows', () => {
-  expect(line({ id: 'a', n: 1, desc: 'Explore auth code', state: 'in progress' }, 3)).toBe('⎿ ◼ Task 1/3 (Explore auth code) — in progress')
-  expect(line({ id: 'b', n: 2, desc: 'Task 21/22 finished-workout look', state: 'done' }, 3)).toBe('⎿ ✔ Task 21/22 (finished-workout look) — done')
-  expect(line({ id: 'c', n: 3, desc: 'Task 2/5 (spec text)', state: 'blocked' }, 3)).toBe('⎿ ✘ Task 2/5 (spec text) — blocked')
-  expect(line({ id: 'd', n: 4, desc: 'Tasks 3+4+7/22 (port guards)', state: 'in progress' }, 4)).toBe('⎿ ◼ Tasks 3+4+7/22 (port guards) — in progress')
-  expect(line({ id: 'e', n: 5, desc: 'Tasks 3+4+7/22 (review)', state: 'done' }, 5)).toBe('⎿ ✔ Tasks 3+4+7/22 (review) — done')
-  expect(line({ id: 'f', n: 6, desc: 'panel-1 primary review', state: 'done' }, 6, '', 0, false)).toBe('  ✔ Task 6/6 (panel-1 primary review) — done')
+  expect(line({ id: 'a', n: 1, desc: 'Explore auth code', state: 'in progress' }, P22)).toBe('⎿ ◼ Explore auth code — in progress')
+  expect(line({ id: 'b', n: 2, desc: 'Task 21/22 finished-workout look', state: 'done' }, P22)).toBe('⎿ ✔ Task 21/22 (finished-workout look) — done')
+  expect(line({ id: 'c', n: 3, desc: 'Task 2/5 (spec text)', state: 'blocked' }, P5)).toBe('⎿ ✘ Task 2/5 (spec text) — blocked')
+  expect(line({ id: 'd', n: 4, desc: 'Tasks 3+4+7/22 (port guards)', state: 'in progress' }, P22)).toBe('⎿ ◼ Tasks 3+4+7/22 (port guards) — in progress')
+  expect(line({ id: 'e', n: 5, desc: 'Tasks 3+4+7/22 (review)', state: 'done' }, P22)).toBe('⎿ ✔ Tasks 3+4+7/22 (review) — done')
+  expect(line({ id: 'f', n: 6, desc: 'panel-1 primary review', state: 'done' }, P22, '', 0, false)).toBe('  ✔ panel-1 primary review — done')
+})
+
+test('only a row naming tasks of the running plan is numbered; any other row shows unnumbered', () => {
+  const at = (desc: string, plan: number[]) => line({ id: 'x', n: 4, desc, state: 'in progress' }, plan)
+  // An in-run pipeline fix, a panel, a fix round: no plan task, so no number, whatever the spawn order.
+  expect(at('pipeline-fix-1 flow-task-list landed count', P22)).toBe('⎿ ◼ pipeline-fix-1 flow-task-list landed count — fix')
+  expect(at('panel-1-primary correctness review', P22)).toBe('⎿ ◼ panel-1-primary correctness review — in review')
+  // A prefix naming a number the plan lacks, or another plan's size, or with no plan running.
+  expect(at('Task 23/22 (other)', P22)).toBe('⎿ ◼ other — in progress')
+  expect(at('Task 3/9 (other plan)', P22)).toBe('⎿ ◼ other plan — in progress')
+  expect(at('Tasks 3+30/22 (pair)', P22)).toBe('⎿ ◼ pair — in progress')
+  expect(at('Task 3/22 (port)', [])).toBe('⎿ ◼ port — in progress')
+  expect(at('Task 3/22 (port)', P22)).toBe('⎿ ◼ Task 3/22 (port) — in progress')
+  // The main agent's row is never a task, even when its command's description names one.
+  expect(line({ id: 'main', n: 0, desc: 'Task 3/22 (port)', state: 'in progress' }, P22)).toBe('⎿ ◼ main (Task 3/22 (port)) — in progress')
+  // A status line naming no plan task, or another plan's task, shows its unit without a number.
+  expect(line({ id: 'line:a', n: 0, desc: '', unit: 'Self-review (pass 1)', state: 'in progress' }, P22)).toBe('⎿ ◼ Self-review (pass 1) — in progress')
+  expect(line({ id: 'line:b', n: 0, desc: '', unit: 'Task 4/8 (port)', state: 'blocked' }, P22)).toBe('⎿ ✘ port — blocked')
+  expect(line({ id: 'line:c', n: 0, desc: '', unit: 'Tasks 3–4/22 (pair)', state: 'blocked' }, P22)).toBe('⎿ ✘ Tasks 3–4/22 (pair) — blocked')
 })
 
 test('trim never drops a running row', () => {
@@ -75,9 +98,9 @@ test('finished rows stay across prompts; past five the oldest finished goes', as
 
   for (const surface of ['terminal', 'desktop'] as const) {
     expect(await shown(surface)).toEqual([
-      '⎿ ✔ Task 1/3 (Explore auth) — done · 0s',
-      '  ◼ Task 2/3 (Read diff) — in progress · 0s',
-      '  ✘ Task 3/3 (Run tests) — blocked · 0s',
+      '⎿ ✔ Explore auth — done · 0s',
+      '  ◼ Read diff — in progress · 0s',
+      '  ✘ Run tests — blocked · 0s',
     ])
   }
 
@@ -85,11 +108,11 @@ test('finished rows stay across prompts; past five the oldest finished goes', as
   await $.agent.spawn(spawn('Five'))
   await $.agent.spawn(spawn('Six'))
   expect(await shown('terminal')).toEqual([
-    '⎿ ◼ Task 2/6 (Read diff) — in progress · 0s',
-    '  ✘ Task 3/6 (Run tests) — blocked · 0s',
-    '  ◼ Task 4/6 (Four) — in progress · 0s',
-    '  ◼ Task 5/6 (Five) — in progress · 0s',
-    '  ◼ Task 6/6 (Six) — in progress · 0s',
+    '⎿ ◼ Read diff — in progress · 0s',
+    '  ✘ Run tests — blocked · 0s',
+    '  ◼ Four — in progress · 0s',
+    '  ◼ Five — in progress · 0s',
+    '  ◼ Six — in progress · 0s',
   ])
 })
 
@@ -126,16 +149,17 @@ test('runLabel names the model family and effort', () => {
 
 test('a row nested under the main row leads with an indented corner on every row', () => {
   const row = { id: 'r', n: 3, desc: 'Task 3/16 (port guards)', state: 'in progress' } as const
-  expect(line(row, 16, 'sonnet-low', 11, false, 0, true)).toBe('  ⎿ sonnet-low  ◼ Task 3/16 (port guards) — in progress')
-  expect(line(row, 16, 'opus-medium', 11, true, 0, true)).toBe('  ⎿ opus-medium ◼ Task 3/16 (port guards) — in progress')
-  expect(line({ id: 'p', n: 4, desc: 'Task 4/16 (later)', state: 'pending' }, 16, '', 0, false, 0, true)).toBe('  ⎿ ◻ Task 4/16 (later) — pending')
+  const P16 = Array.from({ length: 16 }, (_, i) => i + 1)
+  expect(line(row, P16, 'sonnet-low', 11, false, 0, true)).toBe('  ⎿ sonnet-low  ◼ Task 3/16 (port guards) — in progress')
+  expect(line(row, P16, 'opus-medium', 11, true, 0, true)).toBe('  ⎿ opus-medium ◼ Task 3/16 (port guards) — in progress')
+  expect(line({ id: 'p', n: 4, desc: 'Task 4/16 (later)', state: 'pending' }, P16, '', 0, false, 0, true)).toBe('  ⎿ ◻ Task 4/16 (later) — pending')
 })
 
 test('a run label follows the lead, padded so the marker column lines up', () => {
   const row = { id: 'a', n: 2, desc: 'Count rules files', state: 'done' } as const
-  expect(line(row, 6, 'opus-high', 9)).toBe('⎿ opus-high ✔ Task 2/6 (Count rules files) — done')
-  expect(line({ ...row, state: 'in progress' }, 6, 'sonnet', 9, false)).toBe('  sonnet    ◼ Task 2/6 (Count rules files) — in progress')
-  expect(line(row, 6, '', 9)).toBe('⎿           ✔ Task 2/6 (Count rules files) — done')
+  expect(line(row, [], 'opus-high', 9)).toBe('⎿ opus-high ✔ Count rules files — done')
+  expect(line({ ...row, state: 'in progress' }, [], 'sonnet', 9, false)).toBe('  sonnet    ◼ Count rules files — in progress')
+  expect(line(row, [], '', 9)).toBe('⎿           ✔ Count rules files — done')
 })
 
 const NO_FLOW = { phase: null, change: null, ticket: null }
@@ -231,9 +255,11 @@ test('the hint line counts a gated task whose commit landed while its tick waits
   on('tool.call', () => ({ result: '' }))
   on('fs.read', () => ({ value: PLAN }))
   const runs: (readonly string[])[] = []
+  const out = (exitCode: number, stdout: string) => ({ value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
   on('process.run', (_$, e) => {
     runs.push(e.argv)
-    return { value: { exitCode: 0, stdout: '21\n\n20\n\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    const verb = e.argv[3]
+    return verb === 'branch' ? out(0, 'kan-873-port-guards\n') : verb === 'config' ? out(1, '') : out(0, '21\n\n20\n\n')
   })
   const tails: (string | undefined)[] = []
   on('ui.render', (r, e) => {
@@ -244,21 +270,67 @@ test('the hint line counts a gated task whose commit landed while its tick waits
   await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
   await (await $.ui.mount({ plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
   expect(tails).toEqual(['KAN-873 flow-implement 21/25'])
+  const dir = '/u/Projects/agents-worktrees/kan-873-port-guards'
   expect(runs).toEqual([
-    ['git', '-C', '/u/Projects/agents-worktrees/kan-873-port-guards', 'log', '--format=%(trailers:key=Task-Id,valueonly)', 'main-worktree/HEAD..HEAD'],
+    ['git', '-C', dir, 'branch', '--show-current'],
+    ['git', '-C', dir, 'config', '--get', 'branch.kan-873-port-guards.flowBase'],
+    ['git', '-C', dir, 'log', '--format=%(trailers:key=Task-Id,valueonly)', 'refs/remotes/origin/HEAD..HEAD'],
+  ])
+})
+
+test('the base is the recorded flowBase, its origin ref first, else the bare name', async () => {
+  const at = async (originRef: boolean) => {
+    const runs: string[][] = []
+    const got = await landedIn(async argv => {
+      runs.push(argv)
+      const verb = argv[3]
+      const ok = verb === 'branch' || verb === 'config' || verb === 'log' || originRef
+      return { exitCode: ok ? 0 : 1, stdout: verb === 'branch' ? 'c\n' : verb === 'config' ? 'feat\n' : verb === 'log' ? '4\n' : '' }
+    }, '/w')
+    return [got, runs.at(-1)?.at(-1)]
+  }
+  expect(await at(true)).toEqual([[4], 'refs/remotes/origin/feat..HEAD'])
+  expect(await at(false)).toEqual([[4], 'feat..HEAD'])
+  // Git cannot say: nothing has landed, so the count falls back to the ticks.
+  expect(await landedIn(async () => ({ exitCode: 128, stdout: '' }), '/w')).toEqual([])
+})
+
+test('a landed task waiting on its tick is drawn by no pending row', async ($, on) => {
+  mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
+  on('agent.spawn', () => ({ model: 'opus', agentId: 'ag1' }))
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', () => ({ value: PLAN }))
+  on('process.run', (_$, e) => ({
+    value: { exitCode: e.argv[3] === 'config' ? 1 : 0, stdout: e.argv[3] === 'log' ? '20\n\n21\n' : 'c\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
+  await $.agent.spawn(spawn('Task 22/25 (Step 22)'))
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2})\S.* — \S/.test(t.text)).map(t => t.text)
+  await ui.unmount()
+  expect(texts).toEqual([
+    '⎿ ◼ Task 22/25 (Step 22) — in progress · 0s',
+    '  ◻ Task 23/25 (Step 23) — pending',
+    '  ◻ Task 24/25 (Step 24) — pending',
+    '  ◻ Task 25/25 (Step 25) — pending',
   ])
 })
 
 test('a running row shows its kind as its state word; a finished one its state', () => {
-  const at = (desc: string, state: 'in progress' | 'done' = 'in progress') => line({ id: 'x', n: 1, desc, state }, 1)
+  const at = (desc: string, state: 'in progress' | 'done' = 'in progress') => line({ id: 'x', n: 1, desc, state }, P22)
   expect(at('Tasks 3+4/22 (review)')).toBe('⎿ ◼ Tasks 3+4/22 (review) — in review')
-  expect(at('panel-1-primary correctness review')).toBe('⎿ ◼ Task 1/1 (panel-1-primary correctness review) — in review')
-  expect(at('panel-fix-1 findings 1-6')).toBe('⎿ ◼ Task 1/1 (panel-fix-1 findings 1-6) — fix')
-  expect(at('visual-verify login page')).toBe('⎿ ◼ Task 1/1 (visual-verify login page) — visual verify')
-  expect(at('Run tests')).toBe('⎿ ◼ Task 1/1 (Run tests) — verify')
-  expect(at('strip prefix')).toBe('⎿ ◼ Task 1/1 (strip prefix) — in progress')
-  expect(at('read latest log')).toBe('⎿ ◼ Task 1/1 (read latest log) — in progress')
-  expect(at('Run unittests')).toBe('⎿ ◼ Task 1/1 (Run unittests) — in progress')
+  expect(at('panel-1-primary correctness review')).toBe('⎿ ◼ panel-1-primary correctness review — in review')
+  expect(at('panel-fix-1 findings 1-6')).toBe('⎿ ◼ panel-fix-1 findings 1-6 — fix')
+  expect(at('visual-verify login page')).toBe('⎿ ◼ visual-verify login page — visual verify')
+  expect(at('Run tests')).toBe('⎿ ◼ Run tests — verify')
+  expect(at('strip prefix')).toBe('⎿ ◼ strip prefix — in progress')
+  expect(at('read latest log')).toBe('⎿ ◼ read latest log — in progress')
+  expect(at('Run unittests')).toBe('⎿ ◼ Run unittests — in progress')
   expect(at('Task 3/22 (port guard)')).toBe('⎿ ◼ Task 3/22 (port guard) — in progress')
   expect(at('Tasks 3+4/22 (review)', 'done')).toBe('⎿ ✔ Tasks 3+4/22 (review) — done')
   const rows = [
@@ -300,7 +372,7 @@ test('rows carry their run label; the band hides once all finish; ticket and pha
   for await (const _ of step) {
     // drain
   }
-  expect(await shown()).toEqual(['⎿ opus-high ◼ Task 2/7 (wire band) — in progress · 0s'])
+  expect(await shown()).toEqual(['⎿ opus-high ◼ wire band — in progress · 0s'])
 
   await $.turn.complete(complete('ag1', 'answer'))
   expect(await shown()).toEqual([])
@@ -340,11 +412,11 @@ test('rows take the task-list styles: a done row green-ticked, dim and struck; a
     const ui = await $.ui.mount({ ...BAND, surface })
     const at = async (text: string) => (await ui.findAll({ type: 'Text' })).find(t => t.text === text)?.props
     expect(await at('✔ ')).toMatchObject({ color: 'success' })
-    expect(await at('Task 1/3 (Explore auth)')).toMatchObject({ dimColor: true, strikethrough: true, bold: false })
+    expect(await at('Explore auth')).toMatchObject({ dimColor: true, strikethrough: true, bold: false })
     expect(await at('◼ ')).toMatchObject({ color: 'claude' })
-    expect(await at('Task 2/3 (Read diff)')).toMatchObject({ bold: true, dimColor: false, strikethrough: false })
+    expect(await at('Read diff')).toMatchObject({ bold: true, dimColor: false, strikethrough: false })
     expect(await at('✘ ')).toMatchObject({ color: 'error' })
-    expect(await at('Task 3/3 (Run tests)')).toMatchObject({ bold: false, strikethrough: false })
+    expect(await at('Run tests')).toMatchObject({ bold: false, strikethrough: false })
     await ui.unmount()
   }
 })
@@ -387,11 +459,11 @@ test("the main agent's running turn is a row of its own, outside the task number
   await $.tool.call(sub)
   expect(await shown()).toEqual([
     '⎿ opus-high ◼ main (Run guard tests) — verify',
-    '  ⎿ sonnet ◼ Task 1/1 (Explore auth) — in progress · 0s',
+    '  ⎿ sonnet ◼ Explore auth — in progress · 0s',
   ])
 
   await $.turn.complete({ ...complete('ag1', 'answer'), agentId: undefined })
-  expect(await shown()).toEqual(['⎿ sonnet ◼ Task 1/1 (Explore auth) — in progress · 0s'])
+  expect(await shown()).toEqual(['⎿ sonnet ◼ Explore auth — in progress · 0s'])
   await $.turn.complete(complete('ag1', 'answer'))
   expect(await shown()).toEqual([])
 })
@@ -439,13 +511,15 @@ const PLAN = [
   ...Array.from({ length: 25 }, (_, i) => `- [${i < 19 ? 'x' : ' '}] ${i + 1}. Step ${i + 1}\n  - [ ] a step checkbox, not a task`),
 ].join('\n')
 
-test('pendingRows lists the unticked plan tasks no row has taken', () => {
+test('pendingRows lists the plan tasks neither ticked nor landed that no row has taken', () => {
   const taken = [{ id: 'a', n: 1, desc: 'Task 20/25 (Step 20)', state: 'in progress' }, { id: 'b', n: 2, desc: 'Tasks 21+22/25 (pair)', state: 'done' }] as const
-  expect(pendingRows(PLAN, [...taken]).map(r => line(r, 0, '', 0, false))).toEqual([
+  expect(pendingRows(PLAN, [...taken]).map(r => line(r, planTasks(PLAN), '', 0, false))).toEqual([
     '  ◻ Task 23/25 (Step 23) — pending',
     '  ◻ Task 24/25 (Step 24) — pending',
     '  ◻ Task 25/25 (Step 25) — pending',
   ])
+  // Task 24's commit has landed while its tick waits on review: counted done, so never drawn pending.
+  expect(pendingRows(PLAN, [...taken], [24]).map(r => r.id)).toEqual(['pending-23', 'pending-25'])
   expect(pendingRows('', [])).toEqual([])
 })
 
@@ -473,14 +547,14 @@ test("sibling layout: the running /flow change's pending tasks, read from <repo>
   }
 
   await $.agent.spawn(spawn('Explore auth'))
-  expect(await shown()).toEqual(['⎿ ◼ Task 1/1 (Explore auth) — in progress · 0s'])
+  expect(await shown()).toEqual(['⎿ ◼ Explore auth — in progress · 0s'])
   expect(reads).toEqual([])
 
   await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
   await $.agent.spawn(spawn('Task 20/25 (Step 20)'))
   await $.agent.spawn(spawn('Tasks 21+22/25 (pair)'))
   expect(await shown()).toEqual([
-    '⎿ ◼ Task 1/3 (Explore auth) — in progress · 0s',
+    '⎿ ◼ Explore auth — in progress · 0s',
     '  ◼ Task 20/25 (Step 20) — in progress · 0s',
     '  ◼ Tasks 21+22/25 (pair) — in progress · 0s',
     '  ◻ Task 23/25 (Step 23) — pending',
@@ -533,11 +607,12 @@ test('the band draws at most main plus five rows: dispatched rows first, then th
 })
 
 test("a subagent row's elapsed time follows its state", () => {
+  const P8 = [1, 2, 3, 4, 5, 6, 7, 8]
   const row = { id: 'a', n: 3, desc: 'Task 3/8 (desc)', state: 'in progress', start: 1000 } as const
-  expect(line(row, 8, 'opus-medium', 11, true, 1000 + 252_000)).toBe('⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s')
-  expect(line({ ...row, state: 'done', end: 1000 + 3_600_000 + 65_000 }, 8, '', 0, true, 9e9)).toBe('⎿ ✔ Task 3/8 (desc) — done · 1h01m')
-  expect(line(row, 8, '', 0, true, 1000)).toBe('⎿ ◼ Task 3/8 (desc) — in progress · 0s')
-  expect(line({ id: 'p', n: 4, desc: 'Task 4/8 (later)', state: 'pending' }, 8, '', 0, true, 5000)).toBe('⎿ ◻ Task 4/8 (later) — pending')
+  expect(line(row, P8, 'opus-medium', 11, true, 1000 + 252_000)).toBe('⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s')
+  expect(line({ ...row, state: 'done', end: 1000 + 3_600_000 + 65_000 }, P8, '', 0, true, 9e9)).toBe('⎿ ✔ Task 3/8 (desc) — done · 1h01m')
+  expect(line(row, P8, '', 0, true, 1000)).toBe('⎿ ◼ Task 3/8 (desc) — in progress · 0s')
+  expect(line({ id: 'p', n: 4, desc: 'Task 4/8 (later)', state: 'pending' }, P8, '', 0, true, 5000)).toBe('⎿ ◻ Task 4/8 (later) — pending')
 })
 
 test('a running row ticks and shows no token count; a finished row freezes', async ($, on) => {
@@ -561,16 +636,16 @@ test('a running row ticks and shows no token count; a finished row freezes', asy
     // drain
   }
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 0s'])
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ desc — in progress · 0s'])
   await clock.advance(252_000)
-  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ Task 3/8 (desc) — in progress · 4m12s'])
+  expect(await rows(ui)).toEqual(['⎿ opus-medium ◼ desc — in progress · 4m12s'])
   await ui.unmount()
 
   await $.agent.spawn(spawn('Task 4/8 (other)'))
   await $.turn.complete(complete('ag1', 'answer'))
   await clock.advance(60_000)
   const after = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await rows(after))[0]).toBe('⎿ opus-medium ✔ Task 3/8 (desc) — done · 4m12s')
+  expect((await rows(after))[0]).toBe('⎿ opus-medium ✔ desc — done · 4m12s')
   await after.unmount()
 })
 
@@ -600,7 +675,7 @@ test('lineRows leaves out a unit a subagent row already numbers', () => {
     'Task 3/25': { unit: 'Task 3/25 (port)', state: 'in progress' },
   } as const
   const subs = [{ id: 'a', n: 1, desc: 'Tasks 2+3/25 (pair)', state: 'in progress' }] as const
-  expect(lineRows(lines, [...subs]).map(r => line(r, 1, '', 0, false))).toEqual([
+  expect(lineRows(lines, [...subs]).map(r => line(r, planTasks(PLAN), '', 0, false))).toEqual([
     '  ◻ Full backend test suite — pending',
     '  ◼ Tasks 23–25/25 (e2e, fidelity, live) — in progress',
   ])

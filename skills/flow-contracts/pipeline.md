@@ -228,21 +228,27 @@ row per subagent, drawn from each dispatch's description, and a hint-line tail n
 key where the change name leads with one and the phase — read from the run's own `flow stage` marks
 (**Stage marks**, below) — and the plan's done tasks over its total (`19/25`), read from the change's `tasks.md` and its
 worktree's git log on every draw, followed by ` │ ` and a tally of those rows by emoji. A task counts
-as done when it is ticked or a commit carrying its `Task-Id:` trailer is on the change branch since it
-left the main checkout's branch, so a gated task counts before its deferred tick. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
+as done when it is ticked or a commit carrying its `Task-Id:` trailer is on the change branch since its
+base — `branch.<current>.flowBase` when recorded (its `refs/remotes/origin/` ref first), otherwise
+`refs/remotes/origin/HEAD`, as `<agents repo>/scripts/check-task-records.py` resolves it — so a gated task counts before its deferred tick.
+Only the change's worktree in the session's own repository is read: a task whose commit lands in a peer
+repository's worktree counts once it is ticked. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
 shows on the main agent's own `main` row, first on the band while the main turn runs, labelled with its
 latest Bash command's description, if any, and never numbered as a task. A subagent row also shows
 its elapsed time. Work the main agent runs itself under a
 status line of its own (`rules/be-brief.mdc`) shows as a row for each unit whose latest such line is
 not done, after the subagent rows, unless a subagent row already names its task numbers. After
-those, the band lists each task of the running change's plan that is still unticked and named by no
+those, the band lists each task of the running change's plan that is neither ticked nor landed and named by no
 row's `Task <x>/<n>` prefix as a `pending` row, read from the change's `tasks.md` in its worktree on
 every draw — never stored. The band draws at most five rows besides the `main` row: the subagent
 rows first, then the status-line rows, then the earliest pending rows in whatever room is left.
 
 **Every subagent dispatch's description is the board row's label**, in the shape
 **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states — no emoji and
-no state of its own: the mod adds both, and numbers a task's row from its `Task <x>/<n>` prefix.
+no state of its own: the mod adds both, and numbers a task's row from its `Task <x>/<n>` prefix. A row
+is numbered only when every task its prefix names is a task of the running change's plan and `<n>` is
+that plan's size; every other row — the `main` row, an in-run pipeline fix, a panel or fix-round row, a
+status line naming no plan task — is shown unnumbered, and no row is numbered by its dispatch order.
 Claude Code's own agent panel, not the board, shows a running agent's latest tool-call
 description, so every dispatch prompt also tells the agent to open each tool call's description
 with its dispatch description's unit and its round (`Task 30/31 review-1 — run the drawer tests`,
