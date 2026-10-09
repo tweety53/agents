@@ -12,7 +12,7 @@ motion step and the `## Report` template, run as written.
    exit substitutes nothing, and `verify` runs its whole suite. A `verify` with no `<specs>` runs as
    declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
    Under a round base the output feeds `verify` alone, and an empty one runs no `verify` spec — the
-   report's `verify:` line reads `not run — no spec since the round base`; step 8 takes its capture
+   report's `verify:` line reads `not run — no spec since the round base` and step 7 reports `done`; step 8 takes its capture
    spec from `specs` run against the merge base.
    A `specs` with no `<merge-base>` cannot take a round base: it runs as declared, its full list,
    and the report names `specs: not scoped — specs has no <merge-base>`.
@@ -506,7 +506,7 @@ is canonical for them — and the parent runs that guard on the report before re
 - setup: <not declared | exit <n>>
 - stack: <already running | started and stopped | could not be started — <output>>
 - fingerprint: <not declared | exit 0 | mismatch → restarted → exit <n>>
-- verify: exit <n>
+- verify: exit <n> | not run — no spec since the round base
   <output, verbatim or last 40 lines>
 - capture: exit <n>
   <output, verbatim or last 40 lines>

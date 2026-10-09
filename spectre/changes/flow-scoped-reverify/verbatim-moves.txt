@@ -19,8 +19,10 @@ A worktree whose round diff is empty is not dispatched.
 A worktree with no round base — no verifier of this run has verified it, or the parent no longer holds the sha — runs the stage unscoped.
 Last, read `git -C <abs-worktree> rev-parse HEAD` — a later fix round's base (**The loop**, `skills/flow/verify-fix-loop.md`).
 Report every departure you see in this one pass.
-Under a round base the output feeds `verify` alone, and an empty one runs no `verify` spec — the report's `verify:` line reads `not run — no spec since the round base`; step 8 takes its capture spec from `specs` run against the merge base.
+Under a round base the output feeds `verify` alone, and an empty one runs no `verify` spec — the report's `verify:` line reads `not run — no spec since the round base` and step 7 reports `done`; step 8 takes its capture spec from `specs` run against the merge base.
 `<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base — or for the round base, when the prompt names one — and substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs replace the checked-in suite, never extend it.
 `begin` mark, then **Visual verification** from its `begin` mark, so the fix's own lint, tests and captures are what the handoff reports.
 | `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted — a fix round's re-run substitutes its round base for `<merge-base>` (**The loop**, `skills/flow/verify-fix-loop.md`).
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+- verify: exit <n>
+- verify: exit <n> | not run — no spec since the round base
