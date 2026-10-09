@@ -1,0 +1,8 @@
+# Operator-dispatched pipeline fix: self-review covers the pipeline and dev tooling only; product defects are fixed inside the run.
+**The pass covers the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness config, guards — and nothing else.
+A finding about the project's own product code is out of scope: the pass neither offers, files nor records one.
+A product defect a run finds is fixed inside that run, before integrate lands the change — by a fix run at `IN_PROGRESS` — never deferred to self-review.
+`-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`; `-blast-radius` is step 3's count.
+A finding about the project's own product code is always `big`, and is offered only when it is Important or worse — something a user or the data would suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a missing test over already-correct code) is left out of the prompt.
+A finding about the project's own product code reaches outside `<agents repo>`, so it is always `big`.
+`-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`; `-blast-radius` is step 3's count, omitted for a product-code finding.

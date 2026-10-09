@@ -61,10 +61,12 @@ An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
 **A finding is fixed or filed only from the six angles.** A finding about the pipeline itself is
-fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding about the
-project's own product code is always `big`, and is offered only when it is Important or worse — something a user or the data would
-suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a
-missing test over already-correct code) is left out of the prompt. The report carries no
+fixed in step 3 unless it is `big`, and offered under its angle when it is. **The pass covers
+the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
+config, guards — and nothing else.** A finding about the project's own product code is out of
+scope: the pass neither offers, files nor records one. A product defect a run finds is fixed
+inside that run, before integrate lands the change — by a fix run at `IN_PROGRESS` — never
+deferred to self-review. The report carries no
 section beyond the six angles and the rating. The filing prompt is never waived: a pass with
 no operator to answer it files nothing and records every offered finding `declined`.
 
@@ -75,8 +77,7 @@ nothing beyond it — say so in the report's `**Deferred:**` line.
 
 **Classify every finding before any work** by the blast-radius rule of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files,
-reaches outside `<agents repo>`, or needs a design choice only the operator can make. A finding
-about the project's own product code reaches outside `<agents repo>`, so it is always `big`. An
+reaches outside `<agents repo>`, or needs a design choice only the operator can make. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
@@ -201,7 +202,7 @@ flow self-review finding -change <name> -angle <label> -disposition fixed|filed|
 ```
 
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`;
-`-blast-radius` is step 3's count, omitted for a product-code finding. An `In-run pipeline fix:`
+`-blast-radius` is step 3's count. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
 lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues — the report below is the durable record.
