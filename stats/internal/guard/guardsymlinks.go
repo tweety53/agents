@@ -96,7 +96,9 @@ var (
 	// <placeholder> (`guard-autosquash.sh targets <worktree> <task-sha>`);
 	// demanding the `<` right after the basename dropped that citation from
 	// the required set and its missing symlink read GUARD-SYMLINKS-OK.
-	gsPlaceholder  = regexp.MustCompile(`^([ \t]+[A-Za-z0-9._-]+)*[ \t]+<`)
+	// An optional `[--flag <arg>]` group may sit there too
+	// (`break-and-prove.sh [--clean <command>] <file>`), for the same reason.
+	gsPlaceholder  = regexp.MustCompile(`^([ \t]+([A-Za-z0-9._-]+|\[[^\]]*\]))*[ \t]+<`)
 	gsBlanks       = regexp.MustCompile(`[ \t]+`)
 	gsInvokingWord = regexp.MustCompile(`(run|invoke|invocation|invoking|execute)`)
 	gsBlankLine    = regexp.MustCompile(`^[ \t]*$`)
