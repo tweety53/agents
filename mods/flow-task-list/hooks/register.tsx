@@ -171,6 +171,18 @@ export const trim = (rs: Row[]): Row[] => {
   return out
 }
 
+// The band's rows besides main, MAX_ROWS at most: the `shown` rows (subagent rows, then status-line rows) in order,
+// then the `pending` rows; while a pending row would be crowded out, the earliest done row yields its slot to it.
+export const band = (shown: Row[], pending: Row[]): Row[] => {
+  const out = [...shown]
+  while (out.length + pending.length > MAX_ROWS) {
+    const i = out.findIndex(r => r.state === 'done')
+    if (i < 0) break
+    out.splice(i, 1)
+  }
+  return [...out, ...pending].slice(0, MAX_ROWS)
+}
+
 // Each flow.* stage key's phase, per skills/flow/stage-keys.md. `flow.decide` is left out: it marks
 // both the brainstorm and a fix run, so it keeps whichever phase is current.
 const PHASE_KEYS: Record<Phase, string[]> = {
@@ -350,7 +362,7 @@ export const register: Register = on => {
     const said = lineRows(await read($, lines), subs)
     const all = [
       ...rs.filter(r => r.id === 'main'),
-      ...[...subs, ...said, ...pendingRows(plan, [...subs, ...said], await landedOf($, change))].slice(0, MAX_ROWS),
+      ...band([...subs, ...said], pendingRows(plan, [...subs, ...said], await landedOf($, change))),
     ]
     const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
     // The marker column lines up among the rows sharing a lead: with the main row shown, the rows nested under

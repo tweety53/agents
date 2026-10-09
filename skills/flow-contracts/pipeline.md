@@ -241,7 +241,9 @@ not done, after the subagent rows, unless a subagent row already names its task 
 those, the band lists each task of the running change's plan that is neither ticked nor landed and named by no
 row's `Task <x>/<n>` prefix as a `pending` row, read from the change's `tasks.md` in its worktree on
 every draw — never stored. The band draws at most five rows besides the `main` row: the subagent
-rows first, then the status-line rows, then the earliest pending rows in whatever room is left.
+rows first, then the status-line rows, then the earliest pending rows in whatever room is left. While a pending row
+would be left out, the earliest done row yields its slot to it: a done row is drawn only in room no
+pending row needs.
 
 **Every subagent dispatch's description is the board row's label**, in the shape
 **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states — no emoji and

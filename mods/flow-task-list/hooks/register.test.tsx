@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { landed, landedIn } from './landed'
-import { flowAfter, hintTail, line, lineRows, pendingRows, planTasks, runLabel, statusLines, tally, taskCount, trim } from './register'
+import { band, flowAfter, hintTail, line, lineRows, pendingRows, planTasks, runLabel, statusLines, tally, taskCount, trim } from './register'
 
 const BAND = {
   plugin: 'flow-task-list',
@@ -604,6 +604,47 @@ test('the band draws at most main plus five rows: dispatched rows first, then th
     '⎿ opus ◼ main — in progress',
     ...[1, 2, 3, 4, 5].map(k => `  ⎿ ◼ Task ${k}/25 (Step ${k}) — in progress · 0s`),
   ])
+})
+
+test('a pending task takes the slot of a done row; a done row shows only in room no pending row needs', async ($, on) => {
+  mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
+  let n = 0
+  on('agent.spawn', () => ({ model: 'opus', agentId: `ag${++n}` }))
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('turn.complete', () => ({ text: '' }))
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', () => ({ value: PLAN }))
+  on('ui.render', (r, e) => {
+    const { Box, Text } = r.ui.resolve(e)
+    return e.component === 'PromptHint' ? <Text>hint</Text> : <Box />
+  })
+  const shown = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const texts = (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2}) *\S.* — \S/.test(t.text)).map(t => t.text)
+    await ui.unmount()
+    return texts
+  }
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', messageCount: 1 })) {
+    // drain
+  }
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
+  for (const k of [1, 2, 3, 4, 5]) await $.agent.spawn(spawn(`Review ${k}`))
+  for (const k of [1, 2, 3, 4, 5]) await $.turn.complete(complete(`ag${k}`, 'answer'))
+
+  // Five done rows and six pending tasks: the pending tasks take all five slots.
+  expect(await shown()).toEqual([
+    '⎿ opus ◼ main — in progress',
+    ...[20, 21, 22, 23, 24].map(k => `  ⎿ ◻ Task ${k}/25 (Step ${k}) — pending`),
+  ])
+
+  // With room past the pending rows, the latest done rows keep it, in their own order; the earliest yields.
+  const done = (k: number) => ({ id: `d${k}`, n: k, desc: `D${k}`, state: 'done' }) as const
+  const pend = (k: number) => ({ id: `pending-${k}`, n: k, desc: `Task ${k}/25`, state: 'pending' }) as const
+  expect(band([done(1), running(2), done(3), done(4)], [pend(5), pend(6)]).map(r => r.id)).toEqual(['r2', 'd3', 'd4', 'pending-5', 'pending-6'])
+  expect(band([done(1), running(2)], [pend(5)]).map(r => r.id)).toEqual(['d1', 'r2', 'pending-5'])
 })
 
 test("a subagent row's elapsed time follows its state", () => {
