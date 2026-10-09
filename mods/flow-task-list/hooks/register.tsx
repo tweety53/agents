@@ -56,7 +56,7 @@ const stats = (row: Row, now: number): string => (row.start === undefined ? '' :
 const KINDS: [RegExp, string, string][] = [
   [/\bfix/i, '🔨', 'fix'],
   [/\bvisual[- ]verif/i, '👀', 'visual verify'],
-  [/\b(?:review|panel(?!-fix))/i, '🔍', 'in review'],
+  [/\b(?:review|panel(?![- ]fix))/i, '🔍', 'in review'],
   [/\b(?:verif|tests?\b|lint)/i, '🧪', 'verify'],
 ]
 
@@ -108,7 +108,7 @@ export const line = (row: Row, plan: number[], run = '', width = 0, first = true
 
 // A be-brief status line, "<emoji> <unit> — <state>" (rules/be-brief.mdc), at the start of its line; text after
 // the state word (". Two new failing specs.", " again") is read past, a word running on from it ("fixing") is not.
-const STATUS = /^[✅🔄🔍⏳⛔]\uFE0F? (.+?) — (done|in progress|in review|pending|blocked)(?=$|[., ])/gmu
+const STATUS = /^[✅🔄🔍⏳⛔]\uFE0F? (.+) — (done|in progress|in review|pending|blocked)(?![\p{L}\p{N}])/gmu
 
 // The unit's leading name, its key in `lines`: the text before any "(", ":" or " —", without a trailing
 // " review", so "Visual verify (final): Quick mode" and "Visual verify (final full run)" are one unit, and

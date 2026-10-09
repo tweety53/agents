@@ -329,6 +329,7 @@ test('a running row shows its kind as its state word; a finished one its state',
   expect(at('Tasks 3+4/22 (review)')).toBe('⎿ ◼ Tasks 3+4/22 (review) — in review')
   expect(at('panel-1-primary correctness review')).toBe('⎿ ◼ panel-1-primary correctness review — in review')
   expect(at('panel-fix-1 findings 1-6')).toBe('⎿ ◼ panel-fix-1 findings 1-6 — fix')
+  expect(at('panel fix round 2')).toBe('⎿ ◼ panel fix round 2 — fix')
   // The kind whose word comes first wins.
   expect(at('Review in-run fix 6 (Tasks 27-28)')).toBe('⎿ ◼ Review in-run fix 6 (Tasks 27-28) — in review')
   expect(at('Fix review findings')).toBe('⎿ ◼ Fix review findings — fix')
@@ -709,6 +710,8 @@ test('statusLines reads the be-brief status lines and nothing else', () => {
     '✅ Visual verify (final): Quick mode — done. Clean.',
     '🔍 Flow pipeline change — in review again, after the fixes',
     '✅ Task 6/8 — done, landed',
+    '⛔ Task 7/8 (gate) — blocked: needs a decision',
+    '🔄 Task 5/8 (port — pending bits) — in progress',
   ].join('\n')
   expect(statusLines(text)).toEqual([
     ['Full backend test suite', 'pending'],
@@ -720,6 +723,8 @@ test('statusLines reads the be-brief status lines and nothing else', () => {
     ['Visual verify (final): Quick mode', 'done'],
     ['Flow pipeline change', 'in review'],
     ['Task 6/8', 'done'],
+    ['Task 7/8 (gate)', 'blocked'],
+    ['Task 5/8 (port — pending bits)', 'in progress'],
   ])
 })
 
