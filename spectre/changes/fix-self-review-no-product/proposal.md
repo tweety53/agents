@@ -19,6 +19,7 @@ The operator: "SO I don't like the idea of KNOWN_BUGS.md in general riight now. 
 
 ### What changes
 
-- `skills/flow-contracts/known-bugs.md` is rewritten in place to the fix-in-run rule: a product defect a run finds — pre-existing, at the merge base, or on a surface another change owns — blocks and is fixed in that run, never logged to a `KNOWN-BUGS.md` file, added to `## known failures`, or deferred. Kept at its path so no citation dangles.
+- `skills/flow-contracts/known-bugs.md` is rewritten in place to the fix-in-run rule: a product defect a run finds — pre-existing, at the merge base, or on a surface another change owns — blocks and is fixed in that run, never logged to a `KNOWN-BUGS.md` file or deferred. Kept at its path so no citation dangles.
 - Every citer's "except a failing test the sweep classifies pre-existing" exemption is removed; a verification change's sweep turns every finding into an appended task.
 - `skills/flow/implement.md` no longer mentions `<project>/KNOWN-BUGS.md`.
+- bd60da89 removes the `## known failures` key (`skills/flow-contracts/project-configuration.md`) and verify's known-failure deferral (`skills/flow/verify-and-handoff.md`): a failing test always blocks verify and takes **The loop**, a failing test the change did not introduce included.

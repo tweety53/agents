@@ -13,6 +13,6 @@ A product defect a run finds is fixed inside that run, before integrate lands th
 does and takes the same course — **The loop** (`skills/flow/verify-fix-loop.md`) in verify and
 visual verification, an appended task for a verification change's sweep (**D. Basic Workflow #3 —
 Writing plans**, `skills/flow/brainstorm-planner.md`). It is never logged to a `<project>/KNOWN-BUGS.md`
-file, never added to `## known failures`, never filed for later, and never skipped, worked around or
+file, never filed for later, and never skipped, worked around or
 tolerance-widened (**Fix determinism at the source, never by widening tolerance**,
 `rules/fix-determinism-at-the-source.mdc`).
