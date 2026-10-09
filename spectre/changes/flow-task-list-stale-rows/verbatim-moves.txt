@@ -1,0 +1,3 @@
+# Operator, 2026-10-10 (KAN-924): the task band dropped stale status-line rows; the contract states the key and the blocked rule.
+Work the main agent runs itself under a status line of its own (`rules/be-brief.mdc`) shows as a row for each unit whose latest such line is not done, after the subagent rows, unless a subagent row already names its task numbers.
+Work the main agent runs itself under a status line of its own (`rules/be-brief.mdc`) shows as a row for each unit whose latest such line is not done — a unit keyed by its name before any `(`, `:` or ` —`, a trailing ` review` dropped, and a `blocked` row kept only until the next main turn starts — after the subagent rows, unless a subagent row already names its task numbers.

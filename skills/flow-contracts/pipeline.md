@@ -237,7 +237,8 @@ shows on the main agent's own `main` row, first on the band while the main turn 
 latest Bash command's description, if any, and never numbered as a task. A subagent row also shows
 its elapsed time. Work the main agent runs itself under a
 status line of its own (`rules/be-brief.mdc`) shows as a row for each unit whose latest such line is
-not done, after the subagent rows, unless a subagent row already names its task numbers. After
+not done — a unit keyed by its name before any `(`, `:` or ` —`, a trailing ` review` dropped, and a
+`blocked` row kept only until the next main turn starts — after the subagent rows, unless a subagent row already names its task numbers. After
 those, the band lists each task of the running change's plan that is neither ticked nor landed and named by no
 row's `Task <x>/<n>` prefix as a `pending` row, read from the change's `tasks.md` in its worktree on
 every draw — never stored. The band draws at most five rows besides the `main` row: the subagent
