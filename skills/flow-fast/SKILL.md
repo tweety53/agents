@@ -316,6 +316,10 @@ commits' shas per step 5 of `/flow-self-review`, in whichever invocation makes i
 beyond the chain's own path refuses the commit (`LAND-FOREIGN-STAGED`) — clear the staging or land
 from a clean checkout, never around it.
 
+A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the mark below
+`-outcome stopped` instead, and ends the run on the handoff block **the sweep**
+(`skills/flow-contracts/known-bugs.md`) defines.
+
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
 flow stage mark  -command '/flow-fast' -stages flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>

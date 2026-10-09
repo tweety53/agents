@@ -55,7 +55,6 @@ works around, skips or tolerance-widens one (**Fix determinism at the source, ne
 A Minor no change to the tree can resolve is named, one clause, in the parent's output.
 A departure an added sweep finds is a defect the verifier reports — attributed at the merge base, and blocking either way (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 A failure is fixed and re-run under section 4's commit rule; the run never lands red, a failing test it did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
-A finding about the project's own product code is out of scope: the pass neither offers, files nor records one (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 A non-zero `verify` exit blocks, a failing test this change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`).
 Output that names no failing test at all — a compile error, a harness crash — and a failing test with no matching entry behave exactly as the rules that follow, a failing test this change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
@@ -84,3 +83,20 @@ known failures: <identifier> — <reason>[; …] # only under an exit line carry
 A failing test this change did not introduce takes **The loop** as well (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 It is never logged to a `<project>/KNOWN-BUGS.md` file, never filed for later, and never skipped, worked around or tolerance-widened (**Fix determinism at the source, never by widening tolerance**, `rules/fix-determinism-at-the-source.mdc`).
 Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print (auto-detect on exit 1).
+# Operator-dispatched pipeline fix: a product defect the self-review pass meets stops the landing and goes to a fix run, never dropped.
+End naming the report path, the rating, the shas landed and the Jira keys filed (each `none` when empty).
+End naming the report path, the rating, the shas landed and the Jira keys filed (each `none` when empty), and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+**A product defect the self-review pass meets is never dropped.
+It stays out of the pass's report and filing prompt, and stops the landing.
+Met by a standalone `/flow-self-review` after landing, the pass's closing report names it for the operator to start that fix run.
+A finding about the project's own product code is out of scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+Met inside a run, the pass stops at the end of its step 2 — no fix, no prompt, no store row, no report: nothing is committed for the pass, so the next run meets no committed report, runs the pass again, and meets the defect again if it was not fixed.
+The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its state, and the run ends on the block below.
+**`/flow`'s integrate run 1** stops before step 5's route.
+The fix run writes its plan above the
+archive commit, so the next bare `/flow <name>` is an archived re-run with new work, which runs the pass (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
+**`/flow-fast`'s verify** stops before `flow.stage-diff`; the fix re-run lands normally.
+\## Landing stopped — a product defect to fix first
+**Defect:** <the defect, one line>
+/flow <name> <the defect, one line>
+`/flow-fast` prints `/flow-fast <name> <the defect, one line>` as the last line instead.

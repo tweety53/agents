@@ -8,8 +8,9 @@ The KAN-924 self-review offered, and filed, two gymie product bugs: `skills/flow
 
 ### What changes
 
-- The self-review pass covers the pipeline and the project's own dev tooling (build scripts, dev-stack and test-harness config, guards) only; a product-code finding is never offered, filed or recorded.
-- A product defect a run finds is fixed inside that run, before integrate lands the change, by a fix run at `IN_PROGRESS`.
+- The self-review pass covers the pipeline and the project's own dev tooling (build scripts, dev-stack and test-harness config, guards) only; a product-code finding is never offered or filed.
+- A product defect a run finds is fixed inside that run, before integrate lands the change: by **The loop** in verify and visual verification, by an appended task for a verification change's sweep.
+- A product defect the self-review pass meets stops the landing: inside integrate run 1 or `/flow-fast`'s verify the pass stops before it commits anything, the `flow.self-review` mark closes `stopped`, the route does not run, and the handoff names the defect as a fix run's instructions (`/flow <name> <the defect>`), so the run after the fix re-runs the pass; a standalone pass after landing names it in its closing report.
 
 ## known-bugs-retired
 
