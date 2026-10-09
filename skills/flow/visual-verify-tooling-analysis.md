@@ -60,9 +60,8 @@ not restated. **Handshake** as **The verifier dispatch** (`skills/flow/visual-ve
 its sweeps in step 10 beside the sweeps listed there, on every view and frame the change touches
 — never only the view the miss was reported in — each where its own wording applies, as
 step 10's frame-gating note states for the others. A departure an added sweep finds is a defect
-the verifier reports — attributed at the merge base before it blocks, its pre-existing branch
-recorded per **the sweep** (`skills/flow-contracts/known-bugs.md`)'s no-block known-failure
-course. The report carries one line per added sweep.
+the verifier reports — attributed at the merge base, and blocking either way (**the sweep**,
+`skills/flow-contracts/known-bugs.md`). The report carries one line per added sweep.
 
 An analyst that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted`,
 and the verifier is dispatched without added sweeps. Either outcome is reported on the handoff's

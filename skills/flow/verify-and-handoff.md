@@ -100,9 +100,8 @@ whose output names at least one failing test, and whose every failing test is kn
 `known failures only` marker beside its exit line in the `## Report`, names each known failure
 under it with its entry's reason, earns **no** inline re-run, and does not block this handoff —
 the baseline is the project's own statement that the failure exists on an unmodified tree. Output that names no failing test at all — a compile error, a harness crash — and a
-failing test with no matching entry behave exactly as the rules that follow. A failing test with
-no matching entry that **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies
-pre-existing takes the known-failure course above instead of the re-run below.
+failing test with no matching entry behave exactly as the rules that follow, a failing test this
+change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 
 A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A second non-zero exit from the same

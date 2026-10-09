@@ -304,7 +304,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > touching paths no task declared — so the change stays self-contained and every fix stays
 > traceable to a declared task.
 
-> **Triage the sweep's findings before any fix runs** — a defect a verification change's sweep finds is triaged before anything is edited: on the surface this change verifies, the fix is its own appended task, never an edit inside the verification task itself; anywhere else — pre-existing, or a surface another change owns — this change never fixes it, and the finding takes the sweep's recorded course, recorded and never repaired, per **The sweep** (`skills/flow-contracts/known-bugs.md`).
+> **Triage the sweep's findings before any fix runs** — a defect a verification change's sweep finds is triaged before anything is edited: its fix is its own appended task, never an edit inside the verification task itself — a pre-existing defect, or one on a surface another change owns, included (**The sweep**, `skills/flow-contracts/known-bugs.md`).
 
 > **Open a task that verifies a reported behaviour with the reproduce-first step.** When a task's
 > job is confirming or refuting a report — an operator's defect report, a review or self-review

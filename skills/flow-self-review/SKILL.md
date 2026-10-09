@@ -64,9 +64,8 @@ is never offered for filing; one that reads `deferred` is an angle-1 finding lik
 fixed in step 3 unless it is `big`, and offered under its angle when it is. **The pass covers
 the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
 config, guards — and nothing else.** A finding about the project's own product code is out of
-scope: the pass neither offers, files nor records one. A product defect a run finds is fixed
-inside that run, before integrate lands the change — by a fix run at `IN_PROGRESS` — never
-deferred to self-review. The report carries no
+scope: the pass neither offers, files nor records one (**the sweep**,
+`skills/flow-contracts/known-bugs.md`). The report carries no
 section beyond the six angles and the rating. The filing prompt is never waived: a pass with
 no operator to answer it files nothing and records every offered finding `declined`.
 

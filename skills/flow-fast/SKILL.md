@@ -274,9 +274,8 @@ being what makes the skip auditable rather than lazy, never a reflexive full-sui
 place. Then `check-fast-route-record.sh <worktree> <base>` reads the branch's
 commit series as the record, per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`). A failure is fixed and re-run under section 4's
-commit rule; the run never lands red — except a failing test **the sweep**
-(`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's
-known-failure course instead.
+commit rule; the run never lands red, a failing test it did not introduce included (**the sweep**,
+`skills/flow-contracts/known-bugs.md`).
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>

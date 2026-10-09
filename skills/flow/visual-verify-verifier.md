@@ -11,9 +11,8 @@ motion step and the `## Report` template, run as written.
    replace the checked-in suite, never extend it. An absent `specs`, an empty output or a non-zero
    exit substitutes nothing, and `verify` runs its whole suite. A `verify` with no `<specs>` runs as
    declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
-   A non-zero `verify` exit blocks — except a failing test **the sweep**
-   (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's
-   known-failure course instead.
+   A non-zero `verify` exit blocks, a failing test this change did not introduce included
+   (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 8. **Capture** — the capture spec is the touched views' existing spec from `specs`' output,
    extended, when one covers the view; a new spec is authored only for a view none covers. Run
    `capture` with `<spec>` substituted for the spec's path. **Every capture asserts the view is on
@@ -68,9 +67,9 @@ motion step and the `## Report` template, run as written.
    change's diff. Present → add a capture for every screen this change added and update the
    capture of every screen it changed or removed. Run `capture` with `<spec>` substituted for the
    suite's path and `-g '<titles>'` appended, naming only the tests this step added or updated —
-   never the whole suite; a non-zero exit blocks as any `capture` failure does — except a failing test
-   **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes
-   that contract's known-failure course instead. Then rebuild the zip from
+   never the whole suite; a non-zero exit blocks as any `capture` failure does, a failing test this
+   change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+   Then rebuild the zip from
    exactly what the suite just produced:
 
    ```bash
@@ -174,9 +173,8 @@ motion step and the `## Report` template, run as written.
    same element on the view's own rendering at the merge base — the committed baseline PNG the
    merge base carries for that spec, read out with `git show <merge-base>:<baseline png path>`
    into a temporary file and measured like any other image. The comparison decides which of the
-   three the departure is, every time: **present at the merge base** — pre-existing, recorded per
-   **the sweep** (`skills/flow-contracts/known-bugs.md`)'s known-failure course, never repaired by
-   this change; **absent at the merge base** — this change's own defect, blocking and taking
+   three the departure is, every time: **present at the merge base** — pre-existing, blocking and
+   fixed in this run per **the sweep** (`skills/flow-contracts/known-bugs.md`); **absent at the merge base** — this change's own defect, blocking and taking
    **The loop** (`skills/flow/verify-fix-loop.md`) per **Steps 3–13**
    (`skills/flow/visual-verify.md`); **corrected or gone at 2x** — a mis-measurement, the
    corrected number standing in its place. A

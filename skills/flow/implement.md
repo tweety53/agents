@@ -759,7 +759,7 @@ ticking the task the parent fixes each such Minor itself, inline, exactly as **P
 (`skills/flow/review-panel.md`) fixes a Minor-only round's Minors — one commit at the branch tip,
 pushed, no dispatch, no dispatch record and no `flow record status` — and only while no
 implementer dispatch is writing that worktree. A Minor no change to the tree can resolve is named,
-one clause, in the parent's output; nothing is written to `<project>/KNOWN-BUGS.md`. A `fix` pass
+one clause, in the parent's output. A `fix` pass
 sends its Minors to the same fix. **A mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
 closes the record, and every `fix` task takes the fix path below on its own sha, independently
 of its bundle-mates.

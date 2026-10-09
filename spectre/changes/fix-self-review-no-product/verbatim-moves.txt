@@ -1,8 +1,65 @@
 # Operator-dispatched pipeline fix: self-review covers the pipeline and dev tooling only; product defects are fixed inside the run.
 **The pass covers the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness config, guards — and nothing else.
 A finding about the project's own product code is out of scope: the pass neither offers, files nor records one.
-A product defect a run finds is fixed inside that run, before integrate lands the change — by a fix run at `IN_PROGRESS` — never deferred to self-review.
+A product defect a run finds is fixed inside that run, before integrate lands the change — never deferred to self-review.
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`; `-blast-radius` is step 3's count.
 A finding about the project's own product code is always `big`, and is offered only when it is Important or worse — something a user or the data would suffer; a Minor one (naming, doc-comment drift, an unused parameter, a duplicated fixture, a missing test over already-correct code) is left out of the prompt.
 A finding about the project's own product code reaches outside `<agents repo>`, so it is always `big`.
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`; `-blast-radius` is step 3's count, omitted for a product-code finding.
+# Operator-dispatched pipeline fix: the KNOWN-BUGS logging route is retired; a defect a run finds is fixed in that run, pre-existing or not.
+\# Known bugs — the KNOWN-BUGS.md sweep
+\## Where it runs
+(**Project configuration**, `skills/flow-contracts/project-configuration.md`), append the failing test's identifier to it in the same commit, spelled exactly as the key's matching rule requires, so the next change's verify classifies the failure as known without re-deriving it.
+**Every `/flow*` command that runs those stages**, `/flow-fast` included — the sweep is stage
+**Feed the next baseline.
+**Keep the defect out of the change's diff.
+**Record it.
+**Triage the sweep's findings before any fix runs** — a defect a verification change's sweep finds is triaged before anything is edited: on the surface this change verifies, the fix is its own appended task, never an edit inside the verification task itself; anywhere else — pre-existing, or a surface another change owns — this change never fixes it, and the finding takes the sweep's recorded course, recorded and never repaired, per **The sweep** (`skills/flow-contracts/known-bugs.md`).
+**Verify** — the failing-command classification consults the sweep before the inline re-run: a
+**Visual verification** — the stage's `verify` and the full-suite runs a baseline regeneration
+- `<spec or test name>` — <root cause, one line> — introduced by <sha> (<subject>), an
+A Minor no change to the tree can resolve is named, one clause, in the parent's output; nothing is written to `<project>/KNOWN-BUGS.md`.
+A departure an added sweep finds is a defect the verifier reports — attributed at the merge base before it blocks, its pre-existing branch recorded per **the sweep** (`skills/flow-contracts/known-bugs.md`)'s no-block known-failure course.
+A failing test with no matching entry that **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies pre-existing takes the known-failure course above instead of the re-run below.
+A failure is fixed and re-run under section 4's commit rule; the run never lands red — except a failing test **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's known-failure course instead.
+A failure recorded this way is reported as a **known failure** — the same report shape and the same no-block effect a baseline match gets (**Verify**, `skills/flow/verify-and-handoff.md`) — with the entry's root cause as its reason, instead of blocking the run on a defect this change did not introduce.
+A non-zero `verify` exit blocks — except a failing test **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's known-failure course instead.
+A pre-existing failure is **recorded, never repaired**:
+Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) — a finding on a surface the change does not verify, pre-existing or one another change owns, joins the pre-existing class: the recorded course below is its course, and its entry names the owning change or area when ownership, not an introducing commit, is why the change never repairs it:
+Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`).
+Delete an entry only in the commit that actually fixes its bug.
+One entry per failure in `<project>/KNOWN-BUGS.md` (create the file with a
+Output that names no failing test at all — a compile error, a harness crash — and a failing test with no matching entry behave exactly as the rules that follow.
+Run `capture` with `<spec>` substituted for the suite's path and `-g '<titles>'` appended, naming only the tests this step added or updated — never the whole suite; a non-zero exit blocks as any `capture` failure does — except a failing test **the sweep** (`skills/flow-contracts/known-bugs.md`) classifies pre-existing, which takes that contract's known-failure course instead.
+Skills reference it by name; none of them restate it.
+The comparison decides which of the three the departure is, every time: **present at the merge base** — pre-existing, recorded per **the sweep** (`skills/flow-contracts/known-bugs.md`)'s known-failure course, never repaired by this change; **absent at the merge base** — this change's own defect, blocking and taking **The loop** (`skills/flow/verify-fix-loop.md`) per **Steps 3–13** (`skills/flow/visual-verify.md`); **corrected or gone at 2x** — a mis-measurement, the corrected number standing in its place.
+The entry is the durable record — what fails, why, and since when — and the next change's known-failure baseline.
+The failing spec and the code it exercises are left exactly as they are.
+The record is what keeps that from being silent: the entry, and the baseline line when rule 3 wrote one, are committed on the change's branch, visible in its diff, and the verify report names them.
+The sweep documents a failure; it never fixes,
+The verifier's merge-base attribution names it (`skills/flow/visual-verify-verifier.md`), and it takes the recorded course below — one entry, never repaired, kept out of the diff — reported as a **known failure** with the same no-block effect a recorded failure gets.
+When a `/flow*` run's verify stage or `flow.visual-verify` stage fails a command whose output names a failing test, and the suite that test belongs to is one whose results pixel coordinates, viewport size or wall-clock time can move — a visual-regression or screenshot suite above all — the run classifies the failure **pre-existing** exactly when it can name the commit that introduced the defect and that commit is an ancestor of the default branch:
+When the project declares `## known failures`
+`git log` over the failing spec and the code it exercises is usually enough to name the introducing commit.
+ancestor of <default branch>.
+behavior, not one command's.
+failing test the sweep proves pre-existing takes the known-failure course above.
+forces consult it the same way.
+git merge-base --is-ancestor <introducing-sha> origin/<default-branch>
+one-line title when absent), committed on the change's own branch:
+works around, skips or tolerance-widens one (**Fix determinism at the source, never by widening tolerance**, `rules/fix-determinism-at-the-source.mdc`).
+\# Known bugs — fixed in the run that finds them
+**A defect the change did not introduce is no exception.
+**This file is canonical for what a `/flow*` run does with a defect it finds in the project's own product code — its change's own, or one the change did not introduce: a pre-existing test failure, a visual departure present at the merge base, a finding a verification change's sweep makes on a surface another change owns.
+**Triage the sweep's findings before any fix runs** — a defect a verification change's sweep finds is triaged before anything is edited: its fix is its own appended task, never an edit inside the verification task itself — a pre-existing defect, or one on a surface another change owns, included (**The sweep**, `skills/flow-contracts/known-bugs.md`).
+A Minor no change to the tree can resolve is named, one clause, in the parent's output.
+A departure an added sweep finds is a defect the verifier reports — attributed at the merge base, and blocking either way (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+A failure is fixed and re-run under section 4's commit rule; the run never lands red, a failing test it did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+A finding about the project's own product code is out of scope: the pass neither offers, files nor records one (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+A non-zero `verify` exit blocks, a failing test this change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`).
+Output that names no failing test at all — a compile error, a harness crash — and a failing test with no matching entry behave exactly as the rules that follow, a failing test this change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+Run `capture` with `<spec>` substituted for the suite's path and `-g '<titles>'` appended, naming only the tests this step added or updated — never the whole suite; a non-zero exit blocks as any `capture` failure does, a failing test this change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+Skills reference it as **the sweep**; none of them restate it.
+This stage blocks the `IN_PROGRESS` handoff on: **a workspace pre-flight that failed (step 3), which ends the stage before any dispatch**, a failed `setup`, a failed `verify`, a genuine `capture` failure — the full app suite's included — **a frame this change added or updated with no capture or no sidecar line, a full app suite or a `full-app-suite.zip` step 8 did not write**, a stack that could not be started, **a `fingerprint` that still exits non-zero after step 6's restart**, a `check-spec-reach.sh` exit 1 or 2, an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2 and a departure from the mockup the verifier reports in a composite**, **a frame on the change's declared list with no line in the report, a composed frame with no `bands:` line or with a `missing`, `extra` or over-tolerance band whose line names no cause — a pre-existing attribution is not one (**the sweep**, `skills/flow-contracts/known-bugs.md`) — a composed frame with no `seams:` line or with a `missing`, `extra` or over-tolerance seam or an off-centre line whose line names no cause, and a composed frame with no `matrix:` line, a matrix row missing for an element the frame visibly draws, or a cell that is neither the script's numbers nor an n/a with its reason — the parent's own reconciliation, step 10**, and **a defect the verifier reports in a captured screenshot — even when every assertion passed.
+It is never logged to a `<project>/KNOWN-BUGS.md` file, never added to `## known failures`, never filed for later, and never skipped, worked around or tolerance-widened (**Fix determinism at the source, never by widening tolerance**, `rules/fix-determinism-at-the-source.mdc`).
