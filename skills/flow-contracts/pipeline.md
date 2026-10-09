@@ -226,8 +226,10 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 Claude Code is the `flow-task-list` mod (`mods/flow-task-list/`): a band above the prompt with one
 row per subagent, drawn from each dispatch's description, and a hint-line tail naming the tracker
 key where the change name leads with one and the phase — read from the run's own `flow stage` marks
-(**Stage marks**, below) — and the plan's ticked tasks over its total (`19/25`), read from the
-change's `tasks.md` on every draw, followed by ` │ ` and a tally of those rows by emoji. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
+(**Stage marks**, below) — and the plan's done tasks over its total (`19/25`), read from the change's `tasks.md` and its
+worktree's git log on every draw, followed by ` │ ` and a tally of those rows by emoji. A task counts
+as done when it is ticked or a commit carrying its `Task-Id:` trailer is on the change branch since it
+left the main checkout's branch, so a gated task counts before its deferred tick. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
 shows on the main agent's own `main` row, first on the band while the main turn runs, labelled with its
 latest Bash command's description, if any, and never numbered as a task. A subagent row also shows
 its elapsed time. Work the main agent runs itself under a

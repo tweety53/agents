@@ -113,11 +113,17 @@ export const lineRows = (ls: Record<string, StatusLine>, subs: Row[]): Row[] => 
 // A plan's column-0 task line, "- [ ] 23. Title" or "- [x] 23. Title"; its step checkboxes are indented.
 const TASK = /^- \[([ x])\] (\d+)\. (.*)$/gm
 
-// "19/25": the plan's ticked tasks over all its tasks, derived from its tasks.md on every draw; empty without tasks.
-export const taskCount = (tasksMd: string): string => {
-  const boxes = [...tasksMd.matchAll(TASK)].map(([, box]) => box)
-  return boxes.length ? `${boxes.filter(b => b === 'x').length}/${boxes.length}` : ''
+// "19/25": the plan's done tasks over all its tasks, derived from its tasks.md on every draw; empty without tasks.
+// A task is done when it is ticked or its implementation commit has `landed` on the change branch: a gated
+// task's tick waits on its reviewer (skills/flow/implement.md), so ticks alone lag the work by a review round.
+export const taskCount = (tasksMd: string, done: number[] = []): string => {
+  const tasks = [...tasksMd.matchAll(TASK)]
+  const n = tasks.filter(([, box, k]) => box === 'x' || done.includes(Number(k))).length
+  return tasks.length ? `${n}/${tasks.length}` : ''
 }
+
+// The task numbers in the `Task-Id:` trailers `git log` printed, one value per line.
+export const landed = (log: string): number[] => (log.match(/\d+/g) ?? []).map(Number)
 
 // The plan's unticked tasks no board row names in its "Task(s) …/n" numbering, as pending rows: what the
 // running /flow change has not dispatched yet, derived from its tasks.md on every draw.
@@ -224,6 +230,15 @@ export const hintTail = (f: Flow, count: string, t: string): string | undefined 
 const planOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<string> =>
   change ? $.fs.read(`${await $.session.root()}-worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '') : ''
 
+// The tasks whose `Task-Id:` commits are on the change branch since it left the main checkout's branch; none
+// when git cannot say.
+const landedOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<number[]> => {
+  if (!change) return []
+  const argv = ['git', '-C', `${await $.session.root()}-worktrees/${change}`, 'log', '--format=%(trailers:key=Task-Id,valueonly)', 'main-worktree/HEAD..HEAD']
+  const r = await $.process.run(argv).catch(() => null)
+  return r?.exitCode === 0 ? landed(r.stdout) : []
+}
+
 export const register: Register = on => {
   // Redraws the band each second while a subagent row runs, so its elapsed time ticks.
   let tick: Timer | undefined
@@ -304,7 +319,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const f = await read($, flow)
-    const tail = hintTail(f, taskCount(await planOf($, f.change)), tally(await read($, rows)))
+    const tail = hintTail(f, taskCount(await planOf($, f.change), await landedOf($, f.change)), tally(await read($, rows)))
     return next(tail ? { ...e, props: { ...e.props, tail } } : e)
   })
 

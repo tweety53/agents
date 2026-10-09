@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { flowAfter, hintTail, line, lineRows, pendingRows, runLabel, statusLines, tally, taskCount, trim } from './register'
+import { flowAfter, hintTail, landed, line, lineRows, pendingRows, runLabel, statusLines, tally, taskCount, trim } from './register'
 
 const BAND = {
   plugin: 'flow-task-list',
@@ -216,6 +216,37 @@ test("the hint line shows the plan's X/N and a visual-verify stage's eyes once, 
   await $.agent.spawn(spawn('visual-verify login page'))
   await (await $.ui.mount({ plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
   expect(tails).toEqual(['KAN-873 flow-implement 19/25 │ 👀 1'])
+})
+
+test('taskCount counts a task done when it is ticked or its Task-Id commit has landed', () => {
+  expect(taskCount(PLAN, [3, 20, 21])).toBe('21/25')
+  expect(taskCount(PLAN, [99])).toBe('19/25')
+  expect(landed('20\n\n21\n\n3\n')).toEqual([20, 21, 3])
+  expect(landed('')).toEqual([])
+})
+
+test('the hint line counts a gated task whose commit landed while its tick waits on its review', async ($, on) => {
+  mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/agents' }))
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', () => ({ value: PLAN }))
+  const runs: (readonly string[])[] = []
+  on('process.run', (_$, e) => {
+    runs.push(e.argv)
+    return { value: { exitCode: 0, stdout: '21\n\n20\n\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  const tails: (string | undefined)[] = []
+  on('ui.render', (r, e) => {
+    if (e.component === 'PromptHint') tails.push(e.props.tail)
+    const { Text } = r.ui.resolve(e)
+    return <Text>hint</Text>
+  })
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd') })
+  await (await $.ui.mount({ plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })).unmount()
+  expect(tails).toEqual(['KAN-873 flow-implement 21/25'])
+  expect(runs).toEqual([
+    ['git', '-C', '/u/Projects/agents-worktrees/kan-873-port-guards', 'log', '--format=%(trailers:key=Task-Id,valueonly)', 'main-worktree/HEAD..HEAD'],
+  ])
 })
 
 test('a running row shows its kind as its state word; a finished one its state', () => {
