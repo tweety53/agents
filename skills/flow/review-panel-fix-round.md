@@ -127,7 +127,28 @@ round):
 > `<fix report>` carries each fixed finding's proof: the test run before the fix and after it,
 > and the failure with the fix reverted. Check that proof against the diff; reproduce it
 > yourself only where it is missing, does not match the diff, or does not show the failure it
-> claims — and say which of those it was.
+> claims — and say which of those it was. Given a diff, your report file carries one verdict line
+> per finding you were sent to re-review, in exactly this shape: `verdict: F<n> — fixed —
+> <path>:<line>` or `verdict: F<n> — not fixed — <path>:<line>`, where `<path>:<line>` is a line
+> inside the hunk of that diff you read for that finding (`none` in its place, on a `not fixed`
+> line, when the diff touched nothing of it). A `fixed` verdict whose citation lands in no hunk of
+> that diff is rejected mechanically and the re-review sent back.
+
+**The parent checks every diff-reading re-run's verdict lines before reading its findings**, as
+that slot's `flow record dispatch end` is recorded, with `<report>` its
+`panel-report-<round>-<id>.md`, `<diff>` the diff its dispatch named, and one `F<n>` per finding
+it was sent to re-review:
+
+```bash
+check-rerun-citations.sh <report> <diff> F<n> [F<n>…]
+```
+
+Exit 0 proceeds. Exit 1 sends the re-run dispatch back **once**, on the same model and effort — one
+send-back per failing re-run dispatch, not one per role: its key is the failed re-run's own key
+plus `-cite`, `-key panel-<round>-<slot|slot+slot+slot>-cite`, and its prompt carries every
+`UNCITED:` line of every role in that dispatch; it sits outside the panel bundle's two-per-round
+cap, at most one per re-run dispatch. A second exit 1 counts that re-run as not clean, and each
+finding still `UNCITED` goes to the handback below. Exit 2 stops the run.
 
 **From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
 reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
