@@ -159,8 +159,9 @@ Split what it found into two buckets by path, never by guessing intent:
 
 - **Regeneratable** — a path under a build/cache/log/test-output location a fresh build, test run
   or `devStart` recreates with identical content the next time it runs: any path component named
-  `build`, `.gradle`, `.kotlin`, `node_modules`, `dist`, `.next`, `target`, `out`, `coverage` or
-  `test-results`; any `*.log`; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
+  `build`, `.gradle`, `.kotlin`, `node_modules`, `dist`, `.next`, `target`, `out`, `coverage`,
+  `test-results` or `__pycache__`; any `*.log`, `*.pyc` or `*.tsbuildinfo` — Python and TypeScript
+  compiler output a fresh compile or test run recreates; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
   `<abs-worktree>/.dev-stack/` trees, which a session's own next run writes fresh. A `.png`/`.jpg`
   capture is regeneratable only when it sits under a `test-results` directory (or an equivalent
   declared screenshot-output directory) a test run owns end to end — never a capture sitting loose at a
