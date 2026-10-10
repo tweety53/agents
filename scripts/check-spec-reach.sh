@@ -4,6 +4,11 @@
 #
 # Usage: check-spec-reach.sh <project-root>
 #
+# WHICH CHECKOUT IS READ: the declared `regression checkout` — or, when the
+# project root is on a branch and a worktree of that checkout's repository is
+# on the same branch, that worktree, exactly as resolve-visual-screenshots.sh
+# resolves it.
+#
 # Why this exists: seven route A–F capture suites in gymie-playwright never
 # ran once — `test:e2e` reached `tests/`, `test:e2e:full` reached
 # `tests-full/`, and the root `kan-*.spec.ts` files flow.visual-verify's
@@ -133,6 +138,18 @@ if [ ! -d "$CHECKOUT" ]; then
   exit 2
 fi
 CHECKOUT="$(cd "$CHECKOUT" && pwd)"
+# The declared checkout is a main checkout (project-configuration-visual.md,
+# the `regression checkout` row): while a worktree of it sits on the project
+# root's own branch, that worktree holds the change's specs and fixtures, and
+# the main checkout only what already landed — resolve-visual-screenshots.sh's
+# rule (KAN-924: a fixture fix on the change's worktree kept this guard
+# failing against the main checkout until the branch landed).
+BRANCH="$(git -C "$ROOT_ABS" branch --show-current 2>/dev/null || true)"
+if [ -n "$BRANCH" ]; then
+  WT="$( { git -C "$CHECKOUT" worktree list --porcelain 2>/dev/null || true; } \
+    | awk -v b="branch refs/heads/$BRANCH" '/^worktree /{ w = substr($0, 10) } $0 == b { print w; exit }')"
+  [ -n "$WT" ] && CHECKOUT="$WT"
+fi
 if [ ! -f "$CHECKOUT/package.json" ]; then
   printf 'check-spec-reach: `%s` holds no package.json — nothing declares what reaches its specs\n' "$CHECKOUT" | sanitize_display >&2
   exit 2

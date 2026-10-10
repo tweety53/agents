@@ -220,6 +220,20 @@ printf '{ "config": { "rootDir": "%s" }, "suites": [ {"file": "/zzz%s/real/a.spe
 run_guard; assert_rc "case 17" 1
 assert_out_contains "case 17" "real/a.spec.ts: reached by no package.json script"
 
+# Case 18: the project root is on a branch a worktree of the regression
+# checkout is also on — that worktree is read, not the declared main checkout
+# (KAN-924). The main checkout holds an orphan; the worktree reaches every spec.
+new_root; cfg_with_checkout
+git init -q -b main "$CHECKOUT"; git -C "$CHECKOUT" -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m base
+git init -q -b main "$ROOT"; git -C "$ROOT" -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m base; git -C "$ROOT" checkout -q -b spectre/demo
+package_json "test:e2e=playwright test tests/"; spec tests/a.spec.ts; spec orphan.spec.ts; listing "test:e2e" tests/a.spec.ts
+MAIN_CHECKOUT="$CHECKOUT"
+WT_PARENT="$(mktemp -d "${TMPDIR:-/tmp}/check-spec-reach-wt.XXXXXX")"; DIRS+=("$WT_PARENT")
+git -C "$MAIN_CHECKOUT" worktree add -q -b spectre/demo "$WT_PARENT/wt"
+CHECKOUT="$(git -C "$MAIN_CHECKOUT" worktree list --porcelain | awk '/^worktree /{ w = substr($0, 10) } /^branch refs\/heads\/spectre\/demo$/ { print w }')"
+package_json "test:e2e=playwright test tests/"; spec tests/a.spec.ts; listing "test:e2e" tests/a.spec.ts
+run_guard; assert_rc "case 18" 0; assert_out_contains "case 18" "Spec reach: 1 spec(s), all reached"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
