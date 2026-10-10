@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // DefaultTranscriptsRootEnv, when set, overrides DefaultTranscriptsRoot --
@@ -1101,10 +1102,13 @@ var beginCommandShape = []string{
 
 // dispatchBeginsFromCommand judges one Bash command's text as zero or
 // more dispatch begins and extracts each one's row identity and start
-// instant. Line continuations and `&&` joins are folded first, because
-// the skills' templates wrap one invocation across several physical lines
-// and a panel round records every slot's begin in one Bash call; what
-// remains is one candidate invocation per line. Every shape literal must
+// instant. Line continuations are folded first, because the skills'
+// templates wrap one invocation across several physical lines; the text is
+// then split on newlines, `&&` and `;`, because a panel round records every
+// slot's begin in one Bash call and a dispatcher chains an end and the
+// next begin as `end ...; begin ...` -- read as one invocation, that pair
+// yields the END's -key, stamping the previous row with the next launch's
+// id (kan-964). What remains is one candidate invocation. Every shape literal must
 // be present, and each flag must carry a value -- the CLI itself refuses
 // a begin without them, so a fragment missing one is a mention or a
 // mistype, never a row opener.
@@ -1112,11 +1116,18 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 	joined := strings.ReplaceAll(command, "\\\n", " ")
 	fragments := strings.Split(joined, "\n")
 	var out []dispatchBeginEvent
+	vars := map[string]string{}
 	for _, fragment := range fragments {
-		for _, piece := range strings.Split(fragment, "&&") {
-			ev, ok := dispatchBeginFromInvocation(piece)
-			if ok {
-				out = append(out, ev)
+		for _, joint := range strings.Split(fragment, "&&") {
+			for _, piece := range strings.Split(joint, ";") {
+				if name, value, ok := shellAssignment(piece); ok {
+					vars[name] = value
+					continue
+				}
+				ev, ok := dispatchBeginFromInvocation(piece, vars)
+				if ok {
+					out = append(out, ev)
+				}
 			}
 		}
 	}
@@ -1126,18 +1137,26 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 // dispatchBeginFromCommand judges one invocation's text as a possible
 // dispatch begin. Renamed from its singular predecessor's role: it sees
 // one candidate invocation, never the whole Bash command.
-func dispatchBeginFromInvocation(invocation string) (dispatchBeginEvent, bool) {
+func dispatchBeginFromInvocation(invocation string, vars map[string]string) (dispatchBeginEvent, bool) {
 	for _, part := range beginCommandShape {
 		if !strings.Contains(invocation, part) {
 			return dispatchBeginEvent{}, false
 		}
 	}
-	token, ok := commandFlagValue(invocation, "-session-token")
+	token, ok := resolvedFlagValue(invocation, "-session-token", vars)
 	if !ok {
 		return dispatchBeginEvent{}, false
 	}
-	key, ok := commandFlagValue(invocation, "-key")
+	key, ok := resolvedFlagValue(invocation, "-key", vars)
 	if !ok {
+		return dispatchBeginEvent{}, false
+	}
+	// A begin that names its own agent (-agent-id inline, or a hand-typed
+	// id) opens a row the store will never stamp, so it must not claim a
+	// launch either: kan-964's inline fix begins took the re-review
+	// launches their neighbours were waiting for. "none" is the CLI's
+	// word for an empty id, which the store does stamp.
+	if id, named := commandFlagValue(invocation, "-agent-id"); named && id != "none" {
 		return dispatchBeginEvent{}, false
 	}
 	return dispatchBeginEvent{SessionToken: token, Key: key}, true
@@ -1151,7 +1170,8 @@ func dispatchBeginFromInvocation(invocation string) (dispatchBeginEvent, bool) {
 // is never read as a -key flag. The values a dispatcher types are
 // validated literals (never a shell substitution), so this is
 // deliberately not a shell parser -- a shape it cannot read yields no
-// value, and no value stamps nothing.
+// value, and no value stamps nothing. A `$`-prefixed value is returned
+// as-is; resolvedFlagValue is what reads it.
 func commandFlagValue(command, flag string) (string, bool) {
 	offset := 0
 	idx := -1
@@ -1180,6 +1200,40 @@ func commandFlagValue(command, flag string) (string, bool) {
 		return "", false
 	}
 	return value, true
+}
+
+// resolvedFlagValue is commandFlagValue with one shell form read: a value
+// `$NAME` or `${NAME}` takes the literal an earlier `NAME=value` in the
+// same Bash command assigned -- kan-964's dispatcher wrote
+// `T=mf-...; flow record dispatch begin ... -session-token $T`. A
+// variable no assignment in the command names yields no value: read as
+// text, `$T` names no row, so its stamp would fail silently AFTER the
+// begin had claimed a launch the right begin then cannot.
+func resolvedFlagValue(command, flag string, vars map[string]string) (string, bool) {
+	value, ok := commandFlagValue(command, flag)
+	if !ok || !strings.HasPrefix(value, "$") {
+		return value, ok
+	}
+	name := strings.TrimSuffix(strings.TrimPrefix(value[1:], "{"), "}")
+	resolved, ok := vars[name]
+	return resolved, ok
+}
+
+// shellAssignment reads one `NAME=value` statement whose value is a
+// literal -- no whitespace, no `$` -- the only assignment shape
+// resolvedFlagValue resolves against.
+func shellAssignment(piece string) (name, value string, ok bool) {
+	name, value, ok = strings.Cut(strings.TrimSpace(piece), "=")
+	if !ok || name == "" || strings.ContainsAny(value, " \t$`") {
+		return "", "", false
+	}
+	for i, r := range name {
+		if !(r == '_' || unicode.IsLetter(r) || (i > 0 && unicode.IsDigit(r))) {
+			return "", "", false
+		}
+	}
+	value = strings.Trim(value, `'"`)
+	return name, value, value != ""
 }
 
 // stampDispatchAgents pairs KAN-322's agent launches with the dispatch
@@ -1258,9 +1312,9 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	// and only their order against the launches' own order separates them
 	// -- the round's k-th launch belongs to the round's k-th begin, both
 	// emitted in slot order. Within one launch, the nearest begin wins
-	// (delta, then begin start, then key), which is what keeps a stale
-	// begin from out-ranking the launch's own begin. Deterministic under
-	// any input order.
+	// (delta, then begin start, then begin order), which is what keeps a stale
+	// begin from out-ranking the launch's own begin. Deterministic for a
+	// given input order; same-instant begins follow their text order.
 	sort.Slice(candidates, func(i, j int) bool {
 		a, b := candidates[i], candidates[j]
 		if !launches[a.launchIdx].Timestamp.Equal(launches[b.launchIdx].Timestamp) {
@@ -1272,8 +1326,12 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 		if !begins[a.beginIdx].StartedAt.Equal(begins[b.beginIdx].StartedAt) {
 			return begins[a.beginIdx].StartedAt.Before(begins[b.beginIdx].StartedAt)
 		}
-		if begins[a.beginIdx].Key != begins[b.beginIdx].Key {
-			return begins[a.beginIdx].Key < begins[b.beginIdx].Key
+		// Begin order, never key order: same-instant begins are one Bash
+		// call's, and only their text order matches the launches' order --
+		// a key tie-break gave task-1+2+3+4-reviewer the launch that
+		// task-5-implementer's begin preceded it for (kan-964).
+		if a.beginIdx != b.beginIdx {
+			return a.beginIdx < b.beginIdx
 		}
 		return a.launchIdx < b.launchIdx
 	})

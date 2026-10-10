@@ -3518,3 +3518,98 @@ func TestWatcherMatchesStageMark(t *testing.T) {
 		t.Fatalf("bound session = %q, want session-stage-mark", binder.bound[860])
 	}
 }
+
+// TestWatcherStampsKan964BeginShapes replays the four begin shapes kan-964's
+// dispatcher actually wrote, each of which left rows unmeasured or stamped
+// another dispatch's id onto them: begins chained with `;` behind an end,
+// a session token passed through a shell variable, same-instant begins
+// whose key order differs from their text order, and an inline begin that
+// must not claim a launch it will never own.
+func TestWatcherStampsKan964BeginShapes(t *testing.T) {
+	bash := func(ts, command string) string {
+		c, err := json.Marshal(command)
+		if err != nil {
+			t.Fatalf("marshal command: %v", err)
+		}
+		return `{"type":"assistant","timestamp":"` + ts + `","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(c) + `}}]}}`
+	}
+	launch := func(ts, agentID string) string {
+		return `{"type":"user","timestamp":"` + ts + `","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agentID + `"}}`
+	}
+	const begin = "flow record dispatch begin -change c -role reviewer -model opus"
+	cases := []struct {
+		name  string
+		lines []string
+		want  []stampCall
+	}{
+		{
+			name: "begin chained behind an end with ;",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", "flow record dispatch end -change c -key task-1-implementer -session-token mf-t -outcome completed; "+begin+" -key task-1-reviewer -session-token mf-t"),
+				launch("2026-01-01T00:00:10Z", "a1"),
+			},
+			want: []stampCall{{"mf-t", "task-1-reviewer", "a1"}},
+		},
+		{
+			name: "session token through a shell variable",
+			lines: []string{
+				launch("2026-01-01T00:00:00Z", "a1"),
+				bash("2026-01-01T00:00:03Z", "N=c; T=mf-t\n"+begin+" -key task-8-implementer -session-token $T"),
+			},
+			want: []stampCall{{"mf-t", "task-8-implementer", "a1"}},
+		},
+		{
+			name: "backtick substitution is not a literal session token",
+			lines: []string{
+				launch("2026-01-01T00:00:00Z", "a1"),
+				bash("2026-01-01T00:00:03Z", "T=`pwd`; "+begin+" -key task-9-bad -session-token $T"),
+				bash("2026-01-01T00:00:04Z", begin+" -key task-9-good -session-token mf-t"),
+			},
+			want: []stampCall{{"mf-t", "task-9-good", "a1"}},
+		},
+		{
+			name: "same-instant begins pair in text order, not key order",
+			lines: []string{
+				launch("2026-01-01T00:00:00Z", "a-impl"),
+				launch("2026-01-01T00:00:00Z", "a-review"),
+				bash("2026-01-01T00:00:03Z", begin+" -key task-5-implementer -session-token mf-t\n"+begin+" -key task-1+2-reviewer -session-token mf-t"),
+			},
+			want: []stampCall{{"mf-t", "task-5-implementer", "a-impl"}, {"mf-t", "task-1+2-reviewer", "a-review"}},
+		},
+		{
+			name: "inline begin leaves the launch to its own begin",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", begin+" -key task-13-reviewer -session-token mf-t"),
+				bash("2026-01-01T00:00:55Z", begin+" -agent-id inline -key task-13-implementer-fix-3 -session-token mf-t"),
+				launch("2026-01-01T00:01:00Z", "a1"),
+			},
+			want: []stampCall{{"mf-t", "task-13-reviewer", "a1"}},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "session.jsonl")
+			if err := os.WriteFile(path, nil, 0o644); err != nil {
+				t.Fatalf("write fixture: %v", err)
+			}
+			deps := &stampRecordingDeps{}
+			w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+			// One line per cycle, the way a live watcher meets them.
+			for _, line := range tc.lines {
+				appendLine(t, path, line)
+				if _, err := w.RunOnce(context.Background()); err != nil {
+					t.Fatalf("RunOnce: %v", err)
+				}
+			}
+			if len(deps.stamps) != len(tc.want) {
+				t.Fatalf("got stamps %+v, want %+v", deps.stamps, tc.want)
+			}
+			for i := range tc.want {
+				if deps.stamps[i] != tc.want[i] {
+					t.Errorf("stamp %d = %+v, want %+v", i, deps.stamps[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
