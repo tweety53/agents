@@ -1,0 +1,2 @@
+# Worktree cleanup: an unclassified entry identical in the main checkout is preserved and never stops removal.
+An unclassified entry byte-identical to the same path in the repository's main checkout is preserved: its `UNCLASSIFIED:` line ends `— preserved: identical in <main-checkout>`, it never makes the disclosure stop, and it is relayed per check 4 whatever the exit.

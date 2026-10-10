@@ -18,8 +18,12 @@
 #     resolved fresh for THIS worktree, in-process as resolve-base-branch.sh
 #     does); and the ignored files `--force` will destroy, split by path into
 #     regeneratable (counted) and unclassified (listed).
-#   the disclosure stop — without --proceed, a non-empty unclassified bucket
-#     or any wave-group copy stops here, before check 5 runs anything.
+#     An unclassified entry that is a regular file byte-identical to the same
+#     path in the repository's main checkout (the first entry of its worktree
+#     list) is preserved — it exists there.
+#   the disclosure stop — without --proceed, an unpreserved unclassified
+#     entry or any wave-group copy stops here, before check 5 runs anything;
+#     preserved entries alone are shown and the removal proceeds.
 #   checks 5-6 on each copy, then each apply worktree — the fenced command
 #     lines of <repo>/.flow/project.md's `## stop` body (the key's shape is
 #     project-configuration.md's), run as one script with the
@@ -49,6 +53,7 @@
 #   REFUSED: <worktree> — check <n>: <reason>   a check failed (gate)
 #   HELD: <worktree> — <pid> <cwd>[; ...]        check 6 found a live process
 #   UNCLASSIFIED: <worktree> — <path>            check 4, one per entry
+#   UNCLASSIFIED: <worktree> — <path> — preserved: identical in <main-checkout>
 #   REGENERATABLE: <worktree> — <count>          check 4
 #   SKIPPED: check 5 — ## stop declares no fenced command   a declared `## stop`
 #     whose body carries no fence; check 5 is skipped, never silently
@@ -67,7 +72,7 @@
 # in the state file's `worktrees`; 2 cannot answer, with NOTHING on stdout: a
 # usage error, a name that is not a plain change name, a <repo> that is not a
 # git repository, or its worktree list unreadable; 3 the disclosure stop —
-# nothing removed, nothing run: relay, judge each unclassified entry, ask the
+# nothing removed, nothing run: relay, judge each unpreserved entry, ask the
 # one ask, then call again with --proceed.
 #
 # Run it from outside every worktree it removes: check 6 counts the caller's

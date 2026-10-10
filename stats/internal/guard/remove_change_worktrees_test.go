@@ -359,6 +359,59 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 		}
 	})
 
+	// kan-924: a .env byte-identical to the main checkout's is preserved —
+	// shown, and the removal proceeds in the same call.
+	t.Run("an entry identical in the main checkout proceeds", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		fx.g.write(fx.wt+"/.env", "SECRET=1")
+		fx.g.write(fx.repo+"/.env", "SECRET=1")
+		code, out, errb := fx.run(t, nil)
+		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+		}
+		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — .env — preserved: identical in ") {
+			t.Errorf("UNCLASSIFIED lines %q, want .env shown as preserved", l)
+		}
+	})
+
+	t.Run("an entry that differs from the main checkout's stops", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		fx.g.write(fx.wt+"/.env", "SECRET=1")
+		fx.g.write(fx.repo+"/.env", "SECRET=2")
+		code, out, _ := fx.run(t, nil)
+		if code != 3 {
+			t.Fatalf("exit %d, stdout %q; want 3", code, out)
+		}
+		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.HasSuffix(l[0], " — .env") {
+			t.Errorf("UNCLASSIFIED lines %q, want .env unpreserved", l)
+		}
+		fx.assertUntouched(t)
+	})
+
+	// A main-checkout directory symlinked into the worktree reaches the
+	// worktree's own file: identical bytes, but no copy survives the removal.
+	t.Run("an entry the main checkout reaches through a symlink stops", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		if err := os.Mkdir(fx.wt+"/.env", 0o755); err != nil {
+			t.Fatal(err)
+		}
+		fx.g.write(fx.wt+"/.env/secret", "SECRET=1")
+		if err := os.Symlink(fx.wt+"/.env", fx.repo+"/.env"); err != nil {
+			t.Fatal(err)
+		}
+		code, out, _ := fx.run(t, nil)
+		if code != 3 {
+			t.Fatalf("exit %d, stdout %q; want 3", code, out)
+		}
+		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.HasSuffix(l[0], " — .env/secret") {
+			t.Errorf("UNCLASSIFIED lines %q, want .env/secret unpreserved", l)
+		}
+		fx.assertUntouched(t)
+	})
+
 	t.Run("--proceed before the positionals", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)

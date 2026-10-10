@@ -141,6 +141,7 @@ the handoff's **Remote branch:** — deleted, already gone, or not deleted. Exit
 `worktrees`. Exit 2: stop and report. Exit 3: the disclosure stop — nothing removed and nothing
 run; relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the wave-group copies below,
 ask only what they ask, then call again with `--proceed`.
+An unclassified entry byte-identical to the same path in the repository's main checkout is preserved: its `UNCLASSIFIED:` line ends `— preserved: identical in <main-checkout>`, it never makes the disclosure stop, and it is relayed per check 4 whatever the exit.
 
 **Immediately before check 6, `remove-change-worktrees` stops the worktree's `worktree-lsp`
 children** — every language server a `worktree-lsp` wrapper runs at or under the worktree — so a

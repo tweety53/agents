@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -59,6 +60,9 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		return refuse("cannot list the worktrees of %s", repo)
 	}
 	listed, copies := changeWorktrees(porcelain, name)
+	// The main checkout is the porcelain's first entry, whatever <repo> named:
+	// an unclassified entry byte-identical to the same path there is preserved.
+	mainCheckout, _ := strings.CutPrefix(strings.SplitN(string(porcelain), "\n", 2)[0], "worktree ")
 	// An already-removed worktree is success: only its registration is left,
 	// which the prune below clears.
 	var wts, gone []string
@@ -75,7 +79,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		failed = true
 		fmt.Fprintf(stdout, "REFUSED: %s — check %d: %s\n", wt, check, rcwFlat(fmt.Sprintf(format, a...)))
 	}
-	unclassified := false
+	unpreserved := false
 	upstream := "" // origin/<base>, as check 3 resolved it for the first live worktree
 	for _, wt := range wts {
 		// 1. no uncommitted tracked changes.
@@ -110,8 +114,10 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			case p == "":
 			case rcwRegeneratable(p):
 				regen++
+			case wt != mainCheckout && rcwIdentical(wt+"/"+p, mainCheckout+"/"+p):
+				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: identical in %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
 			default:
-				unclassified = true
+				unpreserved = true
 				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s\n", wt, rcwFlat(p))
 			}
 		}
@@ -121,9 +127,10 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		return 1
 	}
 
-	// The disclosure stop: the run relays, judges each unclassified entry,
-	// asks its one ask, and calls again with --proceed.
-	if !proceed && (unclassified || len(copies) > 0) {
+	// The disclosure stop: the run relays, judges each unpreserved
+	// unclassified entry, asks its one ask, and calls again with --proceed.
+	// A preserved entry is shown and never stops the removal.
+	if !proceed && (unpreserved || len(copies) > 0) {
 		for _, c := range copies {
 			fmt.Fprintf(stdout, "DISCLOSE: %s — wave-group copy, removed with --force on --proceed\n", c)
 			rcwDisclose(stdout, c, "status", git("-C", c, "status", "--short"))
@@ -314,6 +321,22 @@ func rcwRegeneratable(p string) bool {
 		}
 	}
 	return false
+}
+
+// rcwIdentical reports whether a and b are two distinct regular files with
+// the same bytes — check 4's "preserved": the entry still exists in the main
+// checkout. One file reached by both paths (a symlinked directory in the main
+// checkout pointing into the worktree) is not a copy: removing the worktree
+// destroys it.
+func rcwIdentical(a, b string) bool {
+	fa, errA := os.Lstat(a)
+	fb, errB := os.Lstat(b)
+	if errA != nil || errB != nil || !fa.Mode().IsRegular() || !fb.Mode().IsRegular() || fa.Size() != fb.Size() || os.SameFile(fa, fb) {
+		return false
+	}
+	da, errA := os.ReadFile(a)
+	db, errB := os.ReadFile(b)
+	return errA == nil && errB == nil && bytes.Equal(da, db)
 }
 
 // rcwDisclose prints one DISCLOSE line per line cmd prints.
