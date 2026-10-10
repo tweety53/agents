@@ -227,6 +227,19 @@ func validateFindingReproducer(reproducer string) error {
 	return nil
 }
 
+// validateFindingRef judges a finding ref -- -ref and, where given, a
+// lineage flag's -- before the store is contacted. F<positive int> is the
+// only shape a panel finding carries; a commit sha or a Jira key belongs
+// to `flow self-review finding`'s -ref, and storing one here mints a row
+// no fix round can ever key on.
+func validateFindingRef(flagName, ref string) error {
+	n, ok := strings.CutPrefix(ref, "F")
+	if v, err := strconv.Atoi(n); !ok || err != nil || v < 1 || strconv.Itoa(v) != n {
+		return fmt.Errorf("%s %q must be F<n>, n a positive integer", flagName, ref)
+	}
+	return nil
+}
+
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model [-agent-id id|none] [-diff-base sha]
@@ -1159,8 +1172,8 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	// same change. The store, not this command, is what refuses a link
 	// naming nothing -- the FK over (change_id, ref) knows what exists,
 	// where this validator cannot -- so the flags carry no validation
-	// here beyond emptiness, the same trust DispatchSeq's own flag places
-	// in the store's seq lookup.
+	// here beyond the F<n> shape -ref itself is held to, the same trust
+	// DispatchSeq's own flag places in the store's seq lookup.
 	supersedes := fset.String("supersedes", "", "an earlier finding's ref this one supersedes: the same defect re-raised (optional)")
 	regressionOf := fset.String("regression-of", "", "an earlier finding's ref whose fix caused this one (optional)")
 	// The pattern registry (KAN-416): an optional label naming the
@@ -1184,6 +1197,15 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		[2]string{"-note", *note},
 	) {
 		return 2
+	}
+	for _, r := range [][2]string{{"-ref", *ref}, {"-supersedes", *supersedes}, {"-regression-of", *regressionOf}} {
+		if r[0] != "-ref" && r[1] == "" {
+			continue
+		}
+		if err := validateFindingRef(r[0], r[1]); err != nil {
+			fmt.Fprintf(stderr, "flow: %v\n", err)
+			return 2
+		}
 	}
 	if err := validateFindingStatus(*status); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)

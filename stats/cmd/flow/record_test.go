@@ -4581,3 +4581,54 @@ func TestRunRecordNextRound(t *testing.T) {
 		}
 	})
 }
+
+// TestRecordFindingRejectsMalformedRef pins that a -ref, -supersedes or
+// -regression-of not shaped F<positive int> is refused with exit 2 before
+// the store is contacted -- kan-964 stored two rows keyed by commit shas,
+// a shape only `flow self-review finding` takes.
+func TestRecordFindingRejectsMalformedRef(t *testing.T) {
+	for _, tc := range []struct{ flag, value string }{
+		{"-ref", "d1650b7"},
+		{"-ref", "F0"},
+		{"-ref", "F01"},
+		{"-ref", "f3"},
+		{"-ref", "F-1"},
+		{"-supersedes", "1e728c4"},
+		{"-regression-of", "KAN-9"},
+	} {
+		t.Run(tc.flag+"="+tc.value, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			args := []string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-964", "-ref", "F2", "-slot", "principles",
+				"-severity", "major", "-status", "open", "-reproducer", "go test ./...",
+				"-note", "the note"}
+			if tc.flag == "-ref" {
+				args[11] = tc.value
+			} else {
+				args = append(args, tc.flag, tc.value)
+			}
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for a malformed ref -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), tc.flag+" ") || !strings.Contains(stderr.String(), "F<n>") {
+				t.Errorf("stderr does not name %s and the F<n> shape:\n%s", tc.flag, stderr.String())
+			}
+		})
+	}
+}
