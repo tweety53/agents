@@ -541,7 +541,7 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 		{"moved but carried", func(fx *bmFx) {
 			fx.advanceBase("unrelated1.txt")
 			fx.g.git(fx.repo, "merge", "-q", "--ff-only", "main")
-		}, nil, 0, "CLEAR: $REPO — the 1 commits main gained since the recorded merge base are all already carried by this branch — nothing to rebase\n", "", "CLEAR", "main", nil},
+		}, nil, 0, "CLEAR: $REPO — the 1 commits main gained since the recorded merge base are all already carried by this branch — nothing to rebase; merge base now $MAIN\n", "", "CLEAR", "main", nil},
 		{"moved, no overlap", func(fx *bmFx) { fx.advanceBase("unrelated1.txt", "unrelated2.txt") }, nil, 0,
 			"MOVED: $REPO — 2 commits on main since the recorded merge base; no overlap with this change's paths\n", "", "MOVED", "main", nil},
 		{"moved, one overlap", func(fx *bmFx) {
@@ -575,7 +575,7 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 			if c.args != nil {
 				args = c.args(fx)
 			}
-			subst := strings.NewReplacer("$REPO", fx.repo, "$DIR", fx.dir, "$REC", fx.recorded)
+			subst := strings.NewReplacer("$REPO", fx.repo, "$DIR", fx.dir, "$REC", fx.recorded, "$MAIN", fx.g.git(fx.repo, "rev-parse", "main"))
 			env := Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			r := runGuard("check-base-moved", args, env)
 			if r.rc != c.code || r.stdout != subst.Replace(c.out) || r.err != subst.Replace(c.err) {

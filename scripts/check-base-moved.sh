@@ -8,7 +8,7 @@
 #   CLEAR:  <worktree> — <ref> has not moved since the recorded merge base
 #   CLEAR:  <worktree> — the <n> commits <ref> gained since the recorded
 #           merge base are all already carried by this branch — nothing to
-#           rebase
+#           rebase; merge base now <sha>
 #   MOVED:  <worktree> — <n> commits on <ref> since the recorded merge base;
 #           no overlap with this change's paths
 #   MOVED:  <worktree> — <n> commits on <ref> since the recorded merge base;
@@ -50,7 +50,11 @@
 # is not real. A CLEAR naming carried movement recounts instead with
 # `git rev-list <recorded-merge-base>..<ref> ^HEAD` — zero means every commit
 # the base gained is already reachable from the branch, the benign cause
-# KAN-535 records.
+# KAN-535 records. That CLEAR also means the recorded merge base is stale —
+# most often a rebase an earlier, stopped run made (KAN-924) — so it names
+# `git merge-base HEAD <ref>`, the branch's actual fork point, as
+# `merge base now <sha>`: the caller's `<rebased-merge-base>` for that
+# worktree for the rest of the run.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

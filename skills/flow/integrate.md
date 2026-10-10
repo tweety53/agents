@@ -58,7 +58,7 @@ unmarked. **With new work** every other step runs.
 Run `check-unfinished-work.sh <worktree> <name> <canonical-worktree>` once per worktree in the
 resolved set — before the landing question and before any git action but the undo of an uncommitted archive (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
 
-Then run `check-visual-verify-dispatched.sh <worktree> <name> <recorded-merge-base>` once per
+Then run `check-visual-verify-dispatched.sh <worktree> <name> $(git -C <worktree> merge-base HEAD origin/$BASE)` once per
 worktree in the same set, per **Run 1 — the branch is not merged**
 (`skills/flow-contracts/finish-contract-run1.md`): `VISUAL-VERIFY-OK:` joins `CLEAR:`;
 `VISUAL-VERIFY-MISSING:` and an exit 2 take the `OUTSTANDING:` and stop-and-ask rows below.
@@ -93,7 +93,9 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <n
 Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the
 branch onto the base** (`skills/flow/sync-onto-base.md`), which is canonical for
 the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the
-after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`, or the merge-and-push route's push was rejected and the sync is re-run. No
+after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. **Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`, or the merge-and-push route's push was rejected and the sync is re-run. A
+`CLEAR` naming `merge base now <sha>` makes that `<sha>` the worktree's `<rebased-merge-base>` for
+the rest of this run, exactly as a clean sync's does. No
 `MOVED` verdict anywhere → report the counts and go straight to the landing question.
 
 Run `project-get.sh <main-checkout> "default landing route" --enum "pull request" "merge and push" manual`:
@@ -140,7 +142,7 @@ reshape-branch.sh <worktree> <name> <recorded-merge-base>
 
 `<recorded-merge-base>` is the merge base recorded in the state
 file's `worktrees` map for this worktree — **or `<rebased-merge-base>` from step 2 above, for a
-worktree this run rebased**, never the state file's now-stale pre-rebase value for that worktree.
+worktree this run rebased or whose `CLEAR` named `merge base now <sha>`**, never the state file's now-stale pre-rebase value for that worktree.
 **On an archived re-run with new work, pass the archived re-run's base instead**, found in the
 range from that merge base (**Run 1 — the branch is not merged**,
 `skills/flow-contracts/finish-contract-run1.md`).

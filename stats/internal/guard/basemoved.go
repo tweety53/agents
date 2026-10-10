@@ -111,7 +111,17 @@ func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bm
 		return cannot
 	}
 	if uncarried == "0" {
-		return verdict("CLEAR", ref, nil, "%s — the %s commits %s gained since the recorded merge base are all already carried by this branch — nothing to rebase", worktree, count, ref)
+		// The recorded merge base is stale here -- most often a rebase an
+		// earlier, stopped run made (KAN-924) -- so the line names the
+		// branch's actual fork point, which the run carries forward as this
+		// worktree's <rebased-merge-base> (skills/flow/sync-onto-base.md). A
+		// reshape from the stale one would fold base commits into the change.
+		fork, ok := capture(git("-C", worktree, "merge-base", "--end-of-options", "HEAD", ref))
+		if !ok {
+			fmt.Fprintf(stderr, "check-base-moved: cannot find the merge base of HEAD and %s in %s\n", ref, worktree)
+			return cannot
+		}
+		return verdict("CLEAR", ref, nil, "%s — the %s commits %s gained since the recorded merge base are all already carried by this branch — nothing to rebase; merge base now %s", worktree, count, ref, fork)
 	}
 
 	moved, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--end-of-options", rng))

@@ -155,9 +155,10 @@ A missing verdict line is not a verdict. Treat it exactly as the preflight scrip
 above: stop and ask the operator. The exit code is checked as well as the line, because a caller
 that greps for `CLEAR` in empty output finds nothing.
 
-**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> <recorded-merge-base>`**,
-once per worktree in the same resolved set, `<recorded-merge-base>` being the same state-file value
-the preflight above already reads. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
+**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> $(git -C <worktree> merge-base HEAD origin/$BASE)`**,
+once per worktree in the same resolved set — the fork point itself, because this runs before the
+base-moved check below can name a rebased one, and the state-file value is stale after an earlier
+rebase. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
 breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same
 breakdown and the same three courses (**The three courses**, `skills/flow/unfinished-work-gate.md`), not a second prompt. Exit 2 (cannot answer) is stop-and-ask,
 the same as a missing `check-unfinished-work.sh` verdict line above.
@@ -197,7 +198,8 @@ route, so nothing about the single-repository path changes.
 `reshape-branch.sh <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
-`<rebased-merge-base>`, for a worktree **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) rebased**. It
+`<rebased-merge-base>`, for a worktree **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) rebased
+or whose `check-base-moved.sh` `CLEAR` named `merge base now <sha>`**. It
 runs `check-planning-commit-location.sh` first and stops on its verdict, then `git reset --soft`
 to that merge base: every commit the run made on the branch — task, fixup and planning commits
 alike, the planning ones being the plan-gate, link, reviewer-dispatch, fix-run and
