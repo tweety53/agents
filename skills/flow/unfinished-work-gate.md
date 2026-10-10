@@ -1,7 +1,7 @@
 # The unfinished-work gate (run 1)
 
 **Loaded by `skills/flow/integrate.md`'s step 1 only when** a worktree reported `OUTSTANDING` or
-`VISUAL-VERIFY-MISSING`. The verdicts, the stop-and-ask rows and the stage mark stay in that step;
+`VISUAL-VERIFY-MISSING`. The verdicts and the stage mark are `integrate-change.sh`'s, the stop-and-ask rows that step's;
 **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) is canonical
 for the guards.
 

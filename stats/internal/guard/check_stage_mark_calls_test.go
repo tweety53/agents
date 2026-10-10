@@ -207,6 +207,14 @@ func TestCheckStageMarkCalls(t *testing.T) {
 				{"case 29: the breakdown counts the `record dispatch` call site", func(_ int, out, dir string) bool {
 					return strings.Contains(out, smcFile(dir)+" 1")
 				}}}},
+		{files: map[string]string{"integrate.md": block(`integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token "mf-$(date +%s)"` + "\n")},
+			checks: []smcCheck{smcRC("a substituted session token on an integrate-change.sh call is caught", 1),
+				smcHas("the integrate-change.sh finding names the substitution shape", "command substitution")}},
+		{files: map[string]string{"cleanup.md": block("integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>\n")},
+			checks: []smcCheck{smcRC("a literal session token on an integrate-change.sh call passes", 0),
+				{"the breakdown counts the integrate-change.sh call site", func(_ int, out, dir string) bool {
+					return strings.Contains(out, dir+"/cleanup.md 1")
+				}}}},
 		{files: map[string]string{"SKILL.md": block("flow record dispatch -change <name> -role reviewer -slot Primary -model sonnet \\\n",
 			"  -outcome completed\n")},
 			checks: []smcCheck{smcRC("case 30: a `record dispatch` with no -session-token is caught", 1),

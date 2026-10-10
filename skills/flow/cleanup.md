@@ -4,91 +4,45 @@ Loaded either by `skills/flow/integrate.md`'s merge-and-push route, in the same 
 fresh bare `/flow <name>` invocation once `check-finish-preflight.sh` returns `RUN2` from every
 worktree.
 
-**Load `skills/flow-contracts/artifacts-registry.md`** — every removal below is a row in it.
+**`skills/flow-contracts/finish-contract-run2.md` is canonical for the full procedure.**
+`integrate-change.sh` runs it — chained from `land` on the merge-and-push route, or called once
+`prepare`'s `NEXT:` names it — with its five stage marks; the parent handles each stop, makes the
+Jira transition, and prints the handoff. **Load `skills/flow-contracts/finish-contract-run2.md`
+only when** a stop below cites one of its sections, and **load
+`skills/flow-contracts/artifacts-registry.md` only when** a `LEFTOVER:` line names a row of it.
 
-**`skills/flow-contracts/finish-contract-run2.md` is canonical for the full procedure.** In outline,
-each numbered step below is bracketed by its own mark, with one exception that runs inside the
-mark of the step before: step 3 (remove the proposal artifact source) inside step 2's
-`flow.cleanup`. **Six steps, five marks.** The archive and the self-review pass are run
-1's (`skills/flow/integrate.md`).
-
-```bash
-flow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
-```
-
-1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor` against
-   `origin/<base>`. Fetch first. Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **remove
-   nothing** — end this mark `-outcome not-run-2` and stop.
+Call it with the parent's own shell outside every worktree in the set, per check 6 of **Worktree
+cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```bash
-flow stage end   -command '/flow' -stage flow.verify-merge -outcome completed <name>
-flow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
+integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
 
-2. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
-   database and bucket.** The workspace half runs the `remove` row of the command table
-   `project-get.sh <main-checkout> "workspace isolation"` prints (exit 1: the skipped-not-failed
-   case below), from the **main checkout**, with `<id>` from `flow workspace-id <name>` — never
-   handed to this run. A project declaring no `## workspace isolation` section, or no `remove`
-   command, has this half **skipped, not failed**. A removal that fails is **the one exception to the
-   stop-at-the-first-failure rule**: report it and carry on to step 4, which decides the verdict
-   from the project's survivor report, never from this command's exit code.
-3. **Remove the proposal artifact source** — delete `<state-dir>/<name>-proposal-artifact.html`
-   when present (`<state-dir>` the path `flow state dir` prints for this repository), per **Temporary artifacts registry**
-   (`skills/flow-contracts/artifacts-registry.md`)'s row for it. `/flow` has written none since
-   `publish-proposal-removed`, but a change created before it may still hold one, and step 4's
-   guard reports a survivor as a leftover. Absent, there is nothing to remove, and the step says so.
+- **`STOP: not-merged`** → this is not run 2; fall back to `skills/flow/integrate.md` and **remove
+  nothing**.
+- **`STOP: disclose`** → relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the
+  wave-group copies of **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), ask
+  only what they ask, then re-run `cleanup` adding `--proceed <main-checkout>` for the repository
+  the stop names, every earlier `--proceed` kept.
+- **`STOP: worktree-cleanup`** → a `REFUSED:` or `HELD:` line, or the guard's exit 2: stop at
+  `IN_PROGRESS`, leave every worktree alone, and report each line per **Worktree cleanup**
+  (`skills/flow-contracts/finish-contract-run2.md`).
+- **`STOP: leftover`** → the verdict rows of step 4 of **Run 2 — the branch is merged**
+  (`skills/flow-contracts/finish-contract-run2.md`): print the incomplete block below.
+- **`STOP: state`** → report it; the change stays at `IN_PROGRESS`.
 
-Steps 2 and 3 together are the one `flow.cleanup` stage:
+A `WORKSPACE-REMOVE-FAILED:` line is **the one exception to the stop-at-the-first-failure rule**:
+the script carries on to the cleanup check, which decides the verdict from the project's survivor
+report, never from this command's exit code. Relay every clause a `COMPLETE:` line carries after
+` — ` word for word, a `SKIPPED:` one included, and each `REMOTE-*` line as the handoff's
+**Remote branch:**.
 
-```bash
-flow stage end   -command '/flow' -stage flow.cleanup -outcome completed <name>
-flow stage begin -command '/flow' -stage flow.verify-cleanup -harness <harness> -session-token mf-<literal-token> <name>
-```
-
-4. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once per
-   repository, after every removal above; its verdicts are step 4 of **Run 2 — the branch is merged**
-   (`skills/flow-contracts/finish-contract-run2.md`).
-
-```bash
-flow stage end -command '/flow' -stage flow.verify-cleanup -outcome completed <name>
-```
-
-(`completed` on `COMPLETE:`, `leftover` on `LEFTOVER:` or on a missing verdict line — either way the
-run stops here, at `IN_PROGRESS`, and nothing below runs.)
-
-```bash
-flow stage begin -command '/flow' -stage flow.write-finished -harness <harness> -session-token mf-<literal-token> <name>
-```
-
-5. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the
-   entries whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`,
-   `planningEffort`, `models.default` and `prUrl` forward as recorded. This is the terminal
-   write.
-
-```bash
-flow stage end -command '/flow' -stage flow.write-finished -outcome completed <name>
-```
-
-**Load `skills/flow-contracts/jira-integration.md`.** **Transition the issue to Done** after the state write, per **Jira integration**
+**Load `skills/flow-contracts/jira-integration.md`.** **Transition the issue to Done** on the
+`JIRA: transition <KEY> to Done` line, after the state write, per **Jira integration**
 (`skills/flow-contracts/jira-integration.md`). A run that stopped at step 4 transitions nothing.
 
-```bash
-flow stage begin -command '/flow' -stage flow.refresh-main-checkout -harness <harness> -session-token mf-<literal-token> <name>
-```
-
-6. **Bring the main checkout forward:**
-
-   ```bash
-   refresh-main-checkout.sh <main-checkout> <base>
-   ```
-
-   Step 6 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`);
-   a `REFRESH-REFUSED` line goes into the handoff verbatim.
-
-```bash
-flow stage end -command '/flow' -stage flow.refresh-main-checkout -outcome completed <name>
-```
+A `REFRESH-REFUSED` line goes into the handoff verbatim, per step 6 of **Run 2 — the branch is
+merged** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```
 ## Finished

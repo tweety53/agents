@@ -220,6 +220,8 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   fails. The `mutation` reviewer uses them.
 
 **Land and clean up**
+- `integrate-change.sh`: runs every mechanical step of the integrate and cleanup runs — the guards
+  below among them — in four calls, stopping only where a verdict needs a decision.
 - `check-finish-preflight.sh`: decides between integrate and cleanup from the merge state, or
   refuses and asks.
 - `check-unfinished-work.sh`: reports unticked tasks or open findings before you are asked how to

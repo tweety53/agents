@@ -7,3 +7,198 @@ Then step 2 again, `<r>` plus one, until a review comes back clean, under **Fewe
 `git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its commit.
 **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session runs, in the fix worktree, only the
 `git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its commit and asking each review finding graded Critical, Important or Minor.
+
+# integrate-change.sh: the mechanical steps of run 1 and run 2 move out of integrate.md and cleanup.md into the script,
+# which sequences the guards and makes the stage marks; finish-contract-run1.md and finish-contract-run2.md stay canonical
+# for every step, and the phase files keep only the calls, the judgement and the stops.
+"<type>(<module>): <what the implementation does>" \
+"chore(spectre): plan <name>"
+(`completed` on **Continue** or **File or join…**, `stopped` on **Stop**.)
+(`completed` on `COMPLETE:`, `leftover` on `LEFTOVER:` or on a missing verdict line — either way the run stops here, at `IN_PROGRESS`, and nothing below runs.)
+**A change already archived** — decided once, in the canonical repository, for every worktree, per the same section — skips **4**'s `flow.sync-archive` mark with its `spectre archive` call, unmarked.
+**A change with no dispatch rows reports `MISSING: ledger` and exits 0** — never a failure.
+**A non-zero exit means a destination was refused or could not be written:** report it and continue.
+**A resolved set that comes back empty** → stop and ask the operator.
+**A resolved set that comes back empty** → stop and ask, exactly as `REFUSE`
+**An archive a stopped run 1 left uncommitted is undone first**, per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
+**Append this run's own narrative first**, the same append `flow.write-in-progress` <!-- refs-guard:allow --> (`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering this run's preflight, the unfinished-work gate and the rebase.
+**Before any route commits, reshape the branch:**
+**Bring the main checkout forward:**
+**Check whether the base branch has moved first, then sync onto it.
+**First, surface the foreign staged work and the main checkouts' drift** — **Surface foreign staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`) is canonical for it: run `check-foreign-staged.sh` and `check-main-checkout-drift.sh` once per distinct main checkout.
+**Implementation first, planning delta second.
+**Load `skills/flow-contracts/artifacts-registry.md`** — every removal below is a row in it.
+**Load `skills/flow-contracts/git-boundaries-commit-chain.md`** before either commit below.
+**Load `skills/flow-contracts/git-boundaries.md`** before either commit below.
+**Load `skills/flow-contracts/jira-integration-finish.md`** too — its **In Review is not tied to a pull request** governs the transition below.
+**Load `skills/flow-contracts/jira-integration.md`** — it is canonical for the transition below.
+**Load `skills/flow-contracts/session-records.md`** before rendering, below.
+**Load `skills/flow-contracts/worktree-resolution.md`** too.
+**Load `skills/flow/sync-onto-base.md` only when** a worktree's verdict is `MOVED`, or the merge-and-push route's push was rejected and the sync is re-run.
+**Loaded by `skills/flow/integrate.md`'s step 2 only when** `check-base-moved.sh` reported `MOVED` for a worktree, or by run 1's merge-and-push route when its push was rejected and the sync is re-run.
+**No verdict line at all, and a non-zero exit** → stop and ask.
+**No verdict line at all, and exit 2** → treat exactly as `REFUSE`
+**On a `RUN1` verdict**, mark `flow.preflight` (closed immediately, since the verdict is already in hand) then `flow.unfinished-work-gate`:
+**On an archived re-run with new work, pass the archived re-run's base instead**, found in the range from that merge base (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
+**One call per change, parent and each `<name>-fix-N` sibling alike** — run `spectre archive "<name>-fix-N"` for every sub-change in this same step.
+**Remove the proposal artifact source** — delete `<state-dir>/<name>-proposal-artifact.html`
+**Render the ledger first**, so a missing one is caught here — into the `<canonical-worktree>` section 1 resolved, so a multi-worktree run writes one copy, not one per worktree:
+**Run that as one command.
+**Six steps, five marks.
+**Sub-step: transition the issue to In Review** per **Transitions** (`skills/flow-contracts/jira-integration.md`): after the state write, never before, never blocking.
+**Sub-step: write the state.
+**Then migrate retired-layout worktrees** — **Migrate retired-layout worktrees before the preflight** (`skills/flow-contracts/finish-contract-run1.md`) is canonical for it: run `migrate-worktrees.sh` once, naming every distinct main checkout.
+**Transition the issue to Done** after the state write, per **Jira integration** (`skills/flow-contracts/jira-integration.md`).
+**Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor` against
+**With new work** every other step runs.
+**Without new work**, per the same section, it also ends `flow.unfinished-work-gate` `completed` at once and runs **2**, then **4** from `flow.commit-archive` on, then **5**; the rest of **1** and all of **3** are skipped, unmarked.
+**Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the
+**`/flow` never passes `--force`.
+**`CLEAR:` from every worktree** → continue to **2** with no extra prompt.
+**`OUTSTANDING:`** → **Load `skills/flow/unfinished-work-gate.md`** — the breakdown, the
+**`REFUSE`** → stop, report what the script reported, relay the guard's hand-verification
+**`RUN1`** → this file (integrate)
+**`RUN2`** from every worktree → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
+**`spectre archive` refuses four things; `--force` overrides three of them.
+A destination that already exists also exits `1`, and `--force` does **not** override that one.
+A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark `-outcome stopped` instead, and the run stops before step 5 on the handoff block **the sweep** (`skills/flow-contracts/known-bugs.md`) defines.
+A project declaring no `## workspace isolation` section, or no `remove` command, has this half **skipped, not failed**.
+A rejected push, a commit blocked by a hook, or `gh pr create` erroring must be **reported with the command's own output**, and the run must **stop** leaving the change at `IN_PROGRESS` — save the merge-and-push route's one re-sync after a rejected push (**The routes**, `skills/flow-contracts/finish-contract-run1.md`).
+A removal that fails is **the one exception to the stop-at-the-first-failure rule**: report it and carry on to step 4, which decides the verdict from the project's survivor report, never from this command's exit code.
+Absent, there is nothing to remove, and the step says so.
+Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models.default` and `prUrl` forward as recorded.
+Continue, within the same invocation and without a further command from the operator, into `skills/flow/cleanup.md` exactly as written.
+Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`), which is canonical for the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above.
+Fetch first.
+In `<canonical-worktree>`, on `spectre/<name>`, per **Archive on the change branch** and **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for both.
+In outline, each numbered step below is bracketed by its own mark, with one exception that runs inside the mark of the step before: step 3 (remove the proposal artifact source) inside step 2's `flow.cleanup`.
+It `git mv`s `<project>/spectre/changes/<name>/` into `<project>/spectre/changes/archive/<name>/` and leaves the rename staged; it does not commit — the next mark does.
+Its `<base-ref>` argument is `origin/$BASE`, `$BASE` being what running `resolve-base-branch.sh <worktree>` prints — the same `<base>` every route below lands on.
+No `MOVED` verdict anywhere → report the counts and go straight to the landing question.
+Not merged → this is not run 2; fall back to `skills/flow/integrate.md` and **remove nothing** — end this mark `-outcome not-run-2` and stop.
+On **Continue** at **1** the planning message also lists the outstanding work, as below.
+Only an absent or unresolved default falls back to asking:
+Per **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) → run 1.
+Push with `-u` so the branch has an upstream.
+Report the refusal, stop, and leave the change at `IN_PROGRESS`.
+Run `check-base-moved.sh` once per worktree in the resolved set and report every verdict, per **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`); a `REFUSE`, an exit 2 or an empty resolved set stops and asks, closing the mark:
+Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once per
+Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw read of the state file's `worktrees` map.
+Run `check-unfinished-work.sh <worktree> <name> <canonical-worktree>` once per worktree in the resolved set — before the landing question and before any git action but the undo of an uncommitted archive (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).
+Run `project-get.sh <main-checkout> "default landing route" --enum "pull request" "merge and push" manual`: exit 0 prints the resolved route; exit 1 means absent; exit 3 means the head matches none of the three — report its stderr line by name and resolve as absent.
+Run `spectre archive "<name>"` in `<canonical-worktree>`.
+Step 6 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`); a `REFRESH-REFUSED` line goes into the handoff verbatim.
+Steps 2 and 3 together are the one `flow.cleanup` stage:
+The `DONE-WHEN-PATH:` lines of the Done-when cross-check refuse the commit the same way, before anything is staged or copied.
+The archive and the self-review pass are run 1's (`skills/flow/integrate.md`).
+The guards, the skipped-empty rule, the stop-on-failure rule and the symlinked-planning-path case are all under **The guarded two-commit chain** (`skills/flow-contracts/git-boundaries-commit-chain.md`).
+The second commit's message lists anything the operator chose to integrate over at **1**.
+The state file is **not** committed.
+The verdicts, the stop-and-ask rows and the stage mark stay in that step; **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) is canonical for the guards.
+The workspace half runs the `remove` row of the command table `project-get.sh <main-checkout> "workspace isolation"` prints (exit 1: the skipped-not-failed case below), from the **main checkout**, with `<id>` from `flow workspace-id <name>` — never handed to this run.
+Then run `check-visual-verify-dispatched.sh <worktree> <name> $(git -C <worktree> merge-base HEAD origin/$BASE)` once per worktree in the same set, per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`): `VISUAL-VERIFY-OK:` joins `CLEAR:`; `VISUAL-VERIFY-MISSING:` and an exit 2 take the `OUTSTANDING:` and stop-and-ask rows below.
+Then stage and commit twice, in this order:
+This is the terminal write.
+This stage carries three sub-steps under one mark: the git route, the state write, and the Jira transition.
+Unchecked tasks, a missing `tasks.md`, and a `tasks.md` carrying no task at all each exit `1` and say `(use --force to archive anyway)`.
+Write `state` unchanged at `IN_PROGRESS`, `prUrl` set if a PR was opened, and every other field carried forward.
+`/flow` has written none since `publish-proposal-removed`, but a change created before it may still hold one, and step 4's guard reports a survivor as a leftover.
+`<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff.
+`ARCHIVE-COMMITTED: <sha>` or `ARCHIVE-NOTHING-STAGED` (exit 0) continue.
+`ARCHIVE-WRONG-BRANCH: <found>` or the scope guard's `SCOPE-VIOLATION` lines (exit 1), or exit 2, stop the commit and leave the change at `IN_PROGRESS`.
+`origin/<base>`.
+commit-archive.sh <canonical-worktree> <name>
+commit-split.sh <worktree> <name> \
+database and bucket.
+entries whose removal actually succeeded**.
+flow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.commit-two -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.preflight -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.refresh-main-checkout -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.verify-cleanup -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.write-finished -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end -command '/flow' -stage flow.cleanup -outcome completed <name>
+flow stage end -command '/flow' -stage flow.commit-archive -outcome completed <name>
+flow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
+flow stage end -command '/flow' -stage flow.landing-question -outcome completed <name>
+flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <name>
+flow stage end -command '/flow' -stage flow.landing-routes -outcome completed <name>
+flow stage end -command '/flow' -stage flow.preflight -outcome completed <name>
+flow stage end -command '/flow' -stage flow.preserve-sessions -outcome completed <name>
+flow stage end -command '/flow' -stage flow.refresh-main-checkout -outcome completed <name>
+flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
+flow stage end -command '/flow' -stage flow.sync-archive -outcome completed <name>
+flow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome completed <name>
+flow stage end -command '/flow' -stage flow.verify-cleanup -outcome completed <name>
+flow stage end -command '/flow' -stage flow.verify-merge -outcome completed <name>
+flow stage end -command '/flow' -stage flow.write-finished -outcome completed <name>
+procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask the operator
+repository, after every removal above; its verdicts are step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
+reshape-branch.sh <worktree> <name> <recorded-merge-base>
+three-course prompt and what each course does are there.
+when present (`<state-dir>` the path `flow state dir` prints for this repository), per **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`)'s row for it.
+| `skills/flow/cleanup.md` | `flow.verify-merge`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+| `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.sync-archive`, `flow.commit-archive`, `flow.self-review`, `flow.landing-routes` |
+| `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when a worktree's `check-base-moved.sh` verdict is `MOVED`, or the merge-and-push route's push was rejected; closes the enclosing mark, begins none |
+| `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`; begins no mark |
+**Continue** and **File or join…** re-run `prepare` with `--accept-outstanding`; **Stop** leaves the mark the script closed `stopped`.
+**Loaded by `skills/flow/integrate.md` only when** `integrate-change.sh` stops on `sync-conflict` or `sync` — in its base-moved sync, or the merge-and-push route's re-sync after a rejected push; the script runs the clean sync and its scoped re-verification itself.
+**`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
+**`STOP: archive-undo`** → ask, per **Run 1 — the branch is not merged**
+**`STOP: disclose`** → relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the
+**`STOP: foreign-staged`** → ask the question of **Surface foreign staged work before the
+**`STOP: leftover`** → the verdict rows of step 4 of **Run 2 — the branch is merged**
+**`STOP: migrate`** → stop at `IN_PROGRESS` and report the script's lines, per **Migrate
+**`STOP: not-merged`** → this is not run 2; fall back to `skills/flow/integrate.md` and **remove
+**`STOP: pr`** — no usable `gh`: print the forge's create-PR URL and ask whether it was opened.
+**`STOP: preflight` or `STOP: base`** → stop, report what the script reported, relay the guard's
+**`STOP: state`** → report it; the change stays at `IN_PROGRESS`.
+**`STOP: worktree-cleanup`** → a `REFUSED:` or `HELD:` line, or the guard's exit 2: stop at
+--harness <harness> --session-token mf-<literal-token>
+A `REFUSE`, an exit 2 or an empty resolved set is `STOP: base-moved`, handled as `STOP: preflight` above.
+A `WORKSPACE-REMOVE-FAILED:` line is **the one exception to the stop-at-the-first-failure rule**: the script carries on to the cleanup check, which decides the verdict from the project's survivor report, never from this command's exit code.
+A stop closes the stage mark it was in `stopped`; the parent re-runs the call that stopped once the stop is handled.
+An archived change without new work takes no subject: its `NEXT:` names `commit` bare.
+Either answer re-runs `land` with `--pr-url <url>` or `--pr-url none`.
+Every call takes the same `--harness` and `--session-token` its stage marks carry, relays each guard's own lines, and ends on one machine-readable line — `NEXT:` (exit 0) or `STOP: <kind>` (exit 1); exit 2 is a usage error or an unreadable state record, reported and stopped on — or a guard missing beside the script, whose steps then run by hand from `skills/flow-contracts/finish-contract-run1.md` and `skills/flow-contracts/finish-contract-run2.md`.
+Every stop there — `reshape`, `commit-split`, `archive`, `commit-archive` — is reported with the script's lines and leaves the change at `IN_PROGRESS`; **`/flow` never passes `--force`** to `spectre archive`.
+On **Continue** at **1** the planning message also lists the outstanding work: pass it whole as `--plan-message`.
+Only `ROUTE: ask` falls back to asking:
+Relay every clause a `COMPLETE:` line carries after ` — ` word for word, a `SKIPPED:` one included, and each `REMOTE-*` line as the handoff's **Remote branch:**.
+The `ROUTE:` line carries the project's `## default landing route`.
+The script's header (`<agents repo>/scripts/integrate-change.sh`) is canonical for each subcommand's steps and the exit contract.
+`--route` carries the operator's answer to the landing question; without it `land` takes the configured default.
+`<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the diffstat `prepare` printed under each `WORKTREE:` line, one subject per worktree.
+`STOP: guard-test` is a scoped re-verification that failed: report it and stop at `IN_PROGRESS`.
+`STOP: landing-route` — no route given or configured — asks the landing question of step 2, then re-runs `land` with `--route`.
+`integrate-change.sh` runs it — chained from `land` on the merge-and-push route, or called once `prepare`'s `NEXT:` names it — with its five stage marks; the parent handles each stop, makes the Jira transition, and prints the handoff.
+`land` continues, within the same invocation and without a further command from the operator, into run 2; handle its output by `skills/flow/cleanup.md` exactly as written.
+breakdown, the three-course prompt and what each course does are there.
+flow stage end -command '/flow' -stage flow.self-review -outcome stopped <name>
+integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+integrate-change.sh commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"...
+integrate-change.sh land <main-checkout> <name> [--route "<route>"] --harness <harness> --session-token mf-<literal-token>
+integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+| `skills/flow/cleanup.md`, through `integrate-change.sh` | `flow.verify-merge`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+| `skills/flow/integrate.md`, through `integrate-change.sh` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.sync-archive`, `flow.commit-archive`, `flow.self-review`, `flow.landing-routes` |
+| `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when `integrate-change.sh` stops on `sync-conflict` or `sync`; begins and closes no mark |
+| `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when `integrate-change.sh` stops on `unfinished-work`; begins no mark |
+
+# integrate-change.sh review fixes: run 2 counts a branch merged on either test, a guard of the
+# unfinished-work gate that reaches no verdict is its own stop, and --pr-url answers per worktree.
+Use a PR CLI when one is usable for the host; otherwise
+`git merge-base --is-ancestor`.
+The branch is merged when a PR CLI usable for the host reports its PR
+merged, or when `git merge-base --is-ancestor` holds, whatever the PR CLI says.
+**`STOP: no-verdict`** → a guard of the gate printed no verdict line, or exited non-zero without
+one: stop and ask, reporting its output.
+`--accept-outstanding` never passes it.
+Either answer re-runs `land` adding `--pr-url <worktree>=<url>` or `--pr-url <worktree>=none` for the worktree the stop names, every earlier `--pr-url` kept.

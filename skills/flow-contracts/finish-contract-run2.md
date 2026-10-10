@@ -13,8 +13,9 @@ procedure for them is there.
 
 ### Run 2 — the branch is merged
 
-1. **Verify the merge.** Use a PR CLI when one is usable for the host; otherwise
-   `git merge-base --is-ancestor`. **Not merged → this is not run 2.**
+1. **Verify the merge.** The branch is merged when a PR CLI usable for the host reports its PR
+   merged, or when `git merge-base --is-ancestor` holds, whatever the PR CLI says. **Not merged →
+   this is not run 2.**
    On the merge-and-push continuation, run 1's push already landed the branch on `origin/<base>`,
    so the same test holds there.
 2. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's

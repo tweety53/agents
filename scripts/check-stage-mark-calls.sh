@@ -4,6 +4,9 @@
 # NOT be — the two required flags are wrong in opposite directions, and this
 # script rejects both. Every `flow record dispatch` must carry a literal
 # session token too, for the same reason and by the same two checks.
+# An `integrate-change.sh` call, which makes /flow's integrate and cleanup
+# marks with the --session-token and --harness it is passed, is held to
+# `stage begin`'s token and harness rules.
 #
 # Usage: scripts/check-stage-mark-calls.sh [path ...]          # dirs or files
 #

@@ -82,6 +82,11 @@ const (
 	smcBegin    = "flow stage begin"
 	smcMark     = "flow stage mark"
 	smcDispatch = "flow record dispatch"
+	// integrate-change.sh makes /flow's integrate and cleanup marks itself,
+	// with the --session-token and --harness its caller passes: the literal
+	// a skill writes there is the one the daemon binds, so its call is held
+	// to the same token and harness rules (its stage keys are the script's).
+	smcIntegrate = "integrate-change.sh"
 )
 
 // The ERE patterns the bash ran through grep/awk. The value extractions are
@@ -89,18 +94,19 @@ const (
 // that runs past a closing quote (`"mf-\"abc#tok"`) wins over the quoted
 // alternative, as it did in the bash.
 var (
-	smcBeginLine    = regexp.MustCompile(`^[[:space:]]*flow stage begin([[:space:]]|\\|$)`)
-	smcMarkLine     = regexp.MustCompile(`^[[:space:]]*flow stage mark([[:space:]]|\\|$)`)
-	smcDispatchLine = regexp.MustCompile(`^[[:space:]]*flow record dispatch([[:space:]]|\\|$)`)
-	smcContinued    = regexp.MustCompile(`\\[[:space:]]*$`)
-	smcHasToken     = regexp.MustCompile(`(^|[[:space:]])-session-token([[:space:]]|=)`)
-	smcHasHarness   = regexp.MustCompile(`(^|[[:space:]])-harness([[:space:]]|=)`)
-	smcTokenValue   = smcValueRe("session-token")
-	smcHarnessValue = smcValueRe("harness")
-	smcStageValue   = smcValueRe("stage")
-	smcStagesValue  = smcValueRe("stages")
-	smcVarRef       = regexp.MustCompile(`\$[A-Za-z_]`)
-	smcPlaceholder  = regexp.MustCompile(`^<[^<>]+>$`)
+	smcBeginLine     = regexp.MustCompile(`^[[:space:]]*flow stage begin([[:space:]]|\\|$)`)
+	smcMarkLine      = regexp.MustCompile(`^[[:space:]]*flow stage mark([[:space:]]|\\|$)`)
+	smcDispatchLine  = regexp.MustCompile(`^[[:space:]]*flow record dispatch([[:space:]]|\\|$)`)
+	smcIntegrateLine = regexp.MustCompile(`^[[:space:]]*integrate-change\.sh([[:space:]]|\\|$)`)
+	smcContinued     = regexp.MustCompile(`\\[[:space:]]*$`)
+	smcHasToken      = regexp.MustCompile(`(^|[[:space:]])-session-token([[:space:]]|=)`)
+	smcHasHarness    = regexp.MustCompile(`(^|[[:space:]])-harness([[:space:]]|=)`)
+	smcTokenValue    = smcValueRe("session-token")
+	smcHarnessValue  = smcValueRe("harness")
+	smcStageValue    = smcValueRe("stage")
+	smcStagesValue   = smcValueRe("stages")
+	smcVarRef        = regexp.MustCompile(`\$[A-Za-z_]`)
+	smcPlaceholder   = regexp.MustCompile(`^<[^<>]+>$`)
 	// guess_placeholder — the first bracketed placeholder whose own text
 	// says "guess" (`<...guess...>`, case-insensitive), found ANYWHERE in the
 	// assembled command text. No shell parsing at all: no token extraction,
@@ -182,6 +188,8 @@ func smcAssemble(body string) []smcCall {
 			verb = smcMark
 		case smcDispatchLine.MatchString(line):
 			verb = smcDispatch
+		case smcIntegrateLine.MatchString(line):
+			verb = smcIntegrate
 		}
 		if verb == "" {
 			continue
@@ -202,6 +210,10 @@ func smcAssemble(body string) []smcCall {
 	// tabs from both ends of the command text; the rules see what it saw.
 	for i := range calls {
 		calls[i].cmd = strings.Trim(calls[i].cmd, "\t")
+		// The script spells the flags with two dashes; the rules read one.
+		if calls[i].verb == smcIntegrate {
+			calls[i].cmd = strings.NewReplacer(" --session-token", " -session-token", " --harness", " -harness").Replace(calls[i].cmd)
+		}
 	}
 	return calls
 }
@@ -387,7 +399,7 @@ func (s *smcScan) checkCall(f string, c smcCall) {
 		}
 	}
 
-	if c.verb == smcDispatch {
+	if c.verb == smcDispatch || c.verb == smcIntegrate {
 		return
 	}
 	short := strings.TrimPrefix(c.verb, "flow ")

@@ -26,7 +26,7 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/verify-fix-loop.md` | `flow.document-fix`, `flow.decide`, `flow.sdd-tdd`, `flow.review-panel`, `flow.verify`, `flow.visual-verify` — re-run through their own files; loaded only when a verify stage's final report carries a fixable defect; begins no mark of its own |
 | `skills/flow/visual-verify.md` | `flow.visual-verify` from step 3 — loaded only when a worktree's diff matched a `ui paths` glob |
 | `skills/flow/visual-verify-tooling-analysis.md` | `flow.visual-verify` — loaded only on a fix run with at least one miss |
-| `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.sync-archive`, `flow.commit-archive`, `flow.self-review`, `flow.landing-routes` |
-| `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`; begins no mark |
-| `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when a worktree's `check-base-moved.sh` verdict is `MOVED`, or the merge-and-push route's push was rejected; closes the enclosing mark, begins none |
-| `skills/flow/cleanup.md` | `flow.verify-merge`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+| `skills/flow/integrate.md`, through `integrate-change.sh` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.sync-archive`, `flow.commit-archive`, `flow.self-review`, `flow.landing-routes` |
+| `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when `integrate-change.sh` stops on `unfinished-work`; begins no mark |
+| `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when `integrate-change.sh` stops on `sync-conflict` or `sync`; begins and closes no mark |
+| `skills/flow/cleanup.md`, through `integrate-change.sh` | `flow.verify-merge`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |

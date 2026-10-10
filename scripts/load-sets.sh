@@ -57,12 +57,12 @@ row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${ID[@]}" "${IC[@]}"
 row "  TOTAL worst case" "${ALWAYS[@]}" "${ROUTER[@]}" "${ID[@]}" "${IC[@]}" "${IX[@]}"
 
 echo "--- finish session (merge-and-push: run 1 chained into run 2) ---"
-FD=("$F/integrate.md" "$C/worktree-resolution.md" "$C/finish-contract-run1.md" "$C/git-boundaries.md" "$C/git-boundaries-commit-chain.md" "$C/session-records.md" "$C/jira-integration.md" "$C/jira-integration-finish.md" "$F/cleanup.md" "$C/artifacts-registry.md" "$C/finish-contract-run2.md")
+FD=("$F/integrate.md" "$C/git-boundaries-commit-chain.md" "$C/jira-integration.md" "$C/jira-integration-finish.md" "$F/cleanup.md")
 FC=("$C/operator-prompts.md" "$C/model-policy.md")
-FX=("$F/unfinished-work-gate.md" "$F/sync-onto-base.md" "$C/finish-hand-fallbacks.md" "$C/jira-followups.md" "$C/jira-followups-join.md" "$C/state-file.md" "$C/project-configuration.md" "$C/guard-verdict-verification.md")
+FX=("$C/finish-contract-run1.md" "$C/finish-contract-run2.md" "$C/artifacts-registry.md" "$F/unfinished-work-gate.md" "$F/sync-onto-base.md" "$C/finish-hand-fallbacks.md" "$C/jira-followups.md" "$C/jira-followups-join.md" "$C/state-file.md" "$C/project-configuration.md" "$C/guard-verdict-verification.md")
 row "  phase files + load directives" "${FD[@]}"
 row "  + cited" "${FC[@]}"
-row "  + conditional (gate, base moved, hand fallbacks, follow-ups, state file, config, verdicts)" "${FX[@]}"
+row "  + conditional (finish contracts, registry, gate, base moved, hand fallbacks, follow-ups, state file, config, verdicts)" "${FX[@]}"
 row "  TOTAL definite" "${ALWAYS[@]}" "${ROUTER[@]}" "${FD[@]}"
 row "  TOTAL incl. cited" "${ALWAYS[@]}" "${ROUTER[@]}" "${FD[@]}" "${FC[@]}"
 
