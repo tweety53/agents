@@ -118,7 +118,10 @@ type Record struct {
 	Model       string
 	Effort      string
 	AgentID     string
-	Usage       Usage
+	// MessageID is the line's message.id, empty where the line carries
+	// none; the Watcher carries a path's last one across reads.
+	MessageID string
+	Usage     Usage
 	// Signal is set on a non-usage record (signals.go); nil on a usage record.
 	Signal *Signal
 }
@@ -320,10 +323,13 @@ func ParseAssistantRecords(complete []byte) []Record {
 		// 56 assistant lines for 15 ids on one real transcript). The first
 		// line per id is the whole message's usage; the rest are repeats.
 		// A line with no id is an older or foreign shape and is kept as is.
-		// ponytail: dedupe is per call, so a message whose lines straddle
-		// two reads counts twice -- lines of one message land in one write
-		// burst, so this is bounded by one message per read boundary; carry
-		// the last id beside harvest_offsets if it ever shows up in the data.
+		// Dedupe here is per call; a message whose lines straddle two reads
+		// (its lines land seconds apart, so most multi-line messages do --
+		// kan-964's stored dispatch totals ran ~1.6x the transcript's) is
+		// dropped across the boundary by Watcher.lastMessageID.
+		// ponytail: that carry is in memory, so a daemon restart can still
+		// count one message twice per transcript; persist it beside
+		// harvest_offsets if that ever shows in the data.
 		if id := raw.Message.ID; id != "" {
 			if seen[id] {
 				continue
@@ -352,6 +358,7 @@ func ParseAssistantRecords(complete []byte) []Record {
 			Model:       raw.Message.Model,
 			Effort:      raw.Effort,
 			AgentID:     raw.AgentID,
+			MessageID:   raw.Message.ID,
 			Usage: Usage{
 				InputTokens:              u.InputTokens,
 				CacheCreationInputTokens: u.CacheCreationInputTokens,

@@ -420,6 +420,14 @@ type Watcher struct {
 	// for the same reasons tokenCycles is not.
 	seenOffsets map[string]int64
 
+	// lastMessageID is, per path, the message.id of the last usage record
+	// a committed batch carried. One API response is written as several
+	// lines seconds apart, so a read often ends mid-message; the next
+	// read's leading lines repeat that message's usage verbatim and are
+	// dropped here, or every straddling message counts twice. Not
+	// persisted, for the same reasons seenOffsets is not.
+	lastMessageID map[string]string
+
 	// pendingDispatchMeta remembers, per subagent transcript path whose
 	// most recently committed batch carried dispatch tokens but no
 	// descriptors (ReadDispatchMeta found no sidecar at commit time), the
@@ -522,6 +530,7 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		gaveUpTokens:        make(map[string]bool),
 		retriedTokens:       make(map[string]bool),
 		seenOffsets:         make(map[string]int64),
+		lastMessageID:       make(map[string]string),
 		pendingDispatchMeta: make(map[string]map[int64]string),
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
@@ -629,6 +638,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			}
 			records, commands, launches, denials, newOffset :=
 				batch.Records, batch.Commands, batch.Launches, batch.Denials, batch.NewOffset
+			records = dropCarriedMessage(records, w.lastMessageID[path])
 
 			matchedHere := w.matchSessionTokens(pendingSessionTokens, commands, matchedSessions)
 
@@ -695,6 +705,9 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			}
 			touchedFiles++
 			w.seenOffsets[path] = newOffset
+			if id := lastUsageMessageID(records); id != "" {
+				w.lastMessageID[path] = id
+			}
 
 			// The second, dispatch-grain attribution pass over the very same
 			// records, in the same batch -- deliberately here, after
@@ -1396,6 +1409,33 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	w.pendingBegins[path] = appendPending(nil, survivors(begins, takenBegin))
 	w.pendingLaunches[path] = appendPending(nil, unclaimed(launches, claimed))
 	w.pendingDenials[path] = appendPending(w.pendingDenials[path], denials)
+}
+
+// dropCarriedMessage removes the usage records repeating carried, the
+// message the previous committed read of the same path ended on.
+func dropCarriedMessage(records []Record, carried string) []Record {
+	if carried == "" {
+		return records
+	}
+	out := records[:0:0]
+	for _, r := range records {
+		if r.Signal == nil && r.MessageID == carried {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// lastUsageMessageID returns the message.id of records' last usage record
+// that carries one, or "" when none does.
+func lastUsageMessageID(records []Record) string {
+	for i := len(records) - 1; i >= 0; i-- {
+		if records[i].Signal == nil && records[i].MessageID != "" {
+			return records[i].MessageID
+		}
+	}
+	return ""
 }
 
 // survivors returns the begins no pass consumed -- neither paired with a

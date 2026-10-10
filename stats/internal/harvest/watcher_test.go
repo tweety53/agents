@@ -3613,3 +3613,39 @@ func TestWatcherStampsKan964BeginShapes(t *testing.T) {
 		})
 	}
 }
+
+// TestMessageStraddlingTwoReadsCountsOnce: Claude Code writes one API
+// response as one line per content block, seconds apart, each repeating
+// the response's usage. A read that ends between two of those lines must
+// not let the next read count the response a second time -- kan-964's
+// stored dispatch totals ran ~1.6x the transcript's on exactly this.
+func TestMessageStraddlingTwoReadsCountsOnce(t *testing.T) {
+	line := func(id, ts string, input int) string {
+		return fmt.Sprintf(`{"type":"assistant","timestamp":"%s","sessionId":"%s","message":{"id":"%s","model":"m","usage":{"input_tokens":%d}}}`+"\n", ts, mainSessionID, id, input)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, []byte(line("msg_x", "2026-01-01T00:00:00Z", 100)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	runCycles(t, w, 1)
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(line("msg_x", "2026-01-01T00:00:05Z", 100) + line("msg_y", "2026-01-01T00:00:09Z", 7)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	runCycles(t, w, 1)
+
+	if got := sink.totals[1].Main.Input; got != 107 {
+		t.Fatalf("tokens.main.input = %v, want 107: msg_x's second line repeats its usage and must not count again", got)
+	}
+}
