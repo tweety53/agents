@@ -953,3 +953,42 @@ test('no task pending: the last two done above the running rows, and a finished 
   await $.turn.complete(complete('ag4', 'answer'))
   expect(await bandOf($)).toEqual(['⎿ opus-high ◼ main: sdd-tdd — in progress', '  ⎿ ✔ Task 7/10 (Step 7) — done · 0s', '  ⎿ ✔ Task 10/10 (last three) — done · 0s'])
 })
+
+test('an inline run: a task ticked or landed while the main turn runs leaves the pending rows on the mounted band', async ($, on) => {
+  const clock = mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/gymie' }))
+  on('tool.call', () => ({ result: '' }))
+  let plan = ['# Plan', '', '- [ ] 1. One', '- [ ] 2. Two', '- [ ] 3. Three'].join('\n')
+  on('fs.read', () => ({ value: plan }))
+  let log = ''
+  on('process.run', (_$, e) => ({
+    value: { exitCode: e.argv[3] === 'config' ? 1 : 0, stdout: e.argv[3] === 'log' ? log : 'c\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('ui.render', (r, e) => {
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  const rows = async (ui: { findAll: (q: { type: 'Text' }) => Promise<{ text: string }[]> }) =>
+    (await ui.findAll({ type: 'Text' })).filter(t => /^(?:⎿ | {2}) *\S.* — \S/.test(t.text)).map(t => t.text)
+
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', messageCount: 1 })) {
+    // drain
+  }
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd', 'kan-934-x') })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await rows(ui)).toEqual([
+    '⎿ opus ◼ main: sdd-tdd — in progress',
+    '  ⎿ ◻ Task 1/3 (One) — pending',
+    '  ⎿ ◻ Task 2/3 (Two) — pending',
+    '  ⎿ ◻ Task 3/3 (Three) — pending',
+  ])
+  // No subagent and no state write: task 1 ticked, tasks 2 and 3 landed by their Task-Id trailers.
+  plan = plan.replace('- [ ] 1.', '- [x] 1.')
+  log = '3\n\n2\n'
+  await clock.advance(1000)
+  expect(await rows(ui)).toEqual(['⎿ opus ◼ main: sdd-tdd — in progress'])
+  await ui.unmount()
+})

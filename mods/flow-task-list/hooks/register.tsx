@@ -313,7 +313,8 @@ const landedOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | nu
   change ? landedIn(argv => $.process.run(argv), `${await $.session.root()}-worktrees/${change}`) : []
 
 export const register: Register = on => {
-  // Redraws the band each second while a subagent row runs, so its elapsed time ticks.
+  // Redraws the band each second while a subagent row runs, so its elapsed time ticks, and while the main turn runs a
+  // /flow change, so a task it ticks or lands inline leaves the pending rows.
   let tick: Timer | undefined
 
   on('agent.spawn', async ($, e, next) => {
@@ -401,10 +402,14 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const subs = await read($, rows)
     const m = await read($, main)
+    const f = await read($, flow)
     const ticking = subs.some(r => r.state === 'in progress')
-    if (ticking && !tick) {
+    // A drawing is cached until a state it read is written, and the plan's ticks and landed commits are no state:
+    // while a /flow change runs inline, nothing else redraws the band, so it redraws each second then too.
+    const refresh = ticking || (!!m?.busy && f.change !== null)
+    if (refresh && !tick) {
       tick = $.clock.every(1000, () => $.ui.invalidate('ui.render'))
-    } else if (!ticking && tick) {
+    } else if (!refresh && tick) {
       tick.cancel()
       tick = undefined
     }
@@ -412,7 +417,6 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !(m?.busy || ticking)) {
       return next(e)
     }
-    const f = await read($, flow)
     const plan = await planOf($, f.change)
     const tasks = planTasks(plan)
     // The main agent's row, always first; it stays out of rows, so trim and the tally never see it.
