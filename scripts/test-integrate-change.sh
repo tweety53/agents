@@ -36,6 +36,9 @@
 #                   stays on disk until --proceed <b>.
 #   rerun_leftover  a run 2 stopped on a leftover after removing both
 #                   worktrees; the re-run still reaches repository b.
+#   no_state_dir    the state directory `flow state dir` prints does not
+#                   exist (a store-only project): run 2 still reaches
+#                   COMPLETE and writes FINISHED, not STOP: leftover.
 #   pr_url          the pull-request route with no usable gh: a --pr-url for
 #                   b does not answer for a.
 #
@@ -281,6 +284,15 @@ check "rerun_leftover: the re-run reaches b and deletes its remote branch" \
   '! git --git-dir="$WORK/b-origin.git" rev-parse -q --verify refs/heads/spectre/demo >/dev/null'
 check "rerun_leftover: b's cleanup check ran" 'printf "%s" "$OUT" | grep -q "^COMPLETE: .*$WORK/b"'
 check "rerun_leftover: the re-run writes FINISHED" '[ "$RC" -eq 0 ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
+
+# --- no_state_dir ---
+fixture
+to_land "no_state_dir: "
+rm -rf "$WORK/statedir"
+sut land "$WORK/a" demo
+check "no_state_dir: run 2 reaches COMPLETE, not STOP: leftover" \
+  '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | grep -q "^COMPLETE: " && ! printf "%s" "$OUT" | grep -q "^STOP: leftover"'
+check "no_state_dir: the record is FINISHED" '[ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'
 
 # --- pr_url ---
 fixture

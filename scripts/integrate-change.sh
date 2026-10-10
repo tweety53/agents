@@ -643,7 +643,10 @@ cmd_cleanup() {
 
   mark_begin flow.verify-cleanup
   for m in "${MAINS[@]}"; do
-    run "$SCRIPT_DIR/check-cleanup-complete.sh" "$m" "$NAME" "$(flow state dir -C "$m")"
+    # flow state dir resolves the path and never creates it; a store-only
+    # project has none on disk, which the guard would read as a typo.
+    sd="$(flow state dir -C "$m")" && mkdir -p "$sd"
+    run "$SCRIPT_DIR/check-cleanup-complete.sh" "$m" "$NAME" "$sd"
     [ "$RC" -eq 0 ] && [ -n "$(verdict COMPLETE)" ] || leftover=1
   done
   STOP_OUTCOME=leftover
