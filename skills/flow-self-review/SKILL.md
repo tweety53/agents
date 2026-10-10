@@ -114,16 +114,20 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    pushes.
 2. **Review** — key `self-review-<name>-review-<r>` on the review pair, over
    `git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its
-   commit.
+   commit and asking each review finding graded Critical, Important or Minor.
 3. **Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt carrying the
    review's report verbatim. Each fix is folded into the commit of the finding it fixes
    (`git commit --fixup <that commit>`, then `git rebase --autosquash <fix-base>`), so
    every finding stays one commit; a commit the review judges not to fix its finding, or to make
-   things worse, is dropped from the branch. Then step 2 again, `<r>` plus one, until a review
-   comes back clean, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A
+   things worse, is dropped from the branch. **A review whose every finding is Minor is closed by
+   that one dispatch, with no re-review** — the no-re-review half of **Panel re-runs**
+   (`skills/flow/review-panel.md`); unlike the panel's parent, this session fixes nothing inline,
+   so the fix stays this dispatch — and step 4 is its verification. After a review that raised a
+   Critical or Important, step 2 runs again, `<r>` plus one, until a review comes back clean or
+   raises only Minors, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A
    dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once
    under way.
-4. **Verify** — once a review comes back clean, this session runs, in the fix worktree, only the
+4. **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session runs, in the fix worktree, only the
    `<agents repo>/.flow/project.md` `## lint` lines the touched files need, plus the tests
    covering them: `go test` of the touched packages, the `scripts/test-*.sh` harness of a touched
    script, `npx vitest run <file>` of a touched SPA file — each output through `tail`, never the

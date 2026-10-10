@@ -1,2 +1,9 @@
 # Worktree cleanup: an unclassified entry identical in the main checkout is preserved and never stops removal.
 An unclassified entry byte-identical to the same path in the repository's main checkout is preserved: its `UNCLASSIFIED:` line ends `— preserved: identical in <main-checkout>`, it never makes the disclosure stop, and it is relayed per check 4 whatever the exit.
+
+# Self-review step 3: a Minor-only review is closed by its one fix dispatch, with no re-review.
+**Verify** — once a review comes back clean, this session runs, in the fix worktree, only the
+Then step 2 again, `<r>` plus one, until a review comes back clean, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`).
+`git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its commit.
+**Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session runs, in the fix worktree, only the
+`git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its commit and asking each review finding graded Critical, Important or Minor.
