@@ -63,9 +63,9 @@ func TestReinstallPrunesDeletedSourceLinks(t *testing.T) {
 	g.assertSymlink("a still-live command link survives the prune", filepath.Join(commands, "demo.md"))
 }
 
-// Claude Code and zcode are the only harnesses. A global run writes nothing under ~/.cursor or
-// ~/.codex, leaves an earlier install's directories there exactly as it found them, and the
-// retired modes are refused with the usage line rather than half-run.
+// Claude Code, zcode and muse are the only harnesses. A global run writes nothing under
+// ~/.cursor or ~/.codex, leaves an earlier install's directories there exactly as it found
+// them, and the retired modes are refused with the usage line rather than half-run.
 func TestGlobalWritesNothingUnderCursorCodex(t *testing.T) {
 	g := newGroup(t)
 	home := g.newHome()
@@ -105,7 +105,7 @@ func TestRetiredModesRefused(t *testing.T) {
 		proj := filepath.Join(g.dir, "retired-"+mode)
 		g.runSetup(fixture, home, mode, proj)
 		g.assertRCNonzero("setup.sh "+mode+" exits non-zero", g.rc)
-		g.assertContains("setup.sh "+mode+" prints the usage line", g.log, "Choose: claude-code | zcode | global")
+		g.assertContains("setup.sh "+mode+" prints the usage line", g.log, "Choose: claude-code | zcode | muse | global")
 		var names []string
 		entries, _ := os.ReadDir(proj)
 		for _, e := range entries {
@@ -161,6 +161,28 @@ func TestZcodeProjectModeProjectPathsOnly(t *testing.T) {
 	g.assertFileExists("AGENTS.md is copied to the project root", filepath.Join(zproj, "AGENTS.md"))
 	g.assertAbsent("no user-level zcode state is created", filepath.Join(home, ".zcode"))
 	g.assertAbsent("no claude state is created", filepath.Join(home, ".claude"))
+}
+
+// The Muse layer is project-only: the harness reads project skills from
+// .agents/skills/ and project rules from AGENTS.md, and has no commands
+// directory, no project agent definitions, no hooks and no global rules file
+// of its own — so the mode installs skills and that file and nothing else,
+// and global installs nothing for it.
+func TestMuseProjectModeProjectPathsOnly(t *testing.T) {
+	g := newGroup(t)
+	home := g.newHome()
+	mproj := filepath.Join(g.dir, "muse-project")
+	g.runSetup(fixture, home, "muse", mproj)
+	g.assertRCZero("the muse project install succeeds", g.rc, g.log)
+	g.assertSymlink("project skills land in .agents/skills", filepath.Join(mproj, ".agents/skills/demo-skill"))
+	g.assertFileExists("AGENTS.md is copied to the project root", filepath.Join(mproj, "AGENTS.md"))
+	g.assertAbsent("no user-level state is created", filepath.Join(home, ".claude"))
+	g.assertAbsent("no zcode state is created", filepath.Join(home, ".zcode"))
+
+	home = g.newHome()
+	g.runSetup(fixture, home, "global", "")
+	g.assertRCZero("global still succeeds", g.rc, g.log)
+	g.assertAbsent("global installs no muse-native skills root", filepath.Join(home, ".agents"))
 }
 
 func TestZcodeCompactWindowEnvBlock(t *testing.T) {

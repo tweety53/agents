@@ -200,7 +200,7 @@ flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harnes
 ```
 
 The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
-Claude Code, `<project>/AGENTS.md` on ZCode); never read either one here. Read
+Claude Code, `<project>/AGENTS.md` on ZCode and Muse); never read either one here. Read
 `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, the
 first two read with `project-get.sh <project> <key>`, `## handoff` with
 `project-get.sh <project> handoff --enum required none` and `## default landing route` with

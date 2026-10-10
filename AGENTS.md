@@ -1,13 +1,16 @@
-# Agent Instructions (ZCode)
+# Agent Instructions (ZCode, Muse)
 
-This file is the active instruction set for ZCode sessions in this project.
+This file is the active instruction set for ZCode and Muse Code sessions in this project.
 It contains mandatory rules and an index of project-specific skills.
 
 ---
 
-## Where a ZCode session gets its rules
+## Where a session gets its rules
 
 ZCode reads `<project>/AGENTS.md` — the project's own, plus `~/.zcode/AGENTS.md` globally.
+Muse reads this file too — it prefers `AGENTS.md` over `CLAUDE.md` — and has no global
+rules file of its own: it loads the always-on rules through the Claude Code layer's
+`~/.claude/CLAUDE.md` instead, which it discovers natively.
 
 `<agents repo>/setup.sh global` writes the always-on rules into a managed block in `~/.zcode/AGENTS.md`,
 delimited by `<!-- flow:begin -->` / `<!-- flow:end -->`, using the same ordering check
@@ -17,8 +20,9 @@ and self-poisoning guard as the Claude Code block, with its `~/.claude/` pointer
 the Kotlin backend standard) are deliberately excluded — a project activates those by
 naming them in `<project>/.flow/project.md`'s `## standards` section.
 
-Project-mode `<agents repo>/setup.sh zcode` installs skills, commands and this file but no rules,
-symmetrically with `claude-code`. Run `<agents repo>/setup.sh global` for the rule layer.
+Project-mode `<agents repo>/setup.sh zcode` installs skills, commands and this file but no rules;
+`<agents repo>/setup.sh muse` installs skills and this file but no rules, symmetrically.
+Run `<agents repo>/setup.sh global` for the rule layer.
 
 ---
 
@@ -27,7 +31,8 @@ symmetrically with `claude-code`. Run `<agents repo>/setup.sh global` for the ru
 ### Lint Fix Priority
 
 The fix-first lint policy is a **global rule**, installed into the managed block in
-`~/.zcode/AGENTS.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
+`~/.zcode/AGENTS.md` (ZCode) and `~/.claude/CLAUDE.md` (Muse, which reads that layer natively)
+from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
 source of truth, so the policy cannot drift between the global copy and this file.
 
 What is project-specific is which commands it means. Full list in `<project>/.flow/project.md`'s `## lint`
@@ -65,7 +70,7 @@ restated here. Stopping the dev stack is an operator action; the commands live i
 
 ## Project Skills (spectre / /flow workflow)
 
-These skills live in `skills/` next to this file (or in `<project>/.zcode/skills/` if installed there).
+These skills live in `skills/` next to this file (or in `<project>/.zcode/skills/` or `<project>/.agents/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
 Every skill below but `flow-plan` and `flow-contracts` requires the `spectre` CLI to be
@@ -96,7 +101,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 ```
 
 **That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
-ZCode loads this file into every session in this project, before `/flow` runs and
+ZCode and Muse load this file into every session in this project, before `/flow` runs and
 before anything loads `skills/flow-contracts/pipeline.md` — being present without that load is the
 whole job of the block, which is why the always-on rule `rules/flow-manual-review.mdc` carries the
 same lines. **What the copy reproduces is the states and the transitions, not the wording**,
@@ -147,7 +152,7 @@ Read file: skills/flow/SKILL.md
 The Superpowers plugin provides general-purpose workflow skills (brainstorming, TDD,
 subagent-driven-development, etc.). These are referenced by the `/flow` skill above.
 
-Install it per `<agents repo>/README.md`'s ZCode section.
+Install it per `<agents repo>/README.md`'s ZCode or Muse section.
 
 After install, general skills auto-trigger from their descriptions. Project-specific `/flow`
 skills are loaded on demand by reading their `SKILL.md` as described above.

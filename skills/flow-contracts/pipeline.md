@@ -114,7 +114,7 @@ per-task re-review, a verify stage's fix loop and a verifier re-dispatch each re
 own clean close. **A round that makes no progress — the same defect identity, on the same
 evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix
 is a fresh dispatch of that loop's own fixer row on `opus` at effort `high` (`subagent_type:
-flow-high`, recorded with that pair, mapped on harness `zcode` per **Harness mapping**,
+flow-high`, recorded with that pair, mapped on harnesses `zcode` and `muse` per **Harness mapping**,
 `skills/flow-contracts/model-policy.md`), its prompt carrying every earlier round's report
 verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies
 it from those same reports by a different approach. Where the evidence itself may be wrong, the
@@ -276,7 +276,7 @@ plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` re
 count comes from no persisted record at all — the board's rows are session state, never written
 to disk. See **Progress visibility** (`skills/flow-contracts/pipeline-rationale.md`) for why a marker would be unsafe.
 
-**On a harness without the mod (ZCode), `/flow` prints the equivalent block instead** — a count
+**On a harness without the mod (ZCode, Muse), `/flow` prints the equivalent block instead** — a count
 line naming how many steps are done, in progress and open, followed by one line per step marked
 done or not done. One step per whichever cited stage is running at the time, at that stage's own
 granularity — brainstorming checklist items and artifacts on the creating/resuming branch, tasks on
@@ -324,7 +324,7 @@ identifier is the **key**, never the prose name, from **Level 1 — the stages o
 **A `stage begin` mark MUST carry `-session-token` and `-harness`.** Generate the token once, near the start of
 the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
 same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
-— `claude-code` or `zcode`.
+— `claude-code`, `zcode` or `muse`.
 
 **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
 filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below.**

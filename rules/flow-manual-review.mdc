@@ -72,4 +72,6 @@ contract. They are deliberately absent from the table above, because that table 
 reads. Nothing enforces this.
 
 These files are installed alongside the skills in every harness — `~/.claude/skills/` and
-`~/.zcode/skills/` — so the paths above resolve wherever this rule is read.
+`~/.zcode/skills/`, and `<project>/.agents/skills/` on a Muse project install — so the paths above
+resolve wherever this rule is read. A Muse session without a project install reads them through the
+Claude Code layer, which Muse discovers natively.

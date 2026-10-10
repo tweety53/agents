@@ -541,7 +541,7 @@ complexity of the code it writes or reviews, and the scalability the change has 
 A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency
 seam, a data-model change or a performance-sensitive path sits at the expensive end; nothing in
 between is a default. Each pair carries a one-line `reason` beside it in the JSON; the `## Decision`
-block prints it only for a group whose pair departs from the implementer's. **On harness `zcode` the chosen pair is recorded as chosen and
+block prints it only for a group whose pair departs from the implementer's. **On harnesses `zcode` and `muse` the chosen pair is recorded as chosen and
 replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
 
 An experimental slot runs on the model/effort of the dispatch it joins; its roster entry's

@@ -390,6 +390,49 @@ func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
 	}
 }
 
+// TestStageBeginDefaultsSessionFromMuseEnv is the Muse half of
+// TestStageBeginDefaultsSessionFromClaudeCodeEnv: when -session is not given and
+// CLAUDE_CODE_SESSION_ID is unset, a begin mark picks up MUSE_SESSION_ID so the
+// row is born with session_id set.
+func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Setenv("MUSE_SESSION_ID", "01a1252a-531b-7a13-8cf8-0f07531311ea")
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-muse-env", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if got["sessionId"] != "01a1252a-531b-7a13-8cf8-0f07531311ea" {
+		t.Errorf("sessionId = %v, want the MUSE_SESSION_ID value", got["sessionId"])
+	}
+	if got["sessionToken"] != "mf-session-token-muse-env" {
+		t.Errorf("sessionToken = %v, want mf-session-token-muse-env", got["sessionToken"])
+	}
+}
+
 // TestStageBeginSessionFlagWinsOverClaudeCodeEnv pins the precedence design.md
 // states: -session, when given, wins over CLAUDE_CODE_SESSION_ID.
 func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
@@ -431,15 +474,16 @@ func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
 	}
 }
 
-// TestStageBeginOmitsSessionWhenEnvUnset pins that when neither -session nor
-// CLAUDE_CODE_SESSION_ID is set, the begin mark omits sessionId entirely
-// rather than sending it as an empty string (a mutation slot finding: a
-// mark born with session_id = "" would skip the harvester's transcript
+// TestStageBeginOmitsSessionWhenEnvUnset pins that when -session is not given and
+// neither CLAUDE_CODE_SESSION_ID nor MUSE_SESSION_ID is set, the begin mark omits
+// sessionId entirely rather than sending it as an empty string (a mutation slot
+// finding: a mark born with session_id = "" would skip the harvester's transcript
 // search the same way a real session id does, but attribute nothing).
 func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Setenv("MUSE_SESSION_ID", "")
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {

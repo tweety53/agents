@@ -194,7 +194,7 @@ each entry of the decision's `panel.dispatches` carries its `slots` and its own 
 `effort`, and every slot in it runs on that pair in pass 1 — and in every fix-round re-run on the
 decision's `panel.rerun_dispatch` pair instead (**Panel re-runs**) — the dispatch's `subagent_type` is
 `flow-<effort>` — the effort comes from the definition, the model from the Agent tool's own
-`model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded. The roster carries no per-slot model. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A compact roster
+`model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded. The roster carries no per-slot model. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own. A compact roster
 (the decision's `panel.compact`) is recorded with `flow record pass -round 0 -note 'roster: compact — <rolled value>'`; a full
 roster records `roster: full`.
 
@@ -641,7 +641,7 @@ its standards files.
 **Resolve `[PRINCIPLES_PATH]` before dispatching the principles slot.** It is the **absolute** path
 of `engineering-principles.md` **beside this file** — `skills/flow/`, always. Under the global install that is
 `~/.claude/skills/flow/engineering-principles.md`; under a
-project-local install it is `<project>/.claude/skills/…` or `<project>/.zcode/skills/…`.
+project-local install it is `<project>/.claude/skills/…`, `<project>/.zcode/skills/…` or `<project>/.agents/skills/…`.
 Resolve it from where this file was actually read — never hardcode a repo-relative
 `skills/…` path: the subagent's working directory is the project worktree, which has no
 `skills/` tree, so a relative path fails to open and the reviewer loses its principle

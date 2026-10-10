@@ -3,11 +3,12 @@
 #
 # Usage: ./setup.sh <harness> [project-dir]
 #
-# Harnesses: claude-code | zcode | global
+# Harnesses: claude-code | zcode | muse | global
 #
 # Examples:
 #   ./setup.sh claude-code                    # current directory
 #   ./setup.sh zcode /path/to/other-project
+#   ./setup.sh muse /path/to/other-project
 #   ./setup.sh global                         # user-level install (~/.claude, ~/.zcode)
 
 set -euo pipefail
@@ -66,7 +67,7 @@ TMP_FILES=()
 cleanup_tmp() { [[ ${#TMP_FILES[@]} -eq 0 ]] || rm -f "${TMP_FILES[@]}"; }
 trap cleanup_tmp EXIT
 
-[[ -n "$HARNESS" ]] || die "Usage: $0 <claude-code|zcode|global> [project-dir]"
+[[ -n "$HARNESS" ]] || die "Usage: $0 <claude-code|zcode|muse|global> [project-dir]"
 [[ -d "$SKILLS_SRC" ]] || die "skills/ directory not found at $SKILLS_SRC"
 
 # Count of items that could not be linked. A skip must never be reportable as a
@@ -254,6 +255,33 @@ install_zcode() {
   echo "   Superpowers is not vendored by this repo for any harness. For ZCode, copy its"
   echo "   skills/ directories into ~/.zcode/skills/ — they are plain skills with no plugin"
   echo "   machinery of their own."
+}
+
+install_muse() {
+  local skipped_before=$SKIPPED
+  info "Setting up for Muse in $PROJECT_DIR"
+  # Muse's project skill scope is .agents/skills/; it has no commands directory
+  # (skills are the invocable surface), no project agent-definition directory
+  # (dispatches use the harness default type), no hooks surface, and no global
+  # rules file — its rules are project scope only, read from AGENTS.md, which
+  # is why this mode installs skills and that file and nothing else.
+  install_skills "$PROJECT_DIR/.agents/skills"
+  if [[ ! -f "$PROJECT_DIR/AGENTS.md" ]]; then
+    cp "$SCRIPT_DIR/templates/AGENTS.md" "$PROJECT_DIR/AGENTS.md"
+    info "Copied templates/AGENTS.md to project root"
+  else
+    info "AGENTS.md already exists — skipping copy (diff manually if needed)"
+  fi
+  echo ""
+  finish_banner "Muse" "$skipped_before"
+  echo "   Skills → .agents/skills/"
+  echo "   Muse discovers the global flow skills and always-on rules through the Claude Code"
+  echo "   layer — run './setup.sh global' for those; there is no Muse-native global layer"
+  echo "   to install, by the harness's own design."
+  echo "   Superpowers is not vendored by this repo for any harness. For Muse, install its"
+  echo "   skills with 'muse skills install <path>' per skill, or copy them into the"
+  echo "   project's .agents/skills/ — they are plain skills with no plugin machinery"
+  echo "   of their own."
 }
 
 # install_rules_claude <target-dir>
@@ -1160,16 +1188,17 @@ case "$HARNESS" in
   global)      install_global ;;
   claude-code) install_claude_code ;;
   zcode)       install_zcode ;;
-  *) die "Unknown harness '$HARNESS'. Choose: claude-code | zcode | global" ;;
+  muse)        install_muse ;;
+  *) die "Unknown harness '$HARNESS'. Choose: claude-code | zcode | muse | global" ;;
 esac
 
 # Opt-in standards are rendered after the mode, so that the CLAUDE.md / AGENTS.md a
-# first-time `claude-code` or `zcode` install copies in is the file the block lands in.
+# first-time `claude-code`, `zcode` or `muse` install copies in is the file the block lands in.
 # `global` installs no project files at all, so it is deliberately not in this list — a
 # user-level install must not start writing into whatever directory it happened to be run
 # from.
 case "$HARNESS" in
-  claude-code|zcode) install_project_standards "$PROJECT_DIR" ;;
+  claude-code|zcode|muse) install_project_standards "$PROJECT_DIR" ;;
 esac
 
 # A run that could not link something is not a successful install, and a caller (CI, a

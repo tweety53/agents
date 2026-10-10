@@ -295,7 +295,9 @@ writes a managed block of always-on rules into `~/.claude/CLAUDE.md` and `~/.zco
 also exports `Z_COMPACT_WINDOW` from `~/.zshrc` (and `~/.bashrc` when present) for the `zcode`
 wrapper. While `~/.claude/settings.json` still enables `gopls-lsp@claude-plugins-official` or
 `kotlin-lsp@claude-plugins-official`, it prints the `claude plugin disable …` command for each — the
-`worktree-lsp` mod replaces them — and never edits that file.
+`worktree-lsp` mod replaces them — and never edits that file. There is no Muse layer here:
+Muse discovers the Claude Code skills and rules above natively, and its own rules are
+project-scope only (see **Muse** below).
 
 - **Edits to existing skills, commands and hooks are live** — they are symlinks. Re-run only when
   a file is added or removed.
@@ -305,18 +307,21 @@ wrapper. While `~/.claude/settings.json` still enables `gopls-lsp@claude-plugins
 - **Hooks are installed, never registered.** The installer prints the `settings.json` (or ZCode
   `~/.zcode/cli/config.json`) snippet and leaves the paste to you.
 - **Whether a subagent reads `CLAUDE.md` depends on the harness and the agent type** — Claude
-  Code passes it to some subagent types and not others, and ZCode's behaviour is unverified — so
+  Code passes it to some subagent types and not others, and ZCode's and Muse's behaviour is
+  unverified — so
   every dispatch still points at `~/.claude/rules/agent-baseline.md`, the one channel that reaches
-  every subagent; `enforce-agent-baseline.py` denies one that does not.
+  every subagent; `enforce-agent-baseline.py` denies one that does not, where the hook is registered.
 
 ### Per project
 
 ```bash
 cd /path/to/project
-/path/to/agents/setup.sh <claude-code|zcode>
+/path/to/agents/setup.sh <claude-code|zcode|muse>
 ```
 
-Links skills and commands into the project's `.claude/` or `.zcode/`. It is
+Links skills and commands into the project's `.claude/` or `.zcode/`, or skills into its
+`.agents/` on `muse` — that harness has no commands directory, no project agent definitions and
+no hooks, so skills and `AGENTS.md` are the whole install. It is
 also the **only** way an opt-in rule reaches a project: it reads the `## standards` section of
 `<project>/.flow/project.md`, keeps bare `*.mdc` names from `rules/` that are not already
 always-on, and renders them into a managed block in both `<project>/CLAUDE.md` and `AGENTS.md`.
@@ -339,3 +344,17 @@ cp -R ~/.claude/plugins/cache/claude-plugins-official/superpowers/<version>/skil
 Everything ZCode uses lives under `~/.zcode/`, with rule pointers rewritten from `~/.claude/`. It
 picks the model per session, not per command: switch to a stronger one before a creating `/flow`
 run.
+
+### Muse
+
+Muse reads project skills from `<project>/.agents/skills/` and project rules from
+`<project>/AGENTS.md` — `./setup.sh muse` installs both — and discovers the global flow
+skills and always-on rules through the Claude Code layer (`~/.claude/skills/`,
+`~/.claude/CLAUDE.md`), so `setup.sh global` covers it with no Muse-native layer. It has
+no commands directory, no hooks and no per-dispatch model: every dispatch inherits the
+session's own model and effort (**Harness mapping**, `skills/flow-contracts/model-policy.md`),
+so switch to a stronger model before a creating `/flow` run, as on ZCode. Without the
+`flow-active-change` hook, a plain problem report becomes a fix run from the session's own
+context alone. Superpowers, like ZCode, has no plugin channel here — install its skills
+with `muse skills install <path>` per skill, or copy them into the project's
+`.agents/skills/`.

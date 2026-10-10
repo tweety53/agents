@@ -32,9 +32,11 @@ type dispatchPair struct {
 // dispatch would be given is `glm-5.3-flash` at effort `high`, recorded as
 // dispatched -- `unknown (agent-defined)` and a pre-mapping choice alike
 // are pairs the mapping cannot produce, and a ledger carrying one records
-// a model the dispatch could not have run. No other harness maps anything,
-// so a harness absent here validates nothing: its dispatch rows record
-// whatever the dispatcher set.
+// a model the dispatch could not have run. Harness `muse` is absent
+// deliberately: its mapping is the session's own pair, which varies per
+// session and no static row can state, so it validates nothing here. A
+// harness absent here validates nothing: its dispatch rows record whatever
+// the dispatcher set.
 var harnessDispatchPairs = map[string]dispatchPair{
 	"zcode": {model: "glm-5.3-flash", effort: "high"},
 }

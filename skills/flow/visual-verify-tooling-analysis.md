@@ -4,8 +4,8 @@ Loaded by **A missed defect — the tooling analysis** (`skills/flow/visual-veri
 run with at least one miss.
 
 `subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model`
-parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harness
-`zcode` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt carries,
+parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harnesses
+`zcode` and `muse` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt carries,
 verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.

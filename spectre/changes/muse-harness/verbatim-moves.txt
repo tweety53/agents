@@ -1,0 +1,34 @@
+# muse-harness: add Muse as a supported harness alongside claude-code and zcode.
+# Every dispatch on muse inherits the session's pair (no per-dispatch model or
+# subagent_type exists); -harness gains `muse`; project installs land in .agents/skills.
+**Groups join into one bundle by the decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `regular`, every gate-fired task of the run waits and goes out in one bundle at the last boundary, on `opus` at the implementer pair's effort, or `default` when none is recorded; on harness `zcode`, **Harness mapping** (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair.
+**On a harness without the mod (ZCode), `/flow` prints the equivalent block instead** — a count line naming how many steps are done, in progress and open, followed by one line per step marked done or not done.
+**On harness `zcode` the chosen pair is recorded as chosen and replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
+Compare the line against the model this dispatch requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or the run's session override.
+If you are working inside a repository, its instruction file is already in your context — `<project>/CLAUDE.md` on Claude Code, `<project>/AGENTS.md` on ZCode; the other is the same instruction set rendered for the other harness, so never read it as well.
+No other harness maps anything.
+The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on Claude Code, `<project>/AGENTS.md` on ZCode); never read either one here.
+These files are installed alongside the skills in every harness — `~/.claude/skills/` and `~/.zcode/skills/` — so the paths above resolve wherever this rule is read.
+Under the global install that is `~/.claude/skills/flow/engineering-principles.md`; under a project-local install it is `<project>/.claude/skills/…` or `<project>/.zcode/skills/…`.
+Where the harness maps every dispatch to one recorded model that no re-dispatch can change — harness `zcode`, the one mapping (**Harness mapping**, `skills/flow-contracts/model-policy.md`) — a first reply whose `Model:` line is missing or names anything else is not a mismatch: no `-outcome fallback`, no `<key>-retry`, no second-mismatch question.
+`-harness` names the harness actually running the mark — `claude-code` or `zcode`.
+`subagent_type: flow-high` (`agents/flow-high.md`, effort `high`), the Agent tool's `model` parameter set to the literal `opus` (**Model and effort**, `skills/flow/brainstorm-planner.md`), mapped on harness `zcode` per **Harness mapping** (`skills/flow-contracts/model-policy.md`).
+`subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the literal `opus`, never a decision pair and never a session override — mapped on harness `zcode` per **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then compares against.
+**Muse**: the session's own model, see **Harness mapping** below.
+**On a harness without the mod (ZCode, Muse), `/flow` prints the equivalent block instead** — a count line naming how many steps are done, in progress and open, followed by one line per step marked done or not done.
+**On harness `muse`, every dispatch inherits the session's own model and effort.
+A Muse session without a project install reads them through the Claude Code layer, which Muse discovers natively.
+A reply's `Model:` line is not compared on this harness either — the recorded mapping satisfies the handshake, per the paragraph below.
+If you are working inside a repository, its instruction file is already in your context — `<project>/CLAUDE.md` on Claude Code, `<project>/AGENTS.md` on ZCode and Muse; the other file is the same instruction set rendered for the other harness, so never read it as well.
+No other harness maps anything to a fixed pair.
+On harness `muse` no `subagent_type` is named — the harness offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
+On harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own (`<parent model>` / `<parent effort>`, `unknown (agent-defined)` where the harness does not state one).
+On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own.
+The harness offers no per-dispatch model parameter and no `flow-<effort>` definitions, so the dispatch names neither — no `model` parameter, no `subagent_type`.
+The next fix is a fresh dispatch of that loop's own fixer row on `opus` at effort `high` (`subagent_type: flow-high`, recorded with that pair, mapped on harnesses `zcode` and `muse` per **Harness mapping**, `skills/flow-contracts/model-policy.md`), its prompt carrying every earlier round's report verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies it from those same reports by a different approach.
+The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on Claude Code, `<project>/AGENTS.md` on ZCode and Muse); never read either one here.
+These files are installed alongside the skills in every harness — `~/.claude/skills/` and `~/.zcode/skills/`, and `<project>/.agents/skills/` on a Muse project install — so the paths above resolve wherever this rule is read.
+Under the global install that is `~/.claude/skills/flow/engineering-principles.md`; under a project-local install it is `<project>/.claude/skills/…`, `<project>/.zcode/skills/…` or `<project>/.agents/skills/…`.
+Where the harness maps every dispatch to one recorded model that no re-dispatch can change — harness `zcode`, the fixed pair above, and harness `muse`, the session's own pair — a first reply whose `Model:` line is missing or names anything else is not a mismatch: no `-outcome fallback`, no `<key>-retry`, no second-mismatch question.
+`-harness` names the harness actually running the mark — `claude-code`, `zcode` or `muse`.
+`VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code, and are replaced at the dispatch: the dispatch runs the session's pair, and its ledger line records `-model <parent model> -effort <parent effort>` — the model the dispatch actually ran on, never the pre-mapping value — or `unknown (agent-defined)` where the session does not state one.

@@ -23,7 +23,8 @@ verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/impl
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
 tooling analysis** below. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
-literal `opus`, never a decision pair and never a session override — mapped on harness `zcode` per
+literal `opus`, never a decision pair and never a session override — mapped on harnesses `zcode`
+and `muse` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
 compares against. Its prompt carries, verbatim:
 

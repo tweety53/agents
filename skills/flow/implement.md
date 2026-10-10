@@ -103,7 +103,8 @@ panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review
 (**The gated per-task reviewer**, section **4** below), and on a `default` panel a panel-bundle
 row does too, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
-so it is structurally fork-free too.
+so it is structurally fork-free too. On harness `muse` no `subagent_type` is named — the harness
+offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
 
 **Inline — the parent implements** below takes this same table minus the implementer and panel-fix
 rows — the parent's only permitted dispatches inline are the panel-bundle, gated per-task-reviewer,
@@ -114,7 +115,8 @@ pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifi
 line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
 this pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
 requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or
-the run's session override. A match proceeds. A **first** mismatch
+the run's session override, mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`)
+on harnesses `zcode` and `muse`. A match proceeds. A **first** mismatch
 closes the open dispatch row `-outcome fallback` and re-dispatches once, on the same requested
 model and `subagent_type`, under `<key>-retry`:
 
@@ -377,7 +379,7 @@ decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brain
 or the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is
 `flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
-omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). A slot whose model the dispatcher cannot
+omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). On harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own (`<parent model>` / `<parent effort>`, `unknown (agent-defined)` where the harness does not state one). A slot whose model the dispatcher cannot
 read records the literal `unknown (agent-defined)` and never a guess.
 
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
@@ -744,7 +746,7 @@ effort from the decision's `groups` entry — a first-pass review, per **Model a
 (`skills/flow/brainstorm-planner.md`). **Groups join into one bundle by the
 decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `regular`, every gate-fired
 task of the run waits and goes out in one bundle at the last boundary, on `opus` at the
-implementer pair's effort, or `default` when none is recorded; on harness `zcode`, **Harness mapping**
+implementer pair's effort, or `default` when none is recorded; on harnesses `zcode` and `muse`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. **Never one reviewer dispatch per gate-fired task, and never one per
 group on `small`/`regular`**. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of

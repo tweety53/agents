@@ -404,7 +404,7 @@ confirmed as a real defect, the fix subagent invokes **superpowers:systematic-de
 writing its fix. **Dispatch it on the decision's `fixer` object** — its own model and effort,
 chosen apart from the implementer's, `subagent_type:
 flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
-`-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). Record
+`-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own. Record
 every pass with `flow record pass -round <round>`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.
