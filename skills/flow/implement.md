@@ -59,7 +59,7 @@ These seven rows are **every** Agent-tool dispatch the parent may make, across s
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
 | implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
-| gated reviewer bundle, one per implementer group the review gate fires in on `big`, one per run on `micro`/`small`/`regular` | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| gated reviewer bundle, one per implementer group the review gate fires in, on `big` alone | `reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot\|slot+slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
@@ -98,16 +98,14 @@ nothing exists below these rows.
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
-**The roster**), and the gated per-task reviewer row on `big`, where it dispatches on its group's
-`model`/`effort` pair. On `micro`, `small` and `regular` that row dispatches `flow-low`
-(**The gated per-task reviewer**, section **4** below), and on a `default` panel a panel-bundle
-row does too, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
+**The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on its group's
+`model`/`effort` pair. On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
 
-**Inline — the parent implements** below takes this same table minus the implementer and panel-fix
-rows — the parent's only permitted dispatches inline are the panel-bundle, gated per-task-reviewer,
+**Inline — the parent implements** below takes this same table minus the implementer, gated reviewer bundle and panel-fix
+rows — the parent's only permitted dispatches inline are the panel-bundle,
 verifier and tooling-analyst rows.
 
 **The handshake.** Every dispatched role in this
@@ -178,9 +176,8 @@ these substitutions:
   where `<shape>` is the value section **4** computes for its gathers, and holds every row it
   prints to PROJECT HAZARDS' terms. `[]` means no hazards. A failed call is reported in one line
   and never blocks, just as the gather's own hazards read never does.
-- **Panel slots, the gated per-task reviewer and the visual-verify verifier dispatch exactly as in
-  sdd mode** — a session reviewing its own diff is not a review. Panel fixes and gated per-task
-  review fixes are applied by the parent instead of a panel-fix subagent or a resumed implementer;
+- **Panel slots and the visual-verify verifier dispatch exactly as in
+  sdd mode** — a session reviewing its own diff is not a review. Panel fixes are applied by the parent instead of a panel-fix subagent;
   the parent still runs every reproducer and the fix-diff walk
   (`skills/flow/review-panel.md`) before recording a finding `fixed`. `flow.verify` runs inline
   for the parent exactly as under `sdd` execution.
@@ -190,9 +187,7 @@ these substitutions:
   `skills/flow-contracts/model-policy.md`) — so cost attribution and the stats views see
   inline work under the same roles a dispatched run would use. An inline fix's `dispatch begin`
   is recorded when the parent starts the fix, before its first edit, and its `dispatch end` once
-  the fix commit lands — never the two together, which records the fix as taking no time. A gated per-task reviewer's own
-  rows carry the dispatched agent's id, never `inline`; the gated fix round it causes records
-  `-role implementer -model <parent model> -effort <parent effort> -agent-id inline` under the task's fix key.
+  the fix commit lands — never the two together, which records the fix as taking no time.
 
 ## 1. Load context and validate the plan
 
@@ -628,7 +623,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    whose sha is new and `check-task-commit-planning-paths.sh <canonical-worktree> <merge-base>`
    over every commit since the merge base recorded in this run's working notes; only when both
    pass, the **review gate** on every
-   task, `flow tasks tick` for every task the gate left `QUIET`, and
+   task, `flow tasks tick` per **The guard's pass ticks an ungated task.** (below), and
    `git -C <worktree> push origin spectre/<name>` per **Branch backup**
    (`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer.
 
@@ -659,8 +654,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    anything below; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
-   the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line; a fired
-   gate defers the tick to the task's reviewer, below.
+   the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line.
 
    **A guard call that times out is inspected before it is retried.** Run
    `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A
@@ -668,8 +662,8 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    make, or a stash entry the parent did not push means the tree is not the one the run
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it.
-3. **One message launches group N+2's implementer and, when any gate fired in group N+1, that
-   group's one reviewer bundle (below). The next Bash call records every launch's `begin`**.
+3. **One message launches group N+2's implementer and, on `big` when any gate fired in group N+1,
+   that group's one reviewer bundle (below). The next Bash call records every launch's `begin`**.
 
 **When the script cannot be located**, apply its task-commit field rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
@@ -692,7 +686,11 @@ could not judge — stops the run**, as the guard's own exit 2 does.
 **The guard's pass ticks an ungated task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
 once `check-task-commit-fields.sh` exits 0 on its commit and the gate does not fire — no reviewer
 runs on that task; the whole-branch panel (`skills/flow/review-panel.md`) is still this branch's
-review. **A gated task's tick defers until its reviewer closes clean.** A step's checkbox tracks
+review. **On `big`, a gated task's tick defers until its reviewer closes clean**; on `micro`,
+`small` and `regular` it ticks at the guard's pass too, with the panel as its review (**The gated
+per-task reviewer**, below). A fired task `close-task.sh` reports as `close-task: task <id> tick
+waits — decision class unreadable` is ticked by the parent with `flow tasks tick` once `flow record
+decisions` reads a class other than `big`. A step's checkbox tracks
 the step and gates nothing. A red task's checkbox is ticked together with its partner's, on their
 one commit's gate verdict.
 
@@ -741,15 +739,14 @@ change already archived runs `check-plan-shape.sh` alone, as section 1 does.
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
 the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
+**The gated reviewer runs on `big` alone.** On `micro`, `small` and `regular` no gated reviewer
+dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
+(the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
 goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at that group's
 effort from the decision's `groups` entry — a first-pass review, per **Model and effort**
-(`skills/flow/brainstorm-planner.md`). **Groups join into one bundle by the
-decision's `class`**: on `big`, one bundle per group; on `micro`, `small` or `regular`, every gate-fired
-task of the run waits and goes out in one bundle at the last boundary, on `opus` at the
-implementer pair's effort, or `default` when none is recorded; on harnesses `zcode` and `muse`, **Harness mapping**
-(`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. **Never one reviewer dispatch per gate-fired task, and never one per
-group on `small`/`regular`**. Each task inside the bundle keeps its own pass: its own
+(`skills/flow/brainstorm-planner.md`). On harnesses `zcode` and `muse`, **Harness mapping**
+(`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report
 file. Record the bundle as one `dispatches` row (`-role reviewer`, `-key task-<n+n+n>-reviewer`
@@ -928,8 +925,8 @@ check-task-reviewer-single-dispatch.sh <worktree> <change> <session-token>
 proceeds to the stage close below. Exit 1 names every violation of the gated-
 per-task-reviewer bundling contract above — a bundle carrying more than one non-retry dispatch, a
 retry with no original, a key outside the canonical shape, two gate-fired tasks of the same
-implementer group split across separate reviewer bundles, or (on `micro`/`small`/`regular`) more than one
-original bundle for the whole run — and is a prompt, resolved on its recommended **Continue** per
+implementer group split across separate reviewer bundles, or (on `micro`/`small`/`regular`) any
+gated reviewer row at all — and is a prompt, resolved on its recommended **Continue** per
 **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`), the same shape
 `skills/flow/review-panel.md`'s own `check-panel-fix-single-dispatch.sh` handback carries:
 

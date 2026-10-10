@@ -35,8 +35,8 @@ var ctPlan = bt(`- [ ] 1. One
 `)
 
 type ctFx struct {
-	wt, peer, base, log string
-	env                 Env
+	wt, peer, base, log, decisions string
+	env                            Env
 }
 
 // ctRepo is a repository on spectre/demo with one base commit and a bare
@@ -56,17 +56,18 @@ func ctRepo(t *testing.T, dir string, origin bool) {
 
 // ctFixture builds the canonical worktree (plan on disk, never committed),
 // a peer repository, and the flow stub: tickRC and recordRC are the exit
-// codes of `flow tasks tick` and `flow record …`.
+// codes of `flow tasks tick` and `flow record …`; `flow record decisions`
+// prints fx.decisions when a test wrote it, nothing otherwise.
 func ctFixture(t *testing.T, origin bool, tickRC, recordRC string) *ctFx {
 	t.Helper()
 	root := t.TempDir()
-	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log"}
+	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", decisions: root + "/decisions.json"}
 	ctRepo(t, fx.wt, origin)
 	ctRepo(t, fx.peer, origin)
 	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", ctPlan)
 	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	bin := root + "/bin"
-	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> "+fx.log+"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
+	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> "+fx.log+"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record decisions\") cat "+fx.decisions+" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
 	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> "+fx.log+";; esac\nexec "+fixtureGit+" \"$@\"\n")
 	fx.env = Env{Getenv: pathEnv(bin), Dir: fx.wt}
 	return fx
@@ -128,6 +129,7 @@ func TestCloseTaskOrder(t *testing.T) {
 		}
 		ctEqual(t, fx.calls(t), []string{
 			"flow record dispatch end -change demo -key task-1-implementer -session-token mf-t -commit " + s2 + " -outcome completed",
+			"flow record decisions -change demo -C " + fx.wt,
 			"flow tasks tick -C " + fx.wt + " demo 1",
 			"git -C " + fx.wt + " push origin spectre/demo",
 		})
@@ -164,7 +166,52 @@ func TestCloseTaskOrder(t *testing.T) {
 		if r.rc != 0 || !strings.Contains(r.stdout, "FIRE: task 1 — undeclared paths: a.txt\n") {
 			t.Fatalf("exit %d, want 0 and a fired gate\n%s", r.rc, r.out)
 		}
-		ctEqual(t, fx.calls(t), []string{"git -C " + fx.wt + " push origin spectre/demo"})
+		ctEqual(t, fx.calls(t), []string{"flow record decisions -change demo -C " + fx.wt, "git -C " + fx.wt + " push origin spectre/demo"})
+	})
+	// KAN-934: no gated reviewer runs below big, so a fired task ticks with
+	// the quiet ones and the panel reviews it.
+	t.Run("class small: a fired task ticks too", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		writeFile(t, fx.decisions, `[{"decision":{"class":"small"}},{"decision":{"class":"big"}}]`)
+		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", rgLines(45))
+		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2)
+		if r.rc != 0 || !strings.Contains(r.stdout, "FIRE: task 2 — 45 changed lines (more than 40)\n") {
+			t.Fatalf("exit %d, want 0 and a fired gate\n%s", r.rc, r.out)
+		}
+		ctEqual(t, fx.calls(t), []string{
+			"flow record decisions -change demo -C " + fx.wt,
+			"flow tasks tick -C " + fx.wt + " demo 1",
+			"flow tasks tick -C " + fx.wt + " demo 2",
+			"git -C " + fx.wt + " push origin spectre/demo",
+		})
+	})
+	t.Run("decisions read fails: a fired task's tick waits and says so", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "1")
+		writeFile(t, fx.decisions, `[{"decision":{"class":"small"}}]`)
+		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", rgLines(45))
+		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2)
+		if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 2 tick waits — decision class unreadable\n") {
+			t.Fatalf("exit %d, want 0 and the waiting-tick line\n%s", r.rc, r.out)
+		}
+		ctEqual(t, fx.calls(t), []string{
+			"flow record decisions -change demo -C " + fx.wt,
+			"flow tasks tick -C " + fx.wt + " demo 1",
+			"git -C " + fx.wt + " push origin spectre/demo",
+		})
+	})
+	t.Run("class big: a fired task's tick waits", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		writeFile(t, fx.decisions, `[{"decision":{"class":"big"}}]`)
+		s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", rgLines(45))
+		if r := fx.run(fx.wt, "demo", fx.base, "2:"+s2); r.rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		}
+		ctEqual(t, fx.calls(t), []string{"flow record decisions -change demo -C " + fx.wt, "git -C " + fx.wt + " push origin spectre/demo"})
 	})
 }
 

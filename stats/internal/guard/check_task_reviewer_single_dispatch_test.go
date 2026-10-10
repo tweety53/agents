@@ -154,16 +154,18 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 			func(string) string {
 				return p + "out-of-shape gated-reviewer key 'task-1-reviewer-oops' -- the canonical shape is task-<n[+n+n...]>-reviewer[-fix-<k>][-retry]\n"
 			}},
-		{"case 6: two original bundles on class small exit 1",
-			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok), decisions: `[{"decision":{"class":"small"}}]`}, 1, "",
+		{"case 6: one gated reviewer bundle on class small exits 1 (KAN-934: the panel reviews gate-fired tasks)",
+			trsdCase{dispatches: d("task-1+2-reviewer", r, tok), decisions: `[{"decision":{"class":"small"}}]`}, 1, "",
 			func(string) string {
-				return p + "class 'small' carries 2 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular\n"
+				return p + "class 'small' carries 1 gated reviewer dispatch(es) (task-1+2-reviewer) -- on micro/small/regular no gated reviewer runs; the whole-branch panel reviews every gate-fired task\n"
 			}},
-		{"two original bundles on class micro exit 1 (KAN-854: micro joins small/regular's one-bundle rule)",
-			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok), decisions: `[{"decision":{"class":"micro"}}]`}, 1, "",
+		{"a gated reviewer bundle and its fix round on class micro exit 1",
+			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-1+3-reviewer-fix-1", r, tok), decisions: `[{"decision":{"class":"micro"}}]`}, 1, "",
 			func(string) string {
-				return p + "class 'micro' carries 2 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular\n"
+				return p + "class 'micro' carries 2 gated reviewer dispatch(es) (task-1+3-reviewer task-1+3-reviewer-fix-1) -- on micro/small/regular no gated reviewer runs; the whole-branch panel reviews every gate-fired task\n"
 			}},
+		{"no gated reviewer rows on class small exits 0",
+			trsdCase{dispatches: d("panel-1-primary+principles", r, tok), decisions: `[{"decision":{"class":"small"}}]`}, 0, trsdOK, nil},
 		{"case 7: two original bundles on class big (default) exits 0",
 			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok)}, 0, trsdOK, nil},
 		{"case 8: original plus its own fix-round bundle exits 0",
@@ -207,11 +209,11 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 				return p + "bundle task-5-reviewer carries 2 -retry dispatch(es) and no original -- a retry is never a bundle's only dispatch\n" +
 					p + "bundle task-4-reviewer carries 3 reviewer dispatches -- at most the original plus the handshake's one -retry\n"
 			}},
-		{"three original bundles on the newest decision's class regular exit 1",
-			trsdCase{dispatches: d("task-1+3-reviewer", r, tok, "task-2+4-reviewer", r, tok, "task-5-reviewer", r, tok),
+		{"a gated reviewer bundle on the newest decision's class regular exits 1",
+			trsdCase{dispatches: d("task-5-reviewer", r, tok),
 				decisions: `[{"decision":{"class":"regular"}},{"decision":{"class":"big"}}]`}, 1, "",
 			func(string) string {
-				return p + "class 'regular' carries 3 original reviewer bundles ( task-1+3-reviewer task-2+4-reviewer task-5-reviewer) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular\n"
+				return p + "class 'regular' carries 1 gated reviewer dispatch(es) (task-5-reviewer) -- on micro/small/regular no gated reviewer runs; the whole-branch panel reviews every gate-fired task\n"
 			}},
 		{"foreign token, other role and a task outside the plan are ignored",
 			trsdCase{dispatches: d("task-1-reviewer", r, tok, "task-3-reviewer", r, "other", "task-3-reviewer", "implementer", tok, "task-9-reviewer", r, tok)}, 0, trsdOK, nil},

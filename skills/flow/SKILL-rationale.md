@@ -626,10 +626,16 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 
 ### implement.md — The gated per-task reviewer
 
-> **Never one reviewer dispatch per gate-fired task, and never one per
-> group on `small`/`regular`** (gymie KAN-527: nine one-task dispatches on the first twelve tasks of a
+> **one dispatch per bundle of gate-fired tasks, never one per task** (gymie KAN-527: nine one-task dispatches on the first twelve tasks of a
 > 21-task change, before the operator stopped the run — the review-dispatch count tracks the
 > change's size, never its task count).
+
+> **The gated reviewer runs on `big` alone** (gymie KAN-934, class small, inline: the gate fired on
+> tasks 2 and 3, their one bundle reviewed them on opus at the last boundary, and the whole-branch
+> panel then reviewed the same 169-line additive diff on opus — two first-pass opus reviews of one
+> diff back to back, both clean. Below `big` the panel follows the last boundary at once, so the
+> gate-fired tasks become its review focus instead; the accepted cost is that per-task gated-review
+> yield is no longer measured on `micro`, `small` and `regular`).
 
 > never
 > implementation WIP (KAN-628, the improvised WIP-commit dance

@@ -20,7 +20,12 @@
 #      [<the task's -undeclared paths>…] for every task; its FIRE:/QUIET:
 #      line is printed. A gate exit 2 → exit 2, nothing ticked or pushed.
 #   6. `flow tasks tick -C <canonical> <name> <id>` for every task the gate
-#      left QUIET.
+#      left QUIET — and, when a gate fired, for every task once `flow record
+#      decisions -change <name> -C <canonical>` names the newest class micro,
+#      small or regular: no gated reviewer runs there, the whole-branch panel
+#      reviews a fired task. On big the tick waits; on an unreadable class it
+#      waits too and prints `close-task: task <id> tick waits — decision
+#      class unreadable` per fired task.
 #   7. `git -C <worktree> push origin spectre/<name>` once per distinct
 #      worktree: the canonical one for a bare sha, each map pair's otherwise.
 #   A failed tick or push → exit 2; every tick and push is still attempted.
@@ -28,8 +33,8 @@
 # The guards run in-process in flow-guard; their own lines are printed as
 # they print them.
 #
-# Exit 0 closed (read each FIRE: line: that task's tick waits for its
-# reviewer); 1 a commit guard refused — re-commit, then re-run without the
+# Exit 0 closed (read each FIRE: line: on big that task's tick waits for its
+# reviewer; elsewhere it is the panel's review focus); 1 a commit guard refused — re-commit, then re-run without the
 # -end-* flags; 2 stop: a guard could not judge, a tick or push failed, or
 # a usage error.
 #

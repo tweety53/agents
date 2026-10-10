@@ -338,7 +338,7 @@ beside the rendered path where a dispatch bundles it — the render still carrie
 role's pass and the INDEPENDENT PASSES paragraph, and a dispatch carrying `mutation` alone renders
 the shared paragraphs and no PASS section, the brief typed beside that rendered path. The Agent call's prompt carries only the baseline
 pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
-reproducer rule, and `read <rendered path> in full first — it is your brief`. The return message carries one findings summary per role under a heading naming the
+reproducer rule, GATE FOCUS where it applies, and `read <rendered path> in full first — it is your brief`. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
 Every bundle prompt also carries this paragraph verbatim:
@@ -347,6 +347,23 @@ Every bundle prompt also carries this paragraph verbatim:
 > earlier pass's report or conclusions. Do not cite, defer to, or skip a defect because an earlier
 > pass raised it — if it sits in this pass's angle, raise it again under this pass. Write each
 > pass's report file before beginning the next pass.
+
+**On `micro`, `small` and `regular`, every pass-1 bundle prompt also carries the GATE FOCUS
+paragraph when the review gate fired on any task of the run** (the gated per-task reviewer of
+**4. Execute (SDD + TDD)**, `skills/flow/implement.md`), one line beneath it per gate-fired task in plan order — its id, its
+task sha or commit map, and its `FIRE:` line verbatim. The parent builds the list just before the
+first-round panel by re-running `check-review-gate.sh <worktree> <task-id> <task-sha|map>
+<canonical-worktree> <name>` once per task of `tasks.md`, each task's sha the commit carrying its
+`Task-Id:` trailer since the working-notes merge base (a commit map where it landed in several
+repositories); a task whose `**Files:**` widening was transcribed no longer fires the
+undeclared-path arm on that re-run, so only its more-than-40-lines arm is rebuilt — accepted, since
+the panel reviews the whole diff anyway:
+
+> **GATE FOCUS:** the per-task review gate fired on the tasks listed below, and no separate
+> reviewer has reviewed them — this panel is their review. Within your own pass, give each listed
+> task's commit range (`git diff <task-sha>^..<task-sha>`) a spec-compliance check against its
+> record in `tasks.md` and a code-quality check, and record what you find as any other finding
+> of this pass.
 
 **No de-duplication across roles**: the same defect raised by two passes is two `F<n>` rows.
 

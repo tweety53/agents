@@ -18,7 +18,8 @@
 # belonged to three implementer groups, before the operator stopped the
 # run and implement.md's "The gated per-task reviewer" paragraph was
 # rewritten to require ONE bundled dispatch per implementer group whose
-# gate fired (or one bundle for the whole run on `micro`/`small`/`regular`). Prose
+# gate fired (on `big`; KAN-934 later dropped the gated reviewer on
+# `micro`/`small`/`regular`). Prose
 # alone already failed once for the panel's own fix step (KAN-482); this
 # guard exists so the same failure mode is caught here too, at the stage's
 # own close, immediately before `flow stage end -command '/flow' -stage
@@ -60,11 +61,11 @@
 # record decisions -change <name> -C <worktree>`, the newest entry's -- the verb lists newest first --
 # `.decision.class`; a failed read, output that is not JSON, or no class
 # is treated as `big`, and JSON that is not an array of decision rows is a
-# cannot-answer, exit 2 -- `big` tolerates more bundles, so reading it as
-# `big` would loosen the check),
-# implement.md requires every gate-fired task of the run to join ONE
-# bundle at the last boundary -- so on those classes, more than one
-# original key is itself a violation, independent of group membership.
+# cannot-answer, exit 2 -- `big` tolerates gated reviewer rows, so reading
+# it as `big` would loosen the check),
+# implement.md dispatches no gated reviewer at all: every gate-fired task is
+# the whole-branch panel's review focus instead (KAN-934) -- so on those
+# classes, any gated-reviewer row of this token is itself a violation.
 #
 # Rows of other roles and rows of other session tokens never count. A task
 # id that never appears in any `reviewer`-role key of this token was never
@@ -94,7 +95,7 @@
 # Exit codes:
 #   0  every gated-per-task reviewer row of this session token is
 #      shape-clean, retry-clean, and bundled per implementer group (and,
-#      on `micro`/`small`/`regular`, bundled into one dispatch for the whole run)
+#      on `micro`/`small`/`regular`, there is no such row)
 #   1  at least one violation -- each offending key or group named on
 #      stderr
 #   2  cannot answer at all -- missing arguments, a non-directory

@@ -95,7 +95,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	var quiet []string
+	var quiet, all, fired []string
 	for _, t := range tasks {
 		var verdict bytes.Buffer
 		rc := Registry["check-review-gate"](append([]string{canonical, t.id, t.commit, canonical, name}, undeclared[t.id]...), env, io.MultiWriter(stdout, &verdict), stderr)
@@ -105,11 +105,26 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if strings.HasPrefix(verdict.String(), "QUIET:") {
 			quiet = append(quiet, t.id)
+		} else {
+			fired = append(fired, t.id)
+		}
+		all = append(all, t.id)
+	}
+	ticks := quiet
+	if len(fired) > 0 {
+		switch ctNewestClass(env, name, canonical) {
+		case "micro", "small", "regular":
+			ticks = all
+		case "big":
+		default:
+			for _, id := range fired {
+				fmt.Fprintf(stdout, "close-task: task %s tick waits — decision class unreadable\n", id)
+			}
 		}
 	}
 
 	rc := 0
-	for _, id := range quiet {
+	for _, id := range ticks {
 		if ctFlow(env, stdout, stderr, "tasks", "tick", "-C", canonical, name, id) != 0 {
 			fmt.Fprintf(stderr, "close-task: STOP — flow tasks tick failed for task %s\n", id)
 			rc = 2
@@ -125,6 +140,24 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	return rc
+}
+
+// ctNewestClass is the change's newest decision class, "" when it cannot be
+// read. Below big no gated reviewer runs and a fired task is the panel's
+// review focus, so it ticks here as a quiet one does (implement.md, **The
+// guard's pass ticks an ungated task.**); on big its tick waits for its
+// reviewer; unreadable, the tick waits and says so, since a big fallback
+// would strand a fired task on a class no reviewer runs on.
+func ctNewestClass(env Env, name, canonical string) string {
+	out, _, rc := pcFlow(env, false, "record", "decisions", "-change", name, "-C", canonical)
+	if rc != 0 {
+		return ""
+	}
+	c, ok := trsdNewestClass(out)
+	if !ok {
+		return ""
+	}
+	return c
 }
 
 // ctFlow runs the flow CLI from env's PATH, its output relayed; non-zero

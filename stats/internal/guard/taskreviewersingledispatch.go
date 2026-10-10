@@ -220,15 +220,12 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		}
 	}
 
-	// On `micro`/`small`/`regular`, implement.md requires every gate-fired task of
-	// the whole run to join ONE bundle at the last boundary -- more than one
-	// original bundle is itself a violation on those classes.
-	if (class == "micro" || class == "small" || class == "regular") && len(origs) > 1 {
-		names := ""
-		for _, b := range origs {
-			names += " " + b.key
-		}
-		violations = append(violations, fmt.Sprintf("class '%s' carries %d original reviewer bundles (%s) -- every gate-fired task of the run joins ONE bundle at the last boundary on micro/small/regular", class, len(origs), names))
+	// On `micro`/`small`/`regular`, implement.md dispatches no gated reviewer
+	// at all -- every gate-fired task is the whole-branch panel's review
+	// focus -- so any gated-reviewer row of this token is itself a violation
+	// on those classes.
+	if (class == "micro" || class == "small" || class == "regular") && len(keys) > 0 {
+		violations = append(violations, fmt.Sprintf("class '%s' carries %d gated reviewer dispatch(es) (%s) -- on micro/small/regular no gated reviewer runs; the whole-branch panel reviews every gate-fired task", class, len(keys), strings.Join(keys, " ")))
 	}
 
 	if len(violations) > 0 {
