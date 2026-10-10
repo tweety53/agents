@@ -262,7 +262,7 @@ is numbered only when every task its prefix names is a task of the running chang
 that plan's size, as `Task <x>/<n>` — a group of tasks 3, 4 and 7 as `Task 3+4+7/<n>` while it runs; every
 other row — an in-run pipeline fix, a panel or fix-round row — is shown unnumbered, and no row is numbered by its
 dispatch order. Once done, a row with a `Task <x>/<n>` prefix shows its highest task alone over its own `<n>` —
-that group as `Task 7/<n>` — whether or not a plan is running.
+that group as `Task 7/<n>` — whether or not a plan is running. <!-- citations-guard:allow -->
 Claude Code's own agent panel, not the board, shows a running agent's latest tool-call
 description, so every dispatch prompt also tells the agent to open each tool call's description
 with its dispatch description's unit and its round (`Task 30/31 review-1 — run the drawer tests`,
