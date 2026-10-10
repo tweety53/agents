@@ -8,8 +8,14 @@ The reasoning behind this file lives in `skills/flow-contracts/jira-integration-
 
 **Jira is a projection of pipeline state, never a source of it and never a gate.** flow reads
 and writes it through the Atlassian MCP tools available to the session (`getJiraIssue`,
-`getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`). There is no Jira CLI on
-this machine — never shell out to one.
+`getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`) or, when those are not
+loaded, through the `twg` CLI (`twg jira workitem get`, `twg jira workitem transition` — without
+`--transition-id` it lists the transitions, with one it fires it — `twg jira workitem update`,
+`twg jira workitem create`). Each MCP call named in this contract means its `twg` counterpart on
+that route. **Atlassian tooling** in every `/flow*` contract means either route; a session has none
+only when no Atlassian MCP tool is loaded **and** `command -v twg` finds nothing. A `twg` call that
+fails — auth, network, a rejected write — is a failed Jira call under **Never blocking** below,
+never a reason to report the tooling absent.
 
 The linked issue key lives in the state file's `jiraIssue` field — see **State file** in `state-file.md`.
 The run that creates a change resolves it; every other command carries it forward verbatim.
