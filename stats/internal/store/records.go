@@ -608,6 +608,7 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 		supersedes  *string
 		regression  *string
 		category    *string
+		taskID      *string
 		created     bool
 	)
 
@@ -630,12 +631,12 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO findings (
 			change_id, dispatch_id, ref, round, slot, severity, location, note, status, deferral_category, reproducer,
-			supersedes, regression_of
+			supersedes, regression_of, task_id
 		)
 		SELECT
 			c.id,
 			(SELECT d.id FROM dispatches d WHERE d.change_id = c.id AND d.seq = $4::int),
-			$3, $5, canonical_slot($6), $7, $8, $9, $10, $12, $11, $13, $14
+			$3, $5, canonical_slot($6), $7, $8, $9, $10, $12, $11, $13, $14, $15
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+findingsRefConstraint+` DO UPDATE SET
@@ -649,18 +650,20 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 			deferral_category = EXCLUDED.deferral_category,
 			reproducer    = EXCLUDED.reproducer,
 			supersedes    = EXCLUDED.supersedes,
-			regression_of = EXCLUDED.regression_of
+			regression_of = EXCLUDED.regression_of,
+			task_id       = EXCLUDED.task_id
 		RETURNING
 			ref,
 			(SELECT d.seq FROM dispatches d WHERE d.id = findings.dispatch_id),
 			round, slot, severity, location, note, status, deferral_category, reproducer, supersedes, regression_of,
-			xmax = 0
+			task_id, xmax = 0
 	`,
 		projectKey, change, in.Ref, in.DispatchSeq, in.Round, in.Slot, in.Severity,
 		nullIfEmpty(in.Location), in.Note, in.Status, nullIfEmpty(in.Reproducer),
 		nullIfEmpty(in.Category), nullIfEmpty(in.Supersedes), nullIfEmpty(in.RegressionOf),
+		nullIfEmpty(in.TaskID),
 	).Scan(&out.Ref, &dispatchSeq, &out.Round, &out.Slot, &out.Severity, &location,
-		&out.Note, &out.Status, &category, &reproducer, &supersedes, &regression, &created)
+		&out.Note, &out.Status, &category, &reproducer, &supersedes, &regression, &taskID, &created)
 	if err != nil {
 		// A lineage link the change cannot honour is the caller's typo,
 		// not the store's failure: the FK refuses a ref the change does
@@ -693,6 +696,7 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 	out.Category = derefOrEmpty(category)
 	out.Supersedes = derefOrEmpty(supersedes)
 	out.RegressionOf = derefOrEmpty(regression)
+	out.TaskID = derefOrEmpty(taskID)
 
 	// The pattern occurrence is its own statement, not a CTE folded into
 	// the finding upsert: each half converges on its own named constraint
@@ -1519,7 +1523,7 @@ func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.D
 func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Finding, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.deferral_category, f.reproducer,
-		       f.supersedes, f.regression_of, fp.pattern
+		       f.supersedes, f.regression_of, fp.pattern, f.task_id
 		FROM findings f
 		LEFT JOIN dispatches d ON d.id = f.dispatch_id
 		LEFT JOIN finding_patterns fp ON fp.change_id = f.change_id AND fp.finding_ref = f.ref
@@ -1542,9 +1546,10 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 			regression  *string
 			category    *string
 			pattern     *string
+			taskID      *string
 		)
 		if err := rows.Scan(&f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
-			&f.Note, &f.Status, &category, &reproducer, &supersedes, &regression, &pattern); err != nil {
+			&f.Note, &f.Status, &category, &reproducer, &supersedes, &regression, &pattern, &taskID); err != nil {
 			return nil, fmt.Errorf("read findings: scan: %w", err)
 		}
 		f.DispatchSeq = dispatchSeq
@@ -1554,6 +1559,7 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 		f.Supersedes = derefOrEmpty(supersedes)
 		f.RegressionOf = derefOrEmpty(regression)
 		f.Pattern = derefOrEmpty(pattern)
+		f.TaskID = derefOrEmpty(taskID)
 		out = append(out, f)
 	}
 	if err := rows.Err(); err != nil {

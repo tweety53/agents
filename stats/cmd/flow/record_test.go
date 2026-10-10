@@ -3501,6 +3501,52 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 	}
 }
 
+// TestRecordFindingTaskRoundTrips pins -task end to end through the CLI:
+// a finding recorded with -task 2 is sent under the wire key the store
+// reads, and `flow record findings` prints it back. The fake daemon keeps
+// the posted finding and serves it on the run-record read.
+func TestRecordFindingTaskRoundTrips(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stored json.RawMessage
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = fmt.Fprintf(w, `{"change":"kan-9","dispatches":[],"findings":[%s]}`, stored)
+			return
+		}
+		stored, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(stored)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-9", "-ref", "F1", "-slot", "principles", "-severity", "major",
+			"-status", "open", "-reproducer", "scripts/x.sh", "-note", "the note", "-task", "2"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("record finding exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	stdout.Reset()
+	code = run(context.Background(),
+		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-9"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("record findings exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	var got []records.Finding
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode stdout: %v\nstdout:\n%s", err, stdout.String())
+	}
+	if len(got) != 1 || got[0].TaskID != "2" {
+		t.Errorf("findings = %+v, want one finding with task 2", got)
+	}
+}
+
 // TestValidateFindingCategory pins -category's two rules, judged before
 // the store is ever contacted: the word must come from the closed
 // vocabulary the deferred-Minor breakdown counts on, and it is legal only

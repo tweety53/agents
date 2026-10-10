@@ -241,7 +241,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              [-category cat] [-reproducer cmd]
                              [-dispatch-seq n] -note text
                              [-supersedes F<n>] [-regression-of F<n>]
-                             [-pattern name]
+                             [-pattern name] [-task id]
        flow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
                              [-category cat]
@@ -1171,6 +1171,7 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	// the store's one rule keeps a write and a later lookup of the same
 	// words landing on the same pattern.
 	pattern := fset.String("pattern", "", "the recurring defect pattern this finding is an instance of (optional)")
+	task := fset.String("task", "", "the task id from the tasks.md heading whose commit the finding falls in -- omitted where it spans tasks or falls in none (optional)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -1220,6 +1221,7 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		Supersedes:   *supersedes,
 		RegressionOf: *regressionOf,
 		Pattern:      *pattern,
+		TaskID:       *task,
 	}
 	if *dispatchSeq > 0 {
 		in.DispatchSeq = dispatchSeq

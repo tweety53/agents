@@ -220,6 +220,11 @@ type TokenReport struct {
 // changes instead of depending on a reviewer recalling it. It is optional:
 // most findings are not instances of any named pattern, and an empty value
 // is that absence, never a guessed label.
+//
+// TaskID is the task id from the tasks.md heading whose commit the
+// finding's location falls in, as Dispatch.TaskID means it -- what keeps
+// panel yield attributable per task. It is empty for a finding spanning
+// tasks or falling in none.
 type Finding struct {
 	Ref          string `json:"ref"`
 	DispatchSeq  *int   `json:"dispatchSeq,omitempty"`
@@ -234,6 +239,7 @@ type Finding struct {
 	Supersedes   string `json:"supersedes,omitempty"`
 	RegressionOf string `json:"regressionOf,omitempty"`
 	Pattern      string `json:"pattern,omitempty"`
+	TaskID       string `json:"taskId,omitempty"`
 }
 
 // FindingPatternSummary is one row of the finding-pattern registry: the

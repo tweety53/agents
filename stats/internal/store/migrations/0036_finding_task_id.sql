@@ -1,0 +1,13 @@
+-- 0036_finding_task_id.sql: the task a panel finding falls in.
+--
+-- Below the `big` class the gated per-task reviewer no longer runs; a
+-- gate-fired task reaches the first-round panel as GATE FOCUS instead. A
+-- finding recorded per branch alone loses which task produced it, so the
+-- per-task review yield -- and whether the gate's FIRE predicted a defect --
+-- stops being measurable. task_id restores that: the task id from the
+-- tasks.md heading, with the meaning dispatches.task_id already gives it.
+--
+-- Nullable, with no default: a finding spanning tasks or falling in none (a
+-- cross-cutting or plan-level finding), and every finding written before
+-- this column existed, reads back NULL -- "no single task", never a guess.
+ALTER TABLE findings ADD COLUMN IF NOT EXISTS task_id TEXT;

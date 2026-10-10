@@ -559,8 +559,10 @@ slot's resolved id substituted:
 
 > **REPORT FILE:** write your full report to
 > `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every
-> finding with its `file:line`, severity, the sentence naming the defect, and its reproducer. Your
-> return message is the findings summary; the file is the record.
+> finding with its `file:line`, severity, the sentence naming the defect, its reproducer, and the
+> id of the task whose `Task-Id:` commit its `file:line` falls in — none where it spans tasks or
+> falls in none. Your return message is the findings summary, each finding naming its task id
+> too; the file is the record.
 
 **Every slot's dispatch prompt also carries the WORKTREES paragraph**, listing the resolved set
 and, when it holds more than one worktree, the qualification rule:
@@ -691,10 +693,11 @@ finding a round raised is recorded in one Bash call, one `flow record finding` p
 ```bash
 flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
   -location <file:line> -status open -reproducer <command | none — reason> \
-  -dispatch-seq <seq> -note <the finding>
+  -dispatch-seq <seq> [-task <id>] -note <the finding>
 ```
 
-`-round` is `0` for the initial panel and `1..n` for a fix round. `-ref` is unique within the change;
+`-round` is `0` for the initial panel and `1..n` for a fix round. `-task` is the task id the
+finding names, omitted where it names none. `-ref` is unique within the change;
 the store's own constraint enforces it. **`-note` carries the reviewer's own sentence naming the
 defect, not a dispatcher restatement.** Where the reviewer's wording runs long, quote the sentence
 that names the defect and leave the rest to the report file. **A fix round updates the finding it

@@ -1,0 +1,8 @@
+# Operator, 2026-10-10: panel findings carry the task id they fall in (flow record finding -task), so per-task review yield stays attributable below big.
+**REPORT FILE:** write your full report to `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every finding with its `file:line`, severity, the sentence naming the defect, and its reproducer.
+-dispatch-seq <seq> -note <the finding>
+**REPORT FILE:** write your full report to `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every finding with its `file:line`, severity, the sentence naming the defect, its reproducer, and the id of the task whose `Task-Id:` commit its `file:line` falls in — none where it spans tasks or falls in none.
+-dispatch-seq <seq> [-task <id>] -note <the finding>
+`-task` is the task id the finding names, omitted where it names none.
+Your return message is the findings summary; the file is the record.
+Your return message is the findings summary, each finding naming its task id too; the file is the record.

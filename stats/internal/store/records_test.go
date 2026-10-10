@@ -2877,6 +2877,56 @@ func TestUpsertFindingRoundTripsCategory(t *testing.T) {
 	}
 }
 
+// TestUpsertFindingRoundTripsTaskID pins migration 0036: a finding's task
+// id lands on the row and reads back through RunRecord, a restate carries
+// the new value, and a finding recorded without one reads back empty.
+func TestUpsertFindingRoundTripsTaskID(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-finding-task-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	tasked := baseFinding("F1", 0)
+	tasked.TaskID = "2"
+	got, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", tasked)
+	if err != nil {
+		t.Fatalf("UpsertFinding F1: %v", err)
+	}
+	if got.TaskID != "2" {
+		t.Errorf("UpsertFinding returned task %q, want 2", got.TaskID)
+	}
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", baseFinding("F2", 0)); err != nil {
+		t.Fatalf("UpsertFinding F2: %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Findings) != 2 {
+		t.Fatalf("RunRecord returned %d findings, want 2", len(rec.Findings))
+	}
+	if rec.Findings[0].TaskID != "2" {
+		t.Errorf("F1 task = %q, want 2", rec.Findings[0].TaskID)
+	}
+	if rec.Findings[1].TaskID != "" {
+		t.Errorf("F2 task = %q, want empty -- a finding recorded without a task names none", rec.Findings[1].TaskID)
+	}
+
+	tasked.TaskID = "3"
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", tasked); err != nil {
+		t.Fatalf("restate F1: %v", err)
+	}
+	rec, err = st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord after restate: %v", err)
+	}
+	if rec.Findings[0].TaskID != "3" {
+		t.Errorf("F1 task after restate = %q, want 3", rec.Findings[0].TaskID)
+	}
+}
+
 // TestSetFindingStatusStoresCategory pins the fix-round write: the category
 // lands beside the deferred status it belongs to, and a later call that
 // carries no category clears the old one rather than leaving a category
