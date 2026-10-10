@@ -26,7 +26,7 @@ func init() { Registry["remove-change-worktrees"] = removeChangeWorktrees }
 
 // rcwRegenDirs are the path components check 4 counts as regeneratable — an
 // image under one included, since it is that directory's, not a loose capture.
-var rcwRegenDirs = []string{"build", ".gradle", ".kotlin", "node_modules", "dist", ".next", "target", "out", "coverage", "test-results"}
+var rcwRegenDirs = []string{"build", ".gradle", ".kotlin", "node_modules", "dist", ".next", "target", "out", "coverage", "test-results", "__pycache__"}
 
 func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 	refuse := func(format string, a ...any) int {
@@ -308,11 +308,12 @@ func rcwRestoreUpstream(git func(...string) *exec.Cmd, repo, branch, remote, mer
 // rcwRegeneratable is check 4's regeneratable bucket, decided by path alone
 // (Worktree cleanup, finish-hand-fallbacks.md). A .png/.jpg capture counts
 // only under a regeneratable location, test-results among them — a capture
-// loose anywhere else matches no rule below; everything the list does not name
-// stays unclassified.
+// loose anywhere else matches no rule below. Python (__pycache__, *.pyc) and
+// TypeScript (*.tsbuildinfo) compiler output is regeneratable wherever it
+// sits; everything the list does not name stays unclassified.
 func rcwRegeneratable(p string) bool {
 	parts := strings.Split(p, "/")
-	if strings.HasPrefix(p, ".superpowers/sdd/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") {
+	if strings.HasPrefix(p, ".superpowers/sdd/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
 		return true
 	}
 	for _, c := range parts {

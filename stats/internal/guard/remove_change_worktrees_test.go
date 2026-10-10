@@ -29,7 +29,7 @@ func rcwNewFx(t *testing.T) *rcwFx {
 	for _, kv := range [][2]string{{"user.name", "Test"}, {"user.email", "test@example.invalid"}, {"commit.gpgsign", "false"}} {
 		fx.g.git(fx.repo, "config", kv[0], kv[1])
 	}
-	fx.g.write(fx.repo+"/.gitignore", "*.log\nbuild/\n.env")
+	fx.g.write(fx.repo+"/.gitignore", "*.log\nbuild/\n.env\n__pycache__/\n*.pyc\n*.tsbuildinfo")
 	fx.g.write(fx.repo+"/base.txt", "base")
 	fx.g.git(fx.repo, "add", "-A")
 	fx.g.git(fx.repo, "commit", "-qm", "base")
@@ -129,6 +129,10 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		fx.g.write(fx.wt+"/run.log", "log")
 		mkdir(t, fx.wt+"/build")
 		fx.g.write(fx.wt+"/build/out.o", "obj")
+		mkdir(t, fx.wt+"/__pycache__")
+		fx.g.write(fx.wt+"/__pycache__/mod.pyc", "pyc")
+		fx.g.write(fx.wt+"/loose.pyc", "pyc")
+		fx.g.write(fx.wt+"/tsconfig.tsbuildinfo", "tsbuildinfo")
 		// An image under a regeneratable directory is that directory's, not a
 		// loose capture (KAN-860 F3).
 		fx.g.write(fx.wt+"/build/icon.png", "png")
@@ -136,8 +140,8 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
 		}
-		if l := rcwLines(out, "REGENERATABLE: "); len(l) != 1 || !strings.HasSuffix(l[0], " — 3") {
-			t.Errorf("REGENERATABLE lines %q, want one counting 3", l)
+		if l := rcwLines(out, "REGENERATABLE: "); len(l) != 1 || !strings.HasSuffix(l[0], " — 6") {
+			t.Errorf("REGENERATABLE lines %q, want one counting 6", l)
 		}
 		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 0 {
 			t.Errorf("UNCLASSIFIED lines %q, want none", l)
@@ -615,4 +619,31 @@ func rcwStartLSP(t *testing.T, dir, wt string) int {
 		_ = wrapper.Wait()
 	})
 	return server
+}
+
+// TestRcwRegeneratable pins check 4's bucket boundary per path (KAN-768):
+// Python and TypeScript compiler output is regeneratable, while ignored but
+// irreplaceable paths stay unclassified.
+func TestRcwRegeneratable(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		path string
+		want bool
+	}{
+		{"__pycache__/mod.pyc", true},
+		{"pkg/__pycache__/mod.pyc", true},
+		{"loose.pyc", true},
+		{"tsconfig.tsbuildinfo", true},
+		{"stats/web/tsconfig.tsbuildinfo", true},
+		{"build/out.o", true},
+		{"run.log", true},
+		{".env", false},
+		{".env/secret", false},
+		{"icon.png", false},
+		{"pycache/notes.txt", false},
+	} {
+		if got := rcwRegeneratable(tc.path); got != tc.want {
+			t.Errorf("rcwRegeneratable(%q) = %v, want %v", tc.path, got, tc.want)
+		}
+	}
 }
