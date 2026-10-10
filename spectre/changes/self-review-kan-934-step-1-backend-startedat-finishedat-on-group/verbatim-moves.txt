@@ -1,0 +1,8 @@
+# Self-review fix: unknown (agent-defined) is scoped to <parent model>; <parent effort> is default where the session states none.
+On harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own (`<parent model>` / `<parent effort>`, per **Harness mapping**, `skills/flow-contracts/model-policy.md`).
+Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and `<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|default`.
+`VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code, and are replaced at the dispatch: the dispatch runs the session's pair, and its ledger line records `-model <parent model> -effort <parent effort>` — the model the dispatch actually ran on, never the pre-mapping value.
+# Fix: the <parent model> / <parent effort> fallback applies on every harness, inline rows included.
+<parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see inline work under the same roles a dispatched run would use.
+**`<parent model>` and `<parent effort>` name the session's own pair, on every harness and in every inline row.
+<parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` (**Harness mapping**, `skills/flow-contracts/model-policy.md`) — so cost attribution and the stats views see inline work under the same roles a dispatched run would use.

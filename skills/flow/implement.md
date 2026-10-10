@@ -186,7 +186,8 @@ these substitutions:
   for the parent exactly as under `sdd` execution.
 - **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
   <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
-  model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see
+  model> -effort <parent effort> -agent-id inline` (**Harness mapping**,
+  `skills/flow-contracts/model-policy.md`) — so cost attribution and the stats views see
   inline work under the same roles a dispatched run would use. An inline fix's `dispatch begin`
   is recorded when the parent starts the fix, before its first edit, and its `dispatch end` once
   the fix commit lands — never the two together, which records the fix as taking no time. A gated per-task reviewer's own
@@ -379,7 +380,7 @@ decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brain
 or the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is
 `flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
-omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). On harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own (`<parent model>` / `<parent effort>`, `unknown (agent-defined)` where the harness does not state one). A slot whose model the dispatcher cannot
+omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). On harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own (`<parent model>` / `<parent effort>`, per **Harness mapping**, `skills/flow-contracts/model-policy.md`). A slot whose model the dispatcher cannot
 read records the literal `unknown (agent-defined)` and never a guess.
 
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,

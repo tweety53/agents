@@ -83,6 +83,10 @@ neither the write into the store nor the render out of it invents a model slug. 
 
 ## Harness mapping
 
+**`<parent model>` and `<parent effort>` name the session's own pair, on every harness and in every
+inline row.** Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and
+`<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|default`.
+
 **On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
 `VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer,
 fixer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code,
@@ -100,7 +104,7 @@ dispatch with no recorded pair, a decision's implementer, fixer, group and panel
 operator override alike resolve and are recorded as they would be on Claude Code, and are replaced
 at the dispatch: the dispatch runs the session's pair, and its ledger line records `-model <parent
 model> -effort <parent effort>` — the model the dispatch actually ran on, never the pre-mapping
-value — or `unknown (agent-defined)` where the session does not state one. A reply's `Model:` line
+value. A reply's `Model:` line
 is not compared on this harness either — the recorded mapping satisfies the handshake, per the
 paragraph below.
 
