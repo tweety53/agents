@@ -7,12 +7,15 @@ import { landedIn } from './landed'
 
 const rows = atom({ plugin: 'flow-task-list', key: 'rows' } as const, [] as Row[])
 const runs = atom({ plugin: 'flow-task-list', key: 'runs' } as const, {} as Record<string, string>)
-const NO_FLOW: Flow = { phase: null, change: null, ticket: null }
+const NO_FLOW: Flow = { phase: null, change: null, ticket: null, stage: null }
 const flow = atom({ plugin: 'flow-task-list', key: 'flow' } as const, NO_FLOW)
 const main = atom({ plugin: 'flow-task-list', key: 'main' } as const, null as Main | null)
 const lines = atom({ plugin: 'flow-task-list', key: 'lines' } as const, {} as Record<string, StatusLine>)
 
+// The rows the band draws under main, at most, and the subagent rows `rows` keeps past its running ones.
 const MAX_ROWS = 5
+// The finished rows the band draws when no pending task is left.
+const DONE_ROWS = 2
 
 const EMOJI: Record<RowState, string> = { 'in progress': '🔄', 'in review': '🔍', done: '✅', blocked: '⛔', pending: '⏳' }
 // The task-list look: its marker and colour per state; `claude` is the theme's accent (orange). A pending
@@ -38,6 +41,13 @@ export const taskNums = (text: string): number[] =>
     return Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i)
   })
 
+// Whether a "Task(s) …/n" prefix numbers tasks of the running plan, `plan` (its task numbers): every number it
+// names is one of them and n is the plan's size.
+const ofPlan = (text: string, plan: number[]): boolean => {
+  const nums = taskNums(text)
+  return nums.length > 0 && nums.every(k => plan.includes(k)) && Number(NUMBERED.exec(text)?.[1]?.split('/')[1]) === plan.length
+}
+
 // "4m12s": a row's elapsed time.
 const clockText = (ms: number): string => {
   const s = Math.floor(ms / 1000)
@@ -47,63 +57,87 @@ const clockText = (ms: number): string => {
 }
 
 // " · 4m12s" for a subagent row: elapsed until `now` while it runs, frozen at its end; empty for the rows no
-// spawn started (main, pending, status lines).
+// spawn started (main, pending).
 const stats = (row: Row, now: number): string => (row.start === undefined ? '' : ` · ${clockText((row.end ?? now) - row.start)}`)
 
-// What a running row is doing, read from its description, and the state word it shows; the kind whose word
-// comes first in the description wins, so "Review … fix" is a review and "Fix review findings" a fix. Each
-// word is matched from its start, so "prefix", "preview" or "latest" names no kind.
-const KINDS: [RegExp, string, string][] = [
-  [/\bfix/i, '🔨', 'fix'],
-  [/\bvisual[- ]verif/i, '👀', 'visual verify'],
-  [/\b(?:review|panel(?![- ]fix))/i, '🔍', 'in review'],
-  [/\b(?:verif|tests?\b|lint)/i, '🧪', 'verify'],
-]
+// A row's words after its "Task(s) …/n" prefix, without the parentheses around them.
+const rest = (desc: string, prefix: string): string => desc.slice(prefix.length).trim().replace(/^\((.*)\)$/, '$1')
 
-// How a row shows: a running row by its kind's word (in review, fix, visual verify, verify), a finished one by its state.
-// `emoji` is what the hint line's tally counts it under; `mark` and `color` are its marker on the band.
-export const look = (row: Row): { emoji: string; word: string; mark: string; color: string | undefined } => {
-  const at = (re: RegExp) => row.desc.search(re)
-  const kind =
-    row.state === 'in progress'
-      ? KINDS.filter(([re]) => at(re) >= 0).sort(([a], [b]) => at(a) - at(b))[0]
-      : undefined
-  return {
-    emoji: kind?.[1] ?? EMOJI[row.state],
-    word: kind?.[2] ?? row.state,
-    mark: MARK[row.state],
-    color: MARK_COLOR[row.state],
+// A review key's round: "review-2", "panel-2-primary", "visual-verify-2"; "panel-fix-1" names none.
+const ROUND = /\b(?:review|panel|visual[- ]verify)-(\d+)/i
+// A review or verify key re-run after a fix: "visual-verify-fix-1", "visual-verify-fix-1-full",
+// "task-3+4-reviewer-fix-1".
+const RE_RUN = /\b(?:reviewer|review|verify)-fix-\d+/i
+const FIX = /\bfix/i
+const REVIEW = /\b(?:review|panel(?![- ]fix)|visual[- ]verif)/i
+// The tally's emoji per kind.
+const KIND_EMOJI = { fix: '🔨', review: '🔍', 're-review': '🔍' } as const
+type Kind = keyof typeof KIND_EMOJI
+
+// What a running subagent does, read from its description. A row with a "Task(s) …/n" prefix is a review or
+// re-review only when its words are exactly that — the gated reviewer's "Tasks 3+4+7/22 (review)" — and an
+// implementer otherwise, whatever its title says. Any other row: "re-review", a review key past round 1 or one
+// re-run after a fix is a re-review, round 1 a review; otherwise the kind whose word comes first, so "Review … fix" is a review and
+// "Fix review findings" a fix; neither, an implementer, shown as in progress. Each word is matched from its
+// start, so "prefix" or "preview" names no kind.
+export const kind = (desc: string): Kind | undefined => {
+  const m = NUMBERED.exec(desc)
+  if (m) {
+    const words = rest(desc, m[0]).toLowerCase()
+    return words === 'review' || words === 're-review' ? words : undefined
   }
+  const round = Number(ROUND.exec(desc)?.[1] ?? 0)
+  if (round > 1 || RE_RUN.test(desc) || /\bre-?review/i.test(desc)) return 're-review'
+  if (round === 1) return 'review'
+  const f = desc.search(FIX)
+  const r = desc.search(REVIEW)
+  return f < 0 && r < 0 ? undefined : r < 0 || (f >= 0 && f < r) ? 'fix' : 'review'
 }
 
-// One board row's pieces; `lead` is "⎿ " on the first row and its width in spaces after, or, for a row
-// `nested` under the main agent's row, "  ⎿ " on each; `run` is padded to `width` so the marker column
-// lines up. A row keeps its "Task(s) …/n" prefix only when every number it names is a task of the running
-// plan, `plan` (its task numbers), and n is that plan's size; a row numbered for another plan keeps its text
-// as written, so "Task 26/26 review" never shrinks to "review"; the main agent's row is "main".
-export const parts = (row: Row, plan: number[], run = '', width = 0, first = true, now = 0, nested = false) => {
-  const text = row.unit ?? row.desc
-  const m = NUMBERED.exec(text)
-  const nums = taskNums(text)
-  const ours = !!m && nums.length > 0 && nums.every(k => plan.includes(k)) && Number(m[1]?.split('/')[1]) === plan.length
-  const rest = (m ? text.slice(m[0].length) : text).replace(/^\((.*)\)$/, '$1')
-  const l = look(row)
-  const [unit, desc] = row.id === 'main' ? ['main', row.desc] : ours ? [m[1] ?? '', rest] : [text, '']
+// How a row shows: a running subagent row by its kind's word (fix, review, re-review), any other by its state.
+// `emoji` is what the hint line's tally counts it under; `mark` and `color` are its marker on the band.
+export const look = (row: Row): { emoji: string; word: string; mark: string; color: string | undefined } => {
+  const k = row.state === 'in progress' ? kind(row.desc) : undefined
+  return { emoji: k ? KIND_EMOJI[k] : EMOJI[row.state], word: k ?? row.state, mark: MARK[row.state], color: MARK_COLOR[row.state] }
+}
+
+// One band row's pieces. The main row, id `main`, leads with "⎿ ", reads "main: <its label>", and is in progress
+// while its turn runs, waiting between turns; every other row is nested under it as "  ⎿ ". `run` is padded to
+// `width` so the marker column lines up. A row naming tasks of the running plan (`ofPlan`) shows its prefix as
+// "Task …/n" — a group "Task 1+2+3/10"; a done row with a "Task(s) …/n" prefix shows only its highest task over
+// its own n, "Task 3/10", plan or none; any other row keeps its text as written, so "Task 26/26 review" never
+// shrinks to "review".
+export const parts = (row: Row, plan: number[], run = '', width = 0, now = 0) => {
+  const isMain = row.id === 'main'
+  const m = NUMBERED.exec(row.desc)
+  const numbered = (prefix: string, head: string) => {
+    const words = rest(row.desc, prefix)
+    return words ? `${head} (${words})` : head
+  }
+  const text = isMain
+    ? row.desc === 'main'
+      ? 'main'
+      : `main: ${row.desc}`
+    : m && row.state === 'done'
+      ? numbered(m[0], `Task ${Math.max(...taskNums(row.desc))}/${m[1]?.split('/')[1]}`)
+      : m && ofPlan(row.desc, plan)
+        ? numbered(m[0], (m[1] ?? '').replace(/^Tasks/, 'Task'))
+        : row.desc
+  const l = look(isMain ? { ...row, desc: '' } : row)
   return {
-    lead: nested ? '  ⎿ ' : first ? '⎿ ' : '  ',
+    lead: isMain ? '⎿ ' : '  ⎿ ',
     run: run.padEnd(width),
     mark: l.mark,
-    unit,
-    desc: desc ? ` (${desc})` : '',
-    state: l.word,
+    text,
+    state: isMain && row.state === 'pending' ? 'waiting' : l.word,
     color: l.color,
     stats: stats(row, now),
   }
 }
 
-export const line = (row: Row, plan: number[], run = '', width = 0, first = true, now = 0, nested = false): string => {
-  const p = parts(row, plan, run, width, first, now, nested)
-  return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.unit}${p.desc} — ${p.state}${p.stats}`
+export const line = (row: Row, plan: number[], run = '', width = 0, now = 0): string => {
+  const p = parts(row, plan, run, width, now)
+  return `${p.lead}${p.run ? `${p.run} ` : ''}${p.mark} ${p.text} — ${p.state}${p.stats}`
 }
 
 // A be-brief status line, "<emoji> <unit> — <state>" (rules/be-brief.mdc), at the start of its line; text after
@@ -120,13 +154,18 @@ export const unitKey = (unit: string): string =>
 export const statusLines = (text: string): [string, RowState][] =>
   [...text.matchAll(STATUS)].map(([, unit = '', state]) => [unit, state as RowState])
 
-// The main loop's open status lines as rows, after the subagent rows; a unit whose task numbers a subagent row
-// already names is left to that row.
-export const lineRows = (ls: Record<string, StatusLine>, subs: Row[]): Row[] => {
+// What the main agent is on, never a subtask: the latest open status-line unit of its own naming a task of the
+// running plan (`plan`), the task it runs inline; else the running /flow `stage`; else its latest open
+// status-line unit of its own; else "main". A unit is its own when no subagent row in `subs` shares its key or
+// names one of its task numbers — a line about a subagent's work is that row's, never the main agent's.
+export const mainLabel = (ls: Record<string, StatusLine>, subs: Row[], stage: string | null, plan: number[]): string => {
+  const keys = new Set(subs.map(r => unitKey(r.desc)))
   const taken = new Set(subs.flatMap(r => taskNums(r.desc)))
-  return Object.entries(ls)
-    .filter(([, l]) => !taskNums(l.unit).some(k => taken.has(k)))
-    .map(([key, l]) => ({ id: `line:${key}`, n: 0, desc: '', unit: l.unit, state: l.state }))
+  const own = Object.entries(ls)
+    .filter(([key, l]) => !keys.has(key) && !taskNums(l.unit).some(k => taken.has(k)))
+    .map(([, l]) => l.unit)
+    .reverse()
+  return own.find(u => ofPlan(u, plan)) ?? stage ?? own[0] ?? 'main'
 }
 
 // A plan's column-0 task line, "- [ ] 23. Title" or "- [x] 23. Title"; its step checkboxes are indented.
@@ -144,11 +183,12 @@ export const taskCount = (tasksMd: string, done: number[] = []): string => {
   return tasks.length ? `${n}/${tasks.length}` : ''
 }
 
-// The plan's tasks neither ticked nor `done` (landed) that no board row names in its "Task(s) …/n" numbering,
-// as pending rows: what the running /flow change has not dispatched yet, derived from its tasks.md on every draw.
+// The plan's tasks neither ticked nor `done` (landed) that no row in `rs` (the running rows and the main row)
+// names in its "Task(s) …/n" numbering, as pending rows: what the running /flow change has not started, derived
+// from its tasks.md on every draw.
 export const pendingRows = (tasksMd: string, rs: Row[], done: number[] = []): Row[] => {
   const tasks = [...tasksMd.matchAll(TASK)]
-  const taken = new Set(rs.flatMap(r => taskNums(r.unit ?? r.desc)))
+  const taken = new Set(rs.flatMap(r => taskNums(r.desc)))
   return tasks
     .filter(([, box, n = '']) => box === ' ' && !done.includes(Number(n)) && !taken.has(Number(n)))
     .map(([, , n = '', title = '']) => ({ id: `pending-${n}`, n: Number(n), desc: `Task ${n}/${tasks.length} (${title})`, state: 'pending' }))
@@ -160,10 +200,10 @@ export const runLabel = (model: string, effort?: string | number): string => {
   return effort === undefined ? family : `${family}-${effort}`
 }
 
-// "🔄 1  🔍 2  ✅ 4": the board's rows counted by their kind's emoji, running kinds first. The space
+// "🔄 1  🔍 2  ✅ 4": the subagent rows counted by their kind's emoji, running kinds first. The space
 // after each emoji keeps the count clear of it where the terminal draws the emoji wider than it measures.
 export const tally = (rs: Row[]): string => {
-  const order = [EMOJI['in progress'], ...KINDS.map(([, e]) => e), EMOJI.done, EMOJI.blocked]
+  const order = [EMOJI['in progress'], KIND_EMOJI.fix, KIND_EMOJI.review, EMOJI.done, EMOJI.blocked]
   return order
     .map(e => [e, rs.filter(r => look(r).emoji === e).length] as const)
     .filter(([, n]) => n > 0)
@@ -182,16 +222,24 @@ export const trim = (rs: Row[]): Row[] => {
   return out
 }
 
-// The band's rows besides main, MAX_ROWS at most: the `shown` rows (subagent rows, then status-line rows) in order,
-// then the `pending` rows; while a pending row would be crowded out, the earliest done row yields its slot to it.
-export const band = (shown: Row[], pending: Row[]): Row[] => {
-  const out = [...shown]
-  while (out.length + pending.length > MAX_ROWS) {
-    const i = out.findIndex(r => r.state === 'done')
-    if (i < 0) break
-    out.splice(i, 1)
-  }
-  return [...out, ...pending].slice(0, MAX_ROWS)
+// The running subagent rows and those that failed since the main turn began at `since`, in spawn order.
+export const live = (subs: Row[], since = 0): Row[] =>
+  subs.filter(r => r.state === 'in progress' || (r.state === 'blocked' && (r.end ?? 0) >= since))
+
+// The band's rows under main, MAX_ROWS at most: the `live` rows, then the `pending` rows below them; with no
+// pending row left, the last DONE_ROWS done rows of `change` — with none marked, those done since `since` — in
+// the order they finished, above them, in room the live rows leave.
+export const band = (subs: Row[], pending: Row[], change: string | null = null, since = 0): Row[] => {
+  const shown = live(subs, since)
+  const room = Math.max(0, Math.min(DONE_ROWS, MAX_ROWS - shown.length))
+  const done =
+    pending.length || !room
+      ? []
+      : subs
+          .filter(r => r.state === 'done' && (change ? r.change === change : (r.end ?? 0) >= since))
+          .sort((a, b) => (a.end ?? 0) - (b.end ?? 0))
+          .slice(-room)
+  return [...done, ...shown, ...pending].slice(0, MAX_ROWS)
 }
 
 // Each flow.* stage key's phase, per skills/flow/stage-keys.md. `flow.decide` is left out: it marks
@@ -241,7 +289,7 @@ export const flowAfter = (command: string, current: Flow): Flow => {
     // A name that is no plain change name (an unset `$N`, a stray word) never replaces the known change.
     const name = changeName(rest.trim().split(/\s+/).at(-1) ?? '', command.slice(0, index))
     const ticket = name ? (TICKET.exec(name)?.[1]?.toUpperCase() ?? f.ticket) : f.ticket
-    f = phase ? { phase, change: name ?? f.change, ticket } : NO_FLOW
+    f = phase ? { phase, change: name ?? f.change, ticket, stage: key } : NO_FLOW
   }
   return f
 }
@@ -273,9 +321,10 @@ export const register: Register = on => {
     const id = result.deny === undefined ? result.agentId : undefined
     if (id) {
       const start = await $.clock.now()
+      const { change } = await read($, flow)
       const kept = await update($, rows, (rs): Row[] => {
         const n = (rs.at(-1)?.n ?? 0) + 1
-        return trim([...rs, { id, n, desc: e.description, state: 'in progress', start }])
+        return trim([...rs, { id, n, desc: e.description, state: 'in progress', start, change }])
       })
       // Drop the labels of rows trimmed away; keep the new agent's, which its first step may have set already.
       await update($, runs, rs => Object.fromEntries(Object.entries(rs).filter(([k]) => kept.some(r => r.id === k))))
@@ -284,16 +333,18 @@ export const register: Register = on => {
   })
 
   // A subagent's first model request names the model and effort it actually runs on. A main-loop step
-  // means the main turn runs: its first starts the main row afresh, and any later step starts it when it is
-  // missing, as when the plugin loads mid-turn or a main-loop step arrives after the main turn.complete.
-  // A main-loop response's status lines update `lines`; a blocked line's row lasts until the next main turn starts.
+  // means the main turn runs: its first marks the main agent busy, and any later step does when it is not,
+  // as when the plugin loads mid-turn or a main-loop step arrives after the main turn.complete.
+  // A main-loop response's status lines update `lines`, the latest written last; a blocked line lasts until
+  // the next main turn starts.
   on('turn.step', async function* ($, e, next) {
     const id = e.agentId
     const label = runLabel(e.model, e.effort)
     if (id && e.index === 0) {
       await update($, runs, rs => ({ ...rs, [id]: label }))
-    } else if (!id && (e.index === 0 || !(await read($, main)))) {
-      await update($, main, () => ({ desc: '', run: label }))
+    } else if (!id && (e.index === 0 || !(await read($, main))?.busy)) {
+      const now = await $.clock.now()
+      await update($, main, m => ({ run: label, busy: true, since: e.index === 0 ? now : (m?.since ?? now) }))
       if (e.index === 0) {
         await update($, lines, ls => Object.fromEntries(Object.entries(ls).filter(([, l]) => l.state !== 'blocked')))
       }
@@ -302,13 +353,13 @@ export const register: Register = on => {
     const said = id ? [] : statusLines(result.answer)
     if (said.length) {
       // ponytail: a unit left in progress, in review or pending whose closing line never comes stays until the
-      // session ends; it shows only while the band does.
+      // session ends; it labels the main row only while no later open line of its own does.
       await update($, lines, ls => {
         const out = { ...ls }
         for (const [unit, state] of said) {
           const key = unitKey(unit)
-          if (state === 'done') delete out[key]
-          else out[key] = { unit, state }
+          delete out[key]
+          if (state !== 'done') out[key] = { unit, state }
         }
         return out
       })
@@ -323,18 +374,13 @@ export const register: Register = on => {
       const end = await $.clock.now()
       await update($, rows, rs => rs.map(r => (r.id === id ? { ...r, state, end } : r)))
     } else {
-      await update($, main, () => null)
+      await update($, main, m => (m ? { ...m, busy: false } : m))
     }
     return next(e)
   })
 
-  // A main-loop command's description is what the main row says it is doing, set before the command
-  // runs so the row names it while it runs. A denied command never ran, so its marks move nothing.
+  // A Bash command's `flow stage` marks move the flow state; a denied command never ran, so its marks move nothing.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    const desc = e.description
-    if (!e.agentId && desc) {
-      await update($, main, m => (m ? { ...m, desc } : m))
-    }
     const result = await next(e)
     if (result.deny === undefined) {
       const current = await read($, flow)
@@ -355,9 +401,6 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const subs = await read($, rows)
     const m = await read($, main)
-    // The main agent's row, first and only while its turn runs; it stays out of rows, so trim and the
-    // task numbering never see it.
-    const rs: Row[] = m ? [{ id: 'main', n: 0, desc: m.desc, state: 'in progress' }, ...subs] : subs
     const ticking = subs.some(r => r.state === 'in progress')
     if (ticking && !tick) {
       tick = $.clock.every(1000, () => $.ui.invalidate('ui.render'))
@@ -366,37 +409,31 @@ export const register: Register = on => {
       tick = undefined
     }
     // Shown while the main turn or a subagent runs; once all have finished the band hides and the hint line's tally stays.
-    if (e.props.hasSurvey || !rs.some(r => r.state === 'in progress')) {
+    if (e.props.hasSurvey || !(m?.busy || ticking)) {
       return next(e)
     }
-    const change = (await read($, flow)).change
-    const plan = await planOf($, change)
-    // The main row plus at most MAX_ROWS others: the board's rows first, then the main loop's open status lines,
-    // then the earliest pending tasks no row above names; past MAX_ROWS running rows, only the earliest show,
-    // while the hint line's tally still counts them all.
-    const said = lineRows(await read($, lines), subs)
-    const all = [
-      ...rs.filter(r => r.id === 'main'),
-      ...band([...subs, ...said], pendingRows(plan, [...subs, ...said], await landedOf($, change))),
-    ]
-    const labels = m ? { ...(await read($, runs)), main: m.run } : await read($, runs)
-    // The marker column lines up among the rows sharing a lead: with the main row shown, the rows nested under
-    // it; the main row's label is not padded.
-    const width = Math.max(0, ...all.filter(r => r.id !== 'main').map(r => labels[r.id]?.length ?? 0))
+    const f = await read($, flow)
+    const plan = await planOf($, f.change)
     const tasks = planTasks(plan)
+    // The main agent's row, always first; it stays out of rows, so trim and the tally never see it.
+    const top: Row = { id: 'main', n: 0, desc: mainLabel(await read($, lines), subs, f.stage, tasks), state: m?.busy ? 'in progress' : 'pending' }
+    const since = m?.since ?? 0
+    const all = [top, ...band(subs, pendingRows(plan, [top, ...live(subs, since)], await landedOf($, f.change)), f.change, since)]
+    const labels: Record<string, string> = { ...(await read($, runs)), main: m?.run ?? '' }
+    // The marker column lines up among the rows nested under main; the main row's label is not padded.
+    const width = Math.max(0, ...all.filter(r => r.id !== 'main').map(r => labels[r.id]?.length ?? 0))
     const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
-        {all.map((r, i) => {
-          // While the main row shows, every row after it is nested one level under it.
-          const p = parts(r, tasks, labels[r.id], r.id === 'main' ? 0 : width, i === 0, now, m !== null && i > 0)
+        {all.map(r => {
+          const p = parts(r, tasks, labels[r.id], r.id === 'main' ? 0 : width, now)
           const isDone = r.state === 'done'
           return (
             <Text key={r.id}>
               <Text dimColor>{`${p.lead}${p.run ? `${p.run} ` : ''}`}</Text>
               <Text color={p.color}>{`${p.mark} `}</Text>
-              <Text bold={r.state === 'in progress'} dimColor={isDone} strikethrough={isDone}>{`${p.unit}${p.desc}`}</Text>
+              <Text bold={r.state === 'in progress'} dimColor={isDone} strikethrough={isDone}>{p.text}</Text>
               <Text dimColor>{' — '}</Text>
               <Text color={r.state === 'blocked' ? p.color : undefined} dimColor={isDone}>{p.state}</Text>
               <Text dimColor>{p.stats}</Text>
