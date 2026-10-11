@@ -169,6 +169,15 @@ TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD
 (`skills/flow/implement.md`) verbatim, the review's READ-ONLY REVIEW too, and **The handshake**
 there applies to each reply:
 
+**Every fix is brainstormed before its first edit, and the brainstorm never stops the run.** The
+fixer weighs at least two approaches per defect, takes the recommended one — the simplest that
+closes the defect — exactly as **Auto-resolution**
+(`skills/flow-contracts/operator-prompts-auto-resolution.md`) resolves a question with a
+recommended option, and never asks the operator. It writes the options weighed and the one taken
+as an `Approach:` paragraph in the fix's commit body and its report. Every review judges that
+approach against the options weighed as well as the code, and a rejected approach is a finding
+the next fix round takes.
+
 1. **Fix** — `pipeline-fix-<k>`, its prompt carrying the defect, its evidence and the counted
    blast radius. It works in its own worktree,
    `git -C <agents repo> worktree add -b fix-<slug> <agents repo>-worktrees/<slug> origin/<agents-base>`

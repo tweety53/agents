@@ -109,7 +109,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it
    (`project-get.sh <agents repo> 'worktree setup'`); on the change's own branch its worktree is
    already set up. It then dispatches key `self-review-<name>-fix` on the fixer pair, its prompt carrying
-   every non-`big` finding with its evidence and counted blast radius. The fixer works in that
+   every non-`big` finding with its evidence and counted blast radius. The fixer brainstorms each
+   finding first and takes the recommended approach without asking, per **Pipeline defects found
+   mid-run** (`skills/flow-contracts/pipeline.md`). It works in that
    worktree and makes one commit per finding with a module scope, adding one test or guard that
    fails without the fix wherever the fix changes behaviour, and running the
    `<agents repo>/.flow/project.md` `## lint` lines its files need. It reports each finding's

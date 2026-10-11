@@ -1,0 +1,6 @@
+# Operator 2026-10-11: brainstorm every in-run and self-review fix, always taking the recommended approach, with no stops.
+The fixer works in that worktree and makes one commit per finding with a module scope, adding one test or guard that fails without the fix wherever the fix changes behaviour, and running the `<agents repo>/.flow/project.md` `## lint` lines its files need.
+**Every fix is brainstormed before its first edit, and the brainstorm never stops the run.
+Every review judges that approach against the options weighed as well as the code, and a rejected approach is a finding the next fix round takes.
+It works in that worktree and makes one commit per finding with a module scope, adding one test or guard that fails without the fix wherever the fix changes behaviour, and running the `<agents repo>/.flow/project.md` `## lint` lines its files need.
+It writes the options weighed and the one taken as an `Approach:` paragraph in the fix's commit body and its report.
