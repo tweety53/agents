@@ -52,7 +52,7 @@ func TestCheckLateFixTrigger(t *testing.T) {
 		findings string                         // "": no findings
 		code     int
 		lines    int    // exit 1: stdout's line count, 0 meaning 1
-		out      string // exit 0: the whole stdout; exit 1: the first line's prefix; exit 2: a stderr substring; exit 3: the one line's prefix
+		out      string // exit 0: the whole stdout; exit 1: the first line's prefix; exit 2: a stderr substring; exit 3 and 4: the one line's prefix
 	}{
 		{label: "every condition holds", code: 0, out: "late-fix reduction: 1 changed lines since $SINCE\n"},
 		{label: "condition 1 — an open finding", findings: open, code: 1, out: "full path: condition 1 — "},
@@ -60,9 +60,13 @@ func TestCheckLateFixTrigger(t *testing.T) {
 			args: func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, "-", "CLEAR:"} }},
 		{label: "condition 2 — the base moved", code: 1, out: "full path: condition 2 — ",
 			args: func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, fx.since, "MOVED:"} }},
-		{label: "append scope — over 40 lines", code: 3, out: "append scope: ",
+		{label: "small append — over 40 lines", code: 4, out: "small append: 41 changed lines since $SINCE\n",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.lines("a.txt", 40) }},
-		{label: "append scope — summed across worktrees", code: 3, out: "append scope: 41 changed lines since $SINCE\n",
+		{label: "small append — at the 250-line cap", code: 4, out: "small append: 250 changed lines since $SINCE\n",
+			setup: func(t *testing.T, fx, _ *lftFx) { fx.lines("a.txt", 249) }},
+		{label: "append scope — over the 250-line cap", code: 3, out: "append scope: 251 changed lines since $SINCE\n",
+			setup: func(t *testing.T, fx, _ *lftFx) { fx.lines("a.txt", 250) }},
+		{label: "small append — summed across worktrees", code: 4, out: "small append: 41 changed lines since $SINCE\n",
 			setup: func(t *testing.T, fx, peer *lftFx) { fx.lines("a.txt", 20); peer.lines("a.txt", 19) },
 			args: func(fx, peer *lftFx) []string {
 				return []string{"demo", fx.tasks, fx.wt, fx.since, "CLEAR:", peer.wt, peer.since, "CLEAR:"}
@@ -74,12 +78,12 @@ func TestCheckLateFixTrigger(t *testing.T) {
 				}
 				fx.g.git(fx.wt, "add", "blob.bin")
 			}},
-		{label: "append scope — a new task line", code: 3, out: "append scope: ",
+		{label: "small append — a new task line", code: 4, out: "small append: ",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.appendLine(fx.tasks, "- [ ] 2. a second task") }},
 		{label: "full path — a new task line with a moved base", code: 1, lines: 2, out: "full path: condition 2 — ",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.appendLine(fx.tasks, "- [ ] 2. a second task") },
 			args:  func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, fx.since, "MOVED:"} }},
-		{label: "append scope — an untracked tasks.md", code: 3, out: "append scope: ",
+		{label: "small append — an untracked tasks.md", code: 4, out: "small append: ",
 			setup: func(t *testing.T, fx, _ *lftFx) { fx.g.write(fx.wt+"/untracked-tasks.md", "- [ ] 1. x") },
 			args: func(fx, _ *lftFx) []string {
 				return []string{"demo", fx.wt + "/untracked-tasks.md", fx.wt, fx.since, "CLEAR:"}
@@ -135,7 +139,7 @@ func TestCheckLateFixTrigger(t *testing.T) {
 				t.Errorf("stdout %q, want %q", r.stdout, want)
 			case tc.code == 1 && (strings.Count(r.stdout, "\n") != lines || !strings.HasPrefix(r.stdout, want)):
 				t.Errorf("stdout %q, want exactly %d line(s), the first starting %q", r.stdout, lines, want)
-			case tc.code == 3 && (strings.Count(r.stdout, "\n") != 1 || !strings.HasPrefix(r.stdout, want)):
+			case (tc.code == 3 || tc.code == 4) && (strings.Count(r.stdout, "\n") != 1 || !strings.HasPrefix(r.stdout, want)):
 				t.Errorf("stdout %q, want exactly one line starting %q", r.stdout, want)
 			case tc.code == 2 && (r.stdout != "" || !strings.Contains(r.err, want)):
 				t.Errorf("stdout %q stderr %q, want nothing on stdout and stderr naming %q", r.stdout, r.err, want)

@@ -30,6 +30,7 @@
 #   exit 0  late-fix reduction: <n> changed lines since <canonical since-close-sha>
 #   exit 1  full path: condition <k> — <reason>   (one line per failed condition)
 #   exit 3  append scope: <n> changed lines since <canonical since-close sha>
+#   exit 4  small append: <n> changed lines since <canonical since-close sha>
 #
 # Exit codes:
 #   0  reduce
@@ -37,9 +38,18 @@
 #   2  cannot answer — usage, a worktree/sha pair that fails
 #      panel_validate_worktree, a git failure, or check-panel-findings-closed
 #      exit 2 (its stderr passed through); the caller reads it as full path
-#   3  append scope — conditions 1, 2 and 5 hold and only 3 and/or 4 failed:
+#   3  append scope — conditions 1, 2 and 5 hold and only 3 and/or 4 failed,
+#      and the delta is over 250 counted lines or has a binary entry:
 #      pass 1 runs the decided roster on the since-close delta
 #      (skills/flow/review-panel-late-fix.md, The append scope)
+#   4  small append — as 3, but no binary entry and the summed delta is at
+#      most 250 changed lines: pass 1 runs `primary` alone on the since-close
+#      delta (skills/flow/review-panel-late-fix.md, The small append)
+#
+# WHY 250. Appended fix work is reviewed at the size it lands at, and most
+# lands well under this: KAN-930 ran the full roster on 185- and 222-line
+# appends that came back clean or Minor-only, while its 350- and 537-line
+# late-task appends — real new scope — stay on the decided roster.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

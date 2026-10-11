@@ -32,7 +32,8 @@ either reduced roster, and is dispatched again when a later round reclassifies t
 reduction — a docs-only guard reclassification, or a late-fix round whose Critical or Important
 voids the reduction for the rest of the run. **The append scope**
 (`skills/flow/review-panel-late-fix.md`) narrows the read scope alone, so the experimental slot
-rides an append-scope pass 1 as it rides a full one.
+rides an append-scope pass 1 as it rides a full one; **The small append** in that file does not
+dispatch it.
 
 It runs at most once per change, whether or not the roster is `compact` — the experimental roll and
 the compact roll are independent per **Decide** (`skills/flow/brainstorm-planner.md`) — and never at all on a `default`

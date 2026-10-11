@@ -15,7 +15,8 @@ import (
 // reduction (skills/flow/review-panel-late-fix.md), exit 0 reduce (the
 // `late-fix reduction:` line), 1 full path (one line per failed condition),
 // 2 cannot answer, 3 append scope (the `append scope:` line -- only
-// conditions 3 and/or 4 failed).
+// conditions 3 and/or 4 failed), 4 small append (the `small append:` line --
+// the same, on a countable delta of at most lftSmallAppendLines).
 func init() {
 	Registry["check-late-fix-trigger"] = checkLateFixTrigger
 }
@@ -24,6 +25,8 @@ const (
 	lftUsage = "usage: check-late-fix-trigger.sh <change> <tasks.md> <worktree> <since-close-sha|-> <base-verdict> [<worktree> <since-close-sha|-> <base-verdict>...]\n"
 	// lftMaxLines is condition 3's cap on the delta's changed lines.
 	lftMaxLines = 40
+	// lftSmallAppendLines caps the small append's countable delta.
+	lftSmallAppendLines = 250
 )
 
 var (
@@ -171,6 +174,10 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 		fail(5, "the delta touches the panel's own machinery: %s", strings.Join(machinery, ", "))
 	}
 
+	if len(failed) > 0 && appendScope && len(binary) == 0 && lines <= lftSmallAppendLines {
+		fmt.Fprintf(stdout, "small append: %d changed lines since %s\n", lines, triples[1])
+		return 4
+	}
 	if len(failed) > 0 && appendScope {
 		fmt.Fprintf(stdout, "append scope: %d changed lines since %s\n", lines, triples[1])
 		return 3

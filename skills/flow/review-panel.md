@@ -167,7 +167,7 @@ substituted in the dispatch prompt with the value named here:
 
 | Placeholder | Template | The parent substitutes |
 |---|---|---|
-| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction or the append scope; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction, the append scope or the small append; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
 | `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory the dispatch context bundle reads (`<changeRoot>`, or a satellite's canonical change directory) |
 | `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
 | `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
@@ -256,7 +256,8 @@ Record the verdict, the printed path where there is one, and the roster actually
 `flow record pass -round <round>` on **every** run, beside the diff-size
 fields above.
 
-**This and the late-fix reduction below are the only automatic reductions, and they only ever
+**This, the late-fix reduction below and the small append (`skills/flow/review-panel-late-fix.md`)
+are the only automatic reductions, and they only ever
 remove; the append scope (`skills/flow/review-panel-late-fix.md`) narrows the read scope and
 removes no slot.** No slot is ever added by diff
 size, touched area, or any other automatic trigger: beyond the reduced or resolved roster,
@@ -284,7 +285,7 @@ grouped into those dispatches.
 **Load `skills/flow/review-panel-late-fix.md` only when** this run is a fix run — a `/flow`
 invocation whose argument is fix instructions, or a plain message at `IN_PROGRESS`
 (`skills/flow/SKILL.md`) — before this stage opens its first round; it carries
-the reduction's conditions, its single dispatch, what voids it, and the append scope.
+the reduction's conditions, its single dispatch, what voids it, the append scope and the small append.
 
 ### Bundled dispatch
 
@@ -775,7 +776,7 @@ stale by definition, not only one a fix round produced. A fix against which a sl
 finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
 fix changed. **The parent's inline Minor commit leaves every slot's result current** — a source change
 after a slot's last read that does not make that result stale. A delta the late-fix
-reduction read has its own carve-out (`skills/flow/review-panel-late-fix.md`).
+reduction read, or the small append, has its own carve-out (`skills/flow/review-panel-late-fix.md`).
 
 **Every fix subagent's dispatch prompt also carries the VERBATIM REPORT — THE FACT paragraph**:
 
