@@ -874,6 +874,16 @@ the wait, and a ceiling (**No forking, and a wall-clock ceiling on every slot**,
 `skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate
 none of it.
 
+**A wait never outlives its child.** A child can end without writing its file — its turn closes on
+a final message, or it dies — so the wait is only ever the bounded loop above: never an unbounded
+`until test -s …` loop, foreground or backgrounded, which waits forever on a file that will never
+come. Before each re-issue, check whether the harness has reported the child ended (its completion
+notification, or its final message handed back). Once it has, nothing is re-issued: one more `test
+-s` settles it, and an absent file takes that dispatch's no-report path at once — a panel slot's
+file written by the parent carrying `no verbatim report captured — <reason>` (**Recording
+findings, and the record's format**, `skills/flow/review-panel.md`), its findings read from the child's final message; any
+other child closed `-outcome aborted`, as **The return** above closes a dispatch whose agent dies.
+
 **Read discipline.** These five rules are the run's own size
 control,
 stated once here and cited — never restated — from `skills/flow/review-panel.md` and
