@@ -1,0 +1,2 @@
+# Self-review fix (kan-929 flow-cost): ten launched dispatches recorded -agent-id inline, so the daemon never stamped them and their tokens read not measured.
+A row whose work runs in a launched agent never carries `-agent-id inline` — the daemon stamps no id onto such a row, so its tokens are never measured.

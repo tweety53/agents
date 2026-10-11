@@ -362,7 +362,9 @@ launches go out together in one message, in the next Bash call, one call for all
 next implementer overlaps the guard**, below) — carrying no
 `-agent-id`: the daemon captures the agent's identifier. `-agent-id` is accepted on both
 calls as recorded intent the daemon never overwrites, for a caller that knows the id — the
-literal `inline` on a row the parent's own inline work records included. `-key` is this dispatch's own literal label,
+literal `inline` on a row the parent's own inline work records included. A row whose work runs
+in a launched agent never carries `-agent-id inline` — the daemon stamps no id onto such a row, so
+its tokens are never measured. `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
 `-role` is one of `implementer`, `reviewer`, `panel-fix`, `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`) or `planner` (the tooling analyst, `skills/flow/visual-verify.md`); `-task` is the task's
