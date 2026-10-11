@@ -660,12 +660,13 @@ func buildDispatchRows(raw []runDispatchRowRaw, stages []runStageRow, changeID i
 		tokens, signals := side(d.Metrics, "sidechain")
 		addBucket(&row.Totals, tokens)
 		addSignals(&row.Totals, signals)
-		// The row's tokens.main bucket, where the harvester never writes,
-		// is exactly the figure a caller reported for a same-session
-		// dispatch at close (KAN-525) -- the ledger sums both buckets, and
-		// so does this: a totals pass reading the sidechain bucket alone
-		// would report that dispatch at zero. Signals stay sidechain-only:
-		// a reported dispatch carries no harvest signals at all.
+		// The row's tokens.main bucket is a same-session (inline)
+		// dispatch's own spend -- harvested from the parent's main thread,
+		// or reported by the caller at close (KAN-525). The ledger sums
+		// both buckets, and so does this: a totals pass reading the
+		// sidechain bucket alone would report that dispatch at zero.
+		// Signals stay sidechain-only: an inline dispatch carries no
+		// harvest signals at all.
 		reported, _ := side(d.Metrics, "main")
 		addBucket(&row.Totals, reported)
 		row.ServedModels, row.ServedEfforts = signals.ServedModels, signals.ServedEfforts

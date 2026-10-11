@@ -1071,6 +1071,57 @@ func TestDispatchWindowsForSessionResolvesTheBoundToken(t *testing.T) {
 	}
 }
 
+// TestDispatchWindowsForSessionCapsAnOpenDispatchAtItsStageRunEnd pins the
+// cap: a dispatch row whose end never came is closed, for attribution, at
+// its owning stage run's end, so it cannot take every later record of the
+// session. Without the COALESCE the window comes back open.
+func TestDispatchWindowsForSessionCapsAnOpenDispatchAtItsStageRunEnd(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-window-cap-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const (
+		sessionID = "session-dispatch-window-cap"
+		token     = "mf-kan930-window-cap"
+	)
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	begin.SessionID = ptr(sessionID)
+	begin.SessionToken = ptr(token)
+	run, err := st.BeginStage(ctx, begin)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	open := baseDispatch("implementer", "opus")
+	open.SessionToken = token
+	open.AgentID = "inline"
+	open.StageRunID = &run.ID
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", open); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	windows, err := st.DispatchWindowsForSession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("DispatchWindowsForSession: %v", err)
+	}
+	if len(windows) != 1 || windows[0].EndedAt != nil {
+		t.Fatalf("windows while the stage run is open = %+v, want one open window", windows)
+	}
+
+	stageEnd := time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC)
+	if err := st.EndStage(ctx, run.ID, stageEnd, "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	windows, err = st.DispatchWindowsForSession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("DispatchWindowsForSession: %v", err)
+	}
+	if len(windows) != 1 || windows[0].EndedAt == nil || !windows[0].EndedAt.Equal(stageEnd) {
+		t.Fatalf("windows after the stage run ended = %+v, want the open dispatch capped at %v", windows, stageEnd)
+	}
+}
+
 // TestDispatchWindowsForSessionOrdersTiesByID pins the secondary sort key
 // the windows query carries. Several dispatches recorded at the same
 // instant is not an edge case here -- a review panel dispatches its slots

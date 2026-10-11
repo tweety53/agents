@@ -661,7 +661,9 @@ func bestWindow(windows []Window, ts time.Time) (Window, bool) {
 // at once against one session -- which no interval can do by itself. It is
 // empty whenever the harness exposed none, which is an ordinary case
 // rather than a legacy or degraded one, and an empty value means
-// "not reported" and never matches another empty one.
+// "not reported" and never matches another empty one. InlineAgentID marks
+// a row the parent's own inline work records: no agent was launched, so it
+// takes the parent's main-thread usage and never a sidechain record.
 type DispatchWindow struct {
 	DispatchID int64
 	AgentID    string
@@ -676,6 +678,11 @@ type DispatchWindow struct {
 func (w DispatchWindow) contains(ts time.Time) bool {
 	return intervalContains(w.StartedAt, w.EndedAt, ts)
 }
+
+// InlineAgentID is the agent id `flow record dispatch begin -agent-id
+// inline` records for work the parent session did itself
+// (skills/flow/implement.md, "Inline -- the parent implements").
+const InlineAgentID = "inline"
 
 // DispatchWindowSource answers which dispatch windows exist for a
 // session -- a sibling of WindowSource rather than a kind discriminator on
@@ -746,16 +753,21 @@ type DispatchDelta struct {
 // dispatch id first -- the tie-break its remainder rule uses must not
 // depend on the order DispatchWindowsForSession happened to answer in.
 //
-// Only sidechain records are attributed here, and they land in the
-// Sidechain bucket alone. A dispatching session's own main-thread tokens
-// are the *parent's* cost -- the stage run it is running under already
-// records them, through the first pass -- so charging them to a subagent
-// that merely happened to be open at the time would both overstate the
-// dispatch and describe the parent's own thinking as someone else's. A
-// returned TokenDelta therefore always carries a zero Main bucket; it is
-// kept in the shape rather than dropped so that dispatches.metrics has
-// the same "tokens" shape stage_runs.metrics does, which is what lets
-// every reader of that bag (pricing included) read either one unchanged.
+// Sidechain records are attributed to launched dispatches only, and land
+// in the Sidechain bucket. A dispatching session's own main-thread tokens
+// are the *parent's* cost, so charging them to a subagent that merely
+// happened to be open at the time would both overstate the dispatch and
+// describe the parent's own thinking as someone else's. The one dispatch
+// the parent's tokens ARE is an inline row (InlineAgentID): work the
+// parent did itself, which no transcript but the parent's own records. A
+// main-thread record is therefore attributed to the inline window
+// containing it, by interval alone, and lands in the Main bucket --
+// without this, every inline implementer and verifier row read "not
+// measured" forever, since a parent has no figure of its own to pass to
+// `dispatch end -tokens` (kan-930's ledger: 33 of 79 rows). A
+// main-thread record inside no inline window stays the stage run's alone,
+// as before. Main-thread signals are not credited: the watcher writes a
+// dispatch's signals as its sidechain side.
 //
 // It returns TokenDelta rather than Delta because a delta is all this
 // pass computes: Delta's per-model and per-agentId breakdowns are the
@@ -779,19 +791,35 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 		return deltas, nil
 	}
 
-	// Filtering to sidechain records here, rather than inside the
-	// attribution loop below, is what keeps a session whose batch carries
-	// no sidechain records at all from costing a
-	// DispatchWindowsForSession query.
-	bySession, sessionOrder := groupBySession(records, func(r Record) bool { return r.IsSidechain })
+	// A main-thread signal is never credited, so a batch of nothing else
+	// skips the windows query entirely, as a main-thread-only batch did
+	// before inline rows took the parent's usage.
+	bySession, sessionOrder := groupBySession(records, func(r Record) bool {
+		return r.IsSidechain || r.Signal == nil
+	})
 
 	for _, sessionID := range sessionOrder {
 		windows, err := a.windows.DispatchWindowsForSession(ctx, sessionID)
 		if err != nil {
 			return nil, fmt.Errorf("harvest: dispatch windows for session %s: %w", sessionID, err)
 		}
+		var inline, launched []DispatchWindow
+		for _, w := range windows {
+			if w.AgentID == InlineAgentID {
+				inline = append(inline, w)
+			} else {
+				launched = append(launched, w)
+			}
+		}
 		for _, r := range bySession[sessionID] {
-			w, ok, candidates := bestDispatchWindow(windows, r.AgentID, r.Timestamp)
+			// A sidechain record is a launched agent's spend; a main-thread
+			// record is the parent's own, and only an inline row -- work the
+			// parent did itself -- is a dispatch the parent's tokens can be.
+			candidatesFor, agentID := launched, r.AgentID
+			if !r.IsSidechain {
+				candidatesFor, agentID = inline, ""
+			}
+			w, ok, candidates := bestDispatchWindow(candidatesFor, agentID, r.Timestamp)
 			if !ok {
 				if len(candidates) > 1 {
 					apportionRecord(r, candidates, deltas)
@@ -799,9 +827,11 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 				continue
 			}
 			d := deltas[w.DispatchID]
-			d.Signals.add(r)
+			if r.IsSidechain {
+				d.Signals.add(r)
+			}
 			if r.Signal == nil {
-				d.Tokens.Sidechain.add(r.Usage)
+				d.Tokens.bucket(r.IsSidechain).add(r.Usage)
 			}
 			deltas[w.DispatchID] = d
 		}
@@ -812,8 +842,9 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 
 // apportionRecord splits one ambiguous record's usage across its candidate
 // dispatch windows pro-rata by duration (KAN-414), crediting each share
-// to that candidate's Sidechain bucket and counting one apportioned
-// record-share per candidate.
+// to that candidate's bucket for the record's side (Sidechain, or Main
+// for a main-thread record shared by inline windows) and counting one
+// apportioned record-share per candidate.
 //
 // Weights are the windows' own spans: a closed window weighs its full
 // [StartedAt, EndedAt), an open one -- no stored end to weigh -- accrues
@@ -857,7 +888,7 @@ func apportionRecord(r Record, candidates []DispatchWindow, deltas map[int64]Dis
 	shards := splitUsage(r.Usage, weights)
 	for i, w := range sorted {
 		d := deltas[w.DispatchID]
-		d.Tokens.Sidechain.add(shards[i])
+		d.Tokens.bucket(r.IsSidechain).add(shards[i])
 		d.ApportionedRecords++
 		deltas[w.DispatchID] = d
 	}

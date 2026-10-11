@@ -153,16 +153,16 @@ type Dispatch struct {
 // no longer reports (KAN-510).
 //
 // Tokens is the usage the caller reports for a same-session (inline)
-// dispatch (KAN-525). The harvester attributes only sidechain
-// (subagent-transcript) usage to dispatch rows, so a dispatch that ran in
-// the parent session itself -- an inline implementer, an inline verifier --
-// would otherwise carry an empty bag and read "not measured" forever; the
-// caller, which did the work, is the only witness of what it spent, and
-// reports it here at close. It is optional and nil means "not reported":
-// the ordinary case for every subagent dispatch, whose figures still come
-// from the transcript. The figures are the caller's own statement, never
-// verified here -- the store stamps the row so a rendered ledger can say
-// whose statement a token line is.
+// dispatch (KAN-525). Where the harness writes a transcript, the harvester
+// credits an `inline` row with the parent's main-thread usage inside its
+// window; on a harness that writes none, a dispatch that ran in the parent
+// session itself -- an inline implementer, an inline verifier -- would
+// otherwise carry an empty bag and read "not measured" forever, and the
+// caller, which did the work, reports it here at close. It is optional
+// and nil means "not reported": the ordinary case for every subagent
+// dispatch, whose figures still come from the transcript. The figures are
+// the caller's own statement, never verified here -- the store stamps the
+// row so a rendered ledger can say whose statement a token line is.
 type DispatchEnd struct {
 	SessionToken string       `json:"sessionToken"`
 	Key          string       `json:"key"`

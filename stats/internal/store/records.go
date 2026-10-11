@@ -1189,6 +1189,14 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 // would be in -- and inventing one would be exactly the guess this
 // requirement exists to remove.
 //
+// A dispatch never closed is capped at its own stage run's end. Nothing
+// sweeps a dispatch row, and the query crosses every stage run bound to
+// the session, so an open window -- a begin whose end never came -- would
+// otherwise contain every later record of the session, and an open inline
+// window would take all of the parent's main-thread spend from then on. A
+// dispatch cannot outlive the stage run it ran under; while that run is
+// itself open, the window stays open with it.
+//
 // Returning harvest.DispatchWindow directly, rather than a store-local
 // type an adapter converts, is what lets *store.Store satisfy
 // harvest.DispatchWindowSource with no adapter at all (cmd/flowd asserts
@@ -1197,8 +1205,9 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 // internal/store -- the property TestHarvestNeedsNoDatabase rests on.
 func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string) ([]harvest.DispatchWindow, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT d.id, d.started_at, d.ended_at, d.agent_id
+		SELECT d.id, d.started_at, COALESCE(d.ended_at, sr.ended_at), d.agent_id
 		FROM dispatches d
+		LEFT JOIN stage_runs sr ON sr.id = d.stage_run_id
 		WHERE d.session_token IN (
 			SELECT sr.session_token FROM stage_runs sr
 			WHERE sr.session_id = $1 AND sr.session_token IS NOT NULL

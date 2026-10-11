@@ -1012,9 +1012,11 @@ var _ harvest.WindowSource = (*fakeWindowSource)(nil)
 type fakeDispatchWindowSource struct {
 	bySession map[string][]harvest.DispatchWindow
 	err       error
+	calls     int
 }
 
 func (f *fakeDispatchWindowSource) DispatchWindowsForSession(_ context.Context, sessionID string) ([]harvest.DispatchWindow, error) {
+	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -1126,6 +1128,119 @@ func TestDispatchWindowIgnoresMainThreadUsage(t *testing.T) {
 	}
 	if d.Tokens.Sidechain.Input != 8 {
 		t.Errorf("tokens.sidechain.input = %v, want 8 -- the sidechain records must still be attributed", d.Tokens.Sidechain.Input)
+	}
+}
+
+// TestInlineDispatchTakesMainThreadUsage pins the one dispatch the
+// parent's own tokens are: a row begun `-agent-id inline` records work the
+// parent did itself, so the main-thread records inside its window land in
+// its Main bucket -- and a sidechain record never does, even inside the
+// same window. Before this, every inline row read "not measured" forever
+// (kan-930: 33 of 79 ledger rows).
+func TestInlineDispatchTakesMainThreadUsage(t *testing.T) {
+	var records []harvest.Record
+	records = append(records, mainThreadRecords(t)...)
+	records = append(records, sidechainRecords(t)...)
+
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {{
+			DispatchID: 9,
+			AgentID:    harvest.InlineAgentID,
+			StartedAt:  mustParse(t, "2025-12-01T00:00:00Z"),
+			EndedAt:    ptrTime(mustParse(t, "2027-01-01T00:00:00Z")),
+		}},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+
+	d := deltas[9]
+	if d.Tokens.Main.Input != 109 || d.Tokens.Main.Output != 1650 ||
+		d.Tokens.Main.CacheRead != 109042 || d.Tokens.Main.CacheCreation != 33063 {
+		t.Errorf("tokens.main = %+v, want the whole main-thread fixture (input 109, output 1650, cache read 109042, cache creation 33063)", d.Tokens.Main)
+	}
+	if d.Tokens.Sidechain != (harvest.Bucket{}) {
+		t.Errorf("tokens.sidechain = %+v, want zero: an inline row launched no agent", d.Tokens.Sidechain)
+	}
+}
+
+// TestInlineAndLaunchedWindowsOpenAtOnce pins the partition with both
+// kinds of window open over the same instant: the parent's main-thread
+// spend goes to the inline row, the launched agent's sidechain spend to
+// the launched row, and neither takes a share of the other's.
+func TestInlineAndLaunchedWindowsOpenAtOnce(t *testing.T) {
+	start := mustParse(t, "2026-01-01T00:00:00Z")
+	at := start.Add(time.Minute)
+	records := []harvest.Record{
+		{SessionID: mainSessionID, Timestamp: at, Usage: harvest.Usage{InputTokens: 10}},
+		{SessionID: mainSessionID, Timestamp: at, IsSidechain: true, AgentID: "agent-x", Usage: harvest.Usage{InputTokens: 20}},
+	}
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {
+			{DispatchID: 1, AgentID: harvest.InlineAgentID, StartedAt: start},
+			{DispatchID: 2, AgentID: "agent-x", StartedAt: start},
+		},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[1].Tokens; got.Main.Input != 10 || got.Sidechain != (harvest.Bucket{}) {
+		t.Errorf("inline row tokens = %+v, want main input 10 and no sidechain", got)
+	}
+	if got := deltas[2].Tokens; got.Sidechain.Input != 20 || got.Main != (harvest.Bucket{}) {
+		t.Errorf("launched row tokens = %+v, want sidechain input 20 and no main", got)
+	}
+}
+
+// TestOverlappingInlineWindowsApportionMainThreadUsage pins that a
+// main-thread record inside two inline windows is split between them
+// pro-rata (equal spans, equal shares), never credited to both in full.
+func TestOverlappingInlineWindowsApportionMainThreadUsage(t *testing.T) {
+	start := mustParse(t, "2026-01-01T00:00:00Z")
+	end := start.Add(10 * time.Minute)
+	records := []harvest.Record{
+		{SessionID: mainSessionID, Timestamp: start.Add(5 * time.Minute), Usage: harvest.Usage{InputTokens: 100}},
+	}
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {
+			{DispatchID: 3, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: &end},
+			{DispatchID: 4, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: &end},
+		},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	for _, id := range []int64{3, 4} {
+		d := deltas[id]
+		if d.Tokens.Main.Input != 50 || d.Tokens.Sidechain != (harvest.Bucket{}) || d.ApportionedRecords != 1 {
+			t.Errorf("dispatch %d = %+v, want main input 50, no sidechain, one apportioned record", id, d)
+		}
+	}
+}
+
+// TestMainThreadSignalsAreNotCredited pins that a main-thread signal never
+// reaches an inline row -- a dispatch's signals are its sidechain side --
+// and that a batch of nothing else skips the windows query entirely.
+func TestMainThreadSignalsAreNotCredited(t *testing.T) {
+	start := mustParse(t, "2026-01-01T00:00:00Z")
+	records := []harvest.Record{
+		{SessionID: mainSessionID, Timestamp: start.Add(time.Minute), Signal: &harvest.Signal{Kind: harvest.SignalToolUse, ToolName: "Bash"}},
+	}
+	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {{DispatchID: 5, AgentID: harvest.InlineAgentID, StartedAt: start}},
+	}}
+	deltas, err := harvest.NewDispatchAttributor(windows).Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if len(deltas) != 0 {
+		t.Errorf("deltas = %+v, want none: a main-thread signal is never credited", deltas)
+	}
+	if windows.calls != 0 {
+		t.Errorf("windows queried %d times, want 0 for a batch of main-thread signals only", windows.calls)
 	}
 }
 

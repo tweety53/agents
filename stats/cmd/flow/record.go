@@ -499,10 +499,14 @@ same defect (KAN-510): "three environment-caused blocks in one run" must
 be a query the store answers, not a footnote in one run's ledger.
 
 -tokens reports the token usage of a same-session (inline) dispatch
-(KAN-525). The harvester attributes only sidechain (subagent-transcript)
-usage to a dispatch row, so a dispatch that ran in the parent session
-itself -- an inline implementer, an inline verifier -- would otherwise read
-"not measured" in the ledger and in every cost summary forever. The value
+(KAN-525). Where the harness writes a transcript, the harvester credits a
+row begun with -agent-id inline with the parent's main-thread usage inside
+its window; on a harness that writes none, a dispatch that ran in the
+parent session itself -- an inline implementer, an inline verifier -- would
+otherwise read "not measured" in the ledger and in every cost summary
+forever. A report replaces whatever the harvester had credited by the
+time the end lands; main-thread records inside the window that are
+harvested after it still add on top. The value
 is comma-separated key=value pairs; the keys are input, output, cache-read
 and cache-creation, and every value is a non-negative integer. Any
 malformed value is a caller mistake refused before the store is ever
@@ -1038,7 +1042,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	outcome := fset.String("outcome", "", "how the dispatch ended, e.g. completed")
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
-	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- the harvester cannot see a dispatch that ran in the parent session, so the caller reports it)")
+	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
