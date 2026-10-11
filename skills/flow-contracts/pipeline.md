@@ -147,12 +147,13 @@ behaviour. For this section alone `<agents repo>` is a repository the run was gi
 **Predict the class before any work, from the blast radius — never from a plan.** Count the
 files the fix must touch: the defective file, its test, and every file `grep -rl` finds in
 `<agents repo>` citing the name or section the fix changes. The fix is `big` — `plan-class.sh`'s
-own `files>=60` threshold — when that count is 60 or more, when it reaches outside
-`<agents repo>`, or when it needs a design choice only the operator can make. A `big` fix is
+own `files>=60` threshold — when that count is 60 or more, or when it reaches outside
+`<agents repo>`. A `big` fix is
 deferred to self-review, and so is one found `big` once under way, which stops there.
 
-**A choice the fix leaves open is never a design choice only the operator can make** — where a
-check lives, a name, a scope, whether a guard or a test is added: the fix takes the simplest option
+**A design choice never makes a fix `big`** — the fix's brainstorm below weighs the options and
+takes the recommended one without asking, whether the choice is where a check lives, a name, a
+scope, a mechanism or whether a guard or a test is added: the fix takes the simplest option
 and notes it, the smallest change that closes the defect, no refactor and no detour.
 
 `<agents-base>` is `<agents repo>`'s own default branch —
