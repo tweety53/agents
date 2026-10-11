@@ -41,6 +41,13 @@
 #                   COMPLETE and writes FINISHED, not STOP: leftover.
 #   pr_url          the pull-request route with no usable gh: a --pr-url for
 #                   b does not answer for a.
+#   nested_link     b's branch adds only spectre/changes/archive/y/link.md,
+#                   which commit-split's `*/link.md` stages: prepare asks a
+#                   subject for b, and commit with it lands that link.md in
+#                   b's implementation commit.
+#   planning_only   b's branch changes nothing outside spectre/changes/:
+#                   prepare's NEXT asks no subject for b, and commit with no
+#                   subject for b commits b's planning delta alone.
 #
 # Bash 3.2 is the floor: indexed arrays only.
 set -u
@@ -309,6 +316,42 @@ check "pr_url: b's answer does not answer for a" \
 sut land "$WORK/a" demo --route "pull request" --pr-url "$WORK/b-worktrees/demo=https://forge.invalid/b/1" --pr-url "$WORK/a-worktrees/demo=https://forge.invalid/a/1"
 check "pr_url: with both answered, IN_PROGRESS records the canonical PR" \
   '[ "$RC" -eq 0 ] && [ "$(jq -r "[.state, .prUrl] | join(\" \")" "$WORK/state.json")" = "IN_PROGRESS https://forge.invalid/a/1" ]'
+
+# --- nested_link ---
+# commit-split adds `<spec>/changes/*/link.md` only when a change directory
+# holds a link.md, so b's base carries one; the branch adds a nested one.
+fixture
+mkdir -p "$WORK/b/spectre/changes/old"
+printf 'old\n' >"$WORK/b/spectre/changes/old/link.md"
+g -C "$WORK/b" add -A && g -C "$WORK/b" commit -qm "base: old link" && g -C "$WORK/b" push -q origin main
+g -C "$WORK/b-worktrees/demo" reset -q --hard main
+mkdir -p "$WORK/b-worktrees/demo/spectre/changes/archive/y"
+printf 'y\n' >"$WORK/b-worktrees/demo/spectre/changes/archive/y/link.md"
+g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): nested link"
+sut prepare "$WORK/a" demo
+check "nested_link: prepare's NEXT asks a subject for b" \
+  '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo=<impl subject>"'
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b-worktrees/demo=feat(b): nest a link"
+check "nested_link: commit exits 0" '[ "$RC" -eq 0 ]'
+check "nested_link: b's implementation commit carries the nested link.md" \
+  '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/y/link.md)" = "feat(b): nest a link" ]'
+
+# --- planning_only ---
+fixture
+g -C "$WORK/b-worktrees/demo" reset -q --hard main
+mkdir -p "$WORK/b-worktrees/demo/spectre/changes/demo"
+printf 'notes\n' >"$WORK/b-worktrees/demo/spectre/changes/demo/notes.md"
+g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(spectre): notes"
+sut prepare "$WORK/a" demo
+check "planning_only: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "planning_only: prepare's NEXT asks a subject for a and none for b" \
+  'printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/a-worktrees/demo=<impl subject>" && ! printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo="'
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
+check "planning_only: commit with no subject for b exits 0" '[ "$RC" -eq 0 ]'
+check "planning_only: b's branch is the base plus its one planning commit" \
+  '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): plan demo|" ]'
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

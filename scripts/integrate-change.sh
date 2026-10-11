@@ -33,12 +33,16 @@
 #          default landing route (project-get.sh). Prints per worktree its
 #          reshape base and the diffstat the commit subjects are written from,
 #          and records the reshape base in the worktree's own git dir
-#          (`git rev-parse --git-path flow-reshape-base`) for `commit`.
+#          (`git rev-parse --git-path flow-reshape-base`) for `commit`. Its
+#          NEXT names `<worktree>=<impl subject>` only for a worktree whose
+#          implementation commit would not be empty (impl_paths below).
 #          --accept-foreign / --accept-outstanding: the operator chose
 #          Continue at that stop; its lines still print.
 # commit   reshape-branch per worktree, the ledger render, commit-split per
 #          worktree in `## Merge order`, `spectre archive` (each
-#          <name>-fix-N too) unless already archived, commit-archive. An
+#          <name>-fix-N too) unless already archived, commit-archive. A
+#          worktree with nothing on the implementation side takes no
+#          subject; any other without one stops `commit-split`. An
 #          archived change without new work skips straight to commit-archive.
 #          The parent appends its narrative before calling this.
 # land     the route (merge and push: the --force-with-lease branch push then
@@ -264,6 +268,19 @@ arch_base() {
 
 reshape_file() { git -C "$1" rev-parse --path-format=absolute --git-path flow-reshape-base; }
 
+# impl_paths <worktree> <rev>: the paths commit-split would put in the
+# implementation commit after a reshape to <rev> — every change against
+# <rev>, committed, staged, unstaged or untracked, outside <spec>/changes/
+# but for a link.md in any directory below it — commit-split's `*/link.md`
+# pathspec, whose `*` crosses `/`. Empty means that commit is skipped,
+# so the worktree needs no implementation subject.
+impl_paths() {
+  local p
+  p="$(spec_root_leaf "$1")/changes/"
+  { git -C "$1" diff --no-renames --name-only "$2"; git -C "$1" ls-files --others --exclude-standard; } |
+    awk -v p="$p" 'index($0, p) != 1 || substr($0, length(p) + 1) ~ /\/link\.md$/'
+}
+
 write_state() { # <state> [<keep-json-array>] [<pr-url>]
   local j
   j="$(flow state get -C "$MAIN" "$NAME")" || return 1
@@ -403,7 +420,7 @@ cmd_prepare() {
   [ -n "$PR_URL_STATE" ] && say "PR: $PR_URL_STATE"
   mark_end flow.landing-question completed
 
-  local reshape=0 f
+  local reshape=0 f subjects=""
   for i in "${!WT[@]}"; do
     f="$(reshape_file "${WT[i]}")"; rm -f "$f"
     [ "$ARCHIVED" -eq 1 ] && [ "$newwork" -eq 0 ] && continue
@@ -413,12 +430,13 @@ cmd_prepare() {
     say "WORKTREE: ${WT[i]} — base ${BASES[i]}, reshape base $rb"
     git -C "${WT[i]}" diff --no-renames --stat "$rb" -- . ":(exclude)$SPEC/changes/"
     git -C "${WT[i]}" ls-files --others --exclude-standard -- . ":(exclude)$SPEC/changes/" | sed 's/^/ new: /'
+    [ -n "$(impl_paths "${WT[i]}" "$rb")" ] && subjects="$subjects ${WT[i]}=<impl subject>"
   done
   local narrative="$live/narrative.md"
   [ "$ARCHIVED" -eq 1 ] && narrative="$arch/narrative.md"
   if [ "$reshape" -eq 1 ]; then
     mark_begin flow.preserve-sessions
-    say "NEXT: append this run's narrative to $narrative, then integrate-change.sh commit $MAIN $NAME <worktree>=<impl subject>... $FLAGS"
+    say "NEXT: append this run's narrative to $narrative, then integrate-change.sh commit $MAIN $NAME$subjects $FLAGS"
   else
     say "NEXT: integrate-change.sh commit $MAIN $NAME $FLAGS"
   fi
@@ -444,11 +462,12 @@ cmd_commit() {
     mark_begin flow.commit-two
     for o in "${ORDER[@]}"; do
       f="$(reshape_file "${WT[o]}")"; [ -f "$f" ] || continue
-      subj=""
+      rb="$(cat "$f")"; subj=""
       for s in ${SUBJECTS[@]+"${SUBJECTS[@]}"}; do
         case "${s%%=*}" in "${WT[o]}"|"${REPO[o]}") subj="${s#*=}" ;; esac
       done
-      [ -n "$subj" ] || stop commit-split "no implementation subject given for ${WT[o]} — pass ${WT[o]}=<subject>"
+      [ -n "$subj" ] || [ -z "$(impl_paths "${WT[o]}" "$rb")" ] ||
+        stop commit-split "no implementation subject given for ${WT[o]} — pass ${WT[o]}=<subject>"
       run "$SCRIPT_DIR/commit-split.sh" "${WT[o]}" "$NAME" "$subj" "$PLAN_MSG"
       [ "$RC" -eq 0 ] || stop commit-split "commit-split exit $RC in ${WT[o]} — report its lines"
       rm -f "$f"
