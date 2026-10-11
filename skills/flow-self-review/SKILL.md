@@ -146,11 +146,15 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    the branch when written. **The landing push** — the one that puts the commits on `<base>` on
    merge and push, the branch push on a pull-request or manual route — each attempt of it, a
    retry after a rejected push included, is preceded, in whichever invocation makes it, by a
-   re-read of each fix commit's sha by its subject
-   (`git log --format='%h %s' HEAD --not origin/<base>`); a changed sha rewrites its `fixed:` line,
-   committed as a new report commit through `land-self-review-report.sh` with the report's own
-   subject. Once that push succeeds, the same invocation records one `fixed` row per `fixed:` line
-   whose sha `flow self-review findings -change <name>` does not list yet, its angle and note
+   re-read of each fix commit's sha by its subject, in the worktree of the change's set whose
+   repository holds that sha (`git log --format='%h %s' HEAD --not origin/<base>`); a changed sha
+   rewrites its `fixed:` line, committed in the canonical worktree, which carries the report, as a
+   new report commit through `land-self-review-report.sh` with the report's own subject; a rewrite
+   after the canonical worktree's landing push pushes its branch again, and on merge and push its
+   `<base>`, a fast-forward. Once that
+   push succeeds, the same invocation records one `fixed` row per `fixed:` line whose sha a
+   repository of the change's worktree set carries and `flow self-review findings -change <name>`
+   does not list yet, its angle and note
    read off the line and no blast radius; a rewrite after rows were already recorded adds a
    second row under the new sha. A pull request merged by squash or rebase rewrites the
    shas once more, and no commit then carries a fix's own sha. On `self-review-<name>`,

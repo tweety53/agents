@@ -503,12 +503,15 @@ cmd_commit() {
   fi
 }
 
-# reread_fix_shas <i>: before a landing push from the canonical worktree,
-# rewrite each report `fixed:` sha a rebase changed, found by its subject,
-# and commit the rewrite (step 5 of /flow-self-review).
+# reread_fix_shas <i>: before a landing push from worktree <i>, rewrite
+# each report `fixed:` sha this worktree's repository holds and a rebase
+# changed, found by its subject on this worktree's branch, and commit the
+# rewrite in the canonical worktree, which carries the report (step 5 of
+# /flow-self-review). A rewrite after the canonical push pushes the
+# canonical branch again, and on merge and push its base, a fast-forward.
 reread_fix_shas() {
-  local w="${WT[$1]}" rpt="docs/self-review/$NAME-self-review.md" old subj new changed=0 tmp
-  [ "$w" = "$CANON" ] && [ -f "$w/$rpt" ] || return 0
+  local w="${WT[$1]}" rpt="$CANON/docs/self-review/$NAME-self-review.md" old subj new changed=0 tmp
+  [ -f "$rpt" ] || return 0
   while IFS= read -r old; do
     git -C "$w" merge-base --is-ancestor "$old" HEAD 2>/dev/null && continue
     subj="$(git -C "$w" log -1 --format=%s "$old" 2>/dev/null)" || continue
@@ -516,24 +519,33 @@ reread_fix_shas() {
       awk -v s="$subj" '{h=$1; sub(/^[^ ]+ /,""); if ($0==s) {print h; exit}}')"
     [ -n "$new" ] || continue
     tmp="$(mktemp)"
-    sed "s/fixed: $old/fixed: $new/g" "$w/$rpt" >"$tmp" && mv "$tmp" "$w/$rpt"
+    sed "s/fixed: $old/fixed: $new/g" "$rpt" >"$tmp" && mv "$tmp" "$rpt"
     say "FIXED-SHA: $old -> $new"; changed=1
-  done < <(grep -o 'fixed: [0-9a-f]\{7,40\}' "$w/$rpt" | awk '{print $2}' | sort -u)
+  done < <(grep -o 'fixed: [0-9a-f]\{7,40\}' "$rpt" | awk '{print $2}' | sort -u)
   [ "$changed" -eq 0 ] && return 0
-  run "$SCRIPT_DIR/land-self-review-report.sh" "$w" "spectre/$NAME" "docs(self-review): $NAME self-review report" "$rpt"
+  run "$SCRIPT_DIR/land-self-review-report.sh" "$CANON" "spectre/$NAME" "docs(self-review): $NAME self-review report" "${rpt#"$CANON"/}"
   [ "$RC" -eq 0 ] || stop self-review-report "land-self-review-report exit $RC — report its line"
+  [ "$w" = "$CANON" ] || [ -z "$CANON_BASE" ] && return 0
+  push_branch "$CANON"
+  [ "$ROUTE" = "merge and push" ] || return 0
+  git -C "$CANON" push origin "HEAD:$CANON_BASE" || stop push "the re-push of $CANON to origin/$CANON_BASE was rejected — report git's output; the change stays IN_PROGRESS"
 }
 
 # record_fixed_rows: once the landing push succeeded, one `fixed` row per
-# report line whose sha this repository carries and the store does not list.
+# report line whose sha a repository of the worktree set carries and the
+# store does not list.
 record_fixed_rows() {
-  local rpt="$CANON/docs/self-review/$NAME-self-review.md" line known re
+  local rpt="$CANON/docs/self-review/$NAME-self-review.md" line known re w found
   [ -f "$rpt" ] || return 0
   known="$(flow self-review findings -C "$MAIN" -change "$NAME" 2>/dev/null)"
   re='^- \*\*\[([a-z-]+)\]\*\* (.*) — fixed: ([0-9a-f]+)'
   while IFS= read -r line; do
     [[ "$line" =~ $re ]] || continue
-    git -C "$CANON" cat-file -e "${BASH_REMATCH[3]}^{commit}" 2>/dev/null || continue
+    found=""
+    for w in "${WT[@]}"; do
+      git -C "$w" cat-file -e "${BASH_REMATCH[3]}^{commit}" 2>/dev/null && found=1 && break
+    done
+    [ -n "$found" ] || continue
     grep -q "${BASH_REMATCH[3]}" <<<"$known" && continue
     flow self-review finding -C "$MAIN" -change "$NAME" -angle "${BASH_REMATCH[1]}" -disposition fixed \
       -ref "${BASH_REMATCH[3]}" -note "${BASH_REMATCH[2]}" ||
@@ -555,6 +567,7 @@ pr_arg() {
 
 cmd_land() {
   local o w pr="" url fork
+  CANON_BASE=""
   load_set
   find_canonical || die "no worktree in the set holds $NAME's tasks.md"
   merge_order
@@ -572,6 +585,7 @@ cmd_land() {
     base_of "$o"
     reread_fix_shas "$o"
     push_branch "$w"
+    [ "$w" = "$CANON" ] && CANON_BASE="$BASE"
     case "$ROUTE" in
       "merge and push")
         if ! git -C "$w" push origin "HEAD:$BASE"; then

@@ -54,6 +54,14 @@
 #   commit_pushes   both branches were pushed before the reshape: commit
 #                   leaves each remote spectre/demo at its reshaped HEAD, so
 #                   a later plain branch-backup push is a fast-forward.
+#   peer_fix        the report names a fix committed in b, the
+#                   non-canonical worktree, and b's base moves so its land
+#                   push is rejected and the re-sync rewrites the fix: the
+#                   report on a's origin main names the rewritten sha, and
+#                   land records a `fixed` row for it.
+#   peer_fix_canon_first  peer_fix with the merge order `.` then `b`: the
+#                   rewrite lands after a was pushed, and land pushes a's
+#                   branch and base again in the same run.
 #
 # Bash 3.2 is the floor: indexed arrays only.
 set -u
@@ -113,6 +121,7 @@ case "\$1 \$2" in
   "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") echo '[]' ;;
+  "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
   "record dispatches") echo '[]' ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;
@@ -379,6 +388,40 @@ for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q -u origin spectre/demo; 
 to_land "commit_pushes: " no-report
 check "commit_pushes: each remote branch is the reshaped HEAD" \
   '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)" ] && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" ]'
+
+# peer_fix_case <prefix>: the report names a fix committed in b, b's base
+# moves, and land runs — checked under <prefix>.
+peer_fix_case() {
+  to_land "$1" no-report
+  printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
+  g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
+  old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
+  mkdir -p "$WORK/a-worktrees/demo/docs/self-review"
+  printf '# demo self-review\n\n- **[flow-fix]** the peer fix — fixed: %s\n' "$old" >"$WORK/a-worktrees/demo/docs/self-review/demo-self-review.md"
+  g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
+  g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
+  printf 'moved\n' >"$WORK/b/moved.txt"
+  g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
+  sut land "$WORK/a" demo
+  new="$(git --git-dir="$WORK/b-origin.git" log --format=%h --grep="^fix(b): the peer fix$" -1 main)"
+  check "${1}land exits 0" '[ "$RC" -eq 0 ]'
+  check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
+  check "${1}the report on a's origin main names the rewritten sha" \
+    'git --git-dir="$WORK/a-origin.git" show main:docs/self-review/demo-self-review.md | grep -q "fixed: $new$"'
+  check "${1}a fixed row is recorded for b's fix" \
+    'grep -q -- "-disposition fixed -ref $new " "$WORK/fixed.log"'
+}
+
+# --- peer_fix ---
+fixture
+peer_fix_case "peer_fix: "
+
+# --- peer_fix_canon_first ---
+fixture
+printf '# demo\n\n## Parts\n\n`b:demo`\n\n## Branch\n\nmain\n\n## Merge order\n\n1. `.`\n2. `b`\n' \
+  >"$WORK/a-worktrees/demo/spectre/changes/demo/link.md"
+g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+peer_fix_case "peer_fix_canon_first: "
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
