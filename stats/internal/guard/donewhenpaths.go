@@ -14,7 +14,8 @@ import (
 // `## Done when` section names that the index does not track (read relative
 // to the root, the naming document's directory or any directory between —
 // dwResolves), then one
-// DONE-WHEN-OK/DONE-WHEN-VIOLATION verdict line; exit 0 DONE-WHEN-OK (a tree
+// DONE-WHEN-OK/DONE-WHEN-VIOLATION verdict line, a token naming one of the
+// repository's local or remote-tracking branches never counting as a path; exit 0 DONE-WHEN-OK (a tree
 // with no `## Done when` section included), 1 DONE-WHEN-VIOLATION, 2 with
 // nothing on stdout when it cannot answer.
 //
@@ -70,6 +71,25 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
+	// A token naming a branch — `Merged into feature/rows` — is not a path
+	// (gymie's KAN-929 tickets): local `refs/heads/<b>` yields <b>, and
+	// remote-tracking `refs/remotes/<r>/<b>` yields both <b> and <r>/<b>.
+	refs, ok := capture(git("-C", root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"))
+	if !ok {
+		return die("cannot read the branches of %s", root)
+	}
+	branch := map[string]bool{}
+	for _, r := range strings.Split(refs, "\n") {
+		if b, ok := strings.CutPrefix(r, "refs/heads/"); ok {
+			branch[b] = true
+		} else if rb, ok := strings.CutPrefix(r, "refs/remotes/"); ok {
+			branch[rb] = true
+			if _, b, ok := strings.Cut(rb, "/"); ok {
+				branch[b] = true
+			}
+		}
+	}
+
 	var offenders []string
 	seen := map[string]bool{}
 	for _, file := range markdown {
@@ -100,7 +120,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 				continue
 			}
 			for _, p := range dwPaths(line) {
-				if !dwResolves(tracked, path.Dir(file), p) && !seen[p+"\x00"+file] {
+				if !branch[p] && !dwResolves(tracked, path.Dir(file), p) && !seen[p+"\x00"+file] {
 					seen[p+"\x00"+file] = true
 					offenders = append(offenders, fmt.Sprintf("%s — %s", p, file))
 				}

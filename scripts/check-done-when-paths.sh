@@ -28,6 +28,9 @@
 # leading `../` segments are kept, even inside wrapping punctuation
 # (`(../x.md)`, `<../x.md>`); each reading is cleaned (`path.Join`), and one
 # that climbs above the root is never tracked, nor is a root-absolute `/…` name.
+# A token naming a local or remote-tracking branch of the worktree's
+# repository (`feature/x`, `origin/feature/x`) is a branch, not a path, and is
+# never judged.
 #
 # Prints one DONE-WHEN-PATH line per missing path with the file that named
 # it, then ONE verdict line:
@@ -36,9 +39,9 @@
 #
 # Exit 0 on DONE-WHEN-OK (a tree with no `## Done when` section included), 1
 # on DONE-WHEN-VIOLATION, 2 with NOTHING on stdout when <worktree> is not a
-# readable directory, is not a git worktree, the index cannot be read, or a
-# tracked `.md` file is missing from the worktree — an inability to answer is
-# never reported as a verdict.
+# readable directory, is not a git worktree, the index or its branch list
+# cannot be read, or a tracked `.md` file is missing from the worktree — an
+# inability to answer is never reported as a verdict.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's

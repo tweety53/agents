@@ -186,6 +186,18 @@ func TestCheckDoneWhenPaths(t *testing.T) {
 				dwFile(t, dir, "a/b/tickets/t.md", "## Done when\nSee (../notes/y.md), <../notes/y.md> and `/docs/z.md`.\n")
 			},
 			1, "DONE-WHEN-PATH: ../notes/y.md — a/b/tickets/t.md\nDONE-WHEN-PATH: /docs/z.md — a/b/tickets/t.md\nDONE-WHEN-VIOLATION: REPO — 2\n"},
+		{"case 23: a token naming a branch of the repository is not a path — gymie's KAN-929 tickets",
+			[]string{"t.md"},
+			func(dir string) {
+				var g fxGit
+				g.git(dir, "branch", "feature/rows")
+				g.git(dir, "update-ref", "refs/remotes/origin/feature/remote-only", "HEAD")
+				if g.err != nil {
+					t.Fatal(g.err)
+				}
+				dwFile(t, dir, "t.md", "## Done when\nMerged into `feature/rows`, `feature/remote-only` and `origin/feature/remote-only`; `feature/gone.md` lands.\n")
+			},
+			1, "DONE-WHEN-PATH: feature/gone.md — t.md\nDONE-WHEN-VIOLATION: REPO — 1\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
