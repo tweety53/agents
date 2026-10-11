@@ -147,9 +147,15 @@ behaviour. For this section alone `<agents repo>` is a repository the run was gi
 **Predict the class before any work, from the blast radius — never from a plan.** Count the
 files the fix must touch: the defective file, its test, and every file `grep -rl` finds in
 `<agents repo>` citing the name or section the fix changes. The fix is `big` — `plan-class.sh`'s
-own `files>=60` threshold — when that count is 60 or more, or when it reaches outside
-`<agents repo>`. A `big` fix is
+own `files>=60` threshold — when that count is 60 or more. A `big` fix is
 deferred to self-review, and so is one found `big` once under way, which stops there.
+
+**A fix that reaches outside `<agents repo>` is never `big` for that alone** — a fix to the
+project's own dev tooling (`<project>/.flow/project.md`, build scripts, dev-stack or test-harness config)
+is made like any other. It is committed on the change's own branch in that repository's worktree,
+where it rides the run's route; a repository the change holds no worktree in takes a worktree off
+its default branch, landed by its own `## default landing route`. Production stays out of reach
+(`rules/never-touch-production.mdc`).
 
 **A design choice never makes a fix `big`** — the fix's brainstorm below weighs the options and
 takes the recommended one without asking, whether the choice is where a check lives, a name, a

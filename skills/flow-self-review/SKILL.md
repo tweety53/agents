@@ -77,9 +77,9 @@ nothing beyond it — say so in the report's `**Deferred:**` line.
 ### 3. Fix every finding that is not `big`
 
 **Classify every finding before any work** by the blast-radius rule of **Pipeline defects found
-mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files or
-reaches outside `<agents repo>` — a design choice never is, since the fixer's brainstorm takes the
-recommended option. An
+mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files — a
+design choice never is, since the fixer's brainstorm takes the recommended option, and neither is a
+reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
