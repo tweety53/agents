@@ -83,8 +83,9 @@ followed by `git push -u origin <branch>`, and every commit a run makes on the b
 commit, a fixup, a panel fix — is followed by `git push origin <branch>` from the same parent
 call that made or verified it. A lost worktree is then rebuilt with `git worktree add <path>
 origin/<branch>`. The one rewrite is integrate's reshape (`reshape-branch.sh`, then
-the two commits), so that run's push is `git push --force-with-lease origin <branch>`; every other
-push is plain.
+the two commits), so that run's push is `git push --force-with-lease origin <branch>`, made once the
+archive commit lands and before the self-review pass, so a run that stops before its route still
+leaves the remote on the rewritten branch; every other push is plain.
 
 **The planning path** is the one **Handoff output** (`skills/flow-contracts/pipeline.md`) names.
 `/flow`'s implement phase clears it from the index and only then stages with it excluded by

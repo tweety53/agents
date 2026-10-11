@@ -44,6 +44,8 @@
 #          worktree with nothing on the implementation side takes no
 #          subject; any other without one stops `commit-split`. An
 #          archived change without new work skips straight to commit-archive.
+#          Then the --force-with-lease branch push per worktree, in merge
+#          order — the reshape's push (Branch backup, git-boundaries.md).
 #          The parent appends its narrative before calling this.
 # land     the route (merge and push: the --force-with-lease branch push then
 #          `push origin HEAD:<base>` per worktree in merge order, one re-sync
@@ -52,7 +54,8 @@
 #          no usable gh; manual: the branch push), the self-review report's
 #          sha re-read before each landing push and its `fixed` rows after,
 #          and the IN_PROGRESS write. Refuses to push anything until the
-#          self-review report is committed in the canonical worktree. Merge
+#          self-review report is committed in the canonical worktree; only
+#          `commit`'s branch push precedes it. Merge
 #          and push continues into `cleanup`.
 # cleanup  run 2: verify the merge (merged when gh reports the recorded PR
 #          MERGED or `merge-base --is-ancestor` holds), remove-change-worktrees
@@ -487,6 +490,9 @@ cmd_commit() {
   mark_begin flow.commit-archive
   run "$SCRIPT_DIR/commit-archive.sh" "$CANON" "$NAME"
   [ "$RC" -eq 0 ] || stop commit-archive "commit-archive exit $RC — report its lines"
+  # The rewritten branch reaches the remote now, not at land: a run that
+  # stops before land leaves the next plain branch-backup push a fast-forward.
+  for o in "${ORDER[@]}"; do push_branch "${WT[o]}"; done
   mark_end flow.commit-archive completed
   mark_begin flow.self-review
   if git -C "$CANON" cat-file -e "HEAD:docs/self-review/$NAME-self-review.md" 2>/dev/null; then

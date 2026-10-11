@@ -21,7 +21,8 @@
 #   foreign_staged  a main checkout with staged work stops prepare at
 #                   STOP: foreign-staged, exit 1, before the preflight.
 #   no_report       land with no committed self-review report stops at
-#                   STOP: self-review-report and pushes nothing.
+#                   STOP: self-review-report, lands nothing and pushes no
+#                   commit made after `commit`.
 #   no_verdict      a store outage leaves check-unfinished-work without a
 #                   verdict: STOP: no-verdict, which --accept-outstanding
 #                   does not pass.
@@ -48,6 +49,9 @@
 #   planning_only   b's branch changes nothing outside spectre/changes/:
 #                   prepare's NEXT asks no subject for b, and commit with no
 #                   subject for b commits b's planning delta alone.
+#   commit_pushes   both branches were pushed before the reshape: commit
+#                   leaves each remote spectre/demo at its reshaped HEAD, so
+#                   a later plain branch-backup push is a fast-forward.
 #
 # Bash 3.2 is the floor: indexed arrays only.
 set -u
@@ -207,11 +211,16 @@ check "no preflight ran" '! grep -q flow.preflight "$WORK/stages.log" 2>/dev/nul
 # --- no_report ---
 fixture
 to_land "no_report: " no-report
+pushed="$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)"
+printf 'later\n' >"$WORK/a-worktrees/demo/later.txt"
+g -C "$WORK/a-worktrees/demo" add later.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): later"
 sut land "$WORK/a" demo
 check "no_report: land stops with exit 1" '[ "$RC" -eq 1 ]'
 check "no_report: the stop is STOP: self-review-report" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: self-review-report"'
-check "no_report: nothing was pushed" \
-  '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = base ] && ! git --git-dir="$WORK/b-origin.git" rev-parse -q --verify refs/heads/spectre/demo >/dev/null'
+check "no_report: nothing was landed" \
+  '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = base ] && [ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ]'
+check "no_report: a's remote branch still sits at commit's HEAD" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$pushed" ]'
 
 # --- no_verdict ---
 fixture
@@ -352,6 +361,13 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
 check "planning_only: commit with no subject for b exits 0" '[ "$RC" -eq 0 ]'
 check "planning_only: b's branch is the base plus its one planning commit" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s main..HEAD | tr "\n" "|")" = "chore(spectre): plan demo|" ]'
+
+# --- commit_pushes ---
+fixture
+for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q -u origin spectre/demo; done
+to_land "commit_pushes: " no-report
+check "commit_pushes: each remote branch is the reshaped HEAD" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)" ] && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" ]'
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

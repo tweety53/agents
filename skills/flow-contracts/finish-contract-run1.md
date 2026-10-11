@@ -272,6 +272,8 @@ the same pull request, as the code:
    files, whose authoring side is the design rule of **The checklist**
    (`skills/flow/brainstorm-planner.md`), and an exit 2 refuses the commit too, never read as a
    pass.
+3. **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
+   archive commit lands — the reshape's push (**Branch backup**, `git-boundaries.md`).
 
 ### Run the self-review pass
 

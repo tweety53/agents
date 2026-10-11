@@ -102,9 +102,10 @@ names. A worktree whose reshaped diff holds nothing outside `spectre/changes/` a
 `commit` bare.
 
 `commit` reshapes, renders the ledger, runs the two-commit chain per worktree in `## Merge order`,
-archives the change on its branch and commits the archive — per **Archive on the change branch**
+archives the change on its branch, commits the archive and pushes each reshaped branch
+`--force-with-lease` — per **Archive on the change branch**
 (`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-split`,
-`archive`, `commit-archive` — is reported with the script's lines and leaves the change at
+`archive`, `commit-archive`, `push` — is reported with the script's lines and leaves the change at
 `IN_PROGRESS`; **`/flow` never passes `--force`** to `spectre archive`.
 
 ## 4. Archive and run the self-review pass
