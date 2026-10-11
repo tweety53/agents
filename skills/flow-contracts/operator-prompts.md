@@ -13,6 +13,17 @@ A prompt in this shape states:
 - a 🤖 marker in the handoff when that silent default actually fired, or when **Auto-resolution**
   below took it
 
+## Every item offered
+
+**A prompt that asks the operator to choose from a list — findings to file, items to act on —
+offers every item on it.** Never a subset the run picked, and never one dropped for the prompt
+tool's option limit: group the items into questions (`AskUserQuestion` takes four questions of four
+options), and past that, further calls. "Not actionable" is no reason to withhold an item — a
+measurement becomes a baseline, a conclusion records why an alternative was rejected; offer it and
+let the operator decline. Naming an item in prose is not offering it. A call site whose own rule
+fixes or declines items without asking — **3. Fix every finding that is not `big`**
+(`skills/flow-self-review/SKILL.md`) — offers every item that rule leaves.
+
 ## Batched asks
 
 A call site that holds several of this contract's prompts outstanding at one point — one fix
