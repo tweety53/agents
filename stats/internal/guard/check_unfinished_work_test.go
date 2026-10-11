@@ -55,6 +55,7 @@ func newUWBare(t *testing.T, wt string) *uwFix {
 	f := &uwFix{wt: wt, bin: wt + "/bin"}
 	writeExec(t, f.bin+"/flow", uwStub)
 	f.setFile(t, "verdicts.json", "[]\n")
+	f.setFile(t, "dispatches.json", `[{"key":"task-1-implementer","outcome":"completed"}]`+"\n")
 	f.setFindings(t)
 	get := pathEnv(f.bin)
 	f.env = Env{Getenv: get, Dir: wt,
@@ -255,6 +256,18 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	//    is still in the worktree when the guard runs.
 	each(demo(file("docs/manual-test/guide.md", "a leftover guide\n")),
 		uwVerdict("a leftover docs/manual-test/ present at invocation time is not a signal", "CLEAR:"))
+
+	// 2b. Signal three — a dispatch row never closed with an outcome
+	//     (kan-929's three "Outcome: not recorded" rows reached integrate).
+	dispatches := func(body string) func(t *testing.T, f *uwFix) {
+		return func(t *testing.T, f *uwFix) { f.setFile(t, "dispatches.json", body+"\n") }
+	}
+	each(demo(dispatches(`[{"key":"task-1-implementer","outcome":"completed"},{"key":"task-14-reviewer"}]`)),
+		uwVerdict("a dispatch row with no outcome is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the unclosed row's key", "1 dispatch row(s) with no outcome (task-14-reviewer)"),
+		uwReason("the close command carries every required flag", "flow record dispatch end -change demo -key <key> -session-token mf-<token> -outcome <outcome> -C "))
+	each(demo(dispatches("not json")), uwRC("unreadable dispatch rows cannot answer", 2))
+	each(demo(file("bin/dispatches.fail", "")), uwRC("a failed dispatches read cannot answer", 2))
 
 	// 3. Signal one — the plan.
 	each(demo(unticked),
@@ -600,6 +613,18 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwTrue("case 26: the verdict still names the judged worktree", func(r uwResult) bool {
 			return strings.Contains(r.args("verdict"), "-worktree "+r.wt)
 		}))
+	// 26a: a worktree whose plan lives in another repo leaves the change's
+	//      dispatch rows to the plan's worktree, so a multi-repo change
+	//      lists each open row once.
+	each(func(t *testing.T) uwResult {
+		f := newUWBare(t, t.TempDir())
+		f.env.Findings = nil
+		f.setFile(t, "dispatches.json", `[{"key":"task-14-reviewer"}]`+"\n")
+		canon := t.TempDir()
+		writeFile(t, canon+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+		return f.run(t, f.wt, "demo", canon)
+	},
+		uwVerdict("case 26a: a non-plan worktree does not repeat the change's open dispatch rows", "CLEAR:"))
 	// 26b/26c: a local plan, and the no-plan fall-through, anchor at the
 	// judged worktree.
 	local := func(setup func(t *testing.T, f *uwFix)) func(t *testing.T) uwResult {

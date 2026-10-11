@@ -252,6 +252,39 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		reasons = append(reasons, strconv.Itoa(open)+" open finding(s) in the review panel record")
 	}
 
+	// Signal three — dispatch rows never closed with an outcome (kan-929: a
+	// `dispatch end` run without -C in a second repo's worktree journalled
+	// against the wrong project, another dropped -outcome, a third was
+	// never sent, and the ledger read "Outcome: not recorded" with nothing
+	// stopping integrate). Read and refused exactly like signal two. The
+	// rows are the change's, not a worktree's, and the gate runs once per
+	// worktree: only the worktree holding the plan (anchor == worktree)
+	// reads them, so a multi-repo change lists each open row once.
+	if anchor == worktree {
+		dispOut, dispErr, dispRC := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", anchor)
+		if dispRC != 0 {
+			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(dispErr), "\n"))
+			return 2
+		}
+		var dispatches []struct {
+			Key     string `json:"key"`
+			Outcome string `json:"outcome"`
+		}
+		if json.Unmarshal(dispOut, &dispatches) != nil || dispatches == nil {
+			fmt.Fprintf(stderr, "%sdispatches for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
+			return 2
+		}
+		var unclosed []string
+		for _, d := range dispatches {
+			if strings.TrimSpace(d.Outcome) == "" {
+				unclosed = append(unclosed, d.Key)
+			}
+		}
+		if len(unclosed) > 0 {
+			reasons = append(reasons, strconv.Itoa(len(unclosed))+" dispatch row(s) with no outcome ("+strings.Join(unclosed, ", ")+") — close each with `flow record dispatch end -change "+name+" -key <key> -session-token mf-<token> -outcome <outcome> -C "+anchor+"`")
+		}
+	}
+
 	// THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY. Neither
 	// `flow` call below can move the verdict line or the exit code already
 	// committed to above: the write's result is ignored, and the

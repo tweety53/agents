@@ -44,7 +44,16 @@
 # with no reason after it is the reasonless drop the finding-status contract
 # forbids, so only `withdrawn <reason>` counts as closed on this signal.
 #
-# Both signals are counted independently and reported together on the one
+# SIGNAL THREE: A DISPATCH ROW WITH NO OUTCOME IS OPEN (kan-929). `flow record
+# dispatches -change <name> -C <anchor>` is read the way signal two reads
+# findings — a failed or unreadable read is exit 2 — and every row whose
+# `outcome` is empty (never ended, or ended without -outcome) is named by key
+# in the breakdown, so the run closes it with `flow record dispatch end`
+# before the change lands with "Outcome: not recorded" in its ledger. The rows
+# are the change's, so only the worktree holding the plan reads them — a
+# multi-repo change lists each open row once, not once per worktree.
+#
+# All signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.
 #

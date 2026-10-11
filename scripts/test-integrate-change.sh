@@ -100,6 +100,7 @@ case "\$1 \$2" in
   "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") echo '[]' ;;
+  "record dispatches") echo '[]' ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;
 esac
