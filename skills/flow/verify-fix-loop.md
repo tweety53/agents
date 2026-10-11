@@ -46,7 +46,10 @@ One round runs these steps in order:
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
    `begin` mark, then **Visual verification** from its `begin` mark, so the fix's own lint, tests and
    captures are what the handoff reports. This round's `verify` and `visual-verify` dispatch keys
-   carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix. **The `visual-verify`
+   carry the suffix `-fix-<k>`, before any `-<worktree basename>` suffix. **The `verify` re-run
+   runs only in a worktree whose HEAD moved since its previous verify of this run, or whose test
+   commands drive the stack of one that did** — an unmoved worktree's lint and tests already
+   passed on that same HEAD. **The `visual-verify`
    re-run is scoped to the round's own diff** in every worktree with a round base — the HEAD step
    12 of **Steps 3–13** (`skills/flow/visual-verify.md`) read after that worktree's previous
    verifier dispatch: its prompt names that base, which the verifier's step 7 substitutes for
