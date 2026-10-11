@@ -423,7 +423,7 @@ cmd_prepare() {
   [ -n "$PR_URL_STATE" ] && say "PR: $PR_URL_STATE"
   mark_end flow.landing-question completed
 
-  local reshape=0 f subjects=""
+  local reshape=0 f sp subjects=""
   for i in "${!WT[@]}"; do
     f="$(reshape_file "${WT[i]}")"; rm -f "$f"
     [ "$ARCHIVED" -eq 1 ] && [ "$newwork" -eq 0 ] && continue
@@ -431,8 +431,9 @@ cmd_prepare() {
     [ "$ARCHIVED" -eq 1 ] && rb="$(arch_base "${WT[i]}" "$rb")"
     printf '%s\n' "$rb" >"$f"; reshape=1
     say "WORKTREE: ${WT[i]} — base ${BASES[i]}, reshape base $rb"
-    git -C "${WT[i]}" diff --no-renames --stat "$rb" -- . ":(exclude)$SPEC/changes/"
-    git -C "${WT[i]}" ls-files --others --exclude-standard -- . ":(exclude)$SPEC/changes/" | sed 's/^/ new: /'
+    sp="$(spec_root_leaf "${WT[i]}")"
+    git -C "${WT[i]}" diff --no-renames --stat "$rb" -- . ":(exclude)$sp/changes/"
+    git -C "${WT[i]}" ls-files --others --exclude-standard -- . ":(exclude)$sp/changes/" | sed 's/^/ new: /'
     [ -n "$(impl_paths "${WT[i]}" "$rb")" ] && subjects="$subjects ${WT[i]}=<impl subject>"
   done
   local narrative="$live/narrative.md"

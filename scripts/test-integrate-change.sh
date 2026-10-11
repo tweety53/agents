@@ -46,6 +46,8 @@
 #                   which commit-split's `*/link.md` stages: prepare asks a
 #                   subject for b, and commit with it lands that link.md in
 #                   b's implementation commit.
+#   mixed_roots     b's tree is openspec/ while a's is spectre/: prepare's
+#                   diffstat for b leaves out b's openspec/changes/.
 #   planning_only   b's branch changes nothing outside spectre/changes/:
 #                   prepare's NEXT asks no subject for b, and commit with no
 #                   subject for b commits b's planning delta alone.
@@ -345,6 +347,15 @@ sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b
 check "nested_link: commit exits 0" '[ "$RC" -eq 0 ]'
 check "nested_link: b's implementation commit carries the nested link.md" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/y/link.md)" = "feat(b): nest a link" ]'
+
+# --- mixed_roots ---
+fixture
+mkdir -p "$WORK/b-worktrees/demo/openspec/changes/demo"
+printf 'notes\n' >"$WORK/b-worktrees/demo/openspec/changes/demo/notes.md"
+g -C "$WORK/b-worktrees/demo" add -A && g -C "$WORK/b-worktrees/demo" commit -qm "chore(openspec): notes"
+sut prepare "$WORK/a" demo
+check "mixed_roots: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "mixed_roots: b's diffstat lists no openspec/changes/ path" '! printf "%s" "$OUT" | grep -q "openspec/changes/"'
 
 # --- planning_only ---
 fixture
