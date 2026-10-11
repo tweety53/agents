@@ -1,2 +1,4 @@
 # Self-review fix (kan-929 flow-cost): ten launched dispatches recorded -agent-id inline, so the daemon never stamped them and their tokens read not measured.
 A row whose work runs in a launched agent never carries `-agent-id inline` — the daemon stamps no id onto such a row, so its tokens are never measured.
+# Self-review fix (kan-929 flow-automation): verify's first full Playwright run hit a stack started before the last task commit.
+While a stack is up for this run, the test commands start only after `check-dev-stack-fresh.sh <worktree>` exits 0 or 2; exit 1 restarts the stack first, by the start rule of **Resolve the run instructions** below, so no suite runs against a build older than the last commit; a stack that will not start ends the turn as a failed command's environment cause does.

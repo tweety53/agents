@@ -75,6 +75,10 @@ one more command in the same list, whose exit 0 line `Spec reach: not configured
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
 every command in order and do not stop at the first failure. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
+While a stack is up for this run, the test commands start only after `check-dev-stack-fresh.sh
+<worktree>` exits 0 or 2; exit 1 restarts the stack first, by the start rule of **Resolve
+the run instructions** below, so no suite runs against a build older than the last commit; a stack
+that will not start ends the turn as a failed command's environment cause does.
 
 ```text verified:design.md section 2 of this change
 ## Report
