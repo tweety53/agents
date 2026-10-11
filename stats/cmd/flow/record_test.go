@@ -1858,6 +1858,15 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
+	var beginOut, beginErr bytes.Buffer
+	if code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-agent-id", "none", "-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
+			"-key", "task-6-implementer", "-session-token", "mf-record-end-404"},
+		strings.NewReader(""), &beginOut, &beginErr); code != 0 {
+		t.Fatalf("journalled begin exit = %d; stderr:\n%s", code, beginErr.String())
+	}
+
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"error":"store: dispatch not found"}`))
@@ -1878,17 +1887,50 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 	if !exists {
 		t.Fatal("no record journal was written -- the end would be lost and its window left open forever")
 	}
-	if len(entries) != 1 {
-		t.Fatalf("len(record journal entries) = %d, want 1", len(entries))
+	if len(entries) != 2 {
+		t.Fatalf("len(record journal entries) = %d, want 2 (the begin, then the end)", len(entries))
 	}
 	var body struct {
 		Kind string `json:"kind"`
 	}
-	if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+	if err := json.Unmarshal(entries[1].Body, &body); err != nil {
 		t.Fatalf("decode journalled body: %v", err)
 	}
 	if body.Kind != "dispatch-end" {
 		t.Errorf("journalled kind = %q, want dispatch-end", body.Kind)
+	}
+}
+
+// TestRecordDispatchEndRefusesA404WithNoQueuedBegin: a 404 from a reachable
+// store with no journalled begin for the key and session token is a caller
+// mistake (kan-929: an end sent with another run's token warned "store
+// unreachable" and journalled an entry that 404s on every replay). It is
+// reported, names the status, journals nothing and exits non-zero.
+func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"store: dispatch not found"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-other-run",
+			"-outcome", "completed"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatalf("exit code = 0, want non-zero for a refused end; stderr:\n%s", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "404") || strings.Contains(stderr.String(), "store unreachable") {
+		t.Errorf("stderr = %q, want the 404 named and no unreachable warning", stderr.String())
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Error("a refused end was journalled -- it would 404 on every replay")
 	}
 }
 

@@ -1117,7 +1117,8 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 
 // classifyDispatchEnd is classifyRecordWrite with ONE exception, and the
 // exception is the whole reason it exists: a 404 from this route is
-// journalled rather than reported.
+// journalled rather than reported -- when, and only when, the record
+// journal already queues the `begin` carrying this key and session token.
 //
 // Everywhere else in this verb a 404 is definitive -- a finding ref naming
 // nothing is a typo, and a replay of it would be refused identically
@@ -1129,12 +1130,40 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 // it. Reporting the 404 instead would exit non-zero, journal nothing, and
 // leave the window that begin opened open forever -- reintroducing, by a
 // narrower route, the very defect the end call was added to fix.
+//
+// With no such begin queued, the 404 is the store answering correctly that
+// no row carries this key and session token -- a caller mistake, such as an
+// end sent with another run's token (kan-929). Journalling it would warn
+// "store unreachable" about a reachable store and queue an entry that 404s
+// on every replay, so it is reported and exits non-zero like any refusal.
 func classifyDispatchEnd(err error, projectKey, change string, in records.DispatchEnd, stderr io.Writer) int {
 	if errors.Is(err, client.ErrNotFound) {
-		journalRecordWrite(projectKey, change, "dispatch-end", in, stderr)
-		return 0
+		if beginQueued(projectKey, change, in.Key, in.SessionToken) {
+			journalRecordWrite(projectKey, change, "dispatch-end", in, stderr)
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: record dispatch-end refused: the store answered 404 -- no dispatch row under key %q with session token %q, and no journalled begin for it: %v\n", in.Key, in.SessionToken, err)
+		return 1
 	}
 	return classifyRecordWrite(err, projectKey, change, "dispatch-end", in, stderr)
+}
+
+// beginQueued reports whether the record journal for projectKey/change
+// holds a `dispatch` begin with this key and session token, still waiting
+// for replay. An unreadable journal reads as none.
+func beginQueued(projectKey, change, key, sessionToken string) bool {
+	entries, _ := fallback.ReadJournalEntries(recordJournalPath(projectKey, change))
+	for _, e := range entries {
+		var body struct {
+			Kind    string           `json:"kind"`
+			Request records.Dispatch `json:"request"`
+		}
+		if json.Unmarshal(e.Body, &body) == nil && body.Kind == "dispatch" &&
+			body.Request.Key == key && body.Request.SessionToken == sessionToken {
+			return true
+		}
+	}
+	return false
 }
 
 // runRecordFinding implements `flow record finding`: one call per
