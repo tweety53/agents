@@ -95,7 +95,7 @@ integrate-change.sh commit <main-checkout> <name> <worktree>="<type>(<module>): 
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the
 diffstat `prepare` printed under each `WORKTREE:` line, one subject per worktree the `NEXT:` line
-names. A worktree whose reshaped diff holds nothing outside `spectre/changes/` and no change directory's
+names. A worktree whose reshaped diff holds nothing outside `<project>/spectre/changes/` and no change directory's
 `link.md` has an empty implementation commit, so `NEXT:` names no subject for it and `commit` asks none. On
 **Continue** at **1** the planning message also lists the outstanding work: pass it whole as
 `--plan-message`. An archived change without new work takes no subject: its `NEXT:` names
