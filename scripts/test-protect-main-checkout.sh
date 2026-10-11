@@ -70,6 +70,14 @@
 #   68. `tee -a <sibling>/f <<'EOF'`, body naming `rm`, cwd = main    -> allow (a plain data write)
 #   69. `cat >> <main>/f.txt <<EOF` from elsewhere                    -> deny (the target is judged)
 #   70. `cat >> <sibling>/f <<EOF`, body `$(rm f.txt)`, cwd = main   -> deny (an unquoted body substitutes)
+#   71. `D=<sibling>; cat > $D/r.md <<'EOF'`, body line `a > the`, then
+#       a second command, cwd = main                                  -> allow (kan-929: a report body is data)
+#   72. `D=<main>; cat > $D/r.md <<'EOF'`, then a second command      -> deny (the target is still judged)
+#   73. `cat > >(sh) <<'EOF'`, body `rm <main>/f.txt`, in a longer command -> deny (the target runs the body)
+#   74. `tee /dev/null >(bash) <<'EOF'`, body `rm <main>/f.txt`         -> deny (a process substitution runs it)
+#   75. `bash <(` then `cat > /dev/stdout <<'EOF'`, body `rm <main>/f.txt` -> deny (the enclosing command runs it)
+#   76. `cat > <sibling>/x.sh <<'EOF'`, body `rm <main>/f.txt`, then
+#       `sh "<sibling>"/x.sh`                                           -> deny (written, then run under another spelling)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -327,6 +335,37 @@ expect "70 an unquoted heredoc body's command substitution stays scanned" deny \
   "$(run "$MAIN" Bash "{\"command\":$(q "cat >> $SIB/f.txt <<EOF
 \$(rm f.txt)
 EOF")}")"
+expect "71 a report heredoc in a longer command keeps its body as data" allow \
+  "$(run "$MAIN" Bash "{\"command\":$(q "D=$SIB; cat > \$D/r.md <<'EOF'
+the row reads > the old one
+EOF
+echo written")}")"
+expect "72 a report heredoc in a longer command still judges its target" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "D=$MAIN; cat > \$D/r.md <<'EOF'
+x
+EOF
+echo written")}")"
+expect "73 a heredoc into a process substitution keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo start; cat > >(sh) <<'EOF'
+rm $MAIN/f.txt
+EOF
+echo done")}")"
+expect "74 a tee heredoc feeding a process substitution keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "echo start; tee /dev/null >(bash) <<'EOF'
+rm $MAIN/f.txt
+EOF
+echo done")}")"
+expect "75 a heredoc inside bash <( keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "bash <(
+cat > /dev/stdout <<'EOF'
+rm $MAIN/f.txt
+EOF
+)")}")"
+expect "76 a heredoc written then run under another spelling keeps its body scanned" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "cat > $SIB/x.sh <<'EOF'
+rm $MAIN/f.txt
+EOF
+sh \"$SIB\"/x.sh")}")"
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature

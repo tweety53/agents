@@ -14,7 +14,8 @@ landing as staged changes. This hook denies the tools that create such residue:
     redirect, `cp` destinations, or `mv`/`rm` sources and destinations. A heredoc body is
     scanned like any other line, except where the whole command is one plain data write —
     `cat > ABS <<EOF`, `cat >> ABS <<EOF` or `tee [-a] ABS <<EOF` to a literal absolute path,
-    its body and closing line, nothing after — where only ABS is judged.
+    its body and closing line, nothing after — where only ABS is judged — and except the body of
+    any `cat`/`tee` heredoc inside a longer command, which is that writer's data, never commands.
 
 "Main checkout" is the worktree whose git dir IS the common dir — a linked worktree's `--git-dir`
 is `<common>/worktrees/<name>`, so `<repo>-worktrees/<change>` beside the main checkout passes,
@@ -206,6 +207,86 @@ def data_write_target(command):
     return None
 
 
+HEREDOC_OPEN_RE = re.compile(r"<<-?[ \t]*(?:'(\w+)'|\"(\w+)\"|(\w+))")
+SEGMENT_SPLIT_RE = re.compile(r"&&|\|\||[;|]")
+CAT_TARGET_RE = re.compile(r">>?[ \t]*([^\s;&|<>]+)")
+SUBST_RE = re.compile(r"[<>]\(|\$\(|`")
+COMMAND_CUT_RE = re.compile(r"&&|\|\||[\n;|&(){}]")
+RUNNER_WORDS = {
+    "sh", "bash", "zsh", "dash", "ksh", "fish", "source", ".", "eval", "exec", "xargs", "env",
+    "command", "builtin", "nohup", "timeout", "nice", "time", "sudo", "python", "python3",
+    "perl", "ruby", "node", "osascript",
+}
+
+
+def may_run_code(text):
+    """True when text — the command outside one heredoc body — could run that body or a file
+    it writes: a process or command substitution (`>(sh)`, `bash <(`, `eval "$(`), a word that
+    runs code (`sh`, `eval`, `xargs`, ...) anywhere, or a command named by a path or an
+    expansion (`"$D"/x.sh`). Over-matching only keeps the body scanned."""
+    if SUBST_RE.search(text):
+        return True
+    for seg in COMMAND_CUT_RE.split(text):
+        words = [w.strip("'\"") for w in seg.split()]
+        if any(w in RUNNER_WORDS for w in words):
+            return True
+        while words and ASSIGNMENT_RE.match(words[0]):
+            words.pop(0)
+        if words and ("/" in words[0] or "$" in words[0] or words[0].startswith("~")):
+            return True
+    return False
+
+
+def strip_data_heredocs(command):
+    """command with the body of a `cat`/`tee` heredoc to a named file removed — that body is
+    data for a writer whose target the opening line already names, so a report line such as
+    `a > the` must not read as a redirect (kan-929: subagents' report writes
+    `D=...; cat > $D/r.md <<'EOF'` were denied over their own prose). A body stays scanned when
+    the writer has no target, its output is piped on, the target is named again after the
+    body (written, then run), the target is a device or a process substitution (`/dev/stdout`,
+    `>(sh)`), the rest of the command may run code (`may_run_code` — an enclosing `bash <(` or
+    `eval "$(`, a later `sh "$D"/x.sh`), the opener is not a plain `cat`/`tee`
+    (`python3 - <<EOF`, `x=$(cat <<EOF`), or an unquoted-delimiter body runs `$(...)` or
+    backticks."""
+    lines = command.split("\n")
+    out = []
+    k = 0
+    while k < len(lines):
+        line = lines[k]
+        out.append(line)
+        k += 1
+        m = HEREDOC_OPEN_RE.search(line)
+        if not m or "|" in line[m.end() :]:
+            continue
+        seg = SEGMENT_SPLIT_RE.split(line[: m.start()])[-1] + " " + line[m.end() :]
+        words = seg.split()
+        while words and ASSIGNMENT_RE.match(words[0]):
+            words.pop(0)
+        if not words or words[0] not in ("cat", "tee"):
+            continue
+        if words[0] == "cat":
+            t = CAT_TARGET_RE.search(seg)
+            target = t.group(1) if t else None
+        else:
+            target = next((w for w in words[1:] if not w.startswith(("-", ">"))), None)
+        delim = m.group(1) or m.group(2) or m.group(3)
+        tabs = line[m.start() : m.start() + 3] == "<<-"
+        end = next(
+            (j for j in range(k, len(lines)) if (lines[j].lstrip("\t") if tabs else lines[j]).rstrip("\r") == delim),
+            None,
+        )
+        if not target or end is None or target in "\n".join(lines[end + 1 :]):
+            continue
+        if target.startswith("/dev/") or "(" in target:
+            continue
+        if may_run_code("\n".join(lines[:k] + lines[end + 1 :])):
+            continue
+        if m.group(3) and any(c in "\n".join(lines[k:end]) for c in ("$(", "`")):
+            continue
+        k = end + 1
+    return "\n".join(out)
+
+
 def logical_lines(command):
     """The command split into logical lines: a newline outside quotes cuts, a
     backslash-newline outside quotes joins, and a quoted newline stays inside
@@ -304,7 +385,7 @@ def bash_hits(command, cwd, landings=None):
     hits = []
     cur = cwd
     env = {}
-    for line in logical_lines(command):
+    for line in logical_lines(strip_data_heredocs(command)):
         raw_tokens = tokenize(line)
         tokens = []
         for raw in raw_tokens:
