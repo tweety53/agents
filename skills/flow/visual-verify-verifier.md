@@ -500,6 +500,8 @@ state. A frame that breaks one is a departure, named by its index and what it sh
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
 each of steps 4, 7–11 and the motion step a status `check-verify-report.sh` admits — its header
 is canonical for them — and the parent runs that guard on the report before reading it.
+Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
+and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
 
 ```text
 ## Report
