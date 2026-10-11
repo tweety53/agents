@@ -13,11 +13,11 @@ import (
 // header comment is the contract — one DONE-WHEN-PATH line per path a
 // `## Done when` section names that the index does not track (read relative
 // to the root, the naming document's directory or any directory between —
-// dwResolves), then one
-// DONE-WHEN-OK/DONE-WHEN-VIOLATION verdict line, a token naming one of the
-// repository's local or remote-tracking branches never counting as a path; exit 0 DONE-WHEN-OK (a tree
-// with no `## Done when` section included), 1 DONE-WHEN-VIOLATION, 2 with
-// nothing on stdout when it cannot answer.
+// dwResolves), then one DONE-WHEN-OK/DONE-WHEN-VIOLATION verdict line, a
+// token naming one of the repository's local or remote-tracking branches
+// never counting as a path; exit 0 DONE-WHEN-OK (a tree with no `## Done
+// when` section included), 1 DONE-WHEN-VIOLATION, 2 with nothing on stdout
+// when it cannot answer.
 //
 // WHY THIS GUARD EXISTS (KAN-817, kan-743's self-review). A done criterion is
 // only as good as the committed state it names: kan-743's own Done-when named
