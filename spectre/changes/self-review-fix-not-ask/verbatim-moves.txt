@@ -1,0 +1,4 @@
+# Operator 2026-10-11: self-review findings are always fixed cheap and fast; only a big finding is asked about.
+**Classify every finding before any work** by the blast-radius rule of **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files, reaches outside `<agents repo>`, or needs a design choice only the operator can make.
+**A choice the fix leaves open is never a design choice only the operator can make** — where a check lives, a name, a scope, whether a guard or a test is added: the fix takes the simplest option and notes it, the smallest change that closes the defect, no refactor and no detour.
+A finding with nothing to fix — what went well, under angle 3 — is reported and recorded `declined`, never offered: **only a `big` finding, or one whose fix step 3 dropped, is ever offered for filing**.

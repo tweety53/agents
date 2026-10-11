@@ -151,6 +151,10 @@ own `files>=60` threshold — when that count is 60 or more, when it reaches out
 `<agents repo>`, or when it needs a design choice only the operator can make. A `big` fix is
 deferred to self-review, and so is one found `big` once under way, which stops there.
 
+**A choice the fix leaves open is never a design choice only the operator can make** — where a
+check lives, a name, a scope, whether a guard or a test is added: the fix takes the simplest option
+and notes it, the smallest change that closes the defect, no refactor and no detour.
+
 `<agents-base>` is `<agents repo>`'s own default branch —
 `git -C <agents repo> symbolic-ref --short refs/remotes/origin/HEAD` with its `origin/` prefix
 dropped — never the project's `<default-branch>`, which `<agents repo>` may not carry.

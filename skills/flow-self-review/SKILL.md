@@ -61,7 +61,9 @@ An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
 **A finding is fixed or filed only from the six angles.** A finding about the pipeline itself is
-fixed in step 3 unless it is `big`, and offered under its angle when it is. **The pass covers
+fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding with nothing to fix — what
+went well, under angle 3 — is reported and recorded `declined`, never offered: **only a `big`
+finding, or one whose fix step 3 dropped, is ever offered for filing**. **The pass covers
 the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
 config, guards — and nothing else.** A finding about the project's own product code is out of
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
@@ -76,7 +78,8 @@ nothing beyond it — say so in the report's `**Deferred:**` line.
 
 **Classify every finding before any work** by the blast-radius rule of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files,
-reaches outside `<agents repo>`, or needs a design choice only the operator can make. An
+reaches outside `<agents repo>`, or needs a design choice only the operator can make — which a
+choice the fix leaves open never is. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
