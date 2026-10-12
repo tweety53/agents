@@ -1116,13 +1116,13 @@ var beginCommandShape = []string{
 // dispatchBeginsFromCommand judges one Bash command's text as zero or
 // more dispatch begins and extracts each one's row identity and start
 // instant. Line continuations are folded first, because the skills'
-// templates wrap one invocation across several physical lines; each
-// fragment's `for` loops are expanded next (expandForLoops), because a
-// dispatcher batching a wave's begins into one Bash call writes them as a
-// loop -- `for g in 1 2 3; do flow record dispatch begin ... -key
-// group-$g-implementer ...; done` (kan-925) -- whose iterations the shell
-// runs as separate row-opening calls the raw text never names. The text is
-// then split on newlines, `&&` and `;`, because a panel round records every
+// templates wrap one invocation across several physical lines; `for` loops
+// are expanded next (expandForLoops), because a dispatcher batching a
+// wave's begins into one Bash call writes them as a loop -- `for g in 1 2
+// 3; do flow record dispatch begin ... -key group-$g-implementer ...; done`
+// (kan-925) -- whose iterations the shell runs as separate row-opening
+// calls the raw text never names. The text is then split on newlines,
+// `&&` and `;`, because a panel round records every
 // slot's begin in one Bash call and a dispatcher chains an end and the
 // next begin as `end ...; begin ...` -- read as one invocation, that pair
 // yields the END's -key, stamping the previous row with the next launch's
@@ -1135,12 +1135,16 @@ var beginCommandShape = []string{
 // mistype, never a row opener.
 func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 	joined := strings.ReplaceAll(command, "\\\n", " ")
-	fragments := strings.Split(joined, "\n")
 	var out []dispatchBeginEvent
 	vars := map[string]string{}
-	for _, fragment := range fragments {
-		for _, expanded := range expandForLoops(fragment) {
-			for _, joint := range splitTopLevel(expanded, "&&") {
+	// Loops expand before the newline split: a `for` spanning physical
+	// lines (kan-925, panel finding F2) is one loop, and splitting first
+	// would shred it into unexpandable fragments. Each substituted body
+	// keeps whatever newlines it carried; the fragment split below reads
+	// those exactly as it reads the command's own.
+	for _, expanded := range expandForLoops(joined) {
+		for _, fragment := range strings.Split(expanded, "\n") {
+			for _, joint := range splitTopLevel(fragment, "&&") {
 				for _, piece := range splitTopLevel(joint, ";") {
 					if name, value, ok := shellAssignment(piece); ok {
 						vars[name] = value
@@ -1158,64 +1162,52 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 }
 
 // splitTopLevel splits s on sep (";" or "&&"), ignoring separators inside
-// single quotes, double quotes, and $(...) / ${...} nesting -- the quoting
-// a begin invocation's own arguments use. A backslash escapes the next
-// character everywhere. Backquotes are deliberately NOT tracked: today's
-// reads never look inside one (shellAssignment refuses backquote values),
-// so a separator there splits exactly as it always has.
+// quotes and $(...) / ${...} nesting -- the quoting a begin invocation's
+// own arguments use. Quotes skip through skipQuoted, the same helper the
+// loop scanner uses, so the two never disagree on where a quoted section
+// ends. Nesting tracks its opener on a stack: `$(` closes only on `)` and
+// `${` only on `}`, so `${X:-)}` cannot swallow the fragment the way a
+// single depth counter let it (kan-925, panel finding F1). A backslash
+// escapes the next character everywhere. Backquotes are deliberately NOT
+// tracked: today's reads never look inside one (shellAssignment refuses
+// backquote values), so a separator there splits exactly as it always has.
 func splitTopLevel(s, sep string) []string {
 	var parts []string
 	var cur strings.Builder
-	depth := 0
-	var quote byte
+	var closers []byte
 	i := 0
 	for i < len(s) {
 		c := s[i]
-		if quote != 0 {
-			cur.WriteByte(c)
-			if c == '\\' && i+1 < len(s) {
-				i++
-				cur.WriteByte(s[i])
-			} else if c == quote {
-				quote = 0
-			} else if quote == '"' && (c == '$' && i+1 < len(s) && (s[i+1] == '(' || s[i+1] == '{')) {
-				depth++
-				cur.WriteByte(s[i+1])
-				i++
-			} else if c == ')' && depth > 0 {
-				depth--
-			}
-			i++
-			continue
-		}
 		if c == '\'' || c == '"' {
-			quote = c
-			cur.WriteByte(c)
-			i++
+			end := skipQuoted(s, i, -1)
+			cur.WriteString(s[i:end])
+			i = end
 			continue
 		}
 		if c == '\\' && i+1 < len(s) {
+			cur.WriteString(s[i : i+2])
+			i += 2
+			continue
+		}
+		if c == '$' && i+1 < len(s) && s[i+1] == '(' {
+			closers = append(closers, ')')
+			cur.WriteString(s[i : i+2])
+			i += 2
+			continue
+		}
+		if c == '$' && i+1 < len(s) && s[i+1] == '{' {
+			closers = append(closers, '}')
+			cur.WriteString(s[i : i+2])
+			i += 2
+			continue
+		}
+		if (c == ')' || c == '}') && len(closers) > 0 && closers[len(closers)-1] == c {
+			closers = closers[:len(closers)-1]
 			cur.WriteByte(c)
-			i++
-			cur.WriteByte(s[i])
 			i++
 			continue
 		}
-		if c == '$' && i+1 < len(s) && (s[i+1] == '(' || s[i+1] == '{') {
-			depth++
-			cur.WriteByte(c)
-			i++
-			cur.WriteByte(s[i])
-			i++
-			continue
-		}
-		if c == ')' && depth > 0 {
-			depth--
-			cur.WriteByte(c)
-			i++
-			continue
-		}
-		if depth == 0 && strings.HasPrefix(s[i:], sep) {
+		if len(closers) == 0 && strings.HasPrefix(s[i:], sep) {
 			parts = append(parts, cur.String())
 			cur.Reset()
 			i += len(sep)
@@ -1236,13 +1228,16 @@ const maxLoopWords = 64
 // expandForLoops replaces every `for NAME in WORDS; do BODY; done` in
 // fragment with BODY once per word -- `$NAME`/`${NAME}` substituted --
 // joined by `;`, so the normal invocation pipeline reads each iteration as
-// the row-opening call the shell ran. Only single-fragment loops with
-// literal words expand: a word holding `$`, a backquote, or nothing at all
-// is not expanded, and neither is a loop the scan cannot close, a nested
-// loop inside an expanded body, or (past maxLoopWords) a very long one --
-// those fall through to the normal pipeline, where the unresolvable-key
-// rule in dispatchBeginFromInvocation keeps a template from claiming a
-// launch. A `for` inside quotes is prose, never a loop.
+// the row-opening call the shell ran. Loops may span newlines: newline is
+// whitespace to the loop scan, and each substituted body keeps whatever
+// newlines it carried for the fragment split to read as usual. Only loops
+// with literal words expand: a word holding `$`, a backquote, or nothing
+// at all is not expanded, and neither is a loop the scan cannot close, a
+// nested loop inside an expanded body, a quoted word holding a newline, or
+// (past maxLoopWords) a very long one -- those fall through to the normal
+// pipeline, where the unresolvable-key rule in
+// dispatchBeginFromInvocation keeps a template from claiming a launch. A
+// `for` inside quotes is prose, never a loop.
 func expandForLoops(fragment string) []string {
 	var out strings.Builder
 	i := 0
@@ -1391,10 +1386,11 @@ func isNameChar(c byte, first bool) bool {
 	return !first && '0' <= c && c <= '9'
 }
 
-// skipSpaces skips blanks between shell tokens. Fragments hold no
-// newlines by construction, but a tab can separate any two tokens.
+// skipSpaces skips blanks between shell tokens -- spaces, tabs, and the
+// newlines a multi-line loop carries, since expansion runs before the
+// fragment split.
 func skipSpaces(s string, i int) int {
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
 		i++
 	}
 	return i

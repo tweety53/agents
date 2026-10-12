@@ -3677,6 +3677,40 @@ func TestWatcherStampsKan925LoopBegins(t *testing.T) {
 			},
 			want: []stampCall{{"mf-t", "task-7-implementer", "a1"}},
 		},
+		{
+			name: "brace expansion earlier in the fragment swallows no separator",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", "echo ${X:-d}; "+begin+" -key task-11-a -session-token mf-t; "+begin+" -key task-11-b -session-token mf-t"),
+				launch("2026-01-01T00:00:10Z", "a1"),
+				launch("2026-01-01T00:00:11Z", "a2"),
+			},
+			want: []stampCall{{"mf-t", "task-11-a", "a1"}, {"mf-t", "task-11-b", "a2"}},
+		},
+		{
+			name: "multiline loop expands across physical lines",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", "for g in 1 2;\ndo "+begin+" -key group-$g-impl -session-token mf-t;\ndone"),
+				launch("2026-01-01T00:01:00.000Z", "a1"),
+				launch("2026-01-01T00:01:00.005Z", "a2"),
+			},
+			want: []stampCall{{"mf-t", "group-1-impl", "a1"}, {"mf-t", "group-2-impl", "a2"}},
+		},
+		{
+			name: "for inside quotes is prose beside a real begin",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", `echo "for g in 1 2; do `+begin+` -key fake-$g -session-token mf-t; done"; `+begin+` -key task-12-good -session-token mf-t`),
+				launch("2026-01-01T00:00:10Z", "a1"),
+			},
+			want: []stampCall{{"mf-t", "task-12-good", "a1"}},
+		},
+		{
+			name: "before and donezo are not keywords",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", "before x; donezo y; "+begin+" -key task-13-good -session-token mf-t"),
+				launch("2026-01-01T00:00:10Z", "a1"),
+			},
+			want: []stampCall{{"mf-t", "task-13-good", "a1"}},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
