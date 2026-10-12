@@ -167,11 +167,24 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	// cannot be carried to one site and dropped at the other. Built once,
 	// before the findings loop, so every declaration of the run resolves
 	// through the same map.
+	//
+	// Each tree is indexed under its repository's name too — its main
+	// checkout's basename, `gymie-frontend` for a linked worktree at
+	// gymie-frontend-worktrees/<change> — because a cross-repo change's
+	// worktrees all share one leaf basename (the change name), so the leaf
+	// prefix is ambiguous on exactly the changes the prefix form exists for,
+	// while the repository name is the one the panel record's Location column
+	// writes (kan-932's self-review).
 	prefixTrees := map[string][]string{}
 	for _, p := range append(resolvedRecordedTrees(env, recorded), worktree) {
-		b := filepath.Base(p)
-		if !slices.Contains(prefixTrees[b], p) {
-			prefixTrees[b] = append(prefixTrees[b], p)
+		keys := []string{filepath.Base(p)}
+		if main, ok := changePlanMainCheckout(env, p); ok && filepath.Base(main) != keys[0] {
+			keys = append(keys, filepath.Base(main))
+		}
+		for _, b := range keys {
+			if !slices.Contains(prefixTrees[b], p) {
+				prefixTrees[b] = append(prefixTrees[b], p)
+			}
 		}
 	}
 

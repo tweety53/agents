@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -601,6 +602,33 @@ func TestCheckPanelReproducerExitContract(t *testing.T) {
 		if strings.Contains(out, "ambiguous") {
 			t.Fatalf("the canonical basename read ambiguous despite the dedupe:\n%s", out)
 		}
+	})
+
+	// kan-932's self-review: a cross-repo change's worktrees share one leaf
+	// basename, so the leaf prefix is ambiguous there; the repository-name
+	// prefix the panel record writes (the main checkout's basename) must
+	// resolve to the one worktree of that repository.
+	t.Run("case 45: a repository-name prefix resolves a linked worktree sharing the canonical leaf", func(t *testing.T) {
+		t.Parallel()
+		s := newPCSandbox(t, pcFindings("F1", "open", "repro.sh"))
+		root := t.TempDir()
+		main := filepath.Join(root, "gymie-frontend")
+		peer := filepath.Join(root, "gymie-frontend-worktrees", filepath.Base(s.wt))
+		for _, args := range [][]string{
+			{"init", "-q", main},
+			{"-C", main, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"},
+			{"-C", main, "worktree", "add", "-q", peer},
+		} {
+			if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		withPeers(t, s, true, peer)
+		writeFile(t, filepath.Join(s.wt, "target.txt"), "line one\ncanonical content\nline three\n")
+		writeFile(t, filepath.Join(peer, "target.txt"), "line one\npeer content\nline three\n")
+		s.repro(t, "repro.sh", "# demonstrates: gymie-frontend:target.txt:2:peer content\nexit 9")
+		got, out := s.run(t, "prefixed-repo-name")
+		expect(t, got, out, 0, "REPRODUCER-EXIT-CONTRACT-OK (1 runnable")
 	})
 
 	// KAN-904's reference marker, cross-repo arm: the prefix names the tree

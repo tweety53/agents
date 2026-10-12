@@ -86,7 +86,11 @@
 # basename nothing answers to is no prefixed citation at all — the
 # declaration reads unprefixed and bounces as malformed if it cannot — and a
 # basename several trees answer to is ambiguous, cannot-answer (exit 2), the
-# citation's tree unknowable and no verdict possible. The premise audit
+# citation's tree unknowable and no verdict possible. Each tree also
+# answers to its repository's name — its main checkout's basename — since a
+# cross-repo change's worktrees all share the change name as their leaf, so
+# only the repository name (the panel record's Location prefix) tells them
+# apart. The premise audit
 # (KAN-839) rides the same
 # machinery: every `# premise: <path>:<line>:<content>` declaration in the
 # same first-10-lines window is resolved the same way, tolerantly — a
