@@ -157,7 +157,8 @@ these substitutions:
 
 - **No implementer, no panel-fix dispatch.** The parent does each bundle's TDD work in the
   canonical worktree, commits per task with the same `Task-Id:` trailer and declared `**Commit:**`
-  subject, and runs `close-task.sh` exactly as section **4** states.
+  subject, and runs `close-task.sh` exactly as section **4** states, its `-end-*` flags closing
+  the bundle's own `implementer` row.
   Waves are not parallel inline: bundles run in plan order, one at a time, never launched into a
   throwaway worktree.
 - **Every dispatch-prompt paragraph that instructs an implementer or fixer in its work** — FLOW —
