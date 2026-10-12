@@ -57,7 +57,10 @@
 #     is "cannot answer" (exit 2), never a clean verdict, matching the
 #     dispatches read below.
 #
-# Rows of other roles and rows of other session tokens never count.
+# Rows of other roles and rows of other session tokens never count, nor do
+# `full-suite-fix-<n>` rows recorded with agent id `inline`: implement.md
+# records the parent's own full-suite fix rounds under role `panel-fix`, and
+# they are no panel fix round. A subagent's row under that key still counts.
 #
 # THE GUARD NEVER READS THE JOURNAL and never consults anything but the
 # store's answer, matching check-panel-findings-closed.sh: a read that

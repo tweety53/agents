@@ -111,6 +111,13 @@ func TestCheckPanelFixSingleDispatch(t *testing.T) {
 		{"case 6: other roles ignored, foreign token rows ignored",
 			pfdCase{dispatches: d("task-1-implementer", "implementer", "mf-tok", "slot-primary", "reviewer", "mf-tok",
 				"panel-fix-1", pf, "mf-tok", "panel-fix-1", pf, "mf-other", "panel-fix-1", pf, "mf-other")}, 0, "OK"},
+		{"case 6b: the parent's full-suite-fix-<n> rows are not panel fix rounds",
+			pfdCase{dispatches: []byte(`[{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-tok"},` +
+				`{"key":"full-suite-fix-1","role":"panel-fix","sessionToken":"mf-tok","agentId":"inline"},` +
+				`{"key":"full-suite-fix-2","role":"panel-fix","sessionToken":"mf-tok","agentId":"inline"}]`)}, 0, "OK"},
+		{"case 6c: a subagent's full-suite-fix-<n> row is an invented panel-fix key",
+			pfdCase{dispatches: []byte(`[{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-tok"},` +
+				`{"key":"full-suite-fix-1","role":"panel-fix","sessionToken":"mf-tok","agentId":"a1b2c3"}]`)}, 1, "full-suite-fix-1"},
 		{"case 7a: missing session-token argument exits 2",
 			pfdCase{dispatches: d("panel-fix-1", pf, "mf-tok"), args: []string{"/", "demo", ""}}, 2, "session token is required"},
 		{"case 7b: non-directory worktree exits 2",

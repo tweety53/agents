@@ -412,7 +412,8 @@ re-runs begin, and no fix subagent is left in flight when the turn ends. The rou
 chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
 (`panel-fix-<round>-2`, `-3`, …), contiguous from 2; the handshake retry suffixes `-retry` onto
 its own chunk's key (`panel-fix-<round>[|-<n>]-retry`), and any other key shape is a violation
-whatever the dispatch count. A round may not chunk freely: its chunk count is bounded by
+whatever the dispatch count, save the parent's own `full-suite-fix-<n>` rows recorded with
+`-agent-id inline` (`skills/flow/implement.md`). A round may not chunk freely: its chunk count is bounded by
 `ceil(findings raised in earlier rounds / 10)`. Before recording each `dispatch begin`, confirm that key has
 no panel-fix begin already recorded — a second begin under a fresh key is over-dispatching even
 when every key is well-formed. `check-panel-fix-single-dispatch.sh` holds every run's panel close

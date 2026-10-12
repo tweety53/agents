@@ -36,6 +36,8 @@ const pfdPrefix = "check-panel-fix-single-dispatch: "
 // pins the verdicts measured from bash.
 var pfdKeyRE = regexp.MustCompile(`^panel-fix-[0-9]+(-[0-9]+)?(-retry)?$`)
 
+var pfdFullSuiteRE = regexp.MustCompile(`^full-suite-fix-[0-9]+$`)
+
 // pfdBase is one panel-fix base key (the key with a trailing -retry
 // stripped) and its counts, kept in first-seen order as the bash's parallel
 // arrays were.
@@ -302,7 +304,15 @@ func pfdPanelFixKeys(raw []byte, token string) ([]string, bool) {
 			if row["sessionToken"] != token || row["role"] != "panel-fix" {
 				continue
 			}
-			keys = append(keys, pfdRawText(row["key"]))
+			key := pfdRawText(row["key"])
+			// A full-suite-fix-<n> row is the parent's own full-suite round
+			// (implement.md), recorded under role panel-fix for cost with
+			// -agent-id inline, not a panel fix round: it never counts here.
+			// A subagent's row under that key still does (KAN-482).
+			if row["agentId"] == "inline" && pfdFullSuiteRE.MatchString(key) {
+				continue
+			}
+			keys = append(keys, key)
 		}
 	}
 	return keys, true
