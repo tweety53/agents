@@ -262,10 +262,13 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	dispatches := func(body string) func(t *testing.T, f *uwFix) {
 		return func(t *testing.T, f *uwFix) { f.setFile(t, "dispatches.json", body+"\n") }
 	}
-	each(demo(dispatches(`[{"key":"task-1-implementer","outcome":"completed"},{"key":"task-14-reviewer"}]`)),
+	each(demo(dispatches(`[{"key":"task-1-implementer","outcome":"completed","sessionToken":"mf-run1"},{"key":"task-14-reviewer","sessionToken":"mf-run2"}]`)),
 		uwVerdict("a dispatch row with no outcome is OUTSTANDING", "OUTSTANDING:"),
 		uwReason("the breakdown names the unclosed row's key", "1 dispatch row(s) with no outcome (task-14-reviewer)"),
-		uwReason("the close command carries every required flag", "flow record dispatch end -change demo -key <key> -session-token mf-<token> -outcome <outcome> -C "))
+		uwReason("the close command carries the row's own key and session token", "flow record dispatch end -change demo -key task-14-reviewer -session-token mf-run2 -outcome <outcome> -C "))
+	each(demo(dispatches(`[{"seq":7,"key":"task-9-implementer"}]`)),
+		uwVerdict("a tokenless open row is still OUTSTANDING", "OUTSTANDING:"),
+		uwReason("a tokenless row is named as not closable instead of a broken command", "row seq 7 has no key or session token and cannot be closed by `flow record dispatch end`"))
 	each(demo(dispatches("not json")), uwRC("unreadable dispatch rows cannot answer", 2))
 	each(demo(file("bin/dispatches.fail", "")), uwRC("a failed dispatches read cannot answer", 2))
 

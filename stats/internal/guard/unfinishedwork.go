@@ -267,21 +267,34 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 		var dispatches []struct {
-			Key     string `json:"key"`
-			Outcome string `json:"outcome"`
+			Seq          int    `json:"seq"`
+			Key          string `json:"key"`
+			Outcome      string `json:"outcome"`
+			SessionToken string `json:"sessionToken"`
 		}
 		if json.Unmarshal(dispOut, &dispatches) != nil || dispatches == nil {
 			fmt.Fprintf(stderr, "%sdispatches for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
 			return 2
 		}
-		var unclosed []string
+		// Each row is closed under the token of the run that BEGAN it, not
+		// the closing run's own (kan-931: a token filled in by the integrate
+		// run answered 404), so every command carries the row's own token.
+		var unclosed, closeCmds []string
 		for _, d := range dispatches {
 			if strings.TrimSpace(d.Outcome) == "" {
 				unclosed = append(unclosed, d.Key)
+				// A legacy row with no key or no token cannot be matched by
+				// dispatch end at all: say so rather than print a command
+				// whose next flag the shell would read as the missing value.
+				if d.Key == "" || d.SessionToken == "" {
+					closeCmds = append(closeCmds, "row seq "+strconv.Itoa(d.Seq)+" has no key or session token and cannot be closed by `flow record dispatch end`")
+					continue
+				}
+				closeCmds = append(closeCmds, "`flow record dispatch end -change "+name+" -key "+d.Key+" -session-token "+d.SessionToken+" -outcome <outcome> -C "+anchor+"`")
 			}
 		}
 		if len(unclosed) > 0 {
-			reasons = append(reasons, strconv.Itoa(len(unclosed))+" dispatch row(s) with no outcome ("+strings.Join(unclosed, ", ")+") — close each with `flow record dispatch end -change "+name+" -key <key> -session-token mf-<token> -outcome <outcome> -C "+anchor+"`")
+			reasons = append(reasons, strconv.Itoa(len(unclosed))+" dispatch row(s) with no outcome ("+strings.Join(unclosed, ", ")+") — close each with "+strings.Join(closeCmds, ", "))
 		}
 	}
 
