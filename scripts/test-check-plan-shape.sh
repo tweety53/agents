@@ -927,6 +927,35 @@ case "$OUT" in
 esac
 
 # ===========================================================================
+# plan-suite-steps: a task step running the module suite (kan-931's
+# "run `./gradlew :shared:desktopTest`") fails through the wrapper, in both
+# the one-argument and the no-argument scan; the Go check's own cases are
+# stats/internal/guard/plan_suite_steps_test.go.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Menu\n\n'
+  printf '**Files:** `A.kt`\n\n'
+  printf '**Tests:** `aRowIsTall`\n\n'
+  printf '  - [ ] **Step 1:** run `./gradlew :shared:desktopTest`; migrate failures\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*"task 1 runs the suite \`./gradlew :shared:desktopTest\`"*) pass "plan-suite-steps: a module-suite step fails (one argument)" ;;
+  *) fail "plan-suite-steps: a module-suite step (one argument): rc=$RC out=$OUT" ;;
+esac
+mkdir -p "$FIXTURE/root/spectre/changes/c"
+cp "$TASKS_MD" "$FIXTURE/root/spectre/changes/c/tasks.md"
+run_guard_root "$FIXTURE/root"
+case "$RC:$OUT" in
+  1:*"task 1 runs the suite"*) pass "plan-suite-steps: a module-suite step fails (no-argument scan)" ;;
+  *) fail "plan-suite-steps: a module-suite step (no-argument scan): rc=$RC out=$OUT" ;;
+esac
+sed -i.bak 's/`;/ --tests '"'"'X'"'"'`;/' "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "plan-suite-steps: the same step with --tests passes" || fail "plan-suite-steps: with --tests: rc=$RC out=$OUT"
+
+# ===========================================================================
 # Unlanded archives: the scan cannot list the archived changes the base does
 # not carry -> exit 2, never a scan that silently skips them. A copy of the
 # guard in a scratch tree with no stats/ beside it cannot build flow-guard;

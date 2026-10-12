@@ -193,7 +193,7 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
 - `flow-active-change.py`: routes a plain problem report to the session's open change as a fix run.
 
 **Plan**
-- `check-plan-shape.sh`: `tasks.md` must be readable by the commit guards that check it later.
+- `check-plan-shape.sh`: `tasks.md` must be readable by the commit guards that check it later. No task step runs a module or repository test suite.
 - `check-plan-provenance.sh`: every code block and number in the plan carries `verified:` or
   `unverified:`.
 - `check-task-build-green.sh`: every task declares whether it leaves the build green. A red task

@@ -1,0 +1,7 @@
+# Operator 2026-10-12 (kan-931): each task runs targeted verify only; the full suite runs once after the last task, every failure fixed by the parent before the panel.
+A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes itself**, as inline fixes are applied: it edits, commits on the route the branch's push state dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under `full-suite-fix-<n>`, and re-runs the list.
+A full-suite failure outside the plan-last group's files ends your turn with `## Question` — the failing command and its output, verbatim — before `final-review.diff` is written: the panel never runs on a red branch, and the operator resolves it through a fix run.
+Any other failure is the last boundary's `## Question`, below.
+A plan step that asks for the module or repository suite is run as this task's targeted tests instead.
+Every failure, wherever it lies, **the parent fixes itself** at its root cause, as inline fixes are applied: it edits, commits on the route the branch's push state dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under `full-suite-fix-<n>`, and re-runs the list until it passes.
+The panel never runs on a red branch.

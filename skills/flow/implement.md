@@ -562,8 +562,9 @@ and applies **The handshake** stated above, unchanged.
 > tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
 > '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
 > run the module or repository suite mid-task: the full `## test` list runs once per worktree at
-> the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
-> run costs lines of context, not a build log.
+> the last bundle, and again in `flow.verify`. A plan step that asks for the module or repository
+> suite is run as this task's targeted tests instead. Pipe a test run's output through `tail` so a
+> green run costs lines of context, not a build log.
 
 > **DRIFT CHECK:** Before you commit, read your own diff once for what it leaves behind. For
 > every behaviour, name, path, flag or exit code the diff changes, grep for the comments, file
@@ -609,12 +610,11 @@ Every implementer dispatch also carries:
 holding the last `bundle <k>` line `plan-dispatch-bundles.sh` printed — has passed the guard, by
 direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
 once on the canonical worktree, in the foreground, in the order the context bundle carries it, its
-output through `tail`. A failure in a file a plan-last group task's `**Files:**` field names **the parent fixes
-itself**, as inline fixes are applied: it edits, commits on the route the branch's push state
+output through `tail`. Every failure, wherever it lies, **the parent fixes itself** at its root
+cause, as inline fixes are applied: it edits, commits on the route the branch's push state
 dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one
 `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline`
-under `full-suite-fix-<n>`, and re-runs the list. Any other failure is the last boundary's
-`## Question`, below.
+under `full-suite-fix-<n>`, and re-runs the list until it passes.
 
 **The next implementer overlaps the guard.** The unit is the group — the decision's `groups`
 entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
@@ -850,10 +850,8 @@ the plan-tree guard, never in its place.
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix
 landed, and the parent's full-suite run has passed, after any fix of its own; the review panel's
-pre-work may share the last implementer's wait, in its one call. A full-suite failure outside the
-plan-last group's files ends your turn with `## Question` — the failing
-command and its output, verbatim — before `final-review.diff` is written: the panel never runs on
-a red branch, and the operator resolves it through a fix run.
+pre-work may share the last implementer's wait, in its one call. The panel never runs on a red
+branch.
 
 **Turn discipline.** A turn is spent only where an output must be read before the next action is
 chosen. Calls that do not depend on one another share one Bash call — every verdict printed, each

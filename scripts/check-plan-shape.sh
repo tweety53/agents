@@ -17,9 +17,9 @@
 #   - no arguments: scan every live change's tasks.md under
 #     <spec-root>/changes/*/tasks.md, and that of every archived change
 #     under <spec-root>/changes/archive/ the base does not carry yet
-#     (`flow-guard unlanded-archives`), calling the Python script once per
+#     (`flow-guard unlanded-archives`), calling check_one below once per
 #     file and aggregating exit codes — non-zero if ANY file has a
-#     violation, printing each file's own violations as the Python script
+#     violation, printing each file's own violations as check_one's two checks
 #     emits them;
 #   - one argument: treat it as an explicit tasks.md path and scan only
 #     that file.
@@ -64,8 +64,36 @@ if ! python3 -c 'import sys; sys.exit(0)'; then
   exit 2
 fi
 
+# flow_guard_exec runs `flow-guard plan-suite-steps` on every file below and
+# `flow-guard unlanded-archives` on the no-argument scan; named as
+# $SCRIPT_DIR/<name> and checked before sourcing, like every sibling here.
+FLOW_GUARD_LIB="$SCRIPT_DIR/lib/flow-guard.sh"
+if [ ! -f "$FLOW_GUARD_LIB" ]; then
+  echo "check-plan-shape.sh: shared flow-guard module not found: $FLOW_GUARD_LIB" >&2
+  exit 2
+fi
+source "$FLOW_GUARD_LIB"
+
+# check_one <tasks.md>: check-plan-shape.py's F1-F11, then `flow-guard
+# plan-suite-steps` (stats/internal/guard/plansuitesteps.go) — a task step
+# running a module or repository test suite. Returns 2 if either cannot
+# answer, else 1 if either found a violation, else 0.
+check_one() {
+  local py=0 go=0
+  python3 "$PYTHON_GUARD" "$1" || py=$?
+  (flow_guard_exec plan-suite-steps 2 "check-plan-shape.sh:" "$1") || go=$?
+  if [ "$py" -eq 2 ] || [ "$go" -eq 2 ]; then
+    return 2
+  elif [ "$py" -ne 0 ] || [ "$go" -ne 0 ]; then
+    return 1
+  fi
+  return 0
+}
+
 if [ "$#" -eq 1 ]; then
-  exec python3 "$PYTHON_GUARD" "$1"
+  rc=0
+  check_one "$1" || rc=$?
+  exit "$rc"
 fi
 
 if [ "$#" -gt 1 ]; then
@@ -96,14 +124,6 @@ else
   REPO_ROOT="$(cd "$(dirname "$SELF_REAL")/.." && pwd)"
 fi
 source "$SCRIPT_DIR/lib/spec-root.sh"
-# flow_guard_exec runs `flow-guard unlanded-archives` below; named as
-# $SCRIPT_DIR/<name> and checked before sourcing, like every sibling here.
-FLOW_GUARD_LIB="$SCRIPT_DIR/lib/flow-guard.sh"
-if [ ! -f "$FLOW_GUARD_LIB" ]; then
-  echo "check-plan-shape.sh: shared flow-guard module not found: $FLOW_GUARD_LIB" >&2
-  exit 2
-fi
-source "$FLOW_GUARD_LIB"
 CHANGES_DIR="$REPO_ROOT/$(spec_root_leaf "$REPO_ROOT")/changes"
 
 STATUS=0
@@ -126,7 +146,7 @@ if [ -d "$CHANGES_DIR" ]; then
   for tasks_file in "${TASKS_FILES[@]}"; do
     [ -e "$tasks_file" ] || continue
     rc=0
-    python3 "$PYTHON_GUARD" "$tasks_file" || rc=$?
+    check_one "$tasks_file" || rc=$?
     if [ "$rc" -eq 2 ] || [ "$STATUS" -eq 2 ]; then
       STATUS=2
     elif [ "$rc" -ne 0 ]; then
