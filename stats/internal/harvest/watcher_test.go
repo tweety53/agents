@@ -3614,6 +3614,98 @@ func TestWatcherStampsKan964BeginShapes(t *testing.T) {
 	}
 }
 
+// TestWatcherStampsKan925LoopBegins replays the begin shapes kan-916's
+// dispatcher actually wrote: begins recorded inside shell `for` loops -- a
+// loop variable in `-key`, or whole flag bundles behind `eval $var` -- to
+// keep one Bash call per wave. The loop text names no literal row, so the
+// old parser yielded no begin at all (or a template key matching nothing)
+// and every one of those launches stayed pending until evicted: 7 of
+// kan-916's 20 launched dispatches kept an empty agent_id. Expanding the
+// loop over its literal words recovers one literal begin per iteration,
+// and a key or token still carrying an unresolvable `$` names no row and
+// claims no launch.
+func TestWatcherStampsKan925LoopBegins(t *testing.T) {
+	bash := func(ts, command string) string {
+		c, err := json.Marshal(command)
+		if err != nil {
+			t.Fatalf("marshal command: %v", err)
+		}
+		return `{"type":"assistant","timestamp":"` + ts + `","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(c) + `}}]}}`
+	}
+	launch := func(ts, agentID string) string {
+		return `{"type":"user","timestamp":"` + ts + `","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agentID + `"}}`
+	}
+	const begin = "flow record dispatch begin -change c -role implementer -model opus"
+	cases := []struct {
+		name  string
+		lines []string
+		want  []stampCall
+	}{
+		{
+			name: "for loop over literal keys stamps each launch in order",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", `for g in 1 2 3; do `+begin+` -effort $([ $g = 3 ] && echo high || echo medium) -key group-$g-implementer -session-token mf-t; done`),
+				launch("2026-01-01T00:01:37.027Z", "a1"),
+				launch("2026-01-01T00:01:37.032Z", "a2"),
+				launch("2026-01-01T00:01:37.037Z", "a3"),
+			},
+			want: []stampCall{{"mf-t", "group-1-implementer", "a1"}, {"mf-t", "group-2-implementer", "a2"}, {"mf-t", "group-3-implementer", "a3"}},
+		},
+		{
+			name: "for loop over quoted flag bundles through eval stamps each launch",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", `for a in "-role implementer -model opus -effort medium -key group-5-implementer" "-role reviewer -model opus -effort high -key task-4+5+6-reviewer"; do eval flow record dispatch begin -change c $a -session-token mf-t; done`),
+				launch("2026-01-01T00:01:23.408Z", "a1"),
+				launch("2026-01-01T00:01:23.460Z", "a2"),
+			},
+			want: []stampCall{{"mf-t", "group-5-implementer", "a1"}, {"mf-t", "task-4+5+6-reviewer", "a2"}},
+		},
+		{
+			name: "unresolvable template key claims no launch",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", begin+` -key task-9-good -session-token mf-t`),
+				bash("2026-01-01T00:00:58Z", begin+` -key group-$g-implementer -session-token mf-t`),
+				launch("2026-01-01T00:01:00Z", "a1"),
+			},
+			want: []stampCall{{"mf-t", "task-9-good", "a1"}},
+		},
+		{
+			name: "command substitution holding && does not shred the begin",
+			lines: []string{
+				bash("2026-01-01T00:00:00Z", begin+` -effort $([ 1 = 1 ] && echo high || echo medium) -key task-7-implementer -session-token mf-t`),
+				launch("2026-01-01T00:00:20Z", "a1"),
+			},
+			want: []stampCall{{"mf-t", "task-7-implementer", "a1"}},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "session.jsonl")
+			if err := os.WriteFile(path, nil, 0o644); err != nil {
+				t.Fatalf("write fixture: %v", err)
+			}
+			deps := &stampRecordingDeps{}
+			w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+			// One line per cycle, the way a live watcher meets them.
+			for _, line := range tc.lines {
+				appendLine(t, path, line)
+				if _, err := w.RunOnce(context.Background()); err != nil {
+					t.Fatalf("RunOnce: %v", err)
+				}
+			}
+			if len(deps.stamps) != len(tc.want) {
+				t.Fatalf("got stamps %+v, want %+v", deps.stamps, tc.want)
+			}
+			for i := range tc.want {
+				if deps.stamps[i] != tc.want[i] {
+					t.Errorf("stamp %d = %+v, want %+v", i, deps.stamps[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
 // TestMessageStraddlingTwoReadsCountsOnce: Claude Code writes one API
 // response as one line per content block, seconds apart, each repeating
 // the response's usage. A read that ends between two of those lines must

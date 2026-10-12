@@ -1116,12 +1116,20 @@ var beginCommandShape = []string{
 // dispatchBeginsFromCommand judges one Bash command's text as zero or
 // more dispatch begins and extracts each one's row identity and start
 // instant. Line continuations are folded first, because the skills'
-// templates wrap one invocation across several physical lines; the text is
+// templates wrap one invocation across several physical lines; each
+// fragment's `for` loops are expanded next (expandForLoops), because a
+// dispatcher batching a wave's begins into one Bash call writes them as a
+// loop -- `for g in 1 2 3; do flow record dispatch begin ... -key
+// group-$g-implementer ...; done` (kan-925) -- whose iterations the shell
+// runs as separate row-opening calls the raw text never names. The text is
 // then split on newlines, `&&` and `;`, because a panel round records every
 // slot's begin in one Bash call and a dispatcher chains an end and the
 // next begin as `end ...; begin ...` -- read as one invocation, that pair
 // yields the END's -key, stamping the previous row with the next launch's
-// id (kan-964). What remains is one candidate invocation. Every shape literal must
+// id (kan-964). The `&&`/`;` split is top-level only -- separators inside
+// quotes or $(...) stay whole, so `-effort $([ $g = 3 ] && echo high ...)`
+// no longer shreds the invocation carrying it. What remains is one
+// candidate invocation. Every shape literal must
 // be present, and each flag must carry a value -- the CLI itself refuses
 // a begin without them, so a fragment missing one is a mention or a
 // mistype, never a row opener.
@@ -1131,20 +1139,370 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 	var out []dispatchBeginEvent
 	vars := map[string]string{}
 	for _, fragment := range fragments {
-		for _, joint := range strings.Split(fragment, "&&") {
-			for _, piece := range strings.Split(joint, ";") {
-				if name, value, ok := shellAssignment(piece); ok {
-					vars[name] = value
-					continue
-				}
-				ev, ok := dispatchBeginFromInvocation(piece, vars)
-				if ok {
-					out = append(out, ev)
+		for _, expanded := range expandForLoops(fragment) {
+			for _, joint := range splitTopLevel(expanded, "&&") {
+				for _, piece := range splitTopLevel(joint, ";") {
+					if name, value, ok := shellAssignment(piece); ok {
+						vars[name] = value
+						continue
+					}
+					ev, ok := dispatchBeginFromInvocation(piece, vars)
+					if ok {
+						out = append(out, ev)
+					}
 				}
 			}
 		}
 	}
 	return out
+}
+
+// splitTopLevel splits s on sep (";" or "&&"), ignoring separators inside
+// single quotes, double quotes, and $(...) / ${...} nesting -- the quoting
+// a begin invocation's own arguments use. A backslash escapes the next
+// character everywhere. Backquotes are deliberately NOT tracked: today's
+// reads never look inside one (shellAssignment refuses backquote values),
+// so a separator there splits exactly as it always has.
+func splitTopLevel(s, sep string) []string {
+	var parts []string
+	var cur strings.Builder
+	depth := 0
+	var quote byte
+	i := 0
+	for i < len(s) {
+		c := s[i]
+		if quote != 0 {
+			cur.WriteByte(c)
+			if c == '\\' && i+1 < len(s) {
+				i++
+				cur.WriteByte(s[i])
+			} else if c == quote {
+				quote = 0
+			} else if quote == '"' && (c == '$' && i+1 < len(s) && (s[i+1] == '(' || s[i+1] == '{')) {
+				depth++
+				cur.WriteByte(s[i+1])
+				i++
+			} else if c == ')' && depth > 0 {
+				depth--
+			}
+			i++
+			continue
+		}
+		if c == '\'' || c == '"' {
+			quote = c
+			cur.WriteByte(c)
+			i++
+			continue
+		}
+		if c == '\\' && i+1 < len(s) {
+			cur.WriteByte(c)
+			i++
+			cur.WriteByte(s[i])
+			i++
+			continue
+		}
+		if c == '$' && i+1 < len(s) && (s[i+1] == '(' || s[i+1] == '{') {
+			depth++
+			cur.WriteByte(c)
+			i++
+			cur.WriteByte(s[i])
+			i++
+			continue
+		}
+		if c == ')' && depth > 0 {
+			depth--
+			cur.WriteByte(c)
+			i++
+			continue
+		}
+		if depth == 0 && strings.HasPrefix(s[i:], sep) {
+			parts = append(parts, cur.String())
+			cur.Reset()
+			i += len(sep)
+			continue
+		}
+		cur.WriteByte(c)
+		i++
+	}
+	parts = append(parts, cur.String())
+	return parts
+}
+
+// maxLoopWords bounds one for-loop's expansion: a dispatch round is a
+// handful of begins, and a loop over more literal words is not one --
+// leave it unexpanded rather than multiply parsing without bound.
+const maxLoopWords = 64
+
+// expandForLoops replaces every `for NAME in WORDS; do BODY; done` in
+// fragment with BODY once per word -- `$NAME`/`${NAME}` substituted --
+// joined by `;`, so the normal invocation pipeline reads each iteration as
+// the row-opening call the shell ran. Only single-fragment loops with
+// literal words expand: a word holding `$`, a backquote, or nothing at all
+// is not expanded, and neither is a loop the scan cannot close, a nested
+// loop inside an expanded body, or (past maxLoopWords) a very long one --
+// those fall through to the normal pipeline, where the unresolvable-key
+// rule in dispatchBeginFromInvocation keeps a template from claiming a
+// launch. A `for` inside quotes is prose, never a loop.
+func expandForLoops(fragment string) []string {
+	var out strings.Builder
+	i := 0
+	expanded := false
+	for i < len(fragment) {
+		start, name, words, body, end, ok := scanForLoop(fragment, i)
+		if !ok {
+			out.WriteString(fragment[i:])
+			break
+		}
+		out.WriteString(fragment[i:start])
+		for wi, w := range words {
+			if wi > 0 {
+				out.WriteString(" ; ")
+			}
+			out.WriteString(substituteLoopVar(body, name, w))
+		}
+		expanded = true
+		i = end
+	}
+	if !expanded {
+		return []string{fragment}
+	}
+	return []string{out.String()}
+}
+
+// scanForLoop finds one for-loop at or after from and returns its span,
+// variable, words and body. ok is false when no further loop opens there.
+// The scan is quote-aware throughout: a `for` inside quotes is prose and
+// can never open a loop, whatever follows it.
+func scanForLoop(s string, from int) (start int, name string, words []string, body string, end int, ok bool) {
+	i := from
+	start = -1
+	for i < len(s) {
+		if s[i] == '\'' || s[i] == '"' {
+			i = skipQuoted(s, i, -1)
+			continue
+		}
+		if hasKeywordAt(s, i, "for") {
+			start = i
+			break
+		}
+		i++
+	}
+	if start < 0 {
+		return 0, "", nil, "", 0, false
+	}
+	i = start
+	j := i + len("for")
+	j = skipSpaces(s, j)
+	name, j = scanShellName(s, j)
+	if name == "" {
+		return scanForLoop(s, i+1)
+	}
+	j = skipSpaces(s, j)
+	if !hasKeywordAt(s, j, "in") {
+		return scanForLoop(s, i+1)
+	}
+	j = skipSpaces(s, j+len("in"))
+	var wordsEnd int
+	words, wordsEnd, ok = scanLoopWords(s, j)
+	if !ok {
+		return scanForLoop(s, i+1)
+	}
+	j = skipSpaces(s, wordsEnd)
+	if !hasKeywordAt(s, j, "do") {
+		return scanForLoop(s, i+1)
+	}
+	j = skipSpaces(s, j+len("do"))
+	body, end, ok = scanLoopBody(s, j)
+	if !ok {
+		return scanForLoop(s, i+1)
+	}
+	return start, name, words, body, end, true
+}
+
+// skipQuoted advances past a quoted section when s[i] opens one --
+// single quotes to the next single quote, double quotes to the next
+// unescaped double quote -- and otherwise returns i unchanged. limit is
+// the exclusive bound, or -1 for len(s).
+func skipQuoted(s string, i, limit int) int {
+	if limit < 0 {
+		limit = len(s)
+	}
+	if i >= limit {
+		return i
+	}
+	if s[i] == '\'' {
+		if end := strings.IndexByte(s[i+1:limit], '\''); end >= 0 {
+			return i + 1 + end + 1
+		}
+		return limit
+	}
+	if s[i] == '"' {
+		j := i + 1
+		for j < limit {
+			if s[j] == '\\' {
+				j += 2
+				continue
+			}
+			if s[j] == '"' {
+				return j + 1
+			}
+			j++
+		}
+		return limit
+	}
+	return i
+}
+
+// isShellWordChar reports whether c can sit inside a shell word beside a
+// keyword: anything but whitespace and the shell's own separators.
+func isShellWordChar(c byte) bool {
+	switch c {
+	case ' ', '\t', '\n', ';', '&', '|', '(', ')', '<', '>', '"', '\'':
+		return false
+	}
+	return true
+}
+
+// hasKeywordAt reports whether keyword opens at s[i] with a word boundary
+// on both sides -- so `before` never reads as `for`, and `donezo` never
+// reads as `done`. A quote on either side joins the keyword into a
+// neighbouring word (`"x"for`, `for"x"`), which the shell reads as one
+// word, never a keyword.
+func hasKeywordAt(s string, i int, keyword string) bool {
+	if !strings.HasPrefix(s[i:], keyword) {
+		return false
+	}
+	if i > 0 && (s[i-1] == '_' || s[i-1] == '\'' || s[i-1] == '"' || isNameChar(s[i-1], true)) {
+		return false
+	}
+	after := i + len(keyword)
+	if after < len(s) && (s[after] == '_' || s[after] == '\'' || s[after] == '"' || isNameChar(s[after], true)) {
+		return false
+	}
+	return true
+}
+
+// isNameChar reports whether c fits a shell variable name -- first when it
+// opens the name (no digit), anywhere otherwise.
+func isNameChar(c byte, first bool) bool {
+	if c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') {
+		return true
+	}
+	return !first && '0' <= c && c <= '9'
+}
+
+// skipSpaces skips blanks between shell tokens. Fragments hold no
+// newlines by construction, but a tab can separate any two tokens.
+func skipSpaces(s string, i int) int {
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+		i++
+	}
+	return i
+}
+
+// scanShellName reads one variable name at s[i].
+func scanShellName(s string, i int) (string, int) {
+	j := i
+	if j < len(s) && isNameChar(s[j], true) {
+		j++
+		for j < len(s) && isNameChar(s[j], false) {
+			j++
+		}
+	}
+	return s[i:j], j
+}
+
+// scanLoopWords reads the loop's words from s[i] to their terminating
+// unquoted `;`, keeping each word's own quoting: a substituted `$NAME`
+// lands exactly where the shell would have put the word, quotes included,
+// for the normal pipeline to read. ok is false when the words never
+// terminate, hold more than maxLoopWords, or are not all literals -- a
+// word holding `$`, a backquote, or a shell operator is not a literal, so
+// `for g in $(...)` and `for a in x&&y` never expand.
+func scanLoopWords(s string, i int) (words []string, end int, ok bool) {
+	j := skipSpaces(s, i)
+	for {
+		if j >= len(s) {
+			return nil, 0, false
+		}
+		if s[j] == ';' {
+			if len(words) == 0 {
+				return nil, 0, false
+			}
+			return words, j + 1, true
+		}
+		start := j
+		for j < len(s) && (s[j] == '\'' || s[j] == '"' || isShellWordChar(s[j])) {
+			if s[j] == '\'' || s[j] == '"' {
+				j = skipQuoted(s, j, -1)
+			} else {
+				for j < len(s) && isShellWordChar(s[j]) {
+					j++
+				}
+			}
+		}
+		word := s[start:j]
+		trimmed := word
+		if len(trimmed) >= 2 && (trimmed[0] == '\'' || trimmed[0] == '"') && trimmed[len(trimmed)-1] == trimmed[0] {
+			trimmed = trimmed[1 : len(trimmed)-1]
+		}
+		if trimmed == "" || strings.ContainsAny(trimmed, "$`") {
+			return nil, 0, false
+		}
+		words = append(words, word)
+		if len(words) > maxLoopWords {
+			return nil, 0, false
+		}
+		j = skipSpaces(s, j)
+	}
+}
+
+// scanLoopBody reads the loop body from s[i] to the unquoted `;` opening
+// its closing `done`. ok is false when no such close exists.
+func scanLoopBody(s string, i int) (string, int, bool) {
+	j := i
+	for j < len(s) {
+		next := skipQuoted(s, j, -1)
+		if next != j {
+			j = next
+			continue
+		}
+		if s[j] == ';' {
+			k := skipSpaces(s, j+1)
+			if hasKeywordAt(s, k, "done") {
+				after := k + len("done")
+				return s[i:j], after, true
+			}
+		}
+		j++
+	}
+	return "", 0, false
+}
+
+// substituteLoopVar replaces `$NAME` (at a name boundary) and `${NAME}`
+// in body with word, verbatim.
+func substituteLoopVar(body, name, word string) string {
+	var out strings.Builder
+	i := 0
+	for i < len(body) {
+		if body[i] == '$' && strings.HasPrefix(body[i+1:], "{"+name+"}") {
+			out.WriteString(word)
+			i += len(name) + 3
+			continue
+		}
+		if body[i] == '$' {
+			rest := body[i+1:]
+			n, _ := scanShellName(rest, 0)
+			if n == name {
+				out.WriteString(word)
+				i += 1 + len(n)
+				continue
+			}
+		}
+		out.WriteByte(body[i])
+		i++
+	}
+	return out.String()
 }
 
 // dispatchBeginFromCommand judges one invocation's text as a possible
@@ -1162,6 +1520,14 @@ func dispatchBeginFromInvocation(invocation string, vars map[string]string) (dis
 	}
 	key, ok := resolvedFlagValue(invocation, "-key", vars)
 	if !ok {
+		return dispatchBeginEvent{}, false
+	}
+	// A key or token still holding a `$` or a backquote is a template, not
+	// a row identity -- a loop variable no expansion resolved (kan-925),
+	// a `$(...)` the shell would have run. It names nothing to stamp, so
+	// it must not claim a launch either: emitting it would spend the real
+	// begin's launch on a stamp the store answers false to.
+	if strings.ContainsAny(token, "$`") || strings.ContainsAny(key, "$`") {
 		return dispatchBeginEvent{}, false
 	}
 	// A begin that names its own agent (-agent-id inline, or a hand-typed
