@@ -1,6 +1,6 @@
 // SelfReview -- every self-review finding recorded in a period: what each
-// angle found, whether it was fixed (linked to its commit), filed or
-// declined, and the per-change counts derived from the same rows
+// angle found, whether it was fixed (linked to its commit), filed,
+// declined or noted, and the per-change counts derived from the same rows
 // (design.md's self-review-view).
 import { DataTable, type Column } from "../components/DataTable";
 import { Panel } from "../components/Panel";
@@ -17,6 +17,7 @@ interface ChangeCounts {
   fixed: number;
   filed: number;
   declined: number;
+  noted: number;
 }
 
 function perChange(rows: SelfReviewRow[]): ChangeCounts[] {
@@ -24,7 +25,7 @@ function perChange(rows: SelfReviewRow[]): ChangeCounts[] {
   for (const r of rows) {
     // Keyed by project too: two projects can carry a change of the same name.
     const key = `${r.project}/${r.change}`;
-    const c = byChange.get(key) ?? { project: r.project, change: r.change, fixed: 0, filed: 0, declined: 0 };
+    const c = byChange.get(key) ?? { project: r.project, change: r.change, fixed: 0, filed: 0, declined: 0, noted: 0 };
     c[r.disposition] += 1;
     byChange.set(key, c);
   }
@@ -54,6 +55,7 @@ const changeColumns: Column<ChangeCounts>[] = [
   { key: "fixed", header: "Fixed", sortable: true, accessor: (r) => r.fixed, render: (r) => formatInt(r.fixed) },
   { key: "filed", header: "Filed", sortable: true, accessor: (r) => r.filed, render: (r) => formatInt(r.filed) },
   { key: "declined", header: "Declined", sortable: true, accessor: (r) => r.declined, render: (r) => formatInt(r.declined) },
+  { key: "noted", header: "Noted", sortable: true, accessor: (r) => r.noted, render: (r) => formatInt(r.noted) },
 ];
 
 export function SelfReview({ period, onPeriodChange, project }: ViewProps) {
@@ -64,7 +66,7 @@ export function SelfReview({ period, onPeriodChange, project }: ViewProps) {
   });
 
   return (
-    <ViewFrame title="Self-review fixes" description="Every self-review finding: its angle, whether it was fixed, filed or declined, and the commit that fixed it.">
+    <ViewFrame title="Self-review fixes" description="Every self-review finding: its angle, whether it was fixed, filed, declined or noted, and the commit that fixed it.">
       <div className="dashboard-stat-row">
         <Panel title="Fixed" state={state}>
           {(data) => <StatPanel label="Fixed" value={count(data.rows, "fixed")} format={formatInt} />}

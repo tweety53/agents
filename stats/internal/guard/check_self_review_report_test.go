@@ -277,7 +277,7 @@ func TestCheckSelfReviewReport(t *testing.T) {
 			return csrRun(t, nil, csrReport(t, strings.Replace(csrCompliant, "filed: KAN-201\n", "maybe later\n", 1)))
 		}, []check{
 			{"case 22: an unrecognized finding-line disposition is caught", rcIs(1)},
-			{"case 22: the violation names the unrecognized disposition rule", has("finding line disposition is none of `fixed: <sha>`, `filed: <KEY>` or `declined`")},
+			{"case 22: the violation names the unrecognized disposition rule", has("finding line disposition is none of `fixed: <sha>`, `filed: <KEY>`, `declined` or `noted`")},
 		}},
 		{func(t *testing.T) csrResult {
 			return csrRun(t, nil, csrReport(t, strings.Join([]string{
@@ -286,6 +286,11 @@ func TestCheckSelfReviewReport(t *testing.T) {
 		}, []check{
 			{"case 23: a malformed finding-shaped line is not silently dropped", rcIs(1)},
 			{"case 23: the violation names the line as finding-shaped but malformed", has("finding-shaped line is malformed")},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrReport(t, strings.Replace(csrCompliant, "filed: KAN-201\n", "noted\n", 1)))
+		}, []check{
+			{"case 22b: a finding-line disposition of noted is accepted", rcIs(0)},
 		}},
 		{func(t *testing.T) csrResult {
 			dir := csrReport(t, csrCompliant)

@@ -336,7 +336,7 @@ export interface SelfReviewRow {
   change: string;
   angle: string;
   note: string;
-  disposition: "fixed" | "filed" | "declined";
+  disposition: "fixed" | "filed" | "declined" | "noted";
   ref: string;
   blastRadius: number | null;
   commitUrl: string;

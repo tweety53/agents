@@ -247,7 +247,7 @@ func checkSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int
 				if k := strings.LastIndex(text, "— "); k >= 0 {
 					disposition = text[k+len("— "):]
 				}
-				if disposition == "declined" {
+				if disposition == "declined" || disposition == "noted" {
 					continue
 				}
 				if xm := srrFixed.FindStringSubmatch(disposition); xm != nil {
@@ -262,7 +262,7 @@ func checkSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int
 				fm := srrFiled.FindStringSubmatch(disposition)
 				switch {
 				case fm == nil:
-					violation("%s:%d: finding line disposition is none of `fixed: <sha>`, `filed: <KEY>` or `declined`", rel, lineno)
+					violation("%s:%d: finding line disposition is none of `fixed: <sha>`, `filed: <KEY>`, `declined` or `noted`", rel, lineno)
 				case fm[1] == "":
 					violation("%s:%d: finding line marked filed with no issue key", rel, lineno)
 				case !srrIssueKey.MatchString(fm[1]):
@@ -276,7 +276,7 @@ func checkSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int
 			// line matches neither pattern and stays ignored, as ordinary
 			// body prose should.
 			if srrFindingShape.MatchString(line) {
-				violation("%s:%d: finding-shaped line is malformed (want \"- **[%s]** <text> — fixed: <sha>\", \"- **[%s]** <text> — filed: <KEY>\" or \"- **[%s]** <text> — declined\")", rel, lineno, cur, cur, cur)
+				violation("%s:%d: finding-shaped line is malformed (want \"- **[%s]** <text> — fixed: <sha>\", \"- **[%s]** <text> — filed: <KEY>\", \"- **[%s]** <text> — declined\" or \"- **[%s]** <text> — noted\")", rel, lineno, cur, cur, cur, cur)
 			}
 		}
 

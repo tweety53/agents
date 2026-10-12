@@ -61,8 +61,8 @@ An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
 **A finding is fixed or filed only from the six angles.** A finding about the pipeline itself is
-fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding with nothing to fix — what
-went well, under angle 3 — is reported and recorded `declined`, never offered: **only a `big`
+fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding that names no defect — what
+went well, under angle 3, or an observation with nothing to fix — is reported and recorded `noted`, never offered: **only a `big`
 finding, or one whose fix step 3 dropped, is ever offered for filing**. **The pass covers
 the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
 config, guards — and nothing else.** A finding about the project's own product code is out of
@@ -210,10 +210,10 @@ One call per finding, every disposition alike, before the report is written — 
 finding on the change's own branch, whose row step 5's landing push records:
 
 ```bash
-flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined [-ref <sha|KEY>] [-blast-radius <N>] -note '<the finding, one line>'
+flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined|noted [-ref <sha|KEY>] [-blast-radius <N>] -note '<the finding, one line>'
 ```
 
-`-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined`;
+`-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined` and `noted`;
 `-blast-radius` is step 3's count. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
 lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A store failure is one
@@ -223,8 +223,8 @@ warning line and the pass continues — the report below is the durable record.
 
 Write `<project>/docs/self-review/<name>-self-review.md` in the shape
 `<project>/scripts/check-self-review-report.sh` checks — one section per angle, all six present; each
-finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>` or
-`declined`); an angle with no findings carrying the explicit none-marker — plus one line under the
+finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>`,
+`declined` or `noted`); an angle with no findings carrying the explicit none-marker — plus one line under the
 title:
 
 ```

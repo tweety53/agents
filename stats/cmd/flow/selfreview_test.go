@@ -159,6 +159,10 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 		t.Errorf("unset -blast-radius posted %v, want it absent", gotBody["blastRadius"])
 	}
 
+	if code, _, _ := finding(srv.URL, "-change", "demo", "-angle", "flow-improvement", "-disposition", "noted", "-note", "n"); code != 0 || gotBody["disposition"] != "noted" {
+		t.Fatalf("noted: exit = %d, posted disposition %v", code, gotBody["disposition"])
+	}
+
 	for _, missing := range []string{"-change", "-angle", "-disposition", "-note"} {
 		var args []string
 		for i := 0; i < len(full); i += 2 {

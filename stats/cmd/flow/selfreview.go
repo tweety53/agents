@@ -31,11 +31,12 @@ positional argument.
 
 usage: flow self-review finding [-addr url] [-timeout dur] [-C dir]
                               -change name -angle label
-                              -disposition fixed|filed|declined -note text
+                              -disposition fixed|filed|declined|noted -note text
                               [-ref sha|KEY] [-blast-radius N]
 
 Records one self-review finding and its outcome (KAN-875): -ref is the
-landed sha for fixed, the issue key for filed and omitted for declined;
+landed sha for fixed, the issue key for filed and omitted for declined
+and noted;
 -blast-radius is the finding's file count, omitted when none was counted.
 
 This is a write that never blocks: a store that cannot be reached, or
@@ -149,7 +150,7 @@ func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) 
 	registerRecordConnFlags(fset, &f)
 	fset.StringVar(&f.change, "change", "", "the change the finding belongs to (required)")
 	fset.StringVar(&in.Angle, "angle", "", "the finding's angle label (required)")
-	fset.StringVar(&in.Disposition, "disposition", "", "fixed, filed or declined (required)")
+	fset.StringVar(&in.Disposition, "disposition", "", "fixed, filed, declined or noted (required)")
 	fset.StringVar(&in.Note, "note", "", "the finding, one line (required)")
 	fset.StringVar(&in.Ref, "ref", "", "the landed sha for fixed, the issue key for filed")
 	fset.IntVar(&blastRadius, "blast-radius", -1, "the finding's file count (optional)")

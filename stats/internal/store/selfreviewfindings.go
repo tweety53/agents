@@ -9,7 +9,7 @@ import (
 )
 
 // ErrSelfReviewFindingInvalid reports a RecordSelfReviewFinding whose
-// disposition is outside fixed/filed/declined, whose ref does not fit its
+// disposition is outside fixed/filed/declined/noted, whose ref does not fit its
 // disposition, whose change, angle or note is empty, or whose blast radius
 // is negative. The handler maps it
 // to 400: a caller's mistake, never a store failure.
@@ -33,12 +33,12 @@ func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 		if !records.IssueKey.MatchString(f.Ref) {
 			return fmt.Errorf("%w: filed needs an issue key as ref, got %q", ErrSelfReviewFindingInvalid, f.Ref)
 		}
-	case "declined":
+	case "declined", "noted":
 		if f.Ref != "" {
-			return fmt.Errorf("%w: declined carries no ref, got %q", ErrSelfReviewFindingInvalid, f.Ref)
+			return fmt.Errorf("%w: %s carries no ref, got %q", ErrSelfReviewFindingInvalid, f.Disposition, f.Ref)
 		}
 	default:
-		return fmt.Errorf("%w: disposition must be fixed, filed or declined, got %q", ErrSelfReviewFindingInvalid, f.Disposition)
+		return fmt.Errorf("%w: disposition must be fixed, filed, declined or noted, got %q", ErrSelfReviewFindingInvalid, f.Disposition)
 	}
 	return nil
 }

@@ -396,8 +396,9 @@ var (
 )
 
 // SelfReviewFinding is one /flow-self-review finding and its outcome
-// (KAN-875). Disposition is the closed set fixed/filed/declined; Ref is the
-// landed sha for fixed, the issue key for filed and empty for declined.
+// (KAN-875). Disposition is the closed set fixed/filed/declined/noted; Ref is the
+// landed sha for fixed, the issue key for filed and empty for declined and
+// noted.
 // BlastRadius is the finding's file count, nil when none was counted.
 type SelfReviewFinding struct {
 	ID          int64     `json:"id"`

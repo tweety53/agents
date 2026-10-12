@@ -1237,7 +1237,7 @@ type selfReviewRowDTO struct {
 	Ref         string `json:"ref"`
 	BlastRadius *int   `json:"blastRadius"`
 	// CommitURL links a fixed finding's sha under commitBase; "" for a
-	// filed or declined finding, or when the daemon has no commit base.
+	// filed, declined or noted finding, or when the daemon has no commit base.
 	CommitURL string `json:"commitUrl"`
 }
 

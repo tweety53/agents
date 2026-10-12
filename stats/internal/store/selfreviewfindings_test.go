@@ -23,6 +23,7 @@ func TestSelfReviewFindingsRoundTrip(t *testing.T) {
 		{Change: "kan-1", Angle: "myflow-fix", Note: "guard misses a case", Disposition: "fixed", Ref: "abc1234", BlastRadius: &three},
 		{Change: "kan-1", Angle: "myflow-cost", Note: "needs a redesign", Disposition: "filed", Ref: "KAN-9"},
 		{Change: "kan-1", Angle: "myflow-improvement", Note: "not worth it", Disposition: "declined"},
+		{Change: "kan-1", Angle: "myflow-improvement", Note: "the panel caught it early", Disposition: "noted"},
 	}
 	for _, f := range in {
 		if _, err := st.RecordSelfReviewFinding(ctx, projectKey, f); err != nil {
@@ -76,6 +77,7 @@ func TestSelfReviewFindingRefusesBadDisposition(t *testing.T) {
 		"fixed with no ref":   {Change: "kan-1", Angle: a, Note: n, Disposition: "fixed"},
 		"filed with a sha":    {Change: "kan-1", Angle: a, Note: n, Disposition: "filed", Ref: "abc1234"},
 		"declined with a ref": {Change: "kan-1", Angle: a, Note: n, Disposition: "declined", Ref: "KAN-9"},
+		"noted with a ref":    {Change: "kan-1", Angle: a, Note: n, Disposition: "noted", Ref: "abc1234"},
 		"empty angle":         {Change: "kan-1", Note: n, Disposition: "declined"},
 		"empty note":          {Change: "kan-1", Angle: a, Disposition: "declined"},
 		"empty change":        {Angle: a, Note: n, Disposition: "declined"},

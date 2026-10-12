@@ -30,6 +30,7 @@
 #   - **[<label>]** <text> — fixed: <sha>
 #   - **[<label>]** <text> — filed: <KEY>
 #   - **[<label>]** <text> — declined
+#   - **[<label>]** <text> — noted
 #
 # An angle with no findings carries `_none — this angle produced no
 # findings._` in place of finding lines, never both a marker and finding
