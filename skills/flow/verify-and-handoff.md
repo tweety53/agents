@@ -257,7 +257,7 @@ flow stage end -command '/flow' -stage flow.stage-diff -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Resolve the run instructions the start below uses and `/flow-status` prints as its `Running:` section; `/flow`'s own handoff prints none of them. It writes no file.
+Resolve the run instructions the start below uses, the handoff's `**Running:**` section prints (**Write `IN_PROGRESS`**, below) and `/flow-status` prints as its `Running:` section. It writes no file.
 
 - **Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path
   made absolute.
@@ -372,6 +372,11 @@ flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed
 - <what this round changed for a user of the app, in product terms — a few bullets at most>
 - <a line another contract requires in the handoff — a caveat, a manual check, a push command, an open defect — one bullet each>
 
+**Running:**
+- <app>: <the URL this worktree resolved> — one bullet per started application
+- Login: <app> — <user> / <password> — one bullet per `## credentials` row, when the section declares any
+- Not started: <app> (<url>) — protected, see <project>/CLAUDE.md. | Nothing to start — no runnable application; <the `## lint` and `## test` commands>
+
 **Decisions:** none | <one line each:>
 - ? <an open question the operator must answer>
 - 🤖 <question> → <the recommended option taken>
@@ -385,6 +390,11 @@ Next:
 — no heading, no other field, and no summary or live-stack line before it (**Summary and
 live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`). A stop — a failure,
 a blocked step, a refused start, a `## Question` — prints as its own rule states, not this block.
+
+**The `Running:` section is never omitted.** Its URLs are the ones **Resolve the run
+instructions** above resolved for the stack it started or left running, never the project's
+declared default port; its logins are every row `<project>/.flow/project.md`'s `## credentials`
+declares. Where nothing was started, its last line states why in place of the other two.
 
 **The `Decisions:` lines name every prompt this run answered itself** on its recommended
 option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so the operator can

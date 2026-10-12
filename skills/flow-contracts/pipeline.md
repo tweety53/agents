@@ -448,8 +448,9 @@ covers:
 - any decision recorded along the way — an automatic rebase onto a moved base, a diff-size cap
   exceeded and proceeded past, and the like.
 
-The live-stack line names which services are up, on what ports, in which worktree — or reads
-`no dev stack running` when none is.
+The live-stack line names which services are up, at the URLs their worktree resolved, in which
+worktree, with the local credentials `<project>/.flow/project.md`'s `## credentials` declares — or
+reads `no dev stack running` when none is.
 
 This is distinct from the `<1–3 lines: what actually happened>` that follows it: the summary may
 be a short bulleted list and is not held to the three-line cap, but it keeps the be-brief
@@ -458,9 +459,10 @@ stopping point prints it** — a fix round closing, a stage closing, a full hand
 terminal handoff, so the operator always holds a current account of what changed and what is
 still running without having to ask.
 
-**The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither.** Its own
-`**Summary:**` carries the first bullet above alone, and its block is the whole handoff (**Write
-`IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+**The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither before its block.**
+Its own `**Summary:**` carries the first bullet above alone, its `**Running:**` section is its
+live-stack line, and its block is the whole handoff (**Write `IN_PROGRESS`**,
+`skills/flow/verify-and-handoff.md`).
 
 ### The block each state renders
 

@@ -93,6 +93,7 @@ Worktree:   <absolute worktree path>
 
 Running:
   <url line>  # <resolved per **Resolve the run instructions**>
+  <login line>  # <one per `## credentials` row, when declared>
   <stop command>
 
 Review the diff, then run it:
@@ -106,7 +107,7 @@ Next:
 /flow <name>
 ```
 
-**`/flow`'s implement phase prints `Summary`, `Decisions` and `Next` alone** (**Write
+**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions` and `Next` alone** (**Write
 `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is
 `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer
 lines than its template.

@@ -1,0 +1,20 @@
+# Operator, 2026-10-12: "I see no running stack url/data. It must be present in implementation summary. always." The IN_PROGRESS handoff gains a **Running:** section; every sentence below states it.
+**The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither.
+**`/flow`'s implement phase prints `Summary`, `Decisions` and `Next` alone** (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer lines than its template.
+Its own `**Summary:**` carries the first bullet above alone, and its block is the whole handoff (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+Resolve the run instructions the start below uses and `/flow-status` prints as its `Running:` section; `/flow`'s own handoff prints none of them.
+The live-stack line names which services are up, on what ports, in which worktree — or reads `no dev stack running` when none is.
+**Running:**
+**The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither before its block.
+**The `Running:` section is never omitted.
+**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions` and `Next` alone** (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer lines than its template.
+- <app>: <the URL this worktree resolved> — one bullet per started application
+- Login: <app> — <user> / <password> — one bullet per `## credentials` row, when the section declares any
+- Not started: <app> (<url>) — protected, see <project>/CLAUDE.md.
+<login line> # <one per `## credentials` row, when declared>
+Its URLs are the ones **Resolve the run instructions** above resolved for the stack it started or left running, never the project's declared default port; its logins are every row `<project>/.flow/project.md`'s `## credentials` declares.
+Its own `**Summary:**` carries the first bullet above alone, its `**Running:**` section is its live-stack line, and its block is the whole handoff (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+Resolve the run instructions the start below uses, the handoff's `**Running:**` section prints (**Write `IN_PROGRESS`**, below) and `/flow-status` prints as its `Running:` section.
+The live-stack line names which services are up, at the URLs their worktree resolved, in which worktree, with the local credentials `<project>/.flow/project.md`'s `## credentials` declares — or reads `no dev stack running` when none is.
+Where nothing was started, its last line states why in place of the other two.
+| Nothing to start — no runnable application; <the `## lint` and `## test` commands>
