@@ -67,7 +67,11 @@ appended in `## apps` declaration order after the entries it found — never reo
 link wrote; when no link ran and the resolved set holds more than one repository, write the
 change's own `<changeRoot>link.md` carrying a `## Merge order` section alone — never a
 `## Part of`, the section that makes a `link.md` a satellite's — ordered `.` first, then the
-remaining repositories in `## apps` declaration order. The write lands as a planning commit in the
+remaining repositories in `## apps` declaration order. Every entry other than `.` is the
+repository's name in the canonical worktree's `<project>/spectre/peers` file — the name `spectre
+validate` accepts there — never the `## apps` row's label; a resolved repository that file does not
+declare is a hard failure of this stage, reported and stopping the run like a refused link, until the
+project declares it. The write lands as a planning commit in the
 worktree holding the file, behind `check-planning-commit-location.sh <abs-worktree> <name>`
 (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), and what it wrote is recorded
 in the working notes beside the merge bases. A change with one repository runs nothing here.
