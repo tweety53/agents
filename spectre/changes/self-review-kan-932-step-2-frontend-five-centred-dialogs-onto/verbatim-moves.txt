@@ -1,3 +1,9 @@
 # Self-review fix: the cross-repo citation prefix is the repository name, since a change's worktrees share one leaf basename.
 When more than one is listed, prefix every finding's `file:line` with that worktree's repository name — its main checkout's basename (`gymie-frontend:src/Foo.tsx:42`) —, and author that finding's reproducer per the cwd contract the reproducer rule states: it executes from the canonical worktree the parent passes the runner, never from the worktree its own prefix names, and resolves that worktree by absolute path inside itself.
 When more than one is listed, prefix every finding's `file:line` with that worktree's basename (`gymie-frontend:src/Foo.tsx:42`), and author that finding's reproducer per the cwd contract the reproducer rule states: it executes from the canonical worktree the parent passes the runner, never from the worktree its own prefix names, and resolves that worktree by absolute path inside itself.
+# Self-review fix: the implementing run closes its own open dispatch rows before writing IN_PROGRESS (kan-932's task-15-reviewer reached integrate open).
+List them from the canonical worktree:
+and close each printed row under its own key and token, `-outcome completed` when its report was read, `-outcome aborted` otherwise — an earlier run's row included:
+flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>
+flow record dispatches -change <name> -C <canonical-worktree> \
+| jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken)"'

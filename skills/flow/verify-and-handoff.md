@@ -352,6 +352,22 @@ durable process lesson this run paid for is promoted to the lessons home (**Proc
 work. The write-in-progress planning commit carries it (**Planning commits**,
 `skills/flow-contracts/git-boundaries.md`), made once the append lands; nothing else stages it.
 
+**Close every open dispatch row of the change** before the state is written — integrate's
+**1. Check for unfinished work** (`skills/flow/integrate.md`) stops a landing on one, and only this
+run knows how its own dispatches ended. List them from the canonical worktree:
+
+```bash
+flow record dispatches -change <name> -C <canonical-worktree> \
+  | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken)"'
+```
+
+and close each printed row under its own key and token, `-outcome completed` when its report was
+read, `-outcome aborted` otherwise — an earlier run's row included:
+
+```bash
+flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>
+```
+
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 `worktrees` should already carry one absolute-path key per affected worktree and its merge base,
 so this step re-reads the current record and
