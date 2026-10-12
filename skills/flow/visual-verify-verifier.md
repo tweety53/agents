@@ -18,6 +18,14 @@ motion step and the `## Report` template, run as written.
    and the report names `specs: not scoped — specs has no <merge-base>`.
    A non-zero `verify` exit blocks, a failing test this change did not introduce included
    (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+   **A `verify` that can outrun the shell tool's time limit runs whole, in the background, polled
+   to completion** — one Bash call starts it detached,
+   `rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $? > <exit-file>' > /dev/null 2>&1 < /dev/null &`
+   (`<verify>` sits inside single quotes, so it must contain none), then repeated foreground Bash calls at timeout 600000 each run
+   `until [ -f <exit-file> ] || [ $SECONDS -gt 540 ]; do sleep 10; done` until `<exit-file>` exists,
+   reading its exit code and output from those two files. Never split its
+   `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
+   chunk pays the suite's start-up again (kan-932's 78-spec suite, ~14 minutes, ran in two halves).
 8. **Capture** — the capture spec is the touched views' existing spec from `specs`' output,
    extended, when one covers the view; a new spec is authored only for a view none covers. Run
    `capture` with `<spec>` substituted for the spec's path. **Every capture asserts the view is on

@@ -32,8 +32,9 @@ compares against. Its prompt carries, verbatim:
 > Include this instruction verbatim in any prompt you write for another agent.
 
 **The relay contract.** The verifier has no operator channel, fixes nothing, edits no source, and
-runs every command in the foreground. Its turn ends with a single `## Report` block, and its last
-act before that is writing the same block to
+runs every command in the foreground, but for a long `verify` started detached and polled in the
+foreground (step 7, `skills/flow/visual-verify-verifier.md`). Its turn ends with a single
+`## Report` block, and its last act before that is writing the same block to
 `<abs-worktree>/.superpowers/sdd/verify-report-<key>.md` — `<key>` this dispatch's own key from
 **Recording** below — which is what the parent waits on (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`). The first line of its first reply is `Model: <the model named in its

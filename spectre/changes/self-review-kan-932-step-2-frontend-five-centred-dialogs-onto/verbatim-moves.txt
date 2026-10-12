@@ -7,3 +7,10 @@ and close each printed row under its own key and token, `-outcome completed` whe
 flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>
 flow record dispatches -change <name> -C <canonical-worktree> \
 | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken)"'
+# Self-review fix: a long verify runs whole in the background and is polled, never split by hand (kan-932's Playwright halves).
+**A `verify` that can outrun the shell tool's time limit runs whole, in the background, polled to completion** — one Bash call starts it detached, `rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $?
+\> <exit-file>' > /dev/null 2>&1 < /dev/null &` (`<verify>` sits inside single quotes, so it must contain none), then repeated foreground Bash calls at timeout 600000 each run `until [ -f <exit-file> ] || [ $SECONDS -gt 540 ]; do sleep 10; done` until `<exit-file>` exists, reading its exit code and output from those two files.
+# Self-review fix: the relay contract's foreground rule names step 7's detached-and-polled verify, so the two agree.
+The verifier has no operator channel, fixes nothing, edits no source, and runs every command in the foreground.
+The verifier has no operator channel, fixes nothing, edits no source, and runs every command in the foreground, but for a long `verify` started detached and polled in the foreground (step 7, `skills/flow/visual-verify-verifier.md`).
+Never split its `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each chunk pays the suite's start-up again (kan-932's 78-spec suite, ~14 minutes, ran in two halves).
