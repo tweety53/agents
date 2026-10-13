@@ -1,0 +1,18 @@
+# The primary reviewer's required shared-state step and its output section (flow-eval: 0/33 -> 14/33 on the shared-flag review case across haiku, sonnet and opus).
+\### Shared-state check
+**Shared state the diff reuses — a required step, done before anything else:**
+A writer the diff left
+Each state the required step listed, with every line that writes it as `path:line` and
+For each writer ask: now that this state also covers the new case, does this line
+For each, grep its file for every line that writes it.
+List every pre-existing field, flag or variable that the diff's new code reads or
+Most of these lines are
+Record the result in the Shared-state check section of your output.
+Report it at that line.
+Skipping it is an
+correctness defect this diff introduced.
+incomplete review.
+its verdict: still correct, or the issue below it became.
+still set it only when that is true for every case it covers?
+unchanged and outside the hunks; read each one in full anyway.
+untouched that clears, sets or overwrites the state for its own case alone is a
