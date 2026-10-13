@@ -616,6 +616,23 @@ cause, as inline fixes are applied: it edits, commits on the route the branch's 
 dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one
 `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline`
 under `full-suite-fix-<n>`, and re-runs the list until it passes.
+When the change's diff touches a `## visual verification` `ui paths` glob
+(`git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>` exits 0
+for any worktree in the resolved set, its merge base from this run's working notes; exit 1 or 2 for
+every worktree skips this run) and `decision.json` does not record `visual.verify` `skipped`, the list
+ends with that section's `verify` run whole — `<specs>` empty, every capture — against the
+canonical worktree's stack, under the stack rules of **One stack for the verification tasks**
+below, so a capture a shared-component change moved fails here rather than at `flow.verify`.
+Before `verify`, `check-dev-stack-fresh.sh <canonical-worktree>` exit 1 restarts the stack by
+that section's start rule, and a failed restart is reported and stops the step; exit 0 or 2
+proceeds.
+`verify` runs from the resolved regression checkout (the project root when none is declared),
+after the section's `setup` row when the toolchain is missing. A failure a product defect caused
+is fixed in this step's fix round; a capture the change moved on purpose — one whose difference
+the diff makes as design.md or the task's `**Files:**` intend — is re-recorded in it: its
+committed PNGs are deleted and `capture` runs with `<spec>` substituted for its spec, writing them
+as PNGs that do not yet exist, and they are committed by the regression checkout's rules, step 12
+of `skills/flow/visual-verify.md`.
 
 **The next implementer overlaps the guard.** The unit is the group — the decision's `groups`
 entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
