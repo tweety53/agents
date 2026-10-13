@@ -3775,3 +3775,96 @@ func TestMessageStraddlingTwoReadsCountsOnce(t *testing.T) {
 		t.Fatalf("tokens.main.input = %v, want 107: msg_x's second line repeats its usage and must not count again", got)
 	}
 }
+
+// lateStampDeps is a store whose dispatch row for one agent gains its
+// agent id only when the watcher stamps it, the way a row begun after its
+// agent had already run (kan-933's task-1-reviewer-fix-1 and
+// task-2+3-reviewer-fix-1) does. prior is a window the agent already held
+// before this stamp -- a resumed agent's earlier row.
+type lateStampDeps struct {
+	harvest.NoDeps
+	fakeDispatchMetricsSink
+
+	prior   []harvest.DispatchWindow
+	stamped bool
+}
+
+func (d *lateStampDeps) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	return d.fakeDispatchMetricsSink.MergeDispatchMetrics(ctx, dispatchID, patch)
+}
+
+func (d *lateStampDeps) StampDispatchAgent(context.Context, string, string, string) (bool, error) {
+	d.stamped = true
+	return true, nil
+}
+
+func (d *lateStampDeps) DispatchWindowsForAgent(context.Context, string) ([]harvest.DispatchWindow, error) {
+	out := append([]harvest.DispatchWindow(nil), d.prior...)
+	if d.stamped {
+		out = append(out, harvest.DispatchWindow{DispatchID: 7, AgentID: "a68cee7239419a7e7", StartedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)})
+	}
+	return out, nil
+}
+
+// writeLateStampFixture writes an agent transcript already fully run, and
+// returns the parent transcript path the begin and launch lines go to.
+func writeLateStampFixture(t *testing.T, dir string) string {
+	t.Helper()
+	sub := filepath.Join(dir, "session", "subagents")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	line := `{"type":"assistant","timestamp":"2026-01-01T00:00:05Z","sessionId":"s","isSidechain":true,"agentId":"a68cee7239419a7e7","message":{"id":"m1","model":"claude-sonnet-5","usage":{"input_tokens":9,"output_tokens":2}}}` + "\n"
+	if err := os.WriteFile(filepath.Join(sub, "agent-a68cee7239419a7e7.jsonl"), []byte(line), 0o644); err != nil {
+		t.Fatalf("write agent transcript: %v", err)
+	}
+	return filepath.Join(dir, "session.jsonl")
+}
+
+// TestLateStampCreditsTheAgentFileAlreadyHarvested pins that an agent
+// transcript harvested before its dispatch row carried the agent's id is
+// credited once the stamp lands. Without it the row reads `not measured`
+// forever: every batch of the file was committed against no window, and
+// nothing re-reads bytes the offset has moved past.
+func TestLateStampCreditsTheAgentFileAlreadyHarvested(t *testing.T) {
+	dir := t.TempDir()
+	parent := writeLateStampFixture(t, dir)
+	deps := &lateStampDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	runCycles(t, w, 1)
+	if len(deps.merged) != 0 {
+		t.Fatalf("merged before the stamp = %v, want none", deps.merged)
+	}
+
+	if err := os.WriteFile(parent, stampFixtureLines(stampBeginLine, stampLaunchLine), 0o644); err != nil {
+		t.Fatalf("write parent: %v", err)
+	}
+	runCycles(t, w, 2)
+
+	if deps.merged[7] != 1 {
+		t.Fatalf("merged = %v, want exactly one merge on row 7 from the already-harvested agent file", deps.merged)
+	}
+	if !strings.Contains(string(deps.patches[7][0]), `"input":9`) {
+		t.Errorf("patch = %s, want the agent file's input 9", deps.patches[7][0])
+	}
+}
+
+// TestLateStampLeavesAResumedAgentsFileAlone pins the guard on that
+// credit: where the agent already held a row, the harvested batches were
+// credited to it, and crediting them again to the new row would count
+// them twice.
+func TestLateStampLeavesAResumedAgentsFileAlone(t *testing.T) {
+	dir := t.TempDir()
+	parent := writeLateStampFixture(t, dir)
+	deps := &lateStampDeps{prior: []harvest.DispatchWindow{{DispatchID: 3, AgentID: "a68cee7239419a7e7", StartedAt: mustParse(t, "2025-12-31T00:00:00Z")}}}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	runCycles(t, w, 1)
+	if err := os.WriteFile(parent, stampFixtureLines(stampBeginLine, stampLaunchLine), 0o644); err != nil {
+		t.Fatalf("write parent: %v", err)
+	}
+	runCycles(t, w, 2)
+
+	if deps.merged[3] != 1 || deps.merged[7] != 0 {
+		t.Fatalf("merged = %v, want one merge on the prior row 3 and none on the new row 7", deps.merged)
+	}
+}

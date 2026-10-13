@@ -1760,6 +1760,7 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 			// see. All ordinary; nothing to stamp, nothing to log.
 			continue
 		}
+		w.creditStampedAgentFile(ctx, path, launches[c.launchIdx].AgentID)
 	}
 
 	// Whatever remains unpaired or unclaimed REPLACES the pending lists --
@@ -1771,6 +1772,40 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	w.pendingBegins[path] = appendPending(nil, survivors(begins, takenBegin))
 	w.pendingLaunches[path] = appendPending(nil, unclaimed(launches, claimed))
 	w.pendingDenials[path] = appendPending(w.pendingDenials[path], denials)
+}
+
+// creditStampedAgentFile credits a just-stamped dispatch row with the part
+// of its agent's transcript already harvested. Every batch of that file
+// committed before the stamp met no window for the agent's id -- none
+// carried it -- so attributeAgentFile credited nothing, and nothing
+// re-reads bytes the offset has moved past: a row begun after its agent
+// ran (kan-933's late re-review begins) read `not measured` forever, and
+// an async launch harvested ahead of its stamp lost its first batches.
+// Batches after the committed offset credit the row the ordinary way.
+//
+// Only a row that is the agent's sole window is credited here. Where the
+// agent already held a row (a resumed agent), the harvested batches were
+// credited to that row, and crediting them again would count them twice.
+// One edge splits rows wrongly while the total stays right: where an earlier
+// run of the agent never got its id and the resume row is the first stamped,
+// that earlier run's batches are credited to the resume row.
+// The agent file is Claude's subagents/agent-<id>.jsonl beside the parent
+// transcript; a path that names none is silence, like an unpaired launch.
+func (w *Watcher) creditStampedAgentFile(ctx context.Context, parentPath, agentID string) {
+	agentPath := filepath.Join(strings.TrimSuffix(parentPath, ".jsonl"), subagentsDirName, "agent-"+agentID+".jsonl")
+	offset, found, err := w.sink.GetHarvestOffset(ctx, agentPath)
+	if err != nil || !found || offset == 0 {
+		return
+	}
+	windows, err := w.deps.DispatchWindowsForAgent(ctx, agentID)
+	if err != nil || len(windows) != 1 {
+		return
+	}
+	raw, err := os.ReadFile(agentPath)
+	if err != nil || int64(len(raw)) < offset {
+		return
+	}
+	w.attributeAgentFile(ctx, ParseAssistantRecords(raw[:offset]), agentPath, agentID)
 }
 
 // dropCarriedMessage removes the usage records repeating carried, the
