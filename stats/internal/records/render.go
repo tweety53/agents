@@ -446,6 +446,24 @@ func orElse(s, fallback string) string {
 	return neutraliseMarkers(s)
 }
 
+// keyTask is the task-id prefix of implement.md's dispatch key shapes
+// `task-<n>-implementer` and `task-<n+n+n>-reviewer`.
+var keyTask = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-`)
+
+// taskOf is the task a dispatch ran against: its recorded -task, else the
+// ids its key names. A grouped bundle records no -task by contract and a
+// parent can forget it on a single task, so the recorded field alone left
+// sibling rows of one change reading `Task: 10` and `Task: no task`.
+func taskOf(d Dispatch) string {
+	if strings.TrimSpace(d.TaskID) != "" {
+		return d.TaskID
+	}
+	if m := keyTask.FindStringSubmatch(d.Key); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
 // RenderLedger renders a change's dispatches as the SDD ledger: one
 // section per dispatch, in seq order, naming the task it ran against, the
 // role, the model, the commit it produced, the base of any diff it was
@@ -473,7 +491,7 @@ func RenderLedger(r Run) string {
 
 	for _, d := range r.Dispatches {
 		fmt.Fprintf(&b, "## Dispatch %d — %s\n\n", d.Seq, orElse(d.Role, "role not recorded"))
-		fmt.Fprintf(&b, "- Task: %s\n", orElse(d.TaskID, "no task"))
+		fmt.Fprintf(&b, "- Task: %s\n", orElse(taskOf(d), "no task"))
 		fmt.Fprintf(&b, "- Role: %s\n", orElse(d.Role, "not recorded"))
 		if strings.TrimSpace(d.Slot) != "" {
 			fmt.Fprintf(&b, "- Slot: %s\n", neutraliseMarkers(d.Slot))

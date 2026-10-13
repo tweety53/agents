@@ -1025,3 +1025,31 @@ func TestTokenLineMarksCallerReported(t *testing.T) {
 		}
 	})
 }
+
+// TestRenderLedgerDerivesTheTaskFromTheKey pins that a dispatch recorded
+// without -task still names its task where its key does: implement.md's
+// key shapes `task-<n>-implementer` and `task-<n+n+n>-reviewer` carry the
+// task ids, and a grouped bundle records no -task at all by contract, so
+// without the derivation the same change's ledger reads `Task: 10` on one
+// row and `Task: no task` on its sibling. An explicit -task still wins, and
+// a key naming no task (a panel slot, a pipeline fix) still reads no task.
+func TestRenderLedgerDerivesTheTaskFromTheKey(t *testing.T) {
+	cases := []struct{ task, key, want string }{
+		{"", "task-1-implementer", "- Task: 1\n"},
+		{"", "task-7-implementer-2", "- Task: 7\n"},
+		{"", "task-2+3+4+5-reviewer", "- Task: 2+3+4+5\n"},
+		{"", "task-2+3-implementer-fix-1", "- Task: 2+3\n"},
+		{"9", "task-1-implementer", "- Task: 9\n"},
+		{"", "pipeline-fix-1", "- Task: no task\n"},
+		{"", "panel-0-primary+principles", "- Task: no task\n"},
+	}
+	for _, c := range cases {
+		out := records.RenderLedger(records.Run{
+			Change:     "c",
+			Dispatches: []records.Dispatch{{Seq: 1, Role: "implementer", TaskID: c.task, Key: c.key}},
+		})
+		if !strings.Contains(out, c.want) {
+			t.Errorf("task %q key %q: want %q in:\n%s", c.task, c.key, c.want, out)
+		}
+	}
+}
