@@ -49,9 +49,7 @@ map by `flow state add-worktree <name> <that worktree> <merge-base>`, and
 (`skills/flow-contracts/git-boundaries.md`). No `spectre link` runs for these worktrees — they
 are declared apps, not peers — and each of them joins this run's resolved worktree set. **A
 worktree add that fails is a hard failure of this stage**, reported and stopping the run exactly
-like a refused link. Each worktree this stage creates then waits for its language servers exactly as
-**A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`) does for the kickoff
-worktree — the step runs once per repository worktree, with that worktree as `<abs-worktree>`.
+like a refused link.
 The worktree of the repository `## visual verification`'s `regression checkout` names,
 once created — or resumed without a `node_modules` — gets its own toolchain: that section's
 `setup` command runs from the worktree's root, in the foreground, and a non-zero exit is a hard

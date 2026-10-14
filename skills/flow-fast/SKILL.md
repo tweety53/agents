@@ -135,9 +135,6 @@ key's exit 1 (absent) continues with nothing run, its exit 2 stops the run, and 
 non-zero exit ends the run naming the command and its output. A re-run reusing an existing
 worktree runs nothing here — the creating run already ran it.
 
-Then, on a creating run, wait for the new worktree's language servers exactly as **A. Resolve the
-change and write `STARTED`** (`skills/flow/brainstorm.md`) does after `kickoff-worktree.sh`.
-
 **From here on, on every run, `<base>` is what `resolve-base-branch.sh <worktree>` prints** — the
 recorded base when there is one — so a re-run lands where the creating run cut.
 

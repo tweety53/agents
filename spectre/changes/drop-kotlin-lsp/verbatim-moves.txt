@@ -1,0 +1,12 @@
+# The worktree-lsp language-server wrapper is removed: no kickoff wait on gopls/kotlin-lsp indexing, no index.log copy, no cleanup step stopping a worktree's servers (they cost 1-2 GB RAM per worktree and no agent used them).
+**Immediately before check 6, `remove-change-worktrees` stops the worktree's `worktree-lsp` children** — every language server a `worktree-lsp` wrapper runs at or under the worktree — so a session's own LSP servers never hold it; check 6 reports any that still do.
+**Then wait for the worktree's language servers, still inside `flow.kickoff`.
+A check 5 failure on any worktree removes none, and stops none of their servers.
+A language with no tracked file, or a session with no LSP tool, is skipped with one line naming it.
+Each worktree this stage creates then waits for its language servers exactly as **A.
+For each language the `worktree-lsp` plugin (`mods/worktree-lsp/`) wraps — Go (`'*.go'`) and Kotlin (`'*.kt'`) — call the LSP tool's `documentSymbol` on `<abs-worktree>/` joined with the first path `git -C <abs-worktree> ls-files '<glob>'` prints, which is relative to the worktree.
+Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`) does after `kickoff-worktree.sh`.
+Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`) does for the kickoff worktree — the step runs once per repository worktree, with that worktree as `<abs-worktree>`.
+The call returns once that worktree's server has finished indexing, so the run waits here rather than querying a cold index later.
+Then copy the matching ready line — `<RFC3339> <server> <abs-worktree> ready <ms>` — from `${XDG_CACHE_HOME:-$HOME/.cache}/worktree-lsp/index.log` into the run's narrative.
+Then, on a creating run, wait for the new worktree's language servers exactly as **A.

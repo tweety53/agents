@@ -94,15 +94,6 @@ after the add, so a later step's failure leaves the worktree recorded. Exit 1 or
 with the script's own lines: **a command's non-zero exit ends your turn** naming the command and
 its output.
 
-**Then wait for the worktree's language servers, still inside `flow.kickoff`.** For each language
-the `worktree-lsp` plugin (`mods/worktree-lsp/`) wraps — Go (`'*.go'`) and Kotlin (`'*.kt'`) —
-call the LSP tool's `documentSymbol` on `<abs-worktree>/` joined with the first path
-`git -C <abs-worktree> ls-files '<glob>'` prints, which is relative to the worktree. The call returns once that worktree's server has finished indexing, so the run waits here
-rather than querying a cold index later. Then copy the matching ready line —
-`<RFC3339> <server> <abs-worktree> ready <ms>` — from
-`${XDG_CACHE_HOME:-$HOME/.cache}/worktree-lsp/index.log` into the run's narrative. A language with
-no tracked file, or a session with no LSP tool, is skipped with one line naming it.
-
 ```bash
 flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
 ```
