@@ -1,0 +1,25 @@
+# The failure-modes reviewer's failure-recovery step (KAN-979): new run-loaded prompt text, meant.
+\### Failure-recovery check
+**Recovery after a failure — a required step, done before anything else:**
+A clear with any value unconfirmed is a partial recovery — the state
+A value the success leaves untouched is not
+Each failure state the required step listed, every line that sets it and every line
+For each clearing line, take those values one at a time and name the line on that
+For each, grep its whole file — not the diff hunks — for every line that clears or
+List every piece of state the diff's code sets when a call fails — an error or
+Record the result in the Failure-recovery check section of your output.
+Skipping it is
+Then do the required step below.
+`none`; a clearing line with any `none` is the issue below it became.
+an incomplete review.
+clearing line and per unconfirmed value, the `path:line` that re-confirms it or
+failed flag, a retry affordance's visibility, a stale or unconfirmed marker, a
+fallback value shown in place of a real one.
+overwrites it, unchanged functions included, and name each value the failure left
+re-confirmed.
+reported at that clearing line under the error-return lens; say too whether the
+success's own response carried the value and the code discarded it.
+success's path that re-confirms it.
+that clears it as `path:line`, and each value the failure left unconfirmed.
+then claims recovery while that value is still unknown — and is Important at least,
+unconfirmed.
