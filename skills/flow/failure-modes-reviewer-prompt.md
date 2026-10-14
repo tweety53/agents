@@ -48,13 +48,15 @@
     1. List every piece of state the diff's code sets when a call fails — an error or
        failed flag, a retry affordance's visibility, a stale or unconfirmed marker, a
        fallback value shown in place of a real one.
-    2. For each, grep its file for every line that clears or overwrites it, unchanged
-       lines included, and name what the failure left unconfirmed.
-    3. For each clearing line, ask whether the success that reaches it re-confirms
-       everything the failure left unconfirmed, and whether that success's own response
-       carried the missing value and was discarded. A clear on a partial recovery — the
-       state then claims recovery while some value is still unconfirmed — is Important at
-       least, reported at that clearing line under the error-return lens.
+    2. For each, grep its whole file — not the diff hunks — for every line that clears or
+       overwrites it, unchanged functions included, and name each value the failure left
+       unconfirmed.
+    3. For each clearing line, take those values one at a time and name the line on that
+       success's path that re-confirms it. A value the success leaves untouched is not
+       re-confirmed. A clear with any value unconfirmed is a partial recovery — the state
+       then claims recovery while that value is still unknown — and is Important at least,
+       reported at that clearing line under the error-return lens; say too whether the
+       success's own response carried the value and the code discarded it.
 
     Record the result in the Failure-recovery check section of your output. Skipping it is
     an incomplete review.
@@ -103,8 +105,9 @@
     ### Failure-recovery check
 
     Each failure state the required step listed, every line that sets it and every line
-    that clears it as `path:line`, what the failure left unconfirmed, and a verdict per
-    clearing line: a full recovery, or the issue below it became.
+    that clears it as `path:line`, and each value the failure left unconfirmed. Then, per
+    clearing line and per unconfirmed value, the `path:line` that re-confirms it or
+    `none`; a clearing line with any `none` is the issue below it became.
 
     ### Summary
     [what behaviours this diff changed or added, which of the four lenses bore on them,
