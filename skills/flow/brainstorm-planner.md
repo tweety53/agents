@@ -154,12 +154,13 @@ exists` when the change is already there — **the ordinary case when resuming a
 above. Revise the artifacts in place and never `--force` past it. That directory is the change
 root — `<changeRoot>` below — by construction.
 
-`spectre new` writes a stub `proposal.md` and an empty `tasks.md` and nothing else. Create and fill
-these three artifacts:
+`spectre new` writes three stubs and nothing else: `proposal.md` (`## Why`, `## What changes`),
+`design.md` (`## Context`, `## Decisions`) and a title-only `tasks.md`. Fill these three artifacts,
+keeping every stub heading:
 
 - **proposal.md** — what and why, carrying `## Why` and `## What changes`
-- **design.md** — how, from the approved design, including `## Decisions` and `## Open questions`
-  (both below)
+- **design.md** — how, from the approved design, carrying `## Context`, `## Decisions` and
+  `## Open questions` (the last two below)
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
 **A spec edit is planned here, never written here.** A capability whose requirements the
@@ -434,6 +435,10 @@ same way and no later task can drift between conventions (KAN-678):
 A plan that declares `**Baseline:**` fields and carries no such line fails `check-plan-shape.sh`
 (F12). A plan whose tasks declare no Baselines states no convention and writes no line.
 
+Before continuing, run `spectre validate "<name>"` — implementation's entry check (section **1**,
+`skills/flow/implement.md`), run here so a capture it would refuse never reaches the gate — and
+repair any exit-1 finding; its exit 2 is reported and stops the plan.
+
 Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
 project's configured plan-provenance guard and its configured build-green guard, if the project
 declares them, and fix any hit. **A hit is exit 1, and only exit 1.** The refusal exits are
@@ -629,7 +634,7 @@ Then the question — `/flow-plan`'s wording is **Push artifacts?**, `/flow`'s i
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
 updates)**. On **No**,
 take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none),
-revise `tasks.md`, re-run `check-plan-shape.sh` and the project's configured guards, re-run the
+revise `tasks.md`, re-run `spectre validate "<name>"`, `check-plan-shape.sh` and the project's configured guards, re-run the
 Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second
 decision row — then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
 Under the `## decisions: recommended` mode the gate takes **Yes** without asking — the summary

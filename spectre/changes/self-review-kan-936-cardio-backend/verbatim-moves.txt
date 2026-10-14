@@ -1,0 +1,13 @@
+# Self-review fix: the plan gate runs spectre validate, implementation's entry check, so a capture it refuses never reaches approval (KAN-936 design.md lacked ## Context).
+Before continuing, run `spectre validate "<name>"` — implementation's entry check (section **1**, `skills/flow/implement.md`), run here so a capture it would refuse never reaches the gate — and repair any exit-1 finding; its exit 2 is reported and stops the plan.
+On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none), revise `tasks.md`, re-run `spectre validate "<name>"`, `check-plan-shape.sh` and the project's configured guards, re-run the Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second decision row — then print the summary and ask again.
+On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none), revise `tasks.md`, re-run `check-plan-shape.sh` and the project's configured guards, re-run the Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second decision row — then print the summary and ask again.
+# Self-review fix: the scaffold lines named every spectre new stub and design.md's ## Context, whose omission let KAN-936 drop it.
+(both below)
+**design.md** — how, from the approved design, including `## Decisions` and `## Open questions`
+Create and fill these three artifacts:
+`spectre new` writes a stub `proposal.md` and an empty `tasks.md` and nothing else.
+**design.md** — how, from the approved design, carrying `## Context`, `## Decisions` and
+Fill these three artifacts, keeping every stub heading:
+`## Open questions` (the last two below)
+`spectre new` writes three stubs and nothing else: `proposal.md` (`## Why`, `## What changes`), `design.md` (`## Context`, `## Decisions`) and a title-only `tasks.md`.
