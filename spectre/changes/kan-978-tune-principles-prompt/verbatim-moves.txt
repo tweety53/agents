@@ -1,0 +1,17 @@
+# The principles reviewer's required derived-state step and its output section (flow-eval kan-867 principles slot, haiku-low k=6: 0/6 -> 3/6).
+\### Derived-state check
+**Stored state that summarises other state — a required step, done before anything else:**
+A writer that sets or clears it from only part of those facts — one fact's path
+Each state the required step listed, the facts it summarises, every line that writes it
+For each, grep its file for every line that writes it, unchanged lines included, and
+List every field, flag or variable the diff writes whose value could be computed from
+Record the result in the Derived-state check section of your output.
+Report it as Important at least, at that writer.
+as `path:line`, and a verdict per writer: derives from every fact, or the issue below it
+deciding for all of them — is a Single Source of Truth violation: the value should be
+derived, not stored.
+name the facts it summarises.
+other state — a "something failed", an "any unconfirmed", an "is dirty", a count or a
+# The read order now ends at the required step, so the step's "before anything else" no longer contradicts it (panel finding P1).
+Then read the project standards files, then the diff.
+Then read the project standards files, then the diff, then do the required step below.
