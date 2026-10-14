@@ -149,6 +149,8 @@ plus `-cite`, `-key panel-<round>-<slot|slot+slot+slot>-cite`, and its prompt ca
 `UNCITED:` line of every role in that dispatch; it sits outside the panel bundle's two-per-round
 cap, at most one per re-run dispatch. A second exit 1 counts that re-run as not clean, and each
 finding still `UNCITED` goes to the handback below. Exit 2 stops the run.
+**A pending send-back holds the stage:** the round neither closes nor hands to `flow.verify` until
+the `-cite` dispatch has returned and `check-rerun-citations.sh` has been run on its report.
 
 **From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
 reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
