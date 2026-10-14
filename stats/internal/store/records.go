@@ -99,6 +99,18 @@ var ErrDispatchNotFound = errors.New("store: dispatch not found")
 // ErrFindingLinkInvalid gets.
 var ErrAgentIDInvalid = errors.New("store: invalid agent id")
 
+// ErrInlineWindowTooShort is returned by EndDispatch when an inline row
+// (agent id "inline") with no token report would close under
+// minInlineWindow after its begin: a begin and end recorded together,
+// after the work, leave the harvester a zero-width window and the work's
+// cost unmeasured.
+var ErrInlineWindowTooShort = errors.New("store: inline dispatch window too short")
+
+// minInlineWindow is the shortest window an inline row may close with.
+// One Bash call lands its begin and end milliseconds apart; real inline
+// work takes minutes.
+const minInlineWindow = 10 * time.Second
+
 // agentIDPlaceholders is the closed set of stand-in words a dispatcher
 // types when it does not hold the harness's identifier yet. Every word
 // claims "an id is coming" or "there is no id" -- which the wire shape
@@ -478,6 +490,11 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 // the tokens object and preserves a sidechain bucket the harvester may
 // already have written, which the caller's report must never be a
 // casualty of.
+//
+// An inline row with no token report closing under minInlineWindow after
+// its begin with outcome completed is refused with ErrInlineWindowTooShort
+// (a blocked or aborted row legitimately ends early): begin and end recorded
+// together after the work leave the harvester a zero-width window to credit.
 func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
 	// Held as a string, never a []byte: pgx binds a []byte as bytea, and a
 	// bytea reaching the statement's tokens cast reads as NULL -- the
@@ -500,6 +517,20 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	// identifier (KAN-560).
 	if err := validateAgentID(in.AgentID); err != nil {
 		return records.Dispatch{}, fmt.Errorf("store: end dispatch %q for %s/%s: %w", in.Key, projectKey, change, err)
+	}
+	if in.Tokens == nil {
+		var agentID *string
+		var startedAt time.Time
+		err := s.pool.QueryRow(ctx, `
+			SELECT d.agent_id, d.started_at
+			FROM dispatches d JOIN changes c ON c.id = d.change_id
+			WHERE c.project_key = $1 AND c.name = $2
+			  AND d.session_token = $3 AND d.dispatch_key = $4`,
+			projectKey, change, in.SessionToken, in.Key).Scan(&agentID, &startedAt)
+		inline := in.AgentID == "inline" || (in.AgentID == "" && agentID != nil && *agentID == "inline")
+		if err == nil && inline && in.Outcome == "completed" && in.EndedAt.Sub(startedAt) < minInlineWindow {
+			return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q closed %s after its begin -- record begin when the work starts and end once its commit lands, or pass -tokens", ErrInlineWindowTooShort, projectKey, change, in.Key, in.EndedAt.Sub(startedAt))
+		}
 	}
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d

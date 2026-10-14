@@ -3948,6 +3948,48 @@ func TestEndDispatchRejectsInvalidAgentID(t *testing.T) {
 	}
 }
 
+// TestEndDispatchRefusesAZeroWidthInlineRow pins the inline window floor:
+// an inline row closed seconds after its begin, with no token report, is
+// refused and stays open; closed a minute later it closes.
+func TestEndDispatchRefusesAZeroWidthInlineRow(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-end-inline-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	begin := baseDispatch("implementer", "opus")
+	begin.Key = "task-1-implementer"
+	begin.SessionToken = "mf-end-inline"
+	begin.AgentID = "inline"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", begin); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	end := records.DispatchEnd{
+		SessionToken: "mf-end-inline",
+		Key:          "task-1-implementer",
+		Outcome:      "completed",
+		EndedAt:      begin.StartedAt.Add(time.Second),
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); !errors.Is(err, store.ErrInlineWindowTooShort) {
+		t.Fatalf("EndDispatch one second after an inline begin: err = %v, want store.ErrInlineWindowTooShort", err)
+	}
+	other := begin
+	other.Key = "visual-verify"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", other); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	blocked := end
+	blocked.Key = "visual-verify"
+	blocked.Outcome = "blocked"
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", blocked); err != nil {
+		t.Fatalf("EndDispatch a blocked inline row one second after its begin: %v", err)
+	}
+	end.EndedAt = begin.StartedAt.Add(time.Minute)
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
+		t.Fatalf("EndDispatch a minute after an inline begin: %v", err)
+	}
+}
+
 // TestStampDispatchAgentStillAcceptsHarnessShapes pins the boundary
 // KAN-560 draws: the validation covers the dispatcher-typed paths, and the
 // daemon's stamp stays verbatim (its own doc comment records why). Both

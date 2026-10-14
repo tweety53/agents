@@ -98,6 +98,8 @@ three of them are two-paragraph docs edits not worth a dispatch of their own.
 **Considered:** one fixer per Go task plus one for the docs — three dispatches for work one fixer
 finishes inside its context.
 
+**Verbatim-moves entry edited:** the `dispatch end` ten-second refusal sentence in `skills/flow/implement.md` now names a `completed` inline row, matching `EndDispatch`, and its `verbatim-moves.txt` entry was edited to the same text.
+
 ## Open questions
 
 ## Live check

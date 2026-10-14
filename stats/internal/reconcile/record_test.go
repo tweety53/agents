@@ -913,6 +913,39 @@ func TestDispatchRefusedForAnUnmappablePairIsRetiredAndAppliesEntryBehindIt(t *t
 	}
 }
 
+// shortInlineRecordStore answers every dispatch end with
+// store.ErrInlineWindowTooShort.
+type shortInlineRecordStore struct{ fakeRecordStore }
+
+func (*shortInlineRecordStore) EndDispatch(context.Context, string, string, records.DispatchEnd) (records.Dispatch, error) {
+	return records.Dispatch{}, fmt.Errorf("%w: closed 1s after its begin", store.ErrInlineWindowTooShort)
+}
+
+// TestDispatchEndRefusedAsTooShortIsRetiredAndAppliesEntryBehindIt: an
+// inline end refused for its window is refused identically on every
+// replay, so it retires rather than blocking the queue.
+func TestDispatchEndRefusedAsTooShortIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-shortinline", "chg-record-shortinline"
+
+	appendRecordWrite(t, root, project, change, "dispatch-end", testDispatchEnd())
+	appendRecordWrite(t, root, project, change, "finding", testFinding("F2", "open"))
+
+	rs := &shortInlineRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 1 {
+		t.Fatalf("Run result = %+v, want {Applied:1 Refused:1}", result)
+	}
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0", n)
+	}
+}
+
 // --- a journalled entry missing a required field is refused, not written ---
 
 // TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow pins the

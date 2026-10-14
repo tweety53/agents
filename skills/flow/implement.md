@@ -186,9 +186,11 @@ these substitutions:
   <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
   model> -effort <parent effort> -agent-id inline` (**Harness mapping**,
   `skills/flow-contracts/model-policy.md`) — so cost attribution and the stats views see
-  inline work under the same roles a dispatched run would use. An inline fix's `dispatch begin`
-  is recorded when the parent starts the fix, before its first edit, and its `dispatch end` once
-  the fix commit lands — never the two together, which records the fix as taking no time.
+  inline work under the same roles a dispatched run would use. Every inline row's `dispatch
+  begin` is recorded when the parent starts that work, before its first edit, and its `dispatch
+  end` once the work's commit lands — never the two together, which records the work as taking
+  no time; `flow record dispatch end` refuses a `completed` inline row closed under ten seconds
+  after its begin when it carries no `-tokens` report.
 
 ## 1. Load context and validate the plan
 

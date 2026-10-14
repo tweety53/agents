@@ -855,6 +855,13 @@ func isDefinitiveRecordOutcome(err error) bool {
 		// above get -- leaving it queued would block every valid entry
 		// behind it forever without ever making progress.
 		return true
+	case errors.Is(err, store.ErrInlineWindowTooShort):
+		// An inline end closed too soon after its begin is refused on the
+		// begin's recorded start and the end's own ended_at, neither of
+		// which a later pass changes, so every replay is refused
+		// identically. Retiring it keeps it from blocking every valid
+		// entry behind it forever.
+		return true
 	default:
 		return false
 	}

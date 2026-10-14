@@ -582,6 +582,8 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusNotFound, err.Error()
 	case errors.Is(err, store.ErrAgentIDInvalid):
 		return http.StatusBadRequest, err.Error()
+	case errors.Is(err, store.ErrInlineWindowTooShort):
+		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrDispatchPairInvalid):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrHazardDuplicate):
