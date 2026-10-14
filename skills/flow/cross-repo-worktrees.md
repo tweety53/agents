@@ -75,3 +75,14 @@ project declares it. The write lands as a planning commit in the
 worktree holding the file, behind `check-planning-commit-location.sh <abs-worktree> <name>`
 (**Planning commits**, `skills/flow-contracts/git-boundaries.md`), and what it wrote is recorded
 in the working notes beside the merge bases. A change with one repository runs nothing here.
+
+**Each `## Merge order` entry is a numbered line naming its repository in backticks** — `spectre
+validate` refuses a bare `1. .` — so a change spanning this repository and one peer writes, per
+**Finish contract** (`skills/flow-contracts/finish-contract-run1.md`):
+
+~~~markdown
+## Merge order
+
+1. `.`
+2. `<peer>`
+~~~
