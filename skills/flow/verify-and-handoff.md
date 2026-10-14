@@ -407,6 +407,8 @@ Next:
 live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`). A stop — a failure,
 a blocked step, a refused start, a `## Question` — prints as its own rule states, not this block.
 
+**The `**Summary:**` bullets are recorded before the block prints**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`).
+
 **The `Running:` section is never omitted.** Its URLs are the ones **Resolve the run
 instructions** above resolved for the stack it started or left running, never the project's
 declared default port; its logins are every row `<project>/.flow/project.md`'s `## credentials`

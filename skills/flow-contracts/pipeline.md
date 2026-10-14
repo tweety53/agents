@@ -460,6 +460,8 @@ stopping point prints it** — a fix round closing, a stage closing, a full hand
 terminal handoff, so the operator always holds a current account of what changed and what is
 still running without having to ask.
 
+**Every summary a run prints is recorded as it prints** — `flow record summary -change <name> -C <canonical-worktree> -file -`, the summary's Markdown on stdin, the `IN_PROGRESS` handoff's `**Summary:**` bullets included; one row per change, the last write wins — so the self-review bundle's first source is the run's own statement, as **Write `IN_PROGRESS`** prints it (`skills/flow/verify-and-handoff.md`).
+
 **The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither before its block.**
 Its own `**Summary:**` carries the first bullet above alone, its `**Running:**` section is its
 live-stack line, and its block is the whole handoff (**Write `IN_PROGRESS`**,
