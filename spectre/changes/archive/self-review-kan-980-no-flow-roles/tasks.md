@@ -16,9 +16,9 @@
 - Go in `stats/` follows the Go skills `CLAUDE.md` names; run `cd stats && gofmt -w .` before `gofmt -l .`.
 - No test contacts the dev workspace's `flowd`: a `flow record` test that could reach the store passes `-addr` explicitly.
 
-- [ ] 1. `flow record pass` refuses a note that opens with a marker label
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: every subtest exits 0 with `⚠ flow: store unreachable — wrote local journal` on stderr — the defect: a marker line is accepted as a pass note.
-  - [ ] **Step 2: Write the failing test.** Append to `stats/cmd/flow/record_test.go`, after `TestRecordFindingRejectsMalformedRef`:
+- [x] 1. `flow record pass` refuses a note that opens with a marker label
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: every subtest exits 0 with `⚠ flow: store unreachable — wrote local journal` on stderr — the defect: a marker line is accepted as a pass note.
+  - [x] **Step 2: Write the failing test.** Append to `stats/cmd/flow/record_test.go`, after `TestRecordFindingRejectsMalformedRef`:
 
 ```go verified:applied with step 3's code at ff835bde — fails without the refusal (exit 0, journal written), passes with it; go vet and gofmt -l clean
 // TestRecordPassRefusesMarkerNote pins the kan-980 self-review fix: a pass
@@ -57,14 +57,14 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 ```
 
     Run `cd stats && go test ./cmd/flow/ -run 'TestRecordPassRefusesMarkerNote' -count=1` and confirm both subtests FAIL.
-  - [ ] **Step 3: Export the label list.** In `stats/internal/records/render.go` rename `markerLabels` to `MarkerLabels` (its doc comment's first word and its one use in `neutraliseMarkers`), and replace the doc comment's last line `// one.` with these two lines:
+  - [x] **Step 3: Export the label list.** In `stats/internal/records/render.go` rename `markerLabels` to `MarkerLabels` (its doc comment's first word and its one use in `neutraliseMarkers`), and replace the doc comment's last line `// one.` with these two lines:
 
 ```go verified:applied at ff835bde — go test ./internal/records/ passes
 // one. `flow record pass` reads the list too, to refuse a note that opens
 // with one of them.
 ```
 
-  - [ ] **Step 4: Implement the refusal.** In `runRecordPass` (`stats/cmd/flow/record.go`), directly after the `requireRecordFlags(stderr, [2]string{"-note", *note})` block's closing `}` and before `projectKey, _, err := fallback.ProjectKey(f.dir)`, insert:
+  - [x] **Step 4: Implement the refusal.** In `runRecordPass` (`stats/cmd/flow/record.go`), directly after the `requireRecordFlags(stderr, [2]string{"-note", *note})` block's closing `}` and before `projectKey, _, err := fallback.ProjectKey(f.dir)`, insert:
 
 ```go verified:applied with step 2's test at ff835bde — the test passes, every TestRecordPass* passes, go vet and gofmt -l clean
 	// A note opening with a marker label is a marker line in the wrong
@@ -78,7 +78,7 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 	}
 ```
 
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/records/ && go test ./cmd/flow/ -run 'TestRecordPass' -count=1 && go test ./internal/records/ -count=1` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/records/ && go test ./cmd/flow/ -run 'TestRecordPass' -count=1 && go test ./internal/records/ -count=1` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/internal/records/render.go`
@@ -91,9 +91,9 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 
 **Decision:** pass-note-refusal-in-cli
 
-- [ ] 2. Name the since-close sha after integrate's reshape
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n "reshape\|archive commit" skills/flow/review-panel-late-fix.md` and confirm no line names the since-close sha once the branch is reshaped — the defect.
-  - [ ] **Step 2: Add the sentence.** In `skills/flow/review-panel-late-fix.md`, **The late-fix reduction**, directly after the line ending "peer worktree's since-close sha comes from the panel record's per-worktree sha list." and inside the same paragraph (no blank line either side), insert verbatim:
+- [x] 2. Name the since-close sha after integrate's reshape
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n "reshape\|archive commit" skills/flow/review-panel-late-fix.md` and confirm no line names the since-close sha once the branch is reshaped — the defect.
+  - [x] **Step 2: Add the sentence.** In `skills/flow/review-panel-late-fix.md`, **The late-fix reduction**, directly after the line ending "peer worktree's since-close sha comes from the panel record's per-worktree sha list." and inside the same paragraph (no blank line either side), insert verbatim:
 
 ```markdown verified:check-verbatim-moves.sh, check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-normative-inventory.sh exit 0 with this sentence and task 3's applied and this change's verbatim-moves.txt present, spiked at ff835bde
 **After integrate's reshape** (**3. Commit the staged work**, `skills/flow/integrate.md`) the shas
@@ -101,7 +101,7 @@ the last clean close reviewed are gone from the branch, so the since-close sha i
 worktree's archive commit and a peer worktree's reshaped branch head.
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/review-panel-late-fix.md`
@@ -113,16 +113,16 @@ worktree's archive commit and a peer worktree's reshaped branch head.
 
 **Decision:** since-close-after-reshape
 
-- [ ] 3. A pending citation send-back holds the stage close
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read the paragraph opening "Exit 0 proceeds." in `skills/flow/review-panel-fix-round.md` and confirm nothing in it or after it says the round waits for the `-cite` dispatch — the defect.
-  - [ ] **Step 2: Add the sentence.** In `skills/flow/review-panel-fix-round.md`, directly after the line ending "finding still `UNCITED` goes to the handback below. Exit 2 stops the run." and inside the same paragraph (no blank line either side), insert verbatim:
+- [x] 3. A pending citation send-back holds the stage close
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read the paragraph opening "Exit 0 proceeds." in `skills/flow/review-panel-fix-round.md` and confirm nothing in it or after it says the round waits for the `-cite` dispatch — the defect.
+  - [x] **Step 2: Add the sentence.** In `skills/flow/review-panel-fix-round.md`, directly after the line ending "finding still `UNCITED` goes to the handback below. Exit 2 stops the run." and inside the same paragraph (no blank line either side), insert verbatim:
 
 ```markdown verified:check-verbatim-moves.sh, check-references.sh, check-installed-citations.sh, check-markdown-integrity.py and check-normative-inventory.sh exit 0 with this sentence and task 2's applied and this change's verbatim-moves.txt present, spiked at ff835bde
 **A pending send-back holds the stage:** the round neither closes nor hands to `flow.verify` until
 the `-cite` dispatch has returned and `check-rerun-citations.sh` has been run on its report.
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/review-panel-fix-round.md`
