@@ -2,8 +2,9 @@
 
 Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing
 `/flow`'s brainstorming stage — or, for **C**, **D** and **Decide**, a `/flow-plan` capture
-(**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no dispatched subagent, no relay.
-Every "you" below addresses that session directly.
+(**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no dispatched subagent, no relay,
+save the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is
+not `big`** (`skills/flow-self-review/SKILL.md`) binds them. Every "you" below addresses that session, or that planner, directly.
 
 ## B. Basic Workflow #1 — Brainstorming
 

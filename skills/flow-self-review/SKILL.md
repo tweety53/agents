@@ -1,6 +1,6 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, inline on this session's model — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; plan in full, fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
 compatibility: Standalone, requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
@@ -11,12 +11,9 @@ Run a change's self-review reasoning pass — the only one the pipeline has — 
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
 (`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
 bundle an older run saved on the change branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
-filing-and-rating prompt, the store record and the report. **The pass runs inline, in this session, on whatever model it is already on; its fixes never do**
-— step 3 runs every fix, review and re-review as a one-shot `flow-medium` dispatch: the fix on
-`opus`, or `sonnet` when every fix is a literal edit with nothing it can break; the first review
-on `opus`; every re-review on `sonnet`. The model is
-picked by picking the model this session runs on (`/model`) before invoking this command, not by
-anything this skill itself resolves.
+filing-and-rating prompt, the store record and the report. **Neither the pass nor its fixes run
+in this session**: step 2 dispatches the pass, and step 3 plans, fixes and reviews, each a one-shot
+dispatch on the pair this file names — never the model this session runs on.
 
 **This is a standalone command, not a pipeline stage.** It takes one change name, writes no
 per-change state file, and marks no `flow stage` call.
@@ -40,7 +37,15 @@ checkout on any other branch: print the branch and stop.
 
 ### 2. Read the bundle and run the six angles
 
-Read `<bundle>` in full. Run the six-angle table over it, inline, every angle explicit —
+Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`,
+`subagent_type: flow-medium` on `opus`, its prompt carrying the bundle in full (`<bundle>`
+standalone, the bundle held in memory in-run), this step's rules and step 3's classification, the
+dispatch paragraphs step 3 names and READ-ONLY REVIEW. It returns every finding with its angle, its
+evidence and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
+counted blast radius and whether it is `big`. This session keeps the filing-and-rating prompt, the
+store rows and the report.
+
+The pass runs the six-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
 
 | # | Angle | Label |
@@ -76,26 +81,27 @@ nothing beyond it — say so in the report's `**Deferred:**` line.
 
 ### 3. Fix every finding that is not `big`
 
-**Classify every finding before any work** by the blast-radius rule of **Pipeline defects found
+**Every finding is classified before any work**, by the pass, per the blast-radius rule of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files — a
-design choice never is, since the fixer's brainstorm takes the recommended option, and neither is a
+design choice never is, since the planner takes the recommended option, and neither is a
 reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
-whole pass. A pass with none creates no worktree and dispatches nothing. **This session changes
-and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`): each numbered step
-below that does is a fresh dispatch on the pair it names, its prompt carrying the
-paragraphs **Every dispatch in the loop is one-shot** (**Pipeline defects found mid-run**,
-`skills/flow-contracts/pipeline.md`) names — a review's READ-ONLY REVIEW too — with **The
+whole pass. A pass with none creates no worktree and dispatches nothing. **This session plans,
+changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
+ticks and archive commit: each numbered step below that does is a fresh dispatch on the pair it names, its prompt carrying the MODEL HANDSHAKE,
+TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
+(`skills/flow/implement.md`) verbatim — a review's READ-ONLY REVIEW too — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
 it returns. The no-progress escalation of **Fewest operator actions**
 (`skills/flow-contracts/pipeline.md`) still runs on `flow-high`.
 
-**The fixer pair** is `subagent_type: flow-medium` on `opus`, or on `sonnet` when every fix it
-carries is a literal edit with nothing it can break, the one-line reason recorded with the
-dispatch. **The review pair** is `flow-medium` on `opus` for the first review (`<r>` = 1) and
-`flow-medium` on `sonnet` for every re-review after a fix.
+**The pairs are this file's own**, never **Pipeline defects found mid-run**'s: **the planner
+pair** is `subagent_type: flow-medium` on `opus`; **the fixer pair** is `flow-low` on `opus`;
+**the review pair** is `opus` for the first review (`<r>` = 1), on `flow-medium` or `flow-low` as
+the planner recorded — `flow-medium` when it recorded none — and `flow-low` on `sonnet` for
+every re-review after a fix.
 
 `<agents-base>` is the one **Pipeline defects found mid-run** binds. `<fix-branch>` and
 `<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose
@@ -104,26 +110,50 @@ worktree — `spectre/<name>` on `/flow`, `<name>` on `/flow-fast` — based at 
 holds when the pass starts; standalone, or inside
 any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 
-1. **Fix** — on `self-review-<name>`, this session creates the worktree,
+1. **Plan, then fix** — on `self-review-<name>`, this session creates the worktree,
    `git -C <agents repo> worktree add -b self-review-<name> <agents repo>-worktrees/self-review-<name> origin/<agents-base>`
    — never the main checkout — runs `<agents repo>`'s `## worktree setup` in it
    (`project-get.sh <agents repo> 'worktree setup'`); on the change's own branch its worktree is
-   already set up. It then dispatches key `self-review-<name>-fix` on the fixer pair, its prompt carrying
-   every non-`big` finding with its evidence and counted blast radius. The fixer brainstorms each
-   finding first and takes the recommended approach without asking, per **Pipeline defects found
-   mid-run** (`skills/flow-contracts/pipeline.md`). It works in that
-   worktree and makes one commit per finding with a module scope, adding one test or guard that
-   fails without the fix wherever the fix changes behaviour, and running the
-   `<agents repo>/.flow/project.md` `## lint` lines its files need. It reports each finding's
+   already set up. It then dispatches key `self-review-<name>-plan` on the planner pair, its
+   prompt carrying every non-`big` finding with its evidence and counted blast radius. The planner
+   plans them all in full as one spectre change, `self-review-<name>`, in that worktree, per
+   `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
+   `proposal.md`, and `design.md` with `## Context`, `## Decisions` and `## Open questions`) and
+   writing plans (section D — a `tasks.md` in which each finding is carried by exactly one task, a
+   `Build: red` task counting with the partner it folds into). `flow-medium` carries no Skill
+   tool, so the prompt names the path of the installed superpowers plugin's
+   `skills/brainstorming/SKILL.md` and `skills/writing-plans/SKILL.md` — on Claude Code the
+   newest `~/.claude/plugins/cache/*/superpowers/*/skills/<skill>/SKILL.md` — and the planner reads and
+   follows each file where those sections invoke its skill. **Every question it meets is
+   auto-resolved to its recommended option** per **Auto-resolution**
+   (`skills/flow-contracts/operator-prompts-auto-resolution.md`) and recorded as a decision: it
+   never asks the operator. Section B's design file goes under
+   `<agents repo>-worktrees/self-review-<name>/.superpowers/sdd/`, or
+   `<agents repo>-worktrees/<name>/.superpowers/sdd/` on the change's own branch. Section D's
+   guards — `spectre validate "self-review-<name>"`, `check-plan-shape.sh`,
+   `check-plan-provenance.sh` and `check-task-build-green.sh` — pass before it commits. It runs none of what records or gates a pipeline run: no `flow stage` call, no
+   `flow tasks count`, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
+   review gate**. `design.md`'s decisions record instead this pass's dynamic choices: the first
+   review's effort, `medium` or `low`, and the grouping of tasks into fixer dispatches. It commits
+   the artifacts as `chore(spectre): plan self-review-<name>`, and never merges or pushes.
+
+   Then one fixer per recorded group, in series — key `self-review-<name>-fix`, `-fix-g<g>` when
+   the planner recorded more than one group — on the fixer pair, its prompt naming its tasks. It
+   implements them in that worktree, one commit per task with its declared `**Commit:**` subject
+   and no `Task-Id:` trailer, never writing `<agents repo>/spectre/changes/` — the ticks are item
+   4's — adding one test or guard that fails without the fix wherever the fix changes behaviour, and running
+   the `<agents repo>/.flow/project.md` `## lint` lines its files need, save
+   `check-task-records.sh`, which judges those ticks. It reports each task's
    commit, or a finding it found `big` once under way, left uncommitted. It never merges or
    pushes.
 2. **Review** — key `self-review-<name>-review-<r>` on the review pair, over
-   `git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its
-   commit and asking each review finding graded Critical, Important or Minor.
+   `git diff <fix-base>...<fix-branch>`, its prompt naming each finding beside its task's
+   commit, judging the code against `tasks.md` and `design.md`'s decisions, and asking each review
+   finding graded Critical, Important or Minor.
 3. **Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt carrying the
-   review's report verbatim. Each fix is folded into the commit of the finding it fixes
+   review's report verbatim. Each fix is folded into the commit of the task it fixes
    (`git commit --fixup <that commit>`, then `git rebase --autosquash <fix-base>`), so
-   every finding stays one commit; a commit the review judges not to fix its finding, or to make
+   every task stays one commit; a commit the review judges not to fix its finding, or to make
    things worse, is dropped from the branch. **A review whose every finding is Minor is closed by
    that one dispatch, with no re-review** — the no-re-review half of **Panel re-runs**
    (`skills/flow/review-panel.md`); unlike the panel's parent, this session fixes nothing inline,
@@ -132,13 +162,21 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    raises only Minors, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A
    dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once
    under way.
-4. **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session runs, in the fix worktree, only the
+4. **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session ticks each task whose commit is on `<fix-branch>`
+   (`flow tasks tick -C <fix worktree> self-review-<name> <n>`), runs
+   `spectre archive self-review-<name>` in the fix worktree — `--force` only when a task stays
+   unticked, its finding found `big` or its commit dropped — and commits both as
+   `chore(spectre): archive self-review-<name>`, on either branch, before any landing push —
+   `<agents repo>`'s push hook refuses an unarchived change on its default branch. That commit
+   alone carries the ticks, and is made once. This session then runs, in the fix worktree, only the
    `<agents repo>/.flow/project.md` `## lint` lines the touched files need, plus the tests
    covering them: `go test` of the touched packages, the `scripts/test-*.sh` harness of a touched
    script, `npx vitest run <file>` of a touched SPA file — each output through `tail`, never the
    full `## lint` or `## test` list. A red line is fixed by a fresh dispatch of step 3, key
    `self-review-<name>-fix-v<v>`, its prompt carrying the failing command and its output
-   verbatim; then step 2, then this step again, `<v>` plus one. A red branch never lands, and a
+   verbatim; then step 2, then this step's lint lines and tests again, `<v>` plus one. The
+   autosquash keeps the archive commit last; a task commit dropped after it has its task unticked
+   in the archive commit by this session (`git commit --amend`). A red branch never lands, and a
    red line is never waived — **Fewest operator actions** governs this loop as it does the review.
 5. **Land once.** On the change's own branch nothing lands here: the fix commits ride the run's
    own route, whose rebase can rewrite their shas, so the committed report is their record and
@@ -161,8 +199,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    land by `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
-   branch. A rebase onto a moved `origin/<agents-base>` runs item 4, **Verify**, again before the push. The
-   pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
+   branch. A rebase onto a moved `origin/<agents-base>` runs item 4's lint lines and tests again
+   before the push — never its ticks or archive, which the rebase carries. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
    finding's sha is read off `<agents-base>` after the landing, never from
    the branch before its rebase; on a route that opens a pull request, once that pull request
    merges.
@@ -228,7 +266,7 @@ finding one line naming its angle's label, the finding, and its disposition (`fi
 title:
 
 ```
-**Deferred:** reasoning pass run on <model named in this session's own system prompt> from <bundle path>
+**Deferred:** reasoning pass run on <the model the pass dispatch's handshake named> from <bundle path>
 ```
 
 Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its

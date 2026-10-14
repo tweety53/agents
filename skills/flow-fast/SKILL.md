@@ -30,9 +30,10 @@ to run for; the mark stays so the run's stage set matches `/flow`'s.
 **Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
 an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never
 a planner or a verifier, save the in-run fix loop of **Pipeline defects found mid-run**
-(`skills/flow-contracts/pipeline.md`), which a `/flow-fast` run follows too. Never ask a model,
-planning-effort or review question. Never write `<project>/spectre/`
-or a state file. Never set up workspace isolation and never call a
+(`skills/flow-contracts/pipeline.md`), which a `/flow-fast` run follows too, and the
+self-review pass's own dispatches (`skills/flow-self-review/SKILL.md`). Never ask a model,
+planning-effort or review question. Never write `<project>/spectre/`,
+save that pass's `self-review-<name>` change, or a state file. Never set up workspace isolation and never call a
 guard script a cited `skills/flow/` section does not call itself. Never push to a branch other
 than the one the landing route names.
 
@@ -299,7 +300,7 @@ process lesson the run paid for is promoted to the
 lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
 
 Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
-inline, canonical for the six angles, the fix loop, where the fixes land — on `<name>` itself
+canonical for the six angles, the fix loop, where the fixes land — on `<name>` itself
 when `<worktree>` is `<agents repo>`'s — the filing-and-rating prompt and the store rows. Write
 the report per that file's step 7, its `**Deferred:**` line naming `the in-run bundle` as the
 bundle path, then commit and push it through the landing chain, asserting the change branch:

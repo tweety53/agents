@@ -2,8 +2,8 @@
 # integrate-change.sh — the mechanical half of a bare /flow at IN_PROGRESS:
 # run 1 (integrate) and run 2 (cleanup), sequenced through the existing
 # guards so the parent agent does only what needs judgement — the commit
-# subjects, the narrative paragraph, the self-review reasoning pass, the Jira
-# calls, and every stop that needs the operator.
+# subjects, the narrative paragraph, the self-review pass's dispatches and
+# filing prompt, the Jira calls, and every stop that needs the operator.
 #
 # skills/flow-contracts/finish-contract-run1.md and finish-contract-run2.md
 # are canonical for every step this script runs, and each guard's own header

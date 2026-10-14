@@ -295,7 +295,7 @@ has the bundle report it skipped) and holds the whole in memory — it is never 
 `<project>/docs/self-review/` or committed.
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`
-(`skills/flow-self-review/SKILL.md`), inline, canonical for the six angles, the fix loop and its
+(`skills/flow-self-review/SKILL.md`), canonical for the six angles, the fix loop and its
 dispatch pairs, where the fixes land, the filing-and-rating prompt and the store rows. It then
 writes the report per that file's step 7 — its `**Deferred:**` line naming `the in-run bundle`
 as the bundle path — and commits it on `spectre/<name>`, not pushing here; the route pushes it:
