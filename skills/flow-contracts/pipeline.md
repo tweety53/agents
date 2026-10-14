@@ -136,6 +136,18 @@ rule. The resolution is recorded with the reasoning: a panel run in the pass log
 `skills/flow/verify-and-handoff.md`), naming the options considered and why the one taken is the
 safest that still makes progress.
 
+## The parent is the only orchestrator
+
+**Every dispatch a `/flow`, `/flow-fast` or `/flow-self-review` run makes does the work itself;
+none of them is an orchestrator.** The parent session dispatches each planner, implementer,
+fixer, reviewer and verifier directly, every one with the NO DELEGATION paragraph
+(`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — never a
+`general-purpose` or other agent whose job is to dispatch, sequence or wait on others. Where a
+contract says "this session" or "the parent" runs a loop, the parent runs it, even when the loop
+is long. An orchestrator duplicates the parent's context, idles between its children's returns
+until its prompt cache expires and re-reads it all on every wake, and resuming it is the
+`SendMessage`-to-a-finished-child shape this pipeline bans.
+
 ## Pipeline defects found mid-run
 
 **A `/flow` or `/flow-fast` run that hits a defect in the pipeline itself fixes it within the
