@@ -15,9 +15,9 @@
 - Every prose block below is copied verbatim, line breaks aside: this change's `verbatim-moves.txt` acknowledges each new sentence by its exact text, and a reworded sentence fails `scripts/check-verbatim-moves.sh`.
 - Go in `stats/` follows the Go skills `CLAUDE.md` names; run `cd stats && gofmt -w .` before `gofmt -l .`.
 
-- [ ] 1. A fix run runs the unfinished-work guard on itself before its handoff
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n "check-unfinished-work" skills/flow/verify-and-handoff.md` and confirm no line runs the guard — only the `(the same member **1. Check for unfinished work** … passes check-unfinished-work)` mention under **Close the stage** — the defect.
-  - [ ] **Step 2: Add the paragraph.** In `skills/flow/verify-and-handoff.md`, **Write `IN_PROGRESS`**, directly after the fenced block holding `flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>` and before the paragraph opening "Write the state file:", insert this paragraph verbatim, a blank line either side:
+- [x] 1. A fix run runs the unfinished-work guard on itself before its handoff
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n "check-unfinished-work" skills/flow/verify-and-handoff.md` and confirm no line runs the guard — only the `(the same member **1. Check for unfinished work** … passes check-unfinished-work)` mention under **Close the stage** — the defect.
+  - [x] **Step 2: Add the paragraph.** In `skills/flow/verify-and-handoff.md`, **Write `IN_PROGRESS`**, directly after the fenced block holding `flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>` and before the paragraph opening "Write the state file:", insert this paragraph verbatim, a blank line either side:
 
 ```markdown verified:check-verbatim-moves.sh, check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0 with this paragraph applied and this change's verbatim-moves.txt present, spiked at 7ba0c7b6
 **A fix run then runs the unfinished-work guard on itself**, once per worktree of the resolved
@@ -30,7 +30,7 @@ again; the state is written only once every worktree prints `CLEAR:`. A missing 
 exit 2 is reported and stops the run at the state it read.
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
@@ -42,9 +42,9 @@ exit 2 is reported and stops the run at the state it read.
 
 **Decision:** fix-run-self-check
 
-- [ ] 2. Signal four requires a reviewer row begun after an appended task's implementer row
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/guard/check_unfinished_work_test.go`, a scratch case with the `appended` plan and rows `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]` prints `CLEAR:` — the defect: an implementer-only appended task passes.
-  - [ ] **Step 2: Write the failing cases.** In `TestCheckUnfinishedWork`, section `// 2c. Signal four`, replace the three CLEAR cases that follow the first OUTSTANDING case (the "with its implementer row", "taskId" and "+-joined" cases) with the block below — each now carries a later reviewer row — and add the two new cases after them:
+- [x] 2. Signal four requires a reviewer row begun after an appended task's implementer row
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/guard/check_unfinished_work_test.go`, a scratch case with the `appended` plan and rows `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]` prints `CLEAR:` — the defect: an implementer-only appended task passes.
+  - [x] **Step 2: Write the failing cases.** In `TestCheckUnfinishedWork`, section `// 2c. Signal four`, replace the three CLEAR cases that follow the first OUTSTANDING case (the "with its implementer row", "taskId" and "+-joined" cases) with the block below — each now carries a later reviewer row — and add the two new cases after them:
 
 ```go verified:applied together with every Go block of this plan at 7ba0c7b6 — go vet, the guard, selfreview, store TestEndDispatch and api tests and test-integrate-change.sh all pass
 	each(demo(planned(appended, `[{"seq":1,"key":"task-1-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":3,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
@@ -61,7 +61,7 @@ exit 2 is reported and stops the run at the state it read.
 ```
 
     Run `cd stats && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1` and confirm the two new OUTSTANDING checks and the breakdown check FAIL.
-  - [ ] **Step 3: Implement.** In `stats/internal/guard/unfinishedwork.go`: add `Role string `+"`"+`json:"role"`+"`"+` to the decoded `dispatches` row struct; replace the body of `if planRC == 0 {` under the `SIGNAL FOUR` comment with the block below; rename `uwUndispatched` to `uwAppendedTicked(plan string) ([]string, bool)`, returning every ticked appended id (drop its `covered` parameter and the `!covered[m[2]]` test, and say so in its doc comment). Extend the `SIGNAL FOUR` comment with one sentence: an appended task also needs a `reviewer` row whose seq is greater than its earliest non-reviewer row's — the fix run's panel names no task, so any reviewer row of the change counts, and the earliest row is the anchor so a Minor-only round's inline `panel-fix` row never demands a re-review.
+  - [x] **Step 3: Implement.** In `stats/internal/guard/unfinishedwork.go`: add `Role string `+"`"+`json:"role"`+"`"+` to the decoded `dispatches` row struct; replace the body of `if planRC == 0 {` under the `SIGNAL FOUR` comment with the block below; rename `uwUndispatched` to `uwAppendedTicked(plan string) ([]string, bool)`, returning every ticked appended id (drop its `covered` parameter and the `!covered[m[2]]` test, and say so in its doc comment). Extend the `SIGNAL FOUR` comment with one sentence: an appended task also needs a `reviewer` row whose seq is greater than its earliest non-reviewer row's — the fix run's panel names no task, so any reviewer row of the change counts, and the earliest row is the anchor so a Minor-only round's inline `panel-fix` row never demands a re-review.
 
 ```go verified:applied together with every Go block of this plan at 7ba0c7b6 — go vet, the guard, selfreview, store TestEndDispatch and api tests and test-integrate-change.sh all pass
 		if planRC == 0 {
@@ -103,7 +103,7 @@ exit 2 is reported and stops the run at the state it read.
 		}
 ```
 
-  - [ ] **Step 4: Update the script header.** In `scripts/check-unfinished-work.sh`, after the `SIGNAL FOUR` paragraph's last line `# of their own, so they are never judged.`, append these comment lines:
+  - [x] **Step 4: Update the script header.** In `scripts/check-unfinished-work.sh`, after the `SIGNAL FOUR` paragraph's last line `# of their own, so they are never judged.`, append these comment lines:
 
 ```bash verified:read from scripts/check-unfinished-work.sh lines 56-61 at 7ba0c7b6, where the SIGNAL FOUR paragraph ends
 # A named appended task also needs a `reviewer` row whose seq is greater than
@@ -111,7 +111,7 @@ exit 2 is reported and stops the run at the state it read.
 # under keys that name no task, so any reviewer row of the change counts.
 ```
 
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1 -race`, then `scripts/test-integrate-change.sh` and `scripts/check-guard-symlinks.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork' -count=1 -race`, then `scripts/test-integrate-change.sh` and `scripts/check-guard-symlinks.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`
@@ -124,9 +124,9 @@ exit 2 is reported and stops the run at the state it read.
 
 **Decision:** reviewer-after-implementer
 
-- [ ] 3. State the literal `## Merge order` entry syntax
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory, `git init`, `spectre init`, write `spectre/peers` as `peer ../peer`, `spectre new demo`, write `spectre/changes/demo/link.md` as `## Merge order` / blank / `1. .` / `2. peer`, run `spectre validate demo` and confirm it reports `"1. ." is not a numbered "." or peer entry`; rewrite the entries backticked and confirm that finding is gone — the syntax the doc must state.
-  - [ ] **Step 2: Add the paragraph.** In `skills/flow/cross-repo-worktrees.md`, after the paragraph ending "A change with one repository runs nothing here.", insert verbatim, a blank line either side:
+- [x] 3. State the literal `## Merge order` entry syntax
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In a scratch directory, `git init`, `spectre init`, write `spectre/peers` as `peer ../peer`, `spectre new demo`, write `spectre/changes/demo/link.md` as `## Merge order` / blank / `1. .` / `2. peer`, run `spectre validate demo` and confirm it reports `"1. ." is not a numbered "." or peer entry`; rewrite the entries backticked and confirm that finding is gone — the syntax the doc must state.
+  - [x] **Step 2: Add the paragraph.** In `skills/flow/cross-repo-worktrees.md`, after the paragraph ending "A change with one repository runs nothing here.", insert verbatim, a blank line either side:
 
 ```markdown verified:check-verbatim-moves.sh, check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0 with this block applied and this change's verbatim-moves.txt present, spiked at 7ba0c7b6; spectre validate refuses `1. .` and accepts the backticked form, spiked the same day
 **Each `## Merge order` entry is a numbered line naming its repository in backticks** — `spectre
@@ -136,7 +136,7 @@ validate` refuses a bare `1. .` — so a change spanning this repository and one
 
     then a blank line and the example as a `~~~markdown` fenced block whose lines are, in order: `## Merge order` at column 0, a blank line, ``1. `.` ``, ``2. `<peer>` `` — the fence written with tildes so it nests in no other fence.
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/cross-repo-worktrees.md`
@@ -148,9 +148,9 @@ validate` refuses a bare `1. .` — so a change spanning this repository and one
 
 **Decision:** merge-order-literal
 
-- [ ] 4. The self-review bundle logs every merge-order peer's change commits
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Write the test of step 2 first and run it: the peer's commit is missing from the `## git log --stat` section — the defect.
-  - [ ] **Step 2: Write the failing test.** Add to `stats/internal/selfreview/bundle_test.go`:
+- [x] 4. The self-review bundle logs every merge-order peer's change commits
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Write the test of step 2 first and run it: the peer's commit is missing from the `## git log --stat` section — the defect.
+  - [x] **Step 2: Write the failing test.** Add to `stats/internal/selfreview/bundle_test.go`:
 
 ```go verified:applied together with every Go block of this plan at 7ba0c7b6 — go vet, the guard, selfreview, store TestEndDispatch and api tests and test-integrate-change.sh all pass
 // TestBundleAssemblyLogsEveryMergeOrderPeer pins a cross-repo change's
@@ -187,7 +187,7 @@ func TestBundleAssemblyLogsEveryMergeOrderPeer(t *testing.T) {
 ```
 
     Run `cd stats && go test ./internal/selfreview/ -run 'TestBundleAssemblyLogsEveryMergeOrderPeer' -count=1` and confirm it FAILS.
-  - [ ] **Step 3: Implement.** In `stats/internal/selfreview/git.go` add `path/filepath` to the imports, add the function and regexp below after `changeBranchLog`, and in `Bundle` change `gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change))` to `gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change)) + peerLogs(g, repo, rev, change)`. Add one sentence to `Bundle`'s doc comment: the git-log source also carries each merge-order peer's change-branch log under `### <peer>`.
+  - [x] **Step 3: Implement.** In `stats/internal/selfreview/git.go` add `path/filepath` to the imports, add the function and regexp below after `changeBranchLog`, and in `Bundle` change `gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change))` to `gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change)) + peerLogs(g, repo, rev, change)`. Add one sentence to `Bundle`'s doc comment: the git-log source also carries each merge-order peer's change-branch log under `### <peer>`.
 
 ```go verified:applied together with every Go block of this plan at 7ba0c7b6 — go vet, the guard, selfreview, store TestEndDispatch and api tests and test-integrate-change.sh all pass
 // mergeOrderEntry is one `## Merge order` line of a link.md: a numbered
@@ -241,7 +241,7 @@ func peerLogs(g Runner, repo, rev, name string) string {
 }
 ```
 
-  - [ ] **Step 4: Update `skills/flow-contracts/finish-contract-run1.md`.** In **Run the self-review pass**, replace the text `` `git log --stat` of every implementation, planning and
+  - [x] **Step 4: Update `skills/flow-contracts/finish-contract-run1.md`.** In **Run the self-review pass**, replace the text `` `git log --stat` of every implementation, planning and
 archive commit of the change, oldest first — and prints it`` with exactly:
 
 ```markdown verified:check-verbatim-moves.sh exits 0 with this replacement applied and this change's verbatim-moves.txt present, spiked at 7ba0c7b6
@@ -251,7 +251,7 @@ archive commit of the change, oldest first, followed by each peer the archived `
 heading — and prints it
 ```
 
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/selfreview/ && go test ./internal/selfreview/ -count=1 -race`, then `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/selfreview/ && go test ./internal/selfreview/ -count=1 -race`, then `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/selfreview/git.go`, `stats/internal/selfreview/bundle_test.go`, `skills/flow-contracts/finish-contract-run1.md`
@@ -264,9 +264,9 @@ heading — and prints it
 
 **Decision:** peer-logs-in-git-log
 
-- [ ] 5. Refuse a zero-width inline dispatch row
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Write the test of step 2 first and run it: `EndDispatch` closes the inline row one second after its begin with no error — the defect.
-  - [ ] **Step 2: Write the failing test.** Add to `stats/internal/store/records_test.go`, after `TestEndDispatchRejectsInvalidAgentID`:
+- [x] 5. Refuse a zero-width inline dispatch row
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Write the test of step 2 first and run it: `EndDispatch` closes the inline row one second after its begin with no error — the defect.
+  - [x] **Step 2: Write the failing test.** Add to `stats/internal/store/records_test.go`, after `TestEndDispatchRejectsInvalidAgentID`:
 
 ```go verified:applied together with every Go block of this plan at 7ba0c7b6 — go vet, the guard, selfreview, store TestEndDispatch and api tests and test-integrate-change.sh all pass
 // TestEndDispatchRefusesAZeroWidthInlineRow pins the inline window floor:
@@ -302,7 +302,7 @@ func TestEndDispatchRefusesAZeroWidthInlineRow(t *testing.T) {
 ```
 
     Run `cd stats && go test ./internal/store/ -run 'TestEndDispatchRefusesAZeroWidthInlineRow' -count=1` and confirm it FAILS (it fails to compile until the sentinel exists — that is the red state).
-  - [ ] **Step 3: Implement the refusal.** In `stats/internal/store/records.go`, beside `ErrAgentIDInvalid`, add the sentinel and floor; in `EndDispatch`, directly after the `validateAgentID` check, add the window check. Add one paragraph to `EndDispatch`'s doc comment: an inline row with no token report closing under `minInlineWindow` after its begin is refused — begin and end recorded together after the work leave the harvester a zero-width window to credit.
+  - [x] **Step 3: Implement the refusal.** In `stats/internal/store/records.go`, beside `ErrAgentIDInvalid`, add the sentinel and floor; in `EndDispatch`, directly after the `validateAgentID` check, add the window check. Add one paragraph to `EndDispatch`'s doc comment: an inline row with no token report closing under `minInlineWindow` after its begin is refused — begin and end recorded together after the work leave the harvester a zero-width window to credit.
 
 ```go verified:applied together with every Go block of this plan at 7ba0c7b6 — go vet, the guard, selfreview, store TestEndDispatch and api tests and test-integrate-change.sh all pass
 // ErrInlineWindowTooShort is returned by EndDispatch when an inline row
@@ -334,8 +334,8 @@ const minInlineWindow = 10 * time.Second
 	}
 ```
 
-  - [ ] **Step 4: Map the refusal to 409.** In `stats/internal/api/server.go`, after the `case errors.Is(err, store.ErrAgentIDInvalid):` arm, add `case errors.Is(err, store.ErrInlineWindowTooShort):` returning `http.StatusConflict, err.Error()` — a refusal the client reads as `ErrRecordRejected`, never a 5xx it would journal and replay.
-  - [ ] **Step 5: Extend the rule in `skills/flow/implement.md`.** In the **Records:** bullet, replace `` An inline fix's `dispatch begin`
+  - [x] **Step 4: Map the refusal to 409.** In `stats/internal/api/server.go`, after the `case errors.Is(err, store.ErrAgentIDInvalid):` arm, add `case errors.Is(err, store.ErrInlineWindowTooShort):` returning `http.StatusConflict, err.Error()` — a refusal the client reads as `ErrRecordRejected`, never a 5xx it would journal and replay.
+  - [x] **Step 5: Extend the rule in `skills/flow/implement.md`.** In the **Records:** bullet, replace `` An inline fix's `dispatch begin`
   is recorded when the parent starts the fix, before its first edit, and its `dispatch end` once
   the fix commit lands — never the two together, which records the fix as taking no time.`` with exactly:
 
@@ -347,10 +347,10 @@ Every inline row's `dispatch
   begin when it carries no `-tokens` report.
 ```
 
-  - [ ] **Step 6: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/store/ ./internal/api/ && go test ./internal/store/ -run 'TestEndDispatch' -count=1 && go test ./internal/api/ -count=1`, then `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 6: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/store/ ./internal/api/ && go test ./internal/store/ -run 'TestEndDispatch' -count=1 && go test ./internal/api/ -count=1`, then `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
-**Files:** `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/internal/api/server.go`, `skills/flow/implement.md`
+**Files:** `stats/internal/store/records.go`, `stats/internal/store/records_test.go`, `stats/internal/api/server.go`, `skills/flow/implement.md`, `stats/internal/reconcile/reconcile.go`, `stats/internal/reconcile/record_test.go`, `spectre/changes/self-review-kan-937-step-2-frontend-logic-cardio-api-models-step/design.md`, `spectre/changes/self-review-kan-937-step-2-frontend-logic-cardio-api-models-step/verbatim-moves.txt`
 **Tests:** `TestEndDispatchRefusesAZeroWidthInlineRow`
 **Regression:** `TestEndDispatchRefusesAZeroWidthInlineRow` — reverting the commit removes the sentinel, so the test fails to compile; with the check alone removed, the one-second end succeeds and the test fails.
 **Baseline:** before=77 after=78
