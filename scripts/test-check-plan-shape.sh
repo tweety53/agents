@@ -994,6 +994,55 @@ run_guard "$TASKS_MD"
 assert_mutation_removes_finding "F12" "$TASKS_MD" "Baseline convention" "case 36 (F12 absent) mutation"
 
 # ===========================================================================
+# Case 37 (F13): a measured: comment counting `@Test` with `grep -c` and no
+# `-w` also counts @Testcontainers lines (KAN-936); `grep -cw` passes.
+# ===========================================================================
+new_fixture
+{
+  printf -- '> **Baseline convention:** chain-position absolutes.\n\n'
+  printf -- '- [ ] 1. Add a test\n\n'
+  printf '**Files:** `src/app/profile/src/test/CounterTest.kt`\n'
+  printf '**Tests:** `counter renders`\n'
+  printf "**Baseline:** before=3 after=4 <!-- measured: grep -c '@Test' src/app/profile/src/test/CounterTest.kt @ HEAD -->\n"
+  printf '**Commit:** `feat(profile): add counter test`\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*"task 1's measured: command counts \`@Test\` with \`grep -c\` or \`grep -o\` and no \`-w\`"*) pass "case 37 (F13): grep -c '@Test' fails" ;;
+  *) fail "case 37 (F13): rc=$RC out=$OUT" ;;
+esac
+assert_mutation_removes_finding "F13" "$TASKS_MD" "counts \`@Test\` with \`grep -c\`" "case 37 (F13) mutation"
+sed -i.bak "s/grep -c '@Test'/grep -cw '@Test'/" "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 37 (F13): grep -cw '@Test' passes" || fail "case 37 (F13) with -w: rc=$RC out=$OUT"
+sed -i.bak "s/grep -cw '@Test' \([^ ]*\)/grep -o '@Test' \1 | wc -l/" "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*"counts \`@Test\` with \`grep -c\` or \`grep -o\`"*) pass "case 37 (F13): grep -o '@Test' | wc -l fails" ;;
+  *) fail "case 37 (F13) grep -o: rc=$RC out=$OUT" ;;
+esac
+sed -i.bak "s/grep -o '@Test'/grep -ow '@Test'/" "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 37 (F13): grep -ow '@Test' | wc -l passes" || fail "case 37 (F13) with -ow: rc=$RC out=$OUT"
+# An option carrying `=` or a digit must not break the option chain, and a
+# `w` inside its value must not count as `-w`.
+sed -i.bak "s/grep -ow '@Test' \([^ ]*\) | wc -l/grep -c --include=*.kt '@Test' \1/" "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*"counts \`@Test\` with \`grep -c\` or \`grep -o\`"*) pass "case 37 (F13): grep -c --include=*.kt '@Test' fails" ;;
+  *) fail "case 37 (F13) --include: rc=$RC out=$OUT" ;;
+esac
+sed -i.bak "s/grep -c --include=\*\.kt '@Test'/grep -c -m1 --include=*w* '@Test'/" "$TASKS_MD"
+run_guard "$TASKS_MD"
+case "$RC:$OUT" in
+  1:*"counts \`@Test\` with \`grep -c\` or \`grep -o\`"*) pass "case 37 (F13): grep -c -m1 --include=*w* '@Test' fails" ;;
+  *) fail "case 37 (F13) --include=*w*: rc=$RC out=$OUT" ;;
+esac
+sed -i.bak "s/grep -c -m1 --include=\*w\* '@Test'/grep -cw --include=*.kt '@Test'/" "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 37 (F13): grep -cw --include=*.kt '@Test' passes" || fail "case 37 (F13) -cw --include: rc=$RC out=$OUT"
+
+# ===========================================================================
 # Unlanded archives: the scan cannot list the archived changes the base does
 # not carry -> exit 2, never a scan that silently skips them. A copy of the
 # guard in a scratch tree with no stats/ beside it cannot build flow-guard;

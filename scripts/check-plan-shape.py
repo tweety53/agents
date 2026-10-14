@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """check-plan-shape.py — check that a `tasks.md` is SHAPED so the guard
 that will later judge its commits (`check-task-commit-fields.py`) can
-actually read it. Twelve findings, F1-F12 (F1-F6's canonical definitions,
+actually read it. Thirteen findings, F1-F13 (F1-F6's canonical definitions,
 decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
 parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
 second copy is a Single Source of Truth violation, the same class of drift
-stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F11's canonical
+stats/internal/guard/planprovenance.go's ported docstring warns against; F7-F13's canonical
 definitions are the rows in the Findings list below).
 
 This guard IMPORTS the real parsers rather than reimplementing their
@@ -34,7 +34,7 @@ Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it
      without ambiguity (including a file with zero findings; a file with
      zero TASKS is F5, not clean — see below).
-  1  one or more of F1-F12 found. Printed one per line as
+  1  one or more of F1-F13 found. Printed one per line as
      `file:line: message`, naming the task id (F5 excepted: a file with no
      tasks has no task id to name).
   2  invocation error — wrong argument count, or the file cannot be read.
@@ -148,6 +148,17 @@ field-shaped line inside a worked example is not a declaration.
       skills/flow/brainstorm-planner.md's `**Baseline convention:**` header
       line; the guard checks that ONE is stated, never which.
 
+  F13 A non-fenced `<!-- measured: … -->` line in a task body whose command
+      counts `@Test` with `grep -c` or `grep -o` and no `-w` — the pattern also matches
+      `@Testcontainers` and `@TestConfiguration`, so the baseline overcounts
+      (KAN-936: Task 8 refused at commit time, Task 3 caught by the panel).
+      The rule is deliberately the smallest one: a `grep` whose short-option
+      clusters carry `c` or `o` (or that passes `--count`) and none carries
+      `w` (nor `--word-regexp`), with a
+      pattern opening `@Test` and no letter or backslash (a word-boundary
+      escape) after it.
+      Reported at that line, naming the task.
+
 A duplicate task id (two task lines sharing one id) is check-task-build-
 green.py's own violation, not this guard's: `collect_task_ids` de-
 duplicates by first occurrence, and `select_task`/`parse_task_fields`
@@ -253,6 +264,30 @@ INDENTED_FIELD_RE = re.compile(r"^[ \t]+" + FIELD_RE.pattern.lstrip("^"))
 # TEST_SHAPED_PATTERNS — the four glob shapes design.md's F4 row names for
 # a "test-shaped path".
 TEST_SHAPED_PATTERNS = ("test-*", "*_test.go", "*.test.*", "*.spec.ts")
+
+# MEASURED_GREP_TEST_RE — F13's `grep [opts] '@Test'` shape inside a
+# `measured:` comment: group 1 the option tokens, the lookahead rejecting a
+# pattern that continues as a longer word or a word-boundary escape.
+MEASURED_GREP_TEST_RE = re.compile(
+    r"\bgrep((?:\s+--?[A-Za-z][^\s]*)*)\s+['\"]?@Test(?![A-Za-z\\])"
+)
+
+
+def _counts_test_unsafely(line: str) -> bool:
+    if "measured:" not in line:
+        return False
+    for match in MEASURED_GREP_TEST_RE.finditer(line):
+        opts = match.group(1).split()
+        # A short cluster's flags end at its first non-letter (`-m1`): what
+        # follows is a value, never a flag; a long option is matched whole.
+        short = "".join(
+            re.match(r"[A-Za-z]*", o[1:]).group() for o in opts if not o.startswith("--")
+        )
+        counts = "c" in short or "o" in short or "--count" in opts
+        if counts and "w" not in short and "--word-regexp" not in opts:
+            return True
+    return False
+
 
 # BASELINE_CONVENTION_RE — the blockquote opener of the seeded
 # `**Baseline convention:**` header line (skills/flow/brainstorm-planner.md
@@ -394,6 +429,32 @@ def _check_f7(
     return violations
 
 
+def _check_f13(
+    path: str, task_id: str, body: List[str], body_start: int
+) -> List[str]:
+    """F13 — a `measured:` comment counting `@Test` with a non-word-safe
+    `grep -c` or `grep -o`. Only the decisive line carries the `# F13` tag."""
+    violations: List[str] = []
+    in_fence = False
+    for offset, line in enumerate(body):
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if _counts_test_unsafely(line):  # F13
+            violations.append(
+                f"{path}:{body_start + offset + 1}: task {task_id}'s "
+                "measured: command counts `@Test` with `grep -c` or "
+                "`grep -o` and no `-w`, so `@Testcontainers` and "
+                "`@TestConfiguration` lines count too — use a "
+                "word-boundary-safe counter such as `grep -cw '@Test'` or "
+                "`grep -ow '@Test' | wc -l` (the **Baseline convention:** "
+                "line)"
+            )
+    return violations
+
+
 def _check_task(
     path: str,
     task_id: str,
@@ -415,6 +476,7 @@ def _check_task(
     violations.extend(_check_f1(path, task_id, body, body_start))
     violations.extend(_check_f3a(path, task_id, body, body_start))
     violations.extend(_check_f7(path, task_id, body, body_start))
+    violations.extend(_check_f13(path, task_id, body, body_start))
 
     # F8 — the body's first `**After:**` candidate not gating. Read from
     # select_after itself (never a second loop deciding WHICH line the
