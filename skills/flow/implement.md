@@ -667,10 +667,11 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
-   launches: **exit 1** — a fields refusal, or a task commit whose diff touches
-   `<project>/spectre/changes/` (leaf resolved per project) or `<project>/docs/superpowers/` —
+   launches: **exit 1** — a fields refusal, a task commit whose diff touches
+   `<project>/spectre/changes/` (leaf resolved per project) or `<project>/docs/superpowers/`, or
+   a task commit carrying no `Task-Id:` trailer naming the task —
    is the parent's own fix, with nothing ticked or pushed: it re-commits that task itself,
-   without the swept paths, and re-runs `close-task.sh` without the `-end-*` flags before
+   without the swept paths and carrying `Task-Id: <n>`, and re-runs `close-task.sh` without the `-end-*` flags before
    anything below; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into

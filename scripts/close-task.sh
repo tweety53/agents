@@ -12,7 +12,9 @@
 #      -session-token <token> [-commit <sha>] -outcome completed`. A record
 #      never blocks: a failed call prints a warning and the sequence goes on.
 #   2. check-task-commit-fields.sh <canonical> <id> <sha|map> "" <canonical>
-#      <name> for every task.
+#      <name> for every task, and its commit's — every map pair's — Task-Id:
+#      trailer must name the task or a task its Build: red fold joins (exit 1
+#      otherwise): the trailer is how a task's commit is found again.
 #   3. check-task-commit-planning-paths.sh <canonical> <merge-base>.
 #   4. Any guard exit 2 → exit 2; else any exit 1 → exit 1. Nothing is ticked
 #      or pushed either way, so a refused commit is never pushed.

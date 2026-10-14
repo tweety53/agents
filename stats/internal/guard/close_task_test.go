@@ -284,3 +284,75 @@ func TestCloseTaskExitContract(t *testing.T) {
 		}
 	})
 }
+
+// The Task-Id trailer, not the sha close-task is handed, is how a task's
+// commit is found again, so a commit without one naming the task — or the
+// green partner a red task folds into — is refused before any tick or push.
+func TestCloseTaskTaskIdTrailer(t *testing.T) {
+	t.Parallel()
+	fold := ctPlan + bt(`
+- [ ] 4. Red half
+
+**Files:** ¤e.txt¤
+**Tests:** none
+**Commit:** four
+**Build:** red
+
+**Squash-with:** Task 5
+
+- [ ] 5. Green half
+
+**Files:** ¤f.txt¤
+**Tests:** none
+**Commit:** five
+**Build:** green
+`)
+	cases := []struct {
+		name, task, trailer, subject string
+		files                        []string
+		rc                           int
+		untrailered                  bool // a second repository's commit of the task with no trailer, passed as a commit map
+	}{
+		{name: "trailer names the task", task: "1", trailer: "Task-Id: 1", subject: "one", files: []string{"a.txt", "a\n"}, rc: 0},
+		{name: "no trailer", task: "1", subject: "one", files: []string{"a.txt", "a\n"}, rc: 1},
+		{name: "trailer names another task", task: "1", trailer: "Task-Id: 2", subject: "one", files: []string{"a.txt", "a\n"}, rc: 1},
+		{name: "red task closed on its partner's commit", task: "4", trailer: "Task-Id: 5", subject: "five", files: []string{"e.txt", "e\n", "f.txt", "f\n"}, rc: 0},
+		{name: "trailer names several tasks", task: "1", trailer: "Task-Id: 1+2", subject: "one", files: []string{"a.txt", "a\n"}, rc: 0},
+		{name: "commit map pair without a trailer", task: "1", trailer: "Task-Id: 1", subject: "one", files: []string{"a.txt", "a\n"}, rc: 1, untrailered: true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			fx := ctFixture(t, true, "0", "0")
+			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", fold)
+			var paths []string
+			for i := 0; i < len(c.files); i += 2 {
+				writeFile(t, fx.wt+"/"+c.files[i], c.files[i+1])
+				paths = append(paths, c.files[i])
+			}
+			gitRun(t, fx.wt, append([]string{"add", "--"}, paths...)...)
+			msg := []string{"commit", "-q", "-m", c.subject}
+			if c.trailer != "" {
+				msg = append(msg, "-m", c.trailer)
+			}
+			gitRun(t, fx.wt, msg...)
+			sha := tcfGit(t, fx.wt, "rev-parse", "HEAD")
+			commit := sha
+			if c.untrailered {
+				wt2 := t.TempDir() + "/wt2"
+				gitRun(t, fx.wt, "worktree", "add", "-q", "-b", "other", wt2, fx.base)
+				writeFile(t, wt2+"/"+c.files[0], "again\n")
+				gitRun(t, wt2, "add", "--", c.files[0])
+				gitRun(t, wt2, "commit", "-q", "-m", c.subject)
+				commit = fx.wt + "=" + sha + "," + wt2 + "=" + tcfGit(t, wt2, "rev-parse", "HEAD")
+			}
+			r := fx.run(fx.wt, "demo", fx.base, c.task+":"+commit)
+			if r.rc != c.rc {
+				t.Fatalf("exit %d, want %d\n%s", r.rc, c.rc, r.out)
+			}
+			if c.rc == 1 && (len(fx.calls(t)) != 0 || !strings.Contains(r.stdout, "carries no Task-Id: trailer naming task "+c.task)) {
+				t.Errorf("want a trailer refusal and no tick or push\n%s\ncalls: %v", r.out, fx.calls(t))
+			}
+		})
+	}
+}

@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -83,6 +85,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	worst := 0
 	for _, t := range tasks {
 		worst = max(worst, Registry["check-task-commit-fields"]([]string{canonical, t.id, t.commit, "", canonical, name}, env, stdout, stderr))
+		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
 	}
 	worst = max(worst, Registry["check-task-commit-planning-paths"]([]string{canonical, mergeBase}, env, stdout, stderr))
 	switch worst {
@@ -175,4 +178,54 @@ func ctFlow(env Env, stdout, stderr io.Writer, args ...string) int {
 		return 1
 	}
 	return 0
+}
+
+var ctTaskNumberRE = regexp.MustCompile(`[0-9]+`)
+
+// ctCheckTrailer refuses (1) a task commit — every pair of a commit map —
+// whose Task-Id: trailer names neither the task nor a task its Build: red
+// fold joins (the red's commit carries its partner's id, implement.md). The
+// trailer, not the sha close-task was handed, is how a task's commit is
+// found later: flow-task-list's landed check, check-task-commit-planning-
+// paths and the panel's fix round all read it, so a commit without it closes
+// a task nothing can find again. 2 when git cannot read a commit.
+func ctCheckTrailer(env Env, stdout, stderr io.Writer, canonical, name, id, commit string) int {
+	accepted := []string{id}
+	if tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical); tasksMD != "" {
+		if raw, err := os.ReadFile(tasksMD); err == nil {
+			if lines, err := tcfPlanLines(raw); err == nil {
+				if task, ok := tcfParseTask(lines, id); ok {
+					for _, red := range tcfFoldReds(lines, task, tcfRedTasks(lines)) {
+						redTask, _ := tcfParseTask(lines, red)
+						accepted = append(append(accepted, red), tcfJoinedPartners(lines, redTask)...)
+					}
+				}
+			}
+		}
+	}
+	pairs := [][2]string{{canonical, commit}}
+	if strings.Contains(commit, "=") {
+		pairs = nil
+		for _, pair := range strings.Split(commit, ",") {
+			wt, sha, _ := strings.Cut(strings.TrimSpace(pair), "=")
+			pairs = append(pairs, [2]string{wt, sha})
+		}
+	}
+	git := envGit(env)
+	rc := 0
+	for _, p := range pairs {
+		cmd := git("-C", p[0], "log", "-1", "--format=%(trailers:key=Task-Id,valueonly)", p[1])
+		cmd.Stderr = stderr
+		out, err := cmd.Output()
+		if err != nil {
+			fmt.Fprintf(stderr, "close-task: cannot read the Task-Id trailer of %s in %s\n", p[1], p[0])
+			return 2
+		}
+		named := ctTaskNumberRE.FindAllString(string(out), -1)
+		if !slices.ContainsFunc(named, func(n string) bool { return slices.Contains(accepted, n) }) {
+			fmt.Fprintf(stdout, "task %s: commit %s carries no Task-Id: trailer naming task %s (found %q) — re-commit with `Task-Id: %s`\n", id, p[1], id, strings.TrimSpace(string(out)), id)
+			rc = 1
+		}
+	}
+	return rc
 }
