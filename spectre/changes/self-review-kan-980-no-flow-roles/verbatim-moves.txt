@@ -1,0 +1,4 @@
+# Self-review fix (task 2): after integrate's reshape, the since-close sha is the archive commit.
+**After integrate's reshape** (**3. Commit the staged work**, `skills/flow/integrate.md`) the shas the last clean close reviewed are gone from the branch, so the since-close sha is the canonical worktree's archive commit and a peer worktree's reshaped branch head.
+# Self-review fix (task 3): a pending citation send-back holds the stage close.
+**A pending send-back holds the stage:** the round neither closes nor hands to `flow.verify` until the `-cite` dispatch has returned and `check-rerun-citations.sh` has been run on its report.
