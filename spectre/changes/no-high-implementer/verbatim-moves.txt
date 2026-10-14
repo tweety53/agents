@@ -1,0 +1,11 @@
+# No high-effort implementer or fixer in any Decide (operator request, 2026-10-14): reworded and new run-loaded text, meant.
+**Each group carries its own `model` and `effort`**: step 2's implementer value by default, or a different pair the planner picks for that group alone per **Model and effort** (a group of mechanical, well-specified tasks at a lower effort; a group carrying the change's hardest seam one step up), the reason in that group's own `reason`.
+**When `effort_roll < 80`, every other `effort` is `medium`**, save a pair carrying a hard seam, which may take `high`, its `reason` naming the seam.
+When `effort_roll ≥ 80`, every other `effort` is the planner's own choice, one of `low`/`medium`/`high`, decided from what that dispatch will actually do: the complexity of its tasks, the time and space complexity of the code it writes or reviews, and the scalability the change has to hold up under.
+predictable work near-certain to succeed on the first try, the pair's `reason` saying so;
+**Each group carries its own `model` and `effort`**: step 2's implementer value by default, or a different pair the planner picks for that group alone per **Model and effort** (a group of mechanical, well-specified tasks at a lower effort; a group carrying the change's hardest seam one step up, never past `medium`), the reason in that group's own `reason`.
+**No implementer, fixer or implementer group runs at `high`**, on either side of the roll: a hard seam takes `medium`.
+**When `effort_roll < 80`, every other `effort` is `medium`**, save a panel dispatch carrying a hard seam, which may take `high`, its `reason` naming the seam.
+When `effort_roll ≥ 80`, every other `effort` is the planner's own choice, one of `low`/`medium`/`high` — `low`/`medium` for an implementer, fixer or group — decided from what that dispatch will actually do: the complexity of its tasks, the time and space complexity of the code it writes or reviews, and the scalability the change has to hold up under.
+`flow record decision` refuses a decision whose implementer, fixer or group pair names `high`.
+predictable work near-certain to succeed on the first try, the pair's `reason` saying so; at effort `medium` or `low`, never `high`;

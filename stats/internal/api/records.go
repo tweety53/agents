@@ -258,7 +258,10 @@ func ApplyDecisionRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 // store.ValidModels in any pair the Decide step records --
 // implementer.model, fixer.model, panel.dispatches[].model,
 // panel.rerun_dispatch.model, groups[].model -- naming the JSON path and
-// the value (refuse-off-policy-models). A pair recorded as a JSON string
+// the value (refuse-off-policy-models). It refuses effort "high" on the
+// implementer, fixer and groups[] pairs alike (no-high-implementer): the
+// one opus-high fix, the no-progress escalation, is a dispatch record and
+// never passes through a decision. A pair recorded as a JSON string
 // ("skipped — inline", "default") or null carries no model and passes; an
 // object pair with no model key is refused as the empty model. Writes
 // only: historical rows are never re-checked.
@@ -270,10 +273,10 @@ func checkDecisionModels(body json.RawMessage) error {
 	if err := json.Unmarshal(body, &d); err != nil {
 		return fmt.Errorf("%w: decision is not a JSON object: %v", ErrInvalidRecord, err)
 	}
-	if err := checkPairModel("implementer", d["implementer"]); err != nil {
+	if err := checkPairModel("implementer", d["implementer"], true); err != nil {
 		return err
 	}
-	if err := checkPairModel("fixer", d["fixer"]); err != nil {
+	if err := checkPairModel("fixer", d["fixer"], true); err != nil {
 		return err
 	}
 	if isObject(d["panel"]) {
@@ -287,12 +290,12 @@ func checkDecisionModels(body json.RawMessage) error {
 				return fmt.Errorf("%w: panel.dispatches: %v", ErrInvalidRecord, err)
 			}
 			for i, p := range dispatches {
-				if err := checkPairModel(fmt.Sprintf("panel.dispatches[%d]", i), p); err != nil {
+				if err := checkPairModel(fmt.Sprintf("panel.dispatches[%d]", i), p, false); err != nil {
 					return err
 				}
 			}
 		}
-		if err := checkPairModel("panel.rerun_dispatch", panel["rerun_dispatch"]); err != nil {
+		if err := checkPairModel("panel.rerun_dispatch", panel["rerun_dispatch"], false); err != nil {
 			return err
 		}
 	}
@@ -302,7 +305,7 @@ func checkDecisionModels(body json.RawMessage) error {
 			return fmt.Errorf("%w: groups: %v", ErrInvalidRecord, err)
 		}
 		for i, g := range groups {
-			if err := checkPairModel(fmt.Sprintf("groups[%d]", i), g); err != nil {
+			if err := checkPairModel(fmt.Sprintf("groups[%d]", i), g, true); err != nil {
 				return err
 			}
 		}
@@ -311,8 +314,9 @@ func checkDecisionModels(body json.RawMessage) error {
 }
 
 // checkPairModel checks one recorded pair: absent, null or a JSON string
-// passes; an object's model must be a store.ValidModels member.
-func checkPairModel(path string, raw json.RawMessage) error {
+// passes; an object's model must be a store.ValidModels member, and its
+// effort must not be "high" when noHigh is set.
+func checkPairModel(path string, raw json.RawMessage, noHigh bool) error {
 	if !isObject(raw) {
 		return nil
 	}
@@ -329,6 +333,17 @@ func checkPairModel(path string, raw json.RawMessage) error {
 	if !store.ValidModels[model] {
 		return fmt.Errorf("%w: %s.model %q is not one of %s", ErrInvalidRecord, path, model,
 			strings.Join(slices.Sorted(maps.Keys(store.ValidModels)), ", "))
+	}
+	if noHigh {
+		var effort string
+		if e, ok := pair["effort"]; ok {
+			if err := json.Unmarshal(e, &effort); err != nil {
+				return fmt.Errorf("%w: %s.effort: %v", ErrInvalidRecord, path, err)
+			}
+		}
+		if effort == "high" {
+			return fmt.Errorf("%w: %s.effort %q is not allowed for an implementer or fixer; use medium or low", ErrInvalidRecord, path, effort)
+		}
 	}
 	return nil
 }

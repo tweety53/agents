@@ -519,7 +519,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    reason when `groups_override` is set. **Each group carries its own `model` and `effort`**:
    step 2's implementer value by default, or a different pair the planner picks for that group
    alone per **Model and effort** (a group of mechanical, well-specified tasks at a lower effort; a
-   group carrying the change's hardest seam one step up), the reason in that group's own `reason`.
+   group carrying the change's hardest seam one step up, never past `medium`), the reason in that group's own `reason`.
    `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
 5. **visual verification** — on every class, `micro` included: it judges what the change can
@@ -550,11 +550,12 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 — carries a planner-chosen `model`, one of `opus` or `sonnet`, within these bounds:
 
 - **implementer, fixer and each implementer group** — `opus` by default; `sonnet` only for simple,
-  predictable work near-certain to succeed on the first try, the pair's `reason` saying so;
+  predictable work near-certain to succeed on the first try, the pair's `reason` saying so; at
+  effort `medium` or `low`, never `high`;
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
 - **every pass-1 panel dispatch** — `opus`, always;
-- **every gated per-task reviewer bundle** — `opus`, always, at its group's effort; it is a first-pass review too (`skills/flow/implement.md`);
+- **every gated per-task reviewer bundle** — `opus`, always, at its group's effort, or `high` where its group carries a hard seam, the group's `reason` naming the seam; it is a first-pass review too (`skills/flow/implement.md`);
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
@@ -564,10 +565,15 @@ or a pass-1 dispatch and the rerun pair, on the same model and effort is not a d
 pair's effort is fixed at `low` (step 3). **A verification-only implementer group is `opus` at `low`, fixed, whatever the
 roll** — a group whose every task only adds end-to-end specs, fidelity captures or baselines
 against design frames of an already-built feature, and changes no
-production code. **When `effort_roll < 80`, every other `effort` is
-`medium`**, save a pair carrying a hard seam, which may take `high`, its `reason` naming the seam.
+production code. **No implementer, fixer or implementer group runs at `high`**, on either side of
+the roll: a hard seam takes `medium`. The one `high` fix is the no-progress escalation of **Fewest
+operator actions** (`skills/flow-contracts/pipeline.md`), a dispatch no decision records. `flow
+record decision` refuses a decision whose implementer, fixer or group pair names `high`. **When
+`effort_roll < 80`, every other `effort` is
+`medium`**, save a panel dispatch carrying a hard seam, which may take `high`, its `reason` naming the seam.
 When `effort_roll ≥ 80`, every other `effort` is the
-planner's own choice, one of `low`/`medium`/`high`, decided from what that dispatch will actually
+planner's own choice, one of `low`/`medium`/`high` — `low`/`medium` for an implementer, fixer or
+group — decided from what that dispatch will actually
 do: the complexity of its tasks, the time and space
 complexity of the code it writes or reviews, and the scalability the change has to hold up under.
 A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency

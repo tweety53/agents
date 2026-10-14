@@ -964,12 +964,25 @@ per-dispatch choice gave no share at all to hold to, so the split rides on a fou
 roll, `effort_roll = sha256("<name>effort") mod 100`, the `compact`/`experimental`/`bundle` rolls'
 own mechanism: below 80, every planner-chosen effort is `medium`; at or above it, the free choice
 that existed before. It is per change, not per dispatch, so the 80% holds across changes rather
-than inside one. A hard seam keeps `high` in the rolled 80% too, and those dispatches count toward
+than inside one. A hard seam keeps `high` in the rolled 80% too — on a panel dispatch alone since
+no-high-implementer — and those dispatches count toward
 the non-`medium` share, which is why the target is "about" 80% rather than exactly. **Rejected — a
 new per-dispatch roll:** the planner would have to hash each dispatch's own key, a ceremony the
 per-change roll avoids. **Rejected — reusing an existing roll with a different threshold:** it
 would tie effort to roster size or grouping. The rerun pair stays at its fixed `low`, since a
 re-run reads a delta and is outside what the operator asked to change.
+
+## brainstorm-planner.md — Model and effort, no `high` implementer or fixer (no-high-implementer)
+
+The operator asked, on 2026-10-14, that no Decide step choose `high` for an implementer, an
+implementer group or a fixer: flow-eval's implementation runs showed `opus` at `medium`, and even
+at `low`, good enough for that work. A hard seam that used to take `high` there now takes
+`medium`; reviewers keep `high` where **Model and effort** already allowed it. The one `high` fix
+left is **Fewest operator actions**' no-progress escalation, as in the in-run and self-review fix
+loops, since a round that made no progress is the case a cheaper pair already lost. `flow record
+decision` refuses `high` on those three pairs, so a planner cannot drift back to it unnoticed; the
+escalation is a dispatch record, never a decision pair, and stays valid. The operator will watch
+fix and implementation quality after landing and revisit if it falls.
 
 ## brainstorm-planner.md — Decide, step 5 visual verification (visual-verify-decided-at-decide)
 

@@ -1626,12 +1626,59 @@ func TestRecordDecisionRejectsEmptyBody(t *testing.T) {
 // panel.dispatches[0], panel.rerun_dispatch, groups[1].
 func decisionWithModels(impl, fixer, dispatch, rerun, group string) string {
 	return fmt.Sprintf(`{"class":"big","execution":"sdd",`+
-		`"implementer":{"model":%q,"effort":"high","reason":"r"},`+
+		`"implementer":{"model":%q,"effort":"medium","reason":"r"},`+
 		`"fixer":{"model":%q,"effort":"medium","reason":"r"},`+
 		`"panel":{"roster":[{"slot":"primary"}],"dispatches":[{"model":%q,"effort":"high","slots":["primary"],"reason":"r"}],`+
 		`"rerun_dispatch":{"model":%q,"effort":"low","reason":"r"}},`+
-		`"groups":[{"bundles":[1],"model":"opus","effort":"high"},{"bundles":[2],"model":%q,"effort":"medium"}]}`,
+		`"groups":[{"bundles":[1],"model":"opus","effort":"low"},{"bundles":[2],"model":%q,"effort":"medium"}]}`,
 		impl, fixer, dispatch, rerun, group)
+}
+
+// TestRecordDecisionRejectsHighImplementerEffort pins that
+// ApplyDecisionRecord refuses effort "high" on the implementer, fixer and
+// any groups[] pair, naming the JSON path, before the store is touched,
+// while a panel dispatch keeps "high" (no-high-implementer).
+func TestRecordDecisionRejectsHighImplementerEffort(t *testing.T) {
+	base := decisionWithModels("opus", "opus", "opus", "sonnet", "sonnet")
+	t.Run("panel.dispatches[0].effort high accepted", func(t *testing.T) {
+		_, fs := recordTestServer(t, "proj", "kan-1")
+		_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+			records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(base)})
+		if err != nil {
+			t.Fatalf("ApplyDecisionRecord error = %v, want nil", err)
+		}
+		if fs.recordCalls != 1 {
+			t.Errorf("recordCalls = %d, want 1", fs.recordCalls)
+		}
+	})
+	for path, pair := range map[string]string{
+		"implementer.effort": `"implementer":{"model":"opus","effort":"%s"`,
+		"fixer.effort":       `"fixer":{"model":"opus","effort":"%s"`,
+		"groups[0].effort":   `{"bundles":[1],"model":"opus","effort":"%s"`,
+	} {
+		t.Run(path, func(t *testing.T) {
+			from := fmt.Sprintf(pair, "medium")
+			if path == "groups[0].effort" {
+				from = fmt.Sprintf(pair, "low")
+			}
+			if !strings.Contains(base, from) {
+				t.Fatalf("fixture lacks %s", from)
+			}
+			body := strings.Replace(base, from, fmt.Sprintf(pair, "high"), 1)
+			_, fs := recordTestServer(t, "proj", "kan-1")
+			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body)})
+			if !errors.Is(err, api.ErrInvalidRecord) {
+				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
+			}
+			if want := fmt.Sprintf("%s %q", path, "high"); !strings.Contains(err.Error(), want) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), want)
+			}
+			if fs.recordCalls != 0 || len(fs.decisions) != 0 {
+				t.Errorf("the store was reached for a high %s", path)
+			}
+		})
+	}
 }
 
 // TestRecordDecisionRejectsOffPolicyModel pins that ApplyDecisionRecord

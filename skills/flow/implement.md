@@ -99,7 +99,7 @@ nothing exists below these rows.
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on its group's
-`model`/`effort` pair. On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
+`model` at the effort **Model and effort** gives it (`skills/flow/brainstorm-planner.md`). On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
@@ -765,7 +765,7 @@ dispatches: every gate-fired task goes to the whole-branch panel as review focus
 (the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
 goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at that group's
-effort from the decision's `groups` entry — a first-pass review, per **Model and effort**
+effort from the decision's `groups` entry, or `high` where that group carries a hard seam — a first-pass review, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`). On harnesses `zcode` and `muse`, **Harness mapping**
 (`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
