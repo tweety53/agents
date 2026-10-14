@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -375,6 +376,56 @@ func changeBranchLog(g Runner, repo, change string) string {
 	return trimmedOutput(g.Output(repo, "log", "--stat", base+".."+change))
 }
 
+// mergeOrderEntry is one `## Merge order` line of a link.md: a numbered
+// entry naming `.` or a peer in backticks — the syntax spectre validate
+// accepts.
+var mergeOrderEntry = regexp.MustCompile("^[0-9]+\\. `([^`]+)`$")
+
+// peerLogs renders each satellite repository's change-branch log — a
+// cross-repo change's implementation commits outside repo — under a
+// `### <peer>` heading, in the archived link.md's `## Merge order`. Peers
+// resolve through rev's spectre/peers (`<name> <path>`, a relative path
+// joined to repo). A change with no link.md, a peer the file does not
+// declare and a branch that resolves nothing all contribute nothing: a
+// missing source is never fatal.
+func peerLogs(g Runner, repo, rev, name string) string {
+	link, err := show(g, repo, rev, archiveDir+"/"+name+"/link.md")
+	if err != nil {
+		return ""
+	}
+	peersFile, _ := show(g, repo, rev, "spectre/peers")
+	paths := map[string]string{}
+	for l := range strings.Lines(string(peersFile)) {
+		if f := strings.Fields(l); len(f) == 2 {
+			paths[f[0]] = f[1]
+		}
+	}
+	var b strings.Builder
+	inOrder := false
+	for l := range strings.Lines(string(link)) {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "## ") {
+			inOrder = l == "## Merge order"
+			continue
+		}
+		m := mergeOrderEntry.FindStringSubmatch(l)
+		if !inOrder || m == nil || m[1] == "." {
+			continue
+		}
+		p, ok := paths[m[1]]
+		if !ok {
+			continue
+		}
+		if !filepath.IsAbs(p) {
+			p = filepath.Join(repo, p)
+		}
+		if log := changeBranchLog(g, p, changeBranchPrefix+name); log != "" {
+			fmt.Fprintf(&b, "### %s\n\n%s\n\n", m[1], log)
+		}
+	}
+	return b.String()
+}
+
 // gitLogSection renders the git-log source's content: `git log --stat -1`
 // per resolved sha, in deriveFinishCommits's oldest-first order.
 func gitLogSection(g Runner, repo string, shas []string) string {
@@ -425,7 +476,8 @@ func trimmedOutput(b []byte, err error) string {
 // change, never archived by design — still gets its git-log source, read
 // off the change branch in the first readable supplied repository, the
 // main checkout the caller resolved (KAN-583); the three spectre sources
-// stay skipped for it. A repository git cannot read at all is reported in
+// stay skipped for it. The git-log source also carries each merge-order
+// peer's change-branch log under `### <peer>`. A repository git cannot read at all is reported in
 // a `note:`
 // line — environmental failure keeps a different wording from legitimate
 // absence. An invalid change name is the one error: the same allowlist
@@ -512,7 +564,7 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 
 	gitLog := ""
 	if repo != "" {
-		gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change))
+		gitLog = gitLogSection(g, repo, deriveFinishCommits(g, repo, rev, change)) + peerLogs(g, repo, rev, change)
 	} else if mainRepo := firstReadableRepo(g, repos); mainRepo != "" {
 		gitLog = changeBranchLog(g, mainRepo, change)
 	}

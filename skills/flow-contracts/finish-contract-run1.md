@@ -287,7 +287,9 @@ from the copies the archive commit carries, the archived `tasks.md`,
 read out of `spectre/<name>` in the repository the command resolves from its
 own location (the main checkout its working directory sits in — the store carries no repository
 roots for the pipeline's changes), and the `git log --stat` of every implementation, planning and
-archive commit of the change, oldest first — and prints it as one Markdown document. A source that is absent is reported
+archive commit of the change, oldest first, followed by each peer the archived `link.md`'s
+`## Merge order` names, its `spectre/<name>` commits against its base under a `### <peer>`
+heading — and prints it as one Markdown document. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
 The session appends `## Session narrative` (one paragraph it writes for run 1 itself; the
 archived `narrative.md` is already a bundle section, and a change predating the narrative rule

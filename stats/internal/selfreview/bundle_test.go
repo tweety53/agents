@@ -811,3 +811,35 @@ func TestBundleNoRecordsLossNoteWhenDispatchesExist(t *testing.T) {
 		t.Errorf("bundle names a records loss while the store holds dispatch rows:\n%s", bundle)
 	}
 }
+
+// TestBundleAssemblyLogsEveryMergeOrderPeer pins a cross-repo change's
+// satellite commits in the git-log source: each peer the archived link.md's
+// ## Merge order names, resolved through spectre/peers relative to the
+// canonical repository, contributes its spectre/<name> commits.
+func TestBundleAssemblyLogsEveryMergeOrderPeer(t *testing.T) {
+	repo := gitRepo(t)
+	peer := gitRepo(t)
+	runGit(t, peer, "update-ref", "refs/remotes/origin/main", "main")
+	runGit(t, peer, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	runGit(t, peer, "checkout", "-b", "spectre/demo")
+	peerSHA := commitAll(t, peer, "app.go", "package main\n", "feat(app): the satellite's half")
+	runGit(t, peer, "checkout", "main")
+	rel, err := filepath.Rel(repo, peer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commitAll(t, repo, "spectre/peers", "front "+rel+"\n", "chore: declare the peer")
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md": "# demo tasks\n",
+		"link.md":  "## Merge order\n\n1. `.`\n2. `front`\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
+	if !strings.Contains(gitLog, "### front") || !strings.Contains(gitLog, "commit "+peerSHA) {
+		t.Errorf("git log section missing the peer's change commit %s under ### front:\n%s", peerSHA, gitLog)
+	}
+}
