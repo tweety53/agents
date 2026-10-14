@@ -368,6 +368,15 @@ read, `-outcome aborted` otherwise — an earlier run's row included:
 flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted>
 ```
 
+**A fix run then runs the unfinished-work guard on itself**, once per worktree of the resolved
+set, with the arguments **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) passes it —
+`check-unfinished-work.sh <worktree> <name> <canonical-worktree>` — so an appended task left
+unrecorded or unreviewed stops this run rather than the next integrate. An `OUTSTANDING:` line is
+this run's own unfinished work: finish what its breakdown names — a missing dispatch or review is
+run and recorded, never recorded after the fact for work that did not run — and run the guard
+again; the state is written only once every worktree prints `CLEAR:`. A missing verdict line or an
+exit 2 is reported and stops the run at the state it read.
+
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 `worktrees` should already carry one absolute-path key per affected worktree and its merge base,
 so this step re-reads the current record and
