@@ -208,8 +208,11 @@ func TestRenderSlotPrompt(t *testing.T) {
 		if r.rc != 0 {
 			t.Fatalf("exit %d\n%s", r.rc, r.out)
 		}
-		_, body, _ := strings.Cut(rbRead(skill+"/experimental/test-sanity.md"), "```\n    ")
+		_, body, ok := strings.Cut(rbRead(skill+"/experimental/test-sanity.md"), "```\n    ")
 		firstLine, _, _ := strings.Cut(body, "\n")
+		if !ok || firstLine == "" {
+			t.Fatal("experimental/test-sanity.md has no indented fenced body to compare against")
+		}
 		for _, want := range []string{
 			"## PASS exp-test-sanity\n\n" + firstLine,
 			"`" + sdd + "panel-report-0-exp-test-sanity.md`",
