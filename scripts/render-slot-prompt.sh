@@ -24,9 +24,10 @@
 #      but final, every `final-review.diff` in WORKTREES, ENTRY CONTEXT and
 #      INDEPENDENT PASSES reads `the **Diff file:** each PASS section names`;
 #   2. one `## PASS <id>` section per slot, in the order given: the fenced
-#      body of <skill-dir>/<id>-reviewer-prompt.md, dedented, every
-#      placeholder filled per review-panel.md's placeholder table (**The
-#      roster**), then that slot's REPORT FILE block.
+#      body of <skill-dir>/<id>-reviewer-prompt.md — an exp-<name> slot's
+#      <skill-dir>/experimental/<name>.md (review-panel-experimental-slot.md)
+#      — dedented, every placeholder filled per review-panel.md's
+#      placeholder table (**The roster**), then that slot's REPORT FILE block.
 #
 # The diff each pass reads, in <canonical-wt>/.superpowers/sdd/:
 #   final      final-review.diff

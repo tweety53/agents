@@ -201,6 +201,29 @@ func TestRenderSlotPrompt(t *testing.T) {
 		}
 	})
 
+	// review-panel-experimental-slot.md: an exp-<name> slot is dispatched
+	// like any other, its template skills/flow/experimental/<name>.md.
+	t.Run("an exp- slot renders from experimental/<name>.md", func(t *testing.T) {
+		r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+exp-test-sanity", "-diff", "final", "--", fx.canon)
+		if r.rc != 0 {
+			t.Fatalf("exit %d\n%s", r.rc, r.out)
+		}
+		_, body, _ := strings.Cut(rbRead(skill+"/experimental/test-sanity.md"), "```\n    ")
+		firstLine, _, _ := strings.Cut(body, "\n")
+		for _, want := range []string{
+			"## PASS exp-test-sanity\n\n" + firstLine,
+			"`" + sdd + "panel-report-0-exp-test-sanity.md`",
+		} {
+			if !strings.Contains(got, want) {
+				t.Errorf("render lacks %q", want)
+			}
+		}
+		r, _ = fx.run(t, skill, skill, "0", fx.canon, fx.plan, "exp-no-such-prompt", "-diff", "final", "--", fx.canon)
+		if r.rc != 2 || !strings.Contains(r.err, "experimental/no-such-prompt.md") {
+			t.Errorf("absent experimental prompt: exit %d stderr %q; want 2 naming it", r.rc, r.err)
+		}
+	})
+
 	t.Run("-no-bundle", func(t *testing.T) {
 		r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+principles", "-diff", "final", "-no-bundle", "--", fx.canon)
 		if r.rc != 0 {

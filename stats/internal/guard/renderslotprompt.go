@@ -26,7 +26,8 @@ var (
 	// rspUnfilled is what a render must no longer carry: a template
 	// placeholder, or a block's own path/round/id/report placeholder.
 	rspUnfilled = regexp.MustCompile(`\[[A-Z][A-Z0-9_]*\]|<abs-worktree[^>]*>|<fix report>|<round>|<id>`)
-	// rspSlots are the slots with a template; mutation's brief stays typed.
+	// rspSlots are the slots with a template; mutation's brief stays typed,
+	// and an exp-<name> slot's template is experimental/<name>.md.
 	rspSlots = map[string]bool{"primary": true, "principles": true, "failure-modes": true}
 )
 
@@ -96,10 +97,10 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, s := range slots {
 		switch {
 		case s == "mutation":
-		case !rspSlots[s]:
-			return refuse("no reviewer template for slot %q", s)
-		default:
+		case rspSlots[s], len(s) > len("exp-") && strings.HasPrefix(s, "exp-") && !strings.Contains(s, "/"):
 			roles = append(roles, s)
+		default:
+			return refuse("no reviewer template for slot %q", s)
 		}
 	}
 
@@ -245,13 +246,17 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	for _, id := range roles {
-		tmpl, ok := read(skill + "/" + id + "-reviewer-prompt.md")
+		tmplPath := skill + "/" + id + "-reviewer-prompt.md"
+		if name, ok := strings.CutPrefix(id, "exp-"); ok {
+			tmplPath = skill + "/experimental/" + name + ".md"
+		}
+		tmpl, ok := read(tmplPath)
 		if !ok {
 			return 2
 		}
 		body, found := rspFenced(tmpl)
 		if !found {
-			return refuse("%s-reviewer-prompt.md carries no fenced template body", id)
+			return refuse("%s carries no fenced template body", tmplPath)
 		}
 		fill["[DIFF_PATH]"] = diffPath(id)
 		for _, p := range rspUnfilled.FindAllString(body, -1) {
