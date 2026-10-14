@@ -109,6 +109,8 @@ archives the change on its branch, commits the archive and pushes each reshaped 
 `archive`, `commit-archive`, `push` — is reported with the script's lines and leaves the change at
 `IN_PROGRESS`; **`/flow` never passes `--force`** to `spectre archive`.
 
+**`STOP: narrative`** → an `In-run pipeline fix:` line in the narrative is off the format **Pipeline defects found mid-run** fixes for it (`skills/flow-contracts/pipeline.md`): rewrite that line to that format and re-run `commit`.
+
 ## 4. Archive and run the self-review pass
 
 Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.

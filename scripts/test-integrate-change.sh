@@ -18,6 +18,9 @@
 #                   planning and archive commits), the worktrees are gone,
 #                   the record is FINISHED with an empty map, and the stage
 #                   log runs from flow.preflight to flow.refresh-main-checkout.
+#   narrative_format  an `In-run pipeline fix:` line off the pipeline.md
+#                   format stops commit at STOP: narrative, exit 1; the line
+#                   rewritten to the format passes.
 #   foreign_staged  a main checkout with staged work stops prepare at
 #                   STOP: foreign-staged, exit 1, before the preflight.
 #   no_report       land with no committed self-review report stops at
@@ -171,6 +174,32 @@ to_land() {
   g -C "$WORK/a-worktrees/demo" add docs/self-review/demo-self-review.md
   g -C "$WORK/a-worktrees/demo" commit -qm "docs(self-review): demo self-review report"
 }
+
+# --- narrative_format ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+nar="$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+printf '\n## integrate run\n\n- In-run pipeline fix: the renderer could not render an exp- slot\n' >>"$nar"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "narrative_format: an off-format in-run fix line stops commit with exit 1" '[ "$RC" -eq 1 ]'
+check "narrative_format: the stop names the off-format line" \
+  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*the renderer could not render an exp- slot"'
+# narrative_passes <label> <line>: a fresh prepare, <line> as the narrative's
+# in-run fix entry, and commit must pass.
+narrative_passes() {
+  fixture
+  sut prepare "$WORK/a" demo
+  [ "$RC" -eq 0 ] || halt prepare
+  printf '\n## integrate run\n\n%s\n' "$2" >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+  check "narrative_format: $1 passes commit" '[ "$RC" -eq 0 ]'
+}
+narrative_passes "a line in the format" '- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)'
+narrative_passes "a prose mention of the token" 'The `In-run pipeline fix:` line was missing a sha.'
+narrative_passes "a well-formed line with trailing whitespace" '- In-run pipeline fix: 1a2b3c4 — the defect (blast radius 2 files)   '
+narrative_passes "a deferred line" '- In-run pipeline fix: deferred — the defect (blast radius 1 file)'
+narrative_passes "a backticked sha" '- In-run pipeline fix: `1a2b3c4` — the defect (blast radius 3 files).' 
 
 # --- happy_path ---
 fixture

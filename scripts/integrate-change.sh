@@ -46,7 +46,9 @@
 #          archived change without new work skips straight to commit-archive.
 #          Then the --force-with-lease branch push per worktree, in merge
 #          order — the reshape's push (Branch backup, git-boundaries.md).
-#          The parent appends its narrative before calling this.
+#          The parent appends its narrative before calling this; an
+#          `In-run pipeline fix:` line in it off the format pipeline.md's
+#          Pipeline defects found mid-run fixes stops first, STOP: narrative.
 # land     the route (merge and push: the --force-with-lease branch push then
 #          `push origin HEAD:<base>` per worktree in merge order, one re-sync
 #          and retry after a rejection; pull request: the branch push and
@@ -450,6 +452,13 @@ cmd_commit() {
   local i s subj f rb reshape=0 o
   load_set
   find_canonical || die "no worktree in the set holds $NAME's tasks.md"
+  local nf bad
+  for nf in "$CANON/$SPEC/changes/$NAME/narrative.md" "$CANON/$SPEC/changes/archive/$NAME/narrative.md"; do
+    [ -f "$nf" ] || continue
+    bad="$(grep -nE '^(- )?In-run pipeline fix:' "$nf" |
+      grep -vE 'In-run pipeline fix: `?([0-9a-f]{7,40}|deferred)`? — .+ \(blast radius [0-9]+ files?\)\.?[[:space:]]*$' || true)"
+    [ -z "$bad" ] || stop narrative "$nf holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': ${bad//$'\n'/; } — rewrite each to it, then re-run commit"
+  done
   merge_order
   for i in "${!WT[@]}"; do [ -f "$(reshape_file "${WT[i]}")" ] && reshape=1; done
   if [ "$reshape" -eq 1 ]; then
