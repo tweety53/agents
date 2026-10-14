@@ -41,6 +41,18 @@ Moved from the contract, where it followed **This table is authoritative.**: Eve
 disagree, whichever the agent reads first wins, which is non-determinism in the one layer that must
 be deterministic.
 
+## Pipeline defects found mid-run
+
+The in-run fix loop runs the self-review pass's loop — a planner, then a fixer per recorded group,
+reviews, and a ticks-and-archive commit before landing — at the operator's explicit request
+(2026-10-14), once that pass's loop had moved to full planning: the two loops fix the same kind of
+defect, and the operator wanted them to match rather than keep a one-shot brainstorming fixer here.
+The loop cites **3. Fix every finding that is not `big`** (`skills/flow-self-review/SKILL.md`)
+for its pairs and mechanics rather than restating them, so the two cannot drift; this section
+states only what differs — one defect per loop, its keys, its own worktree, the test-or-guard and
+saved-memory obligations, and its narrative, summary and store records. The parent no longer
+fixes a review's findings inline, matching that file, whose session fixes nothing inline.
+
 ## Wrong state for this command
 
 ## Progress visibility

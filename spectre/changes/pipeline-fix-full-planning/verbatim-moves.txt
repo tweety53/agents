@@ -1,0 +1,38 @@
+# The in-run pipeline-fix loop plans every fix in full and cites the self-review loop (operator's request, 2026-10-14): reworded and new run-loaded text, meant.
+(`project-get.sh <agents repo> 'default landing route'`), without asking.
+**A design choice never makes a fix `big`** — the fix's brainstorm below weighs the options and takes the recommended one without asking, whether the choice is where a check lives, a name, a scope, a mechanism or whether a guard or a test is added: the fix takes the simplest option and notes it, the smallest change that closes the defect, no refactor and no detour.
+**Every fix is brainstormed before its first edit, and the brainstorm never stops the run.
+**Fix the findings** — the parent fixes them inline in that worktree, or dispatches a fresh
+**Fix** — `pipeline-fix-<k>`, its prompt carrying the defect, its evidence and the counted
+**Land** — by `<agents repo>`'s `## default landing route`
+**The pairs are this file's own**, never **Pipeline defects found mid-run**'s: **the planner pair** is `subagent_type: flow-medium` on `opus`; **the fixer pair** is `flow-low` on `opus`; **the review pair** is `opus` for the first review (`<r>` = 1), on `flow-medium` or `flow-low` as the planner recorded — `flow-medium` when it recorded none — and `flow-low` on `sonnet` for every re-review after a fix.
+Each prompt carries the MODEL HANDSHAKE, TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) verbatim, the review's READ-ONLY REVIEW too, and **The handshake** there applies to each reply:
+Each runs on `subagent_type: flow-medium`, its key per the steps below and `<k>` counting this run's in-run fixes: the fix and every fixer on `opus`, or on `sonnet` when the fix is a literal edit with nothing it can break, the one-line reason recorded with the dispatch; the first review on `opus`; every re-review after a fix on `sonnet`.
+Every review judges that approach against the options weighed as well as the code, and a rejected approach is a finding the next fix round takes.
+It works in its own worktree, `git -C <agents repo> worktree add -b fix-<slug> <agents repo>-worktrees/<slug> origin/<agents-base>` — never the main checkout, never the change's own worktree — runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), adds one test or guard that fails without the fix, updates a saved memory that encoded the defect, runs the `<agents repo>/.flow/project.md` `## lint` lines its files need, and commits with a module scope.
+It writes the options weighed and the one taken as an `Approach:` paragraph in the fix's commit body and its report.
+Never write `<project>/spectre/`, save that pass's `self-review-<name>` change, or a state file.
+Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing `/flow`'s brainstorming stage — or, for **C**, **D** and **Decide**, a `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no dispatched subagent, no relay, save the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is not `big`** (`skills/flow-self-review/SKILL.md`) binds them.
+The fixer weighs at least two approaches per defect, takes the recommended one — the simplest that closes the defect — exactly as **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`) resolves a question with a recommended option, and never asks the operator.
+The no-progress escalation of **Fewest operator actions** above stays on `flow-high`.
+`git diff origin/<agents-base>...fix-<slug>`.
+`pipeline-fix-<k>-fix-<r>`; then step 2 again, `<r>` plus one.
+blast radius.
+| in-run pipeline fix, review and fixer, one each per loop step | `implementer` for the fix and the fixer, `reviewer` for the review | `pipeline-fix-<k>`, `pipeline-fix-<k>-review-<r>`, `pipeline-fix-<k>-fix-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+**A design choice never makes a fix `big`** — the fix's planner below weighs the options and takes the recommended one without asking, whether the choice is where a check lives, a name, a scope, a mechanism or whether a guard or a test is added: the fix takes the simplest option and notes it, the smallest change that closes the defect, no refactor and no detour.
+**Each in-run fix runs the loop of 3.
+**Fix the findings** — a fresh `pipeline-fix-<k>-fix-<r>`, as item 3 there states; then step 2
+**Land** — once the parent has ticked and archived the plan in one
+**Plan, then fix** — the parent creates the fix's own worktree,
+**The pairs are this file's own**, and **Pipeline defects found mid-run** cites them: **the planner pair** is `subagent_type: flow-medium` on `opus`; **the fixer pair** is `flow-low` on `opus`; **the review pair** is `opus` for the first review (`<r>` = 1), on `flow-medium` or `flow-low` as the planner recorded — `flow-medium` when it recorded none — and `flow-low` on `sonnet` for every re-review after a fix.
+A defect whose commit the review drops is deferred, as a `big` one is.
+A rebase onto a moved `origin/<agents-base>` runs the lint lines and tests again before the push, as item 5 there states.
+It dispatches `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast radius, then `pipeline-fix-<k>-fix`, `-fix-g<g>` when the planner recorded more than one group, each as item 1 there states.
+Never write `<project>/spectre/`, save that pass's `self-review-<name>` change and an in-run fix's `fix-<slug>` change, or a state file.
+One loop carries one defect, `<k>` counting this run's in-run fixes; `fix-<slug>` stands for `self-review-<name>` there — the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-base>` for `<fix-base>`; the parent is that file's "this session".
+The fixer also adds one test or guard that fails without the fix, and updates a saved memory that encoded the defect.
+`chore(spectre): archive fix-<slug>` commit and run the lint lines and tests, as item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by `<agents repo>`'s `## default landing route` (`project-get.sh <agents repo> 'default landing route'`), without asking.
+`git -C <agents repo> worktree add -b fix-<slug> <agents repo>-worktrees/fix-<slug> origin/<agents-base>` — never the main checkout, never the change's own worktree — and runs `<agents repo>`'s `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`).
+`git diff origin/<agents-base>...fix-<slug>`, as item 2 there states.
+again, `<r>` plus one.
+| in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |

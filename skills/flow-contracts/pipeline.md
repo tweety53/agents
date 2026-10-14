@@ -157,7 +157,7 @@ where it rides the run's route; a repository the change holds no worktree in tak
 its default branch, landed by its own `## default landing route`. Production stays out of reach
 (`rules/never-touch-production.mdc`).
 
-**A design choice never makes a fix `big`** — the fix's brainstorm below weighs the options and
+**A design choice never makes a fix `big`** — the fix's planner below weighs the options and
 takes the recommended one without asking, whether the choice is where a check lives, a name, a
 scope, a mechanism or whether a guard or a test is added: the fix takes the simplest option
 and notes it, the smallest change that closes the defect, no refactor and no detour.
@@ -167,42 +167,40 @@ and notes it, the smallest change that closes the defect, no refactor and no det
 dropped — never the project's `<default-branch>`, which `<agents repo>` may not carry.
 
 **Every dispatch in the loop is one-shot.** No `SendMessage` to a finished child, and no child
-parks a question for a resume. Each runs on `subagent_type: flow-medium`, its key per the
-steps below and `<k>` counting this run's in-run fixes: the fix and every fixer on `opus`, or on
-`sonnet` when the fix is a literal edit with nothing it can break, the one-line reason recorded
-with the dispatch; the first review on `opus`; every re-review after a fix on `sonnet`. The
-no-progress escalation of **Fewest operator actions** above stays on `flow-high`. Each prompt carries the MODEL HANDSHAKE,
-TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
-(`skills/flow/implement.md`) verbatim, the review's READ-ONLY REVIEW too, and **The handshake**
-there applies to each reply:
+parks a question for a resume. **Each in-run fix runs the loop of 3. Fix every finding that is not
+`big`** (`skills/flow-self-review/SKILL.md`), canonical for its planner, fixer and review pairs,
+the paragraphs every prompt carries, the no-progress escalation, and each item the steps below
+cite. One loop carries one defect, `<k>` one more than the highest `<n>` of any
+`pipeline-fix-<name>-<n>` already under `<agents repo>/spectre/changes/` or
+`<agents repo>/spectre/changes/archive/`, so no
+later run of the change reuses a name; its name
+`pipeline-fix-<name>-<k>`, `<name>` the running change, stands for `self-review-<name>` there —
+the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-base>` for
+`<fix-base>`; the parent is that file's "this session".
 
-**Every fix is brainstormed before its first edit, and the brainstorm never stops the run.** The
-fixer weighs at least two approaches per defect, takes the recommended one — the simplest that
-closes the defect — exactly as **Auto-resolution**
-(`skills/flow-contracts/operator-prompts-auto-resolution.md`) resolves a question with a
-recommended option, and never asks the operator. It writes the options weighed and the one taken
-as an `Approach:` paragraph in the fix's commit body and its report. Every review judges that
-approach against the options weighed as well as the code, and a rejected approach is a finding
-the next fix round takes.
-
-1. **Fix** — `pipeline-fix-<k>`, its prompt carrying the defect, its evidence and the counted
-   blast radius. It works in its own worktree,
-   `git -C <agents repo> worktree add -b fix-<slug> <agents repo>-worktrees/<slug> origin/<agents-base>`
-   — never the main checkout, never the change's own worktree — runs `<agents repo>`'s
-   `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`), adds one test or guard that
-   fails without the fix, updates a saved memory that encoded the defect, runs the
-   `<agents repo>/.flow/project.md` `## lint` lines its files need, and commits with a module
-   scope. It never merges or pushes.
+1. **Plan, then fix** — the parent creates the fix's own worktree,
+   `git -C <agents repo> worktree add -b pipeline-fix-<name>-<k> <agents repo>-worktrees/pipeline-fix-<name>-<k> origin/<agents-base>`
+   — never the main checkout, never the change's own worktree — and runs `<agents repo>`'s
+   `## worktree setup` in it (`project-get.sh <agents repo> 'worktree setup'`). It dispatches
+   `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast
+   radius, then `pipeline-fix-<k>-fix`, `-fix-g<g>` when the planner recorded more than one group,
+   each as item 1 there states. The fixer also adds one test or guard that fails without the fix,
+   and updates a saved memory that encoded the defect.
 2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
-   `git diff origin/<agents-base>...fix-<slug>`.
-3. **Fix the findings** — the parent fixes them inline in that worktree, or dispatches a fresh
-   `pipeline-fix-<k>-fix-<r>`; then step 2 again, `<r>` plus one. The loop runs to a clean
-   review under **Fewest operator actions** above.
-4. **Land** — by `<agents repo>`'s `## default landing route`
+   `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.
+3. **Fix the findings** — a fresh `pipeline-fix-<k>-fix-<r>`, as item 3 there states, under
+   **Fewest operator actions** above. A defect whose commit the review drops is deferred, as a
+   `big` one is: the parent removes the worktree and the branch, landing nothing.
+4. **Land** — once the parent has ticked and archived the plan in one
+   `chore(spectre): archive pipeline-fix-<name>-<k>` commit and run the lint lines and tests, as
+   item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
+   `<agents repo>`'s `## default landing route`
    (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is:
-   `git -C <agents repo> fetch origin`, rebase `fix-<slug>` onto `origin/<agents-base>`,
-   `git push origin fix-<slug>:<agents-base>`, `git -C <agents repo> pull --ff-only`, then
-   remove the worktree and the branch.
+   `git -C <agents repo> fetch origin`, rebase `pipeline-fix-<name>-<k>` onto
+   `origin/<agents-base>`, `git push origin pipeline-fix-<name>-<k>:<agents-base>`,
+   `git -C <agents repo> pull --ff-only`, then remove the worktree and the branch. A rebase onto
+   a moved `origin/<agents-base>` runs the lint lines and tests again before the push, as item 5
+   there states.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
 turn with one of its children in flight.
@@ -216,7 +214,10 @@ turn with one of its children in flight.
 In-run pipeline fix: <agents sha | deferred> — <the defect, one line> (blast radius <N> files)
 ```
 
-A landed fix is also one row in the flow store, recorded once its sha is on `<agents-base>`:
+The sha, there and in the store row below, is the defect's task commit — its first, when the plan
+holds several — re-read by its subject on `<agents-base>` after landing, as item 5 of that loop
+states. A landed fix is also one row in the flow store, recorded once its sha is on
+`<agents-base>`:
 
 ```bash
 flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref <sha> -blast-radius <N> -note '<the defect, one line>'

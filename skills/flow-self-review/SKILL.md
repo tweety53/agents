@@ -97,7 +97,7 @@ handshake** there applying to each reply. Every dispatch is one-shot: no `SendMe
 it returns. The no-progress escalation of **Fewest operator actions**
 (`skills/flow-contracts/pipeline.md`) still runs on `flow-high`.
 
-**The pairs are this file's own**, never **Pipeline defects found mid-run**'s: **the planner
+**The pairs are this file's own**, and **Pipeline defects found mid-run** cites them: **the planner
 pair** is `subagent_type: flow-medium` on `opus`; **the fixer pair** is `flow-low` on `opus`;
 **the review pair** is `opus` for the first review (`<r>` = 1), on `flow-medium` or `flow-low` as
 the planner recorded — `flow-medium` when it recorded none — and `flow-low` on `sonnet` for

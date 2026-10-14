@@ -33,7 +33,7 @@ a planner or a verifier, save the in-run fix loop of **Pipeline defects found mi
 (`skills/flow-contracts/pipeline.md`), which a `/flow-fast` run follows too, and the
 self-review pass's own dispatches (`skills/flow-self-review/SKILL.md`). Never ask a model,
 planning-effort or review question. Never write `<project>/spectre/`,
-save that pass's `self-review-<name>` change, or a state file. Never set up workspace isolation and never call a
+save that pass's `self-review-<name>` change and an in-run fix's `pipeline-fix-<name>-<k>` change, or a state file. Never set up workspace isolation and never call a
 guard script a cited `skills/flow/` section does not call itself. Never push to a branch other
 than the one the landing route names.
 

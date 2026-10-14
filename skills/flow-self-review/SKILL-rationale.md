@@ -17,8 +17,9 @@ planned in full — brainstorming, artifacts and a writing-plans `tasks.md`, eve
 auto-resolved to its recommended option — at the operator's explicit request (2026-10-14). The
 planned `tasks.md` is what lets the fixer run at `flow-low` on `opus`: the flow-eval implementation
 runs showed a cheap implementer succeeding on detailed writing-plans tasks. Re-reviews read a delta
-to confirm a fix, so they run `flow-low` on `sonnet`. The pairs are stated in this file rather than
-cited from **Pipeline defects found mid-run**, whose in-run loop keeps its own one-shot fixer.
+to confirm a fix, so they run `flow-low` on `sonnet`. The pairs are stated in this file, and
+**Pipeline defects found mid-run** cites them for its in-run loop, which matches this one at the
+operator's request (2026-10-14).
 
 The fixer's commits carry no `Task-Id:` trailer and never write
 `<agents repo>/spectre/changes/`, following `/flow`'s own split of task commits from planning
