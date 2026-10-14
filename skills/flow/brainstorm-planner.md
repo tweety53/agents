@@ -569,9 +569,10 @@ production code. **No implementer, fixer or implementer group runs at `high`**, 
 the roll: a hard seam takes `medium`. The one `high` fix is the no-progress escalation of **Fewest
 operator actions** (`skills/flow-contracts/pipeline.md`), a dispatch no decision records. `flow
 record decision` refuses a decision whose implementer, fixer or group pair names `high`. **When
-`effort_roll < 80`, every other `effort` is
+`effort_roll < 90`, the implementer, the fixer and every implementer group take `low` — `medium` where
+the pair carries a hard seam — and every other `effort` is
 `medium`**, save a panel dispatch carrying a hard seam, which may take `high`, its `reason` naming the seam.
-When `effort_roll ≥ 80`, every other `effort` is the
+When `effort_roll ≥ 90`, every other `effort` is the
 planner's own choice, one of `low`/`medium`/`high` — `low`/`medium` for an implementer, fixer or
 group — decided from what that dispatch will actually
 do: the complexity of its tasks, the time and space
