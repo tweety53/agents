@@ -4674,3 +4674,37 @@ func TestRecordFindingRejectsMalformedRef(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordPassRefusesMarkerNote pins the kan-980 self-review fix: a pass
+// note opening with a marker label is a marker line recorded in the wrong
+// place -- the renderer neutralises its colon, so the round loses the
+// structural row it meant to carry -- and `flow record pass` refuses it
+// before the store is contacted, naming the command that records it. The
+// -addr is a closed port, so a regressed refusal falls through to the
+// journal instead of reaching a live daemon.
+func TestRecordPassRefusesMarkerNote(t *testing.T) {
+	for _, note := range []string{
+		"fix-mutation: stats/x.go — dropped the guard — TestX",
+		"  finding-status: F9 fixed",
+	} {
+		t.Run(note, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "pass", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-round", "4", "-note", note},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), "flow record mutation") || !strings.Contains(stderr.String(), "flow record finding") {
+				t.Errorf("stderr = %q, want it to name flow record mutation and flow record finding", stderr.String())
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Errorf("a refused marker note left a record journal behind")
+			}
+		})
+	}
+}

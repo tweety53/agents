@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -36,7 +37,8 @@ import (
 // text. fix-mutation and fix-mutations-total are structural in the pass
 // log section below, so a pass note or mutation field quoting them is
 // neutralised the same way, or a quoted line could stand in for a real
-// one.
+// one. `flow record pass` reads the list too, to refuse a note that opens
+// with one of them.
 var markerLabels = []string{
 	"findings-total",
 	"finding-status",
@@ -45,6 +47,10 @@ var markerLabels = []string{
 	"fix-mutations-total",
 	"fix-mutation",
 }
+
+// MarkerLabels returns a copy of the marker labels, so no caller can change
+// the set neutraliseMarkers works from.
+func MarkerLabels() []string { return slices.Clone(markerLabels) }
 
 // markerColonSubstitute is U+A789 MODIFIER LETTER COLON, which reads as a
 // colon and is not one. See neutraliseMarkers for why the substitution

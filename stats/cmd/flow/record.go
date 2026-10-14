@@ -2566,6 +2566,15 @@ func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer)
 	if !requireRecordFlags(stderr, [2]string{"-note", *note}) {
 		return 2
 	}
+	// A note opening with a marker label is a marker line in the wrong
+	// place: the renderer neutralises its colon, so the round would lose
+	// the structural row the line meant to be.
+	for _, label := range records.MarkerLabels() {
+		if strings.HasPrefix(strings.TrimSpace(*note), label+":") {
+			fmt.Fprintf(stderr, "flow: record pass: -note opens with the marker label %s: — record a fix-mutation line with `flow record mutation` and a finding line with `flow record finding`, never as a pass note\n", label)
+			return 2
+		}
+	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
