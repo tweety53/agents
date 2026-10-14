@@ -9,3 +9,7 @@ predictable work near-certain to succeed on the first try, the pair's `reason` s
 When `effort_roll ≥ 80`, every other `effort` is the planner's own choice, one of `low`/`medium`/`high` — `low`/`medium` for an implementer, fixer or group — decided from what that dispatch will actually do: the complexity of its tasks, the time and space complexity of the code it writes or reviews, and the scalability the change has to hold up under.
 `flow record decision` refuses a decision whose implementer, fixer or group pair names `high`.
 predictable work near-certain to succeed on the first try, the pair's `reason` saying so; at effort `medium` or `low`, never `high`;
+# The gated per-task reviewer keeps `high` on a hard-seam group (review fix): reworded run-loaded text, meant.
+**every gated per-task reviewer bundle** — `opus`, always, at its group's effort; it is a first-pass review too (`skills/flow/implement.md`);
+**The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired goes out in one reviewer Agent call beside group N+2's implementer, on `opus` at that group's effort from the decision's `groups` entry — a first-pass review, per **Model and effort** (`skills/flow/brainstorm-planner.md`).
+`model`/`effort` pair.
