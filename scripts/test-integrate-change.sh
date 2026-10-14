@@ -125,7 +125,7 @@ case "\$1 \$2" in
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") echo '[]' ;;
   "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
-  "record dispatches") echo '[]' ;;
+  "record dispatches") echo '[{"key":"task-1-implementer","outcome":"completed"}]' ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;
 esac

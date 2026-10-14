@@ -53,6 +53,13 @@
 # are the change's, so only the worktree holding the plan reads them — a
 # multi-repo change lists each open row once, not once per worktree.
 #
+# SIGNAL FOUR: A TICKED APPENDED TASK NO DISPATCH ROW NAMES IS UNFINISHED
+# (kan-979). Only the last <n> tasks of the plan are judged, <n> from its
+# `**Tasks appended:** <n>` header line (absent: 0, the signal never fires);
+# a row names a task by its `taskId` or by the `+`-joined ids of a
+# `task-<ids>[-…]` key. Plan-time tasks run grouped or inline and carry no row
+# of their own, so they are never judged.
+#
 # All signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.

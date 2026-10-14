@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -269,6 +270,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		var dispatches []struct {
 			Seq          int    `json:"seq"`
 			Key          string `json:"key"`
+			TaskID       string `json:"taskId"`
 			Outcome      string `json:"outcome"`
 			SessionToken string `json:"sessionToken"`
 		}
@@ -296,6 +298,34 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		if len(unclosed) > 0 {
 			reasons = append(reasons, strconv.Itoa(len(unclosed))+" dispatch row(s) with no outcome ("+strings.Join(unclosed, ", ")+") — close each with "+strings.Join(closeCmds, ", "))
 		}
+		// SIGNAL FOUR — a ticked appended task no dispatch row names: a fix
+		// round that recorded nothing (kan-979's fix-round Task 7 reached
+		// integrate with no dispatch row at all). A row names a task by its
+		// taskId or by the `+`-joined ids of a task-<ids>[-…] key; pass rows
+		// have no read verb, so dispatch rows are the proxy. Only the tasks a
+		// fix run appended — the last `**Tasks appended:** <n>` of the plan —
+		// are judged: each is implemented alone, so it carries a row of its
+		// own, while plan-time tasks run grouped under one task-<n> key or
+		// inline with one row per bundle and most have none. It needs the
+		// plan read above.
+		if planRC == 0 {
+			covered := map[string]bool{}
+			for _, d := range dispatches {
+				covered[d.TaskID] = true
+				if m := uwTaskKey.FindStringSubmatch(d.Key); m != nil {
+					for id := range strings.SplitSeq(m[1], "+") {
+						covered[id] = true
+					}
+				}
+			}
+			missing, ok := uwUndispatched(primary, covered)
+			if !ok {
+				return unreadable(primary)
+			}
+			if len(missing) > 0 {
+				reasons = append(reasons, strconv.Itoa(len(missing))+" ticked appended task(s) with no dispatch row (Task "+strings.Join(missing, ", ")+") — record each task's dispatch, and its fix round's pass rows and findings, before landing")
+			}
+		}
 	}
 
 	// THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY. Neither
@@ -321,6 +351,39 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintln(stdout, verdict)
 	return 0
+}
+
+var (
+	uwTask          = regexp.MustCompile(`^- \[([ xX])\] ([0-9]+)\. `)
+	uwTasksAppended = regexp.MustCompile(`^(?:> )?\*\*Tasks appended:\*\* ([0-9]+)`)
+	uwTaskKey       = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)(?:-|$)`)
+)
+
+// uwUndispatched returns the ids of plan's ticked appended tasks — the last
+// n column-0 tasks, n from the `**Tasks appended:** <n>` header line
+// (blockquoted or not), 0 when absent — that covered does not name, in plan
+// order. False when the plan cannot be read.
+func uwUndispatched(plan string, covered map[string]bool) ([]string, bool) {
+	b, err := os.ReadFile(plan)
+	if err != nil {
+		return nil, false
+	}
+	appended := 0
+	var tasks [][]string
+	for l := range strings.Lines(string(b)) {
+		if m := uwTasksAppended.FindStringSubmatch(l); m != nil {
+			appended, _ = strconv.Atoi(m[1])
+		} else if m := uwTask.FindStringSubmatch(l); m != nil {
+			tasks = append(tasks, m)
+		}
+	}
+	var missing []string
+	for _, m := range tasks[max(0, len(tasks)-appended):] {
+		if m[1] != " " && !covered[m[2]] {
+			missing = append(missing, m[2])
+		}
+	}
+	return missing, true
 }
 
 // uwCountUnticked is count_unticked: column-0 `- [ ]` lines (the script

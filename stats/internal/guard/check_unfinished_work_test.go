@@ -271,6 +271,26 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwReason("a tokenless row is named as not closable instead of a broken command", "row seq 7 has no key or session token and cannot be closed by `flow record dispatch end`"))
 	each(demo(dispatches("not json")), uwRC("unreadable dispatch rows cannot answer", 2))
 	each(demo(file("bin/dispatches.fail", "")), uwRC("a failed dispatches read cannot answer", 2))
+	// 2c. Signal four — a ticked appended task no dispatch row names
+	//     (kan-979's fix-round task reached integrate with no rows at all).
+	planned := func(body, rows string) func(t *testing.T, f *uwFix) {
+		return func(t *testing.T, f *uwFix) {
+			f.plan(t, body)
+			f.setFile(t, "dispatches.json", rows+"\n")
+		}
+	}
+	appended := "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 2. grouped\n- [x] 7. appended by a fix run\n"
+	each(demo(planned(appended, `[{"key":"task-1-implementer","outcome":"completed"}]`)),
+		uwVerdict("an appended task with no implementer dispatch row is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the undispatched appended task", "1 ticked appended task(s) with no dispatch row (Task 7)"))
+	each(demo(planned(appended, `[{"key":"task-1-implementer","outcome":"completed"},{"key":"task-7-implementer","outcome":"completed"}]`)),
+		uwVerdict("an appended task with its implementer row is CLEAR", "CLEAR:"))
+	each(demo(planned(appended, `[{"key":"impl-7","taskId":"7","outcome":"completed"}]`)),
+		uwVerdict("a row whose taskId names the appended task covers it", "CLEAR:"))
+	each(demo(planned(appended, `[{"key":"task-6+7-implementer-fix-1","outcome":"completed"}]`)),
+		uwVerdict("a +-joined key covers the appended task it names", "CLEAR:"))
+	each(demo(planned("- [x] 1. done\n- [x] 2. grouped\n- [x] 3. grouped\n", `[{"key":"task-2-implementer","outcome":"completed"}]`)),
+		uwVerdict("plan-time tasks grouped under one key, with no Tasks appended line, are CLEAR", "CLEAR:"))
 
 	// 3. Signal one — the plan.
 	each(demo(unticked),
