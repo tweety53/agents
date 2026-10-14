@@ -68,9 +68,9 @@ An argument that is none of those is **reported**, not silently ignored.
 |---------|---------|---------|
 | `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
 | `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or `IN_PROGRESS` (the plan was already ready); or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
-| `/flow` | `IN_PROGRESS`, with an argument | fix run; state unchanged |
+| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged |
 | *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) |
-| `/flow` | `IN_PROGRESS`, bare | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
+| `/flow` | `IN_PROGRESS`, bare — or the change's name alone (**Change name resolution (all `/flow*` commands)**) | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
 | `/flow` | `FINISHED` | wrong-state handoff — the change is archived |
 | `/flow-status` | any — read-only, never block | unchanged |
 
@@ -610,6 +610,11 @@ Once the candidate set is built:
 - Multiple matches → **AskUserQuestion** listing each (name, state, last modified) — never guess.
 - Zero matches → fall back to that command's normal "no change" handling (e.g. a creating `/flow`
   run asks what to build; `/flow-status` reports no open changes).
+
+**An argument that is exactly a candidate's name names that change and nothing else.** At
+`IN_PROGRESS`, `/flow <name>` is a bare invocation for that change — an integrate run, never a fix
+run carrying the name as its instructions — which is why every handoff's `Next: /flow <name>`
+starts integrate.
 
 A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 **Change naming** in `skills/flow-contracts/jira-integration.md`.

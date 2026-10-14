@@ -78,11 +78,12 @@ flow state get <name-or-best-guess> -C <repo-root>
   orchestrates directly** (`skills/flow/implement.md`).
 - **Exit 0, `"state": "STARTED"`** — a creating run interrupted before it reached `IN_PROGRESS`. See
   **Resuming at `STARTED`** (`skills/flow/resume.md`).
-- **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run — or a plain message, per
+- **Exit 0, `"state": "IN_PROGRESS"`, an argument other than the change's name** — a fix run — or a plain message, per
   **A plain message at IN_PROGRESS** below. See
   **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
   (`skills/flow/implement.md`).
-- **Exit 0, `"state": "IN_PROGRESS"`, no argument** — an integrate run. See
+- **Exit 0, `"state": "IN_PROGRESS"`, no argument or the change's name alone** (**Change name
+  resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — an integrate run. See
   **Deciding which run this is** (`skills/flow/integrate.md`).
 - **Exit 0, `"state": "FINISHED"`** — emit the wrong-state handoff from **Wrong state for this
   command** (`skills/flow-contracts/pipeline.md`): the change is archived — or withdrawn, when
