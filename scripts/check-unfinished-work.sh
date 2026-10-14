@@ -59,6 +59,9 @@
 # a row names a task by its `taskId` or by the `+`-joined ids of a
 # `task-<ids>[-…]` key. Plan-time tasks run grouped or inline and carry no row
 # of their own, so they are never judged.
+# A named appended task also needs a `reviewer` row whose seq is greater than
+# the earliest non-reviewer row naming it: the fix run's panel reviews it
+# under keys that name no task, so any reviewer row of the change counts.
 #
 # All signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being

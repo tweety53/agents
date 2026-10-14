@@ -271,6 +271,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			Seq          int    `json:"seq"`
 			Key          string `json:"key"`
 			TaskID       string `json:"taskId"`
+			Role         string `json:"role"`
 			Outcome      string `json:"outcome"`
 			SessionToken string `json:"sessionToken"`
 		}
@@ -307,23 +308,48 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// are judged: each is implemented alone, so it carries a row of its
 		// own, while plan-time tasks run grouped under one task-<n> key or
 		// inline with one row per bundle and most have none. It needs the
-		// plan read above.
+		// plan read above. An appended task also needs a `reviewer` row whose
+		// seq is greater than its earliest non-reviewer row's — the fix run's
+		// panel names no task, so any panel reviewer row (key `panel-…`) of the change counts, and
+		// the earliest row is the anchor so a Minor-only round's inline
+		// `panel-fix` row never demands a re-review.
 		if planRC == 0 {
-			covered := map[string]bool{}
+			first := map[string]int{}
+			lastReview := -1
 			for _, d := range dispatches {
-				covered[d.TaskID] = true
+				if d.Role == "reviewer" {
+					if strings.HasPrefix(d.Key, "panel-") {
+						lastReview = max(lastReview, d.Seq)
+					}
+					continue
+				}
+				ids := []string{d.TaskID}
 				if m := uwTaskKey.FindStringSubmatch(d.Key); m != nil {
-					for id := range strings.SplitSeq(m[1], "+") {
-						covered[id] = true
+					ids = append(ids, strings.Split(m[1], "+")...)
+				}
+				for _, id := range ids {
+					if s, seen := first[id]; id != "" && (!seen || d.Seq < s) {
+						first[id] = d.Seq
 					}
 				}
 			}
-			missing, ok := uwUndispatched(primary, covered)
+			appended, ok := uwAppendedTicked(primary)
 			if !ok {
 				return unreadable(primary)
 			}
+			var missing, unreviewed []string
+			for _, id := range appended {
+				if s, seen := first[id]; !seen {
+					missing = append(missing, id)
+				} else if lastReview <= s {
+					unreviewed = append(unreviewed, id)
+				}
+			}
 			if len(missing) > 0 {
 				reasons = append(reasons, strconv.Itoa(len(missing))+" ticked appended task(s) with no dispatch row (Task "+strings.Join(missing, ", ")+") — record each task's dispatch, and its fix round's pass rows and findings, before landing")
+			}
+			if len(unreviewed) > 0 {
+				reasons = append(reasons, strconv.Itoa(len(unreviewed))+" ticked appended task(s) with no reviewer row begun after its implementer row (Task "+strings.Join(unreviewed, ", ")+") — run its fix round's panel and record its pass rows and findings, before landing")
 			}
 		}
 	}
@@ -359,11 +385,12 @@ var (
 	uwTaskKey       = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)(?:-|$)`)
 )
 
-// uwUndispatched returns the ids of plan's ticked appended tasks — the last
-// n column-0 tasks, n from the `**Tasks appended:** <n>` header line
-// (blockquoted or not), 0 when absent — that covered does not name, in plan
-// order. False when the plan cannot be read.
-func uwUndispatched(plan string, covered map[string]bool) ([]string, bool) {
+// uwAppendedTicked returns the ids of every one of plan's ticked appended
+// tasks — the last n column-0 tasks, n from the `**Tasks appended:** <n>`
+// header line (blockquoted or not), 0 when absent — in plan order, whatever
+// rows name them: the caller judges coverage. False when the plan cannot be
+// read.
+func uwAppendedTicked(plan string) ([]string, bool) {
 	b, err := os.ReadFile(plan)
 	if err != nil {
 		return nil, false
@@ -379,7 +406,7 @@ func uwUndispatched(plan string, covered map[string]bool) ([]string, bool) {
 	}
 	var missing []string
 	for _, m := range tasks[max(0, len(tasks)-appended):] {
-		if m[1] != " " && !covered[m[2]] {
+		if m[1] != " " {
 			missing = append(missing, m[2])
 		}
 	}

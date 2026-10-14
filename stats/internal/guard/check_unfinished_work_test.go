@@ -283,12 +283,19 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	each(demo(planned(appended, `[{"key":"task-1-implementer","outcome":"completed"}]`)),
 		uwVerdict("an appended task with no implementer dispatch row is OUTSTANDING", "OUTSTANDING:"),
 		uwReason("the breakdown names the undispatched appended task", "1 ticked appended task(s) with no dispatch row (Task 7)"))
-	each(demo(planned(appended, `[{"key":"task-1-implementer","outcome":"completed"},{"key":"task-7-implementer","outcome":"completed"}]`)),
-		uwVerdict("an appended task with its implementer row is CLEAR", "CLEAR:"))
-	each(demo(planned(appended, `[{"key":"impl-7","taskId":"7","outcome":"completed"}]`)),
+	each(demo(planned(appended, `[{"seq":1,"key":"task-1-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":3,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
+		uwVerdict("an appended task with its implementer row and a later reviewer row is CLEAR", "CLEAR:"))
+	each(demo(planned(appended, `[{"seq":1,"key":"impl-7","taskId":"7","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
 		uwVerdict("a row whose taskId names the appended task covers it", "CLEAR:"))
-	each(demo(planned(appended, `[{"key":"task-6+7-implementer-fix-1","outcome":"completed"}]`)),
+	each(demo(planned(appended, `[{"seq":1,"key":"task-6+7-implementer-fix-1","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
 		uwVerdict("a +-joined key covers the appended task it names", "CLEAR:"))
+	each(demo(planned(appended, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]`)),
+		uwVerdict("an appended task with an implementer row and no reviewer row is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the unreviewed appended task", "1 ticked appended task(s) with no reviewer row begun after its implementer row (Task 7)"))
+	each(demo(planned(appended, `[{"seq":1,"key":"panel-1-primary","role":"reviewer","outcome":"clean"},{"seq":2,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]`)),
+		uwVerdict("a reviewer row begun before the implementer row does not review the appended task", "OUTSTANDING:"))
+	each(demo(planned(appended, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"pipeline-fix-1-review-1","role":"reviewer","outcome":"clean"}]`)),
+		uwVerdict("a non-panel reviewer row does not review the appended task", "OUTSTANDING:"))
 	each(demo(planned("- [x] 1. done\n- [x] 2. grouped\n- [x] 3. grouped\n", `[{"key":"task-2-implementer","outcome":"completed"}]`)),
 		uwVerdict("plan-time tasks grouped under one key, with no Tasks appended line, are CLEAR", "CLEAR:"))
 
