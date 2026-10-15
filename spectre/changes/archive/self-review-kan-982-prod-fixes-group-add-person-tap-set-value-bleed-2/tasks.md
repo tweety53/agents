@@ -16,9 +16,9 @@
 - Every prose line a diff adds is copied verbatim: this change's `verbatim-moves.txt` acknowledges each new or reworded sentence by its exact text, and any other wording fails `scripts/check-verbatim-moves.sh`.
 - Go in `stats/` follows the Go skills `CLAUDE.md` names; run `cd stats && gofmt -w ./internal/guard` before `gofmt -l .`. `go build ./...` needs the built SPA (`internal/web/dist`, `make web-build`); the commands below vet and test only the package each task touches.
 
-- [ ] 1. Run 1's gate lists every commit outside every task, and the sanctioned routes mark theirs with `Flow-Key:`
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `ls scripts/check-untasked-commits.sh` and confirm `No such file or directory`; then apply the `scripts/test-integrate-change.sh` hunks of the diff in step 2 alone (`git apply --include='scripts/test-integrate-change.sh' <the diff>`) and run `bash scripts/test-integrate-change.sh 2>&1 | grep untasked`: `FAIL - untasked: prepare stops at STOP: unfinished-work` and `FAIL - untasked: the stray commit is listed` — the defect: a trailerless code commit passes run 1's gate unlisted.
-  - [ ] **Step 2: Implement.** Apply the rest of this diff (`git apply --exclude='scripts/test-integrate-change.sh' <the diff>`); it creates `skills/flow/scripts/check-untasked-commits.sh` as a symlink to `../../../scripts/check-untasked-commits.sh` and `scripts/check-untasked-commits.sh` executable:
+- [x] 1. Run 1's gate lists every commit outside every task, and the sanctioned routes mark theirs with `Flow-Key:`
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `ls scripts/check-untasked-commits.sh` and confirm `No such file or directory`; then apply the `scripts/test-integrate-change.sh` hunks of the diff in step 2 alone (`git apply --include='scripts/test-integrate-change.sh' <the diff>`) and run `bash scripts/test-integrate-change.sh 2>&1 | grep untasked`: `FAIL - untasked: prepare stops at STOP: unfinished-work` and `FAIL - untasked: the stray commit is listed` — the defect: a trailerless code commit passes run 1's gate unlisted.
+  - [x] **Step 2: Implement.** Apply the rest of this diff (`git apply --exclude='scripts/test-integrate-change.sh' <the diff>`); it creates `skills/flow/scripts/check-untasked-commits.sh` as a symlink to `../../../scripts/check-untasked-commits.sh` and `scripts/check-untasked-commits.sh` executable:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at 8650ac1f; gofmt -l and go vet ./internal/guard clean; go test ./internal/guard/ and scripts/run-guard-tests.sh pass with both tasks applied; TestCheckUntaskedCommits fails with the Task-Id or the planning-only exemption removed; the untasked case of test-integrate-change.sh fails with the integrate-change.sh hunk reverted
 diff --git a/scripts/check-untasked-commits.sh b/scripts/check-untasked-commits.sh
@@ -445,8 +445,8 @@ index 00000000..365654c6
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run 'TestCheckUntaskedCommits|TestCheckGuardSymlinks' -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`; `scripts/test-git-config-pins.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh`, `scripts/check-installed-citations.sh` and `scripts/check-dispatch-paragraphs.sh` exit 0.
-  - [ ] **Step 4: Commit** the paths in `**Files:**` with the subject below.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run 'TestCheckUntaskedCommits|TestCheckGuardSymlinks' -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`; `scripts/test-git-config-pins.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh`, `scripts/check-installed-citations.sh` and `scripts/check-dispatch-paragraphs.sh` exit 0.
+  - [x] **Step 4: Commit** the paths in `**Files:**` with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/untaskedcommits.go`, `stats/internal/guard/check_untasked_commits_test.go`, `scripts/check-untasked-commits.sh`, `skills/flow/scripts/check-untasked-commits.sh`, `scripts/integrate-change.sh`, `scripts/test-integrate-change.sh`, `skills/flow-contracts/git-boundaries.md`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow/review-panel-fix-round.md`, `skills/flow/visual-verify.md`, `skills/flow/brainstorm-planner.md`
@@ -462,9 +462,9 @@ index 00000000..365654c6
 **Decision:** untasked-at-integrate-gate
 **Decision:** integrate-call-site-in-bash
 
-- [ ] 2. `check-task-commit-fields.sh` refuses a scope naming only another repository's module
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the `stats/internal/guard/check_task_commit_scope_sibling_test.go` hunk of the diff in step 2 alone (`git apply --include='stats/internal/guard/check_task_commit_scope_sibling_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckScopeSibling -count=1`: it FAILS to build with `undefined: tcfCheckScopeSibling` — the defect: no check reads a declared scope against the repositories of the project, so kan-982's `fix(group)` on a gymie-playwright commit touching only `fidelity/builder.spec.ts` closed clean.
-  - [ ] **Step 2: Implement.** Apply the rest of this diff:
+- [x] 2. `check-task-commit-fields.sh` refuses a scope naming only another repository's module
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the `stats/internal/guard/check_task_commit_scope_sibling_test.go` hunk of the diff in step 2 alone (`git apply --include='stats/internal/guard/check_task_commit_scope_sibling_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckScopeSibling -count=1`: it FAILS to build with `undefined: tcfCheckScopeSibling` — the defect: no check reads a declared scope against the repositories of the project, so kan-982's `fix(group)` on a gymie-playwright commit touching only `fidelity/builder.spec.ts` closed clean.
+  - [x] **Step 2: Implement.** Apply the rest of this diff:
 
 ````diff verified:applied with git apply after Task 1 to a scratch clone at 8650ac1f; gofmt -l and go vet ./internal/guard clean; go test ./internal/guard/ passes; TestCheckScopeSibling fails with the sibling refusal disabled; tcfCheckScopeSibling refuses fix(group) at gymie-playwright 7479ba1 against gymie's project.md and passes fidelity, visual and e2e
 diff --git a/rules/commit-scope-is-the-module.mdc b/rules/commit-scope-is-the-module.mdc
@@ -758,8 +758,8 @@ index 8a0123fb..ad72e2a7 100644
  	var v []string
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run 'TestCheckScopeSibling|TestCheckTaskCommitFields|TestTaskFieldParseMatchesPython' -count=1` passes; `scripts/test-git-config-pins.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the paths in `**Files:**` with the subject below.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run 'TestCheckScopeSibling|TestCheckTaskCommitFields|TestTaskFieldParseMatchesPython' -count=1` passes; `scripts/test-git-config-pins.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 4: Commit** the paths in `**Files:**` with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/taskcommitfields.go`, `stats/internal/guard/check_task_commit_scope_sibling_test.go`, `rules/commit-scope-is-the-module.mdc`
