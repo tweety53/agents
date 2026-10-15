@@ -72,7 +72,11 @@ pairs; it lands in the decision's `overrides`.
 flow state get <name-or-best-guess> -C <repo-root>
 ```
 
-- **Exit 1**, or exit 0 with `"synthetic": true` — **no state**: a creating run. See
+Run it as its own Bash call, never chained to another command. **No state** is exit 1 with
+`flow: no state recorded for <project>/<name>` on stderr; an exit 1 without that line is a failure
+to report, never a creating run.
+
+- **No state** as above, or exit 0 with `"synthetic": true`: a creating run. See
   **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`); the run ends at
   the plan gate's **Yes** with a `/clear` handoff, and the next `/flow <name>` enters **The parent
   orchestrates directly** (`skills/flow/implement.md`).

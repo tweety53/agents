@@ -13,3 +13,5 @@ The `## Report` names a skipped worktree as `- <worktree> — skipped, nothing o
 When more than one is listed, prefix every finding's `file:line` with that worktree's repository name — its main checkout's basename (`gymie-frontend:src/Foo.tsx:42`) —, prefix the same way every `# demonstrates:` and `# premise:` path its reproducer cites in a worktree other than the canonical one, and author that finding's reproducer per the cwd contract the reproducer rule states: it executes from the canonical worktree the parent passes the runner, never from the worktree its own prefix names, and resolves that worktree by absolute path inside itself.
 git -C <worktree> diff --name-only <merge-base>..HEAD ':(exclude)spectre/changes/<name>' ':(exclude)spectre/changes/archive/<name>'
 git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh --repo <repo-name> <canonical-worktree>
+**No state** as above, or exit 0 with `"synthetic": true`: a creating run.
+**Exit 1**, or exit 0 with `"synthetic": true` — **no state**: a creating run.
