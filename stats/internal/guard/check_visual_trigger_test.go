@@ -31,7 +31,7 @@ const (
 	vtAbsent = vtNoRoot + "`ui paths` is absent or empty in $ROOT/.flow/project.md — cannot resolve what to match against\n" + vtCannot + "`ui paths` is absent or empty\n"
 	vtNotCfg = "VISUAL-TRIGGER-NOT-CONFIGURED: $ROOT — no visual verification section\n"
 	vtCannot = "VISUAL-TRIGGER-CANNOT-ANSWER: $ROOT — "
-	vtUsage  = vtNoRoot + "usage: check-visual-trigger.sh <project root> (changed paths on stdin)\nVISUAL-TRIGGER-CANNOT-ANSWER: (no root) — usage\n"
+	vtUsage  = vtNoRoot + "usage: check-visual-trigger.sh [--repo <name>] <project root> (changed paths on stdin)\nVISUAL-TRIGGER-CANNOT-ANSWER: (no root) — usage\n"
 )
 
 // vtSection is the harness's section with cell as the `ui paths` value cell.
@@ -379,5 +379,36 @@ func vtAssertToken(t *testing.T, code int, all, errOut, token, root string) {
 	if code != 2 || !strings.HasPrefix(last, token+root+" — ") ||
 		strings.Count(all, "VISUAL-TRIGGER-NOT-CONFIGURED")+strings.Count(all, "VISUAL-TRIGGER-CANNOT-ANSWER") != 1 {
 		t.Fatalf("exit %d stderr %q: want exit 2 ending in one %q line for %q", code, errOut, token, root)
+	}
+}
+
+// TestVisualTriggerRepoPrefix pins the kan-947 self-review fix: `--repo
+// <name>` matches each changed path as `<name>/<path>`, so a cross-repo
+// change's frontend-only diff matches the canonical project's
+// `gymie-frontend/**`; without the flag the same diff matches nothing, and
+// `--repo` with no name or no root is a usage refusal.
+func TestVisualTriggerRepoPrefix(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, root+"/.flow/project.md", vtSection("`gymie-frontend/**`")+"\n")
+	run := func(args ...string) (int, string) {
+		var out, errb bytes.Buffer
+		code := Registry["check-visual-trigger"](args, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("./composeApp/src/App.kt\n\n")}, &out, &errb)
+		return code, out.String() + errb.String()
+	}
+	if code, out := run("--repo", "gymie-frontend", root); code != 0 || !strings.Contains(out, vtMatched("gymie-frontend/composeApp/src/App.kt", "gymie-frontend/**")) {
+		t.Errorf("--repo gymie-frontend: exit %d output %q; want 0 and a MATCH on the prefixed path", code, out)
+	}
+	if code, out := run(root); code != 1 {
+		t.Errorf("no --repo: exit %d output %q; want 1", code, out)
+	}
+	var out, errb bytes.Buffer
+	if code := Registry["check-visual-trigger"]([]string{"--repo", "gymie-frontend", root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("/x/y\n")}, &out, &errb); code != 1 {
+		t.Errorf("--repo with an absolute path: exit %d output %q; want 1, an absolute candidate never matches", code, out.String()+errb.String())
+	}
+	for _, args := range [][]string{{"--repo", "", root}, {"--repo", root}} {
+		if code, out := run(args...); code != 2 || !strings.Contains(out, "usage") {
+			t.Errorf("%q: exit %d output %q; want 2 usage", args, code, out)
+		}
 	}
 }

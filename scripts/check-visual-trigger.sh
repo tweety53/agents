@@ -2,8 +2,13 @@
 # check-visual-trigger.sh — decide whether a diff touched a project's
 # declared `## visual verification` UI paths, in a guard instead of prose.
 #
-# Usage: check-visual-trigger.sh <project root>   (changed paths on stdin,
-#                                                    one per line)
+# Usage: check-visual-trigger.sh [--repo <name>] <project root>
+#        (changed paths on stdin, one per line)
+#
+# --repo <name> matches each changed path as `<name>/<path>`: a cross-repo
+# change's other worktree's diff, against the canonical project's `ui paths`,
+# which name that repository's files by its main checkout's basename
+# (`gymie-frontend/**`) — flow.visual-verify's step 2.
 #
 # Replaces flow.visual-verify's step 2 (skills/flow/verify-and-handoff.md):
 # "run `git diff --name-only` and test every printed path as a glob against

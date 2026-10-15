@@ -180,6 +180,18 @@ this pipeline restates it. Resolve once per worktree in this run's resolved set,
    `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
 
+   In a run whose resolved set holds more than one worktree, every other worktree's diff is also
+   matched against the canonical worktree's `ui paths`, each path prefixed with that worktree's
+   repository name — its main checkout's basename, the name a glob such as `gymie-frontend/**`
+   spells another repository's files with:
+
+   ```bash
+   git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh --repo <repo-name> <canonical-worktree>
+   ```
+
+   Its exit 0 makes the canonical worktree survive this step as the canonical worktree's own exit 0
+   does.
+
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
 **Decide**, `skills/flow/brainstorm-planner.md`), every worktree surviving step 2 prints

@@ -620,8 +620,9 @@ dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records t
 under `full-suite-fix-<n>`, and re-runs the list until it passes.
 When the change's diff touches a `## visual verification` `ui paths` glob
 (`git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>` exits 0
-for any worktree in the resolved set, its merge base from this run's working notes; exit 1 or 2 for
-every worktree skips this run) and `decision.json` does not record `visual.verify` `skipped`, the list
+for any worktree in the resolved set, or the `--repo` run step 2 of **Visual verification**
+(`skills/flow/verify-and-handoff.md`) adds exits 0 for any other worktree, its merge base from this
+run's working notes; no exit 0 from either skips this run) and `decision.json` does not record `visual.verify` `skipped`, the list
 ends with that section's `verify` run whole — `<specs>` empty, every capture — against the
 canonical worktree's stack, under the stack rules of **One stack for the verification tasks**
 below, so a capture a shared-component change moved fails here rather than at `flow.verify`.

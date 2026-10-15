@@ -40,8 +40,16 @@ func vtRefuse(stderr io.Writer, token, root, cause string) int {
 }
 
 func checkVisualTrigger(args []string, env Env, stdout, stderr io.Writer) int {
+	// `--repo <name>` matches each changed path as `<name>/<path>`: a
+	// cross-repo change's other worktree's diff, matched against the
+	// canonical project's `ui paths`, which name that repository's files by
+	// its name (`gymie-frontend/**`).
+	repo := ""
+	if len(args) == 3 && args[0] == "--repo" && args[1] != "" {
+		repo, args = args[1]+"/", args[2:]
+	}
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "%susage: check-visual-trigger.sh <project root> (changed paths on stdin)\n", vtPrefix)
+		fmt.Fprintf(stderr, "%susage: check-visual-trigger.sh [--repo <name>] <project root> (changed paths on stdin)\n", vtPrefix)
 		return vtRefuse(stderr, vtCannotAnswer, "(no root)", "usage")
 	}
 	// `while IFS= read -r changed || [ -n "$changed" ]`: a final line with
@@ -58,7 +66,15 @@ func checkVisualTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 				return nil, err
 			}
 		}
-		return awkRecords(strings.ReplaceAll(string(in), "\x00", "")), nil
+		paths := awkRecords(strings.ReplaceAll(string(in), "\x00", ""))
+		if repo != "" {
+			for i, p := range paths {
+				if p != "" && !strings.HasPrefix(p, "/") {
+					paths[i] = repo + strings.TrimPrefix(p, "./")
+				}
+			}
+		}
+		return paths, nil
 	}
 	return visualTrigger(env, args[0], changed, stdout, stderr)
 }
