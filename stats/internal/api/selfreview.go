@@ -45,8 +45,8 @@ type selfreviewStore interface {
 // /api/v1/self-review/{project}/{change}/bundle?repo=<abs-path>: the whole
 // self-review context bundle, assembled server-side — the ledger and panel
 // record rendered from the store exactly as the render route renders them,
-// the archived change's tasks.md, design.md and narrative.md read out of
-// the change branch spectre/<name> of the repository the caller named, or
+// the archived change's tasks.md, design.md, narrative.md and visual-verification.md
+// read out of the change branch spectre/<name> of the repository the caller named, or
 // its base branch once the change has landed, and
 // the git log of the finish-run commits, derived here rather than in any
 // Bash the caller would have to run. The CLI transports the result and

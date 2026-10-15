@@ -46,8 +46,9 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 			"/repo show spectre/demo:spectre/changes/archive/demo/tasks.md": "# demo tasks\n",
 		},
 		failOn: map[string]bool{
-			"/repo show spectre/demo:spectre/changes/archive/demo/design.md":    true,
-			"/repo show spectre/demo:spectre/changes/archive/demo/narrative.md": true,
+			"/repo show spectre/demo:spectre/changes/archive/demo/design.md":              true,
+			"/repo show spectre/demo:spectre/changes/archive/demo/narrative.md":           true,
+			"/repo show spectre/demo:spectre/changes/archive/demo/visual-verification.md": true,
 		},
 	}
 
@@ -73,6 +74,7 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 	for _, label := range []string{
 		"spectre/changes/archive/demo/design.md",
 		"spectre/changes/archive/demo/narrative.md",
+		"spectre/changes/archive/demo/visual-verification.md",
 		"git log --stat",
 	} {
 		if !strings.Contains(bundle, "skipped: "+label+" (absent)") {
@@ -96,7 +98,7 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 
 	// A change the store has never heard of renders nothing: the ledger
 	// needs dispatch rows and the panel needs any row at all.
-	if !strings.Contains(bundle, "found: 0 of 7 sources; skipped: 7 of 7 sources") {
+	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "## .superpowers/sdd/ledgers/demo.md") {
@@ -186,6 +188,35 @@ func TestBundleAssemblyReadsArchivedFilesThroughGit(t *testing.T) {
 	}
 }
 
+// TestBundleServesArchivedVisualVerification pins the flow-eval angle's
+// visual source: an archived visual-verification.md is served as its own
+// section, the record a visual candidate's screenshots and findings are
+// read from.
+func TestBundleServesArchivedVisualVerification(t *testing.T) {
+	repo := gitRepo(t)
+	writeArchiveBranch(t, repo, "demo", map[string]string{
+		"tasks.md":               "# demo tasks\n",
+		"visual-verification.md": "# Visual verification — demo\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, []string{repo}, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+
+	for _, want := range []string{
+		"## spectre/changes/archive/demo/visual-verification.md",
+		"# Visual verification — demo",
+	} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("bundle missing %q:\n%s", want, bundle)
+		}
+	}
+	if strings.Contains(bundle, "skipped: spectre/changes/archive/demo/visual-verification.md") {
+		t.Errorf("visual-verification.md archived, yet reported skipped:\n%s", bundle)
+	}
+}
+
 func TestBundleAssemblyDerivesFinishCommits(t *testing.T) {
 	repo := gitRepo(t)
 	// The archive commit sits on the change branch above the implementation
@@ -245,7 +276,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	}
 	// One found source — the git log; every other source a flow-fast run
 	// has no archive to read and no store rows to render.
-	if !strings.Contains(bundle, "found: 1 of 7 sources; skipped: 6 of 7 sources") {
+	if !strings.Contains(bundle, "found: 1 of 8 sources; skipped: 7 of 8 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 }
@@ -321,10 +352,12 @@ func TestBundleAssemblyFallsBackToCommittedRecords(t *testing.T) {
 		"## spectre/changes/archive/demo/panel.md",
 		"# Review panel — demo",
 		// tasks.md and the archive commit's git log resolve besides the two
-		// fallback sections; design.md and narrative.md stay skipped.
-		"found: 4 of 7 sources",
+		// fallback sections; design.md, narrative.md and
+		// visual-verification.md stay skipped.
+		"found: 4 of 8 sources",
 		"skipped: spectre/changes/archive/demo/design.md (absent)",
 		"skipped: spectre/changes/archive/demo/narrative.md (absent)",
+		"skipped: spectre/changes/archive/demo/visual-verification.md (absent)",
 	} {
 		if !strings.Contains(bundle, want) {
 			t.Errorf("bundle missing %q:\n%s", want, bundle)
@@ -728,7 +761,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 	for _, want := range []string{
 		"## change summary",
 		"what changed and why",
-		"found: 1 of 7 sources",
+		"found: 1 of 8 sources",
 	} {
 		if !strings.Contains(bundle, want) {
 			t.Errorf("bundle missing %q:\n%s", want, bundle)
@@ -738,7 +771,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 
 // TestBundleSkipsAbsentSummary asserts the missing-source shape: a change
 // with no recorded summary reports it skipped like any other absent
-// source, in the same words, and the found line counts the seven sources.
+// source, in the same words, and the found line counts the eight sources.
 func TestBundleSkipsAbsentSummary(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
@@ -747,7 +780,7 @@ func TestBundleSkipsAbsentSummary(t *testing.T) {
 		t.Fatalf("Bundle: %v", err)
 	}
 
-	if !strings.Contains(bundle, "found: 0 of 7 sources; skipped: 7 of 7 sources") {
+	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if !strings.Contains(bundle, "skipped: change summary (absent)") {
@@ -773,8 +806,8 @@ func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
 		t.Errorf("records-loss note never names the missing dispatch rows:\n%s", bundle)
 	}
 	// The note is a note, not a source: the found/skipped line still
-	// counts exactly the seven real sources.
-	if !strings.Contains(bundle, "found: 0 of 7 sources; skipped: 7 of 7 sources") {
+	// counts exactly the eight real sources.
+	if !strings.Contains(bundle, "found: 0 of 8 sources; skipped: 8 of 8 sources") {
 		t.Errorf("found/skipped line disturbed by the note:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "skipped: note:") {

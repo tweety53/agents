@@ -446,6 +446,13 @@ func trimmedOutput(b []byte, err error) string {
 	return strings.TrimSpace(string(b))
 }
 
+// archivedFiles are the change's archived files the bundle serves, in
+// order. visual-verification.md is the record the flow-eval angle's visual
+// candidates are read from (skills/flow-self-review/SKILL.md, angle 7); a
+// change with no visual verification reports it skipped like any absent
+// source.
+var archivedFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-verification.md"}
+
 // Bundle assembles the whole self-review context bundle for change as one
 // Markdown document: the header, the found/skipped summary line, one
 // `skipped: <label> (absent)` line per absent source, and one `## <label>`
@@ -475,7 +482,7 @@ func trimmedOutput(b []byte, err error) string {
 // answer for. A change no supplied repository archives — a /flow-fast
 // change, never archived by design — still gets its git-log source, read
 // off the change branch in the first readable supplied repository, the
-// main checkout the caller resolved (KAN-583); the three spectre sources
+// main checkout the caller resolved (KAN-583); the archivedFiles sources
 // stay skipped for it. The git-log source also carries each merge-order
 // peer's change-branch log under `### <peer>`. A repository git cannot read at all is reported in
 // a `note:`
@@ -551,13 +558,13 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	}
 
 	if repo != "" {
-		for _, file := range []string{"tasks.md", "design.md", "narrative.md"} {
+		for _, file := range archivedFiles {
 			label := archiveDir + "/" + change + "/" + file
 			content, err := show(g, repo, rev, label)
 			add(label, string(content), err == nil)
 		}
 	} else {
-		for _, file := range []string{"tasks.md", "design.md", "narrative.md"} {
+		for _, file := range archivedFiles {
 			add(archiveDir+"/"+change+"/"+file, "", false)
 		}
 	}

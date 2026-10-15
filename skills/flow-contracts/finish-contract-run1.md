@@ -291,7 +291,7 @@ bundle with
 `flow self-review bundle -change <name>`: flowd assembles the whole bundle — the ledger and the
 panel record rendered from the store, or, when the store yields no render for that record, read
 from the copies the archive commit carries, the archived `tasks.md`,
-`design.md` and `narrative.md`
+`design.md`, `narrative.md` and `visual-verification.md`
 read out of `spectre/<name>` in the repository the command resolves from its
 own location (the main checkout its working directory sits in — the store carries no repository
 roots for the pipeline's changes), and the `git log --stat` of every implementation, planning and
