@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -78,6 +79,18 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		if ctFlow(env, stdout, stderr, append(rec, "-outcome", "completed")...) != 0 {
 			fmt.Fprintln(stderr, "close-task: the dispatch end did not reach the store — continuing; a record never blocks")
 		}
+	}
+
+	// SIGNAL FOUR at close time (scripts/check-unfinished-work.sh): an
+	// appended task no dispatch row names is warned about here, while its
+	// row can still be recorded, rather than first refused at integrate. A
+	// warning, never a stop: a record never blocks.
+	var closed []string
+	for _, t := range tasks {
+		closed = append(closed, t.id)
+	}
+	for _, id := range ctUndispatched(env, canonical, name, closed) {
+		fmt.Fprintf(stderr, "close-task: WARNING — appended task %s has no dispatch row naming it; record its dispatch (`flow record dispatch begin … -task %s`) before integrate, whose unfinished-work gate refuses it\n", id, id)
 	}
 
 	// Both commit guards run before anything is ticked or pushed, so a
@@ -228,4 +241,50 @@ func ctCheckTrailer(env Env, stdout, stderr io.Writer, canonical, name, id, comm
 		}
 	}
 	return rc
+}
+
+// ctUndispatched is signal four's predicate (uwAppended, uwRowTasks) at
+// close time: the closed tasks the plan's **Tasks appended:** line marks as
+// appended that no dispatch row of the change names. Nil when no closed task
+// is appended -- the store is then never read -- or when the plan or the
+// store cannot be read: a warning that cannot judge stays silent.
+func ctUndispatched(env Env, canonical, name string, closed []string) []string {
+	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical)
+	if tasksMD == "" {
+		return nil
+	}
+	appended, ok := uwAppended(tasksMD, false)
+	if !ok {
+		return nil
+	}
+	var judged []string
+	for _, id := range closed {
+		if slices.Contains(appended, id) {
+			judged = append(judged, id)
+		}
+	}
+	if len(judged) == 0 {
+		return nil
+	}
+	out, _, rc := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", canonical)
+	var rows []struct {
+		Key    string `json:"key"`
+		TaskID string `json:"taskId"`
+	}
+	if rc != 0 || json.Unmarshal(out, &rows) != nil {
+		return nil
+	}
+	named := map[string]bool{}
+	for _, d := range rows {
+		for _, id := range uwRowTasks(d.Key, d.TaskID) {
+			named[id] = true
+		}
+	}
+	var missing []string
+	for _, id := range judged {
+		if !named[id] {
+			missing = append(missing, id)
+		}
+	}
+	return missing
 }

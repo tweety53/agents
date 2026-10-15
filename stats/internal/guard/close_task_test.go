@@ -35,8 +35,8 @@ var ctPlan = bt(`- [ ] 1. One
 `)
 
 type ctFx struct {
-	wt, peer, base, log, decisions string
-	env                            Env
+	wt, peer, base, log, decisions, dispatches string
+	env                                        Env
 }
 
 // ctRepo is a repository on spectre/demo with one base commit and a bare
@@ -57,17 +57,18 @@ func ctRepo(t *testing.T, dir string, origin bool) {
 // ctFixture builds the canonical worktree (plan on disk, never committed),
 // a peer repository, and the flow stub: tickRC and recordRC are the exit
 // codes of `flow tasks tick` and `flow record …`; `flow record decisions`
-// prints fx.decisions when a test wrote it, nothing otherwise.
+// and `flow record dispatches` print fx.decisions and fx.dispatches when a
+// test wrote them, nothing otherwise.
 func ctFixture(t *testing.T, origin bool, tickRC, recordRC string) *ctFx {
 	t.Helper()
 	root := t.TempDir()
-	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", decisions: root + "/decisions.json"}
+	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", decisions: root + "/decisions.json", dispatches: root + "/dispatches.json"}
 	ctRepo(t, fx.wt, origin)
 	ctRepo(t, fx.peer, origin)
 	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", ctPlan)
 	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	bin := root + "/bin"
-	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> "+fx.log+"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record decisions\") cat "+fx.decisions+" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
+	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> "+fx.log+"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record decisions\") cat "+fx.decisions+" 2>/dev/null; exit "+recordRC+";;\n\"record dispatches\") cat "+fx.dispatches+" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
 	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> "+fx.log+";; esac\nexec "+fixtureGit+" \"$@\"\n")
 	fx.env = Env{Getenv: pathEnv(bin), Dir: fx.wt}
 	return fx
@@ -353,6 +354,41 @@ func TestCloseTaskTaskIdTrailer(t *testing.T) {
 			if c.rc == 1 && (len(fx.calls(t)) != 0 || !strings.Contains(r.stdout, "carries no Task-Id: trailer naming task "+c.task)) {
 				t.Errorf("want a trailer refusal and no tick or push\n%s\ncalls: %v", r.out, fx.calls(t))
 			}
+		})
+	}
+}
+
+// Signal four at close time: closing an appended task no dispatch row names
+// warns, never blocks; a plan-time task never reads the store at all.
+func TestCloseTaskWarnsOnAnUndispatchedAppendedTask(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, rows string
+		warn       bool
+	}{
+		{"an appended task no row names warns", `[{"key":"task-1-implementer","taskId":""}]`, true},
+		{"an appended task its key names is silent", `[{"key":"task-2-implementer","taskId":""}]`, false},
+		{"an appended task its taskId names is silent", `[{"key":"impl","taskId":"2"}]`, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			fx := ctFixture(t, true, "0", "0")
+			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "> **Tasks appended:** 2\n\n"+ctPlan)
+			writeFile(t, fx.dispatches, c.rows)
+			s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
+			r := fx.run(fx.wt, "demo", fx.base, "2:"+s2)
+			if r.rc != 0 {
+				t.Fatalf("exit %d, want 0 — a warning never blocks\n%s", r.rc, r.out)
+			}
+			const want = "close-task: WARNING — appended task 2 has no dispatch row naming it"
+			if got := strings.Contains(r.err, want); got != c.warn {
+				t.Errorf("warning present %v, want %v\n%s", got, c.warn, r.out)
+			}
+			ctEqual(t, fx.calls(t), []string{
+				"flow record dispatches -change demo -C " + fx.wt,
+				"flow tasks tick -C " + fx.wt + " demo 2",
+				"git -C " + fx.wt + " push origin spectre/demo",
+			})
 		})
 	}
 }

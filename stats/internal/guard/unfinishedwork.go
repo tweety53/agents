@@ -323,17 +323,13 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					}
 					continue
 				}
-				ids := []string{d.TaskID}
-				if m := uwTaskKey.FindStringSubmatch(d.Key); m != nil {
-					ids = append(ids, strings.Split(m[1], "+")...)
-				}
-				for _, id := range ids {
+				for _, id := range uwRowTasks(d.Key, d.TaskID) {
 					if s, seen := first[id]; id != "" && (!seen || d.Seq < s) {
 						first[id] = d.Seq
 					}
 				}
 			}
-			appended, ok := uwAppendedTicked(primary)
+			appended, ok := uwAppended(primary, true)
 			if !ok {
 				return unreadable(primary)
 			}
@@ -385,12 +381,23 @@ var (
 	uwTaskKey       = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)(?:-|$)`)
 )
 
-// uwAppendedTicked returns the ids of every one of plan's ticked appended
-// tasks — the last n column-0 tasks, n from the `**Tasks appended:** <n>`
-// header line (blockquoted or not), 0 when absent — in plan order, whatever
-// rows name them: the caller judges coverage. False when the plan cannot be
-// read.
-func uwAppendedTicked(plan string) ([]string, bool) {
+// uwRowTasks is the task ids a dispatch row names: its taskId, and the
+// `+`-joined ids of a task-<ids>[-…] key. Signal four and close-task's
+// close-time warning share it, so the two cannot drift.
+func uwRowTasks(key, taskID string) []string {
+	ids := []string{taskID}
+	if m := uwTaskKey.FindStringSubmatch(key); m != nil {
+		ids = append(ids, strings.Split(m[1], "+")...)
+	}
+	return ids
+}
+
+// uwAppended returns the ids of plan's appended tasks — the last n
+// column-0 tasks, n from the `**Tasks appended:** <n>` header line
+// (blockquoted or not), 0 when absent — in plan order, only the ticked ones
+// when tickedOnly, whatever rows name them: the caller judges coverage.
+// False when the plan cannot be read.
+func uwAppended(plan string, tickedOnly bool) ([]string, bool) {
 	b, err := os.ReadFile(plan)
 	if err != nil {
 		return nil, false
@@ -404,13 +411,13 @@ func uwAppendedTicked(plan string) ([]string, bool) {
 			tasks = append(tasks, m)
 		}
 	}
-	var missing []string
+	var ids []string
 	for _, m := range tasks[max(0, len(tasks)-appended):] {
-		if m[1] != " " {
-			missing = append(missing, m[2])
+		if !tickedOnly || m[1] != " " {
+			ids = append(ids, m[2])
 		}
 	}
-	return missing, true
+	return ids, true
 }
 
 // uwCountUnticked is count_unticked: column-0 `- [ ]` lines (the script
