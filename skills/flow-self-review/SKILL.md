@@ -88,7 +88,15 @@ reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **Every finding that is not `big` is fixed and landed without asking**, on one branch for the
-whole pass. A pass with none creates no worktree and dispatches nothing. **This session plans,
+whole pass. A pass with none creates no worktree and dispatches nothing. **The planner never drops a
+non-`big` finding because its first design would misfire** — a guard that would flag the
+pipeline's own commits, a check that would refuse legitimate history. That objection is a design
+constraint: the planner designs within it, measures the result against the history it named, and
+plans the fix. A finding leaves step 3 unfixed only when it is `big`, or disproved — the planner
+shows, with evidence, that the defect it names does not exist. A planner report that drops a
+finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a
+constraint, never offered for filing in step 4 (kan-982: the `Task-Id:` guard and the scope check
+were dropped as imprecise and offered for filing; the operator answered "fix them now"). **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and archive commit: each numbered step below that does is a fresh dispatch on the pair it names, its prompt carrying the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
