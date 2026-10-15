@@ -67,6 +67,17 @@ report carries a fixable defect — it carries **The loop** and **No cap**.
 
 ### Inline verify
 
+**A worktree with nothing outside its change directory runs none of the list below.** In a run
+whose resolved set holds more than one worktree, a worktree is skipped when this prints nothing, its
+merge base from this run's working notes:
+
+```bash
+git -C <worktree> diff --name-only <merge-base>..HEAD ':(exclude)spectre/changes/<name>' ':(exclude)spectre/changes/archive/<name>'
+```
+
+The `## Report` names a skipped worktree as `- <worktree> — skipped, nothing outside its change
+directory`.
+
 Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print
 (auto-detect on exit 1).
 Export the `KEY=value` lines `prepare-workspace.sh` printed for that worktree, then run the lint
@@ -100,7 +111,7 @@ change did not introduce takes **The loop** as well (**the sweep**, `skills/flow
 passing re-run as license to skip the rest of the list — every remaining command in the order
 above still runs.
 
-**Recording.** One `dispatches` row per worktree, `-role verifier -key verify -model <parent
+**Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <parent
 model> -effort <parent effort> -agent-id inline`, suffixed `-<worktree basename>` when this
 run's resolved set holds more than one worktree — the same convention
 **The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows. `begin` is
