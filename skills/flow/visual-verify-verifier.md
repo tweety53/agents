@@ -477,12 +477,19 @@ trigger until the view settles — a CDP screencast (`Page.startScreencast`, eac
 with `Page.screencastFrameAck`), or `page.screenshot` sampled back-to-back where no screencast is
 available — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
 steps). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
-id>/<nnn>.png`, read every one, and judge the strip frame by frame: **every frame shows the view
+id>/<nnn>-<ms>.png`, `<ms>` the frame's offset in milliseconds from the trigger — the screencast
+frame's own timestamp, or the clock read as a sampled screenshot is taken — read every one, and
+judge the strip frame by frame: **every frame shows the view
 being left or the view being entered, never an empty, default or wrong-but-plausible rendering
 between them; chrome (a title, a bar) and content change in the same frame; a removed motion's
 strip shows no intermediate frame; a gesture's content follows the pointer in every frame and
 settles where the motion's end state says** — plus any frame rule the project's own instructions
 state. A frame that breaks one is a departure, named by its index and what it shows.
+**A difference between two triggers is judged at one sampling.** Before reporting that one
+trigger draws a frame its sibling does not — Back against the forward navigation, a gesture
+against the tap it replaces — record the sibling in the same session by the same capture method
+and compare the two strips by their `<ms>` offsets; a frame one strip lacks only because its
+sampling skipped that instant is no departure.
 
 11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
