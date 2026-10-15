@@ -252,11 +252,13 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// survivors kill grace (ccDefaultGrace). RUN_REPRODUCER_* overrides
 	// exist for the same reason CHECK_CLEANUP_SURVIVORS_TIMEOUT does in that
 	// guard: driving a real 20-second wait through a test harness costs real
-	// wall clock per case, and the override is monotone in the safe direction —
-	// it can only ever shrink the wait, producing MORE timeouts, never fewer,
-	// so no value of it can turn an unverified run into a verified one. Never
-	// set either for a normal invocation; the Go tests inject
-	// Env.ReproducerBound and Env.ReproducerGrace instead.
+	// wall clock per case. The override is unclamped in both directions: a
+	// smaller value produces more timeouts, and a larger one lets a reproducer
+	// that builds or runs tests -- a Gradle suite outlives 20 seconds -- reach
+	// its verdict, the one normal invocation that sets it
+	// (skills/flow/review-panel-fix-round.md). A larger bound only lets a run
+	// finish; it never changes what the run's exit code means. The Go tests
+	// inject Env.ReproducerBound and Env.ReproducerGrace instead.
 	bound, boundLabel := rrDeadline(env.ReproducerBound, env.Getenv("RUN_REPRODUCER_BOUND_SECONDS"), rrDefaultBnd)
 	grace, _ := rrDeadline(env.ReproducerGrace, env.Getenv("RUN_REPRODUCER_GRACE_SECONDS"), rrDefaultGrc)
 	// RUN_REPRODUCER_BOUND_FILE, when set, also expires the bound the moment that

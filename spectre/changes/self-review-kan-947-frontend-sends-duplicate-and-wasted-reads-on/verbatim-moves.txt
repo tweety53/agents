@@ -4,7 +4,7 @@ When the change's diff touches a `## visual verification` `ui paths` glob (`git 
 **A reproducer that builds or runs tests outlives the runner's 20-second bound.
 **A worktree with nothing outside its change directory runs none of the list below.
 **No state** is exit 1 with `flow: no state recorded for <project>/<name>` on stderr; an exit 1 without that line is a failure to report, never a creating run.
-Every run of one — the exit-contract guard above, the per-finding run here and its re-run below — carries `RUN_REPRODUCER_BOUND_SECONDS=<the seconds that build or test run needs>` in front of the command, so it reaches a verdict rather than a timeout.
+Every run of one — the exit-contract guard above, the per-finding run here and its re-run below — carries `RUN_REPRODUCER_BOUND_SECONDS=<the seconds that build or test run needs>` in front of the command, in a foreground Bash call whose timeout covers the bound (600000 max), so it reaches a verdict rather than a timeout.
 In a run whose resolved set holds more than one worktree, a worktree is skipped when this prints nothing, its merge base from this run's working notes:
 In a run whose resolved set holds more than one worktree, every other worktree's diff is also matched against the canonical worktree's `ui paths`, each path prefixed with that worktree's repository name — its main checkout's basename, the name a glob such as `gymie-frontend/**` spells another repository's files with:
 Its exit 0 makes the canonical worktree survive this step as the canonical worktree's own exit 0 does.
