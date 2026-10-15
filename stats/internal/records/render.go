@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -197,13 +198,32 @@ func RenderPanel(r Run) string {
 	// record whose change carried no pass rows -- every panel rendered
 	// before this section existed, and every panel that ran clean without
 	// one -- renders nothing here, byte-identical to the old output.
-	if len(r.Passes) > 0 || len(r.Mutations) > 0 {
+	//
+	// A round a panel dispatch ran in renders even when the parent recorded
+	// no pass row for it, naming the dispatch keys: kan-951's round 1 ran
+	// panel-1-primary+principles and recorded nothing, and its record showed
+	// Round 0 alone, as if the round had never run.
+	rounds := passLogRounds(r)
+	if len(rounds) > 0 {
 		b.WriteString("\n## Pass log\n")
-		for _, round := range passLogRounds(r) {
+		for _, round := range rounds {
 			fmt.Fprintf(&b, "\n### Round %d\n\n", round)
+			passes := 0
 			for _, p := range r.Passes {
 				if p.Round == round {
+					passes++
 					fmt.Fprintf(&b, "- %s\n", neutraliseMarkers(p.Note))
+				}
+			}
+			if passes == 0 {
+				var keys []string
+				for _, d := range r.Dispatches {
+					if n, ok := panelDispatchRound(d); ok && n == round {
+						keys = append(keys, neutraliseMarkers(d.Key))
+					}
+				}
+				if len(keys) > 0 {
+					fmt.Fprintf(&b, "- no pass row recorded — dispatched: %s\n", strings.Join(keys, ", "))
 				}
 			}
 			mutations := 0
@@ -226,24 +246,57 @@ func RenderPanel(r Run) string {
 
 // passLogRounds lists the distinct rounds a change's pass-log rows carry,
 // ascending -- the rows themselves decide, so a round holding only passes,
-// or only mutations, still renders.
+// or only mutations, still renders -- plus every round a panel dispatch ran
+// in, once the change has any pass-log row, so a round whose pass rows were
+// never recorded still shows. A change with no pass-log row at all renders
+// no section, as before.
 func passLogRounds(r Run) []int {
+	if len(r.Passes) == 0 && len(r.Mutations) == 0 {
+		return nil
+	}
 	seen := map[int]bool{}
 	var nums []int
-	for _, p := range r.Passes {
-		if !seen[p.Round] {
-			seen[p.Round] = true
-			nums = append(nums, p.Round)
+	add := func(n int) {
+		if !seen[n] {
+			seen[n] = true
+			nums = append(nums, n)
 		}
 	}
+	for _, p := range r.Passes {
+		add(p.Round)
+	}
 	for _, m := range r.Mutations {
-		if !seen[m.Round] {
-			seen[m.Round] = true
-			nums = append(nums, m.Round)
+		add(m.Round)
+	}
+	for _, d := range r.Dispatches {
+		if n, ok := panelDispatchRound(d); ok {
+			add(n)
 		}
 	}
 	sort.Ints(nums)
 	return nums
+}
+
+// panelDispatchRound reads the round out of a panel bundle's dispatch key,
+// panel-<round>-<slot|slot+slot> (skills/flow/implement.md's dispatch
+// table); any other row -- a panel-fix-<round> fixer included -- is not one.
+func panelDispatchRound(d Dispatch) (int, bool) {
+	if d.Role != "reviewer" {
+		return 0, false
+	}
+	rest, ok := strings.CutPrefix(d.Key, "panel-")
+	if !ok {
+		return 0, false
+	}
+	digits, _, ok := strings.Cut(rest, "-")
+	if !ok {
+		return 0, false
+	}
+	n, err := strconv.Atoi(digits)
+	if err != nil || n < 0 || strconv.Itoa(n) != digits {
+		return 0, false
+	}
+	return n, true
 }
 
 // dispatchMetrics is the part of a dispatch's metrics bag the ledger

@@ -844,6 +844,36 @@ func TestRenderPanelPassLog(t *testing.T) {
 	}
 }
 
+// TestRenderPanelPassLogShowsADispatchedRoundWithNoPassRow pins that a
+// round a panel bundle ran in renders even when no pass row was recorded for
+// it, naming its dispatch keys -- kan-951's round 1 ran
+// panel-1-primary+principles, recorded nothing, and its record showed Round 0
+// alone. A panel-fix row and a non-panel reviewer add no round.
+func TestRenderPanelPassLogShowsADispatchedRoundWithNoPassRow(t *testing.T) {
+	out := records.RenderPanel(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{Key: "panel-0-primary+principles", Role: "reviewer"},
+			{Key: "panel-1-primary+principles", Role: "reviewer"},
+			{Key: "panel-fix-2", Role: "panel-fix"},
+			{Key: "task-1-reviewer", Role: "reviewer"},
+		},
+		Passes: []records.Pass{{ID: 1, Round: 0, Note: "roster: compact — 39"}},
+	})
+
+	section := out[strings.Index(out, "## Pass log"):]
+	want := "\n### Round 1\n\n- no pass row recorded — dispatched: panel-1-primary+principles\n"
+	if !strings.Contains(section, want) {
+		t.Errorf("pass-log section missing %q:\n%s", want, section)
+	}
+	if strings.Contains(section, "### Round 2") {
+		t.Errorf("a panel-fix row rendered a round of its own:\n%s", section)
+	}
+	if strings.Contains(section, "dispatched: panel-0") {
+		t.Errorf("round 0 has a pass row and must not render the no-pass-row line:\n%s", section)
+	}
+}
+
 // TestRenderPanelWithoutPassLogIsUnchanged pins that a record whose change
 // carries no pass-log rows renders exactly as it did before the section
 // existed -- every panel rendered before this change, and every run whose

@@ -4657,6 +4657,52 @@ func TestRunRecordNextRound(t *testing.T) {
 	})
 }
 
+// TestRunRecordNextRef pins the ref a run records its first finding under:
+// one past the highest F<n> any finding row carries, compared as numbers,
+// F1 for a change the store has never heard of, and nothing on a failed
+// read -- kan-951's third run numbered from F1 and overwrote the creating
+// run's F1.
+func TestRunRecordNextRef(t *testing.T) {
+	repo := recordRepo(t, "demo")
+	isolatedStateRoot(t)
+
+	for _, tc := range []struct {
+		name, body string
+		status     int
+		want       string
+	}{
+		{"highest ref plus one", `{"change":"demo","dispatches":[],
+		  "findings":[{"ref":"F9","round":0,"slot":"primary","severity":"Minor","note":"n","status":"fixed"},
+		              {"ref":"F10","round":3,"slot":"primary","severity":"Minor","note":"n","status":"open"}]}`, http.StatusOK, "F11"},
+		{"no rows", ``, http.StatusNotFound, "F1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "next-ref", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
+				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
+			}
+		})
+	}
+
+	t.Run("unreachable store prints nothing", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "next-ref", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
+			strings.NewReader(""), &stdout, &stderr)
+		if code == 0 || stdout.Len() != 0 {
+			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
+		}
+	})
+}
+
 // TestRecordFindingRejectsMalformedRef pins that a -ref, -supersedes or
 // -regression-of not shaped F<positive int> is refused with exit 2 before
 // the store is contacted -- kan-964 stored two rows keyed by commit shas,

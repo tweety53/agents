@@ -277,6 +277,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name
        flow record next-round [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record next-ref [-addr url] [-timeout dur] [-C dir]
+                             -change name
        flow record verdict  [-addr url] [-timeout dur] [-C dir]
                              -change name -guard guard -worktree path -verdict line
        flow record verdict false-positive [-addr url] [-timeout dur] [-C dir]
@@ -337,6 +339,13 @@ than the highest -round any pass, finding or mutation row of it carries, or
 0 when it has none. The round comes from the store, never from a session's
 memory, so a later run never reuses a round an earlier run recorded under.
 A failed read exits 1 and prints no number.
+
+next-ref prints the finding reference a run records its first finding
+under: F<n>, n one more than the highest F<n> any finding row of the change
+carries, or F1 when it has none. A ref is unique per change and a finding
+recorded under a ref already held rewrites that row, so a later run that
+numbered from F1 again would overwrite an earlier run's findings. A failed
+read exits 1 and prints nothing.
 
 journal-count prints how many of those journalled writes are still pending
 for a change -- one decimal count on stdout, and "unknown" where no count
@@ -568,6 +577,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordDispatches(ctx, args[1:], stdout, stderr)
 	case "next-round":
 		return runRecordNextRound(ctx, args[1:], stdout, stderr)
+	case "next-ref":
+		return runRecordNextRef(ctx, args[1:], stdout, stderr)
 	case "verdict":
 		return runRecordVerdict(ctx, args[1:], stdout, stderr)
 	case "verdicts":
@@ -2046,27 +2057,9 @@ func runRecordDispatches(ctx context.Context, args []string, stdout, stderr io.W
 // 0 for a change with none -- the round a panel run opens with, read from the
 // store so a later run cannot reuse an earlier run's round.
 func runRecordNextRound(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("flow record next-round", flag.ContinueOnError)
-	fset.SetOutput(stderr)
-	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
-
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	run, code, ok := readNextRecord(ctx, "next-round", args, stderr)
+	if !ok {
 		return code
-	}
-
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
-		return 1
-	}
-
-	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	if callErr != nil && !errors.Is(callErr, client.ErrNotFound) {
-		fmt.Fprintf(stderr, "flow: next-round: %v\n", callErr)
-		return 1
 	}
 
 	next := 0
@@ -2081,6 +2074,56 @@ func runRecordNextRound(ctx context.Context, args []string, stdout, stderr io.Wr
 	}
 	fmt.Fprintln(stdout, next)
 	return 0
+}
+
+// runRecordNextRef implements `flow record next-ref`: F<n>, n one more than
+// the highest F<n> any finding row of the change carries, or F1 for a change
+// with none -- the ref a run records its first finding under, read from the
+// store because the store upserts on (change, ref): kan-951's third run
+// numbered from F1 again and its F1 rewrote the creating run's F1.
+func runRecordNextRef(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	run, code, ok := readNextRecord(ctx, "next-ref", args, stderr)
+	if !ok {
+		return code
+	}
+
+	next := 1
+	for _, f := range run.Findings {
+		if n, err := strconv.Atoi(strings.TrimPrefix(f.Ref, "F")); err == nil {
+			next = max(next, n+1)
+		}
+	}
+	fmt.Fprintf(stdout, "F%d\n", next)
+	return 0
+}
+
+// readNextRecord reads the change's run record for next-round and next-ref:
+// a change the store has never heard of is an empty record, any other
+// failed read exits 1 with nothing on stdout.
+func readNextRecord(ctx context.Context, name string, args []string, stderr io.Writer) (records.Run, int, bool) {
+	fset := flag.NewFlagSet("flow record "+name, flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return records.Run{}, code, false
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return records.Run{}, 1, false
+	}
+
+	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if callErr != nil && !errors.Is(callErr, client.ErrNotFound) {
+		fmt.Fprintf(stderr, "flow: %s: %v\n", name, callErr)
+		return records.Run{}, 1, false
+	}
+	return run, 0, true
 }
 
 // runRecordVerdict implements `flow record verdict`: one guard's verdict on

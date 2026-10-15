@@ -718,8 +718,10 @@ flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <
 ```
 
 `-round` is `0` for the initial panel and `1..n` for a fix round. `-task` is the task id the
-finding names, omitted where it names none. `-ref` is unique within the change;
-the store's own constraint enforces it. **`-note` carries the reviewer's own sentence naming the
+finding names, omitted where it names none. `-ref` is unique within the change, and a finding
+recorded under a ref the change already holds rewrites that row. **A run's first finding ref is the
+one `flow record next-ref -change <name>` prints**, never `F1` carried from session memory or an
+earlier run's numbering, and each later finding of the run is one more. **`-note` carries the reviewer's own sentence naming the
 defect, not a dispatcher restatement.** Where the reviewer's wording runs long, quote the sentence
 that names the defect and leave the rest to the report file. **A fix round updates the finding it
 resolved rather than appending a second row:**
