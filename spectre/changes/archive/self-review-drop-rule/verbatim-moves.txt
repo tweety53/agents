@@ -1,0 +1,5 @@
+# Operator, 2026-10-15: a self-review finding is never dropped because its first design would misfire (kan-982).
+**The planner never drops a non-`big` finding because its first design would misfire** — a guard that would flag the pipeline's own commits, a check that would refuse legitimate history.
+A finding leaves step 3 unfixed only when it is `big`, or disproved — the planner shows, with evidence, that the defect it names does not exist.
+A planner report that drops a finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a constraint, never offered for filing in step 4 (kan-982: the `Task-Id:` guard and the scope check were dropped as imprecise and offered for filing; the operator answered "fix them now").
+That objection is a design constraint: the planner designs within it, measures the result against the history it named, and plans the fix.
