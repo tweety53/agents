@@ -27,9 +27,9 @@
 - `next-ref` over refs `F9` and `F10` must print `F11`, not `F10` — numeric, not lexical.
 - A change whose record has dispatches but no pass row at all must render no pass-log section.
 
-- [ ] 1. gymie's verify and capture rows set FRONTEND_URL beside BACKEND_URL
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age`, run `grep -n '^| .verify. \|^| .capture. ' .flow/project.md` and confirm both rows open with `BACKEND_URL=` and carry no `FRONTEND_URL=` — the defect: on a worktree stack Playwright's `baseURL` falls back to the main checkout's frontend port.
-  - [ ] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age`, apply this diff:
+- [x] 1. gymie's verify and capture rows set FRONTEND_URL beside BACKEND_URL
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age`, run `grep -n '^| .verify. \|^| .capture. ' .flow/project.md` and confirm both rows open with `BACKEND_URL=` and carry no `FRONTEND_URL=` — the defect: on a worktree stack Playwright's `baseURL` falls back to the main checkout's frontend port.
+  - [x] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age`, apply this diff:
 
 ````diff verified:git apply --check in the gymie worktree at f71533bf; scripts/check-visual-verification.sh reports VISUAL-OK on the section with and without it; FRONTEND_PORT=3080 renders FRONTEND_URL=http://localhost:3080
 diff --git a/.flow/project.md b/.flow/project.md
@@ -49,7 +49,7 @@ index 84df81b..2ab4cca 100644
  | `specs` | `node scripts/specs-for-diff.mjs <frontend-root> <merge-base>` |
 ````
 
-  - [ ] **Step 3: Verify.** From this agents worktree run `scripts/check-visual-verification.sh /Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age` (exit 0, `VISUAL-OK`), and `FRONTEND_PORT=3080 bash -c 'echo FRONTEND_URL=http://localhost:${FRONTEND_PORT:-3000}'` prints `FRONTEND_URL=http://localhost:3080`. Commit in `/Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age`: `git -C /Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age commit -m "fix(flow): verify and capture rows point Playwright at the worktree's frontend port" -- .flow/project.md`.
+  - [x] **Step 3: Verify.** From this agents worktree run `scripts/check-visual-verification.sh /Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age` (exit 0, `VISUAL-OK`), and `FRONTEND_PORT=3080 bash -c 'echo FRONTEND_URL=http://localhost:${FRONTEND_PORT:-3000}'` prints `FRONTEND_URL=http://localhost:3080`. Commit in `/Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age`: `git -C /Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age commit -m "fix(flow): verify and capture rows point Playwright at the worktree's frontend port" -- .flow/project.md`.
 
 **Build:** green
 **Files:** `.flow/project.md` (gymie repository, worktree `/Users/tweety53/Projects/gymie-worktrees/kan-951-cors-preflight-max-age`)
@@ -61,9 +61,9 @@ index 84df81b..2ab4cca 100644
 
 **Decision:** frontend-url-in-verify-rows
 
-- [ ] 2. The full-suite fix carries its trailer, records its own sha and proves a determinism fix
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'Flow-Key: full-suite-fix\|check-untasked-commits' skills/flow/implement.md` and confirm no line of **The parent runs the full suite — never an implementer.** names either — the defect: kan-951's full-suite fix commit carried no `Flow-Key:` trailer and its row recorded Task 1's sha.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 2. The full-suite fix carries its trailer, records its own sha and proves a determinism fix
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'Flow-Key: full-suite-fix\|check-untasked-commits' skills/flow/implement.md` and confirm no line of **The parent runs the full suite — never an implementer.** names either — the defect: kan-951's full-suite fix commit carried no `Flow-Key:` trailer and its row recorded Task 1's sha.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:applied with git apply to the worktree at edda7db8 in plan order; check-verbatim-moves.sh with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-guard-symlinks.sh exit 0
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -83,7 +83,7 @@ index 32381a81..3a4524dd 100644
  for any worktree in the resolved set, or the `--repo` run step 2 of **Visual verification**
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-normative-inventory.sh` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-normative-inventory.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/implement.md`
@@ -95,9 +95,9 @@ index 32381a81..3a4524dd 100644
 
 **Decision:** full-suite-fix-obligations
 
-- [ ] 3. A fix run's visual trigger reads the fix run's own diff
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'since-close' skills/flow/verify-and-handoff.md` and confirm it prints nothing — the defect: Visual verification's trigger reads `<merge-base>..HEAD` on a fix run too, so kan-951's fix run touching two gateway test files re-ran the whole visual verify.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 3. A fix run's visual trigger reads the fix run's own diff
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'since-close' skills/flow/verify-and-handoff.md` and confirm it prints nothing — the defect: Visual verification's trigger reads `<merge-base>..HEAD` on a fix run too, so kan-951's fix run touching two gateway test files re-ran the whole visual verify.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:applied with git apply to the worktree at edda7db8 in plan order; check-verbatim-moves.sh with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.py, check-installed-citations.sh exit 0
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -116,7 +116,7 @@ index 2a4157c6..08ddf621 100644
  **Decide**, `skills/flow/brainstorm-planner.md`), every worktree surviving step 2 prints
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-stage-mark-calls.sh` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-stage-mark-calls.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
@@ -128,10 +128,10 @@ index 2a4157c6..08ddf621 100644
 
 **Decision:** fix-run-visual-trigger-since-close
 
-- [ ] 4. Finding refs continue across runs and a panel round with no pass row still renders
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record next-ref -change x 2>&1 | head -3` and confirm it is refused as an unknown subcommand, and `grep -n 'Dispatches' internal/records/render.go | head` shows `passLogRounds` reads no dispatch row — the defect: kan-951's third run recorded `F1` again and rewrote the creating run's `F1`, and round 1's `panel-1-primary+principles` left no trace in the pass log.
-  - [ ] **Step 2: Write the failing tests.** Apply only the test hunks of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' --include='stats/internal/records/render_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRunRecordNextRef -count=1` and `go test ./internal/records/ -run TestRenderPanelPassLogShowsADispatchedRoundWithNoPassRow -count=1`: both FAIL.
-  - [ ] **Step 3: Implement.** Apply the rest of this diff:
+- [x] 4. Finding refs continue across runs and a panel round with no pass row still renders
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record next-ref -change x 2>&1 | head -3` and confirm it is refused as an unknown subcommand, and `grep -n 'Dispatches' internal/records/render.go | head` shows `passLogRounds` reads no dispatch row — the defect: kan-951's third run recorded `F1` again and rewrote the creating run's `F1`, and round 1's `panel-1-primary+principles` left no trace in the pass log.
+  - [x] **Step 2: Write the failing tests.** Apply only the test hunks of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' --include='stats/internal/records/render_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRunRecordNextRef -count=1` and `go test ./internal/records/ -run TestRenderPanelPassLogShowsADispatchedRoundWithNoPassRow -count=1`: both FAIL.
+  - [x] **Step 3: Implement.** Apply the rest of this diff:
 
 ````diff verified:applied with git apply to the worktree at edda7db8 in plan order; gofmt -l and go vet clean; go test ./internal/guard/ ./cmd/flow/ ./internal/records/ pass; both new tests fail with record.go and render.go reverted; check-verbatim-moves.sh with this change's verbatim-moves.txt exits 0
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -494,7 +494,7 @@ index f9645b96..7f52bdff 100644
  that names the defect and leave the rest to the report file. **A fix round updates the finding it
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/records/ && go test ./cmd/flow/ -run 'TestRunRecordNextRef|TestRunRecordNextRound' -count=1 && go test ./internal/records/ -count=1` — `gofmt -l` prints nothing, the tests pass; then `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` exit 0. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/records/ && go test ./cmd/flow/ -run 'TestRunRecordNextRef|TestRunRecordNextRound' -count=1 && go test ./internal/records/ -count=1` — `gofmt -l` prints nothing, the tests pass; then `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/internal/records/render.go`, `stats/internal/records/render_test.go`, `skills/flow/review-panel.md`
