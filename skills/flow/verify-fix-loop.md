@@ -52,9 +52,11 @@ One round runs these steps in order:
    passed on that same HEAD. **The `visual-verify`
    re-run is scoped to the round's own diff** in every worktree with a round base — the HEAD step
    12 of **Steps 3–13** (`skills/flow/visual-verify.md`) read after that worktree's previous
-   verifier dispatch: its prompt names that base, which the verifier's step 7 substitutes for
-   `specs`' `<merge-base>`, and its `motions:` names only the motions `git diff <round
-   base>..HEAD` adds, changes or removes, plus every motion this round's defects name. A worktree
+   verifier dispatch: its `motions:` names only the motions `git diff <round
+   base>..HEAD` adds, changes or removes, plus every motion this round's defects name. Its prompt
+   names the `<frontend-root>` worktree's own round base, which the verifier's step 7 substitutes
+   for `specs`' `<merge-base>` — never another worktree's of the change; when the
+   `<frontend-root>` worktree has no round base, the prompt names none and `specs` runs unscoped. A worktree
    whose round diff is empty is not dispatched. A worktree with no round base — no verifier of
    this run has verified it, or the parent no longer holds the sha — runs the stage unscoped.
    The confirming re-run

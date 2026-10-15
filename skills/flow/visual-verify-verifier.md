@@ -7,7 +7,8 @@ motion step and the `## Report` template, run as written.
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
 7. **Run `verify`.** When `specs` is declared, run it first from the `regression checkout`, with
    `<frontend-root>` substituted for the worktree and `<merge-base>` for its merge base — or for
-   the round base, when the prompt names one — and substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs
+   the `<frontend-root>` worktree's own round base, when the prompt names one, never another
+   worktree's — and substitute the spec paths it prints, space-separated, for `verify`'s `<specs>`: the mapped specs
    replace the checked-in suite, never extend it. An absent `specs`, an empty output or a non-zero
    exit substitutes nothing, and `verify` runs its whole suite. A `verify` with no `<specs>` runs as
    declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
