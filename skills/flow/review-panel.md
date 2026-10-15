@@ -589,7 +589,9 @@ and, when it holds more than one worktree, the qualification rule:
 > **WORKTREES:** this change spans `<abs-worktree-1>`, `<abs-worktree-2>`, …; `final-review.diff`
 > is sectioned by worktree, each section headed `# worktree: <path> — merge base <sha>`. When more
 > than one is listed, prefix every finding's `file:line` with that worktree's repository name —
-> its main checkout's basename (`gymie-frontend:src/Foo.tsx:42`) —, and author that finding's reproducer per the cwd contract the
+> its main checkout's basename (`gymie-frontend:src/Foo.tsx:42`) —, prefix the same way every
+> `# demonstrates:` and `# premise:` path its reproducer cites in a worktree other than the
+> canonical one, and author that finding's reproducer per the cwd contract the
 > reproducer rule states: it executes from the canonical worktree the parent passes the runner,
 > never from the worktree its own prefix names, and resolves that worktree by absolute path inside
 > itself.
