@@ -1665,6 +1665,27 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			res := r.run("15", sha)
 			ok(t, "case 15: field-looking line inside a fenced block is not parsed as real field data", res.rc == 0, res)
 		}},
+		{"case sibling", func(t *testing.T) {
+			sib := t.TempDir() + "/gymie"
+			mkdir(t, sib)
+			tcfGit(t, sib, "init", "-q")
+			writeFile(t, sib+"/src/group/Group.kt", "x\n")
+			tcfGit(t, sib, "add", "-A")
+			tcfGit(t, sib, "-c", "user.email=t@e", "-c", "user.name=T", "commit", "-q", "-m", "base")
+			r := fx.repo(t, "change-a")
+			r.commit("project", ".flow/project.md",
+				"# p\n\n## apps\n\n| App | Repo root | Kind |\n|-----|-----------|------|\n| Own | `"+r.dir+"` | Go |\n| Backend | `"+sib+"` | Kotlin |\n")
+			r.plan(bt(`- [ ] 1. Sibling scope
+
+**Files:** ¤alpha.txt¤
+**Commit:** fix(group): add alpha
+**Build:** green
+`))
+			sha := r.commit("fix(group): add alpha", "alpha.txt", "a\n")
+			res := r.run("1", sha)
+			ok(t, "case sibling: a scope naming only an ## apps sibling's module fails", res.rc == 1, res)
+			ok(t, "case sibling: names the sibling", has(res.out, "names a module of gymie"), res)
+		}},
 		{"case 17", func(t *testing.T) {
 			r := fx.repo(t, "kan-900-some-change")
 			r.plan(tcfPlans["17"])

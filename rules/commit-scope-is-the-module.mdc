@@ -19,16 +19,22 @@ never a list.
 codebase moved without opening the commit. A scope naming the change or a ticket repeats information
 the branch and the tracker already carry, and tells the reader nothing about where the change landed.
 
-## The three prohibited shapes
+## The four prohibited shapes
 
 - **The change name** — `feat(kan-239-run-2-asserts-base-branch-and-archives-via-pr): …` names the
   change, not a module.
 - **The change's bare Jira key** — `feat(kan-239): …` is the same defect with the descriptive suffix
   trimmed off.
 - **A task id** — `fix(3.2): …` names a line in a plan, not a part of the codebase.
+- **A module of another repository** — `fix(group): …` on a commit touching only gymie-playwright's
+  fidelity/builder.spec.ts, `group` being a gymie module, names where the change did not land.
+  The guard refuses a scope that is a path token of another `## apps` repository of the project
+  and is none of: a token of a path the commit touched, a word of its own repository's name, a
+  scope an earlier commit of its repository used, or a directory name of its repository — every
+  `-` part of the scope one, for a compound area such as `workout-ui`.
 
 Anything else is allowed. There is no vocabulary of legal module names to maintain; the rule refuses
-three known-wrong shapes and accepts everything else.
+four known-wrong shapes and accepts everything else.
 
 ## The guard
 
@@ -46,5 +52,8 @@ reproduces it exactly. Outside the pipeline, this rule is the only enforcement: 
   passes; the check is equality, never a substring match.
 - `feat(kan-202-commit-split-and-module-scopes): …` — the change name, refused.
 - `fix(3.2): …` — a dotted task id, refused.
+- `fix(group): …` touching only gymie-playwright's fidelity/builder.spec.ts — a module of gymie
+  and nothing in gymie-playwright, refused.
+- `test(visual): …` on a snapshot capture — no repository of the project carries `visual`, passes.
 
 Applies globally, to every commit, not only inside the flow pipeline.

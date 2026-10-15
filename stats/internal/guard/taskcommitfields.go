@@ -178,7 +178,11 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	// forwarded. Shared by all three resolution paths (named change, satellite
 	// link, glob-path) so the dispatch lives in exactly one place.
 	judge := func(tasksMD string) int {
-		violations, err := tcfCheckTaskCommit(env, tasksMD, taskID, repos, parent)
+		projectDir := canonical
+		if projectDir == "" {
+			projectDir = worktree
+		}
+		violations, err := tcfCheckTaskCommit(env, tasksMD, taskID, repos, parent, projectDir)
 		var crash tcfCrash
 		switch {
 		case errors.As(err, &crash):
@@ -1350,7 +1354,7 @@ type tcfRepoDiff struct {
 }
 
 // tcfCheckTaskCommit is check_task_commit.
-func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, parent string) ([]string, error) {
+func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, parent, projectDir string) ([]string, error) {
 	raw, err := os.ReadFile(tasksMD)
 	if err != nil {
 		return nil, tcfOSError(tasksMD, err)
@@ -1474,7 +1478,145 @@ func tcfCheckTaskCommit(env Env, tasksMD, taskID string, repos []tcfRepoCommit, 
 		v = append(v, tcfCheckCommitSubject(folded, tcfStrip(d.subject))...)
 	}
 	v = append(v, tcfCheckCommitScope(task, changeName)...)
+	sibling, err := tcfCheckScopeSibling(env, task, diffs, projectDir)
+	if err != nil {
+		return nil, err
+	}
+	v = append(v, sibling...)
 	return v, nil
+}
+
+// tcfCheckScopeSibling refuses a declared scope that names a module of
+// another repository of the project and nothing in this one — kan-982's
+// `fix(group)` on a commit touching only gymie-playwright's
+// fidelity/builder.spec.ts, `group` being a backend and frontend module.
+// The scope passes when it is a token of a path the commit touched, a word of
+// its repository's name, a scope an earlier commit of the repository used, a
+// directory name of the repository's tree at the commit (or every `-` part of
+// it is one), or no token of any other `## apps` repository's tree. A sibling
+// git cannot read refuses nothing. Measured at plan time over the gymie
+// repositories' scoped history: 10 of 1494 commits refused.
+func tcfCheckScopeSibling(env Env, task tcfTask, diffs []tcfRepoDiff, projectDir string) ([]string, error) {
+	if task.commit == nil {
+		return nil, nil
+	}
+	m := tcfSubjectScopeRE.FindStringSubmatch(*task.commit)
+	if m == nil || m[1] == "" {
+		return nil, nil
+	}
+	scope := strings.ToLower(m[1])
+	git := envGit(env)
+	own := map[string]bool{}
+	for _, d := range diffs {
+		if tcfPathTokens(d.changed)[scope] {
+			return nil, nil
+		}
+		common, ok := capture(git("-C", d.worktree, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		if !ok {
+			return nil, fmt.Errorf("git cannot name the repository of %s", d.worktree)
+		}
+		own[common] = true
+		if slices.Contains(tcfWords(filepath.Base(filepath.Dir(common))), scope) {
+			return nil, nil
+		}
+		subjects, ok := capture(git("-C", d.worktree, "log", "--format=%s", d.parent))
+		if !ok {
+			return nil, fmt.Errorf("git cannot read the history of %s at %s", d.worktree, d.parent)
+		}
+		for _, s := range strings.Split(subjects, "\n") {
+			if e := tcfSubjectScopeRE.FindStringSubmatch(s); e != nil && strings.ToLower(e[1]) == scope {
+				return nil, nil
+			}
+		}
+		dirs, ok := capture(git("-C", d.worktree, "ls-tree", "-r", "-d", "--name-only", d.commit))
+		if !ok {
+			return nil, fmt.Errorf("git cannot list the directories of %s at %s", d.worktree, d.commit)
+		}
+		segs := map[string]bool{}
+		for _, p := range strings.Split(dirs, "\n") {
+			for _, seg := range strings.Split(p, "/") {
+				segs[strings.ToLower(seg)] = true
+			}
+		}
+		parts := strings.Split(scope, "-")
+		if !slices.ContainsFunc(parts, func(p string) bool { return !segs[p] }) {
+			return nil, nil
+		}
+	}
+	for _, root := range tcfAppRoots(projectSection(filepath.Join(projectDir, ".flow", "project.md"), "apps")) {
+		common, ok := capture(git("-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		if !ok || own[common] {
+			continue
+		}
+		files, ok := capture(git("-C", root, "ls-tree", "-r", "--name-only", "HEAD"))
+		if !ok {
+			continue
+		}
+		if tcfPathTokens(strings.Split(files, "\n"))[scope] {
+			return []string{fmt.Sprintf("task %s: declared Commit: scope %s names a module of %s and nothing this commit touched, this repository's directories or its earlier scopes — name the area the commit moved", task.id, tcfRepr(m[1]), filepath.Base(filepath.Dir(common)))}, nil
+		}
+	}
+	return nil, nil
+}
+
+// tcfAppRoots is every absolute, backticked `Repo root` cell of an `## apps`
+// table body.
+func tcfAppRoots(apps string) []string {
+	var roots []string
+	for _, line := range strings.Split(apps, "\n") {
+		cells := strings.Split(line, "|")
+		if len(cells) < 4 {
+			continue
+		}
+		cell := strings.Trim(strings.TrimSpace(cells[2]), "`")
+		if strings.HasPrefix(cell, "/") {
+			roots = append(roots, cell)
+		}
+	}
+	return roots
+}
+
+// tcfScopeWordRE is one camelCase word of a path part; tcfScopeSepRE splits
+// a name at `-`, `_` and `.`.
+var (
+	tcfScopeWordRE = regexp.MustCompile(`[A-Z]?[a-z0-9]+|[A-Z]+`)
+	tcfScopeSepRE  = regexp.MustCompile(`[-_.]`)
+)
+
+// tcfWords is a name's `-`, `_` and `.` parts, lowercased.
+func tcfWords(name string) []string {
+	var out []string
+	for _, p := range tcfScopeSepRE.Split(strings.ToLower(name), -1) {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// tcfPathTokens is every token a scope may name a path by: each segment
+// whole and without its extension, its `-`/`_`/`.` parts, and their
+// camelCase words, lowercased.
+func tcfPathTokens(paths []string) map[string]bool {
+	t := map[string]bool{}
+	for _, p := range paths {
+		for _, seg := range strings.Split(p, "/") {
+			if seg == "" {
+				continue
+			}
+			stem, _, _ := strings.Cut(seg, ".")
+			for _, x := range append([]string{seg, stem}, tcfScopeSepRE.Split(seg, -1)...) {
+				if x == "" {
+					continue
+				}
+				t[strings.ToLower(x)] = true
+				for _, w := range tcfScopeWordRE.FindAllString(x, -1) {
+					t[strings.ToLower(w)] = true
+				}
+			}
+		}
+	}
+	return t
 }
 
 // tcfCheckFiles is check_files.
