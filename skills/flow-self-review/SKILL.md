@@ -96,7 +96,12 @@ plans the fix. A finding leaves step 3 unfixed only when it is `big`, or disprov
 shows, with evidence, that the defect it names does not exist. A planner report that drops a
 finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a
 constraint, never offered for filing in step 4 (kan-982: the `Task-Id:` guard and the scope check
-were dropped as imprecise and offered for filing; the operator answered "fix them now"). **This session plans,
+were dropped as imprecise and offered for filing; the operator answered "fix them now"). A finding hard
+to solve escalates the planner rather than leaving the loop: the re-plan may run on `flow-high`
+(effort `high`) in place of the planner pair's `flow-medium`. Where `high` still cannot produce a
+design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch is never made
+without the operator's approval, asked first with the finding, the objection and what `high`
+returned; a refusal leaves the finding offered for filing in step 4. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and archive commit: each numbered step below that does is a fresh dispatch on the pair it names, its prompt carrying the MODEL HANDSHAKE,
 TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of **4. Execute (SDD + TDD)**
