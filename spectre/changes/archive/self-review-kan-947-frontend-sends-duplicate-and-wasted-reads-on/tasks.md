@@ -15,9 +15,9 @@
 - Every prose block below is copied verbatim, line breaks aside: this change's `verbatim-moves.txt` acknowledges each new or reworded sentence by its exact text, and any other wording fails `scripts/check-verbatim-moves.sh`.
 - Go in `stats/` follows the Go skills `CLAUDE.md` names; run `cd stats && gofmt -w .` before `gofmt -l .`.
 
-- [ ] 1. A test-building reproducer runs with a raised bound
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -rn RUN_REPRODUCER_BOUND_SECONDS skills commands-claude rules` — no hit, the defect: no run-loaded file names the override — and read `stats/internal/guard/runreproducer.go`'s comment above `bound, boundLabel := rrDeadline(` and `rrDeadline` itself: the comment says the override "can only ever shrink the wait" while `rrDeadline` accepts any all-digit value.
-  - [ ] **Step 2: Correct the comment.** In `stats/internal/guard/runreproducer.go`, replace these five comment lines
+- [x] 1. A test-building reproducer runs with a raised bound
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -rn RUN_REPRODUCER_BOUND_SECONDS skills commands-claude rules` — no hit, the defect: no run-loaded file names the override — and read `stats/internal/guard/runreproducer.go`'s comment above `bound, boundLabel := rrDeadline(` and `rrDeadline` itself: the comment says the override "can only ever shrink the wait" while `rrDeadline` accepts any all-digit value.
+  - [x] **Step 2: Correct the comment.** In `stats/internal/guard/runreproducer.go`, replace these five comment lines
 
 ```go verified:read at e47bb947 in runReproducer, above the rrDeadline call
 	// wall clock per case, and the override is monotone in the safe direction —
@@ -39,7 +39,7 @@
 	// inject Env.ReproducerBound and Env.ReproducerGrace instead.
 ```
 
-  - [ ] **Step 3: Add the paragraph.** In `skills/flow/review-panel-fix-round.md`, directly after the paragraph ending "(KAN-658) — the same tree the exit-contract guard above already ran this reproducer in." and before the paragraph opening "Read its exit code:", insert as its own paragraph, a blank line either side:
+  - [x] **Step 3: Add the paragraph.** In `skills/flow/review-panel-fix-round.md`, directly after the paragraph ending "(KAN-658) — the same tree the exit-contract guard above already ran this reproducer in." and before the paragraph opening "Read its exit code:", insert as its own paragraph, a blank line either side:
 
 ```markdown verified:check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-installed-citations.sh and check-normative-inventory.sh exit 0 with every task of this plan applied and this change's verbatim-moves.txt present, spiked at e47bb947
 **A reproducer that builds or runs tests outlives the runner's 20-second bound.** Every run of
@@ -48,7 +48,7 @@ one — the exit-contract guard above, the per-finding run here and its re-run b
 command, so it reaches a verdict rather than a timeout.
 ```
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/`, then from the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/`, then from the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/runreproducer.go`, `skills/flow/review-panel-fix-round.md`
@@ -60,9 +60,9 @@ command, so it reaches a verdict rather than a timeout.
 
 **Decision:** reproducer-bound-override
 
-- [ ] 2. Cross-repo reproducer declarations carry the repository prefix
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read the WORKTREES paragraph in `skills/flow/review-panel.md` (the quote opening "> **WORKTREES:** this change spans") and confirm it prefixes only a finding's `file:line`, nothing of `# demonstrates:` or `# premise:` — the defect — while `pcResolveCitation` in `stats/internal/guard/panelexitcontract.go` already resolves a `<repo>:` prefix on both.
-  - [ ] **Step 2: Add the clause.** In that paragraph, replace the line
+- [x] 2. Cross-repo reproducer declarations carry the repository prefix
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read the WORKTREES paragraph in `skills/flow/review-panel.md` (the quote opening "> **WORKTREES:** this change spans") and confirm it prefixes only a finding's `file:line`, nothing of `# demonstrates:` or `# premise:` — the defect — while `pcResolveCitation` in `stats/internal/guard/panelexitcontract.go` already resolves a `<repo>:` prefix on both.
+  - [x] **Step 2: Add the clause.** In that paragraph, replace the line
 
 ```markdown verified:read at e47bb947 in review-panel.md's WORKTREES paragraph
 > its main checkout's basename (`gymie-frontend:src/Foo.tsx:42`) —, and author that finding's reproducer per the cwd contract the
@@ -76,7 +76,7 @@ command, so it reaches a verdict rather than a timeout.
 > canonical one, and author that finding's reproducer per the cwd contract the
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/review-panel.md`
@@ -88,9 +88,9 @@ command, so it reaches a verdict rather than a timeout.
 
 **Decision:** prefix-reproducer-declarations
 
-- [ ] 3. Read no state by its own line, never through a chain
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `flow state get no-such-change-xyz -C .` as its own call and record the exit code and both streams: exit 1, stdout empty, stderr `flow: no state recorded for <project>/no-such-change-xyz`. Then confirm **Reading the state** in `skills/flow/SKILL.md` reads any exit 1 as no state — the defect.
-  - [ ] **Step 2: Add the paragraph.** In `skills/flow/SKILL.md`, **Reading the state**, directly after the fenced `flow state get <name-or-best-guess> -C <repo-root>` block and before the bullet opening "- **Exit 1**, or exit 0 with", insert as its own paragraph, a blank line either side:
+- [x] 3. Read no state by its own line, never through a chain
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `flow state get no-such-change-xyz -C .` as its own call and record the exit code and both streams: exit 1, stdout empty, stderr `flow: no state recorded for <project>/no-such-change-xyz`. Then confirm **Reading the state** in `skills/flow/SKILL.md` reads any exit 1 as no state — the defect.
+  - [x] **Step 2: Add the paragraph.** In `skills/flow/SKILL.md`, **Reading the state**, directly after the fenced `flow state get <name-or-best-guess> -C <repo-root>` block and before the bullet opening "- **Exit 1**, or exit 0 with", insert as its own paragraph, a blank line either side:
 
 ```markdown verified:check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-installed-citations.sh and check-normative-inventory.sh exit 0 with every task of this plan applied and this change's verbatim-moves.txt present, spiked at e47bb947
 Run it as its own Bash call, never chained to another command. **No state** is exit 1 with
@@ -98,7 +98,7 @@ Run it as its own Bash call, never chained to another command. **No state** is e
 to report, never a creating run.
 ```
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/SKILL.md`
@@ -110,9 +110,9 @@ to report, never a creating run.
 
 **Decision:** no-state-stderr-line
 
-- [ ] 4. The visual trigger matches another worktree's diff against the canonical `ui paths`
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: it fails with `--repo gymie-frontend: exit 2 output "check-visual-trigger: usage: …"` — the defect: no caller can match a frontend worktree's paths against the canonical project's `gymie-frontend/**`.
-  - [ ] **Step 2: Write the failing test.** In `stats/internal/guard/check_visual_trigger_test.go`, change the `vtUsage` constant's `usage: check-visual-trigger.sh <project root> (changed paths on stdin)` to `usage: check-visual-trigger.sh [--repo <name>] <project root> (changed paths on stdin)`, and append at the end of the file:
+- [x] 4. The visual trigger matches another worktree's diff against the canonical `ui paths`
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: it fails with `--repo gymie-frontend: exit 2 output "check-visual-trigger: usage: …"` — the defect: no caller can match a frontend worktree's paths against the canonical project's `gymie-frontend/**`.
+  - [x] **Step 2: Write the failing test.** In `stats/internal/guard/check_visual_trigger_test.go`, change the `vtUsage` constant's `usage: check-visual-trigger.sh <project root> (changed paths on stdin)` to `usage: check-visual-trigger.sh [--repo <name>] <project root> (changed paths on stdin)`, and append at the end of the file:
 
 ```go verified:applied with step 3's code at e47bb947 — fails without the change (exit 2, usage), passes with it; the whole go test ./... passes, go vet and gofmt -l clean
 // TestVisualTriggerRepoPrefix pins the kan-947 self-review fix: `--repo
@@ -144,7 +144,7 @@ func TestVisualTriggerRepoPrefix(t *testing.T) {
 ```
 
     Run `cd stats && go test ./internal/guard/ -run 'TestVisualTriggerRepoPrefix|TestCheckVisualTrigger' -count=1` and confirm both FAIL.
-  - [ ] **Step 3: Implement the flag.** In `stats/internal/guard/visualtrigger.go`, `checkVisualTrigger`, replace the opening usage check
+  - [x] **Step 3: Implement the flag.** In `stats/internal/guard/visualtrigger.go`, `checkVisualTrigger`, replace the opening usage check
 
 ```go verified:read at e47bb947 in checkVisualTrigger
 	if len(args) != 1 {
@@ -186,7 +186,7 @@ func TestVisualTriggerRepoPrefix(t *testing.T) {
 		return paths, nil
 ```
 
-  - [ ] **Step 4: Update the script header.** In `scripts/check-visual-trigger.sh`, replace the two header lines
+  - [x] **Step 4: Update the script header.** In `scripts/check-visual-trigger.sh`, replace the two header lines
 
 ```bash verified:read at e47bb947 in the header's usage line
 # Usage: check-visual-trigger.sh <project root>   (changed paths on stdin,
@@ -205,7 +205,7 @@ func TestVisualTriggerRepoPrefix(t *testing.T) {
 # (`gymie-frontend/**`) — flow.visual-verify's step 2.
 ```
 
-  - [ ] **Step 5: Call it from step 2 of Visual verification.** In `skills/flow/verify-and-handoff.md`, **Visual verification**, step 2, directly after the line "   dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them." and before the paragraph opening "**A `skipped` decision ends the stage at step 2.**", insert, indented three columns as step 2's text is:
+  - [x] **Step 5: Call it from step 2 of Visual verification.** In `skills/flow/verify-and-handoff.md`, **Visual verification**, step 2, directly after the line "   dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them." and before the paragraph opening "**A `skipped` decision ends the stage at step 2.**", insert, indented three columns as step 2's text is:
 
 ````markdown verified:check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-installed-citations.sh and check-normative-inventory.sh exit 0 with every task of this plan applied and this change's verbatim-moves.txt present, spiked at e47bb947
    In a run whose resolved set holds more than one worktree, every other worktree's diff is also
@@ -221,7 +221,7 @@ func TestVisualTriggerRepoPrefix(t *testing.T) {
    does.
 ````
 
-  - [ ] **Step 6: Count it in the full-suite visual run.** In `skills/flow/implement.md`, the paragraph opening "When the change's diff touches a `## visual verification` `ui paths` glob", replace
+  - [x] **Step 6: Count it in the full-suite visual run.** In `skills/flow/implement.md`, the paragraph opening "When the change's diff touches a `## visual verification` `ui paths` glob", replace
 
 ```markdown verified:read at e47bb947 in implement.md's full-suite visual clause
 for any worktree in the resolved set, its merge base from this run's working notes; exit 1 or 2 for
@@ -236,7 +236,7 @@ for any worktree in the resolved set, or the `--repo` run step 2 of **Visual ver
 run's working notes; no exit 0 from either skips this run)
 ```
 
-  - [ ] **Step 7: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'VisualTrigger|VisualVerifyDispatched' -count=1`, then from the repository root `bash -n scripts/check-visual-trigger.sh`, `printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 7: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'VisualTrigger|VisualVerifyDispatched' -count=1`, then from the repository root `bash -n scripts/check-visual-trigger.sh`, `printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/visualtrigger.go`, `stats/internal/guard/check_visual_trigger_test.go`, `scripts/check-visual-trigger.sh`, `skills/flow/verify-and-handoff.md`, `skills/flow/implement.md`
@@ -249,9 +249,9 @@ run's working notes; no exit 0 from either skips this run)
 
 **Decision:** visual-trigger-repo-prefix
 
-- [ ] 5. Inline verify skips a worktree with nothing outside its change directory
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read **Inline verify** in `skills/flow/verify-and-handoff.md` and confirm it runs the lint and test list for every worktree of the resolved set, with no skip for one whose diff is only its change directory — the defect.
-  - [ ] **Step 2: Add the skip.** In `skills/flow/verify-and-handoff.md`, directly after the heading `### Inline verify` and before the paragraph opening "Resolve the commands `project-get.sh <worktree> lint`", insert, a blank line either side:
+- [x] 5. Inline verify skips a worktree with nothing outside its change directory
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read **Inline verify** in `skills/flow/verify-and-handoff.md` and confirm it runs the lint and test list for every worktree of the resolved set, with no skip for one whose diff is only its change directory — the defect.
+  - [x] **Step 2: Add the skip.** In `skills/flow/verify-and-handoff.md`, directly after the heading `### Inline verify` and before the paragraph opening "Resolve the commands `project-get.sh <worktree> lint`", insert, a blank line either side:
 
 ````markdown verified:check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-installed-citations.sh and check-normative-inventory.sh exit 0 with every task of this plan applied and this change's verbatim-moves.txt present, spiked at e47bb947
 **A worktree with nothing outside its change directory runs none of the list below.** In a run
@@ -266,7 +266,7 @@ The `## Report` names a skipped worktree as `- <worktree> — skipped, nothing o
 directory`.
 ````
 
-  - [ ] **Step 3: Record no row for it.** In the same file's **Recording.** paragraph, replace its first line
+  - [x] **Step 3: Record no row for it.** In the same file's **Recording.** paragraph, replace its first line
 
 ```markdown verified:read at e47bb947 in verify-and-handoff.md's Recording. paragraph
 **Recording.** One `dispatches` row per worktree, `-role verifier -key verify -model <parent
@@ -277,7 +277,7 @@ directory`.
 ```markdown verified:check-verbatim-moves.sh, check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-installed-citations.sh and check-normative-inventory.sh exit 0 with every task of this plan applied and this change's verbatim-moves.txt present, spiked at e47bb947
 **Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <parent
 ```
-  - [ ] **Step 4: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh` — all exit 0. Commit.
+  - [x] **Step 4: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
