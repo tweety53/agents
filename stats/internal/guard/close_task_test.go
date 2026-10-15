@@ -128,7 +128,7 @@ func TestCloseTaskOrder(t *testing.T) {
 			}
 		}
 		ctEqual(t, fx.calls(t), []string{
-			"flow record dispatch end -change demo -key task-1-implementer -session-token mf-t -commit " + s2 + " -outcome completed",
+			"flow record dispatch end -change demo -C " + fx.wt + " -key task-1-implementer -session-token mf-t -commit " + s2 + " -outcome completed",
 			"flow record decisions -change demo -C " + fx.wt,
 			"flow tasks tick -C " + fx.wt + " demo 1",
 			"git -C " + fx.wt + " push origin spectre/demo",
@@ -246,7 +246,7 @@ func TestCloseTaskExitContract(t *testing.T) {
 				return []string{"-end-key", "k", "-session-token", "mf-t", fx.wt, "demo", fx.base, "1:" + s1}
 			},
 			0, func(fx *ctFx) []string {
-				return []string{"flow record dispatch end -change demo -key k -session-token mf-t -outcome completed",
+				return []string{"flow record dispatch end -change demo -C " + fx.wt + " -key k -session-token mf-t -outcome completed",
 					"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"}
 			}},
 		{"task argument without a sha", true, "0", "0",

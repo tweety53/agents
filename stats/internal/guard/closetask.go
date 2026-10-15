@@ -71,7 +71,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// A record never blocks: a failed dispatch end is reported, never a stop.
 	if *endKey != "" {
-		rec := []string{"record", "dispatch", "end", "-change", name, "-key", *endKey, "-session-token", *token}
+		rec := []string{"record", "dispatch", "end", "-change", name, "-C", canonical, "-key", *endKey, "-session-token", *token}
 		if *endCommit != "" {
 			rec = append(rec, "-commit", *endCommit)
 		}
