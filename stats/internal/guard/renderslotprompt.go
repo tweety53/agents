@@ -26,11 +26,6 @@ var (
 	// rspUnfilled is what a render must no longer carry: a template
 	// placeholder, or a block's own path/round/id/report placeholder.
 	rspUnfilled = regexp.MustCompile(`\[[A-Z][A-Z0-9_]*\]|<abs-worktree[^>]*>|<fix report>|<round>|<id>`)
-	// rspSlots are the slots with a template -- test-sanity and
-	// call-efficiency are the always-on extra dispatch's roles (kan-959);
-	// mutation's brief stays typed, and an exp-<name> slot's template is
-	// experimental/<name>.md.
-	rspSlots = map[string]bool{"primary": true, "principles": true, "failure-modes": true, "test-sanity": true, "call-efficiency": true}
 )
 
 func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
@@ -99,7 +94,10 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, s := range slots {
 		switch {
 		case s == "mutation":
-		case rspSlots[s], len(s) > len("exp-") && strings.HasPrefix(s, "exp-") && !strings.Contains(s, "/"):
+		// Any other slot is valid when its template exists -- <id>-reviewer-prompt.md,
+		// or experimental/<name>.md for exp-<name> -- so a slot added to the skill
+		// directory renders without a rebuild of this guard.
+		case !strings.Contains(s, "/") && (len(s) > len("exp-") && strings.HasPrefix(s, "exp-") || isFile(skill+"/"+s+"-reviewer-prompt.md")):
 			roles = append(roles, s)
 		default:
 			return refuse("no reviewer template for slot %q", s)

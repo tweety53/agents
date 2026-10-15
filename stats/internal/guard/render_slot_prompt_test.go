@@ -340,3 +340,27 @@ func TestRenderSlotPromptAlwaysOnRoles(t *testing.T) {
 		t.Errorf("exp-test-sanity: exit %d, want 2 — its template moved", r.rc)
 	}
 }
+
+// TestRenderSlotPromptSlotFromTemplate pins the kan-959 self-review fix: a
+// slot is valid when <skill-dir>/<id>-reviewer-prompt.md exists, so a slot
+// added to the skill directory renders without a rebuild of the guard; an id
+// with no template, or carrying a `/`, is still refused.
+func TestRenderSlotPromptSlotFromTemplate(t *testing.T) {
+	t.Parallel()
+	real := rspSkillDir(t)
+	skill := t.TempDir()
+	for _, f := range []string{"review-panel.md", "reviewer-calibration.md", "engineering-principles.md"} {
+		writeFile(t, skill+"/"+f, rbRead(real+"/"+f))
+	}
+	writeFile(t, skill+"/brand-new-reviewer-prompt.md", rbRead(real+"/primary-reviewer-prompt.md"))
+	fx := rspNewFx(t)
+	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "brand-new", "-diff", "final", "--", fx.canon)
+	if r.rc != 0 || !strings.Contains(got, "## PASS brand-new") {
+		t.Fatalf("brand-new: exit %d stderr %q; want 0 and a PASS brand-new section", r.rc, r.err)
+	}
+	for _, slot := range []string{"no-such-slot", "../" + filepath.Base(skill) + "/brand-new"} {
+		if r, _ := fx.run(t, skill, skill, "0", fx.canon, fx.plan, slot, "-diff", "final", "--", fx.canon); r.rc != 2 || !strings.Contains(r.err, "no reviewer template") {
+			t.Errorf("%s: exit %d stderr %q; want 2 naming no reviewer template", slot, r.rc, r.err)
+		}
+	}
+}
