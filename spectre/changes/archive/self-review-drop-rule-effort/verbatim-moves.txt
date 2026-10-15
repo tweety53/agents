@@ -1,0 +1,3 @@
+# Operator, 2026-10-15: a hard self-review finding escalates the planner to high; xhigh only with the operator's approval.
+A finding hard to solve escalates the planner rather than leaving the loop: the re-plan may run on `flow-high` (effort `high`) in place of the planner pair's `flow-medium`.
+Where `high` still cannot produce a design that holds, the next step is effort `xhigh` — and an `xhigh` dispatch is never made without the operator's approval, asked first with the finding, the objection and what `high` returned; a refusal leaves the finding offered for filing in step 4.
