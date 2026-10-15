@@ -349,7 +349,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				reasons = append(reasons, strconv.Itoa(len(missing))+" ticked appended task(s) with no dispatch row (Task "+strings.Join(missing, ", ")+") — record each task's dispatch, and its fix round's pass rows and findings, before landing")
 			}
 			if len(unreviewed) > 0 {
-				reasons = append(reasons, strconv.Itoa(len(unreviewed))+" ticked appended task(s) with no reviewer row begun after its implementer row (Task "+strings.Join(unreviewed, ", ")+") — run its fix round's panel and record its pass rows and findings, before landing")
+				reasons = append(reasons, strconv.Itoa(len(unreviewed))+" ticked appended task(s) with no panel reviewer row (key `panel-<round>-<slot>`) begun after its implementer row (Task "+strings.Join(unreviewed, ", ")+") — run its fix round's panel and record its pass rows and findings, before landing")
 			}
 		}
 	}

@@ -291,7 +291,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("a +-joined key covers the appended task it names", "CLEAR:"))
 	each(demo(planned(appended, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]`)),
 		uwVerdict("an appended task with an implementer row and no reviewer row is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the unreviewed appended task", "1 ticked appended task(s) with no reviewer row begun after its implementer row (Task 7)"))
+		uwReason("the breakdown names the unreviewed appended task", "1 ticked appended task(s) with no panel reviewer row (key `panel-<round>-<slot>`) begun after its implementer row (Task 7)"))
 	each(demo(planned(appended, `[{"seq":1,"key":"panel-1-primary","role":"reviewer","outcome":"clean"},{"seq":2,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]`)),
 		uwVerdict("a reviewer row begun before the implementer row does not review the appended task", "OUTSTANDING:"))
 	each(demo(planned(appended, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"pipeline-fix-1-review-1","role":"reviewer","outcome":"clean"}]`)),
