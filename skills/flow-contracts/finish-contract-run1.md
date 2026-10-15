@@ -155,10 +155,11 @@ A missing verdict line is not a verdict. Treat it exactly as the preflight scrip
 above: stop and ask the operator. The exit code is checked as well as the line, because a caller
 that greps for `CLEAR` in empty output finds nothing.
 
-**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> $(git -C <worktree> merge-base HEAD origin/$BASE)`**,
+**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> $(git -C <worktree> merge-base HEAD origin/$BASE) <canonical-worktree>`**,
 once per worktree in the same resolved set — the fork point itself, because this runs before the
 base-moved check below can name a rebased one, and the state-file value is stale after an earlier
-rebase. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
+rebase. The canonical worktree makes a satellite's diff match the canonical `ui paths` as well as
+its own, as **Visual verification** (`skills/flow/verify-and-handoff.md`) step 2 matches it. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
 breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same
 breakdown and the same three courses (**The three courses**, `skills/flow/unfinished-work-gate.md`), not a second prompt. Exit 2 (cannot answer) is stop-and-ask,
 the same as a missing `check-unfinished-work.sh` verdict line above.

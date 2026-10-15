@@ -379,7 +379,7 @@ cmd_prepare() {
         0:OUTSTANDING:*) ask=1 ;;
         *) stop no-verdict "check-unfinished-work reached no verdict for ${WT[i]} (exit $RC) — report its output and ask the operator; --accept-outstanding does not pass this" ;;
       esac
-      run "$SCRIPT_DIR/check-visual-verify-dispatched.sh" "${WT[i]}" "$NAME" "$(git -C "${WT[i]}" merge-base HEAD "origin/${BASES[i]}")"
+      run "$SCRIPT_DIR/check-visual-verify-dispatched.sh" "${WT[i]}" "$NAME" "$(git -C "${WT[i]}" merge-base HEAD "origin/${BASES[i]}")" "$CANON"
       case "$RC:$(verdict 'VISUAL-VERIFY-OK|VISUAL-VERIFY-MISSING')" in
         0:VISUAL-VERIFY-OK:*) ;;
         1:VISUAL-VERIFY-MISSING:*) ask=1 ;;

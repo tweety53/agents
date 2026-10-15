@@ -3,7 +3,7 @@
 # touched a declared `## visual verification` UI path actually dispatched
 # `flow.visual-verify`'s own verifier, for /flow's run-1 finish gate.
 #
-# Usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base>
+# Usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base> [<canonical-worktree>]
 #
 # WHY THIS GUARD EXISTS. `flow.visual-verify` (skills/flow/visual-verify.md)
 # is the one stage built to catch a defect that is obvious the moment a page
@@ -50,12 +50,20 @@
 #      below. The trigger reads `.flow/project.md` from the
 #      worktree itself, matching flow.visual-verify's own per-worktree
 #      resolution; this guard is called once per worktree in the run's
-#      resolved set, exactly as that stage is.
+#      resolved set, exactly as that stage is. Given a canonical worktree
+#      other than <worktree>, a diff the worktree's own answer does not
+#      match is also matched against the canonical worktree's `ui paths`,
+#      each path prefixed with the worktree's repository name — its main
+#      checkout's basename, as check-visual-trigger.sh --repo prefixes it —
+#      and the better answer stands, 0 over 1 over 2; every store call is
+#      then made under the canonical worktree, whose project the run's rows
+#      were recorded in. A canonical worktree that is not a directory, or a
+#      repository git cannot name, is exit 2.
 #
 # THE DISPATCH CHECK READS THE STORE, NOT A RENDERED FILE — the same
 # posture check-panel-fix-single-dispatch.sh and check-panel-reproducers.sh
 # already take for the identical reason: `flow record dispatches -change
-# <name> -C <worktree>` answers with the decoded JSON array of every
+# <name> -C <canonical worktree when given>` answers with the decoded JSON array of every
 # dispatch row this change has ever recorded, across every run. A row
 # counts when its `role` is `verifier`, its `key` starts with
 # `visual-verify` (`visual-verify`, `visual-verify-<worktree-basename>`,
@@ -81,7 +89,7 @@
 #
 # A SKIP DECIDED AT PLANNING IS NOT A SILENT SKIP. With no qualifying
 # verifier row, the guard reads `flow record decisions -change <name> -C
-# <worktree>` (newest row first) and answers
+# <canonical worktree when given>` (newest row first) and answers
 #   VISUAL-VERIFY-OK: skipped at Decide — <reason>
 # when that newest row's decision records `visual.verify` exactly `skipped`
 # with a non-empty `reason` (whitespace folded to single spaces, so the
@@ -102,7 +110,7 @@
 # store-evidence verdicts (either OK above, or the MISSING below), the guard
 # records the line verbatim — `flow record verdict -change <name> -guard
 # check-visual-verify-dispatched -worktree <worktree> -verdict "<line>"
-# -C <worktree>` — with the write's stdout, stderr and exit code all
+# -C <canonical worktree when given>` — with the write's stdout, stderr and exit code all
 # discarded: a store outage can neither move the verdict nor change the
 # exit code, and a store that refuses the row leaves the gate exactly as
 # it printed it. The recorded rows are what make an operator's

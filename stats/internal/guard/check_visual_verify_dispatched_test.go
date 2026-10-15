@@ -331,7 +331,7 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 		{"case 8d: an empty change name exits 2",
 			vvdCase{args: func(wt, base string) []string { return []string{wt, "", base} }}, 2, "",
 			func(vvdResult) string {
-				return p + "usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base>\n"
+				return p + "usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base> [<canonical-worktree>]\n"
 			}, nil},
 		{"case 8e: an empty merge-base exits 2",
 			vvdCase{args: func(wt, _ string) []string { return []string{wt, "demo", ""} }}, 2, "",
@@ -498,6 +498,75 @@ func TestCheckVisualVerifyDispatchedInProcessTrigger(t *testing.T) {
 			r := vvdRun(t, vvdCase{repo: tc.repo, dispatches: tc.dispatches, self: checkout + "/scripts/check-visual-verify-dispatched.sh"})
 			if r.code != 0 || r.out != tc.out || r.err != "" {
 				t.Fatalf("got exit %d stdout %q stderr %q, want 0 %q", r.code, r.out, r.err, tc.out)
+			}
+		})
+	}
+}
+
+// TestCheckVisualVerifyDispatchedCanonicalUIPaths pins the kan-982
+// self-review fix: with a canonical worktree, a satellite whose own project
+// declares no section is matched against the canonical `ui paths` by its
+// repository's name, and the store is read under the canonical worktree.
+// Without the argument the same satellite is "not configured".
+func TestCheckVisualVerifyDispatchedCanonicalUIPaths(t *testing.T) {
+	t.Parallel()
+	masters, err := vvdMasters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := masters["plain-docs"] // no section; its change touches docs/note.md
+	for _, c := range []struct {
+		name, uiPaths, rows string
+		canonical, linked   bool
+		code                int
+		out                 string
+	}{
+		{"no canonical worktree: not configured", "`gymie-frontend/**`", "[]", false, false, 0, vvdNotConfig},
+		{"canonical ui paths name the satellite: no verifier is MISSING", "`gymie-frontend/**`", "[]", true, false, 1, vvdMissing},
+		{"canonical ui paths name the satellite: a verifier is OK", "`gymie-frontend/**`", string(vvdRows("visual-verify", "verifier", "completed")), true, false, 0, vvdOK},
+		{"canonical ui paths name another repository: no UI paths touched", "`other/**`", "[]", true, false, 0, vvdNoUI},
+		{"a canonical worktree that is not a directory cannot answer", "`gymie-frontend/**`", "[]", true, false, 2, ""},
+		// The satellite is a linked worktree named apart from its main
+		// checkout: the repository's name is the main checkout's basename.
+		{"a linked satellite worktree matches by its main checkout's name", "`gymie-frontend/**`", "[]", true, true, 1, vvdMissing},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			top, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			wt, canon, bin := top+"/gymie-frontend", top+"/gymie", top+"/bin"
+			gdcCopyTree(t, m.dir, wt)
+			if c.linked {
+				linked := top + "/kan-1-frontend"
+				if out, err := exec.Command("git", "-C", wt, "worktree", "add", "--detach", linked, "HEAD").CombinedOutput(); err != nil {
+					t.Fatalf("git worktree add: %v: %s", err, out)
+				}
+				wt = linked
+			}
+			writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", c.uiPaths, 1))
+			writeExec(t, bin+"/flow", vvdFlowRows(c.rows, "[]"))
+			env := Env{Dir: top, Getenv: func(k string) string {
+				if k == "PATH" {
+					return bin + ":" + os.Getenv("PATH")
+				}
+				return os.Getenv(k)
+			}}
+			args := []string{wt, "demo", m.base}
+			if c.canonical {
+				args = append(args, canon)
+			}
+			if c.code == 2 {
+				args = append(args[:3], top+"/no-such-worktree")
+			}
+			var out, errb bytes.Buffer
+			code := Registry["check-visual-verify-dispatched"](args, env, &out, &errb)
+			if code != c.code || out.String() != c.out {
+				t.Fatalf("exit %d stdout %q stderr %q, want %d %q", code, out.String(), errb.String(), c.code, c.out)
+			}
+			if calls, _ := os.ReadFile(bin + "/args"); c.code == 1 && !strings.Contains(string(calls), "record dispatches -change demo -C "+canon) {
+				t.Errorf("store calls %q, want the dispatches read under the canonical worktree %s", calls, canon)
 			}
 		})
 	}

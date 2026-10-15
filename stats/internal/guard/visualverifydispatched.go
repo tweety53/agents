@@ -37,7 +37,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		}
 		return ""
 	}
-	worktreeArg, name, base := arg(0), arg(1), arg(2)
+	worktreeArg, name, base, canonicalArg := arg(0), arg(1), arg(2), arg(3)
 	if worktreeArg == "" || !isDir(pcAbs(env, worktreeArg)) {
 		shown := worktreeArg
 		if shown == "" {
@@ -47,7 +47,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintf(stderr, "%susage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base>\n", vvdPrefix)
+		fmt.Fprintf(stderr, "%susage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base> [<canonical-worktree>]\n", vvdPrefix)
 		return 2
 	}
 	if base == "" {
@@ -89,7 +89,51 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// diff's paths go to visualTrigger (an empty diff is one empty line, as
 	// the bash's `printf '%s\n'` piped it), its stdout and stderr discarded,
 	// its three exit codes read as-is.
-	triggerExit := visualTrigger(env, worktree, func() ([]string, error) { return strings.Split(changed, "\n"), nil }, io.Discard, io.Discard)
+	paths := strings.Split(changed, "\n")
+	triggerExit := visualTrigger(env, worktree, func() ([]string, error) { return paths, nil }, io.Discard, io.Discard)
+
+	// A SATELLITE IS ALSO MATCHED AGAINST THE CANONICAL `ui paths` (kan-982
+	// self-review): a cross-repo change's frontend worktree may declare no
+	// section of its own while the canonical project names its files as
+	// `<repo>/**`, so asking each worktree alone passed integrate with every
+	// verifier blocked. Its paths are prefixed with its repository's name --
+	// its main checkout's basename, check-visual-trigger.sh's --repo -- and
+	// the better of the two answers stands: 0 over 1 over 2. The store is
+	// read under the canonical worktree, the project the run's rows were
+	// recorded in; a second repository's worktree resolves another project
+	// key (unfinishedwork.go's anchor carries the reasoning).
+	anchor := worktree
+	if canonicalArg != "" {
+		canonical, err := filepath.EvalSymlinks(pcAbs(env, canonicalArg))
+		if err != nil || !isDir(canonical) {
+			fmt.Fprintf(stderr, "%scanonical worktree is not a directory: %s\n", vvdPrefix, canonicalArg)
+			return 2
+		}
+		if canonical != worktree {
+			anchor = canonical
+			if triggerExit != 0 {
+				common, ok := capture(envGit(env)("-C", worktree, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+				if !ok {
+					fmt.Fprintf(stderr, "%sgit cannot name the repository of %s — cannot answer\n", vvdPrefix, worktree)
+					return 2
+				}
+				repo := filepath.Base(filepath.Dir(strings.TrimSpace(common))) + "/"
+				prefixed := make([]string, len(paths))
+				for i, p := range paths {
+					if p != "" {
+						p = repo + p
+					}
+					prefixed[i] = p
+				}
+				switch visualTrigger(env, canonical, func() ([]string, error) { return prefixed, nil }, io.Discard, io.Discard) {
+				case 0:
+					triggerExit = 0
+				case 1:
+					triggerExit = 1
+				}
+			}
+		}
+	}
 	switch triggerExit {
 	case 2:
 		// The project declares no `## visual verification` section at all.
@@ -104,7 +148,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// A store the call could not reach is "cannot answer", never "no rows":
 	// an outage that read as zero dispatches would pass every round it was
 	// blind to.
-	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, worktree)
+	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, anchor)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' — cannot answer\n", vvdPrefix, name)
 		return 2
@@ -128,7 +172,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 			_ = env.Verdict(name, guardName, worktree, verdict)
 			return
 		}
-		pcFlow(env, false, "record", "verdict", "-change", name, "-guard", guardName, "-worktree", worktree, "-verdict", verdict, "-C", worktree)
+		pcFlow(env, false, "record", "verdict", "-change", name, "-guard", guardName, "-worktree", worktree, "-verdict", verdict, "-C", anchor)
 	}
 	if found {
 		verdict := "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '" + name + "'"
@@ -141,7 +185,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// operator saw that row and its reason at the plan gate, so the skip is
 	// not silent (kan-30's failure) and is not this guard's to second-guess.
 	// The read fails closed exactly as the dispatch read does.
-	decisions, err := pfdRead(env, env.Decisions, "decisions", name, worktree)
+	decisions, err := pfdRead(env, env.Decisions, "decisions", name, anchor)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record decisions failed for '%s' — cannot answer\n", vvdPrefix, name)
 		return 2
@@ -163,7 +207,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	var priorErr error
 	if env.Verdicts != nil {
 		prior, priorErr = env.Verdicts(guardName)
-	} else if out, _, rc := pcFlow(env, false, "record", "verdicts", "-guard", guardName, "-false-positive", "-C", worktree); rc == 0 {
+	} else if out, _, rc := pcFlow(env, false, "record", "verdicts", "-guard", guardName, "-false-positive", "-C", anchor); rc == 0 {
 		prior = out
 	} else {
 		priorErr = fmt.Errorf("flow exit %d", rc)
