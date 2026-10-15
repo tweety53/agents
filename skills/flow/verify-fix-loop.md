@@ -34,6 +34,12 @@ One round runs these steps in order:
    `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
    what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
    kills is a new fixable defect this loop takes another round on.
+   **A task fixing a test that passes alone and fails only in the full suite closes after two
+   more full runs.** Such load flakes surface one per full-suite round, so after the task's commit
+   and before `close-task.sh` the parent runs the worktree's whole `## test` list twice more, and
+   every further failure those runs show is fixed in this same task and folded into its one
+   commit (`git commit --amend`, nothing is pushed yet) — never a further commit, since
+   `close-task.sh` takes one sha per task per repository — never left to the next round.
 3. **Re-review the delta.** Open `flow.review-panel` again and run one dispatch: `primary` alone,
    reading `late-fix.diff` over the range since the panel's last clean close, written, paired,
    ceilinged and recorded as **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`)
