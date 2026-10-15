@@ -768,7 +768,7 @@ Critical and no Important has its Minors fixed by the parent, inline, at the rou
 fix subagent, no reproducer run, no mutation proof, no slot re-run and no dispatch record. The
 parent edits each Minor's named location, stages the changed paths and makes one commit per
 worktree at the branch tip —
-`git -C <worktree> commit -m "fix(<module>): review Minors" -- <the changed paths>`, the scope
+`git -C <worktree> commit -m "fix(<module>): review Minors" -m "Flow-Key: flow.review-panel" -- <the changed paths>`, the scope
 naming the module the edits moved — pushed per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`), then records each finding
 `flow record status -change <name> -ref F<n> -status fixed`. `flow.verify`'s lint and tests,

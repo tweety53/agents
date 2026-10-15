@@ -28,7 +28,8 @@
 #          worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1: the
 #          uncommitted-archive undo, the archived decision, the unfinished-work
 #          gate (check-unfinished-work, check-visual-verify-dispatched against
-#          `git merge-base HEAD origin/$BASE`), check-base-moved and
+#          `git merge-base HEAD origin/$BASE`, check-untasked-commits from that
+#          base or an archived re-run's), check-base-moved and
 #          sync-onto-base on MOVED (running each GUARD-TEST it names), and the
 #          default landing route (project-get.sh). Prints per worktree its
 #          reshape base and the diffstat the commit subjects are written from,
@@ -90,7 +91,7 @@ say() { printf '%s\n' "$*"; }
 
 missing=""
 for g in check-base-moved check-cleanup-complete check-finish-preflight check-foreign-staged \
-  check-main-checkout-drift check-unfinished-work check-visual-verify-dispatched commit-archive \
+  check-main-checkout-drift check-unfinished-work check-untasked-commits check-visual-verify-dispatched commit-archive \
   commit-split land-self-review-report migrate-worktrees project-get refresh-main-checkout \
   remove-change-worktrees reshape-branch resolve-base-branch sync-onto-base; do
   [ -x "$SCRIPT_DIR/$g.sh" ] || missing="$missing $g.sh"
@@ -384,6 +385,14 @@ cmd_prepare() {
         0:VISUAL-VERIFY-OK:*) ;;
         1:VISUAL-VERIFY-MISSING:*) ask=1 ;;
         *) stop no-verdict "check-visual-verify-dispatched reached no verdict for ${WT[i]} (exit $RC) — report its output and ask the operator; --accept-outstanding does not pass this" ;;
+      esac
+      ub="$(git -C "${WT[i]}" merge-base HEAD "origin/${BASES[i]}")"
+      [ "$ARCHIVED" -eq 1 ] && ub="$(arch_base "${WT[i]}" "$ub")"
+      run "$SCRIPT_DIR/check-untasked-commits.sh" "${WT[i]}" "$ub"
+      case "$RC:$(verdict 'UNTASKED-OK|UNTASKED')" in
+        0:UNTASKED-OK:*) ;;
+        1:UNTASKED:*) ask=1 ;;
+        *) stop no-verdict "check-untasked-commits reached no verdict for ${WT[i]} (exit $RC) — report its output and ask the operator; --accept-outstanding does not pass this" ;;
       esac
     done
     [ "$ask" -eq 1 ] && [ -z "$ACCEPT_OUTSTANDING" ] &&

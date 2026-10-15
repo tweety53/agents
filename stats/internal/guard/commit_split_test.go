@@ -120,6 +120,9 @@ func TestCommitSplit(t *testing.T) {
 		check(t, has(s, "plan: case1"), "planning commit made", "%s", s)
 		n := len(strings.Split(splitGit(t, fx.wt, nil, "log", "--oneline"), "\n"))
 		check(t, n == 3, "exactly two new commits on top of seed", "got %d commits", n)
+		tr := splitGit(t, fx.wt, nil, "log", "--format=%s|%(trailers:key=Flow-Key,valueonly)", "-2")
+		check(t, has(tr, "impl: case1|flow.commit-two"), "implementation commit carries Flow-Key", "%s", tr)
+		check(t, !has(tr, "plan: case1|flow"), "planning commit carries no Flow-Key", "%s", tr)
 	})
 
 	t.Run("2 implementation commit skipped when only planning paths changed", func(t *testing.T) {

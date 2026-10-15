@@ -164,8 +164,15 @@ breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING`
 breakdown and the same three courses (**The three courses**, `skills/flow/unfinished-work-gate.md`), not a second prompt. Exit 2 (cannot answer) is stop-and-ask,
 the same as a missing `check-unfinished-work.sh` verdict line above.
 
-**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` or
-`VISUAL-VERIFY-MISSING` — the three courses, the filing and the relay are there.
+**Then run `check-untasked-commits.sh <worktree> <base>`**, once per worktree in the same
+resolved set, `<base>` the same fork point — or, where the change is archived, the archived
+re-run's base that fork point yields. An `UNTASKED-OK` line joins `CLEAR`; an `UNTASKED` line and
+the commits it lists are treated exactly as `OUTSTANDING`, and exit 2 is stop-and-ask, the same as
+a missing `check-unfinished-work.sh` verdict line. The guard's header
+(`<agents repo>/scripts/check-untasked-commits.sh`) is canonical for what it exempts.
+
+**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING`,
+`VISUAL-VERIFY-MISSING` or `UNTASKED` — the three courses, the filing and the relay are there.
 
 **Check whether the base branch has moved — after the unfinished-work gate, before the landing
 question.** `check-base-moved.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict

@@ -26,6 +26,12 @@
 #   no_report       land with no committed self-review report stops at
 #                   STOP: self-review-report, lands nothing and pushes no
 #                   commit made after `commit`.
+#   untasked        a trailerless code commit in b stops prepare at
+#                   STOP: unfinished-work, its subject listed; the
+#                   --accept-outstanding re-run passes the gate.
+#   archived_rerun  prepare re-run after commit and a later task commit:
+#                   b's reshaped implementation commit carries commit-split's
+#                   Flow-Key, so the gate does not list it.
 #   no_verdict      a store outage leaves check-unfinished-work without a
 #                   verdict: STOP: no-verdict, which --accept-outstanding
 #                   does not pass.
@@ -104,7 +110,7 @@ fixture() {
     g -C "$WORK/$r" worktree add -q -b spectre/demo "$WORK/$r-worktrees/demo" main
     printf 'work in %s\n' "$r" >"$WORK/$r-worktrees/demo/work-$r.txt"
     g -C "$WORK/$r-worktrees/demo" add -A
-    g -C "$WORK/$r-worktrees/demo" commit -qm "feat($r): task 1"
+    g -C "$WORK/$r-worktrees/demo" commit -qm "feat($r): task 1" -m "Task-Id: 1"
   done
   local c="$WORK/a-worktrees/demo/spectre/changes/demo"
   mkdir -p "$c"
@@ -253,7 +259,7 @@ fixture
 to_land "no_report: " no-report
 pushed="$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)"
 printf 'later\n' >"$WORK/a-worktrees/demo/later.txt"
-g -C "$WORK/a-worktrees/demo" add later.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): later"
+g -C "$WORK/a-worktrees/demo" add later.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): later" -m "Task-Id: 2"
 sut land "$WORK/a" demo
 check "no_report: land stops with exit 1" '[ "$RC" -eq 1 ]'
 check "no_report: the stop is STOP: self-review-report" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: self-review-report"'
@@ -261,6 +267,25 @@ check "no_report: nothing was landed" \
   '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = base ] && [ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ]'
 check "no_report: a's remote branch still sits at commit's HEAD" \
   '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$pushed" ]'
+
+# --- untasked ---
+fixture
+printf 'stray\n' >"$WORK/b-worktrees/demo/stray.txt"
+g -C "$WORK/b-worktrees/demo" add stray.txt && g -C "$WORK/b-worktrees/demo" commit -qm "test(b): a stray edit"
+sut prepare "$WORK/a" demo
+check "untasked: prepare stops at STOP: unfinished-work" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: unfinished-work"'
+check "untasked: the stray commit is listed" 'printf "%s" "$OUT" | grep -q "^  [0-9a-f]\{12\} test(b): a stray edit$"'
+sut prepare "$WORK/a" demo --accept-outstanding
+check "untasked: --accept-outstanding passes the gate" '[ "$RC" -eq 0 ]'
+
+# --- archived_rerun ---
+fixture
+to_land "archived_rerun: "
+printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
+g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
+sut prepare "$WORK/a" demo
+check "archived_rerun: prepare passes the gate" '[ "$RC" -eq 0 ]'
+check "archived_rerun: b's reshaped commit is not listed" '! printf "%s" "$OUT" | grep -q "feat(b): do the work"'
 
 # --- no_verdict ---
 fixture
@@ -289,7 +314,7 @@ cp -R "$SCRIPT_DIR" "$WORK/agents/scripts"
 ln -s "$(cd "$SCRIPT_DIR/../stats" && pwd -P)" "$WORK/agents/stats"
 printf '#!/usr/bin/env bash\necho gt-test-own-output\nexit 1\n' >"$WORK/agents/scripts/test-gt.sh"
 printf 'same\n' >"$WORK/b-worktrees/demo/gt.txt"
-g -C "$WORK/b-worktrees/demo" add gt.txt && g -C "$WORK/b-worktrees/demo" commit -qm "feat(b): gt"
+g -C "$WORK/b-worktrees/demo" add gt.txt && g -C "$WORK/b-worktrees/demo" commit -qm "feat(b): gt" -m "Task-Id: 2"
 printf 'same\n' >"$WORK/b/gt.txt"
 g -C "$WORK/b" add gt.txt && g -C "$WORK/b" commit -qm "base: gt" && g -C "$WORK/b" push -q origin main
 SUT_SAVED="$SUT"; SUT="$WORK/agents/scripts/integrate-change.sh"

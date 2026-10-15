@@ -34,7 +34,9 @@ the design.
   are committed into the repository or their location is recorded in
   `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
   mockups directory lives — **Project configuration — visual verification**,
-  `skills/flow-contracts/project-configuration-visual.md`).
+  `skills/flow-contracts/project-configuration-visual.md`). A commit of the assets carries
+  `-m "Flow-Key: flow.brainstorm"` (**Commits outside every task**,
+  `skills/flow-contracts/git-boundaries.md`).
 - The design presentation does **not** end a section, or the whole design, with a "does this look
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This

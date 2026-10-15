@@ -218,7 +218,7 @@ states.
 12. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **The commit is
     pathspec-scoped** — `git add --` the spec, its PNGs and `<changeRoot>/visual-verification/`
-    first, then `git commit -m "<subject>" --` those same paths — the add first because the
+    first, then `git commit -m "<subject>" -m "Flow-Key: flow.visual-verify" --` those same paths — the add first because the
     stage's outputs are new untracked files, which a pathspec commit cannot pick up — carrying
     only what this stage wrote, never a bare `git commit`: the index of a main checkout
     may carry a pre-staged foreign tree (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). **Resolve the

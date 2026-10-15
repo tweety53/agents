@@ -56,19 +56,22 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// `git diff --cached --quiet || git commit`: any non-zero diff — changes
 	// staged, or diff itself failing — goes on to the commit.
-	commit := func(msg string) int {
+	commit := func(msg ...string) int {
 		if run("diff", "--cached", "--quiet") != 0 {
-			return run("commit", "-m", msg)
+			return run(append([]string{"commit"}, msg...)...)
 		}
 		return 0
 	}
-	if rc := commit(implMsg); rc != 0 {
+	// The implementation commit is outside every task, so it carries the
+	// stage key that runs this chain (git-boundaries.md, "Commits outside
+	// every task") — else run 1's gate lists it on a re-run.
+	if rc := commit("-m", implMsg, "-m", "Flow-Key: flow.commit-two"); rc != 0 {
 		return rc
 	}
 	if rc := run("add", "-A"); rc != 0 {
 		return rc
 	}
-	return commit(planMsg)
+	return commit("-m", planMsg)
 }
 
 // hasChangeLinkMD is bash's nullglob `<planDir>*/link.md` having a match:

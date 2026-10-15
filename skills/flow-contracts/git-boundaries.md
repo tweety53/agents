@@ -121,6 +121,20 @@ pathspec-scoped commit would drop.
 
 A `/flow-fast` branch's commit series is its whole record, and the route reads it back before anything lands — `check-fast-route-record.sh <worktree> <base>` in section 5's verify stage (`skills/flow-fast/SKILL.md`) asserts every commit since the merge base against the contract canonical in the guard's own header, a hit fixed and re-run under the route's commit rule.
 
+## Commits outside every task
+
+**Commits outside every task carry a `Flow-Key:` trailer.** A commit a run makes on a change
+branch outside every task — the parent's full-suite fix, a panel fix or a gated reviewer's fix
+committed on top, the parent's inline review-Minors commit, `flow.visual-verify`'s capture
+commit, the brainstorm's handoff-asset commit, `commit-split.sh`'s implementation commit —
+carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded under
+(`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
+records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,
+`flow.commit-two`). A task's own commit
+carries `Task-Id:` instead, and a planning commit neither. Run 1's unfinished-work gate lists
+every other non-`chore` commit with `check-untasked-commits.sh`
+(`skills/flow-contracts/finish-contract-run1.md`).
+
 ## Revert and back-out commits
 
 **A back-out's commit body carries the rejection reason.** When a landed-then-reverted prototype
