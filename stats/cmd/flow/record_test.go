@@ -58,7 +58,7 @@ func recordJournalEntries(t *testing.T, repo, change string) (entries []fallback
 // would make the client's own `created` flag dead weight.
 func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 	t.Run("dispatch", func(t *testing.T) {
-		repo := gitRepo(t)
+		repo := recordRepo(t, "kan-258")
 		isolatedStateRoot(t)
 
 		var gotPath string
@@ -133,7 +133,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 	})
 
 	t.Run("finding created", func(t *testing.T) {
-		repo := gitRepo(t)
+		repo := recordRepo(t, "kan-258")
 		isolatedStateRoot(t)
 
 		var gotBody []byte
@@ -176,7 +176,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 	})
 
 	t.Run("finding updated", func(t *testing.T) {
-		repo := gitRepo(t)
+		repo := recordRepo(t, "kan-258")
 		isolatedStateRoot(t)
 
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -201,7 +201,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 	})
 
 	t.Run("status", func(t *testing.T) {
-		repo := gitRepo(t)
+		repo := recordRepo(t, "kan-258")
 		isolatedStateRoot(t)
 
 		var gotMethod, gotPath string
@@ -288,7 +288,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			// The connection flags are spliced in after the verb words
@@ -387,7 +387,7 @@ func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			verbLen := 0
@@ -461,7 +461,7 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			args := append([]string{}, tc.args[:2]...)
@@ -486,7 +486,7 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 // `stage begin` checks its stage key: were it checked after, the fallback
 // would swallow the caller's own mistake as if it were a store outage.
 func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -525,7 +525,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 // role `/flow` records for the subagent it dispatches to plan
 // brainstorm.md sections B-D and flow.document-fix.
 func TestRecordAcceptsPlannerRole(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -556,7 +556,7 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 // that runs implement.md, review-panel.md and verify-and-handoff.md as
 // the conductor (design.md's conductor-runs-implementation-half).
 func TestRecordAcceptsConductorRole(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -587,7 +587,7 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 // skills/flow/verify-and-handoff.md dispatches for flow.verify and
 // flow.visual-verify.
 func TestRecordAcceptsVerifierRole(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -619,7 +619,7 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 // between no two sessions, so the harvest binding it exists for would bind
 // nothing.
 func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -694,7 +694,7 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
-		repo := gitRepo(t)
+		repo := recordRepo(t, "kan-258")
 		isolatedStateRoot(t)
 
 		var gotBody []byte
@@ -752,7 +752,7 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 // than being written out twice.
 func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 	t.Helper()
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-327")
 	isolatedStateRoot(t)
 
 	var gotBody []byte
@@ -840,7 +840,7 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
-		repo := gitRepo(t)
+		repo := recordRepo(t, "kan-258")
 		isolatedStateRoot(t)
 
 		var gotBody []byte
@@ -902,7 +902,7 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 // minimal end request, varying only `-outcome` and `-cause`.
 func causeEndRun(t *testing.T, extra ...string) (int, bytes.Buffer, bytes.Buffer, bool, string) {
 	t.Helper()
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-510")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -1017,7 +1017,7 @@ func TestDispatchEndOutcomeClosedSet(t *testing.T) {
 // TestDispatchEndCauseAccepted pins the happy path: `-outcome blocked`
 // with a cause from the set reaches the wire carrying it.
 func TestDispatchEndCauseAccepted(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-510")
 	isolatedStateRoot(t)
 
 	var gotBody []byte
@@ -1662,7 +1662,7 @@ func TestRecordJournalCountAbsentJournalCountsZero(t *testing.T) {
 // A count that disagreed would report one more pending write than a replay
 // will ever apply -- at a gate whose whole job is to be believable.
 func TestRecordJournalCountIgnoresPartialTrailingLine(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
@@ -1809,7 +1809,7 @@ func TestCostStatusNeverBlocks(t *testing.T) {
 // change's record its dispatch landed -- and end names its row by the key
 // and token begin carried, never by that seq.
 func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	var endPath string
@@ -1888,7 +1888,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 // it would lose the end and leave the window that begin opened open
 // forever, which is the defect the end call exists to prevent.
 func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	var beginOut, beginErr bytes.Buffer
@@ -1940,7 +1940,7 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 // unreachable" and journalled an entry that 404s on every replay). It is
 // reported, names the status, journals nothing and exits non-zero.
 func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -1971,7 +1971,7 @@ func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
 // exception above: a 404 from any other record write stays definitive, so
 // the exception cannot quietly become the rule.
 func TestRecordFindingStillRefusesAnUnknownRef(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2002,7 +2002,7 @@ func TestRecordFindingStillRefusesAnUnknownRef(t *testing.T) {
 // after, the fallback would swallow the caller's own mistake as if it were
 // a store outage.
 func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -2043,7 +2043,7 @@ func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
 func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
 	for _, status := range []string{"withdrawn", "withdrawn   "} {
 		t.Run(status, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			contacted := false
@@ -2435,7 +2435,7 @@ func TestRecordIncidentsPrintsArray(t *testing.T) {
 // TestRecordFindingRejectsEmptyReproducer pins that an empty -reproducer is
 // refused before the store is contacted.
 func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -2475,7 +2475,7 @@ func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
 func TestRecordFindingRejectsBareNoneReproducer(t *testing.T) {
 	for _, reproducer := range []string{"none", "none  "} {
 		t.Run(reproducer, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			contacted := false
@@ -2525,7 +2525,7 @@ func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			contacted := false
@@ -2558,7 +2558,7 @@ func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
 // the same status vocabulary check as `record finding`, before the store
 // is contacted.
 func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -2595,7 +2595,7 @@ func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
 func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
 	for _, status := range []string{"withdrawn", "withdrawn   "} {
 		t.Run(status, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			contacted := false
@@ -2634,7 +2634,7 @@ func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
 // carrying ref/status/reproducer -- the only fields a guard consuming this
 // verb needs.
 func TestRecordFindingsPrintsJSONArray(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "demo")
 	isolatedStateRoot(t)
 
 	body := `{"change":"demo","dispatches":[],"findings":[
@@ -2923,7 +2923,7 @@ func TestRunRecordDispatchesUnreachableStoreFails(t *testing.T) {
 // pipeline starts with .[] and crashes on a top-level null under set -euo
 // pipefail.
 func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "demo")
 	isolatedStateRoot(t)
 
 	body := `{"change":"demo","findings":[{"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"fixed","reproducer":"none — prose only"}],"dispatches":null}`
@@ -3261,7 +3261,7 @@ var roleLiteralRe = regexp.MustCompile(`(?:^|[^A-Za-z])-role\s+([a-z][a-z-]*)`)
 // taking the never-block fallback path would journal a write a replay
 // could only ever be refused for a second time.
 func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	contacted := false
@@ -3328,7 +3328,7 @@ func TestRecordDispatchBeginAcceptsEffort(t *testing.T) {
 // to .../passes carrying round and note verbatim, one stdout line naming the
 // allocated row id, exit 0.
 func TestRecordPassCommand(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	var gotPath string
@@ -3440,7 +3440,7 @@ func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
 		{"mutation without test", []string{"record", "mutation", "-change", "kan-258", "-path", "p", "-mutated", "none"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			var stdout, stderr bytes.Buffer
@@ -3544,7 +3544,7 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-507")
 			isolatedStateRoot(t)
 
 			var body records.Finding
@@ -3581,7 +3581,7 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 // reads, and `flow record findings` prints it back. The fake daemon keeps
 // the posted finding and serves it on the run-record read.
 func TestRecordFindingTaskRoundTrips(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-9")
 	isolatedStateRoot(t)
 
 	var stored json.RawMessage
@@ -3651,7 +3651,7 @@ func TestValidateFindingCategory(t *testing.T) {
 // call, category included, so a replay of a categorised deferral re-lands
 // the category instead of clearing it.
 func TestRecordStatusJournalsCategory(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	var stdout, stderr bytes.Buffer
@@ -3694,7 +3694,7 @@ func TestRecordStatusJournalsCategory(t *testing.T) {
 // review panel round 0): -category reaches the daemon's POST body, so a
 // finding recorded already-deferred lands with its category in one write.
 func TestRecordFindingSendsCategory(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	var gotBody []byte
@@ -3735,7 +3735,7 @@ func TestRecordFindingSendsCategory(t *testing.T) {
 // before any network call -- a dead addr proves the refusal, since a fall
 // through to the write path would journal and exit 0.
 func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
 
 	cases := []struct {
@@ -3785,7 +3785,7 @@ func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
 // passes the validator and falls through to the network path, journalling
 // as every unreachable write does.
 func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-508", "kan-508-ok")
 	isolatedStateRoot(t)
 
 	for _, tc := range []struct{ name, severity string }{
@@ -4042,7 +4042,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 // store, while the pattern's normalization stays the store's business --
 // the CLI forwards verbatim what the caller typed.
 func TestRecordFindingPatternFlag(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "kan-416")
 	isolatedStateRoot(t)
 
 	var gotPattern string
@@ -4271,7 +4271,7 @@ func TestDispatchEndTokensParserRefusals(t *testing.T) {
 func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
-		repo := gitRepo(t)
+		repo := recordRepo(t, "kan-525")
 		isolatedStateRoot(t)
 
 		var gotBody []byte
@@ -4616,7 +4616,7 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 // the highest round any pass, finding or mutation row carries, 0 for a
 // change the store has never heard of, and no number on a failed read.
 func TestRunRecordNextRound(t *testing.T) {
-	repo := gitRepo(t)
+	repo := recordRepo(t, "demo")
 	isolatedStateRoot(t)
 
 	for _, tc := range []struct {
@@ -4672,7 +4672,7 @@ func TestRecordFindingRejectsMalformedRef(t *testing.T) {
 		{"-regression-of", "KAN-9"},
 	} {
 		t.Run(tc.flag+"="+tc.value, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-964")
 			isolatedStateRoot(t)
 
 			contacted := false
@@ -4721,7 +4721,7 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 		"  finding-status: F9 fixed",
 	} {
 		t.Run(note, func(t *testing.T) {
-			repo := gitRepo(t)
+			repo := recordRepo(t, "kan-258")
 			isolatedStateRoot(t)
 
 			var stdout, stderr bytes.Buffer
@@ -4739,5 +4739,88 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 				t.Errorf("a refused marker note left a record journal behind")
 			}
 		})
+	}
+}
+
+// TestRecordWriteRefusesAChangeNoCheckoutCarries pins the project-key
+// sanity check: a run-record write for a change no checkout of the -C
+// repository carries is refused before the store is contacted, so it never
+// files the row under the wrong project; a change carried by a linked
+// worktree, an archive or a /flow-fast .superpowers/sdd root is accepted
+// from the main checkout.
+func TestRecordWriteRefusesAChangeNoCheckoutCarries(t *testing.T) {
+	for _, c := range []struct {
+		name, root string
+		linked     bool
+		want       int
+	}{
+		{"no checkout carries the change", "", false, 2},
+		{"a linked worktree carries it", "spectre/changes/kan-7", true, 0},
+		{"the archive carries it", "spectre/changes/archive/kan-7", false, 0},
+		{"a flow-fast root carries it", ".superpowers/sdd/kan-7", true, 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+			holder := repo
+			if c.linked {
+				holder = filepath.Join(t.TempDir(), "wt")
+				if out, err := exec.Command("git", "-C", repo, "worktree", "add", "-q", "-b", "kan-7", holder).CombinedOutput(); err != nil {
+					t.Fatalf("git worktree add: %v\n%s", err, out)
+				}
+			}
+			if c.root != "" {
+				if err := os.MkdirAll(filepath.Join(holder, c.root), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"verifier","model":"sonnet","endedAt":"2026-01-02T03:44:05Z"}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-7", "-key", "k", "-session-token", "mf-kan7-end", "-outcome", "completed"}, strings.NewReader(""), &stdout, &stderr)
+			if code != c.want || contacted != (c.want == 0) {
+				t.Fatalf("exit %d, contacted %v; want exit %d, contacted %v\nstderr:\n%s", code, contacted, c.want, c.want == 0, stderr.String())
+			}
+			if c.want != 0 && !strings.Contains(stderr.String(), `carries change "kan-7"`) {
+				t.Errorf("stderr does not name the change:\n%s", stderr.String())
+			}
+		})
+	}
+}
+
+// recordRepo is gitRepo carrying spectre/changes/<change> for every change
+// named: a run-record write refuses a change no checkout of its repository
+// carries (requireChangeCheckout).
+func recordRepo(t *testing.T, changes ...string) string {
+	t.Helper()
+	repo := gitRepo(t)
+	for _, c := range changes {
+		if err := os.MkdirAll(filepath.Join(repo, "spectre", "changes", c), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return repo
+}
+
+// A name that resolves to a directory without being a change -- the archive
+// root, a climb out of the tree -- is refused, not stat-matched.
+func TestRequireChangeCheckoutRefusesNonChangeNames(t *testing.T) {
+	repo := recordRepo(t, "real")
+	if err := os.MkdirAll(filepath.Join(repo, "spectre", "changes", "archive"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []string{"archive", "..", "../changes", "real/..", "."} {
+		if requireChangeCheckout(repo, c, io.Discard) {
+			t.Errorf("change %q accepted", c)
+		}
+	}
+	if !requireChangeCheckout(repo, "real", io.Discard) {
+		t.Error("real change refused")
 	}
 }

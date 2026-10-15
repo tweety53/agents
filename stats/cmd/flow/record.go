@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -957,6 +958,9 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
+	if !requireChangeCheckout(f.dir, f.change, stderr) {
+		return 2
+	}
 	if !requireRecordFlags(stderr,
 		[2]string{"-role", *role},
 		[2]string{"-model", *model},
@@ -1055,6 +1059,9 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
+	}
+	if !requireChangeCheckout(f.dir, f.change, stderr) {
+		return 2
 	}
 	if !requireRecordFlags(stderr,
 		[2]string{"-key", *key},
@@ -1235,6 +1242,9 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
+	if !requireChangeCheckout(f.dir, f.change, stderr) {
+		return 2
+	}
 	if !requireRecordFlags(stderr,
 		[2]string{"-ref", *ref},
 		[2]string{"-slot", *slot},
@@ -1322,6 +1332,9 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
+	}
+	if !requireChangeCheckout(f.dir, f.change, stderr) {
+		return 2
 	}
 	if !requireRecordFlags(stderr, [2]string{"-ref", *ref}, [2]string{"-status", *status}) {
 		return 2
@@ -2576,6 +2589,9 @@ func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer)
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
+	if !requireChangeCheckout(f.dir, f.change, stderr) {
+		return 2
+	}
 	if !requireRecordFlags(stderr, [2]string{"-note", *note}) {
 		return 2
 	}
@@ -2667,4 +2683,39 @@ func resolveRenderKinds(kind string) ([]string, error) {
 		return []string{kind}, nil
 	}
 	return nil, fmt.Errorf("-kind %q is not one of: %s, all", kind, strings.Join(records.Kinds(), ", "))
+}
+
+// requireChangeCheckout refuses a run-record write -- a dispatch row, a
+// finding, a finding's status, a pass -- for a change no checkout of the
+// repository holding dir carries: none of its worktrees, the main checkout
+// among them, holds spectre/changes/<change>, spectre/changes/archive/<change>
+// or a /flow-fast run's .superpowers/sdd/<change>. The project key derives
+// from dir, so a write run from the wrong repository -- the agents checkout,
+// a second repo's worktree, a call that dropped -C -- would otherwise file
+// the row under a project the change's own reads never look at. Every
+// worktree is searched, not dir's alone: a /flow parent runs from the main
+// checkout while the change lives only in its worktree until it lands.
+func requireChangeCheckout(dir, change string, stderr io.Writer) bool {
+	if change == "" || change == "archive" || change == "." || strings.Contains(change, "..") || strings.ContainsAny(change, `/\\`) {
+		fmt.Fprintf(stderr, "flow: %q is not a change name -- refused\n", change)
+		return false
+	}
+	out, err := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain").Output()
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: list the checkouts of %s: %v\n", dir, err)
+		return false
+	}
+	for line := range strings.Lines(string(out)) {
+		wt, ok := strings.CutPrefix(strings.TrimRight(line, "\n"), "worktree ")
+		if !ok {
+			continue
+		}
+		for _, root := range []string{"spectre/changes", "spectre/changes/archive", ".superpowers/sdd"} {
+			if fi, err := os.Stat(filepath.Join(wt, root, change)); err == nil && fi.IsDir() {
+				return true
+			}
+		}
+	}
+	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, spectre/changes/archive/ or .superpowers/sdd/) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change)
+	return false
 }
