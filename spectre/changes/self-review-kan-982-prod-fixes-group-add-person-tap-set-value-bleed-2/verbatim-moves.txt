@@ -1,0 +1,23 @@
+# Self-review fixes of the kan-982 pass, second set: run 1's gate lists commits outside every task, the Flow-Key: trailer the sanctioned routes carry, and the commit-scope guard's fourth shape — a module of another repository.
+\## The three prohibited shapes
+**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING` — the three courses, the filing and the relay are there.
+**The commit is pathspec-scoped** — `git add --` the spec, its PNGs and `<changeRoot>/visual-verification/` first, then `git commit -m "<subject>" --` those same paths — the add first because the stage's outputs are new untracked files, which a pathspec commit cannot pick up — carrying only what this stage wrote, never a bare `git commit`: the index of a main checkout may carry a pre-staged foreign tree (**Branch backup**, `skills/flow-contracts/git-boundaries.md`).
+There is no vocabulary of legal module names to maintain; the rule refuses three known-wrong shapes and accepts everything else.
+\## Commits outside every task
+\## The four prohibited shapes
+**A module of another repository** — `fix(group): …` on a commit touching only gymie-playwright's
+**Commits outside every task carry a `Flow-Key:` trailer.
+**The commit is pathspec-scoped** — `git add --` the spec, its PNGs and `<changeRoot>/visual-verification/` first, then `git commit -m "<subject>" -m "Flow-Key: flow.visual-verify" --` those same paths — the add first because the stage's outputs are new untracked files, which a pathspec commit cannot pick up — carrying only what this stage wrote, never a bare `git commit`: the index of a main checkout may carry a pre-staged foreign tree (**Branch backup**, `skills/flow-contracts/git-boundaries.md`).
+**Then run `check-untasked-commits.sh <worktree> <base>`**, once per worktree in the same resolved set, `<base>` the same fork point — or, where the change is archived, the archived re-run's base that fork point yields.
+A commit a run makes on a change branch outside every task — the parent's full-suite fix, a panel fix or a gated reviewer's fix committed on top, `flow.visual-verify`'s capture commit, the brainstorm's handoff-asset commit — carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded under (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage records no such row, the stage key (`flow.visual-verify`, `flow.brainstorm`).
+A commit of the assets carries `-m "Flow-Key: flow.brainstorm"` (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`).
+A task's own commit carries `Task-Id:` instead, and a planning commit neither.
+An `UNTASKED-OK` line joins `CLEAR`; an `UNTASKED` line and the commits it lists are treated exactly as `OUTSTANDING`, and exit 2 is stop-and-ask, the same as a missing `check-unfinished-work.sh` verdict line.
+The commit carries the round's `Flow-Key:` trailer — `git commit -m <subject> -m "Flow-Key: <the round's dispatch key>" -- <the changed paths>` (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`).
+The guard refuses a scope that is a path token of another `## apps` repository of the project and is none of: a token of a path the commit touched, a word of its own repository's name, a scope an earlier commit of its repository used, or a directory name of its repository — every `-` part of the scope one, for a compound area such as `workout-ui`.
+The guard's header (`<agents repo>/scripts/check-untasked-commits.sh`) is canonical for what it exempts.
+There is no vocabulary of legal module names to maintain; the rule refuses four known-wrong shapes and accepts everything else.
+`fix(group): …` touching only gymie-playwright's fidelity/builder.spec.ts — a module of gymie
+`test(visual): …` on a snapshot capture — no repository of the project carries `visual`, passes.
+and nothing in gymie-playwright, refused.
+fidelity/builder.spec.ts, `group` being a gymie module, names where the change did not land.
