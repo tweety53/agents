@@ -5,7 +5,7 @@
 # standard library only), following the same split plan-dispatch-bundles.sh
 # uses and for the same reason. Unlike plan-dispatch-bundles.sh, this
 # wrapper carries only the one-argument form: the Decide step
-# (skills/flow/brainstorm-planner.md, step 4) always names one explicit
+# (skills/flow/brainstorm-planner.md, step 5) always names one explicit
 # tasks.md path, and there is no "every open change" scan to resolve.
 set -euo pipefail
 

@@ -984,7 +984,7 @@ decision` refuses `high` on those three pairs, so a planner cannot drift back to
 escalation is a dispatch record, never a decision pair, and stays valid. The operator will watch
 fix and implementation quality after landing and revisit if it falls.
 
-## brainstorm-planner.md — Decide, step 5 visual verification (visual-verify-decided-at-decide)
+## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)
 
 `check-visual-verify-dispatched.sh` fires `VISUAL-VERIFY-MISSING` whenever a diff touches a declared
 `ui paths` glob and no verifier dispatch is recorded. It exists because of kan-30, where a run wrote

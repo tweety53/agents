@@ -87,7 +87,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   `<project>/spectre/changes/<change>/verbatim-moves.txt` on a `/flow` run,
   `<changeRoot>/verbatim-moves.txt` — `<abs-worktree>/.superpowers/sdd/<change>/` — on this one,
   never `<project>/spectre/`.
-- **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
+- **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5 and the tree `plan-class.sh` prints
   (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
@@ -96,10 +96,10 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   and its planning-paths guard a planning tree, neither of which flow-fast writes. A group closes on the implementer's
   `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests. On `inline`, section 4 as this file states it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
-  written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs no panel.
+  written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs **The always-on extra dispatch** (`skills/flow/review-panel.md`) alone.
 
 The change summary in section 5 then also carries the `## Decision` block and, when a panel ran,
-each finding with its status.
+each finding with its status — on every class, since `micro` runs the always-on extra dispatch.
 
 ## 1. Kickoff
 
@@ -257,7 +257,7 @@ flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <n
 flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-**Dynamic decisions**' `review-panel` step runs here when the decision carries a panel.
+**Dynamic decisions**' `review-panel` step runs here on every class.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome completed <name>

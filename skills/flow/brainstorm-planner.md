@@ -477,7 +477,7 @@ Leave `override` `null` and `class = class_mechanical` otherwise. `red` and `unv
 recorded from the same output and move no class.
 
 **Micro** — when the script prints `class: micro`, decide collapses to a recorded default decision:
-steps 1–4 below record the micro row's values without choosing — execution `inline`, implementer
+steps 1–5 below record the micro row's values without choosing — execution `inline`, implementer
 and fixer `skipped — inline`, panel the string `default`, groups `null` — with decision.json
 carrying `class: micro`.
 
@@ -486,7 +486,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 1. **execution mode** — `inline` (`class` micro, small or regular) or `sdd` (`class` big).
 2. **implementer and fixer model + effort** — only when step 1 came out `sdd`; two pairs, each
    chosen per **Model and effort** below. The implementer pair is every implementer group's
-   default (step 4). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
+   default (step 5). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
    round does — repair named findings against their reproducers, usually a narrower job than the
    implementation — so it may differ from the implementer pair, its `reason` saying why. Both
    recorded `skipped — inline` when step 1 is inline, where the parent applies panel fixes on its
@@ -502,7 +502,11 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    the bundled findings need separation (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
    chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
    delta to confirm a fix and must be short and fast.
-4. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
+4. **extra dispatch** — on every class, `micro` included: record `plan-class.sh`'s `extra:` line as
+   `extra_dispatch` `{slots, model, effort, reason}` — `slots` `["test-sanity", "call-efficiency"]`,
+   `model` and `effort` the line's pair, `reason` naming its roll. It is never chosen: the roll
+   decides the model and the effort is `low`, always.
+5. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
    `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
    most two implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
@@ -522,7 +526,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    group carrying the change's hardest seam one step up, never past `medium`), the reason in that group's own `reason`.
    `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
-5. **visual verification** — on every class, `micro` included: it judges what the change can
+6. **visual verification** — on every class, `micro` included: it judges what the change can
    alter, not what its run costs. `visual` is `{verify, reason}`. `not configured` when
    `<project>/.flow/project.md` declares no `## visual verification` section, recorded without
    choosing. Otherwise judge from the plan's `**Files:**` whether anything a user sees can change —
@@ -541,7 +545,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 
 **The micro row** records defaults, never choices: what it skips is every roster, model/effort and
 grouping choice, and every roll the script printed; what it never skips is the decision record
-itself, step 5's visual judgement, the verify stage, or the self-review.
+itself, the extra dispatch, step 6's visual judgement, the verify stage, or the self-review.
 
 #### Model and effort
 
@@ -554,7 +558,8 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
   effort `medium` or `low`, never `high`;
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
-- **every pass-1 panel dispatch** — `opus`, always;
+- **every other pass-1 panel dispatch** — `opus`, always;
+- **the extra dispatch** — its rolled pair, `sonnet` or `opus` at `low`: the one pass-1 panel dispatch that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959);
 - **every gated per-task reviewer bundle** — `opus`, always, at its group's effort, or `high` where its group carries a hard seam, the group's `reason` naming the seam; it is a first-pass review too (`skills/flow/implement.md`);
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
@@ -604,7 +609,7 @@ skipped for the cap is recorded as the string `"experimental": "skipped — bund
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object
-`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `parent` (the parent's own
+`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` (an object `{slots, model, effort, reason}`, recorded on every class), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
 overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was
 given).

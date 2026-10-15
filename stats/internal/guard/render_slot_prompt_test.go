@@ -202,20 +202,27 @@ func TestRenderSlotPrompt(t *testing.T) {
 	})
 
 	// review-panel-experimental-slot.md: an exp-<name> slot is dispatched
-	// like any other, its template skills/flow/experimental/<name>.md.
+	// like any other, its template skills/flow/experimental/<name>.md. The
+	// real tree carries no candidate (kan-959 promoted test-sanity), so a
+	// copy of the skill's top-level files gains one probe.
 	t.Run("an exp- slot renders from experimental/<name>.md", func(t *testing.T) {
-		r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+exp-test-sanity", "-diff", "final", "--", fx.canon)
+		exp := t.TempDir()
+		mds, err := filepath.Glob(skill + "/*.md")
+		if err != nil || len(mds) == 0 {
+			t.Fatalf("glob %s/*.md: %v", skill, err)
+		}
+		for _, md := range mds {
+			writeFile(t, exp+"/"+filepath.Base(md), rbRead(md))
+		}
+		mkdir(t, exp+"/experimental")
+		writeFile(t, exp+"/experimental/probe.md", "description: a probe\n\n# Probe\n\n```\n    You are a probe reviewer.\n```\n")
+		r, got := fx.run(t, exp, exp, "0", fx.canon, fx.plan, "primary+exp-probe", "-diff", "final", "--", fx.canon)
 		if r.rc != 0 {
 			t.Fatalf("exit %d\n%s", r.rc, r.out)
 		}
-		_, body, ok := strings.Cut(rbRead(skill+"/experimental/test-sanity.md"), "```\n    ")
-		firstLine, _, _ := strings.Cut(body, "\n")
-		if !ok || firstLine == "" {
-			t.Fatal("experimental/test-sanity.md has no indented fenced body to compare against")
-		}
 		for _, want := range []string{
-			"## PASS exp-test-sanity\n\n" + firstLine,
-			"`" + sdd + "panel-report-0-exp-test-sanity.md`",
+			"## PASS exp-probe\n\nYou are a probe reviewer.",
+			"`" + sdd + "panel-report-0-exp-probe.md`",
 		} {
 			if !strings.Contains(got, want) {
 				t.Errorf("render lacks %q", want)
@@ -304,5 +311,32 @@ func TestRenderSlotPromptUnresolvedPlaceholder(t *testing.T) {
 	}
 	if strings.Contains(string(b), "## PASS mutation") {
 		t.Errorf("failure-modes+mutation render carries a PASS mutation section")
+	}
+}
+
+// TestRenderSlotPromptAlwaysOnRoles pins kan-959: the always-on extra
+// dispatch's bundle renders one PASS section per role from the real
+// templates, each pointed at its own report, and the old exp- id for
+// test-sanity no longer resolves.
+func TestRenderSlotPromptAlwaysOnRoles(t *testing.T) {
+	t.Parallel()
+	skill := rspSkillDir(t)
+	fx := rspNewFx(t)
+	sdd := fx.canon + "/.superpowers/sdd/"
+	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "test-sanity+call-efficiency", "-diff", "final", "--", fx.canon)
+	if r.rc != 0 {
+		t.Fatalf("exit %d\n%s", r.rc, r.out)
+	}
+	for _, want := range []string{
+		"## PASS test-sanity", "## PASS call-efficiency",
+		"`" + sdd + "panel-report-0-test-sanity.md`", "`" + sdd + "panel-report-0-call-efficiency.md`",
+		"You are a test-sanity reviewer.", "You are a call-efficiency reviewer.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("render lacks %q", want)
+		}
+	}
+	if r, _ := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "exp-test-sanity", "-diff", "final", "--", fx.canon); r.rc != 2 {
+		t.Errorf("exp-test-sanity: exit %d, want 2 — its template moved", r.rc)
 	}
 }

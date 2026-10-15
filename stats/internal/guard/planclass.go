@@ -67,6 +67,17 @@ var pcClasses = []string{"micro", "small", "regular", "big"}
 // its line-1 description: value.
 type pcExp struct{ name, desc string }
 
+// pcExtra is the always-on test-sanity+call-efficiency dispatch's line:
+// its roll and the pair it picks — sonnet below 50, opus otherwise, always
+// at low. Printed on every class, micro included (kan-959).
+func pcExtra(roll uint64) string {
+	model := "opus"
+	if roll < 50 {
+		model = "sonnet"
+	}
+	return fmt.Sprintf("extra: test-sanity+call-efficiency · roll %d · %s low\n", roll, model)
+}
+
 // pcTree is the decision tree brainstorm-planner.md's Decide reads, for the
 // effective class and the three rolls: execution and implementer, the panel
 // roster, its grouping and dispatches, and the experimental slot. Compact
@@ -322,5 +333,6 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "class: %s\n", class)
 	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d · effort %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"), roll(name+"effort"))
 	fmt.Fprint(stdout, pcTree(effective, roll(name), roll(name+"exp"), roll(name+"bundle"), cands))
+	fmt.Fprint(stdout, pcExtra(roll(name+"extra")))
 	return 0
 }

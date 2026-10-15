@@ -884,6 +884,11 @@ func (s *gsScan) coverage(skillNames []string, required []gsRow) (*coverage, err
 			return nil, gsRefusal(fmt.Sprintf("%v\ncheck-guard-symlinks: coverage_declare failed for 'flow-settings' (see stderr above)\n", err))
 		}
 	}
+	if slices.Contains(skillNames, "call-efficiency-audit") {
+		if err := cov.declare("call-efficiency-audit", "invokes no guard — a standalone measuring skill run against a dev stack, not a pipeline stage"); err != nil {
+			return nil, gsRefusal(fmt.Sprintf("%v\ncheck-guard-symlinks: coverage_declare failed for 'call-efficiency-audit' (see stderr above)\n", err))
+		}
+	}
 	for _, line := range cov.verdict() {
 		member, _, _ := strings.Cut(line, ":")
 		msg := line

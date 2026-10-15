@@ -112,7 +112,7 @@ then prints a `## Decision` table and asks **Proceed to implementation?** before
    migrations, spec edits, tasks that leave the build red, and `unverified:` plan claims. It prints
    a class — `micro`, `small`, `regular` or `big`. The planner may raise the class one step with
    a recorded reason, never lower it.
-2. **Roll.** The same script prints four rolls, hashed from the change name so they repeat on
+2. **Roll.** The same script prints four rolls, plus the always-on extra dispatch's own roll, hashed from the change name so they repeat on
    every run of that change: `compact` (a smaller review roster), `experimental` (add one
    reviewer prompt from `skills/flow/experimental/`), `bundle` (fixed or free reviewer grouping)
    and `effort` (below 80, every implementer, fixer and reviewer dispatch runs at `medium`, a
@@ -128,7 +128,8 @@ then prints a `## Decision` table and asks **Proceed to implementation?** before
    | `big` | `sdd`: subagent implementers, one per task group | `medium` on an `effort` roll below 80, else `low`/`medium` per group, from how hard its tasks are; a verification-only group (end-to-end specs, fidelity captures) always `low` | same roster as `regular`, full re-runs |
 
    A `compact` roll shrinks any roster except `micro`'s to `primary`+`principles`. A round runs at
-   most two review dispatches, with up to three roles each. A `micro` change (at most two tasks,
+   most two review dispatches, with up to three roles each, beside the always-on
+   `test-sanity+call-efficiency` dispatch every panel runs, `micro` included. A `micro` change (at most two tasks,
    documentation only, at most 20 changed lines) makes no choices. It still gets the decision
    record, the verify stage and self-review.
 

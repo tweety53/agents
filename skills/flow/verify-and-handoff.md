@@ -181,7 +181,7 @@ this pipeline restates it. Resolve once per worktree in this run's resolved set,
    dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
-(`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 5 of
+(`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
 **Decide**, `skills/flow/brainstorm-planner.md`), every worktree surviving step 2 prints
 `Visual: skipped at Decide — <reason>`, nothing is dispatched, and the stage closes:
 

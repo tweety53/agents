@@ -159,3 +159,30 @@ func TestDecisionRenderRefusals(t *testing.T) {
 		})
 	}
 }
+
+// TestDecisionRenderExtraDispatch pins kan-959's extra_dispatch: present,
+// it prints one Extra dispatch line with its bundle and pair, on a micro
+// decision too; absent (a decision written before kan-959), the render is
+// unchanged and still exits 0.
+func TestDecisionRenderExtraDispatch(t *testing.T) {
+	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
+		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
+		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
+		`"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",` +
+		`"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null`
+	with := micro + `,"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"}}`
+	rc, out, errOut := decisionRun(t, with, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+	if rc != 0 {
+		t.Fatalf("exit %d: %s", rc, errOut)
+	}
+	if want := "- **Extra dispatch:** test-sanity+call-efficiency sonnet/low\n"; !strings.Contains(out, want) {
+		t.Errorf("render lacks %q:\n%s", want, out)
+	}
+	rc, out, errOut = decisionRun(t, micro+"}", "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+	if rc != 0 {
+		t.Fatalf("a decision without extra_dispatch: exit %d: %s", rc, errOut)
+	}
+	if strings.Contains(out, "Extra dispatch") {
+		t.Errorf("a decision without extra_dispatch renders an Extra dispatch line:\n%s", out)
+	}
+}

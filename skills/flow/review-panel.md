@@ -6,7 +6,7 @@ roster: this run's decision's `panel.roster` (`<abs-worktree>/.superpowers/sdd/d
 the `## Decision` block of **Decide**, `skills/flow/brainstorm-planner.md`), or — when the decision's `panel` is the string `default`,
 a `micro` class — `REVIEWERS`, which `skills/flow/SKILL.md`'s **Model resolution** resolves from the
 settings store and is canonical for. This file owns dispatch: mapping each resolved id to
-its slot and spawning it.
+its slot and spawning it. Every pass 1 also dispatches **The always-on extra dispatch** below.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -167,10 +167,10 @@ substituted in the dispatch prompt with the value named here:
 
 | Placeholder | Template | The parent substitutes |
 |---|---|---|
-| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction, the append scope or the small append; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+| `[DIFF_PATH]` | all five | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction, the append scope or the small append; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
 | `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory the dispatch context bundle reads (`<changeRoot>`, or a satellite's canonical change directory) |
 | `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
-| `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
+| `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes, test-sanity, call-efficiency | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
 | `[PRINCIPLES_PATH]` | principles | as the Principles section below resolves it |
 | `[STANDARDS_PATHS]` | principles | as the Principles section below resolves it; empty when none resolve |
 | `[GLOBAL_CONSTRAINTS]` | principles | the literal `the design.md section of your context bundle` — never a selection or paraphrase; on the CONTEXT BUNDLE FAILURE continue path, the absolute path of the change's `design.md`, or `none` when it has none |
@@ -233,11 +233,29 @@ Then run
 check-panel-docs-only.sh <worktree> <merge-base>
 ```
 
+### The always-on extra dispatch
+
+**Every pass 1 dispatches one more bundle, `test-sanity+call-efficiency`, on the decision's
+`extra_dispatch` pair** — on a decided and a `default` panel alike, beside the dispatches the
+roster resolves, and outside their `≤2 × ≤3` cap. No automatic reduction removes it: the docs-only
+reduction, the late-fix reduction and the small append each still dispatch it. A decision with no
+`extra_dispatch` — written before kan-959 — dispatches it on `opus` at `low`.
+
+| id | Slot | How to spawn |
+|---|------|---------------|
+| `test-sanity` | **Test-sanity** — would each test the diff adds or changes fail if its behaviour broke | `flow-low` + `test-sanity-reviewer-prompt.md` |
+| `call-efficiency` | **Call-efficiency** — second callers, a read repeated in one request, a query per list item | `flow-low` + `call-efficiency-reviewer-prompt.md` |
+
+It is rendered, recorded and its findings handled like any other bundle (**Bundled dispatch**
+below): one `dispatches` row with `-slot test-sanity+call-efficiency` and the pair's `-model` and
+`-effort`. A role from it that raised a finding re-runs like any other role (**Panel re-runs**,
+`skills/flow/review-panel-fix-round.md`).
+
 ### The docs-only reduction
 
 **Exit 0 from
 every worktree in the resolved set — every path this branch touched, committed since the merge
-base, staged or unstaged, ends `.md` or `.mdc` — reduces pass 1 to `primary` alone**, plus every
+base, staged or unstaged, ends `.md` or `.mdc` — reduces pass 1 to `primary` alone**, plus **The always-on extra dispatch** and every
 slot the operator's per-run instruction
 named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
@@ -260,7 +278,7 @@ fields above.
 are the only automatic reductions, and they only ever
 remove; the append scope (`skills/flow/review-panel-late-fix.md`) narrows the read scope and
 removes no slot.** No slot is ever added by diff
-size, touched area, or any other automatic trigger: beyond the reduced or resolved roster,
+size, touched area, or any other automatic trigger, and none removes the always-on extra dispatch: beyond the reduced or resolved roster,
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
 
@@ -293,7 +311,7 @@ Before dispatching any panel round,
 re-check the decision's `panel.dispatches`/`panel.grouping`.
 
 **One bundled review dispatch per round is the starting shape: every role the round dispatches
-rides one dispatch**, one rendered **PASS `<id>`** section per role in roster order, on decided and
+rides one dispatch**, beside **The always-on extra dispatch**, one rendered **PASS `<id>`** section per role in roster order, on decided and
 `default` panels alike and in both execution modes — findings still recorded per role. A roster
 past the three-role cap spills its overflow — the mutating role (`mutation`) last — into a second
 dispatch, and a roster the two dispatches cannot hold shrinks to what they hold. **The full-roster
@@ -407,7 +425,7 @@ artifacts and working notes the round reads, `check-tree-markers.sh snapshot <wo
 `check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>` runs before any report
 is read or finding recorded.
 
-`-slot` names the dispatch's roles from **The roster** table above. `-role` is
+`-slot` names the dispatch's roles from **The roster** table above, or from **The always-on extra dispatch**'s table for that bundle. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
@@ -416,7 +434,7 @@ a `default` panel and the dispatch's own model from the decision's
 `panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a
 fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` likewise:
 `low` on a `default` panel, and the dispatch's own effort on a decided panel,
-`panel.rerun_dispatch`'s `low` on a re-run.
+`panel.rerun_dispatch`'s `low` on a re-run. The always-on extra dispatch is the one exception to both: its pass-1 `-model` and `-effort` are its `extra_dispatch` pair, `opus`/`low` when the decision has none.
 
 **`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier,
 pairing each launch with the begin nearest it in time;

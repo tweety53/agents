@@ -275,8 +275,13 @@ func TestPlanClass(t *testing.T) {
 			r := run(pcTasks(t, "plan-class-micro-pin", "- [ ] 1. Docs\n**Files:** `docs/note.md`\n"), "1", newRepo(t).dir, mb)
 			want := "inputs: tasks=1 files=1 repos=1 migration=no spec=no red=no unverified=no\n" +
 				"class: micro\n" +
-				"rolls: compact 65 · experimental 0 · bundle 43 · effort 96\n"
-			if r.rc != 0 || !strings.HasPrefix(r.stdout, want) || r.err != "" {
+				"rolls: compact 65 · experimental 0 · bundle 43 · effort 96\n" +
+				"tree: class micro · execution inline · implementer skipped — inline\n" +
+				"panel: default\n" +
+				"grouping: not consulted — micro\n" +
+				"experimental: not consulted — micro\n" +
+				"extra: test-sanity+call-efficiency · roll 25 · sonnet low\n"
+			if r.rc != 0 || r.stdout != want || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}
 		}},
@@ -431,7 +436,8 @@ func TestPlanClassTree(t *testing.T) {
 		return "tree: class regular · execution inline · implementer skipped — inline\n" +
 			"panel: compact · roster primary; principles · rerun delta\n" +
 			"grouping: free · dispatches primary+principles\n" +
-			"experimental: " + experimental + "\n"
+			"experimental: " + experimental + "\n" +
+			"extra: test-sanity+call-efficiency · roll 17 · sonnet low\n"
 	}
 	expDir := func(t *testing.T, files map[string]string) string {
 		root := t.TempDir()
@@ -465,7 +471,8 @@ func TestPlanClassTree(t *testing.T) {
 				"tree: class regular · execution inline · implementer skipped — inline\n" +
 				"panel: full · roster primary; principles; failure-modes; mutation; exp-a · rerun delta\n" +
 				"grouping: static · dispatches primary+principles+failure-modes · mutation+exp-a\n" +
-				"experimental: exp-a · skills/flow/experimental/a.md · first probe\n"},
+				"experimental: exp-a · skills/flow/experimental/a.md · first probe\n" +
+				"extra: test-sanity+call-efficiency · roll 71 · opus low\n"},
 	} {
 		t.Run(c.label, func(t *testing.T) {
 			t.Parallel()
@@ -562,5 +569,23 @@ func TestFlowGuardRootThroughSkillSymlink(t *testing.T) {
 	}
 	if got := strings.TrimSpace(string(out)); got != repo {
 		t.Errorf("flow_guard_root through skills/flow/scripts/lib = %q, want the repository %q", got, repo)
+	}
+}
+
+// TestPlanClassExtra pins the always-on test-sanity+call-efficiency
+// dispatch's line (kan-959, decision extra-roll-own-line): sonnet below 50,
+// opus from 50, always low, its roll printed — on every class, micro
+// included, since the line is printed beside the tree, never inside it.
+func TestPlanClassExtra(t *testing.T) {
+	t.Parallel()
+	for roll, want := range map[uint64]string{
+		0:  "extra: test-sanity+call-efficiency · roll 0 · sonnet low\n",
+		49: "extra: test-sanity+call-efficiency · roll 49 · sonnet low\n",
+		50: "extra: test-sanity+call-efficiency · roll 50 · opus low\n",
+		99: "extra: test-sanity+call-efficiency · roll 99 · opus low\n",
+	} {
+		if got := pcExtra(roll); got != want {
+			t.Errorf("pcExtra(%d) = %q, want %q", roll, got, want)
+		}
 	}
 }

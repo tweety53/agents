@@ -257,7 +257,7 @@ func ApplyDecisionRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 // checkDecisionModels refuses a decision body naming a model outside
 // store.ValidModels in any pair the Decide step records --
 // implementer.model, fixer.model, panel.dispatches[].model,
-// panel.rerun_dispatch.model, groups[].model -- naming the JSON path and
+// panel.rerun_dispatch.model, groups[].model, extra_dispatch.model -- naming the JSON path and
 // the value (refuse-off-policy-models). It refuses effort "high" on the
 // implementer, fixer and groups[] pairs alike (no-high-implementer): the
 // one opus-high fix, the no-progress escalation, is a dispatch record and
@@ -277,6 +277,9 @@ func checkDecisionModels(body json.RawMessage) error {
 		return err
 	}
 	if err := checkPairModel("fixer", d["fixer"], true); err != nil {
+		return err
+	}
+	if err := checkPairModel("extra_dispatch", d["extra_dispatch"], false); err != nil {
 		return err
 	}
 	if isObject(d["panel"]) {

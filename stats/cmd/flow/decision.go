@@ -127,6 +127,11 @@ type dDecision struct {
 	GroupsOverride   *string             `json:"groups_override"`
 	GroupsReason     string              `json:"groups_reason"`
 	Visual           *dVisual            `json:"visual"`
+	ExtraDispatch    *struct {
+		Slots  []string `json:"slots"`
+		Model  string   `json:"model"`
+		Effort string   `json:"effort"`
+	} `json:"extra_dispatch"`
 }
 
 // dVisual is Decide's visual-verification decision. Optional, so a decision
@@ -305,6 +310,9 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 			parts = append(parts, "experimental skipped — bundle cap")
 		}
 		line("Panel", strings.Join(parts, " · "))
+	}
+	if x := d.ExtraDispatch; x != nil {
+		line("Extra dispatch", strings.Join(x.Slots, "+")+" "+dPair{Model: x.Model, Effort: x.Effort}.pair())
 	}
 
 	if v := d.Visual; v != nil {

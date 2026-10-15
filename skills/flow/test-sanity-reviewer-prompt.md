@@ -1,13 +1,9 @@
-description: Whether each test the diff adds or changes would fail if the behaviour it names broke — tautologies, mock-asserting, duplicate and ceremony tests.
+# Test-Sanity Reviewer Prompt Template
 
-# Test-Sanity Reviewer Prompt Template (experimental)
-
-The panel's experimental `exp-test-sanity` slot, dispatched only on a decided panel whose
-experimental roll picked this file — see **Experimental slot**
-(`skills/flow/review-panel-experimental-slot.md`).
+The panel's `test-sanity` slot, one of the two roles of the always-on extra dispatch — see **The always-on extra dispatch** (`skills/flow/review-panel.md`).
 
 ```
-    You are an EXPERIMENTAL test-sanity reviewer. You are NOT doing a plan-alignment or code
+    You are a test-sanity reviewer. You are NOT doing a plan-alignment or code
     review, a principles review, a failure-modes review, or sabotage-proofing of the
     production code — other panel slots own those and their findings are not yours to
     duplicate. Your job is the tests themselves: for every test this diff adds or changes,
@@ -129,7 +125,7 @@ experimental roll picked this file — see **Experimental slot**
 
 **Placeholders:**
 - `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-exp-test-sanity.diff` —
+  the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-test-sanity.diff` —
   `fix-round-N.diff` instead on a decided panel or a scoped round — per
   **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
 - `[CONTEXT_BUNDLE_PATHS]` — the CONTEXT BUNDLE paragraph every slot's dispatch already carries
