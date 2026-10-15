@@ -1,0 +1,197 @@
+# Task 3
+\# Test-Sanity Reviewer Prompt Template (experimental)
+The panel's experimental `exp-test-sanity` slot, dispatched only on a decided panel whose experimental roll picked this file — see **Experimental slot** (`skills/flow/review-panel-experimental-slot.md`).
+You are an EXPERIMENTAL test-sanity reviewer.
+description: Whether each test the diff adds or changes would fail if the behaviour it names broke — tautologies, mock-asserting, duplicate and ceremony tests.
+the delta `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-exp-test-sanity.diff` — `fix-round-N.diff` instead on a decided panel or a scoped round — per **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+\# Test-Sanity Reviewer Prompt Template
+You are a test-sanity reviewer.
+\# Test-Sanity Reviewer Prompt Template (experimental)
+\# Test-Sanity Reviewer Prompt Template
+
+# Task 4
+\# Call-Efficiency Reviewer Prompt Template
+- **Critical** — a per-item query or call on a list with no bound, or a read multiplied
+- **Important** — a second independent caller of the same read on one user action, or
+- **Minor** — a repeat on a cold path, or a batch read worth having where the list is
+- **Per item of a list** (KAN-924 F9, F13).
+- **Repeated within one request** (KAN-924 F11, F12, F14).
+- **Second caller** (KAN-924 F1, F2, F3, F7).
+- **Unstable trigger.
+Does a list endpoint or loop cost a query or
+For each issue: File:line, which lens it is (second caller / repeated within one
+For every read or effect the diff adds or changes, walk it through each of these lenses
+Grep for the
+Grep the whole repository, not the diff, for
+Is a load keyed on a value that starts unset and settles, so it
+Is the same row, entity or
+Who else in the codebase already reads or
+You are a call-efficiency reviewer.
+Your job is every read and every effect this diff adds or
+[what reads and effects this diff added or changed, which lenses bore on them, and the
+and report only where the diff's actual code costs a call it does not need:
+both loading the user, a guard query run twice?
+call per row — a lazy relation touched per row, a per-owner query in a loop, one call
+causes the same thing on the same user action — a prefetch and a screen both loading
+changes — an HTTP call, a query, a cache or Redis access, a file read, a message sent, a
+command that merely passes against the diff is not a reproducer.
+each), the fix sketch, and a **reproducer** — a runnable command that demonstrates the
+endpoint, query or repository method to find them.
+every other caller of a read the diff adds before calling it unique or duplicated.
+extra call, or the literal form `none — <reason>` when no such command exists.
+it, two components each fetching on mount, a retry racing the original?
+on every app open or every request of a hot path.
+other panel slots own those.
+overall verdict]
+per id where a batch read exists?
+principles review, a failure-modes review, a test-sanity review, or sabotage-proofing —
+query loaded twice in one request or one screen load — an auth filter and a handler
+recomposition-triggered load — and whether it costs more calls than the behaviour needs.
+request / per item of a list / unstable trigger), every caller found (`path:line`
+runs, cancels and runs again?
+small and bounded.
+the same row loaded twice in one request.
+under review; the bundle is background.
+
+# Task 6
+\# Call-efficiency audit
+\## Before/after
+\## Browser request log
+\## Checklists
+\## Commit nothing measuring
+\## Never production
+\## Per-endpoint statement count
+**Database**
+**Frontend**
+**Gateway and other**
+A verdict is `finding <id>`, `none`, `by design`, `not seen`, `not measured` or `not in scope`; evidence is a measurement or a `path:line`.
+After a fix, measure again the same way on the same stack and write the before/after table: each request's count before and after, and the total.
+Call each endpoint once, warm, through the gateway, and count the statements logged in a short
+Check index use with `EXPLAIN` on the same database for every query a finding rests on.
+Cover each layer the app has: the client app, the gateway, the database and the cache.
+Do not count `BEGIN`, `COMMIT` or `SET`; count transactions from `BEGIN`.
+Do three cold opens, each in a fresh context.
+Every finding carries measured evidence, in one table:
+Every setting the audit changes — statement logging above all — is set on that stack's own database only and reset afterwards.
+Log one more cold open through CDP's `Network.requestWillBeSent` to count CORS preflights, which
+Look for repeated key reads, keys with no TTL, `KEYS` or `SCAN` on hot paths, reads that could be one `MGET` or a pipeline, and the per-request cost of a rate limiter.
+Measure how many calls a running app makes — client to gateway, gateway to backend, backend to database and cache — and report every call it does not need, with measured evidence.
+Name the stack in the report: its URLs, its database and its cache index.
+Name what is out of scope in the report, and why (an operator-only admin frontend with low traffic, for one).
+One table per layer, columns `Check | Verdict | Evidence`.
+Only the report is kept.
+Open a fresh browser context — no site data, an empty offline store — sign in by API and load
+Record every request to the backend for a fixed window, each with its start and end time from the start of the run.
+Run `redis-cli MONITOR` (or the cache's equivalent) over one full walk.
+The measuring tooling — scripts, log captures, browser drivers — is throwaway.
+The method is the KAN-924 audit's, generalised for any project's dev stack.
+The stack is a dev or worktree stack, never production (`rules/never-touch-production.mdc`).
+Then a **Prevention** table grouping the finding classes that recur — two or more instances — with their count and finding ids.
+Then walk a fixed route across the main screens, the same dwell on each, and record each step's
+Turn statement logging on for the stack's database only —
+Use for /call-efficiency-audit, "audit call efficiency", "duplicate requests", "N+1".
+Write a per-path count table for one run, ids folded to `{id}`, with the count of distinct ids.
+Write a table of statements and transactions per endpoint.
+Write the repeats table: the read, its calls per run, whether the second call started before the
+`ALTER DATABASE <db> SET log_statement = 'all'` — and reset it afterwards.
+a page-level request log does not show.
+first answered (overlapping), and the callers found in code for each call.
+fixed window after the call.
+license: MIT
+name: call-efficiency-audit description: Measure a running dev stack's call efficiency — browser request log over cold opens, per-endpoint SQL statement counts, cache MONITOR — and report repeated reads, repeated queries within a request and per-item queries, with a findings table and a before/after comparison.
+| CORS preflights, and the CORS block's `maxAge` | | |
+| Check | Verdict | Evidence |
+| Dead reads — a result nothing uses | | |
+| Effects keyed on unstable values | | |
+| Entity loaded twice per request | | |
+| Health probe on open | | |
+| ID | Area | Evidence | Severity | Action |
+| Keys with no TTL | | |
+| Lazy relations touched in lists | | |
+| Local cache or change-queue write amplification | | |
+| Missing foreign-key indexes | | |
+| One transaction per repository call | | |
+| Outbound mail or HTTP inside a transaction | | |
+| Per-owner queries in a loop | | |
+| Per-request logging and metrics | | |
+| Per-request rate-limiter cost | | |
+| Polling while hidden | | |
+| Prefetch of data never opened | | |
+| Presigned URL generated per row | | |
+| Refresh stampede — concurrent token refreshes | | |
+| Repeated key reads | | |
+| Repeated reads on open | | |
+| Repeated selects inside one read | | |
+| Retries without backoff | | |
+| Save-in-loop, read-before-update | | |
+| Scheduled jobs scanning tables | | |
+| Stampede on expiry | | |
+| Swallowed failures | | |
+| Token parsed per filter | | |
+| Transactions spanning cache, storage, mail or HTTP calls | | |
+| Uncancelled reads, or reads cancelled and sent again | | |
+| User or identity resolved in both gateway and backend | | |
+| Waterfalls — a read waiting on another it does not need | | |
+| Wide reads on every visit | | |
+| `FOR UPDATE` ordering | | |
+| `KEYS` / `SCAN` on hot paths | | |
+| `MGET` or pipeline candidates | | |
+| `OFFSET` / `COUNT(*)` paging | | |
+|-------|---------|----------|
+|----|------|----------|----------|--------|
+
+# Task 7
+**A fix run whose late-fix check exits 4 — the append scope's verdict on a countable delta of at most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, plus every slot the operator named at this stage's start, on `opus` at `low` effort under the ordinary 15-minute ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders it.
+**Exit 0 from every worktree in the resolved set — every path this branch touched, committed since the merge base, staged or unstaged, ends `.md` or `.mdc` — reduces pass 1 to `primary` alone**, plus every slot the operator's per-run instruction named at this stage's start.
+**Micro** — when the script prints `class: micro`, decide collapses to a recorded default decision: steps 1–4 below record the micro row's values without choosing — execution `inline`, implementer and fixer `skipped — inline`, panel the string `default`, groups `null` — with decision.json carrying `class: micro`.
+**On trigger, pass 1 is one dispatch: `primary` alone**, plus every slot the operator named at this stage's start, reading not the whole `final-review.diff` but only `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by `write-panel-diff.sh late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`, whose exits read as the pass-1 write's.
+**The micro row** records defaults, never choices: what it skips is every roster, model/effort and grouping choice, and every roll the script printed; what it never skips is the decision record itself, step 5's visual judgement, the verify stage, or the self-review.
+**every pass-1 panel dispatch** — `opus`, always;
+A `default` panel (the `micro` class) runs no panel.
+No slot is ever added by diff size, touched area, or any other automatic trigger: beyond the reduced or resolved roster, anything reaches the panel only through an explicit per-run operator instruction, for that run only.
+The JSON carries: `class`, `classMechanical`, `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls` (`compact`, `experimental`, `bundle`, `effort`), `execution`, `implementer` and `fixer` (each an object `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster: [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`), `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster order — the one place a pass-1 reviewer's model and effort are recorded), `rerun_dispatch` (an object `{model, effort, reason}`, the rerun pair — the one place a fix-round re-run's model and effort are recorded), `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and `groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object `{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `parent` (the parent's own model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was given).
+The implementer pair is every implementer group's default (step 4).
+\### The always-on extra dispatch
+**Every pass 1 dispatches one more bundle, `test-sanity+call-efficiency`, on the decision's `extra_dispatch` pair** — on a decided and a `default` panel alike, beside the dispatches the roster resolves, and outside their `≤2 × ≤3` cap.
+**Exit 0 from every worktree in the resolved set — every path this branch touched, committed since the merge base, staged or unstaged, ends `.md` or `.mdc` — reduces pass 1 to `primary` alone**, plus **The always-on extra dispatch** and every slot the operator's per-run instruction named at this stage's start.
+**Micro** — when the script prints `class: micro`, decide collapses to a recorded default decision: steps 1–5 below record the micro row's values without choosing — execution `inline`, implementer and fixer `skipped — inline`, panel the string `default`, groups `null` — with decision.json carrying `class: micro`.
+**The micro row** records defaults, never choices: what it skips is every roster, model/effort and grouping choice, and every roll the script printed; what it never skips is the decision record itself, the extra dispatch, step 6's visual judgement, the verify stage, or the self-review.
+**every other pass-1 panel dispatch** — `opus`, always;
+**extra dispatch** — on every class, `micro` included: record `plan-class.sh`'s `extra:` line as
+**the extra dispatch** — its rolled pair, `sonnet` or `opus` at `low`: the one pass-1 panel dispatch that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959);
+A `test-sanity` or `call-efficiency` role re-runs in the round's rerun bundle like any other role, on `opus` on a `default` panel.
+A decision with no `extra_dispatch` — written before kan-959 — dispatches it on `opus` at `low`.
+A role from it that raised a finding re-runs like any other role (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`).
+Every pass 1 also dispatches **The always-on extra dispatch** below.
+It is never chosen: the roll decides the model and the effort is `low`, always.
+It is rendered, recorded and its findings handled like any other bundle (**Bundled dispatch** below): one `dispatches` row with `-slot test-sanity+call-efficiency` and the pair's `-model` and `-effort`.
+No automatic reduction removes it: the docs-only reduction, the late-fix reduction and the small append each still dispatch it.
+No slot is ever added by diff size, touched area, or any other automatic trigger, and none removes the always-on extra dispatch: beyond the reduced or resolved roster, anything reaches the panel only through an explicit per-run operator instruction, for that run only.
+The JSON carries: `class`, `classMechanical`, `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls` (`compact`, `experimental`, `bundle`, `effort`), `execution`, `implementer` and `fixer` (each an object `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster: [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`), `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster order — the one place a pass-1 reviewer's model and effort are recorded), `rerun_dispatch` (an object `{model, effort, reason}`, the rerun pair — the one place a fix-round re-run's model and effort are recorded), `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and `groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object `{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` (an object `{slots, model, effort, reason}`, recorded on every class), `parent` (the parent's own model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was given).
+The implementer pair is every implementer group's default (step 5).
+`extra_dispatch` `{slots, model, effort, reason}` — `slots` `["test-sanity", "call-efficiency"]`, `model` and `effort` the line's pair, `reason` naming its roll.
+| `call-efficiency` | **Call-efficiency** — second callers, a read repeated in one request, a query per list item | `flow-low` + `call-efficiency-reviewer-prompt.md` |
+| `test-sanity` | **Test-sanity** — would each test the diff adds or changes fail if its behaviour broke | `flow-low` + `test-sanity-reviewer-prompt.md` |
+
+# Panel round 0 fixes
+**Dynamic decisions**' `review-panel` step runs here when the decision carries a panel.
+**One bundled review dispatch per round is the starting shape: every role the round dispatches rides one dispatch**, one rendered **PASS `<id>`** section per role in roster order, on decided and `default` panels alike and in both execution modes — findings still recorded per role.
+**decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–4 and the tree `plan-class.sh` prints
+The change summary in section 5 then also carries the `## Decision` block and, when a panel ran, each finding with its status.
+When this run's decision (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 5 of **Decide**, `skills/flow/brainstorm-planner.md`), every worktree surviving step 2 prints `Visual: skipped at Decide — <reason>`, nothing is dispatched, and the stage closes:
+`-slot` names the dispatch's roles from **The roster** table above.
+| `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
+| `[DIFF_PATH]` | all three | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction, the append scope or the small append; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+**Dynamic decisions**' `review-panel` step runs here on every class.
+**One bundled review dispatch per round is the starting shape: every role the round dispatches rides one dispatch**, beside **The always-on extra dispatch**, one rendered **PASS `<id>`** section per role in roster order, on decided and `default` panels alike and in both execution modes — findings still recorded per role.
+**decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5 and the tree `plan-class.sh` prints
+The always-on extra dispatch is the one exception to both: its pass-1 `-model` and `-effort` are its `extra_dispatch` pair, `opus`/`low` when the decision has none.
+The change summary in section 5 then also carries the `## Decision` block and, when a panel ran, each finding with its status — on every class, since `micro` runs the always-on extra dispatch.
+When this run's decision (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of **Decide**, `skills/flow/brainstorm-planner.md`), every worktree surviving step 2 prints `Visual: skipped at Decide — <reason>`, nothing is dispatched, and the stage closes:
+`-slot` names the dispatch's roles from **The roster** table above, or from **The always-on extra dispatch**'s table for that bundle.
+behaviour — a pure computation with no boundary call has no call to count, and
+missing test) unless the extra call is what makes it wrong.
+| `/call-efficiency-audit` | `call-efficiency-audit` | Measures a running dev stack's call efficiency — browser request log, per-endpoint SQL statement counts, cache `MONITOR` — and reports repeated reads, repeated queries within a request and per-item queries.
+| `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes, test-sanity, call-efficiency | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
+| `[DIFF_PATH]` | all five | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction, the append scope or the small append; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+├── call-efficiency-audit/ ← /call-efficiency-audit (measure a dev stack's call efficiency)
