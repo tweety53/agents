@@ -16,10 +16,10 @@
 - Every prose line a diff adds is copied verbatim: this change's `verbatim-moves.txt` acknowledges each new or reworded sentence by its exact text, and any other wording fails `scripts/check-verbatim-moves.sh`.
 - Go in `stats/` follows the Go skills `CLAUDE.md` names; run `cd stats && gofmt -w .` before `gofmt -l .`. `go build ./...` needs the built SPA (`internal/web/dist`); the commands below vet and test only the packages each task touches.
 
-- [ ] 1. A back-filled dispatch row carries its real start and end instants
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record dispatch begin -started-at 2026-10-15T12:08:50Z -change x -role reviewer -model opus -key k -session-token mf-x 2>&1 | head -3` and confirm `flag provided but not defined: -started-at` — the defect: a back-fill cannot state when its dispatch ran, so the daemon stamps the back-fill's own instant.
-  - [ ] **Step 2: Write the failing test.** Apply the `stats/cmd/flow/record_test.go` hunk of the diff in step 3 alone (`git apply --include='stats/cmd/flow/record_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRecordDispatchBackfillInstants -count=1`: it FAILS with `exit code = 2, want 0`.
-  - [ ] **Step 3: Implement the flags.** Apply the rest of this diff:
+- [x] 1. A back-filled dispatch row carries its real start and end instants
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record dispatch begin -started-at 2026-10-15T12:08:50Z -change x -role reviewer -model opus -key k -session-token mf-x 2>&1 | head -3` and confirm `flag provided but not defined: -started-at` — the defect: a back-fill cannot state when its dispatch ran, so the daemon stamps the back-fill's own instant.
+  - [x] **Step 2: Write the failing test.** Apply the `stats/cmd/flow/record_test.go` hunk of the diff in step 3 alone (`git apply --include='stats/cmd/flow/record_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRecordDispatchBackfillInstants -count=1`: it FAILS with `exit code = 2, want 0`.
+  - [x] **Step 3: Implement the flags.** Apply the rest of this diff:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at bc44caac; go vet, gofmt -l and go test ./internal/guard/ ./cmd/flow/ pass with every task applied; TestRecordDispatchBackfillInstants fails with record.go reverted (exit code = 2, want 0)
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -186,7 +186,7 @@ index 493410ca..e5e16639 100644
 +}
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatchBackfillInstants|TestRecordDispatch|TestDispatchEnd' -count=1` — `gofmt -l` prints nothing, the tests pass. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatchBackfillInstants|TestRecordDispatch|TestDispatchEnd' -count=1` — `gofmt -l` prints nothing, the tests pass. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -199,10 +199,10 @@ index 493410ca..e5e16639 100644
 
 **Decision:** backfill-instant-flags
 
-- [ ] 2. close-task refuses an appended task no dispatch row names
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read the SIGNAL FOUR block in `closeTask` (`stats/internal/guard/closetask.go`): it prints `close-task: WARNING — appended task …` and goes on to tick and push — the defect; kan-982 ticked Tasks 19–21 past it.
-  - [ ] **Step 2: Write the failing test.** Apply the `stats/internal/guard/close_task_test.go` hunk of the diff in step 3 alone and run `cd stats && go test ./internal/guard/ -run TestCloseTaskRefusesAnUndispatchedAppendedTask -count=1`: it FAILS with `refusal present false, want true`.
-  - [ ] **Step 3: Implement the refusal.** Apply the rest of this diff — the guard, its shim's header and the exit-1 clause of `implement.md`'s task-close step:
+- [x] 2. close-task refuses an appended task no dispatch row names
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read the SIGNAL FOUR block in `closeTask` (`stats/internal/guard/closetask.go`): it prints `close-task: WARNING — appended task …` and goes on to tick and push — the defect; kan-982 ticked Tasks 19–21 past it.
+  - [x] **Step 2: Write the failing test.** Apply the `stats/internal/guard/close_task_test.go` hunk of the diff in step 3 alone and run `cd stats && go test ./internal/guard/ -run TestCloseTaskRefusesAnUndispatchedAppendedTask -count=1`: it FAILS with `refusal present false, want true`.
+  - [x] **Step 3: Implement the refusal.** Apply the rest of this diff — the guard, its shim's header and the exit-1 clause of `implement.md`'s task-close step:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at bc44caac; go vet, gofmt -l and go test ./internal/guard/ ./cmd/flow/ pass with every task applied; TestCloseTaskRefusesAnUndispatchedAppendedTask fails with closetask.go reverted (refusal present false, want true); check-verbatim-moves.sh (with this change's verbatim-moves.txt), check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh and check-normative-inventory.sh exit 0
 diff --git a/scripts/close-task.sh b/scripts/close-task.sh
@@ -343,7 +343,7 @@ index f085a2cb..27e4ccdf 100644
  	for _, t := range tasks {
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCloseTask' -count=1`, then from the repository root `bash -n scripts/close-task.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCloseTask' -count=1`, then from the repository root `bash -n scripts/close-task.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/closetask.go`, `stats/internal/guard/close_task_test.go`, `scripts/close-task.sh`, `skills/flow/implement.md`
@@ -356,10 +356,10 @@ index f085a2cb..27e4ccdf 100644
 
 **Decision:** close-task-refuses-undispatched
 
-- [ ] 3. Integrate's visual-verify check matches a satellite against the canonical `ui paths`
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read `checkVisualVerifyDispatched` (`stats/internal/guard/visualverifydispatched.go`) and the `check-visual-verify-dispatched.sh` call in `scripts/integrate-change.sh`'s `cmd_prepare`: the trigger is asked of each worktree's own `.flow/project.md` only and the store is read `-C <worktree>` — the defect: a frontend worktree with no section is "not configured" though the canonical project names its files `gymie-frontend/**`.
-  - [ ] **Step 2: Write the failing test.** Apply the `stats/internal/guard/check_visual_verify_dispatched_test.go` hunks of the diff in step 3 alone and run `cd stats && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1`: the new cases of `TestCheckVisualVerifyDispatchedCanonicalUIPaths` and case 8d's usage line FAIL.
-  - [ ] **Step 3: Implement the canonical match.** Apply the rest of this diff — the guard, its shim's header, integrate's call and the finish contract's **Run 1** line:
+- [x] 3. Integrate's visual-verify check matches a satellite against the canonical `ui paths`
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read `checkVisualVerifyDispatched` (`stats/internal/guard/visualverifydispatched.go`) and the `check-visual-verify-dispatched.sh` call in `scripts/integrate-change.sh`'s `cmd_prepare`: the trigger is asked of each worktree's own `.flow/project.md` only and the store is read `-C <worktree>` — the defect: a frontend worktree with no section is "not configured" though the canonical project names its files `gymie-frontend/**`.
+  - [x] **Step 2: Write the failing test.** Apply the `stats/internal/guard/check_visual_verify_dispatched_test.go` hunks of the diff in step 3 alone and run `cd stats && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1`: the new cases of `TestCheckVisualVerifyDispatchedCanonicalUIPaths` and case 8d's usage line FAIL.
+  - [x] **Step 3: Implement the canonical match.** Apply the rest of this diff — the guard, its shim's header, integrate's call and the finish contract's **Run 1** line:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at bc44caac; go vet, gofmt -l and go test ./internal/guard/ ./cmd/flow/ pass with every task applied; three cases of TestCheckVisualVerifyDispatchedCanonicalUIPaths fail with visualverifydispatched.go reverted; check-verbatim-moves.sh (with this change's verbatim-moves.txt), check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh and check-normative-inventory.sh exit 0
 diff --git a/scripts/check-visual-verify-dispatched.sh b/scripts/check-visual-verify-dispatched.sh
@@ -612,7 +612,7 @@ index 6b928537..70666cbd 100644
  		priorErr = fmt.Errorf("flow exit %d", rc)
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1`, then from the repository root `bash -n scripts/integrate-change.sh scripts/check-visual-verify-dispatched.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1`, then from the repository root `bash -n scripts/integrate-change.sh scripts/check-visual-verify-dispatched.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`, `scripts/integrate-change.sh`, `skills/flow-contracts/finish-contract-run1.md`
@@ -625,9 +625,9 @@ index 6b928537..70666cbd 100644
 
 **Decision:** visual-dispatched-canonical
 
-- [ ] 4. A load-flake fix closes after two more full test runs
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read step 2 of **The loop** in `skills/flow/verify-fix-loop.md`: nothing runs the full list again after a fix for a test that passes alone, so each further load flake waits for the next full-suite round — the defect.
-  - [ ] **Step 2: Add the paragraph.** Apply this diff:
+- [x] 4. A load-flake fix closes after two more full test runs
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read step 2 of **The loop** in `skills/flow/verify-fix-loop.md`: nothing runs the full list again after a fix for a test that passes alone, so each further load flake waits for the next full-suite round — the defect.
+  - [x] **Step 2: Add the paragraph.** Apply this diff:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at bc44caac; check-verbatim-moves.sh (with this change's verbatim-moves.txt), check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh and check-normative-inventory.sh exit 0
 --- a/skills/flow/verify-fix-loop.md
@@ -646,7 +646,7 @@ index 6b928537..70666cbd 100644
     ceilinged and recorded as **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`)
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-normative-inventory.sh` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-normative-inventory.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -658,10 +658,10 @@ index 6b928537..70666cbd 100644
 
 **Decision:** load-flake-two-more-runs
 
-- [ ] 5. A determinism fix whose flake does not reproduce is dropped
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'reproduce' skills/flow/verify-fix-loop.md skills/flow/implement.md` — no line says what happens to a fix whose flake never failed without it — the defect: kan-982 Task 17 committed one (0 failures in 8 runs without it).
+- [x] 5. A determinism fix whose flake does not reproduce is dropped
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'reproduce' skills/flow/verify-fix-loop.md skills/flow/implement.md` — no line says what happens to a fix whose flake never failed without it — the defect: kan-982 Task 17 committed one (0 failures in 8 runs without it).
     <!-- measured: read from the kan-982 self-review findings file (machine-local, not re-runnable) @ 2026-10-15 -->
-  - [ ] **Step 2: Add the paragraph.** Apply this diff:
+  - [x] **Step 2: Add the paragraph.** Apply this diff:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at bc44caac; check-verbatim-moves.sh (with this change's verbatim-moves.txt), check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh and check-normative-inventory.sh exit 0
 --- a/skills/flow/verify-fix-loop.md
@@ -679,7 +679,7 @@ index 6b928537..70666cbd 100644
     ceilinged and recorded as **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`)
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-fix-loop.md`
@@ -691,9 +691,9 @@ index 6b928537..70666cbd 100644
 
 **Decision:** drop-unreproduced-determinism-fix
 
-- [ ] 6. Motion frames carry their offset and two triggers compare at one sampling
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read **The motion step** in `skills/flow/visual-verify-verifier.md`: frames are written `<nnn>.png` with no instant and nothing asks for the sibling trigger at the same sampling — the defect behind kan-982 Task 20's false "Back draws in-between frames".
-  - [ ] **Step 2: Edit the paragraph.** Apply this diff:
+- [x] 6. Motion frames carry their offset and two triggers compare at one sampling
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read **The motion step** in `skills/flow/visual-verify-verifier.md`: frames are written `<nnn>.png` with no instant and nothing asks for the sibling trigger at the same sampling — the defect behind kan-982 Task 20's false "Back draws in-between frames".
+  - [x] **Step 2: Edit the paragraph.** Apply this diff:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at bc44caac; check-verbatim-moves.sh (with this change's verbatim-moves.txt), check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh and check-normative-inventory.sh exit 0
 diff --git a/skills/flow/visual-verify-verifier.md b/skills/flow/visual-verify-verifier.md
@@ -723,7 +723,7 @@ index 8d10cfb3..a9e27b99 100644
      path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`
