@@ -16,10 +16,10 @@
 - Go in `stats/` follows the Go skills `CLAUDE.md` names; run `cd stats && gofmt -w <package dir>` before `gofmt -l`. `go build ./...` needs the built SPA (`internal/web/dist`, `make web-build`); the commands below vet and test only the package each task touches.
 - Tasks 1 and 3 both edit `skills/flow-contracts/finish-contract-run1.md` and `skills/flow-fast/SKILL.md`, and Tasks 2 and 3 both edit `skills/flow-self-review/SKILL.md`: run them in order, one after another.
 
-- [ ] 1. The self-review bundle serves the archived `visual-verification.md`
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the `stats/internal/selfreview/bundle_test.go` hunks of the diff in step 2 alone (`git apply --include='stats/internal/selfreview/bundle_test.go' <the diff>`) and run `cd stats && go test ./internal/selfreview/ -run TestBundleServesArchivedVisualVerification -count=1`: it FAILS (`bundle missing "## spectre/changes/archive/demo/visual-verification.md"`) — the defect: a visual candidate's record never reaches the self-review pass.
+- [x] 1. The self-review bundle serves the archived `visual-verification.md`
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the `stats/internal/selfreview/bundle_test.go` hunks of the diff in step 2 alone (`git apply --include='stats/internal/selfreview/bundle_test.go' <the diff>`) and run `cd stats && go test ./internal/selfreview/ -run TestBundleServesArchivedVisualVerification -count=1`: it FAILS (`bundle missing "## spectre/changes/archive/demo/visual-verification.md"`) — the defect: a visual candidate's record never reaches the self-review pass.
   <!-- measured: the step-1 command with only the bundle_test.go hunks applied, in a scratch clone @ 5a1601fa (exit 1, --- FAIL: TestBundleServesArchivedVisualVerification) -->
-  - [ ] **Step 2: Implement.** Apply the rest of this diff (`git apply --exclude='stats/internal/selfreview/bundle_test.go' <the diff>`):
+  - [x] **Step 2: Implement.** Apply the rest of this diff (`git apply --exclude='stats/internal/selfreview/bundle_test.go' <the diff>`):
 
 ````diff verified:applied with git apply in plan order to a scratch clone at 5a1601fa, reproducing the planner's working tree byte for byte; gofmt -l and go vet clean; go test ./internal/guard/ ./internal/selfreview/ and scripts/run-guard-tests.sh pass with all three tasks applied
 diff --git a/skills/flow-contracts/finish-contract-run1.md b/skills/flow-contracts/finish-contract-run1.md
@@ -224,8 +224,8 @@ index 7f7f6958..1d164147 100644
  	}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/selfreview && go vet ./internal/selfreview && go test ./internal/selfreview/ -run 'TestBundle' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0.
-  - [ ] **Step 4: Commit** the paths in `**Files:**` with the subject below.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/selfreview && go vet ./internal/selfreview && go test ./internal/selfreview/ -run 'TestBundle' -count=1` passes; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py` and `scripts/check-installed-citations.sh` exit 0.
+  - [x] **Step 4: Commit** the paths in `**Files:**` with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/selfreview/git.go`, `stats/internal/selfreview/bundle_test.go`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-fast/SKILL.md`
@@ -238,10 +238,10 @@ index 7f7f6958..1d164147 100644
 
 **Decision:** bundle-serves-visual-verification
 
-- [ ] 2. The report guard holds six-angle reports to six angles, and the table gains angle 7
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Apply the `skills/flow-self-review/SKILL.md` and `stats/internal/guard/check_self_review_report_test.go` hunks of the diff in step 2 alone (`git apply --include='skills/flow-self-review/SKILL.md' --include='stats/internal/guard/check_self_review_report_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckSelfReviewReport -count=1`: cases 7, 37 and 39 FAIL — the defect: with a seventh table row, every six-angle report, the real tree's 65 included, is reported missing `flow-eval`, and no list can hold them to six.
+- [x] 2. The report guard holds six-angle reports to six angles, and the table gains angle 7
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Apply the `skills/flow-self-review/SKILL.md` and `stats/internal/guard/check_self_review_report_test.go` hunks of the diff in step 2 alone (`git apply --include='skills/flow-self-review/SKILL.md' --include='stats/internal/guard/check_self_review_report_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckSelfReviewReport -count=1`: cases 7, 37 and 39 FAIL — the defect: with a seventh table row, every six-angle report, the real tree's 65 included, is reported missing `flow-eval`, and no list can hold them to six.
   <!-- measured: the step-1 command with only those hunks applied, after Task 1, in a scratch clone @ 5a1601fa (exit 1; case 7, case 37 and case 39 fail) -->
-  - [ ] **Step 2: Implement.** Apply the rest of this diff (`git apply --exclude='skills/flow-self-review/SKILL.md' --exclude='stats/internal/guard/check_self_review_report_test.go' <the diff>`). Then regenerate the list from the tree this commit sits on, so a report landed on the base since `5a1601fa` is held too: `ls docs/self-review | grep '\.md$' | grep -v -- '-context.md$' | grep -vxFf docs/self-review/five-angle-reports.txt | LC_ALL=C sort > docs/self-review/six-angle-reports.txt` — at `5a1601fa` it writes exactly the 65 lines below.
+  - [x] **Step 2: Implement.** Apply the rest of this diff (`git apply --exclude='skills/flow-self-review/SKILL.md' --exclude='stats/internal/guard/check_self_review_report_test.go' <the diff>`). Then regenerate the list from the tree this commit sits on, so a report landed on the base since `5a1601fa` is held too: `ls docs/self-review | grep '\.md$' | grep -v -- '-context.md$' | grep -vxFf docs/self-review/five-angle-reports.txt | LC_ALL=C sort > docs/self-review/six-angle-reports.txt` — at `5a1601fa` it writes exactly the 65 lines below.
   <!-- measured: that command | grep -c . @ 5a1601fa (65) -->
 
 ````diff verified:applied with git apply in plan order to a scratch clone at 5a1601fa, reproducing the planner's working tree byte for byte; gofmt -l and go vet clean; go test ./internal/guard/ ./internal/selfreview/ and scripts/run-guard-tests.sh pass with all three tasks applied
@@ -544,8 +544,8 @@ index 8a1ab438..af69e068 100644
  			for j, label := range labels {
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run TestCheckSelfReviewReport -count=1` passes; `scripts/check-self-review-report.sh` prints `SELF-REVIEW-REPORT-OK` and exits 0; `scripts/check-verbatim-moves.sh` exits 0.
-  - [ ] **Step 4: Commit** the paths in `**Files:**` with the subject below.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard && go test ./internal/guard/ -run TestCheckSelfReviewReport -count=1` passes; `scripts/check-self-review-report.sh` prints `SELF-REVIEW-REPORT-OK` and exits 0; `scripts/check-verbatim-moves.sh` exits 0.
+  - [x] **Step 4: Commit** the paths in `**Files:**` with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/selfreviewreport.go`, `stats/internal/guard/check_self_review_report_test.go`, `scripts/check-self-review-report.sh`, `docs/self-review/six-angle-reports.txt`, `skills/flow-self-review/SKILL.md`
@@ -558,10 +558,10 @@ index 8a1ab438..af69e068 100644
 
 **Decision:** six-angle-frozen-list
 
-- [ ] 3. `/flow-self-review` runs angle 7, offers its candidates for mining and mines the chosen ones
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -c 'mining' skills/flow-self-review/SKILL.md` after Task 2: it prints `0` — nothing names a mining ask, a mining step or a candidate template, only the table row names `flow-eval`; `grep -n 'step 5 of `/flow-self-review`' skills/flow-contracts/finish-contract-run1.md skills/flow-fast/SKILL.md` lists two citations of step 5 (filing) for the landing push's shas, which item 5 of step 3 states.
+- [x] 3. `/flow-self-review` runs angle 7, offers its candidates for mining and mines the chosen ones
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -c 'mining' skills/flow-self-review/SKILL.md` after Task 2: it prints `0` — nothing names a mining ask, a mining step or a candidate template, only the table row names `flow-eval`; `grep -n 'step 5 of `/flow-self-review`' skills/flow-contracts/finish-contract-run1.md skills/flow-fast/SKILL.md` lists two citations of step 5 (filing) for the landing push's shas, which item 5 of step 3 states.
   <!-- measured: git show HEAD:skills/flow-self-review/SKILL.md | grep -c 'mining' @ 5a1601fa (0) -->
-  - [ ] **Step 2: Implement.** Apply this diff (one line of context, so no context line reads as a Markdown fence):
+  - [x] **Step 2: Implement.** Apply this diff (one line of context, so no context line reads as a Markdown fence):
 
 ````diff verified:applied with git apply in plan order to a scratch clone at 5a1601fa, reproducing the planner's working tree byte for byte; gofmt -l and go vet clean; go test ./internal/guard/ ./internal/selfreview/ and scripts/run-guard-tests.sh pass with all three tasks applied
 diff --git a/commands-claude/flow-self-review.md b/commands-claude/flow-self-review.md
@@ -755,8 +755,8 @@ index d1256d8d..9d873e90 100644
  
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-ask-silence.sh`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-self-review-report.sh` exit 0; `scripts/check-normative-inventory.sh` prints the same lines before and after the diff.
-  - [ ] **Step 4: Commit** the paths in `**Files:**` with the subject below.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `python3 scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-ask-silence.sh`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-self-review-report.sh` exit 0; `scripts/check-normative-inventory.sh` prints the same lines before and after the diff.
+  - [x] **Step 4: Commit** the paths in `**Files:**` with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-self-review/SKILL.md`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow-fast/SKILL.md`, `commands-claude/flow-self-review.md`, `skills/flow-contracts/operator-prompts-auto-resolution.md`

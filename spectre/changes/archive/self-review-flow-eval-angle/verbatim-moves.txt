@@ -67,3 +67,6 @@ go run ./cmd/flow-eval case add visual --id <id> --mockup <mockup path> --captur
 name: flow-self-review description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store, rate, write the report, delete the bundle.
 worktree-resolved `path:line`; why it is a good candidate.
 | 7 | What would make a good flow-eval case — a task, a review finding or a visual pair from this run | `flow-eval` |
+# Review-1 fix: --mockup names the checkout path; source.repo fix-up covers visual cases.
+A case drafted from a worktree, by `--repo`, `--plan-repo` or `--mockup`, has its `case.json` `source.repo` then set to the main checkout's directory name.
+`--repo` and `--plan-repo` are the repositories' main checkouts, standalone, or the change's worktrees in a run; `--mockup` is the mockup's path inside its checkout — the main checkout, or the worktree in a run — never the copy extracted into `<state-dir>`, which sits outside any checkout and is refused.
