@@ -136,7 +136,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "ok   acknowledged removal :: %s\n", vmShort(s))
 		default:
 			bad++
-			fmt.Fprintf(stdout, "FAIL deleted or reworded :: %s\n", s)
+			fmt.Fprintf(stdout, "FAIL deleted or reworded :: %s\n", vmAckLine(s))
 		}
 	}
 	for _, s := range vmKeys(headRun) {
@@ -148,7 +148,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		bad++
-		fmt.Fprintf(stdout, "FAIL new run-loaded text (paraphrase?) :: %s\n", s)
+		fmt.Fprintf(stdout, "FAIL new run-loaded text (paraphrase?) :: %s\n", vmAckLine(s))
 	}
 	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", bad, review, label)
 	if bad != 0 {
@@ -486,6 +486,16 @@ func vmKeys(c vmCorpus) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// vmAckLine is s as verbatim-moves.txt lists it, so a FAIL line's text after
+// "::" copies into the list as printed: a leading `#` would read as a comment
+// and a leading `\` is dropped, so either gets one `\` before it.
+func vmAckLine(s string) string {
+	if strings.HasPrefix(s, "#") || strings.HasPrefix(s, `\`) {
+		return `\` + s
+	}
+	return s
 }
 
 // vmShort is the prototype's s[:100] for the lines that pass: a verdict

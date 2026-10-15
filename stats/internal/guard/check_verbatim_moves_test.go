@@ -130,7 +130,7 @@ func TestCheckVerbatimMoves(t *testing.T) {
 				vmPipe: "# Pipeline\n\n## Transition table\n\n" + vmTable + " Every row is a transition.\n\n" + vmMark + "\n\n" + vmWhy + "\n",
 				"spectre/changes/demo/verbatim-moves.txt": "## Transition table\n",
 			},
-			rc: 1, want: []string{"FAIL new run-loaded text (paraphrase?) :: ## Transition table"}},
+			rc: 1, want: []string{"FAIL new run-loaded text (paraphrase?) :: \\## Transition table"}},
 		{name: "an acknowledgement in a change archived at the base does not count",
 			base: map[string]string{"spectre/changes/archive/old/verbatim-moves.txt": vmMark + "\n"},
 			edit: map[string]string{
@@ -251,6 +251,36 @@ func TestCheckVerbatimMovesFailReplyNamesRunShapePath(t *testing.T) {
 			t.Errorf("stderr names a flow-fast path with no change root present:\n%s", errb)
 		}
 	})
+}
+
+// TestCheckVerbatimMovesFailLineCopiesIntoAcks pins the kan-959 self-review
+// fix: each FAIL line's text after "::" is the acknowledgement line itself --
+// a heading, and a sentence opening with a backslash, print escaped -- so
+// copying every FAIL line's text into verbatim-moves.txt as printed clears
+// the run.
+func TestCheckVerbatimMovesFailLineCopiesIntoAcks(t *testing.T) {
+	t.Parallel()
+	root := vmRepo(t, map[string]string{vmPipe: "# Pipeline\n\n## Old heading\n\n" + vmWhy + "\n", vmRat: vmBase[vmRat]})
+	writeFile(t, filepath.Join(root, vmPipe), "# Pipeline\n\n## New heading\n\n\\*Literal\\* asterisks stay.\n\n"+vmWhy+"\n")
+	rc, out, _ := vmRun(root)
+	if rc != 1 {
+		t.Fatalf("rc = %d, want 1\n%s", rc, out)
+	}
+	var acks []string
+	for _, l := range strings.Split(out, "\n") {
+		if _, text, ok := strings.Cut(l, " :: "); ok && strings.HasPrefix(l, "FAIL ") {
+			acks = append(acks, text)
+		}
+	}
+	for _, want := range []string{`\## Old heading`, `\## New heading`, `\\*Literal\* asterisks stay.`} {
+		if !strings.Contains(strings.Join(acks, "\n"), want) {
+			t.Errorf("FAIL lines lack %q:\n%s", want, out)
+		}
+	}
+	writeFile(t, filepath.Join(root, "spectre/changes/demo/verbatim-moves.txt"), strings.Join(acks, "\n")+"\n")
+	if rc, out, _ := vmRun(root); rc != 0 {
+		t.Errorf("rc = %d after acknowledging every FAIL line as printed, want 0\n%s", rc, out)
+	}
 }
 
 // TestCheckVerbatimMovesSymlinkSkipped pins the prototype's `not

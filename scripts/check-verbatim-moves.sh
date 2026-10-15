@@ -24,8 +24,9 @@
 # change's acknowledgement file — <spec-root>/changes/<change>/verbatim-moves.txt
 # on a /flow run, <worktree>/.superpowers/sdd/<change>/verbatim-moves.txt on a
 # /flow-fast run, whose guardrail forbids writing <project>/spectre/ — where
-# `#` lines are comments and a leading `\` is dropped, so a heading is listed
-# as `\## …`.
+# `#` lines are comments and a leading `\` is dropped. The FAIL line already
+# prints a sentence opening with `#` or `\` behind one `\`, so a heading is
+# listed as `\## …`, exactly as printed.
 # Only in-flight changes count: an archived change's list is read only while
 # the base does not carry it yet — archived on this branch by integrate's
 # run 1 — never once it has landed.
