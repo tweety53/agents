@@ -15,9 +15,9 @@
 - Every patch below was spiked at `25c1f07c` in this order; apply each verbatim with `git apply`, never retype it. Task 4's prose is acknowledged by exact text in this change's `verbatim-moves.txt` — a reworded sentence fails `scripts/check-verbatim-moves.sh`.
 - Go in `stats/`: run `cd stats && gofmt -w <dirs>` before `gofmt -l .`.
 
-- [ ] 1. close-task ends the implementer's dispatch row under the canonical worktree
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n '"record", "dispatch", "end"' stats/internal/guard/closetask.go` shows the call built with no `"-C"`, beside `record decisions` and `tasks tick`, which pass `-C`, canonical — the defect (F1).
-  - [ ] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-1.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-1.patch`; it must apply cleanly on the previous task's commit.
+- [x] 1. close-task ends the implementer's dispatch row under the canonical worktree
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n '"record", "dispatch", "end"' stats/internal/guard/closetask.go` shows the call built with no `"-C"`, beside `record decisions` and `tasks tick`, which pass `-C`, canonical — the defect (F1).
+  - [x] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-1.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-1.patch`; it must apply cleanly on the previous task's commit.
 
 ````diff verified:git apply in chain order from 25c1f07c, then the task's targeted tests, gofmt -l and go vet green; the new test fails with the fix removed
 diff --git a/stats/internal/guard/close_task_test.go b/stats/internal/guard/close_task_test.go
@@ -57,7 +57,7 @@ index 944df6eb..695c2a0a 100644
  		}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./internal/guard -run 'TestCloseTask' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./internal/guard -run 'TestCloseTask' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
 
 The patch's test change is the two existing call-log expectations in `TestCloseTaskOrder` and `TestCloseTaskExitContract`, which now expect `-C <wt>`; reverting the fix fails both.
 
@@ -72,9 +72,9 @@ The patch's test change is the two existing call-log expectations in `TestCloseT
 
 **Decision:** close-task-end-under-canonical
 
-- [ ] 2. Signal four's message and header name the panel reviewer key it counts
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/guard/unfinishedwork.go`, signal four sets `lastReview` only when `strings.HasPrefix(d.Key, "panel-")`, while its unreviewed message reads `no reviewer row begun after its implementer row` and `scripts/check-unfinished-work.sh`'s SIGNAL FOUR header reads `any reviewer row of the change counts` — the defect (F2).
-  - [ ] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-2.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-2.patch`; it must apply cleanly on the previous task's commit.
+- [x] 2. Signal four's message and header name the panel reviewer key it counts
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `stats/internal/guard/unfinishedwork.go`, signal four sets `lastReview` only when `strings.HasPrefix(d.Key, "panel-")`, while its unreviewed message reads `no reviewer row begun after its implementer row` and `scripts/check-unfinished-work.sh`'s SIGNAL FOUR header reads `any reviewer row of the change counts` — the defect (F2).
+  - [x] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-2.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-2.patch`; it must apply cleanly on the previous task's commit.
 
 ````diff verified:git apply in chain order from 25c1f07c, then the task's targeted tests, gofmt -l and go vet green; the new test fails with the fix removed
 diff --git a/scripts/check-unfinished-work.sh b/scripts/check-unfinished-work.sh
@@ -124,7 +124,7 @@ index e18fcd36..bf32396f 100644
  	}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./internal/guard -run 'TestCheckUnfinishedWork' -count=1` and `scripts/check-references.sh` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./internal/guard -run 'TestCheckUnfinishedWork' -count=1` and `scripts/check-references.sh` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
 
 The patch updates the existing `uwReason("the breakdown names the unreviewed appended task", …)` expectation, which fails with the old message.
 
@@ -139,9 +139,9 @@ The patch updates the existing `uwReason("the breakdown names the unreviewed app
 
 **Decision:** signal-four-names-panel-key
 
-- [ ] 3. close-task warns when it closes an appended task no dispatch row names
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'dispatches' stats/internal/guard/closetask.go` prints nothing: close-task never reads dispatch rows, so an appended task closes silently with none (F6).
-  - [ ] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-3.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-3.patch`; it must apply cleanly on the previous task's commit.
+- [x] 3. close-task warns when it closes an appended task no dispatch row names
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n 'dispatches' stats/internal/guard/closetask.go` prints nothing: close-task never reads dispatch rows, so an appended task closes silently with none (F6).
+  - [x] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-3.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-3.patch`; it must apply cleanly on the previous task's commit.
 
 ````diff verified:git apply in chain order from 25c1f07c, then the task's targeted tests, gofmt -l and go vet green; the new test fails with the fix removed
 diff --git a/stats/internal/guard/close_task_test.go b/stats/internal/guard/close_task_test.go
@@ -375,7 +375,7 @@ index bf32396f..fd2d2c9c 100644
  // uwCountUnticked is count_unticked: column-0 `- [ ]` lines (the script
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./internal/guard -run 'TestCloseTask|TestCheckUnfinishedWork' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./internal/guard -run 'TestCloseTask|TestCheckUnfinishedWork' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
 
 **Build:** green
 **Files:** `stats/internal/guard/closetask.go`, `stats/internal/guard/close_task_test.go`, `stats/internal/guard/unfinishedwork.go`
@@ -388,9 +388,9 @@ index bf32396f..fd2d2c9c 100644
 
 **Decision:** close-task-warns-undispatched
 
-- [ ] 4. A cross-repo visual-verify re-run scopes specs by the frontend worktree's own round base
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `skills/flow/visual-verify-verifier.md` step 7 reads `or for the round base, when the prompt names one`, and `skills/flow/verify-fix-loop.md` step 4 reads `its prompt names that base` — neither says whose round base `specs` takes when the dispatched worktree is not `<frontend-root>` (F3).
-  - [ ] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-4.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-4.patch`; it must apply cleanly on the previous task's commit.
+- [x] 4. A cross-repo visual-verify re-run scopes specs by the frontend worktree's own round base
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `skills/flow/visual-verify-verifier.md` step 7 reads `or for the round base, when the prompt names one`, and `skills/flow/verify-fix-loop.md` step 4 reads `its prompt names that base` — neither says whose round base `specs` takes when the dispatched worktree is not `<frontend-root>` (F3).
+  - [x] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-4.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-4.patch`; it must apply cleanly on the previous task's commit.
 
 ````diff verified:git apply in chain order from 25c1f07c; check-verbatim-moves.sh, check-references.sh, check-installed-citations.sh and check-markdown-integrity.py exit 0 with this change's verbatim-moves.txt
 diff --git a/skills/flow/verify-fix-loop.md b/skills/flow/verify-fix-loop.md
@@ -428,7 +428,7 @@ index 15fe9c0d..8d10cfb3 100644
     declared, and with `specs` declared the report names `specs: not passed — verify has no <specs>`.
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit with the subject below, no `Task-Id:` trailer.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-installed-citations.sh`, `scripts/check-markdown-integrity.py` — all exit 0. Commit with the subject below, no `Task-Id:` trailer.
 
 **Build:** green
 **Files:** `skills/flow/visual-verify-verifier.md`, `skills/flow/verify-fix-loop.md`
@@ -440,9 +440,9 @@ index 15fe9c0d..8d10cfb3 100644
 
 **Decision:** frontend-root-round-base
 
-- [ ] 5. flow record dispatch end refuses an outcome outside the contracts' set
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** `grep -n '"outcome", ""' stats/cmd/flow/record.go` shows `-outcome` registered as free text (`e.g. completed`) with no check in `runRecordDispatchEnd` — the defect (F8).
-  - [ ] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-5.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-5.patch`; it must apply cleanly on the previous task's commit.
+- [x] 5. flow record dispatch end refuses an outcome outside the contracts' set
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** `grep -n '"outcome", ""' stats/cmd/flow/record.go` shows `-outcome` registered as free text (`e.g. completed`) with no check in `runRecordDispatchEnd` — the defect (F8).
+  - [x] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-5.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-5.patch`; it must apply cleanly on the previous task's commit.
 
 ````diff verified:git apply in chain order from 25c1f07c, then the task's targeted tests, gofmt -l and go vet green; the new test fails with the fix removed
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -531,7 +531,7 @@ index 29c0139e..1abd2acb 100644
  func TestDispatchEndCauseAccepted(t *testing.T) {
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./cmd/flow -run 'TestDispatchEnd' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./cmd/flow -run 'TestDispatchEnd' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -544,9 +544,9 @@ index 29c0139e..1abd2acb 100644
 
 **Decision:** dispatch-outcome-closed-set
 
-- [ ] 6. Run-record writes refuse a change no checkout of the -C repository carries
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From the agents checkout, `flow record dispatch end -change no-such-change -key x -session-token mf-x -outcome completed -addr http://127.0.0.1:1 -timeout 300ms` with `FLOW_STATE_DIR` set to a fresh temporary directory journals the write and exits 0 — the defect (F7): a row for a change this repository never held is accepted under its project key.
-  - [ ] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-6.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-6.patch`; it must apply cleanly on the previous task's commit.
+- [x] 6. Run-record writes refuse a change no checkout of the -C repository carries
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From the agents checkout, `flow record dispatch end -change no-such-change -key x -session-token mf-x -outcome completed -addr http://127.0.0.1:1 -timeout 300ms` with `FLOW_STATE_DIR` set to a fresh temporary directory journals the write and exits 0 — the defect (F7): a row for a change this repository never held is accepted under its project key.
+  - [x] **Step 2: Apply the patch.** Save the block below verbatim to `/tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-6.patch` and run `git -C <worktree> apply /tmp/self-review-kan-938-step-3-frontend-cardio-type-picker-on-add-a-6.patch`; it must apply cleanly on the previous task's commit.
 
 ````diff verified:git apply in chain order from 25c1f07c, then the task's targeted tests, gofmt -l and go vet green; the new test fails with the fix removed
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -1127,7 +1127,7 @@ index 1abd2acb..f1129024 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./cmd/flow -run 'TestRecord|TestDispatchEnd' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
+  - [x] **Step 3: Verify.** `cd stats && gofmt -w internal/guard cmd/flow && gofmt -l . && go vet ./...`, then `cd stats && go test ./cmd/flow -run 'TestRecord|TestDispatchEnd' -count=1` — exit 0. Commit with the subject below, no `Task-Id:` trailer.
 
 The patch also moves every existing `record_test.go` test that writes through these verbs from `gitRepo(t)` to `recordRepo(t, <its -change literals>)`, which creates `spectre/changes/<change>` for each.
 
