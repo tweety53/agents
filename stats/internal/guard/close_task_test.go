@@ -359,14 +359,15 @@ func TestCloseTaskTaskIdTrailer(t *testing.T) {
 }
 
 // Signal four at close time: closing an appended task no dispatch row names
-// warns, never blocks; a plan-time task never reads the store at all.
-func TestCloseTaskWarnsOnAnUndispatchedAppendedTask(t *testing.T) {
+// is refused, exit 1, nothing ticked or pushed (kan-982 self-review); a
+// plan-time task never reads the store at all.
+func TestCloseTaskRefusesAnUndispatchedAppendedTask(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
 		name, rows string
 		warn       bool
 	}{
-		{"an appended task no row names warns", `[{"key":"task-1-implementer","taskId":""}]`, true},
+		{"an appended task no row names is refused", `[{"key":"task-1-implementer","taskId":""}]`, true},
 		{"an appended task its key names is silent", `[{"key":"task-2-implementer","taskId":""}]`, false},
 		{"an appended task its taskId names is silent", `[{"key":"impl","taskId":"2"}]`, false},
 	} {
@@ -377,12 +378,19 @@ func TestCloseTaskWarnsOnAnUndispatchedAppendedTask(t *testing.T) {
 			writeFile(t, fx.dispatches, c.rows)
 			s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
 			r := fx.run(fx.wt, "demo", fx.base, "2:"+s2)
-			if r.rc != 0 {
-				t.Fatalf("exit %d, want 0 — a warning never blocks\n%s", r.rc, r.out)
-			}
-			const want = "close-task: WARNING — appended task 2 has no dispatch row naming it"
+			const want = "close-task: appended task 2 has no dispatch row naming it"
 			if got := strings.Contains(r.err, want); got != c.warn {
-				t.Errorf("warning present %v, want %v\n%s", got, c.warn, r.out)
+				t.Errorf("refusal present %v, want %v\n%s", got, c.warn, r.out)
+			}
+			if c.warn {
+				if r.rc != 1 || !strings.Contains(r.err, "close-task: RECORD —") {
+					t.Fatalf("exit %d, want 1 and the RECORD line\n%s", r.rc, r.out)
+				}
+				ctEqual(t, fx.calls(t), []string{"flow record dispatches -change demo -C " + fx.wt})
+				return
+			}
+			if r.rc != 0 {
+				t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 			}
 			ctEqual(t, fx.calls(t), []string{
 				"flow record dispatches -change demo -C " + fx.wt,

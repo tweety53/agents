@@ -675,7 +675,10 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    a task commit carrying no `Task-Id:` trailer naming the task —
    is the parent's own fix, with nothing ticked or pushed: it re-commits that task itself,
    without the swept paths and carrying `Task-Id: <n>`, and re-runs `close-task.sh` without the `-end-*` flags before
-   anything below; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
+   anything below; **exit 1 with `close-task: RECORD —`** is an appended task no dispatch row
+   names — record its implementer dispatch (`flow record dispatch begin … -task <n>` and its
+   `end`, a back-fill passing the dispatch's real `-started-at` and `-ended-at`), then re-run
+   `close-task.sh` without the `-end-*` flags; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
    the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line.

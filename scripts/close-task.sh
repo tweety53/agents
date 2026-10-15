@@ -11,12 +11,17 @@
 #   1. With -end-key: `flow record dispatch end -change <name> -key <key>
 #      -session-token <token> [-commit <sha>] -outcome completed`. A record
 #      never blocks: a failed call prints a warning and the sequence goes on.
+#      Then, for every task it closes that the plan's `**Tasks appended:**`
+#      line counts, `flow record dispatches -change <name> -C <canonical>`:
+#      an appended task no row names is refused at step 4 (exit 1); a
+#      store that cannot be read refuses nothing.
 #   2. check-task-commit-fields.sh <canonical> <id> <sha|map> "" <canonical>
 #      <name> for every task, and its commit's — every map pair's — Task-Id:
 #      trailer must name the task or a task its Build: red fold joins (exit 1
 #      otherwise): the trailer is how a task's commit is found again.
 #   3. check-task-commit-planning-paths.sh <canonical> <merge-base>.
-#   4. Any guard exit 2 → exit 2; else any exit 1 → exit 1. Nothing is ticked
+#   4. Any guard exit 2 → exit 2; else any exit 1 → exit 1; else an
+#      appended task step 1 found no row naming → exit 1. Nothing is ticked
 #      or pushed either way, so a refused commit is never pushed.
 #   5. check-review-gate.sh <canonical> <id> <sha|map> <canonical> <name>
 #      [<the task's -undeclared paths>…] for every task; its FIRE:/QUIET:
@@ -37,7 +42,8 @@
 #
 # Exit 0 closed (read each FIRE: line: on big that task's tick waits for its
 # reviewer; elsewhere it is the panel's review focus); 1 a commit guard refused — re-commit, then re-run without the
-# -end-* flags; 2 stop: a guard could not judge, a tick or push failed, or
+# -end-* flags — or an appended task has no dispatch row — record it, then
+# re-run without the -end-* flags; 2 stop: a guard could not judge, a tick or push failed, or
 # a usage error.
 #
 # flow-guard is built from this checkout, never taken from PATH:

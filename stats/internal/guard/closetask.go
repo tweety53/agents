@@ -82,15 +82,18 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// SIGNAL FOUR at close time (scripts/check-unfinished-work.sh): an
-	// appended task no dispatch row names is warned about here, while its
-	// row can still be recorded, rather than first refused at integrate. A
-	// warning, never a stop: a record never blocks.
+	// appended task no dispatch row names is refused here, nothing ticked
+	// or pushed, while its row can still be recorded. A warning was ticked
+	// past (kan-982: Tasks 19-21 closed with none) and surfaced only at
+	// integrate's gate. A store that cannot be read refuses nothing --
+	// ctUndispatched reads it as no finding: a record never blocks.
 	var closed []string
 	for _, t := range tasks {
 		closed = append(closed, t.id)
 	}
-	for _, id := range ctUndispatched(env, canonical, name, closed) {
-		fmt.Fprintf(stderr, "close-task: WARNING — appended task %s has no dispatch row naming it; record its dispatch (`flow record dispatch begin … -task %s`) before integrate, whose unfinished-work gate refuses it\n", id, id)
+	undispatched := ctUndispatched(env, canonical, name, closed)
+	for _, id := range undispatched {
+		fmt.Fprintf(stderr, "close-task: appended task %s has no dispatch row naming it — record its dispatch (`flow record dispatch begin … -task %s` and its `end`; a back-fill passes -started-at and -ended-at), then re-run without the -end-* flags\n", id, id)
 	}
 
 	// Both commit guards run before anything is ticked or pushed, so a
@@ -109,6 +112,10 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	default:
 		fmt.Fprintln(stderr, "close-task: STOP — a commit guard could not judge; nothing was ticked or pushed")
 		return 2
+	}
+	if len(undispatched) > 0 {
+		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row; nothing was ticked or pushed")
+		return 1
 	}
 
 	var quiet, all, fired []string
