@@ -4824,3 +4824,48 @@ func TestRequireChangeCheckoutRefusesNonChangeNames(t *testing.T) {
 		t.Error("real change refused")
 	}
 }
+
+// TestRecordDispatchBackfillInstants pins the kan-982 self-review fix: a
+// back-filled row carries the dispatch's real instants. -started-at reaches
+// begin's body as startedAt and -ended-at end's as endedAt; an instant that
+// is not RFC 3339 is a usage refusal, exit 2, before the store is called.
+func TestRecordDispatchBackfillInstants(t *testing.T) {
+	const start, end = "2026-10-15T12:08:50Z", "2026-10-15T12:31:07Z"
+	if sent := dispatchBeginBody(t, "-started-at", start); sent["startedAt"] != start {
+		t.Errorf("begin startedAt = %v, want %s", sent["startedAt"], start)
+	}
+
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = readAll(r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"sonnet","endedAt":"` + end + `"}`))
+	}))
+	defer srv.Close()
+	endArgs := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-key", "panel-primary", "-session-token", "mf-record-backfill"}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), append(endArgs, "-ended-at", end), strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("end exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil || sent["endedAt"] != end {
+		t.Errorf("end endedAt = %v (%v), want %s", sent["endedAt"], err, end)
+	}
+
+	for _, args := range [][]string{
+		{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "k", "-session-token", "mf-record-backfill",
+			"-started-at", "15 Oct 12:08"},
+		append(append([]string{}, endArgs...), "-ended-at", "yesterday"),
+	} {
+		stdout.Reset()
+		stderr.Reset()
+		gotBody = nil
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "is not an RFC 3339 instant") || gotBody != nil {
+			t.Errorf("%s: exit %d, store called %v, stderr %q; want 2, no call, an RFC 3339 refusal", args[2], code, gotBody != nil, stderr.String())
+		}
+	}
+}

@@ -253,11 +253,11 @@ func validateFindingRef(flagName, ref string) error {
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model [-agent-id id|none] [-diff-base sha]
-                             -key key -session-token token
+                             [-started-at instant] -key key -session-token token
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
-                             [-agent-id id] [-tokens k=v,...]
+                             [-agent-id id] [-tokens k=v,...] [-ended-at instant]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -954,11 +954,16 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta -- optional, since an implementer and a slot reading the whole diff record none")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
+	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
 	if !requireChangeCheckout(f.dir, f.change, stderr) {
+		return 2
+	}
+	started, ok := parseBackfillInstant("-started-at", *startedAt, stderr)
+	if !ok {
 		return 2
 	}
 	if !requireRecordFlags(stderr,
@@ -1007,11 +1012,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		Effort:       *effort,
 		DiffBase:     *diffBase,
 		SessionToken: *sessionToken,
+		StartedAt:    started,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.RecordDispatch(ctx, projectKey, f.change, in)
 	})
-	if callErr != nil {
+	if callErr != nil && in.StartedAt.IsZero() {
 		in.StartedAt = attemptAt
 	}
 	if callErr == nil {
@@ -1056,11 +1062,16 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
 	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
+	endedAt := fset.String("ended-at", "", "a back-filled row's real end instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it closes the row")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
 	if !requireChangeCheckout(f.dir, f.change, stderr) {
+		return 2
+	}
+	ended, ok := parseBackfillInstant("-ended-at", *endedAt, stderr)
+	if !ok {
 		return 2
 	}
 	if !requireRecordFlags(stderr,
@@ -1126,17 +1137,36 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		Cause:        *cause,
 		AgentID:      *agentID,
 		Tokens:       report,
+		EndedAt:      ended,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)
 	})
-	if callErr != nil {
+	if callErr != nil && in.EndedAt.IsZero() {
 		in.EndedAt = attemptAt
 	}
 	if callErr == nil {
 		fmt.Fprintf(stdout, "updated: dispatch %d\n", out.Seq)
 	}
 	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr)
+}
+
+// parseBackfillInstant reads -started-at or -ended-at: empty is the zero
+// instant, which the daemon stamps at its own clock (KAN-324); anything
+// else must be RFC 3339. The flags exist for a back-fill -- a row recorded
+// after its dispatch ran, whose daemon-stamped instants would all read the
+// back-fill's own moment (kan-982: five rows at 17:47:20Z) -- and the
+// daemon keeps a supplied instant exactly as it keeps a journal replay's.
+func parseBackfillInstant(flagName, v string, stderr io.Writer) (time.Time, bool) {
+	if v == "" {
+		return time.Time{}, true
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: %s %q is not an RFC 3339 instant\n", flagName, v)
+		return time.Time{}, false
+	}
+	return t, true
 }
 
 // classifyDispatchEnd is classifyRecordWrite with ONE exception, and the
