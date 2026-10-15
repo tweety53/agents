@@ -15,9 +15,9 @@
 - Go in `stats/` follows the Go skills `CLAUDE.md` names; run `cd stats && gofmt -w .` before `gofmt -l .`.
 - No new run-loaded prose: the only non-Go edit is a comment in `scripts/check-verbatim-moves.sh`, outside the verbatim-moves corpus.
 
-- [ ] 1. `render-slot-prompt.sh` accepts any slot whose template exists
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: it fails with `brand-new: exit 2 stderr "render-slot-prompt: no reviewer template for slot \"brand-new\"\n"` — the defect: a slot with a template on disk is refused because it is not in `rspSlots`.
-  - [ ] **Step 2: Write the failing test.** Append to `stats/internal/guard/render_slot_prompt_test.go`, after `TestRenderSlotPromptAlwaysOnRoles`:
+- [x] 1. `render-slot-prompt.sh` accepts any slot whose template exists
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: it fails with `brand-new: exit 2 stderr "render-slot-prompt: no reviewer template for slot \"brand-new\"\n"` — the defect: a slot with a template on disk is refused because it is not in `rspSlots`.
+  - [x] **Step 2: Write the failing test.** Append to `stats/internal/guard/render_slot_prompt_test.go`, after `TestRenderSlotPromptAlwaysOnRoles`:
 
 ```go verified:applied with step 3's code at 1a422665 — fails without the change (exit 2, no reviewer template), passes with it; dropping step 3's `/` check fails it on the ../ slot; go vet and gofmt -l clean
 // TestRenderSlotPromptSlotFromTemplate pins the kan-959 self-review fix: a
@@ -46,7 +46,7 @@ func TestRenderSlotPromptSlotFromTemplate(t *testing.T) {
 ```
 
     Run `cd stats && go test ./internal/guard/ -run 'TestRenderSlotPromptSlotFromTemplate' -count=1` and confirm it FAILS as step 1 states.
-  - [ ] **Step 3: Derive slot validity from the template.** In `stats/internal/guard/renderslotprompt.go`, delete the `rspSlots` comment and declaration from the `var (…)` block, leaving `rspUnfilled` and its comment as the block's only entry:
+  - [x] **Step 3: Derive slot validity from the template.** In `stats/internal/guard/renderslotprompt.go`, delete the `rspSlots` comment and declaration from the `var (…)` block, leaving `rspUnfilled` and its comment as the block's only entry:
 
 ```go verified:applied at 1a422665 — go vet ./internal/guard/ clean
 	// rspSlots are the slots with a template -- test-sanity and
@@ -71,7 +71,7 @@ func TestRenderSlotPromptSlotFromTemplate(t *testing.T) {
 		case !strings.Contains(s, "/") && (len(s) > len("exp-") && strings.HasPrefix(s, "exp-") || isFile(skill+"/"+s+"-reviewer-prompt.md")):
 ```
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestRenderSlotPrompt' -count=1` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestRenderSlotPrompt' -count=1` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/renderslotprompt.go`, `stats/internal/guard/render_slot_prompt_test.go`
@@ -84,9 +84,9 @@ func TestRenderSlotPromptSlotFromTemplate(t *testing.T) {
 
 **Decision:** slot-from-template
 
-- [ ] 2. `check-verbatim-moves.sh` FAIL lines print the acknowledgement line itself
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: the FAIL lines print `## Old heading`, `## New heading` and `\*Literal\* asterisks stay.` unescaped, and the re-run after copying them into `verbatim-moves.txt` still exits 1 — the defect.
-  - [ ] **Step 2: Write the failing test.** In `stats/internal/guard/check_verbatim_moves_test.go`, in `TestCheckVerbatimMoves`'s case `an unescaped heading in the list is a comment, not an acknowledgement`, change the `want` entry `"FAIL new run-loaded text (paraphrase?) :: ## Transition table"` to `"FAIL new run-loaded text (paraphrase?) :: \\## Transition table"`. Then insert, directly before `// TestCheckVerbatimMovesSymlinkSkipped`:
+- [x] 2. `check-verbatim-moves.sh` FAIL lines print the acknowledgement line itself
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Add the test of step 2 first and run it: the FAIL lines print `## Old heading`, `## New heading` and `\*Literal\* asterisks stay.` unescaped, and the re-run after copying them into `verbatim-moves.txt` still exits 1 — the defect.
+  - [x] **Step 2: Write the failing test.** In `stats/internal/guard/check_verbatim_moves_test.go`, in `TestCheckVerbatimMoves`'s case `an unescaped heading in the list is a comment, not an acknowledgement`, change the `want` entry `"FAIL new run-loaded text (paraphrase?) :: ## Transition table"` to `"FAIL new run-loaded text (paraphrase?) :: \\## Transition table"`. Then insert, directly before `// TestCheckVerbatimMovesSymlinkSkipped`:
 
 ```go verified:applied with step 3's code at 1a422665 — fails without the change (FAIL lines unescaped, re-run exit 1), passes with it; dropping step 3's `\` case fails it on the literal sentence; go vet and gofmt -l clean
 // TestCheckVerbatimMovesFailLineCopiesIntoAcks pins the kan-959 self-review
@@ -122,7 +122,7 @@ func TestCheckVerbatimMovesFailLineCopiesIntoAcks(t *testing.T) {
 ```
 
     Run `cd stats && go test ./internal/guard/ -run 'TestCheckVerbatimMoves' -count=1` and confirm both the new test and the changed case FAIL.
-  - [ ] **Step 3: Escape the FAIL lines.** In `stats/internal/guard/verbatimmoves.go`, change the two FAIL `Fprintf` calls' final argument from `s` to `vmAckLine(s)` — `"FAIL deleted or reworded :: %s\n"` and `"FAIL new run-loaded text (paraphrase?) :: %s\n"`; no other line. Insert directly before the `// vmShort is the prototype's` comment:
+  - [x] **Step 3: Escape the FAIL lines.** In `stats/internal/guard/verbatimmoves.go`, change the two FAIL `Fprintf` calls' final argument from `s` to `vmAckLine(s)` — `"FAIL deleted or reworded :: %s\n"` and `"FAIL new run-loaded text (paraphrase?) :: %s\n"`; no other line. Insert directly before the `// vmShort is the prototype's` comment:
 
 ```go verified:applied with step 2's test at 1a422665 — every TestCheckVerbatimMoves* passes, go vet and gofmt -l clean
 // vmAckLine is s as verbatim-moves.txt lists it, so a FAIL line's text after
@@ -137,7 +137,7 @@ func vmAckLine(s string) string {
 
 ```
 
-  - [ ] **Step 4: Update the script header.** In `scripts/check-verbatim-moves.sh`, replace the two header lines
+  - [x] **Step 4: Update the script header.** In `scripts/check-verbatim-moves.sh`, replace the two header lines
 
 ```bash verified:read at 1a422665 in the header's acknowledgement paragraph
 # `#` lines are comments and a leading `\` is dropped, so a heading is listed
@@ -152,7 +152,7 @@ func vmAckLine(s string) string {
 # listed as `\## …`, exactly as printed.
 ```
 
-  - [ ] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVerbatimMoves' -count=1`, then `bash -n scripts/check-verbatim-moves.sh && scripts/check-verbatim-moves.sh` from the repository root — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 5: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVerbatimMoves' -count=1`, then `bash -n scripts/check-verbatim-moves.sh && scripts/check-verbatim-moves.sh` from the repository root — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/verbatimmoves.go`, `stats/internal/guard/check_verbatim_moves_test.go`, `scripts/check-verbatim-moves.sh`
