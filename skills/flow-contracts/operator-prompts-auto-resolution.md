@@ -58,7 +58,8 @@ These are asked, or stop with `## Question`, exactly as their call sites state:
 - **Nothing to choose.** A guard's exit 2 (it cannot answer), a command that failed twice on an
   environment cause the run cannot cure itself, and every other `## Question` handback that carries no options.
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, archiving, deleting, and
-  every Jira write — the follow-up filing and the self-review filing included.
+  every Jira write — the follow-up filing and the self-review filing included — and the
+  self-review's flow-eval mining.
   The global rules require these confirmed.
 - **Outside implementation and fix runs.** The wrong-state override, the plain-message ambiguity
   prompt that decides whether a fix run starts at all, and every integrate and cleanup prompt.

@@ -305,7 +305,7 @@ has the bundle report it skipped) and holds the whole in memory — it is never 
 `<project>/docs/self-review/` or committed.
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`
-(`skills/flow-self-review/SKILL.md`), canonical for the six angles, the fix loop and its
+(`skills/flow-self-review/SKILL.md`), canonical for the seven angles, the fix loop and its
 dispatch pairs, where the fixes land, the filing-and-rating prompt and the store rows. It then
 writes the report per that file's step 7 — its `**Deferred:**` line naming `the in-run bundle`
 as the bundle path — and commits it on `spectre/<name>`, not pushing here; the route pushes it:
@@ -316,7 +316,7 @@ land-self-review-report.sh "<canonical-worktree>" "spectre/<name>" \
   docs/self-review/<name>-self-review.md
 ```
 
-The route's landing push carries the fix commits' shas per step 5 of `/flow-self-review`.
+The route's landing push carries the fix commits' shas per item 5 of step 3 of `/flow-self-review`, and on merge and push is followed by step 5's mining of the chosen flow-eval candidates, whose cases, branch and shas the run's final report names.
 
 A committed report skips the pass, an archived re-run with new work (**Run 1 — the branch is not
 merged** above) included, so no finding is recorded or offered twice. A pass

@@ -1,7 +1,7 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; plan in full, fix and land every finding that is not big, file the big ones, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
-allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
+description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle an older run saved; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store, rate, write the report, delete the bundle. Standalone, not a pipeline stage. Use for /flow-self-review.
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*), Bash(scripts/check-self-review-report.sh:*), Bash(land-self-review-report.sh:*)
 license: MIT
 compatibility: Standalone, requires the change's default branch to be checked out and a saved context bundle at docs/self-review/<name>-context.md.
 ---
@@ -10,7 +10,7 @@ Run a change's self-review reasoning pass — the only one the pipeline has — 
 `/flow`'s run 1 (**Run the self-review pass**,
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
 (`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
-bundle an older run saved on the change branch before landing. This file is canonical for the six angles, what is fixed and what may be filed, the
+bundle an older run saved on the change branch before landing. This file is canonical for the seven angles, what is fixed, what may be filed and what may be mined, the
 filing-and-rating prompt, the store record and the report. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 plans, fixes and reviews, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
@@ -35,7 +35,7 @@ checkout on any other branch: print the branch and stop.
 **Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
 `/flow-fast`'s verify holds its bundle in memory, runs on the change branch, and starts at step 2.
 
-### 2. Read the bundle and run the six angles
+### 2. Read the bundle and run the seven angles
 
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`,
 `subagent_type: flow-medium` on `opus`, its prompt carrying the bundle in full (`<bundle>`
@@ -45,7 +45,7 @@ evidence and its classification — `noted` or fixable, in or out of scope, and 
 counted blast radius and whether it is `big`. This session keeps the filing-and-rating prompt, the
 store rows and the report.
 
-The pass runs the six-angle table over the bundle, every angle explicit —
+The pass runs the seven-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
 
 | # | Angle | Label |
@@ -62,11 +62,31 @@ Angle 5's remit covers the records the pipeline writes to files today and the de
 now done in Bash or by the agent — **not** what the SPA should display. Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
 skipped angle are indistinguishable to a reader, which is why an empty angle says so.
 
+Angle 7 lists the run's tasks, review findings and visual-verification pairs that would make good
+flow-eval cases — what `case add impl|review|visual` mines, per `<agents repo>/../flow-eval/README.md`,
+the `flow-eval` checkout beside `<agents repo>` — one candidate per case, in its kind's template,
+every field present:
+
+- **impl** — the task, as `tasks.md` records it; the resulting code, an excerpt under its
+  worktree-resolved `path:line`; why it is a good candidate.
+- **review** — each finding with its severity, its location and the reviewer's own sentence; the
+  bad code; the fixed code, with the fixing commit's sha; why it is a good candidate.
+- **visual** — the actual app screenshot and the mockup screenshot, each by absolute path; the
+  findings; why it is a good candidate.
+
+Every path is absolute. A file that exists only in git history, or only inside a worktree that
+cleanup removes, is extracted by this session before step 4 — `git -C <repo> show <sha>:<path>`
+into `<state-dir>/flow-eval/<name>/`, `<state-dir>` being the path `flow state dir` prints for
+that repository — and cited there. A candidate names no defect: it is recorded `noted`, never fixed or filed — the one `noted`
+item offered, for mining in step 4. Angle 7 reads its candidates from the run's own work in any repository the
+run touched, product code included, and reads beyond the bundle only for the commits and files
+the bundle names.
+
 An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**,
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
-**A finding is fixed or filed only from the six angles.** A finding about the pipeline itself is
+**A finding is fixed or filed only from the seven angles.** A finding about the pipeline itself is
 fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding that names no defect — what
 went well, under angle 3, or an observation with nothing to fix — is reported and recorded `noted`, never offered: **only a `big`
 finding, or one whose fix step 3 dropped, is ever offered for filing**. **The pass covers
@@ -74,10 +94,10 @@ the pipeline and the project's own dev tooling — build scripts, dev-stack and 
 config, guards — and nothing else.** A finding about the project's own product code is out of
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
 here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`). The report carries no
-section beyond the six angles and the rating. The filing prompt is never waived: a pass with
-no operator to answer it files nothing and records every offered finding `declined`.
+section beyond the seven angles and the rating. The filing prompt is never waived: a pass with
+no operator to answer it files and mines nothing and records every offered finding `declined`.
 
-**One combined pass** — never six separate reads. The pass covers what the bundle holds and
+**One combined pass** — never seven separate reads. The pass covers what the bundle holds and
 nothing beyond it — say so in the report's `**Deferred:**` line.
 
 ### 3. Fix every finding that is not `big`
@@ -225,14 +245,17 @@ Every finding is explained in the message body first, before any prompt fires �
 observed, what breaks, and what the fix would be. Every fixed finding is one line in the same
 body, naming its landed sha; it is not offered. A prompt's option text cannot carry that
 explanation, so the prompt records the decision only: a filed issue is durable, and an
-explanation arriving afterward describes something the operator did not agree to. The filing ask
-and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
+explanation arriving afterward describes something the operator did not agree to. The filing ask,
+the mining ask and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
 (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
-three offered findings each, every option prefixed with its angle's label, plus **None — file nothing**
-as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1`
-typed through the tool's free-text "Other". More than nine findings roll the overflow into one
-further call of the same shape, without the rating. With no finding to offer, the call
-carries the rating alone.
+three offered items each — findings to file or angle-7 candidates to mine, never both in one
+question — every option prefixed with its angle's label, plus **None — file nothing** or
+**None — mine nothing** as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1`
+typed through the tool's free-text "Other". More than nine offered items roll the overflow into one
+further call of the same shape, without the rating. With nothing to offer, the call
+carries the rating alone. A candidate is mined only when the operator selects it: silence, a
+stalled prompt and **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
+mine nothing. An angle-7 candidate's explanation in the message body is its template.
 
 #### The multi-select variant
 
@@ -247,14 +270,40 @@ variant states:
 This contract fixes the shape, not the default's polarity: the call site chooses it, and states it
 plainly. A safe default may resolve silence to the empty set (an explicit "None" option, marked
 recommended) or to the full set (every listed option, silence needing no option of its own to name
-it) — whichever matches what the options actually control. The one live multi-select call site,
-the self-review filing ask, chooses the empty set: silence selects **None — file nothing**.
+it) — whichever matches what the options actually control. The live multi-select call sites,
+the self-review filing and mining asks, choose the empty set: silence selects
+**None — file nothing** and **None — mine nothing**.
 
 ### 5. File chosen findings
 
 File each chosen finding as a Jira issue per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), carrying its angle's label on top of that set.
 `## jira` absent or `none` in `<project>/.flow/project.md`, or no Atlassian tooling available in
 this session: print `⚠ Jira: skipped — <reason>` and record that finding `declined` instead.
+
+Mine each chosen candidate into the `flow-eval` checkout once the change's commits are on its
+repository's default branch — standalone, at once; in a run, after the landing push of item 5 of
+step 3 on merge and push. On any other route nothing is mined: each chosen candidate's
+`case add` command is named in step 8 for after the merge. The mining runs in a worktree, never
+the `flow-eval` main checkout, one branch per pass —
+`git -C <agents repo>/../flow-eval worktree add -b flow-eval-cases-<name> <agents repo>/../flow-eval-worktrees/flow-eval-cases-<name> origin/main`
+— from that worktree's root, one `case add` per candidate, per `<agents repo>/../flow-eval/docs/cases.md`:
+
+```bash
+go run ./cmd/flow-eval case add impl --repo <code checkout> [--plan-repo <plan checkout>] --change <name> --task <n>
+go run ./cmd/flow-eval case add review --repo <code checkout> [--plan-repo <plan checkout>] --change <name>
+go run ./cmd/flow-eval case add visual --id <id> --mockup <mockup path> --capture <capture path> --verdict match|mismatch [--defect '<text>' [--region x,y,w,h]]…
+```
+
+`--repo` and `--plan-repo` are the repositories' main checkouts, standalone, or the change's
+worktrees in a run; `--mockup` is the mockup's path inside its checkout — the main checkout, or
+the worktree in a run — never the copy extracted into `<state-dir>`, which sits outside any checkout
+and is refused. A case drafted from a worktree, by `--repo`, `--plan-repo` or `--mockup`, has its
+`case.json` `source.repo` then set to the main checkout's directory name. Edit each draft as that file's "What to check and edit" asks, from what the
+candidate's evidence answers; run `case validate` the same way; and commit each case
+alone as `feat(cases): add <role> case <id>`. The branch is never merged or pushed: the
+operator's review of its commits is the label approval the README names. No `flow-eval`
+checkout there: print `⚠ flow-eval: skipped — <reason>` and mine nothing. A `case add` or
+`case validate` that fails leaves its candidate unmined, its output named in the final report.
 
 ### 6. Record every finding in the flow store
 
@@ -274,7 +323,7 @@ warning line and the pass continues — the report below is the durable record.
 ### 7. Write the report, delete the bundle, land it
 
 Write `<project>/docs/self-review/<name>-self-review.md` in the shape
-`<project>/scripts/check-self-review-report.sh` checks — one section per angle, all six present; each
+`<project>/scripts/check-self-review-report.sh` checks — one section per angle, all seven present; each
 finding one line naming its angle's label, the finding, and its disposition (`fixed: <sha>`, `filed: <KEY>`,
 `declined` or `noted`); an angle with no findings carrying the explicit none-marker — plus one line under the
 title:
@@ -282,6 +331,9 @@ title:
 ```
 **Deferred:** reasoning pass run on <the model the pass dispatch's handshake named> from <bundle path>
 ```
+
+An angle-7 candidate is a `noted` line naming its kind and whether the operator chose to mine
+it, its template's fields beneath it as indented sub-bullets.
 
 Delete `<bundle>`; a pass inside a run has no bundle file and commits the report alone, per its
 run's own section. Run `<project>/scripts/check-self-review-report.sh` when the project declares
@@ -291,7 +343,7 @@ unreadable report inside it, an internal coverage.sh call failing) — is not a 
 commit, never commit a report the guard could not read.
 Commit both paths in one commit through the landing chain's one script — the same invocation
 `skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch,
-the removed context-bundle path and the `--push` — since the round-trip through the six-angle
+the removed context-bundle path and the `--push` — since the round-trip through the seven-angle
 pass and the filing-and-rating prompt above is long enough that the branch is worth re-checking
 rather than trusted from step 1 alone:
 
@@ -310,7 +362,7 @@ commit local and this run names it — never retried around.
 
 ### 8. Report
 
-End naming the report path, the rating, the shas landed and the Jira keys filed (each `none` when empty), and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+End naming the report path, the rating, the shas landed, the Jira keys filed and the flow-eval cases mined, by branch and sha (each `none` when empty), each chosen candidate left unmined with its `case add` command, and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 
 ## Guardrails
 
