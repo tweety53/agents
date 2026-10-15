@@ -618,6 +618,10 @@ cause, as inline fixes are applied: it edits, commits on the route the branch's 
 dictates (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), records the round as one
 `dispatches` pair `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline`
 under `full-suite-fix-<n>`, and re-runs the list until it passes.
+The commit carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`).
+Before it is pushed, `check-untasked-commits.sh <worktree> <merge-base>` runs; when the only sha it lists is this commit's, `git commit --amend` adds the missing trailer and the guard runs again; any other listed commit goes to run 1's unfinished-work gate, which handles `UNTASKED`.
+The pair's `end` carries `-commit` with the sha `git -C <worktree> rev-parse HEAD` prints once that commit is made, never a task's commit.
+A fix for a failure that does not recur on every run is a determinism fix, held to the PROOF RUNS paragraph above: the failure is shown returning with the fix reverted before the fix is committed, and a fix whose failure never returns is not committed.
 When the change's diff touches a `## visual verification` `ui paths` glob
 (`git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>` exits 0
 for any worktree in the resolved set, or the `--repo` run step 2 of **Visual verification**
