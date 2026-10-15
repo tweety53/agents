@@ -40,6 +40,12 @@ One round runs these steps in order:
    every further failure those runs show is fixed in this same task and folded into its one
    commit (`git commit --amend`, nothing is pushed yet) — never a further commit, since
    `close-task.sh` takes one sha per task per repository — never left to the next round.
+   **A determinism fix whose flake does not reproduce is not committed.** When the task's runs
+   reproducing a flake, sized as the PROOF RUNS paragraph (`skills/flow/implement.md`) sizes them,
+   see no failure without the fix, the fix is dropped: the task's one commit carries its
+   reproduction test alone, no production change, its body stating the measured rate — runs and
+   failures — in place of a fix for a flake nobody saw, and the task ticks through
+   `close-task.sh <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>` as any task.
 3. **Re-review the delta.** Open `flow.review-panel` again and run one dispatch: `primary` alone,
    reading `late-fix.diff` over the range since the panel's last clean close, written, paired,
    ceilinged and recorded as **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`)
