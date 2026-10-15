@@ -58,14 +58,16 @@
 # table the way a hardcoded copy would. (The original five came from the
 # kan-200 self-review spec's "One combined reasoning pass" angle table.)
 #
-# FIVE-ANGLE REPORTS ARE A FROZEN LIST. `five-angle-reports.txt` in the
+# EARLIER REPORTS ARE FROZEN LISTS. `five-angle-reports.txt` in the
 # scanned directory names, one basename per line, every report written
-# before angle 6 (`flow-speed`) existed. A listed report is checked against
-# the first five angles of the table only; every report not on the list
-# must carry every angle the table serves. The list is frozen: it never
-# gains an entry, so a new report cannot be exempted from a later angle. A
-# directory with no list exempts nothing. A list that exists but cannot be
-# read is "cannot answer" (exit 2), never an empty exemption set.
+# before angle 6 (`flow-speed`) existed, and `six-angle-reports.txt` every
+# report written after it and before angle 7 (`flow-eval`). A listed report
+# is checked against the first five, or six, angles of the table only;
+# every report on neither list must carry every angle the table serves. A
+# list is frozen: it never gains an entry, so a new report cannot be
+# exempted from a later angle. A directory with no list exempts nothing. A
+# list that exists but cannot be read is "cannot answer" (exit 2), never an
+# empty exemption set.
 #
 # PER-REPORT COVERAGE, via coverage.go (scripts/lib/coverage.sh's Go twin).
 # Each report's recorded

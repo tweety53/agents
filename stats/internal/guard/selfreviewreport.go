@@ -47,14 +47,23 @@ var (
 
 const (
 	srrNoneMarker = "_none — this angle produced no findings._"
-	// srrOriginalAngles is the table's size when every report on the frozen
-	// five-angle list was written (the script header's FIVE-ANGLE REPORTS
-	// ARE A FROZEN LIST).
-	srrOriginalAngles = 5
 )
 
+// srrFrozenLists are the frozen report lists (the script header's EARLIER
+// REPORTS ARE FROZEN LISTS): each file in the scanned directory names the
+// reports written while the table held angles angles, which is all a listed
+// report is checked against. A basename on more than one list takes the
+// first.
+var srrFrozenLists = []struct {
+	file, name string
+	angles     int
+}{
+	{"five-angle-reports.txt", "five-angle", 5},
+	{"six-angle-reports.txt", "six-angle", 6},
+}
+
 // checkSelfReviewReport is scripts/check-self-review-report.sh's body. Its
-// contract — the report shape, the served angle labels, the frozen list,
+// contract — the report shape, the served angle labels, the frozen lists,
 // coverage and the exit codes — is the script's header; the reasoning
 // behind each step is here.
 //
@@ -116,20 +125,24 @@ func checkSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int
 		return die("the canonical angle table yielded no labels: %s", contract)
 	}
 
-	// The frozen list, newline-wrapped so a basename is matched whole. A
-	// list that exists but cannot be read is "cannot answer", never an empty
-	// exemption set; the read failing is reported as the bash's `cat` did.
-	listPath := target + "/five-angle-reports.txt"
-	fiveAngle := "\n"
-	if _, err := os.Stat(abs(listPath)); err == nil {
-		b, err := os.ReadFile(abs(listPath))
-		if err != nil {
-			// gsFindErr renders the line a tool prints for a failed path; cat's is
-			// find's with its own name.
-			fmt.Fprint(stderr, "cat: "+strings.TrimPrefix(gsFindErr(listPath, err), "find: "))
-			return die("cannot read the five-angle report list: %s", listPath)
+	// The frozen lists, each newline-wrapped so a basename is matched whole.
+	// A list that exists but cannot be read is "cannot answer", never an
+	// empty exemption set; the read failing is reported as the bash's `cat`
+	// did.
+	frozen := make([]string, len(srrFrozenLists))
+	for i, l := range srrFrozenLists {
+		listPath := target + "/" + l.file
+		frozen[i] = "\n"
+		if _, err := os.Stat(abs(listPath)); err == nil {
+			b, err := os.ReadFile(abs(listPath))
+			if err != nil {
+				// gsFindErr renders the line a tool prints for a failed path; cat's is
+				// find's with its own name.
+				fmt.Fprint(stderr, "cat: "+strings.TrimPrefix(gsFindErr(listPath, err), "find: "))
+				return die("cannot read the %s report list: %s", l.name, listPath)
+			}
+			frozen[i] = "\n" + strings.TrimRight(string(b), "\n") + "\n"
 		}
-		fiveAngle = "\n" + strings.TrimRight(string(b), "\n") + "\n"
 	}
 
 	files, rc := srrReports(env, target, abs(target), stderr)
@@ -287,16 +300,19 @@ func checkSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int
 			}
 		}
 		required := n
-		if strings.Contains(fiveAngle, "\n"+base+"\n") {
-			required = srrOriginalAngles
+		for i, l := range srrFrozenLists {
+			if strings.Contains(frozen[i], "\n"+base+"\n") {
+				required = l.angles
+				break
+			}
 		}
 
 		// A report with no angle heading at all gets no per-section findings
 		// — there was nothing in it to check against — and is flagged
 		// through coverage's undeclared zero instead (KAN-73's regression
 		// shape). A recognizable report gets a "missing section" finding for
-		// each absent angle, a listed five-angle report for the first five
-		// only.
+		// each absent angle, a report on a frozen list for that list's first
+		// angles only.
 		count := 0
 		if found > 0 {
 			for j, label := range labels {

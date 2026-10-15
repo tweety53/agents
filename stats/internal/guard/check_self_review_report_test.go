@@ -36,9 +36,12 @@ var (
 	csrAuto  = csrSec("Automation", "flow-automation", csrNone)
 	csrStats = csrSec("Stats app", "flow-stats-app", csrNone)
 	csrSpeed = csrSec("Speed", "flow-speed", csrNone)
-	// csrFive is a report as written before angle 6 existed.
+	csrEval  = csrSec("Flow-eval cases", "flow-eval", csrNone)
+	// csrFive is a report as written before angle 6 existed, csrSix one as
+	// written before angle 7 existed.
 	csrFive      = strings.Join([]string{csrFix, csrCost, csrImp, csrAuto, csrStats}, "\n")
-	csrCompliant = csrFive + "\n" + csrSpeed
+	csrSix       = csrFive + "\n" + csrSpeed
+	csrCompliant = csrSix + "\n" + csrEval
 	// csrNoneFive is the five original sections, each carrying the marker.
 	csrNoneFive = strings.Join([]string{csrSec("Cost", "flow-cost", csrNone), csrImp, csrAuto, csrStats}, "\n")
 )
@@ -371,25 +374,59 @@ func TestCheckSelfReviewReport(t *testing.T) {
 		}},
 		{func(t *testing.T) csrResult {
 			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix,
-				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: abc1234"), csrImp, csrAuto, csrStats, csrSpeed}, "\n")))
+				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: abc1234"), csrImp, csrAuto, csrStats, csrSpeed, csrEval}, "\n")))
 		}, []check{
 			{"case 34: a fixed finding naming a sha exits 0", rcIs(0)},
 		}},
 		{func(t *testing.T) csrResult {
 			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix,
-				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed:"), csrImp, csrAuto, csrStats, csrSpeed}, "\n")))
+				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed:"), csrImp, csrAuto, csrStats, csrSpeed, csrEval}, "\n")))
 		}, []check{
 			{"case 35: a fixed finding with no sha is caught", rcIs(1)},
 			{"case 35: finding names the missing sha", has("fixed", "no sha")},
 		}},
 		{func(t *testing.T) csrResult {
 			return csrRun(t, nil, csrReport(t, strings.Join([]string{csrFix,
-				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: KAN-9"), csrImp, csrAuto, csrStats, csrSpeed}, "\n")))
+				csrSec("Cost", "flow-cost", "- **[flow-cost]** Every panel slot gathers the same context independently — fixed: KAN-9"), csrImp, csrAuto, csrStats, csrSpeed, csrEval}, "\n")))
 		}, []check{
 			{"case 36: a fixed finding naming a non-sha is caught", rcIs(1)},
 			{"case 36: finding names the malformed sha", has("fixed", "malformed sha", "KAN-9")},
 		}},
 
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrDir(t, map[string]string{"fixture-self-review.md": csrSix,
+				"six-angle-reports.txt": "other-self-review.md\nfixture-self-review.md\n"}))
+		}, []check{
+			{"case 37: a listed six-angle report exits 0", rcIs(0)},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrDir(t, map[string]string{"fixture-self-review.md": csrSix,
+				"six-angle-reports.txt": "old-fixture-self-review.md\n"}))
+		}, []check{
+			{"case 38: an unlisted six-angle report is caught", rcIs(1)},
+			{"case 38: the missing-section finding names flow-eval", has("missing section for angle", "flow-eval")},
+		}},
+		{func(t *testing.T) csrResult {
+			dir := csrReport(t, csrCompliant)
+			mkdir(t, filepath.Join(dir, "six-angle-reports.txt"))
+			return csrRun(t, nil, dir)
+		}, []check{
+			{"case 39: an unreadable six-angle list is 'cannot answer'", rcIs(2)},
+			{"case 39: the die message names the unreadable list", has("cannot read the six-angle report list")},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrDir(t, map[string]string{"fixture-self-review.md": csrSix,
+				"five-angle-reports.txt": "fixture-self-review.md\n", "six-angle-reports.txt": "fixture-self-review.md\n"}))
+		}, []check{
+			{"case 40: a report on both lists is held to the first list's five angles", rcIs(0)},
+		}},
+		{func(t *testing.T) csrResult {
+			return csrRun(t, nil, csrDir(t, map[string]string{"fixture-self-review.md": csrFive,
+				"six-angle-reports.txt": "fixture-self-review.md\n"}))
+		}, []check{
+			{"case 41: a five-angle report on the six-angle list is caught", rcIs(1)},
+			{"case 41: the missing-section finding names flow-speed", has("missing section for angle", "flow-speed")},
+		}},
 		// Beyond the harness: the exact output of a clean run and of a
 		// violation, the refusals it never reached, and the collation.
 		{func(t *testing.T) csrResult {
@@ -399,7 +436,7 @@ func TestCheckSelfReviewReport(t *testing.T) {
 			return r
 		}, []check{
 			{"a clean run prints the verdict and the coverage fragment on stdout", func(r csrResult) bool {
-				return r.out == "SELF-REVIEW-REPORT-OK: <dir> — 1 report(s) checked\n  <dir>/fixture-self-review.md 8\n" && r.err == ""
+				return r.out == "SELF-REVIEW-REPORT-OK: <dir> — 1 report(s) checked\n  <dir>/fixture-self-review.md 9\n" && r.err == ""
 			}},
 		}},
 		{func(t *testing.T) csrResult {

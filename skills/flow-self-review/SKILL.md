@@ -56,6 +56,7 @@ present-but-empty for an angle with no findings, never omitted:
 | 4 | What could be automated or moved to a script | `flow-automation` |
 | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
 | 6 | What can be sped up — wall-clock time the run spent waiting or working that a pipeline change would cut | `flow-speed` |
+| 7 | What would make a good flow-eval case — a task, a review finding or a visual pair from this run | `flow-eval` |
 
 Angle 5's remit covers the records the pipeline writes to files today and the derivation work
 now done in Bash or by the agent — **not** what the SPA should display. Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
