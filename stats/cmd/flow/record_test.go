@@ -981,6 +981,39 @@ func TestDispatchEndCauseUnknown(t *testing.T) {
 	}
 }
 
+// TestDispatchEndOutcomeClosedSet pins the closed outcome vocabulary: a
+// free-text outcome no contract names (`done`, `approve`) is refused before
+// the store is contacted, its usage naming the accepted set, and every
+// contract outcome reaches the store.
+func TestDispatchEndOutcomeClosedSet(t *testing.T) {
+	for _, outcome := range []string{"done", "approve", "Completed"} {
+		t.Run("refused="+outcome, func(t *testing.T) {
+			code, _, stderr, contacted, _ := causeEndRun(t, "-outcome", outcome)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for an outcome outside the set -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), "completed, clean, fix, blocked, aborted, fallback, timed-out") {
+				t.Errorf("stderr does not name the accepted outcomes:\n%s", stderr.String())
+			}
+		})
+	}
+	for _, outcome := range recordOutcomes {
+		t.Run("accepted="+outcome, func(t *testing.T) {
+			extra := []string{"-outcome", outcome}
+			if outcome == "blocked" {
+				extra = append(extra, "-cause", "environment")
+			}
+			code, _, stderr, contacted, _ := causeEndRun(t, extra...)
+			if code != 0 || !contacted {
+				t.Fatalf("exit code = %d, contacted = %v, want 0 and the store contacted; stderr:\n%s", code, contacted, stderr.String())
+			}
+		})
+	}
+}
+
 // TestDispatchEndCauseAccepted pins the happy path: `-outcome blocked`
 // with a cause from the set reaches the wire carrying it.
 func TestDispatchEndCauseAccepted(t *testing.T) {

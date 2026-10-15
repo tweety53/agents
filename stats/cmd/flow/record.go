@@ -70,6 +70,15 @@ var recordEfforts = []string{"low", "medium", "high", "default"}
 // explain (KAN-510).
 var recordCauses = []string{"environment", "test-failure", "missing-fixture"}
 
+// recordOutcomes is the closed set `dispatch end -outcome` accepts: every
+// outcome a contract closes a dispatch row with -- completed, clean and fix
+// (a gated reviewer's verdict), blocked, aborted, fallback (a model
+// mismatch) and timed-out (a panel slot's breach). A free-text outcome
+// (`done`, `approve`) reads as no contract's word, so it is refused rather
+// than mapped; an empty one stays allowed, and signal three of
+// check-unfinished-work reports the row it leaves open.
+var recordOutcomes = []string{"completed", "clean", "fix", "blocked", "aborted", "fallback", "timed-out"}
+
 // tokenReportKeys maps the hyphenated keys `-tokens` accepts onto the
 // TokenReport field each one fills -- the bag's four figures the ledger's
 // token line renders, spelled the way the ledger itself spells them. The
@@ -1039,7 +1048,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	key := fset.String("key", "", "the literal label this dispatch's begin call carried (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	commit := fset.String("commit", "", "the commit sha this dispatch produced")
-	outcome := fset.String("outcome", "", "how the dispatch ended, e.g. completed")
+	outcome := fset.String("outcome", "", "how the dispatch ended -- one of: "+strings.Join(recordOutcomes, ", "))
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
 	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
@@ -1051,6 +1060,10 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		[2]string{"-key", *key},
 		[2]string{"-session-token", *sessionToken},
 	) {
+		return 2
+	}
+	if *outcome != "" && !slices.Contains(recordOutcomes, *outcome) {
+		fmt.Fprintf(stderr, "flow: -outcome %q is not one of: %s\n", *outcome, strings.Join(recordOutcomes, ", "))
 		return 2
 	}
 	if *outcome == "blocked" && *cause == "" {
