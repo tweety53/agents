@@ -28,10 +28,10 @@
 - A panel run whose rounds each recorded a pass row must stay CLEAR on signal five, and a change with no `panel-` reviewer row must make no pass-row read at all.
 - `flow record dispatch backfill` with a malformed `-ended-at` must write no row at all, not a begun row with no end.
 - An integrate re-run that still passes `--plan-message` must stop before the reshape, not after it.
-- [ ] 1. integrate's planning commit keeps its own subject and carries the outstanding work in its body
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'plan-message' scripts/integrate-change.sh skills/flow/integrate.md` and confirm `--plan-message) PLAN_MSG="${2:-}"` replaces the default `chore(spectre): plan $NAME` whole, and `integrate.md` says to pass the planning message "whole as `--plan-message`" — the defect: a message with no Conventional Commits subject stops `commit` at commit-split, after the reshape.
-  - [ ] **Step 2: Write the failing test.** Apply only the harness hunks of the diff in step 3 (`git apply --include='scripts/test-integrate-change.sh' <the diff>`) and run `bash scripts/test-integrate-change.sh 2>&1 | tail -4`: the `outstanding:` checks FAIL.
-  - [ ] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='scripts/test-integrate-change.sh' <the diff>`):
+- [x] 1. integrate's planning commit keeps its own subject and carries the outstanding work in its body
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'plan-message' scripts/integrate-change.sh skills/flow/integrate.md` and confirm `--plan-message) PLAN_MSG="${2:-}"` replaces the default `chore(spectre): plan $NAME` whole, and `integrate.md` says to pass the planning message "whole as `--plan-message`" — the defect: a message with no Conventional Commits subject stops `commit` at commit-split, after the reshape.
+  - [x] **Step 2: Write the failing test.** Apply only the harness hunks of the diff in step 3 (`git apply --include='scripts/test-integrate-change.sh' <the diff>`) and run `bash scripts/test-integrate-change.sh 2>&1 | tail -4`: the `outstanding:` checks FAIL.
+  - [x] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='scripts/test-integrate-change.sh' <the diff>`):
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; scripts/test-integrate-change.sh 101 passed, 0 failed; check-verbatim-moves.sh with this change's verbatim-moves.txt exits 0
 diff --git a/scripts/integrate-change.sh b/scripts/integrate-change.sh
@@ -120,7 +120,7 @@ index 4f2dd7a4..687f75bd 100644
  `commit` reshapes, renders the ledger, runs the two-commit chain per worktree in `## Merge order`,
 ````
 
-  - [ ] **Step 4: Verify.** `bash scripts/test-integrate-change.sh 2>&1 | tail -3` ends `101 passed, 0 failed`; `bash -n scripts/integrate-change.sh`; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` exits 1 on `skills/flow/verify-and-handoff.md:207` alone until Task 9). Commit.
+  - [x] **Step 4: Verify.** `bash scripts/test-integrate-change.sh 2>&1 | tail -3` ends `101 passed, 0 failed`; `bash -n scripts/integrate-change.sh`; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` exits 1 on `skills/flow/verify-and-handoff.md:207` alone until Task 9). Commit.
 
 **Build:** green
 **Files:** `scripts/integrate-change.sh`, `scripts/test-integrate-change.sh`, `skills/flow/integrate.md`
@@ -133,9 +133,9 @@ index 4f2dd7a4..687f75bd 100644
 
 **Decision:** outstanding-in-body
 
-- [ ] 2. The push-time untasked-commit check lives in Commits outside every task and runs before a panel fix's push
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'check-untasked-commits' skills/flow/implement.md skills/flow/review-panel-fix-round.md skills/flow-contracts/git-boundaries.md` and confirm the "Before it is pushed" sentence sits only in `implement.md`'s full-suite fix paragraph — the defect: a panel-fix commit can be pushed with no `Flow-Key:` trailer.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 2. The push-time untasked-commit check lives in Commits outside every task and runs before a panel fix's push
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'check-untasked-commits' skills/flow/implement.md skills/flow/review-panel-fix-round.md skills/flow-contracts/git-boundaries.md` and confirm the "Before it is pushed" sentence sits only in `implement.md`'s full-suite fix paragraph — the defect: a panel-fix commit can be pushed with no `Flow-Key:` trailer.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; check-verbatim-moves.sh with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.py, check-dispatch-paragraphs.sh, check-normative-inventory.sh exit 0
 diff --git a/skills/flow-contracts/git-boundaries.md b/skills/flow-contracts/git-boundaries.md
@@ -178,7 +178,7 @@ index 388ab662..9af2ba5b 100644
  plain push above is then rejected.
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
 
 **Build:** green
 **Files:** `skills/flow-contracts/git-boundaries.md`, `skills/flow/implement.md`, `skills/flow/review-panel-fix-round.md`
@@ -190,10 +190,10 @@ index 388ab662..9af2ba5b 100644
 
 **Decision:** untasked-check-in-git-boundaries
 
-- [ ] 3. Signal four reports a ticked appended task with no Task-Id commit in the change's ranges
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'dispatch rows are the proxy\|Task-Id' stats/internal/guard/unfinishedwork.go` and confirm signal four judges appended tasks by dispatch rows alone and reads no commit — the defect: a back-filled row satisfies it for a task whose work never landed.
-  - [ ] **Step 2: Write the failing tests.** Apply only the test hunk of the diff in step 3 (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1`: the new subtests FAIL.
-  - [ ] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' <the diff>`):
+- [x] 3. Signal four reports a ticked appended task with no Task-Id commit in the change's ranges
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'dispatch rows are the proxy\|Task-Id' stats/internal/guard/unfinishedwork.go` and confirm signal four judges appended tasks by dispatch rows alone and reads no commit — the defect: a back-filled row satisfies it for a task whose work never landed.
+  - [x] **Step 2: Write the failing tests.** Apply only the test hunk of the diff in step 3 (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1`: the new subtests FAIL.
+  - [x] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/check_unfinished_work_test.go' <the diff>`):
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; gofmt -l and go vet clean; go test ./internal/guard/ passes; the new subtests fail with unfinishedwork.go reverted; scripts/test-integrate-change.sh 101 passed; check-verbatim-moves.sh with this change's verbatim-moves.txt exits 0
 diff --git a/scripts/check-unfinished-work.sh b/scripts/check-unfinished-work.sh
@@ -424,7 +424,7 @@ index fd2d2c9c..9b406eda 100644
  
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork|TestCloseTask' -count=1` — `gofmt -l` prints nothing, the tests pass; `bash scripts/test-integrate-change.sh 2>&1 | tail -1` reads `101 passed, 0 failed`; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckUnfinishedWork|TestCloseTask' -count=1` — `gofmt -l` prints nothing, the tests pass; `bash scripts/test-integrate-change.sh 2>&1 | tail -1` reads `101 passed, 0 failed`; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `scripts/integrate-change.sh`, `skills/flow-contracts/finish-contract-run1.md`, `skills/flow/verify-and-handoff.md`
@@ -437,10 +437,10 @@ index fd2d2c9c..9b406eda 100644
 
 **Decision:** task-id-commit-across-ranges
 
-- [ ] 4. A verifier row counts only for the HEAD it verified
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'found = true\|diffBase' stats/internal/guard/visualverifydispatched.go` and confirm a completed verifier row sets `found` whatever its `diffBase` — the defect: UI-path commits landed after the verifier still pass `check-visual-verify-dispatched`.
-  - [ ] **Step 2: Write the failing tests.** Apply only the test hunks of the diff in step 3 (`git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckVisualVerifyDispatched -count=1`: cases 9a–9d FAIL.
-  - [ ] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' <the diff>`):
+- [x] 4. A verifier row counts only for the HEAD it verified
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'found = true\|diffBase' stats/internal/guard/visualverifydispatched.go` and confirm a completed verifier row sets `found` whatever its `diffBase` — the defect: UI-path commits landed after the verifier still pass `check-visual-verify-dispatched`.
+  - [x] **Step 2: Write the failing tests.** Apply only the test hunks of the diff in step 3 (`git apply --include='stats/internal/guard/check_visual_verify_dispatched_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckVisualVerifyDispatched -count=1`: cases 9a–9d FAIL.
+  - [x] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/check_visual_verify_dispatched_test.go' <the diff>`):
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; gofmt -l and go vet clean; go test ./internal/guard/ passes; cases 9a-9d fail with visualverifydispatched.go reverted; check-verbatim-moves.sh with this change's verbatim-moves.txt exits 0
 diff --git a/scripts/check-visual-verify-dispatched.sh b/scripts/check-visual-verify-dispatched.sh
@@ -843,7 +843,7 @@ index 70666cbd..8ac9348c 100644
 +var vvdSHA = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1` — `gofmt -l` prints nothing, the tests pass; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckVisualVerifyDispatched' -count=1` — `gofmt -l` prints nothing, the tests pass; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/visualverifydispatched.go`, `stats/internal/guard/check_visual_verify_dispatched_test.go`, `scripts/check-visual-verify-dispatched.sh`, `skills/flow/visual-verify.md`
@@ -856,10 +856,10 @@ index 70666cbd..8ac9348c 100644
 
 **Decision:** verifier-counts-for-its-head
 
-- [ ] 5. A back-filled dispatch is one `flow record dispatch backfill` call with its real instants required
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record dispatch backfill 2>&1 | head -2` and confirm it is refused as an unknown record dispatch command, and `grep -n 'back-fill' skills/flow/implement.md` shows the real-instants rule only on close-task's RECORD path — the defect: back-filled rows take the recording moment as both instants.
-  - [ ] **Step 2: Write the failing test.** Apply only the test hunk of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRecordDispatchBackfill -count=1`: `TestRecordDispatchBackfill` FAILS.
-  - [ ] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
+- [x] 5. A back-filled dispatch is one `flow record dispatch backfill` call with its real instants required
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record dispatch backfill 2>&1 | head -2` and confirm it is refused as an unknown record dispatch command, and `grep -n 'back-fill' skills/flow/implement.md` shows the real-instants rule only on close-task's RECORD path — the defect: back-filled rows take the recording moment as both instants.
+  - [x] **Step 2: Write the failing test.** Apply only the test hunk of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRecordDispatchBackfill -count=1`: `TestRecordDispatchBackfill` FAILS.
+  - [x] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; gofmt -l and go vet clean; go test ./cmd/flow/ and the close-task tests pass; TestRecordDispatchBackfill fails with record.go reverted; check-verbatim-moves.sh with this change's verbatim-moves.txt exits 0
 diff --git a/skills/flow/implement.md b/skills/flow/implement.md
@@ -1060,7 +1060,7 @@ index 27e4ccdf..61f0f8b9 100644
  	// Both commit guards run before anything is ticked or pushed, so a
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/guard/ && go test ./cmd/flow/ -run 'TestRecordDispatchBackfill|TestRecordMissingRequiredFlag' -count=1 && go test ./internal/guard/ -run TestCloseTask -count=1` — `gofmt -l` prints nothing, the tests pass; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/guard/ && go test ./cmd/flow/ -run 'TestRecordDispatchBackfill|TestRecordMissingRequiredFlag' -count=1 && go test ./internal/guard/ -run TestCloseTask -count=1` — `gofmt -l` prints nothing, the tests pass; `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` exit 0 (`check-installed-citations.sh` as in Task 1). Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/internal/guard/closetask.go`, `skills/flow/implement.md`
@@ -1073,10 +1073,10 @@ index 27e4ccdf..61f0f8b9 100644
 
 **Decision:** backfill-is-one-call
 
-- [ ] 6. The unfinished-work gate reports a panel round dispatched with no pass row
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record passes 2>&1 | head -2` and confirm it is refused as an unknown record command, and `grep -n 'pass rows' internal/guard/unfinishedwork.go` shows "pass rows have no read verb" — the defect: a dispatched panel round that recorded no pass row reaches integrate unflagged.
-  - [ ] **Step 2: Write the failing tests.** Apply only the test hunks of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' --include='stats/internal/guard/check_unfinished_work_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRunRecordPasses -count=1` and `go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1`: both FAIL.
-  - [ ] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' --exclude='stats/internal/guard/check_unfinished_work_test.go' <the diff>`):
+- [x] 6. The unfinished-work gate reports a panel round dispatched with no pass row
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `cd stats && go run ./cmd/flow record passes 2>&1 | head -2` and confirm it is refused as an unknown record command, and `grep -n 'pass rows' internal/guard/unfinishedwork.go` shows "pass rows have no read verb" — the defect: a dispatched panel round that recorded no pass row reaches integrate unflagged.
+  - [x] **Step 2: Write the failing tests.** Apply only the test hunks of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' --include='stats/internal/guard/check_unfinished_work_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRunRecordPasses -count=1` and `go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1`: both FAIL.
+  - [x] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' --exclude='stats/internal/guard/check_unfinished_work_test.go' <the diff>`):
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; gofmt -l and go vet clean; go test ./cmd/flow/ ./internal/guard/ ./internal/records/ pass; the new signal-five subtests fail with unfinishedwork.go reverted; scripts/test-integrate-change.sh 101 passed
 diff --git a/scripts/check-unfinished-work.sh b/scripts/check-unfinished-work.sh
@@ -1384,7 +1384,7 @@ index e92d04e1..ebf1bd8d 100644
  	}
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/guard/ ./internal/records/ && go test ./cmd/flow/ -run 'TestRunRecordPasses|Dispatches' -count=1 && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1 && go test ./internal/records/ -count=1` — `gofmt -l` prints nothing, the tests pass; `bash scripts/test-integrate-change.sh 2>&1 | tail -1` reads `101 passed, 0 failed`; `scripts/check-references.sh` exits 0. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ ./internal/guard/ ./internal/records/ && go test ./cmd/flow/ -run 'TestRunRecordPasses|Dispatches' -count=1 && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1 && go test ./internal/records/ -count=1` — `gofmt -l` prints nothing, the tests pass; `bash scripts/test-integrate-change.sh 2>&1 | tail -1` reads `101 passed, 0 failed`; `scripts/check-references.sh` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`, `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `stats/internal/records/render.go`, `scripts/check-unfinished-work.sh`
@@ -1397,9 +1397,9 @@ index e92d04e1..ebf1bd8d 100644
 
 **Decision:** passes-read-verb
 
-- [ ] 7. gymie-frontend's full suite runs the desktop UI tests
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log`, run `grep -n '^## test' .flow/project.md` and confirm it prints nothing — the defect: with no `## test` the pipeline's full suite is auto-detected as Gradle's `test` task alone, which does not depend on `:shared:desktopTest` (design.md's Context records the dry runs).
-  - [ ] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log`, apply this diff:
+- [x] 7. gymie-frontend's full suite runs the desktop UI tests
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** In `/Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log`, run `grep -n '^## test' .flow/project.md` and confirm it prints nothing — the defect: with no `## test` the pipeline's full suite is auto-detected as Gradle's `test` task alone, which does not depend on `:shared:desktopTest` (design.md's Context records the dry runs).
+  - [x] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log`, apply this diff:
 
 ````diff verified:git apply --check in the gymie-frontend worktree at 7eb56b16; ./gradlew test :shared:desktopTest --dry-run lists :shared:desktopTest there; scripts/project-get.sh reads the section back
 --- a/.flow/project.md
@@ -1423,7 +1423,7 @@ index e92d04e1..ebf1bd8d 100644
  defer
 ````
 
-  - [ ] **Step 3: Verify.** From this agents worktree, `scripts/project-get.sh /Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log test` prints the section's fenced command line, the one naming `:shared:desktopTest`. Commit in the gymie-frontend worktree: `git -C /Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log commit -m "chore(flow-project): the full suite runs the desktop UI tests" -- .flow/project.md`.
+  - [x] **Step 3: Verify.** From this agents worktree, `scripts/project-get.sh /Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log test` prints the section's fenced command line, the one naming `:shared:desktopTest`. Commit in the gymie-frontend worktree: `git -C /Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log commit -m "chore(flow-project): the full suite runs the desktop UI tests" -- .flow/project.md`.
 
 **Build:** green
 **Files:** `.flow/project.md` (gymie-frontend repository, worktree `/Users/tweety53/Projects/gymie-frontend-worktrees/kan-939-step-4-frontend-cardio-plan-view-start-log`)
@@ -1435,10 +1435,10 @@ index e92d04e1..ebf1bd8d 100644
 
 **Decision:** frontend-test-names-desktop
 
-- [ ] 8. A full Claude model id is recorded under its alias
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'Model:        \*model' stats/cmd/flow/record.go` and confirm `begin` sends `-model` as given — the defect: a parent's inline row records `claude-opus-5-5` beside dispatches recorded as `opus`.
-  - [ ] **Step 2: Write the failing test.** Apply only the test hunk of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRecordDispatchBeginModelAlias -count=1`: it FAILS.
-  - [ ] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
+- [x] 8. A full Claude model id is recorded under its alias
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'Model:        \*model' stats/cmd/flow/record.go` and confirm `begin` sends `-model` as given — the defect: a parent's inline row records `claude-opus-5-5` beside dispatches recorded as `opus`.
+  - [x] **Step 2: Write the failing test.** Apply only the test hunk of the diff in step 3 (`git apply --include='stats/cmd/flow/record_test.go' <the diff>`) and run `cd stats && go test ./cmd/flow/ -run TestRecordDispatchBeginModelAlias -count=1`: it FAILS.
+  - [x] **Step 3: Implement.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; gofmt -l and go vet clean; go test ./cmd/flow/ passes; TestRecordDispatchBeginModelAlias fails with record.go reverted
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -1502,7 +1502,7 @@ index e7171929..51d79479 100644
  // sends begin carrying -started-at, then end carrying -ended-at and the
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatchBeginModelAlias|TestRecordDispatchBackfill' -count=1` — `gofmt -l` prints nothing, the tests pass. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./cmd/flow/ && go test ./cmd/flow/ -run 'TestRecordDispatchBeginModelAlias|TestRecordDispatchBackfill' -count=1` — `gofmt -l` prints nothing, the tests pass. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -1515,9 +1515,9 @@ index e7171929..51d79479 100644
 
 **Decision:** model-alias-on-record
 
-- [ ] 9. verify-and-handoff's guard citation names its root
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `scripts/check-installed-citations.sh 2>&1 | grep 'names no root'` and confirm it reports `skills/flow/verify-and-handoff.md:207` citing `scripts/check-visual-verify-dispatched.sh` — the defect: `origin/main` fails this guard.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 9. verify-and-handoff's guard citation names its root
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `scripts/check-installed-citations.sh 2>&1 | grep 'names no root'` and confirm it reports `skills/flow/verify-and-handoff.md:207` citing `scripts/check-visual-verify-dispatched.sh` — the defect: `origin/main` fails this guard.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:applied with git apply to the worktree at a7196b56 in plan order; check-installed-citations.sh reports INSTALLED-CITATIONS-OK; check-verbatim-moves.sh with this change's verbatim-moves.txt exits 0
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -1535,7 +1535,7 @@ index 0f4de81d..492fc6fd 100644
  (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` all exit 0, `check-installed-citations.sh` printing `INSTALLED-CITATIONS-OK`. Commit.
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh` (with this change's `verbatim-moves.txt`), `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-normative-inventory.sh` all exit 0, `check-installed-citations.sh` printing `INSTALLED-CITATIONS-OK`. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
