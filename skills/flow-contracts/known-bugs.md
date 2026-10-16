@@ -24,6 +24,11 @@ next run meets no committed report, runs the pass again, and meets the defect ag
 fixed. The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its
 state, and the run ends on the block below.
 
+**A landing HEAD whose UI no verifier saw is such a defect.** A pass finding that a UI-path commit
+landed after the last HEAD a visual verifier saw — departures fixed and never re-captured, a fix
+run's UI change never verified — stops the landing exactly as above. It is never a risk line, a
+`noted` finding or an angle item the landing proceeds over.
+
 - **`/flow`'s integrate run 1** stops before step 5's route. The fix run writes its plan above the
   archive commit, so the next bare `/flow <name>` is an archived re-run with new work, which runs
   the pass (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`).

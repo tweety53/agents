@@ -67,9 +67,13 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
   command flags the guard's newest verdict, and `prepare` stops at the first `MISSING` worktree
   so that row is the newest; `prepare` passes only on a flag on that worktree's own row whose
   verdict names its current HEAD (`— HEAD <sha>`), so a later commit or a rebase needs a new
-  verifier or a new flag. The gate runs on an archived re-run with no new work too, again on each
-  worktree a base move rebases in `prepare`, and in `land` on a worktree re-synced after a
-  rejected push, before that worktree's push — that stop names the worktrees already pushed.
+  verifier or a new flag. A flag made at `prepare` does not carry to `land`: the reshape and the
+  archive move HEAD, so `land` stops again and the operator flags that HEAD anew. The gate runs on
+  an archived re-run with no new work too, again on each worktree a base move rebases in
+  `prepare`, before every push `commit` and `land` make on every route — `land`'s stop names the
+  worktrees already pushed — and again after a re-sync on a rejected push. So the gate covers
+  every push the pipeline makes, and the forge merge of an opened PR is of the verified head; run 2
+  `cleanup` adds no check, since it could only report after landing.
 
 ## 2. Ask how the branch should land
 

@@ -404,6 +404,22 @@ run and recorded, never recorded after the fact for work that did not run — an
 again; the state is written only once every worktree prints `CLEAR:`. A missing verdict line or an
 exit 2 is reported and stops the run at the state it read.
 
+**Every run then runs the visual guard on itself** — creating, resuming and fix runs alike — once
+per worktree of the resolved set, with the arguments integrate's gate passes it (**Run 1 — the
+branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`):
+
+```bash
+check-visual-verify-dispatched.sh <worktree> <name> $(git -C <worktree> merge-base HEAD origin/<base>) <canonical-worktree>
+```
+
+A `VISUAL-VERIFY-MISSING:` line means a UI-path commit landed after the last HEAD a verifier saw —
+a visual-fix task's, a panel fix's, a full-suite fix's or a fix run's own. Run **Visual
+verification** above again from its `begin` mark on the current HEAD, take every departure through
+**The loop** (`skills/flow/verify-fix-loop.md`), and run the guard again; the state is written,
+and the handoff printed, only once every worktree prints `VISUAL-VERIFY-OK:`. Integrate stops on
+the same verdict and no operator course there passes it. An exit 2 is reported and stops the run
+at the state it read.
+
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 `worktrees` should already carry one absolute-path key per affected worktree and its merge base,
 so this step re-reads the current record and

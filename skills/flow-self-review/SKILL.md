@@ -94,7 +94,8 @@ finding, or one whose fix step 3 dropped, is ever offered for filing**. **The pa
 the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
 config, guards — and nothing else.** A finding about the project's own product code is out of
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
-here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`). The report carries no
+here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`). A landing HEAD
+whose UI no visual verifier saw is such a finding, never a risk line. The report carries no
 section beyond the seven angles and the rating. The filing prompt is never waived: a pass with
 no operator to answer it files and mines nothing and records every offered finding `declined`.
 
