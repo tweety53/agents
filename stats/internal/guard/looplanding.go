@@ -1,0 +1,145 @@
+package guard
+
+import (
+	"fmt"
+	"io"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+// check-loop-landing.sh <repo> <branch>: may a pipeline-fix-* or
+// self-review-* branch land on the default branch? Only once flowd holds,
+// for its loop, a completed plan, a completed first fix and a review, every
+// row closed, the highest review `clean` -- no Critical or Important -- and
+// no red-line fix (`fix-v<v>`) after it. protect-main-checkout.py runs it on
+// a landing push typed by hand; pipeline-fix.sh land runs it before its own.
+func init() {
+	Registry["check-loop-landing"] = checkLoopLanding
+}
+
+var (
+	lpPipelineBranch = regexp.MustCompile(`^pipeline-fix-(.+)-([0-9]+)$`)
+	lpReviewSuffix   = regexp.MustCompile(`^review-([0-9]+)$`)
+)
+
+// lpFromBranch is the loop a branch is, or ok false for any other branch. A
+// change's own spectre/<name> is the self-review loop that runs on it, which
+// files its rows under <name>; lpOwnBranch tells the two apart.
+func lpFromBranch(branch string) (lpLoop, bool) {
+	if name, ok := strings.CutPrefix(branch, "spectre/"); ok && plainChangeName(name) {
+		return lpLoop{change: name, token: "self-review-" + name, prefix: "self-review-" + name + "-"}, true
+	}
+	if m := lpPipelineBranch.FindStringSubmatch(branch); m != nil && plainChangeName(branch) {
+		return lpLoop{change: branch, token: branch, prefix: "pipeline-fix-" + m[2] + "-"}, true
+	}
+	if name, ok := strings.CutPrefix(branch, "self-review-"); ok && plainChangeName(name) {
+		return lpLoop{change: branch, token: branch, prefix: branch + "-"}, true
+	}
+	return lpLoop{}, false
+}
+
+// lpOwnBranch is whether branch is a change's own branch: a loop only when its
+// rows say a self-review loop ran on it.
+func lpOwnBranch(branch string) bool { return strings.HasPrefix(branch, "spectre/") }
+
+// lpLandingRefusals is every reason the loop's rows refuse a landing, none
+// when it may land.
+func lpLandingRefusals(lp lpLoop, rows []lpDispatch) []string {
+	var plan, fix bool
+	var open, bad []string
+	lastReview, lastReviewSeq, lastFixVSeq := -1, -1, -1
+	lastReviewOutcome, lastReviewKey := "", ""
+	for _, d := range rows {
+		suffix := strings.TrimPrefix(d.Key, lp.prefix)
+		if d.EndedAt == nil {
+			open = append(open, d.Key)
+		}
+		switch lpFamily(suffix) {
+		case "plan":
+			plan = plan || d.Outcome == "completed"
+		case "fix":
+			fix = fix || d.Outcome == "completed"
+		case "fix-v":
+			lastFixVSeq = d.Seq
+		case "review":
+			m := lpReviewSuffix.FindStringSubmatch(suffix)
+			if m == nil {
+				bad = append(bad, d.Key)
+				continue
+			}
+			n, _ := strconv.Atoi(m[1])
+			if n >= lastReview {
+				lastReview, lastReviewSeq, lastReviewOutcome, lastReviewKey = n, d.Seq, d.Outcome, d.Key
+			}
+		}
+	}
+	var out []string
+	if !plan {
+		out = append(out, fmt.Sprintf("PLAN — no completed %splan dispatch", lp.prefix))
+	}
+	if !fix {
+		out = append(out, fmt.Sprintf("FIX — no completed %sfix dispatch", lp.prefix))
+	}
+	for _, k := range open {
+		out = append(out, fmt.Sprintf("OPEN — %s has not been closed: scripts/pipeline-fix.sh end %s <outcome>", k, k))
+	}
+	for _, k := range bad {
+		out = append(out, fmt.Sprintf("REVIEW — %s carries no numeric round: a review key is %sreview-<r>", k, lp.prefix))
+	}
+	switch {
+	case lastReview < 0:
+		out = append(out, fmt.Sprintf("REVIEW — no %sreview-<r> dispatch", lp.prefix))
+	case lastReviewOutcome != "clean":
+		out = append(out, fmt.Sprintf("REVIEW — %s ended %q, not clean: fix its Critical and Important findings, then the next review", lastReviewKey, lastReviewOutcome))
+	case lastFixVSeq > lastReviewSeq:
+		out = append(out, fmt.Sprintf("REVIEW — a %sfix-v<v> dispatch came after %s: run the next review", lp.prefix, lastReviewKey))
+	}
+	return out
+}
+
+func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
+	const self = "check-loop-landing"
+	if len(args) != 2 || args[0] == "" || args[1] == "" {
+		fmt.Fprint(stderr, "usage: check-loop-landing.sh <repo> <branch>\n")
+		return 2
+	}
+	lp, ok := lpFromBranch(args[1])
+	if !ok {
+		fmt.Fprintf(stdout, "LOOP-LANDING-NA %s\n", args[1])
+		return 0
+	}
+	git, ok := panelResolveGit(env, self, stderr)
+	if !ok {
+		return 2
+	}
+	main, ok := lpMain(env, git, smcAbs(env, args[0]))
+	if !ok {
+		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, args[0])
+		return 2
+	}
+	rows, ok := lpRows(env, main, lp)
+	if !ok && lpOwnBranch(args[1]) {
+		// ponytail: an unreadable flowd lets a change branch land unchecked, so no
+		// ordinary /flow landing depends on flowd; its self-review rows go unread then.
+		fmt.Fprintf(stdout, "LOOP-LANDING-NA %s (flowd unreadable)\n", args[1])
+		return 0
+	}
+	if !ok {
+		fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer (is flowd up?)\n", self, lp.change)
+		return 2
+	}
+	if lpOwnBranch(args[1]) && len(rows) == 0 {
+		fmt.Fprintf(stdout, "LOOP-LANDING-NA %s\n", args[1])
+		return 0
+	}
+	refusals := lpLandingRefusals(lp, rows)
+	for _, r := range refusals {
+		fmt.Fprintf(stdout, "LOOP-LANDING-REFUSED: %s\n", r)
+	}
+	if len(refusals) > 0 {
+		return 1
+	}
+	fmt.Fprintf(stdout, "LOOP-LANDING-OK %s\n", args[1])
+	return 0
+}

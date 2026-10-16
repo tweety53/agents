@@ -30,7 +30,10 @@ where `<src>`'s tree still holds `spectre/changes/<branch>/` — `<branch>` bein
 current branch for `HEAD`, with a `/flow` branch's `spectre/` prefix dropped. A change lands
 archived (`spectre archive <change>`, then commit), never as an open folder on the default branch
 that no later run owns. `/flow`'s run 1 archives before its push, so only a run that skipped it or
-an ad-hoc landing meets this.
+an ad-hoc landing meets this. A landing push of a `pipeline-fix-*` or `self-review-*` branch is
+denied too unless scripts/check-loop-landing.sh, in the agents checkout this hook is installed
+from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
+check fails closed: a checker that cannot answer or cannot run denies the push.
 
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
 `git worktree add`, `git push`, and the landing scripts (`land-self-review-report.sh`,
@@ -57,6 +60,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 
@@ -69,6 +73,20 @@ DENIED_GIT_VERBS = {
 }
 
 FALLBACK_DEFAULT_BRANCHES = {"main", "master", "develop"}
+
+# A fix loop's branch, or a change's own branch a self-review loop may have run on
+# (check-loop-landing.sh answers LOOP-LANDING-NA for one with no loop rows).
+LOOP_BRANCH_RE = re.compile(r"^(pipeline-fix-.+-[0-9]+|self-review-.+|spectre/.+)$")
+
+# The whole budget for check-loop-landing.sh calls in one command (every push it makes), well under the
+# 300s setup.sh registers: a hook the harness times out fails open.
+LOOP_CHECK_TIMEOUT = 240
+LOOP_DEADLINE = None
+
+# The loop-landing checker; overridable for the hook's own harness only.
+LOOP_CHECK = os.environ.get("LOOP_LANDING_CHECK") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "check-loop-landing.sh"
+)
 
 _git_cache = {}
 
@@ -369,6 +387,72 @@ def unarchived_landing(args, target):
     return None
 
 
+def push_refspecs(args, target):
+    """(src, dst) for each refspec of `git push <args>`, dst a bare branch name:
+    `<src>:<dst>`, a colon-less `<b>` as `<b>:<b>`, HEAD and no refspec at all as
+    the current branch."""
+    pos = [a for a in args if not a.startswith("-")]
+    specs = pos[1:] or ["HEAD"]
+    out = []
+    for a in specs:
+        src, colon, dst = a.lstrip("+").partition(":")
+        if not colon:
+            dst = src
+        if dst == "HEAD":
+            dst = git(target, "branch", "--show-current") or ""
+        out.append((src, dst.removeprefix("refs/heads/")))
+    return out
+
+
+def loop_landing(args, target):
+    """The deny reason when the push lands, on the default branch, a commit that
+    contains the tip of a loop branch (or a change branch) not yet on
+    origin/<default> which check-loop-landing.sh refuses, else None. The pushed
+    <src> is resolved and every such branch it contains is checked, so a
+    landing under another spelling -- `@:main`, `<sha>:main`, a temporary
+    branch, `pull . <loop>` then `push origin main` -- is checked too."""
+    if target is None:
+        return None
+    global LOOP_DEADLINE
+    default = default_branch(target)
+    # One budget per command, not per push: the hook is one process per command.
+    if LOOP_DEADLINE is None:
+        # LOOP_LANDING_TIMEOUT: the hook's own harness only.
+        LOOP_DEADLINE = time.monotonic() + float(os.environ.get("LOOP_LANDING_TIMEOUT") or LOOP_CHECK_TIMEOUT)
+    deadline = LOOP_DEADLINE
+    for src, dst in push_refspecs(args, target):
+        if not src or dst not in ({default} if default else FALLBACK_DEFAULT_BRANCHES):
+            continue
+        # ponytail: a <src> this same command creates (`git branch tmp && git push origin
+        # tmp:main`) is not there yet -- HEAD stands in for it, the commit it is made from.
+        sha = git(target, "rev-parse", "--verify", "-q", f"{src}^{{commit}}") or git(
+            target, "rev-parse", "--verify", "-q", "HEAD"
+        )
+        if not sha:
+            continue
+        cmd = ["for-each-ref", "--format=%(refname:short)", "--merged", sha]
+        if git(target, "rev-parse", "--verify", "-q", f"refs/remotes/origin/{dst}"):
+            cmd += ["--no-merged", f"refs/remotes/origin/{dst}"]
+        cmd += ["refs/heads/pipeline-fix-*", "refs/heads/self-review-*", "refs/heads/spectre/"]
+        for branch in (git(target, *cmd) or "").split():
+            if not LOOP_BRANCH_RE.match(branch):
+                continue
+            try:
+                r = subprocess.run(
+                    [LOOP_CHECK, target, branch], capture_output=True, text=True,
+                    timeout=max(1, deadline - time.monotonic()),
+                )
+            except (OSError, subprocess.SubprocessError) as e:
+                return f"Blocked: landing {branch} needs check-loop-landing.sh, which could not run ({e})."
+            if r.returncode != 0:
+                return (
+                    f"Blocked: {branch} is a fix loop, and its records do not cover this landing "
+                    f"(check-loop-landing.sh exit {r.returncode}):\n{r.stdout}{r.stderr}\n"
+                    "Land it with scripts/pipeline-fix.sh land <worktree> once they do."
+                )
+    return None
+
+
 def bash_hits(command, cwd, landings=None):
     """Paths a Bash command writes into or git-mutates, resolved against cwd and `cd`.
 
@@ -409,6 +493,9 @@ def bash_hits(command, cwd, landings=None):
                         target = resolve(tokens[j + 1], cur)
                         j += 2
                         continue
+                    if tokens[j] == "-c" and j + 1 < n:
+                        j += 2
+                        continue
                     j += 1
                 if j < n and tokens[j] in DENIED_GIT_VERBS:
                     hits.append(target)
@@ -420,7 +507,10 @@ def bash_hits(command, cwd, landings=None):
                         args.append(t)
                     hit = unarchived_landing(args, target)
                     if hit:
-                        landings.append(hit)
+                        landings.append(landing_reason(*hit))
+                    loop = loop_landing(args, target)
+                    if loop:
+                        landings.append(loop)
                 i = j + 1
                 continue
             if tok == "sed" and any(t.startswith("-i") for t in tokens[i + 1 : i + 4]):
@@ -521,7 +611,7 @@ def main():
                         "hookSpecificOutput": {
                             "hookEventName": "PreToolUse",
                             "permissionDecision": "deny",
-                            "permissionDecisionReason": landing_reason(*landings[0]),
+                            "permissionDecisionReason": landings[0],
                         }
                     },
                     sys.stdout,

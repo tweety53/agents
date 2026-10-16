@@ -78,6 +78,20 @@
 #   75. `bash <(` then `cat > /dev/stdout <<'EOF'`, body `rm <main>/f.txt` -> deny (the enclosing command runs it)
 #   76. `cat > <sibling>/x.sh <<'EOF'`, body `rm <main>/f.txt`, then
 #       `sh "<sibling>"/x.sh`                                           -> deny (written, then run under another spelling)
+#   77. Bash `git -C <loop wt> push origin pipeline-fix-x-6:main`, the
+#       loop checker refusing                                         -> deny, its lines in the reason
+#   78. the same push, the loop checker admitting                     -> allow, checker handed <wt> <branch>
+#   79. Bash `git -C <self-review wt> push origin HEAD:main`, refusing -> deny
+#   80. the loop push with no runnable loop checker                   -> deny (fails closed)
+#   81. Bash `git -C <wt> push origin change:main`, archived           -> allow, loop checker never run
+#   82-87. the loop landed under another spelling, the checker refusing -> deny each:
+#       `@:main`, `<sha>:main`, `HEAD~0:main`, `git -c x=y push … :main`,
+#       `git branch tmp && git push origin tmp:main`, and from the main
+#       checkout once `pull --ff-only . <loop>` brought the loop in, `push origin main`
+#   88. Bash `git -C <main> push origin spectre/chg:main`, a change branch
+#       the checker refuses (self-review rows left open)              -> deny
+#   89. two such pushes in one command, each check inside a per-push budget
+#       but together over the command's one budget                    -> deny
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -366,6 +380,72 @@ expect "76 a heredoc written then run under another spelling keeps its body scan
 rm $MAIN/f.txt
 EOF
 sh \"$SIB\"/x.sh")}")"
+
+# 77-81: a fix loop lands only once check-loop-landing.sh admits it; the
+# checker is a stub here (the guard is covered by check_loop_landing_test.go).
+LOOP_LOG="$ROOT/loop-args"
+LOOP_RC="$ROOT/loop-rc"
+cat >"$ROOT/loopcheck" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "\$@" >"$LOOP_LOG"
+echo "LOOP-LANDING-REFUSED: REVIEW — stub"
+exit "\$(cat "$LOOP_RC")"
+STUB
+chmod +x "$ROOT/loopcheck"
+export LOOP_LANDING_CHECK="$ROOT/loopcheck"
+git_q -C "$MAIN" worktree add "$ROOT/main-worktrees/pipeline-fix-x-6" -b pipeline-fix-x-6 origin/main
+git_q -C "$MAIN" worktree add "$ROOT/main-worktrees/self-review-x" -b self-review-x origin/main
+LWT="$ROOT/main-worktrees/pipeline-fix-x-6"
+for w in "$LWT" "$ROOT/main-worktrees/self-review-x"; do
+  echo "$w" >"$w/loop.txt"
+  git_q -C "$w" add loop.txt
+  git_q -C "$w" -c user.name=t -c user.email=t@t commit -q -m "fix: loop"
+done
+echo 1 >"$LOOP_RC"
+out="$(printf '{"tool_name":"Bash","tool_input":{"command":%s},"cwd":"%s"}' "$(q "git -C $LWT push origin pipeline-fix-x-6:main")" "$ROOT" | python3 "$HOOK")"
+if grep -q '"permissionDecision": *"deny"' <<<"$out" && grep -q "LOOP-LANDING-REFUSED: REVIEW" <<<"$out"; then
+  pass "77 loop push the checker refuses"
+else
+  fail "77 loop push the checker refuses: $out"
+fi
+echo 0 >"$LOOP_RC"
+expect "78 loop push the checker admits" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $LWT push origin pipeline-fix-x-6:main")}")"
+[ "$(tr '\n' ' ' <"$LOOP_LOG")" = "$LWT pipeline-fix-x-6 " ] \
+  && pass "78 checker args" || fail "78 checker args: $(tr '\n' ' ' <"$LOOP_LOG")"
+echo 1 >"$LOOP_RC"
+expect "79 self-review HEAD:main push the checker refuses" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $ROOT/main-worktrees/self-review-x push origin HEAD:main")}")"
+expect "80 loop push with no runnable checker" deny \
+  "$(LOOP_LANDING_CHECK="$ROOT/missing" run "$ROOT" Bash "{\"command\":$(q "git -C $LWT push origin pipeline-fix-x-6:main")}")"
+rm -f "$LOOP_LOG"
+expect "81 a non-loop landing" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT push origin change:main")}")"
+[ ! -e "$LOOP_LOG" ] && pass "81 loop checker not run" || fail "81 loop checker ran"
+echo 1 >"$LOOP_RC"
+LSHA="$(git -C "$LWT" rev-parse HEAD)"
+n=82
+for c in "git -C $LWT push origin @:main" "git -C $LWT push origin $LSHA:main" \
+  "git -C $LWT push origin HEAD~0:main" "git -C $LWT -c x=y push origin pipeline-fix-x-6:main" \
+  "git -C $LWT branch tmp && git -C $LWT push origin tmp:main"; do
+  expect "$n loop landed as: $c" deny "$(run "$ROOT" Bash "{\"command\":$(q "$c")}")"
+  n=$((n + 1))
+done
+git_q -C "$MAIN" merge -q --ff-only pipeline-fix-x-6
+expect "87 a colon-less push of the default branch the loop was pulled into" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $MAIN push origin main")}")"
+git_q -C "$MAIN" reset -q --hard origin/main
+git_q -C "$MAIN" branch -q spectre/chg "$LSHA"
+git_q -C "$MAIN" update-ref refs/heads/pipeline-fix-x-6 origin/main
+rm -f "$LOOP_LOG"
+expect "88 a change branch the checker refuses" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $LWT push origin spectre/chg:main")}")"
+grep -qx "spectre/chg" "$LOOP_LOG" && pass "88 checker handed the change branch" || fail "88 checker args: $(cat "$LOOP_LOG" 2>/dev/null)"
+printf '#!/usr/bin/env bash\nsleep 1.5\n' >"$ROOT/slowcheck"
+chmod +x "$ROOT/slowcheck"
+expect "89 two landing pushes share one checker budget" deny \
+  "$(LOOP_LANDING_CHECK="$ROOT/slowcheck" LOOP_LANDING_TIMEOUT=2 run "$ROOT" Bash "{\"command\":$(q "git -C $LWT push origin spectre/chg:main; git -C $LWT push origin spectre/chg:main")}")"
+unset LOOP_LANDING_CHECK
 
 # 3 last: moving the main checkout off main lifts the protection
 git_q -C "$MAIN" checkout -q -b feature

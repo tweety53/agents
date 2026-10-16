@@ -194,7 +194,9 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
   row, a fix with no completed plan, or one while an earlier dispatch is open, and records the
   admitted one in flowd (`scripts/check-loop-dispatch.sh`).
 - `protect-main-checkout.py`: blocks edits, staging, commits, stashes and resets on a main
-  checkout's default branch. Work happens in a worktree.
+  checkout's default branch. Work happens in a worktree. It also blocks a landing push of a
+  `pipeline-fix-*` or `self-review-*` branch that flowd's records do not cover
+  (`scripts/check-loop-landing.sh`).
 - `flow-active-change.py`: routes a plain problem report to the session's open change as a fix run.
 
 **Plan**
