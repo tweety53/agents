@@ -1,7 +1,6 @@
 // SelfReview -- every self-review finding recorded in a period: what each
 // angle found, whether it was fixed (linked to its commit), filed,
-// declined or noted, and the per-change counts derived from the same rows
-// (design.md's self-review-view).
+// declined or noted (design.md's self-review-view).
 import { DataTable, type Column } from "../components/DataTable";
 import { Panel } from "../components/Panel";
 import { StatPanel } from "../components/StatPanel";
@@ -10,27 +9,6 @@ import type { SelfReviewRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { formatInt } from "../format";
 import type { ViewProps } from "../viewTypes";
-
-interface ChangeCounts {
-  project: string;
-  change: string;
-  fixed: number;
-  filed: number;
-  declined: number;
-  noted: number;
-}
-
-function perChange(rows: SelfReviewRow[]): ChangeCounts[] {
-  const byChange = new Map<string, ChangeCounts>();
-  for (const r of rows) {
-    // Keyed by project too: two projects can carry a change of the same name.
-    const key = `${r.project}/${r.change}`;
-    const c = byChange.get(key) ?? { project: r.project, change: r.change, fixed: 0, filed: 0, declined: 0, noted: 0 };
-    c[r.disposition] += 1;
-    byChange.set(key, c);
-  }
-  return [...byChange.values()];
-}
 
 function count(rows: SelfReviewRow[], disposition: SelfReviewRow["disposition"]): number {
   return rows.filter((r) => r.disposition === disposition).length;
@@ -48,14 +26,6 @@ const columns: Column<SelfReviewRow>[] = [
     accessor: (r) => r.ref,
     render: (r) => (r.commitUrl ? <a href={r.commitUrl}>{r.ref}</a> : r.ref),
   },
-];
-
-const changeColumns: Column<ChangeCounts>[] = [
-  { key: "change", header: "Change", sortable: true, accessor: (r) => r.change },
-  { key: "fixed", header: "Fixed", sortable: true, accessor: (r) => r.fixed, render: (r) => formatInt(r.fixed) },
-  { key: "filed", header: "Filed", sortable: true, accessor: (r) => r.filed, render: (r) => formatInt(r.filed) },
-  { key: "declined", header: "Declined", sortable: true, accessor: (r) => r.declined, render: (r) => formatInt(r.declined) },
-  { key: "noted", header: "Noted", sortable: true, accessor: (r) => r.noted, render: (r) => formatInt(r.noted) },
 ];
 
 export function SelfReview({ period, onPeriodChange, project }: ViewProps) {
@@ -84,16 +54,6 @@ export function SelfReview({ period, onPeriodChange, project }: ViewProps) {
             emptyMessage="No self-review findings in this period."
             period={period}
             onPeriodChange={onPeriodChange}
-          />
-        )}
-      </Panel>
-      <Panel title="Per change" state={state}>
-        {(data) => (
-          <DataTable
-            columns={changeColumns}
-            rows={perChange(data.rows)}
-            rowKey={(r) => `${r.project}/${r.change}`}
-            emptyMessage="No changes with self-review findings in this period."
           />
         )}
       </Panel>

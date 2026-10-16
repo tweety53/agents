@@ -321,12 +321,8 @@ describe("views render their fixture response's actual values", () => {
     within(screen.getByRole("region", { name: "Fixed" })).getByText("2");
     within(screen.getByRole("region", { name: "Filed" })).getByText("1");
 
-    // Per change: fixed / filed / declined / noted, derived from the rows.
-    const perChange = screen.getByRole("region", { name: "Per change" });
-    const kan1 = within(perChange).getByRole("cell", { name: "kan-1" }).closest("tr")!;
-    expect(within(kan1).getAllByRole("cell").map((c) => c.textContent)).toEqual(["kan-1", "2", "1", "0", "0"]);
-    const kan2 = within(perChange).getByRole("cell", { name: "kan-2" }).closest("tr")!;
-    expect(within(kan2).getAllByRole("cell").map((c) => c.textContent)).toEqual(["kan-2", "0", "0", "1", "1"]);
+    // design.md's self-review-drop-per-change: no per-change block.
+    expect(screen.queryByRole("region", { name: "Per change" })).not.toBeInTheDocument();
 
     // The outcome column filters the findings table.
     await user.selectOptions(screen.getByRole("combobox", { name: "Filter by Outcome" }), "declined");
