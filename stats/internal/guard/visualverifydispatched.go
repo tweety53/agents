@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 )
@@ -89,9 +90,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// diff's paths go to visualTrigger (an empty diff is one empty line, as
 	// the bash's `printf '%s\n'` piped it), its stdout and stderr discarded,
 	// its three exit codes read as-is.
-	paths := strings.Split(changed, "\n")
-	triggerExit := visualTrigger(env, worktree, func() ([]string, error) { return paths, nil }, io.Discard, io.Discard)
-
+	//
 	// A SATELLITE IS ALSO MATCHED AGAINST THE CANONICAL `ui paths` (kan-982
 	// self-review): a cross-repo change's frontend worktree may declare no
 	// section of its own while the canonical project names its files as
@@ -102,37 +101,49 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// read under the canonical worktree, the project the run's rows were
 	// recorded in; a second repository's worktree resolves another project
 	// key (unfinishedwork.go's anchor carries the reasoning).
-	anchor := worktree
+	anchor, canonical := worktree, ""
 	if canonicalArg != "" {
-		canonical, err := filepath.EvalSymlinks(pcAbs(env, canonicalArg))
-		if err != nil || !isDir(canonical) {
+		c, err := filepath.EvalSymlinks(pcAbs(env, canonicalArg))
+		if err != nil || !isDir(c) {
 			fmt.Fprintf(stderr, "%scanonical worktree is not a directory: %s\n", vvdPrefix, canonicalArg)
 			return 2
 		}
-		if canonical != worktree {
-			anchor = canonical
-			if triggerExit != 0 {
-				common, ok := capture(envGit(env)("-C", worktree, "rev-parse", "--path-format=absolute", "--git-common-dir"))
-				if !ok {
-					fmt.Fprintf(stderr, "%sgit cannot name the repository of %s — cannot answer\n", vvdPrefix, worktree)
-					return 2
-				}
-				repo := filepath.Base(filepath.Dir(strings.TrimSpace(common))) + "/"
-				prefixed := make([]string, len(paths))
-				for i, p := range paths {
-					if p != "" {
-						p = repo + p
-					}
-					prefixed[i] = p
-				}
-				switch visualTrigger(env, canonical, func() ([]string, error) { return prefixed, nil }, io.Discard, io.Discard) {
-				case 0:
-					triggerExit = 0
-				case 1:
-					triggerExit = 1
-				}
-			}
+		if c != worktree {
+			anchor, canonical = c, c
 		}
+	}
+	// ask is the trigger's answer for paths: 0, 1 or 2, or -1 when git
+	// cannot name the satellite's repository (reported, exit 2).
+	ask := func(paths []string) int {
+		exit := visualTrigger(env, worktree, func() ([]string, error) { return paths, nil }, io.Discard, io.Discard)
+		if canonical == "" || exit == 0 {
+			return exit
+		}
+		common, ok := capture(envGit(env)("-C", worktree, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		if !ok {
+			fmt.Fprintf(stderr, "%sgit cannot name the repository of %s — cannot answer\n", vvdPrefix, worktree)
+			return -1
+		}
+		repo := filepath.Base(filepath.Dir(strings.TrimSpace(common))) + "/"
+		prefixed := make([]string, len(paths))
+		for i, p := range paths {
+			if p != "" {
+				p = repo + p
+			}
+			prefixed[i] = p
+		}
+		switch visualTrigger(env, canonical, func() ([]string, error) { return prefixed, nil }, io.Discard, io.Discard) {
+		case 0:
+			return 0
+		case 1:
+			return 1
+		}
+		return exit
+	}
+	paths := strings.Split(changed, "\n")
+	triggerExit := ask(paths)
+	if triggerExit < 0 {
+		return 2
 	}
 	switch triggerExit {
 	case 2:
@@ -153,10 +164,54 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' — cannot answer\n", vvdPrefix, name)
 		return 2
 	}
-	found, ok := vvdCompletedVerifier(rows)
+	heads, ok := vvdCompletedVerifiers(rows)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdispatch rows were not readable JSON — cannot answer\n", vvdPrefix)
 		return 2
+	}
+	// A VERIFIER COUNTS ONLY FOR THE HEAD IT VERIFIED (kan-939 self-review):
+	// a completed row once answered OK however many UI commits landed after
+	// it. Each row's `diffBase` is that HEAD (visual-verify.md's
+	// **Recording**); the row counts when git resolves it in this worktree
+	// and none of this change's own touched paths that changed since is a
+	// UI path. Intersecting with the change's own paths keeps a base the
+	// branch was rebased onto from reading as this change's UI work. A row
+	// with no `diffBase`, or one this worktree cannot resolve -- another
+	// worktree's verifier -- verified nothing here.
+	own := map[string]bool{}
+	for _, p := range paths {
+		own[p] = true
+	}
+	found := false
+	for _, head := range heads {
+		if !vvdSHA.MatchString(head) {
+			continue
+		}
+		if _, ok := capture(envGit(env)("-C", worktree, "rev-parse", "--verify", "--quiet", head+"^{commit}")); !ok {
+			continue
+		}
+		since, ok := capture(envGit(env, "LC_ALL=C")("-C", worktree, "diff", "--no-renames", "--name-only", head, "HEAD"))
+		if !ok {
+			fmt.Fprintf(stderr, "%sgit diff failed against verified HEAD '%s' in %s — cannot answer\n", vvdPrefix, head, worktree)
+			return 2
+		}
+		var changedSince []string
+		for _, p := range strings.Split(since, "\n") {
+			if own[p] && p != "" {
+				changedSince = append(changedSince, p)
+			}
+		}
+		if len(changedSince) == 0 {
+			changedSince = []string{""}
+		}
+		exit := ask(changedSince)
+		if exit < 0 {
+			return 2
+		}
+		if exit != 0 {
+			found = true
+			break
+		}
 	}
 
 	// THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY -- the
@@ -202,6 +257,9 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		return 0
 	}
 	verdict := "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for '" + name + "' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart"
+	if len(heads) > 0 {
+		verdict = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '" + name + "' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since"
+	}
 	record(verdict)
 	var prior []byte
 	var priorErr error
@@ -351,10 +409,11 @@ func vvdLastLine(v json.RawMessage) (string, bool) {
 	return reason + " (" + change + ", " + string(flagged) + ")", true
 }
 
-// vvdCompletedVerifier is the bash's `[.[] | select((.role // "") ==
-// "verifier" and ((.key // "") | startswith("visual-verify")) and
-// ((.outcome // "") == "completed" or ((.endedAt != null) and ((.outcome //
-// "") == ""))))] | length` >= 1. A row counts when its role is `verifier`,
+// vvdCompletedVerifiers is the `diffBase` of every row the bash's `[.[] |
+// select((.role // "") == "verifier" and ((.key // "") |
+// startswith("visual-verify")) and ((.outcome // "") == "completed" or
+// ((.endedAt != null) and ((.outcome // "") == ""))))]` selects, "" for a
+// row that carries none. A row qualifies when its role is `verifier`,
 // its key starts with the stage's canonical prefix (the key's exact shape is
 // a different guard's job), and it carries one of two evidence shapes: its
 // outcome is exactly `completed`, or -- the session-continuation signature
@@ -373,23 +432,23 @@ func vvdLastLine(v json.RawMessage) (string, bool) {
 // verifier row whose key is neither a string nor null/false (jq failing, the
 // bash exiting 5 under set -e). A top-level object is refused as
 // pfdPanelFixKeys's comment explains.
-func vvdCompletedVerifier(raw []byte) (bool, bool) {
+func vvdCompletedVerifiers(raw []byte) ([]string, bool) {
 	vals, ok := pfdStream(raw)
 	if !ok || len(vals) != 1 {
-		return false, false
+		return nil, false
 	}
 	arr, ok := vals[0].([]any)
 	if !ok {
-		return false, false
+		return nil, false
 	}
-	found := false
+	var heads []string
 	for _, e := range arr {
 		if e == nil {
 			continue
 		}
 		row, ok := e.(map[string]any)
 		if !ok {
-			return false, false
+			return nil, false
 		}
 		if row["role"] != "verifier" {
 			continue
@@ -399,12 +458,12 @@ func vvdCompletedVerifier(raw []byte) (bool, bool) {
 		case nil:
 		case bool:
 			if k {
-				return false, false
+				return nil, false
 			}
 		case string:
 			key = k
 		default:
-			return false, false
+			return nil, false
 		}
 		// `// ""` reads null, false and absent as the empty string.
 		outcome := row["outcome"]
@@ -412,8 +471,14 @@ func vvdCompletedVerifier(raw []byte) (bool, bool) {
 			outcome = ""
 		}
 		if strings.HasPrefix(key, "visual-verify") && (outcome == "completed" || (row["endedAt"] != nil && outcome == "")) {
-			found = true
+			head, _ := row["diffBase"].(string)
+			heads = append(heads, head)
 		}
 	}
-	return found, true
+	return heads, true
 }
+
+// vvdSHA is a commit id as `git rev-parse HEAD` prints it, abbreviated or
+// whole -- never a ref name such as HEAD, which would verify whatever the
+// worktree holds when the guard runs.
+var vvdSHA = regexp.MustCompile(`^[0-9a-f]{7,40}$`)

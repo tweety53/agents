@@ -87,6 +87,21 @@
 # verifier from a dead one. See **The return** (skills/flow/implement.md)
 # for why only `completed` closes a dispatch's own story.
 #
+# A VERIFIER COUNTS ONLY FOR THE HEAD IT VERIFIED (kan-939 self-review: a
+# completed row answered OK however many UI commits landed after it). Such a
+# row is evidence only when its `diffBase` — the HEAD the verifier was
+# dispatched against, `-diff-base` on its `dispatch begin`
+# (skills/flow/visual-verify.md, **Recording**) — is a commit sha this
+# worktree resolves, and no path of this change's own `<merge-base>..HEAD`
+# diff that changed between that sha and HEAD matches the `ui paths`, asked
+# as the trigger above is, the canonical worktree's included. A row with no
+# `diffBase`, a ref name such as HEAD in place of a sha, or a sha this
+# worktree cannot resolve verified nothing here. With qualifying rows and
+# none fresh, the verdict is
+#   VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '<name>' but
+#   none verified a HEAD after this change's last UI-path commit — …
+# and a git diff that fails against a row's sha is exit 2.
+#
 # A SKIP DECIDED AT PLANNING IS NOT A SILENT SKIP. With no qualifying
 # verifier row, the guard reads `flow record decisions -change <name> -C
 # <canonical worktree when given>` (newest row first) and answers

@@ -30,6 +30,7 @@ const (
 	vvdNoUI      = "VISUAL-VERIFY-OK: no UI paths touched\n"
 	vvdOK        = "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for 'demo'\n"
 	vvdMissing   = "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for 'demo' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart\n"
+	vvdStale     = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for 'demo' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since\n"
 	vvdSection   = "# project\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `app/src/**` |\n"
 )
 
@@ -71,6 +72,37 @@ var vvdMasters = sync.OnceValues(func() (map[string]vvdMaster, error) {
 		{"declared-ui", vvdSection, "", nil},
 		{"rename", vvdSection, "app/src/Old.tsx", func(dir string) error {
 			_, err := git(dir, "mv", "app/src/Old.tsx", "docs/New.tsx")
+			return err
+		}}, // rebased: the change's UI commit, verified at tag `pre`, then
+		// rebased onto base commit B (tag `b`), which touches another UI path.
+		{"rebased", vvdSection, "", func(dir string) error {
+			for _, step := range [][]string{
+				{"commit", "-q", "-m", "change before rebase"}, {"tag", "pre"}, {"reset", "-q", "--hard", "HEAD~1"},
+			} {
+				if step[0] == "commit" {
+					if err := write(dir+"/app/src/Widget.tsx", "x\n"); err != nil {
+						return err
+					}
+					if _, err := git(dir, "add", "app/src/Widget.tsx"); err != nil {
+						return err
+					}
+				}
+				if _, err := git(dir, step...); err != nil {
+					return err
+				}
+			}
+			if err := write(dir+"/app/src/Base.tsx", "x\n"); err != nil {
+				return err
+			}
+			for _, step := range [][]string{{"add", "app/src/Base.tsx"}, {"commit", "-q", "-m", "B"}, {"tag", "b"}} {
+				if _, err := git(dir, step...); err != nil {
+					return err
+				}
+			}
+			if err := write(dir+"/app/src/Widget.tsx", "x\n"); err != nil {
+				return err
+			}
+			_, err := git(dir, "add", "app/src/Widget.tsx")
 			return err
 		}},
 	}
@@ -118,16 +150,22 @@ var vvdMasters = sync.OnceValues(func() (map[string]vvdMaster, error) {
 		if _, err := git(dir, "commit", "-q", "-m", "change"); err != nil {
 			return nil, err
 		}
+		if s.name == "rebased" {
+			if base, err = git(dir, "rev-parse", "b"); err != nil {
+				return nil, err
+			}
+		}
 		masters[s.name] = vvdMaster{dir, base}
 	}
 	return masters, nil
 })
 
-// vvdRows is the harness's dispatch_json: rows from key/role/outcome triples.
+// vvdRows is the harness's dispatch_json: rows from key/role/outcome triples,
+// each verifying the case worktree's HEAD (vvdRun's @HEAD@).
 func vvdRows(vals ...string) []byte {
 	out := []map[string]string{}
 	for i := 0; i+2 < len(vals); i += 3 {
-		out = append(out, map[string]string{"key": vals[i], "role": vals[i+1], "outcome": vals[i+2]})
+		out = append(out, map[string]string{"key": vals[i], "role": vals[i+1], "outcome": vals[i+2], "diffBase": "@HEAD@"})
 	}
 	b, _ := json.Marshal(out)
 	return b
@@ -178,6 +216,13 @@ func vvdRun(t *testing.T, c vvdCase) vvdResult {
 		t.Fatal(err)
 	}
 	gdcCopyTree(t, m.dir, wt)
+	// A row names the HEAD it verified as @HEAD@ or the merge base as
+	// @BASE@: the shas exist only once the master is built.
+	head := tcfGit(t, wt, "rev-parse", "HEAD")
+	pre, _ := capture(exec.Command(fixtureGit, "-C", wt, "rev-parse", "-q", "--verify", "pre"))
+	shas := strings.NewReplacer("@HEAD@", head, "@BASE@", m.base, "@PRE@", pre)
+	c.dispatches = []byte(shas.Replace(string(c.dispatches)))
+	c.flowStub = shas.Replace(c.flowStub)
 	bin := t.TempDir()
 	if c.flowStub != "" {
 		writeExec(t, bin+"/flow", c.flowStub)
@@ -271,9 +316,9 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 	p := vvdPrefix
 	bad := vvdPrefix + "dispatch rows were not readable JSON — cannot answer\n"
 	const (
-		ended   = `[{"key":"visual-verify","role":"verifier","endedAt":"2026-09-20T10:00:00Z"}]`
-		blocked = `[{"key":"visual-verify","role":"verifier","outcome":"blocked","endedAt":"2026-09-20T10:00:00Z"}]`
-		open    = `[{"key":"visual-verify","role":"verifier"}]`
+		ended   = `[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","endedAt":"2026-09-20T10:00:00Z"}]`
+		blocked = `[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","outcome":"blocked","endedAt":"2026-09-20T10:00:00Z"}]`
+		open    = `[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@"}]`
 		flag    = `[{"falsePositive":true,"falsePositiveReason":"the verifier ran; the mark was lost to a session restart","change":"demo","flaggedAt":"2026-09-20T14:00:00Z"}]`
 	)
 	hint := func(n, last string) func(vvdResult) string {
@@ -319,6 +364,13 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 		{"case 6b: an open row is not evidence, exit 1", vvdCase{dispatches: []byte(open)}, 1, vvdMissing, nil, nil},
 		{"case 6b: the verdict is VISUAL-VERIFY-MISSING", vvdCase{dispatches: []byte(open)}, 1, vvdMissing, nil, missingCalls},
 		{"case 7: a foreign key prefix is not evidence, exit 1", vvdCase{dispatches: vvdRows("some-other-key", v, done)}, 1, vvdMissing, nil, nil},
+		// ---- a verifier counts only for the HEAD it verified (kan-939) ----
+		{"case 9a: a verifier of a HEAD before the change's UI commit is stale, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@BASE@"}]`)}, 1, vvdStale, nil, nil},
+		{"case 9b: a verifier row with no diffBase verified nothing, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed"}]`)}, 1, vvdStale, nil, nil},
+		{"case 9c: a diffBase naming a ref, not a sha, verified nothing, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"HEAD"}]`)}, 1, vvdStale, nil, nil},
+		{"case 9d: a diffBase this worktree cannot resolve verified nothing here, exit 1", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"0123456789abcdef0123456789abcdef01234567"}]`)}, 1, vvdStale, nil, nil},
+		{"case 9e: a later verifier of HEAD beside a stale one is OK", vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@BASE@"},{"key":"visual-verify-2","role":"verifier","outcome":"completed","diffBase":"@HEAD@"}]`)}, 0, vvdOK, nil, nil},
+		{"case 9f: a base commit's UI path changed since the verified HEAD is not this change's, OK", vvdCase{repo: "rebased", dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@PRE@"}]`)}, 0, vvdOK, nil, nil},
 		{"case 8a: an unreachable store exits 2", vvdCase{dErr: errors.New("flow exit 1")}, 2, "",
 			func(vvdResult) string { return p + "flow record dispatches failed for 'demo' — cannot answer\n" }, nil},
 		{"case 8a: no verdict on an inability to answer", vvdCase{dErr: errors.New("flow exit 1")}, 2, "",
@@ -390,15 +442,15 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 
 		// ---- branches the harness never reached, pinned from the bash -----
 		{"an ended row with an empty-string outcome is unclosed evidence",
-			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":"","endedAt":"x"}]`)}, 0, vvdOK, nil, okCalls},
+			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","outcome":"","endedAt":"x"}]`)}, 0, vvdOK, nil, okCalls},
 		{"an ended row with a false outcome is unclosed evidence (jq's // reads false as absent)",
-			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","outcome":false,"endedAt":"x"}]`)}, 0, vvdOK, nil, nil},
+			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","outcome":false,"endedAt":"x"}]`)}, 0, vvdOK, nil, nil},
 		{"an endedAt of false is an end (jq's != null)",
-			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","endedAt":false}]`)}, 0, vvdOK, nil, nil},
+			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","endedAt":false}]`)}, 0, vvdOK, nil, nil},
 		{"an endedAt of null is still open",
-			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","endedAt":null}]`)}, 1, vvdMissing, nil, nil},
+			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","endedAt":null}]`)}, 1, vvdMissing, nil, nil},
 		{"an ended row outside the key prefix is not evidence",
-			vvdCase{dispatches: []byte(`[{"key":"visual","role":"verifier","endedAt":"x"}]`)}, 1, vvdMissing, nil, nil},
+			vvdCase{dispatches: []byte(`[{"key":"visual","role":"verifier","diffBase":"@HEAD@","endedAt":"x"}]`)}, 1, vvdMissing, nil, nil},
 		{"an ended non-verifier row is not evidence",
 			vvdCase{dispatches: []byte(`[{"key":"visual-verify","role":"reviewer","endedAt":"x"}]`)}, 1, vvdMissing, nil, nil},
 		{"hint: a false-positive answer that is not an array prints nothing", vvdCase{dispatches: []byte("[]"), flags: []byte(`{"a":[1]}`)}, 1, vvdMissing, nil, nil},
@@ -437,16 +489,16 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 		{"a UI file renamed away still touches its UI path (--no-renames)", vvdCase{repo: "rename", dispatches: []byte("[]")}, 1, vvdMissing, nil, nil},
 		{"a completed verifier row among others is found", vvdCase{dispatches: vvdRows("visual-verify", v, "aborted", "task-1-reviewer", "reviewer", done, "visual-verify-retry", v, done)}, 0, vvdOK, nil, nil},
 		{"the outcome must be exactly completed", vvdCase{dispatches: vvdRows("visual-verify", v, "Completed")}, 1, vvdMissing, nil, nil},
-		{"a null row selects nothing", vvdCase{dispatches: []byte(`[null,{"key":"visual-verify","role":"verifier","outcome":"completed"}]`)}, 0, vvdOK, nil, nil},
-		{"rows missing fields read as empty", vvdCase{dispatches: []byte(`[{},{"role":"verifier","key":false,"outcome":"completed"},{"role":"verifier","key":null}]`)}, 1, vvdMissing, nil, nil},
+		{"a null row selects nothing", vvdCase{dispatches: []byte(`[null,{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","outcome":"completed"}]`)}, 0, vvdOK, nil, nil},
+		{"rows missing fields read as empty", vvdCase{dispatches: []byte(`[{},{"role":"verifier","diffBase":"@HEAD@","key":false,"outcome":"completed"},{"role":"verifier","diffBase":"@HEAD@","key":null}]`)}, 1, vvdMissing, nil, nil},
 		{"a non-string key on a non-verifier row is never read", vvdCase{dispatches: []byte(`[{"role":"reviewer","key":1}]`)}, 1, vvdMissing, nil, nil},
-		{"a non-string key on a verifier row is cannot-answer", vvdCase{dispatches: []byte(`[{"role":"verifier","key":1}]`)}, 2, "", func(vvdResult) string { return bad }, nil},
+		{"a non-string key on a verifier row is cannot-answer", vvdCase{dispatches: []byte(`[{"role":"verifier","diffBase":"@HEAD@","key":1}]`)}, 2, "", func(vvdResult) string { return bad }, nil},
 		{"a non-object row is cannot-answer", vvdCase{dispatches: []byte(`["visual-verify"]`)}, 2, "", func(vvdResult) string { return bad }, nil},
-		{"a top-level object is cannot-answer", vvdCase{dispatches: []byte(`{"a":{"key":"visual-verify","role":"verifier","outcome":"completed"}}`)}, 2, "", func(vvdResult) string { return bad }, nil},
+		{"a top-level object is cannot-answer", vvdCase{dispatches: []byte(`{"a":{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","outcome":"completed"}}`)}, 2, "", func(vvdResult) string { return bad }, nil},
 		{"an empty store answer is cannot-answer", vvdCase{dispatches: []byte("")}, 2, "", func(vvdResult) string { return bad }, nil},
 		{"two JSON values are cannot-answer", vvdCase{dispatches: []byte("[] []")}, 2, "", func(vvdResult) string { return bad }, nil},
 		{"real flow on PATH answers the store read with the canonical worktree",
-			vvdCase{flowStub: vvdFlowRows(`[{"key":"visual-verify","role":"verifier","outcome":"completed"}]`, "[]")}, 0, vvdOK, nil, okCalls},
+			vvdCase{flowStub: vvdFlowRows(`[{"key":"visual-verify","role":"verifier","diffBase":"@HEAD@","outcome":"completed"}]`, "[]")}, 0, vvdOK, nil, okCalls},
 		{"real flow: MISSING records its verdict, reads the prior false positives and hints",
 			vvdCase{flowStub: vvdFlowRows("[]", flag)}, 1, vvdMissing, flagHint, missingCalls},
 		{"real flow exiting non-zero is cannot-answer",
@@ -546,7 +598,7 @@ func TestCheckVisualVerifyDispatchedCanonicalUIPaths(t *testing.T) {
 				wt = linked
 			}
 			writeFile(t, canon+"/.flow/project.md", strings.Replace(vvdSection, "`app/src/**`", c.uiPaths, 1))
-			writeExec(t, bin+"/flow", vvdFlowRows(c.rows, "[]"))
+			writeExec(t, bin+"/flow", vvdFlowRows(strings.ReplaceAll(c.rows, "@HEAD@", tcfGit(t, wt, "rev-parse", "HEAD")), "[]"))
 			env := Env{Dir: top, Getenv: func(k string) string {
 				if k == "PATH" {
 					return bin + ":" + os.Getenv("PATH")

@@ -71,6 +71,7 @@ own system prompt>`.
 opus -effort low`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
 more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
+Its `begin` carries `-diff-base` with the sha `git -C <worktree> rev-parse HEAD` prints before the dispatch, the HEAD it verifies: `check-visual-verify-dispatched.sh` counts a verifier row only for that HEAD, and only while no UI path the change touches has changed since.
 
 **Every report is checked for completeness before anything else reads it:**
 
