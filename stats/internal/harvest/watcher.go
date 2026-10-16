@@ -420,13 +420,15 @@ type Watcher struct {
 	// for the same reasons tokenCycles is not.
 	seenOffsets map[string]int64
 
-	// lastMessageID is, per path, the message.id of the last usage record
-	// a committed batch carried. One API response is written as several
-	// lines seconds apart, so a read often ends mid-message; the next
-	// read's leading lines repeat that message's usage verbatim and are
-	// dropped here, or every straddling message counts twice. Not
+	// lastMessageID is, per path, the last usage record a committed batch
+	// carried -- its message.id and the output and thinking counts already
+	// counted for it. One API response is written as several lines seconds
+	// apart, so a read often ends mid-message; the next read's leading
+	// lines repeat that message's usage and are dropped here, or every
+	// straddling message counts twice -- save the output a later line adds
+	// over the count already counted, which is kept as its own record. Not
 	// persisted, for the same reasons seenOffsets is not.
-	lastMessageID map[string]string
+	lastMessageID map[string]carriedMessage
 
 	// pendingDispatchMeta remembers, per subagent transcript path whose
 	// most recently committed batch carried dispatch tokens but no
@@ -530,7 +532,7 @@ func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps
 		gaveUpTokens:        make(map[string]bool),
 		retriedTokens:       make(map[string]bool),
 		seenOffsets:         make(map[string]int64),
-		lastMessageID:       make(map[string]string),
+		lastMessageID:       make(map[string]carriedMessage),
 		pendingDispatchMeta: make(map[string]map[int64]string),
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
@@ -638,6 +640,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			}
 			records, commands, launches, denials, newOffset :=
 				batch.Records, batch.Commands, batch.Launches, batch.Denials, batch.NewOffset
+			read := records
 			records = dropCarriedMessage(records, w.lastMessageID[path])
 
 			matchedHere := w.matchSessionTokens(pendingSessionTokens, commands, matchedSessions)
@@ -705,9 +708,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			}
 			touchedFiles++
 			w.seenOffsets[path] = newOffset
-			if id := lastUsageMessageID(records); id != "" {
-				w.lastMessageID[path] = id
-			}
+			w.lastMessageID[path] = lastCarriedMessage(read, w.lastMessageID[path])
 
 			// The second, dispatch-grain attribution pass over the very same
 			// records, in the same batch -- deliberately here, after
@@ -1808,15 +1809,31 @@ func (w *Watcher) creditStampedAgentFile(ctx context.Context, parentPath, agentI
 	w.attributeAgentFile(ctx, ParseAssistantRecords(raw[:offset]), agentPath, agentID)
 }
 
+// carriedMessage is the message a path's previous committed read ended
+// on, with the output and thinking counts already counted for it.
+type carriedMessage struct {
+	id               string
+	output, thinking int64
+}
+
 // dropCarriedMessage removes the usage records repeating carried, the
-// message the previous committed read of the same path ended on.
-func dropCarriedMessage(records []Record, carried string) []Record {
-	if carried == "" {
+// message the previous committed read of the same path ended on -- save
+// the output a repeat counts over carried's, an early line's
+// streaming-time count superseded, which stays as an output-only record.
+func dropCarriedMessage(records []Record, carried carriedMessage) []Record {
+	if carried.id == "" {
 		return records
 	}
 	out := records[:0:0]
 	for _, r := range records {
-		if r.Signal == nil && r.MessageID == carried {
+		if r.Signal == nil && r.MessageID == carried.id {
+			if r.Usage.OutputTokens > carried.output {
+				r.Usage = Usage{
+					OutputTokens:   r.Usage.OutputTokens - carried.output,
+					ThinkingTokens: max(0, r.Usage.ThinkingTokens-carried.thinking),
+				}
+				out = append(out, r)
+			}
 			continue
 		}
 		out = append(out, r)
@@ -1824,15 +1841,22 @@ func dropCarriedMessage(records []Record, carried string) []Record {
 	return out
 }
 
-// lastUsageMessageID returns the message.id of records' last usage record
-// that carries one, or "" when none does.
-func lastUsageMessageID(records []Record) string {
+// lastCarriedMessage returns records' last usage record that carries a
+// message.id as the next read's carry, its counts raised to prev's when it
+// is prev's message, or prev when no record carries an id.
+func lastCarriedMessage(records []Record, prev carriedMessage) carriedMessage {
 	for i := len(records) - 1; i >= 0; i-- {
-		if records[i].Signal == nil && records[i].MessageID != "" {
-			return records[i].MessageID
+		r := records[i]
+		if r.Signal != nil || r.MessageID == "" {
+			continue
 		}
+		c := carriedMessage{r.MessageID, r.Usage.OutputTokens, r.Usage.ThinkingTokens}
+		if c.id == prev.id {
+			c.output, c.thinking = max(c.output, prev.output), max(c.thinking, prev.thinking)
+		}
+		return c
 	}
-	return ""
+	return prev
 }
 
 // survivors returns the begins no pass consumed -- neither paired with a

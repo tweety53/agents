@@ -3776,6 +3776,88 @@ func TestMessageStraddlingTwoReadsCountsOnce(t *testing.T) {
 	}
 }
 
+// TestMessageStraddlingTwoReadsCountsFinalOutput: a read that ends on a
+// message's early line counts its streaming-time output; the next read's
+// later line of that message carries the final count, and only what it
+// adds over the count already counted is counted -- never dropped as a
+// repeat (kan-988), never counted twice.
+func TestMessageStraddlingTwoReadsCountsFinalOutput(t *testing.T) {
+	line := func(id, ts string, output int) string {
+		return fmt.Sprintf(`{"type":"assistant","timestamp":"%s","sessionId":"%s","message":{"id":"%s","model":"m","usage":{"input_tokens":100,"output_tokens":%d}}}`+"\n", ts, mainSessionID, id, output)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, []byte(line("msg_x", "2026-01-01T00:00:00Z", 4)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	runCycles(t, w, 1)
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(line("msg_x", "2026-01-01T00:00:05Z", 135)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	runCycles(t, w, 1)
+
+	if got := sink.totals[1].Main.Output; got != 135 {
+		t.Fatalf("tokens.main.output = %v, want 135: msg_x's later line carries its final output count", got)
+	}
+	if got := sink.totals[1].Main.Input; got != 100 {
+		t.Fatalf("tokens.main.input = %v, want 100: msg_x's input is counted once", got)
+	}
+}
+
+// TestMessageCarryOutlivesUserLine: a read whose last line is not an
+// assistant message still carries the last message counted, so that
+// message's repeat in the next read adds nothing a second time.
+func TestMessageCarryOutlivesUserLine(t *testing.T) {
+	line := func(id, ts string, output int) string {
+		return fmt.Sprintf(`{"type":"assistant","timestamp":"%s","sessionId":"%s","message":{"id":"%s","model":"m","usage":{"input_tokens":100,"output_tokens":%d}}}`+"\n", ts, mainSessionID, id, output)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, []byte(line("msg_x", "2026-01-01T00:00:00Z", 4)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	runCycles(t, w, 1)
+
+	for _, chunk := range []string{
+		line("msg_x", "2026-01-01T00:00:05Z", 135),
+		`{"type":"user"}` + "\n",
+		line("msg_x", "2026-01-01T00:00:09Z", 135),
+	} {
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.WriteString(chunk); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
+		runCycles(t, w, 1)
+	}
+
+	if got := sink.totals[1].Main.Output; got != 135 {
+		t.Fatalf("tokens.main.output = %v, want 135: msg_x's repeat after a user line must not count again", got)
+	}
+	if got := sink.totals[1].Main.Input; got != 100 {
+		t.Fatalf("tokens.main.input = %v, want 100: msg_x's input is counted once", got)
+	}
+}
+
 // lateStampDeps is a store whose dispatch row for one agent gains its
 // agent id only when the watcher stamps it, the way a row begun after its
 // agent had already run (kan-933's task-1-reviewer-fix-1 and

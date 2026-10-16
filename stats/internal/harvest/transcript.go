@@ -278,8 +278,10 @@ func SplitCompleteLines(raw []byte) (complete, tail []byte) {
 // (as SplitCompleteLines defines "complete") into a Record, in file
 // order -- one Record per message.id, not per line: Claude Code writes
 // one JSONL line per content block of a single API response, every line
-// repeating that response's message.id and usage verbatim, so only the
-// first line for a given id is kept. Every other line -- a different
+// repeating that response's message.id and usage, so one Record is kept
+// per id at its first line's position -- carrying the largest output and
+// thinking counts any of its lines holds, since an early line can carry a
+// streaming-time output count the message's last line supersedes. Every other line -- a different
 // "type", or a line that fails to decode as JSON at all -- is skipped
 // rather than treated as fatal: unlike a journal entry (this package's
 // own format, task 6), a transcript line is written by the harness
@@ -292,7 +294,7 @@ func SplitCompleteLines(raw []byte) (complete, tail []byte) {
 // window happened to start at the Unix epoch.
 func ParseAssistantRecords(complete []byte) []Record {
 	var out []Record
-	seen := map[string]bool{}
+	seen := map[string]int{} // message.id -> its Record's index in out
 	start := 0
 	for start < len(complete) {
 		idx := bytes.IndexByte(complete[start:], '\n')
@@ -319,9 +321,12 @@ func ParseAssistantRecords(complete []byte) []Record {
 		}
 
 		// One API response is written as one line per content block, each
-		// line repeating the same message.id and the same usage (measured:
-		// 56 assistant lines for 15 ids on one real transcript). The first
-		// line per id is the whole message's usage; the rest are repeats.
+		// line repeating the same message.id and usage (measured: 56
+		// assistant lines for 15 ids on one real transcript). Input and
+		// cache counts repeat verbatim; output does not always -- an early
+		// line can carry the streaming-time count (measured: 260 of 10336
+		// ids across two days of transcripts, e.g. 4 then 135, the last
+		// line always the largest), so the kept Record takes the maximum.
 		// A line with no id is an older or foreign shape and is kept as is.
 		// Dedupe here is per call; a message whose lines straddle two reads
 		// (its lines land seconds apart, so most multi-line messages do --
@@ -330,17 +335,19 @@ func ParseAssistantRecords(complete []byte) []Record {
 		// ponytail: that carry is in memory, so a daemon restart can still
 		// count one message twice per transcript; persist it beside
 		// harvest_offsets if that ever shows in the data.
-		if id := raw.Message.ID; id != "" {
-			if seen[id] {
-				continue
-			}
-			seen[id] = true
-		}
-
 		u := raw.Message.Usage
 		var thinking int64
 		if u.OutputTokensDetails != nil {
 			thinking = u.OutputTokensDetails.ThinkingTokens
+		}
+		if id := raw.Message.ID; id != "" {
+			if i, ok := seen[id]; ok {
+				kept := &out[i].Usage
+				kept.OutputTokens = max(kept.OutputTokens, u.OutputTokens)
+				kept.ThinkingTokens = max(kept.ThinkingTokens, thinking)
+				continue
+			}
+			seen[id] = len(out)
 		}
 		var (
 			cache5m, cache1h int64

@@ -2,6 +2,7 @@ package harvest_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -342,6 +343,24 @@ func TestParseAssistantRecordsDeduplicatesByMessageID(t *testing.T) {
 	}
 	if got := records[2].Usage.InputTokens; got != 13 {
 		t.Errorf("third record input = %d, want 13 (msg_two)", got)
+	}
+}
+
+// TestParseAssistantRecordsTakesLargestOutputPerMessage pins that a
+// message whose early line carries a streaming-time output count keeps
+// the larger count a later line of the same id carries -- kan-988's
+// ledger rows stored 28 and 178 output tokens for reviewers that wrote
+// whole reports.
+func TestParseAssistantRecordsTakesLargestOutputPerMessage(t *testing.T) {
+	line := func(output, thinking int) string {
+		return fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"id":"msg_a","model":"m","usage":{"input_tokens":5,"output_tokens":%d,"output_tokens_details":{"thinking_tokens":%d}}}}`+"\n", output, thinking)
+	}
+	records := harvest.ParseAssistantRecords([]byte(line(4, 2) + line(4, 2) + line(135, 60)))
+	if len(records) != 1 {
+		t.Fatalf("got %d records, want 1 (three lines share msg_a)", len(records))
+	}
+	if u := records[0].Usage; u.OutputTokens != 135 || u.ThinkingTokens != 60 || u.InputTokens != 5 {
+		t.Errorf("usage = %+v, want output 135, thinking 60, input 5 -- the last line's final counts, input once", u)
 	}
 }
 
