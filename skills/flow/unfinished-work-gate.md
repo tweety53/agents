@@ -24,8 +24,8 @@ for the guards.
 **The `OUTSTANDING:` prompt above is a filing ask** — its third course files exactly these items,
 per **Follow-up issues** (`skills/flow-contracts/jira-followups.md`).
 **Every filing ask explains before it asks.** The filing prompt explains each item the run would
-file — what was observed, what breaks because of it, and what the fix would be — as the turn's final chat message,
-per **The explanation is the turn's final message** (`skills/flow-contracts/operator-prompts.md`), and
+file — what was observed, what breaks because of it, and what the fix would be — in chat, ahead of the
+ask in the same turn, per **Explain before asking** (`skills/flow-contracts/operator-prompts.md`), and
 otherwise follows the shape that contract defines. A filed issue is durable and already on the board; an explanation reaching the
 operator afterward would describe something they never agreed to.
 

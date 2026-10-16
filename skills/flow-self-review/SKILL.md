@@ -275,9 +275,11 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 ### 4. Explain, then ask
 
 Every offered finding is explained before the operator answers — what was observed, what breaks,
-and what the fix would be — as the turn's final chat message, per **The explanation is the turn's final message**
+and what the fix would be — in chat ahead of the ask, per **Explain before asking**
 (`skills/flow-contracts/operator-prompts.md`): a filed issue is durable, and an explanation
-arriving afterward describes something the operator did not agree to. Every fixed finding is one
+arriving afterward describes something the operator did not agree to. When the call offers an
+angle-7 candidate, the whole explanation is the turn's final message and the call fires in the next
+turn; with none, the call follows the explanation in the same turn. Every fixed finding is one
 line in the turn's final message, naming its landed sha; it is not offered. The filing ask,
 the mining ask and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
 (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
