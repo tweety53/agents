@@ -3295,6 +3295,29 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 	}
 }
 
+// TestRunRecordDispatchBeginUnknownEffortNamesDefault pins that the
+// refusal of an effort the session cannot state names the `default` rule
+// (model-policy.md, **Harness mapping**): kan-988's inline rows recorded
+// an invented `high` after `-effort unknown` was refused without it.
+func TestRunRecordDispatchBeginUnknownEffortNamesDefault(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "unknown",
+			"-key", "k1", "-session-token", "mf-record-unknown-effort"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if want := "an effort the session does not state is recorded as default, never guessed"; !strings.Contains(stderr.String(), want) {
+		t.Errorf("stderr does not name the default rule %q:\n%s", want, stderr.String())
+	}
+}
+
 // TestRecordDispatchBeginDefaultsEffortToDefault pins that an omitted
 // -effort is sent as the literal "default" rather than left absent from
 // the wire body -- the store column is NOT NULL DEFAULT 'default' because

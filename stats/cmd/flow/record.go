@@ -1012,7 +1012,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		return 2
 	}
 	if !slices.Contains(recordEfforts, *effort) {
-		fmt.Fprintf(stderr, "flow: -effort %q is not one of: %s\n", *effort, strings.Join(recordEfforts, ", "))
+		fmt.Fprintf(stderr, "flow: -effort %q is not one of: %s -- an effort the session does not state is recorded as default, never guessed\n", *effort, strings.Join(recordEfforts, ", "))
 		return 2
 	}
 	if err := validateSessionToken(*sessionToken); err != nil {
