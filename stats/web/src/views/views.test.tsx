@@ -96,8 +96,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       critical: 1,
       important: 1,
       minor: 1,
-      findingsPerDispatch: 1.5,
-      withdrawnShare: 0,
     },
     {
       slot: "exp-failure-modes",
@@ -108,8 +106,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       critical: 1,
       important: 0,
       minor: 1,
-      findingsPerDispatch: 2.0,
-      withdrawnShare: 0.5,
     },
   ]),
   decisions: envelope("decisions", [
@@ -291,15 +287,31 @@ describe("views render their fixture response's actual values", () => {
     // column -- distinct values so a swap or a dropped field cannot hide.
     const primaryRow = screen.getByRole("cell", { name: /primary/ }).closest("tr")!;
     expect(within(primaryRow).getByText("2")).toBeInTheDocument(); // dispatches
-    expect(within(primaryRow).getByText("1.50")).toBeInTheDocument(); // findings/dispatch
 
     const expRow = screen.getByRole("cell", { name: /exp-failure-modes/ }).closest("tr")!;
     const badge = within(expRow).getByRole("img", { name: "experimental reviewer" });
     expect(badge).toHaveAttribute("title", "What the diff does under error, timeout and partial write");
-    expect(within(expRow).getByText("50%")).toBeInTheDocument(); // withdrawn share
+    expect(screen.queryByRole("columnheader", { name: /Findings\/dispatch/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /Withdrawn/ })).not.toBeInTheDocument();
 
     within(screen.getByRole("region", { name: "Slots" })).getByText("2");
     within(screen.getByRole("region", { name: "Total dispatches" })).getByText("3");
+  });
+
+  it("reviewers efficiency weighs critical 10, important 4, minor 1 per dispatch", async () => {
+    const row = { experimental: false, description: "", changes: 1 };
+    fetchStatsViewMock.mockResolvedValueOnce(
+      envelope("reviewers", [
+        { ...row, slot: "primary", dispatches: 166, critical: 4, important: 36, minor: 70 },
+        { ...row, slot: "idle", dispatches: 0, critical: 0, important: 0, minor: 0 },
+      ]),
+    );
+    render(<Reviewers period={period} project={undefined} />);
+    expect(await screen.findByRole("columnheader", { name: /Efficiency/ })).toBeInTheDocument();
+    const primaryRow = screen.getByRole("cell", { name: "primary" }).closest("tr")!;
+    expect(within(primaryRow).getByRole("cell", { name: "1.53" })).toBeInTheDocument();
+    const idleRow = screen.getByRole("cell", { name: "idle" }).closest("tr")!;
+    expect(within(idleRow).getByRole("cell", { name: "—" })).toBeInTheDocument();
   });
 
   it("renders self-review fixes", async () => {

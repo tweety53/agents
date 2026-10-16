@@ -368,8 +368,6 @@ export interface ReviewerRow {
   critical: number;
   important: number;
   minor: number;
-  findingsPerDispatch: number;
-  withdrawnShare: number;
 }
 
 /** Mirrors decisionRowDTO. */

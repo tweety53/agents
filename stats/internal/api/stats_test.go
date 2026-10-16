@@ -415,12 +415,12 @@ func TestEveryViewAcceptsAPeriod(t *testing.T) {
 }
 
 // TestReviewersWireCarriesNoDeferredShare pins that the reviewers view no
-// longer carries a deferred share: nothing is deferred (KAN-862).
+// longer carries a deferred share: nothing is deferred (KAN-862) -- nor,
+// since KAN-989, the findings-per-dispatch or withdrawn share.
 func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 	sts := &statsFake{reviewers: []store.ReviewerRow{
 		{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
-			Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
-			FindingsPerDispatch: 2.0, WithdrawnShare: 0.125},
+			Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5},
 	}}
 	ts := newStatsTestServer(t, sts)
 	status, _, body := getStats(t, ts, periodPath("reviewers"))
@@ -430,8 +430,13 @@ func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 	if strings.Contains(string(body), "deferredShare") {
 		t.Errorf("reviewers body carries deferredShare: %s", body)
 	}
-	if !strings.Contains(string(body), "withdrawnShare") {
-		t.Errorf("reviewers body lost withdrawnShare: %s", body)
+	for _, gone := range []string{"withdrawnShare", "findingsPerDispatch"} {
+		if strings.Contains(string(body), gone) {
+			t.Errorf("reviewers body carries %s: %s", gone, body)
+		}
+	}
+	if !strings.Contains(string(body), `"critical":1`) {
+		t.Errorf("reviewers body lost critical: %s", body)
 	}
 }
 
@@ -531,8 +536,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 	t.Run("reviewers", func(t *testing.T) {
 		sts := &statsFake{reviewers: []store.ReviewerRow{
 			{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
-				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
-				FindingsPerDispatch: 2.0, WithdrawnShare: 0.125},
+				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("reviewers"))
@@ -540,16 +544,14 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			t.Fatalf("status %d, body %s", status, body)
 		}
 		var rows []struct {
-			Slot                string  `json:"slot"`
-			Experimental        bool    `json:"experimental"`
-			Description         string  `json:"description"`
-			Dispatches          int     `json:"dispatches"`
-			Changes             int     `json:"changes"`
-			Critical            int     `json:"critical"`
-			Important           int     `json:"important"`
-			Minor               int     `json:"minor"`
-			FindingsPerDispatch float64 `json:"findingsPerDispatch"`
-			WithdrawnShare      float64 `json:"withdrawnShare"`
+			Slot         string `json:"slot"`
+			Experimental bool   `json:"experimental"`
+			Description  string `json:"description"`
+			Dispatches   int    `json:"dispatches"`
+			Changes      int    `json:"changes"`
+			Critical     int    `json:"critical"`
+			Important    int    `json:"important"`
+			Minor        int    `json:"minor"`
 		}
 		mustDecodeRows(t, env, body, &rows)
 		if len(rows) != 1 {
@@ -558,8 +560,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		got := rows[0]
 		if got.Slot != "exp-failure-modes" || !got.Experimental ||
 			got.Description != "What the diff does under error, timeout and partial write" ||
-			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 ||
-			got.FindingsPerDispatch != 2.0 || got.WithdrawnShare != 0.125 {
+			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 {
 			t.Errorf("got %+v, want the seeded exp-failure-modes row unchanged", got)
 		}
 	})

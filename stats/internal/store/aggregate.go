@@ -467,9 +467,8 @@ func (s *Store) ListModels(ctx context.Context, period Period, project *string) 
 }
 
 // ReviewerRow is one review-panel slot's record across a period: how often
-// it was dispatched, across how many changes, what it found by severity,
-// and how much of it was withdrawn rather than fixed. Experimental is true
-// for a slot whose id carries the "exp-" prefix (design.md's
+// it was dispatched, across how many changes, and what it found by
+// severity. Experimental is true for a slot whose id carries the "exp-" prefix (design.md's
 // exp-slot-prefix decision -- no schema flag, the id itself is the fact);
 // Description is that slot's newest recorded decision roster entry naming
 // it, empty when no decision ever named it (a default-panel run, or a slot
@@ -484,9 +483,6 @@ type ReviewerRow struct {
 	Critical   int
 	Important  int
 	Minor      int
-
-	FindingsPerDispatch float64
-	WithdrawnShare      float64
 }
 
 // Reviewers reports one row per role -- design.md's "Stats views ›
@@ -518,8 +514,9 @@ type ReviewerRow struct {
 // dispatch happened to write.
 //
 // Description is read from the newest decisions row whose
-// decision->'panel'->'roster' carries an entry naming this slot
-// (jsonb_path_query_first, per design.md), independent of period and
+// decision->'panel'->'roster' carries an entry naming this slot -- one
+// DISTINCT ON pass over every roster entry (slot_desc), never a scan of
+// decisions per slot -- independent of period and
 // project -- a roster entry describes what a slot IS, not when it ran, so
 // scoping it to the query's own period would make the same slot's
 // description flicker between periods for no reason tied to the roster
@@ -557,15 +554,18 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			SELECT slot,
 				COUNT(*) FILTER (WHERE severity ILIKE 'critical') AS critical,
 				COUNT(*) FILTER (WHERE severity ILIKE 'important') AS important,
-				COUNT(*) FILTER (WHERE severity ILIKE 'minor') AS minor,
-				COUNT(*) AS total,
-				COUNT(*) FILTER (WHERE status ILIKE 'withdrawn%') AS withdrawn
+				COUNT(*) FILTER (WHERE severity ILIKE 'minor') AS minor
 			FROM scoped_findings
 			GROUP BY slot
 		),
+		slot_desc AS (
+			SELECT DISTINCT ON (r->>'slot') r->>'slot' AS slot, r->>'description' AS description
+			FROM decisions d, jsonb_path_query(d.decision, '$.panel.roster[*]') r
+			WHERE r->>'slot' IS NOT NULL
+			ORDER BY r->>'slot', d.recorded_at DESC
+		),
 		roster_slots AS (
-			SELECT jsonb_path_query(decision, '$.panel.roster[*].slot') #>> '{}' AS slot
-			FROM decisions
+			SELECT slot FROM slot_desc
 			UNION
 			SELECT jsonb_path_query(decision, '$.extra_dispatch.slots[*]') #>> '{}'
 			FROM decisions
@@ -573,28 +573,15 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		SELECT
 			da.slot,
 			da.slot LIKE 'exp-%' AS experimental,
-			COALESCE((
-				SELECT jsonb_path_query_first(
-					d2.decision, '$.panel.roster[*] ? (@.slot == $slot)',
-					jsonb_build_object('slot', da.slot), true
-				) ->> 'description'
-				FROM decisions d2
-				WHERE jsonb_path_exists(
-					d2.decision, '$.panel.roster[*] ? (@.slot == $slot)',
-					jsonb_build_object('slot', da.slot), true
-				)
-				ORDER BY d2.recorded_at DESC
-				LIMIT 1
-			), '') AS description,
+			COALESCE(sd.description, '') AS description,
 			da.dispatches,
 			da.changes,
 			COALESCE(fa.critical, 0),
 			COALESCE(fa.important, 0),
-			COALESCE(fa.minor, 0),
-			CASE WHEN da.dispatches > 0 THEN COALESCE(fa.total, 0)::float8 / da.dispatches ELSE 0 END,
-			CASE WHEN COALESCE(fa.total, 0) > 0 THEN fa.withdrawn::float8 / fa.total ELSE 0 END
+			COALESCE(fa.minor, 0)
 		FROM dispatch_agg da
 		JOIN roster_slots rs ON rs.slot = da.slot
+		LEFT JOIN slot_desc sd ON sd.slot = da.slot
 		LEFT JOIN finding_agg fa ON fa.slot = da.slot
 		ORDER BY da.slot
 	`, period.From, period.To, project, model)
@@ -609,7 +596,6 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		if err := rows.Scan(
 			&row.Slot, &row.Experimental, &row.Description,
 			&row.Dispatches, &row.Changes, &row.Critical, &row.Important, &row.Minor,
-			&row.FindingsPerDispatch, &row.WithdrawnShare,
 		); err != nil {
 			return nil, fmt.Errorf("store: reviewers: scan: %w", err)
 		}

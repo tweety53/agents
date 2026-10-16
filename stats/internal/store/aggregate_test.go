@@ -974,12 +974,6 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	if primary.Critical != 1 || primary.Important != 1 || primary.Minor != 1 {
 		t.Errorf("primary severity counts = %+v, want Critical=1 Important=1 Minor=1", primary)
 	}
-	if diff := primary.FindingsPerDispatch - 1.5; diff > eps || diff < -eps {
-		t.Errorf("primary FindingsPerDispatch = %v, want 1.5 (3 findings / 2 dispatches)", primary.FindingsPerDispatch)
-	}
-	if primary.WithdrawnShare != 0 {
-		t.Errorf("primary WithdrawnShare = %v, want 0", primary.WithdrawnShare)
-	}
 
 	exp, ok := bySlot["exp-failure-modes"]
 	if !ok {
@@ -1000,12 +994,6 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	}
 	if exp.Critical != 1 || exp.Important != 0 || exp.Minor != 1 {
 		t.Errorf("exp-failure-modes severity counts = %+v, want Critical=1 Important=0 Minor=1", exp)
-	}
-	if diff := exp.FindingsPerDispatch - 2.0; diff > eps || diff < -eps {
-		t.Errorf("exp-failure-modes FindingsPerDispatch = %v, want 2.0", exp.FindingsPerDispatch)
-	}
-	if diff := exp.WithdrawnShare - 0.5; diff > eps || diff < -eps {
-		t.Errorf("exp-failure-modes WithdrawnShare = %v, want 0.5", exp.WithdrawnShare)
 	}
 }
 

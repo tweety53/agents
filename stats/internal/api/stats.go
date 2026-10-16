@@ -786,9 +786,6 @@ type reviewerRowDTO struct {
 	Critical   int `json:"critical"`
 	Important  int `json:"important"`
 	Minor      int `json:"minor"`
-
-	FindingsPerDispatch float64 `json:"findingsPerDispatch"`
-	WithdrawnShare      float64 `json:"withdrawnShare"`
 }
 
 func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
@@ -798,8 +795,6 @@ func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
 			Slot: r.Slot, Experimental: r.Experimental, Description: r.Description,
 			Dispatches: r.Dispatches, Changes: r.Changes,
 			Critical: r.Critical, Important: r.Important, Minor: r.Minor,
-			FindingsPerDispatch: r.FindingsPerDispatch,
-			WithdrawnShare:      r.WithdrawnShare,
 		}
 	}
 	return out
