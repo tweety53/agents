@@ -549,9 +549,9 @@ func TestMutateAndVerify(t *testing.T) {
 			writeExec(t, h, "#!/usr/bin/env bash\necho 'ok: case-1'\n"+
 				"if grep -q '"+mvMutationMark+"' guard.sh; then sleep 30; fi\n")
 			start := time.Now()
-			r := c.run(map[string]string{"MUTATE_AND_VERIFY_TIMEOUT_SECONDS": "1"}, c.patch, h)
+			r := c.run(map[string]string{"MUTATE_AND_VERIFY_TIMEOUT_SECONDS": "3"}, c.patch, h)
 			mvCheck(t, "mutated timeout: caught, exit 0", r.rc == 0 && has(r.all(), "caught"), "rc=%d out=%s", r.rc, r.all())
-			mvCheck(t, "mutated timeout: counted as killed", has(r.all(), "timed out after 1s — counted as killed"), "%s", r.all())
+			mvCheck(t, "mutated timeout: counted as killed", has(r.all(), "timed out after 3s — counted as killed"), "%s", r.all())
 			mvCheck(t, "mutated timeout: bounded", time.Since(start) < 20*time.Second, "took %s", time.Since(start))
 			mvCheck(t, "mutated timeout: touched file clean after restore",
 				mvGit(t, c.repo, "status", "--porcelain", "--", "guard.sh") == "", "dirty")
@@ -574,6 +574,31 @@ func TestMutateAndVerify(t *testing.T) {
 			r := c.run(nil, c.patch, "--", "./project-cmd.sh", "run-tests")
 			mvCheck(t, "project command surviving: exit 0, surviving mutant", r.rc == 0 && has(r.all(), "surviving mutant"), "rc=%d out=%s", r.rc, r.all())
 		}},
+		{"project command failing both passes is not caught", func(t *testing.T) {
+			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			cmdPath := c.repo + "/project-cmd.sh"
+			writeExec(t, cmdPath, "#!/usr/bin/env bash\n"+
+				"if grep -q '"+mvMutationMark+"' guard.sh; then exit 4; fi\nexit 3\n")
+			r := c.run(nil, c.patch, "--", "./project-cmd.sh")
+			mvCheck(t, "failing both passes: surviving mutant, 0 new failures",
+				r.rc == 0 && has(r.all(), "surviving mutant — 0 new failures") && has(r.all(), "baseline NOT clean"), "rc=%d out=%s", r.rc, r.all())
+		}},
+		{"project command resolved on PATH", func(t *testing.T) {
+			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			cmdPath := c.repo + "/project-cmd.sh"
+			writeExec(t, cmdPath, "#!/usr/bin/env bash\n"+
+				"if grep -q '"+mvMutationMark+"' guard.sh; then exit 1; fi\nexit 0\n")
+			r := c.run(map[string]string{"PATH": c.repo + ":" + os.Getenv("PATH")}, c.patch, "--", "project-cmd.sh")
+			mvCheck(t, "PATH command: caught, exit 0", r.rc == 0 && has(r.all(), "caught"), "rc=%d out=%s", r.rc, r.all())
+		}},
+		{"project command timeout counts as killed", func(t *testing.T) {
+			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			cmdPath := c.repo + "/project-cmd.sh"
+			writeExec(t, cmdPath, "#!/usr/bin/env bash\n"+
+				"if grep -q '"+mvMutationMark+"' guard.sh; then sleep 30; fi\nexit 0\n")
+			r := c.run(map[string]string{"MUTATE_AND_VERIFY_TIMEOUT_SECONDS": "3"}, c.patch, "--", "./project-cmd.sh")
+			mvCheck(t, "command timeout: caught as killed", r.rc == 0 && has(r.all(), "counted as killed", "caught"), "rc=%d out=%s", r.rc, r.all())
+		}},
 		{"project command missing refused", func(t *testing.T) {
 			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
 			c.snap()
@@ -585,7 +610,7 @@ func TestMutateAndVerify(t *testing.T) {
 			h := c.repo + "/sleepy.sh"
 			writeExec(t, h, "#!/usr/bin/env bash\necho 'ok: case-1'\nsleep 30\n")
 			c.snap()
-			r := c.run(map[string]string{"MUTATE_AND_VERIFY_TIMEOUT_SECONDS": "1"}, c.patch, h)
+			r := c.run(map[string]string{"MUTATE_AND_VERIFY_TIMEOUT_SECONDS": "3"}, c.patch, h)
 			mvCheck(t, "baseline timeout: exits 4 naming the harness", r.rc == 4 && has(r.all(), "sleepy.sh", "timed out"), "rc=%d out=%s", r.rc, r.all())
 			c.unchanged("baseline timeout: status and HEAD unchanged")
 		}},
@@ -892,5 +917,5 @@ var mvPins = map[string]string{
 	"TestMutateAndVerify/silent_harness_on_the_baseline_pass": "mutate-and-verify: patch <patch> touches:\n  guard.sh\n\nmutate-and-verify: baseline pass (before mutation)\n--- stderr\nmutate-and-verify: cannot answer — harness silent.sh produced no ok:/FAIL: line on the baseline pass\n--- exit 4\n",
 	"TestMutateAndVerify/silent_harness_on_the_mutated_pass":  "mutate-and-verify: patch <patch> touches:\n  guard.sh\n\nmutate-and-verify: baseline pass (before mutation)\n  silent.sh: baseline ok=1 fail=0\n\nmutate-and-verify: mutated pass (after mutation)\n--- stderr\nmutate-and-verify: cannot answer — harness silent.sh produced no ok:/FAIL: line on the mutated pass\n--- exit 4\n",
 	"TestMutateAndVerify/unreadable_patch":                    "--- stderr\nmutate-and-verify: cannot answer — cannot read patch file: no-such.patch\n--- exit 4\n",
-	"TestMutateAndVerify/usage":                               "--- stderr\nmutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>...\n--- exit 4\n",
+	"TestMutateAndVerify/usage":                               "--- stderr\nmutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]\n--- exit 4\n",
 }

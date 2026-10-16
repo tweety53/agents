@@ -141,7 +141,7 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 			if syscall.Access(resolved, 1) != nil {
 				return refuse("command is not executable: " + resolved)
 			}
-		} else if p, err := exec.LookPath(exe); err != nil {
+		} else if p, ok := lookPath(env, exe); !ok {
 			return refuse("command does not exist: " + exe)
 		} else {
 			resolved = p
@@ -422,17 +422,19 @@ func (r *mvRun) exit(rc int) int {
 // ponytail: a harness without a #! line fails to exec here (ENOEXEC) and
 // reads as unanswered, where bash ran it as a bash script; every harness this
 // runs is a scripts/test-*.sh with one.
+const mvDefaultTimeout = 300 * time.Second
+
 // mvTimeout is MUTATE_AND_VERIFY_TIMEOUT_SECONDS when all digits and
-// positive, else 300s — the bound that keeps a busy-spin mutant from
-// hanging a proof for as long as it wants.
+// positive, else mvDefaultTimeout — the bound that keeps a busy-spin
+// mutant from hanging a proof for as long as it wants.
 func mvTimeout(env Env) time.Duration {
 	s := env.Getenv("MUTATE_AND_VERIFY_TIMEOUT_SECONDS")
 	if s == "" || strings.Trim(s, "0123456789") != "" {
-		return 300 * time.Second
+		return mvDefaultTimeout
 	}
 	n, err := strconv.Atoi(s)
 	if err != nil || n <= 0 {
-		return 300 * time.Second
+		return mvDefaultTimeout
 	}
 	return time.Duration(n) * time.Second
 }
@@ -472,7 +474,7 @@ func mvRunBounded(cmd *exec.Cmd, timeout time.Duration) (timedOut bool) {
 
 func mvRunHarness(h, dir string, timeout time.Duration) (ok int, fails []string, answered bool, timedOut bool) {
 	if timeout <= 0 {
-		timeout = 300 * time.Second
+		timeout = mvDefaultTimeout
 	}
 	cmd := exec.Command(h)
 	cmd.Dir, cmd.Stdin = dir, os.Stdin
@@ -499,24 +501,24 @@ func mvRunHarness(h, dir string, timeout time.Duration) (ok int, fails []string,
 // exactly as it does for a harness's FAIL: lines.
 func mvRunCommand(argv []string, dir string, timeout time.Duration) (ok int, fails []string, answered bool, timedOut bool) {
 	if timeout <= 0 {
-		timeout = 300 * time.Second
+		timeout = mvDefaultTimeout
 	}
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir, cmd.Stdin = dir, os.Stdin
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	timedOut = mvRunBounded(cmd, timeout)
-	// The command's own output is not printed: a Gradle log would flood
-	// the report. Its exit code, synthesised below, is the evidence.
+	// The command's own output is captured and deliberately discarded:
+	// a Gradle log would flood the report, and its exit code,
+	// synthesised below, is the only evidence the verdict reads.
 	if timedOut {
 		return 0, nil, true, true
 	}
 	if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 0 {
 		return 1, nil, true, false
 	}
-	code := -1
-	if cmd.ProcessState != nil {
-		code = cmd.ProcessState.ExitCode()
-	}
-	return 0, []string{fmt.Sprintf("exit-%d", code)}, true, false
+	// The synthetic name is code-independent on purpose: a command that
+	// fails on both passes with different exit codes produced no new
+	// failure, and an exit code embedded in the name would invent one.
+	return 0, []string{"exit-nonzero"}, true, false
 }

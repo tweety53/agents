@@ -4,8 +4,9 @@
 # After `--`, one project test command as an argv vector (never a shell
 # string) — e.g. `-- ./gradlew :app:testDebugUnitTest --tests '<class>'`
 # — runs before and after the mutation with the file harnesses, its
-# verdict read from its exit code (baseline 0; mutated non-zero is
-# caught, mutated 0 is a surviving mutant). File harnesses may be
+# verdict read from its exit code (on a clean baseline: mutated
+# non-zero is caught, mutated 0 is a surviving mutant; a command that
+# fails on both passes produces no new failure). File harnesses may be
 # omitted when a command is given. Every run is bounded by
 # MUTATE_AND_VERIFY_TIMEOUT_SECONDS (all digits, else 300): the run's
 # whole process group gets SIGTERM, then SIGKILL after 2s. A mutated
