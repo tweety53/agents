@@ -87,7 +87,9 @@ the rebased worktree on a clean rebase, whether taken at panel entry or at a rou
 that worktree's section falls under the no-held-sha rule in the next round. Then:
 
 - **a slot re-runs when it raised a finding the round touched — Critical, Important or Minor
-  alike — or the previous round raised a new Critical**; the new-Critical clause sends every slot
+  alike — or the previous round raised a new Critical**, a row linked by `-supersedes` to another
+  role's row counting as that other role's (**Bundled dispatch**, `skills/flow/review-panel.md`);
+  the new-Critical clause sends every slot
   in the resolved roster, Primary included, and every operator-added slot already dispatched in
   an earlier pass of this run. **A fix round is never exempt from being itself reviewed**: the
   fix for one finding can introduce the very class it fixed, no per-file or per-test check
