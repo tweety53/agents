@@ -57,6 +57,17 @@
 #     is "cannot answer" (exit 2), never a clean verdict, matching the
 #     dispatches read below.
 #
+# and each panel-fix row whose end recorded a -commit must name a commit
+# whose subject is some task's **Commit:** subject in the change's tasks.md
+# (the fold route) or which carries a `Flow-Key: <the row's key>` trailer,
+# -retry stripped (the pushed route's fix commit) -- review-panel.md's
+# -commit contract (kan-952 self-review: panel-fix-0 recorded the plan
+# commit while its fix landed as its own commit). The commit is looked up
+# in the worktree, then in each peer the spec root's peers file names; a
+# commit none of them holds, or one that is not hex, is a violation, and a
+# tasks.md that cannot be read while such a row exists is exit 2. A row
+# that recorded no commit is not judged.
+#
 # Rows of other roles and rows of other session tokens never count, nor do
 # `full-suite-fix-<n>` rows recorded with agent id `inline`: implement.md
 # records the parent's own full-suite fix rounds under role `panel-fix`, and
@@ -80,7 +91,8 @@
 #   1  at least one violation -- each offending round or key named on stderr
 #   2  cannot answer at all -- missing arguments, a non-directory worktree,
 #      a change name outside the allowlist, the store unreachable (the flow
-#      call exits non-zero), or rows that are not readable JSON
+#      call exits non-zero), rows that are not readable JSON, or a tasks.md
+#      that cannot be read while a row recorded a commit
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
 # cannot-answer code) with the cause when it cannot.

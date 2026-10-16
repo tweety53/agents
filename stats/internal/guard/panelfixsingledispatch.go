@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,6 +37,10 @@ const pfdPrefix = "check-panel-fix-single-dispatch: "
 // TestCheckPanelFixSingleDispatch's "canonical key regexp matches bash"
 // pins the verdicts measured from bash.
 var pfdKeyRE = regexp.MustCompile(`^panel-fix-[0-9]+(-[0-9]+)?(-retry)?$`)
+
+// pfdShaRE is a recorded commit git may be handed: hex only, so a value
+// opening with `-` never reaches git as an option.
+var pfdShaRE = regexp.MustCompile(`^[0-9a-f]{4,64}$`)
 
 var pfdFullSuiteRE = regexp.MustCompile(`^full-suite-fix-[0-9]+$`)
 
@@ -120,7 +126,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 
 	// Each panel-fix row of THIS token. A payload that is not the shape the
 	// verb documents is the same cannot-answer posture as a failed call.
-	keys, ok := pfdPanelFixKeys(rows, token)
+	fixRows, ok := pfdPanelFixRows(rows, token)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdispatch rows were not readable JSON -- cannot answer\n", pfdPrefix)
 		return 2
@@ -134,7 +140,8 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	var violations []string
 	var bases []*pfdBase
 	index := map[string]*pfdBase{}
-	for _, key := range keys {
+	for _, row := range fixRows {
+		key := row.key
 		if !pfdKeyRE.MatchString(key) {
 			violations = append(violations, fmt.Sprintf("out-of-shape panel-fix key '%s' -- the canonical shape is panel-fix-<round>[-<chunk>][-retry]", key))
 			continue
@@ -235,6 +242,17 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		}
 	}
 
+	// A panel-fix row's -commit is the task commit its fixup folded into, or
+	// on the pushed route the fix commit itself, carrying the round's
+	// Flow-Key: trailer (review-panel.md). Any other commit is the wrong
+	// record -- kan-952's panel-fix-0 recorded its plan commit while its fix
+	// landed as 50af0ddf.
+	commitViolations, ok := pfdCheckCommits(env, worktree, name, fixRows, stderr)
+	if !ok {
+		return 2
+	}
+	violations = append(violations, commitViolations...)
+
 	if len(violations) > 0 {
 		for _, v := range violations {
 			fmt.Fprintf(stderr, "%s%s\n", pfdPrefix, v)
@@ -276,18 +294,22 @@ func pfdStream(raw []byte) ([]any, bool) {
 	}
 }
 
-// pfdPanelFixKeys is `.[] | select((.sessionToken // "") == $tok and
+// pfdRow is one panel-fix row of the run: its key, and the commitSha its
+// end recorded ("" when none).
+type pfdRow struct{ key, commit string }
+
+// pfdPanelFixRows is `.[] | select((.sessionToken // "") == $tok and
 // (.role // "") == "panel-fix")` then each row's `.key // ""` as jq -r
-// printed it. A null row selects nothing; any other non-object row, or a
+// printed it, beside the row's commitSha. A null row selects nothing; any other non-object row, or a
 // top-level value that is not an array, is jq failing. (jq iterated a
 // top-level object's values in insertion order; that shape is refused here
 // rather than guessed at -- the verb prints an array.)
-func pfdPanelFixKeys(raw []byte, token string) ([]string, bool) {
+func pfdPanelFixRows(raw []byte, token string) ([]pfdRow, bool) {
 	vals, ok := pfdStream(raw)
 	if !ok {
 		return nil, false
 	}
-	var keys []string
+	var keys []pfdRow
 	for _, v := range vals {
 		arr, ok := v.([]any)
 		if !ok {
@@ -312,10 +334,89 @@ func pfdPanelFixKeys(raw []byte, token string) ([]string, bool) {
 			if row["agentId"] == "inline" && pfdFullSuiteRE.MatchString(key) {
 				continue
 			}
-			keys = append(keys, key)
+			commit, _ := row["commitSha"].(string)
+			keys = append(keys, pfdRow{key: key, commit: commit})
 		}
 	}
 	return keys, true
+}
+
+// pfdCheckCommits names each row whose recorded commit carries neither a
+// task's Commit: subject nor a Flow-Key: trailer naming the row's key (its
+// -retry stripped), looked up in the worktree and then in each peer its
+// spec root's peers file names. Rows that recorded no commit are not judged;
+// false is cannot answer -- a tasks.md that does not resolve or read.
+func pfdCheckCommits(env Env, worktree, name string, fixRows []pfdRow, stderr io.Writer) ([]string, bool) {
+	var judged []pfdRow
+	for _, r := range fixRows {
+		if r.commit != "" {
+			judged = append(judged, r)
+		}
+	}
+	if len(judged) == 0 {
+		return nil, true
+	}
+	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "check-panel-fix-single-dispatch", worktree, name, worktree)
+	raw, err := os.ReadFile(tasksMD)
+	var plan []string
+	if err == nil {
+		plan, err = tcfPlanLines(raw)
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "%scannot read tasks.md for '%s' -- cannot answer\n", pfdPrefix, name)
+		return nil, false
+	}
+	subjects := map[string]bool{}
+	for _, id := range tcfTaskIDs(plan) {
+		if t, ok := tcfParseTask(plan, id); ok && t.commit != nil {
+			subjects[*t.commit] = true
+		}
+	}
+	repos := append([]string{worktree}, pfdPeerRoots(env, worktree)...)
+	var violations []string
+	for _, r := range judged {
+		var meta []string
+		for _, repo := range repos {
+			if !pfdShaRE.MatchString(r.commit) {
+				break
+			}
+			if out, err := tcfRunGit(env, repo, "log", "-1", "--format=%s%n%(trailers:key=Flow-Key,valueonly)", r.commit, "--"); err == nil {
+				meta = strings.Split(strings.TrimSpace(out), "\n")
+				break
+			}
+		}
+		if meta == nil {
+			violations = append(violations, fmt.Sprintf("%s records commit %s, which no repository of the change holds -- -commit is the commit the fix landed in", r.key, r.commit))
+			continue
+		}
+		base, _ := strings.CutSuffix(r.key, "-retry")
+		if !subjects[meta[0]] && !slices.Contains(meta[1:], base) && !slices.Contains(meta[1:], r.key) {
+			violations = append(violations, fmt.Sprintf("%s records commit %s (%q), which is no task's Commit: subject and carries no Flow-Key: %s trailer -- -commit is the task commit the fixup was folded into, or the fix commit itself", r.key, r.commit, meta[0], base))
+		}
+	}
+	return violations, true
+}
+
+// pfdPeerRoots is every peer checkout <worktree>/<spec root>/peers names,
+// resolved as changePlanPeerRoot resolves one; a peer that does not resolve
+// is skipped.
+func pfdPeerRoots(env Env, worktree string) []string {
+	leaf := specRootLeaf(worktree, io.Discard)
+	b, err := os.ReadFile(worktree + "/" + leaf + "/peers")
+	if err != nil {
+		return nil
+	}
+	var roots []string
+	for _, line := range lines(b) {
+		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
+		}
+		if root, ok := changePlanPeerRoot(env, worktree, leaf, f[0]); ok {
+			roots = append(roots, root)
+		}
+	}
+	return roots
 }
 
 // pfdRawText is `.key // ""` as jq -r printed it and `$(...)` captured it:

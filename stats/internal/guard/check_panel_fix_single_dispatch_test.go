@@ -322,3 +322,40 @@ func TestCheckPanelFixSingleDispatch(t *testing.T) {
 		}
 	})
 }
+
+// TestCheckPanelFixSingleDispatchCommitIsATaskCommit pins review-panel.md's
+// -commit contract: the task commit the fixup folded into, or the fix commit
+// carrying the round's Flow-Key: trailer. A row recording any other commit
+// -- kan-952's panel-fix-0 recorded its plan commit -- exits 1 naming it.
+func TestCheckPanelFixSingleDispatchCommitIsATaskCommit(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	gitRun(t, wt, "init", "-q")
+	writeFile(t, filepath.Join(wt, "spectre/changes/demo/tasks.md"),
+		"# demo\n\n- [ ] 1. Add alpha\n\n**Commit:** feat(alpha): add alpha\n")
+	head := func(msg ...string) string {
+		args := []string{"commit", "-q", "--allow-empty"}
+		for _, m := range msg {
+			args = append(args, "-m", m)
+		}
+		gitRun(t, wt, args...)
+		out, err := exec.Command(fixtureGit, "-C", wt, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	plan := head("chore(spectre): plan demo")
+	task := head("feat(alpha): add alpha")
+	fix := head("fix(alpha): review findings", "Flow-Key: panel-fix-0")
+	other := head("fix(alpha): another round", "Flow-Key: panel-fix-1")
+	row := func(sha string) []byte {
+		return []byte(`[{"key":"panel-fix-0","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + sha + `"}]`)
+	}
+	args := []string{wt, "demo", "mf-tok"}
+	pfdExpect(t, pfdCase{dispatches: row(task), args: args}, 0, "OK")
+	pfdExpect(t, pfdCase{dispatches: row(fix), args: args}, 0, "OK")
+	pfdExpect(t, pfdCase{dispatches: row(other), args: args}, 1, "carries no Flow-Key: panel-fix-0 trailer")
+	pfdExpect(t, pfdCase{dispatches: row(plan), args: args}, 1, "panel-fix-0 records commit "+plan)
+	pfdExpect(t, pfdCase{dispatches: row("0123456789abcdef0123456789abcdef01234567"), args: args}, 1, "no repository of the change holds")
+}

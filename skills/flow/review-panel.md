@@ -976,7 +976,9 @@ flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed
 ```
 
-`-commit` is the task commit the fixup was folded into.
+`-commit` is the task commit the fixup was folded into, or, where the branch is already on the
+remote (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), the fix commit itself, carrying
+the round's `Flow-Key:` trailer.
 
 **Before closing the stage**, the parent runs both close guards:
 
@@ -1007,6 +1009,10 @@ violation, a key outside the canonical shape — and is a prompt, resolved on it
 > - **Continue — the violation stays recorded in this run's output** *(default, recommended)* —
 >   the findings may already be verified closed, and the round's work is real
 > - **Stop the run**
+
+A violation naming a row's recorded commit is not that prompt: the row recorded a commit the fix
+did not land in. The parent ends the row again under its own key and token with the commit the
+fix landed in as `-commit`, and runs the guard again.
 
 Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
 
