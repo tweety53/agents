@@ -20,7 +20,10 @@
 #   PLAN         a fix or review with no completed plan row.
 # Admitted (exit 0, LOOP-DISPATCH-OK): the row is opened with `flow record
 # dispatch begin` under the loop's change, its session token the loop's
-# branch name — except a `pass`, which is pair-checked and not recorded.
+# branch name — except a `pass`, which is pair-checked and not recorded. A
+# self-review on the change's own branch (no self-review-<name> branch in
+# <agents-repo>) reads and records in the flowd project of the working
+# directory it runs in — the hook runs it in the payload's cwd.
 # LOOP-DISPATCH-NA, exit 0: the key is no loop key.
 # Exit 2: cannot answer — the table unreadable, flowd unreadable, the begin
 # refused (a loop change no checkout carries: pipeline-fix.sh start), usage.

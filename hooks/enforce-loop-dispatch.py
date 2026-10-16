@@ -9,6 +9,8 @@ review. This hook hands every such call to scripts/check-loop-dispatch.sh in the
 checkout it is installed from, which refuses a pair off the canonical table, a fix with no
 completed plan, a dispatch while an earlier one is still open -- and records the admitted
 dispatch in flowd, so check-loop-landing.sh can refuse a landing those records do not cover.
+The checker runs in the payload's `cwd`, so a self-review on a change's own branch in another
+project files its rows in that project's flowd project, not the agents checkout's.
 
 The PreToolUse contract cannot rewrite tool input, so a refusal is a deny whose reason is the
 checker's own lines.
@@ -94,8 +96,10 @@ def main():
     if BASELINE not in prompt:
         return deny(f"Loop dispatch {key} blocked: the prompt carries no {BASELINE} pointer.")
     args = [CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or "")]
+    cwd = payload.get("cwd")
+    cwd = cwd if isinstance(cwd, str) and os.path.isdir(cwd) else None
     try:
-        r = subprocess.run(args, capture_output=True, text=True, timeout=CHECK_TIMEOUT)
+        r = subprocess.run(args, capture_output=True, text=True, timeout=CHECK_TIMEOUT, cwd=cwd)
     except (OSError, subprocess.SubprocessError) as e:
         return deny(f"Loop dispatch {key} blocked: check-loop-dispatch.sh could not run ({e}).")
     if r.returncode == 0:

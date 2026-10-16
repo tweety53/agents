@@ -16,6 +16,7 @@
 #   9. a loop key with no agent-baseline pointer       -> deny, checker never run
 #  10. a Key line with trailing text                   -> deny, checker never run
 #  11. a pipeline-fix key with a non-numeric <k>       -> deny, checker never run
+#  12. a payload carrying a cwd                       -> the checker runs in it
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +34,7 @@ RC_FILE="$SANDBOX/rc"
 cat >"$SANDBOX/check" <<STUB
 #!/usr/bin/env bash
 printf '%s\n' "\$@" >"$LOG"
+pwd -P >"$SANDBOX/cwd"
 echo "LOOP-DISPATCH-REFUSED: PAIR — stub"
 exit "\$(cat "$RC_FILE")"
 STUB
@@ -103,6 +105,12 @@ expect "10 Key line with trailing text" deny "no valid loop key"
 hook "$SANDBOX/check" "$(payload Agent $'Before anything else, read `~/.claude/rules/agent-baseline.md`.\nKey: pipeline-fix-x-fix\nDo it.')"
 expect "11 non-numeric <k>" deny "no valid loop key"
 [ ! -e "$LOG" ] && pass "11 checker not run" || fail "11 checker ran"
+
+mkdir "$SANDBOX/project"; echo 0 >"$RC_FILE"
+hook "$SANDBOX/check" "$(python3 -c 'import json,sys; print(json.dumps({"tool_name": "Agent", "cwd": sys.argv[2], "tool_input": {"prompt": sys.argv[1], "subagent_type": "flow-low", "model": "opus"}}))' "$LOOP_PROMPT" "$SANDBOX/project")"
+expect "12 admitted with a cwd" allow
+[ "$(cat "$SANDBOX/cwd")" = "$(cd "$SANDBOX/project" && pwd -P)" ] \
+  && pass "12 checker ran in the payload's cwd" || fail "12 checker ran in $(cat "$SANDBOX/cwd")"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d case(s) failed\n' "$FAILURES" >&2
