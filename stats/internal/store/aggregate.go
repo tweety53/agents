@@ -23,6 +23,14 @@ type Period struct {
 // -- nil together when the change was never observed, which is the board's
 // absence-is-never-zero case: no observation reads as no figure, never as
 // a count of zero.
+//
+// RunCount, CostUsd, WallClockMs and Errors total the change's runs over
+// its whole life, never bounded by the board's period (design.md's
+// board-run-totals): a run is the stage rows sharing a session token, a
+// token-less stage row is a run of its own; a run's wall clock spans its
+// first start to its last end, and is 0 while any of its stages is open;
+// cost sums each row's numeric cost_usd; errors sum tool and API errors
+// from both the main and sidechain signals.
 type LiveStateRow struct {
 	ProjectKey string
 	Name       string
@@ -32,6 +40,11 @@ type LiveStateRow struct {
 
 	PlannedTasks *int
 	CurrentTasks *int
+
+	RunCount    int
+	CostUsd     float64
+	WallClockMs int64
+	Errors      int
 }
 
 // LiveStateBoard lists every change updated within period, optionally
@@ -40,7 +53,8 @@ type LiveStateRow struct {
 func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *string) ([]LiveStateRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT c.project_key, c.name, c.state, c.updated_at, c.updated_by,
-		       first_obs.total_tasks, latest_obs.total_tasks
+		       first_obs.total_tasks, latest_obs.total_tasks,
+		       totals.runs, totals.cost, totals.wall_ms, totals.errors
 		FROM changes c
 		LEFT JOIN LATERAL (
 			SELECT t.total_tasks
@@ -56,6 +70,32 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 			ORDER BY t.observed_at DESC, t.id DESC
 			LIMIT 1
 		) latest_obs ON true
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*)::int AS runs,
+			       COALESCE(SUM(r.cost), 0)::float8 AS cost,
+			       COALESCE(SUM(r.wall_ms), 0)::bigint AS wall_ms,
+			       COALESCE(SUM(r.errors), 0)::int AS errors
+			FROM (
+				SELECT SUM(CASE WHEN jsonb_typeof(sr.metrics->'cost_usd') = 'number'
+				                THEN (sr.metrics->>'cost_usd')::float8 END) AS cost,
+				       CASE WHEN bool_and(sr.ended_at IS NOT NULL)
+				            THEN floor(EXTRACT(EPOCH FROM MAX(sr.ended_at) - MIN(sr.started_at)) * 1000)
+				            ELSE 0 END AS wall_ms,
+				       SUM((
+				           SELECT COALESCE(SUM((v #>> '{}')::numeric), 0)
+				           FROM unnest(ARRAY[
+				               sr.metrics #> '{signals,main,tool_errors}',
+				               sr.metrics #> '{signals,main,api_errors}',
+				               sr.metrics #> '{signals,sidechain,tool_errors}',
+				               sr.metrics #> '{signals,sidechain,api_errors}'
+				           ]) v
+				           WHERE jsonb_typeof(v) = 'number'
+				       )) AS errors
+				FROM stage_runs sr
+				WHERE sr.change_id = c.id
+				GROUP BY COALESCE(sr.session_token, 'stage-' || sr.id)
+			) r
+		) totals ON true
 		WHERE c.updated_at >= $1 AND c.updated_at < $2
 		  AND ($3::text IS NULL OR c.project_key = $3)
 		ORDER BY c.updated_at DESC, c.project_key, c.name
@@ -72,7 +112,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 			state string
 		)
 		if err := rows.Scan(&row.ProjectKey, &row.Name, &state, &row.UpdatedAt, &row.UpdatedBy,
-			&row.PlannedTasks, &row.CurrentTasks); err != nil {
+			&row.PlannedTasks, &row.CurrentTasks,
+			&row.RunCount, &row.CostUsd, &row.WallClockMs, &row.Errors); err != nil {
 			return nil, fmt.Errorf("store: live state board: scan: %w", err)
 		}
 		row.State = State(state)

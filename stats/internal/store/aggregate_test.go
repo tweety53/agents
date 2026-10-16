@@ -1436,3 +1436,60 @@ func seedRoster(t *testing.T, st *store.Store, projectKey, change string, slots 
 		t.Fatalf("RecordDecision: %v", err)
 	}
 }
+
+// TestLiveStateBoardCarriesWholeLifeRunTotals: each board row carries its
+// change's run totals over the change's whole life (design.md's
+// board-run-totals) -- a run is the stage rows sharing a session token, a
+// token-less row is a run of its own, and a run started long before the
+// board's period still counts.
+func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-runs-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	stage := func(token *string, started time.Time, minutes int, metrics string) {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+		in.SessionToken = token
+		in.StartedAt = started
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage: %v", err)
+		}
+		if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(metrics)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+		if err := st.EndStage(ctx, run.ID, started.Add(time.Duration(minutes)*time.Minute), "completed"); err != nil {
+			t.Fatalf("EndStage: %v", err)
+		}
+	}
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	stage(ptr("mf-a"), day, 1, `{"cost_usd":1.0,"signals":{"main":{"tool_errors":2}}}`)
+	stage(ptr("mf-a"), day.Add(5*time.Minute), 5, `{"cost_usd":0.5,"signals":{"sidechain":{"api_errors":1}}}`)
+	stage(nil, day.Add(-72*time.Hour), 30, `{"cost_usd":2.0,"signals":{"main":{"api_errors":1}}}`)
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("LiveStateBoard returned %d rows, want 1", len(rows))
+	}
+	got := rows[0]
+	if got.RunCount != 2 {
+		t.Errorf("RunCount = %d, want 2 (one token run, one token-less run)", got.RunCount)
+	}
+	if diff := got.CostUsd - 3.5; diff > 1e-9 || diff < -1e-9 {
+		t.Errorf("CostUsd = %v, want 3.5", got.CostUsd)
+	}
+	if want := int64(40 * time.Minute / time.Millisecond); got.WallClockMs != want {
+		t.Errorf("WallClockMs = %d, want %d (10 min token run + 30 min token-less run)", got.WallClockMs, want)
+	}
+	if got.Errors != 4 {
+		t.Errorf("Errors = %d, want 4 (tool and API errors, main and sidechain)", got.Errors)
+	}
+}

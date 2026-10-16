@@ -621,6 +621,13 @@ type stateBoardRowDTO struct {
 	// was never observed, absence-is-never-zero as the store states it.
 	PlannedTasks *int `json:"plannedTasks,omitempty"`
 	CurrentTasks *int `json:"currentTasks,omitempty"`
+
+	// RunCount, CostUsd, WallClockMs and Errors are the change's whole-life
+	// run totals (store.LiveStateRow).
+	RunCount    int     `json:"runCount"`
+	CostUsd     float64 `json:"costUsd"`
+	WallClockMs int64   `json:"wallClockMs"`
+	Errors      int     `json:"errors"`
 }
 
 // nextCommandFor maps a change's current pipeline state to the command that
@@ -663,6 +670,10 @@ func toStateBoardDTOs(rows []store.LiveStateRow) []stateBoardRowDTO {
 			NextCommand:  nextCommandFor(r.State),
 			PlannedTasks: r.PlannedTasks,
 			CurrentTasks: r.CurrentTasks,
+			RunCount:     r.RunCount,
+			CostUsd:      r.CostUsd,
+			WallClockMs:  r.WallClockMs,
+			Errors:       r.Errors,
 		}
 	}
 	return out

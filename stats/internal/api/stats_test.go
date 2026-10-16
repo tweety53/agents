@@ -1119,7 +1119,8 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 	updatedAt := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		liveStateBoard: []store.LiveStateRow{
-			{ProjectKey: "agents", Name: "kan-1", State: store.StateStarted, UpdatedAt: updatedAt, UpdatedBy: "alice"},
+			{ProjectKey: "agents", Name: "kan-1", State: store.StateStarted, UpdatedAt: updatedAt, UpdatedBy: "alice",
+				RunCount: 3, CostUsd: 4.25, WallClockMs: 90000, Errors: 2},
 			{ProjectKey: "agents", Name: "kan-2", State: store.StateInProgress, UpdatedAt: updatedAt, UpdatedBy: "bob"},
 			{ProjectKey: "agents", Name: "kan-3", State: store.StateFinished, UpdatedAt: updatedAt, UpdatedBy: "carol"},
 		},
@@ -1131,15 +1132,26 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 	}
 
 	var rows []struct {
-		Name        string `json:"name"`
-		State       string `json:"state"`
-		NextCommand string `json:"nextCommand"`
+		Name        string  `json:"name"`
+		State       string  `json:"state"`
+		UpdatedBy   string  `json:"updatedBy"`
+		NextCommand string  `json:"nextCommand"`
+		RunCount    int     `json:"runCount"`
+		CostUsd     float64 `json:"costUsd"`
+		WallClockMs int64   `json:"wallClockMs"`
+		Errors      int     `json:"errors"`
 	}
 	if err := json.Unmarshal(env.Rows, &rows); err != nil {
 		t.Fatalf("decode rows: %v (body %s)", err, body)
 	}
 	if len(rows) != 3 {
 		t.Fatalf("rows = %d, want 3", len(rows))
+	}
+	// The run totals ride the wire beside updatedBy, which the CLI's
+	// state list/resolve still reads (design.md's board-filter-in-spa).
+	if got := rows[0]; got.UpdatedBy != "alice" || got.RunCount != 3 || got.CostUsd != 4.25 ||
+		got.WallClockMs != 90000 || got.Errors != 2 {
+		t.Errorf("kan-1 = %+v, want updatedBy alice and run totals 3 / 4.25 / 90000 / 2", got)
 	}
 
 	// This mapping is CLAUDE.md's own fixed three-state pipeline table,
