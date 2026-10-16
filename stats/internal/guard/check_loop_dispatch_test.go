@@ -228,3 +228,49 @@ func TestCheckLoopDispatchOwnFastBranchReadsLoopPlan(t *testing.T) {
 		t.Fatalf("rc %d: %s", rc, out)
 	}
 }
+
+// review-1's first-review-effort reads the effort as a planner writes it --
+// bare or backticked low/medium as the skill names it, or flow-low/flow-medium
+// -- from that decision's own entry, and refuses an entry naming none rather
+// than falling back to flow-medium.
+func TestCheckLoopDispatchFirstReviewEffort(t *testing.T) {
+	t.Parallel()
+	const head = "## Decisions\n\n### First review\n\n**ID:** first-review-effort\n**Status:** active\n"
+	for _, tc := range []struct {
+		name, chosen, typ string
+		rc                int
+		out               string
+		superseded        bool
+		status            string
+	}{
+		{name: "bare low", chosen: "**Chosen:** low — dev-only tooling, no hard seam.\n**Considered:** medium — no seam here.\n", typ: "flow-low", out: "LOOP-DISPATCH-OK"},
+		{name: "bare low refuses flow-medium", chosen: "**Chosen:** low — dev-only tooling.\n", typ: "flow-medium", rc: 1, out: "runs on flow-low"},
+		{name: "backticked low in prose", chosen: "**Chosen:** the first review runs at effort `low` on `opus`: a test-only seam.\n", typ: "flow-low", out: "LOOP-DISPATCH-OK"},
+		{name: "backticked medium", chosen: "**Chosen:** `medium` — a gate every run passes.\n**Considered:** `low` — too thin.\n", typ: "flow-medium", out: "LOOP-DISPATCH-OK"},
+		{name: "bare value before a backticked one", chosen: "**Chosen:** low — rather than `medium`.\n", typ: "flow-low", out: "LOOP-DISPATCH-OK"},
+		{name: "no effort named", chosen: "**Chosen:** the cheap one.\n", typ: "flow-medium", rc: 1, out: "EFFORT —"},
+		{name: "a superseded entry is skipped for the active one", chosen: "**Chosen:** low — first take.\n\n### First review, revised\n\n**ID:** first-review-effort\n**Status:** active\n**Chosen:** medium — a hard seam after all.\n", typ: "flow-medium", out: "LOOP-DISPATCH-OK", superseded: true},
+		{name: "a status with a trailing clause is still active", chosen: "**Chosen:** low — revised.\n", typ: "flow-low", out: "LOOP-DISPATCH-OK", status: "active, revised"},
+		{name: "no Chosen line, the next entry's never read", chosen: "\n### Grouping\n\n**ID:** fixer-grouping\n**Chosen:** one fixer at `low`.\n", typ: "flow-low", rc: 1, out: "EFFORT —"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := lpNew(t, lpPlanDone, lpBranch)
+			gitRun(t, fx.repo, "checkout", "-q", lpBranch)
+			h := head
+			if tc.superseded {
+				h = strings.Replace(h, "**Status:** active", "**Status:** superseded", 1)
+			}
+			if tc.status != "" {
+				h = strings.Replace(h, "**Status:** active", "**Status:** "+tc.status, 1)
+			}
+			writeFile(t, fx.repo+"/spectre/changes/"+lpBranch+"/design.md", h+tc.chosen)
+			gitRun(t, fx.repo, "add", "-A")
+			gitRun(t, fx.repo, "commit", "-q", "-m", "plan")
+			gitRun(t, fx.repo, "checkout", "-q", "main")
+			if rc, out := fx.run(t, "pipeline-fix-6-review-1", tc.typ, "opus"); rc != tc.rc || !strings.Contains(out, tc.out) {
+				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
+			}
+		})
+	}
+}

@@ -12,6 +12,8 @@
 #   NOT-STARTED  a pipeline-fix key with no pipeline-fix-<name>-<k> branch
 #                (scripts/pipeline-fix.sh start makes it);
 #   PAIR         subagent_type or model off the suffix's row;
+#   EFFORT       a review-1 whose loop plan records a first-review-effort
+#                decision naming no effort on its **Chosen:** line;
 #   ESCALATION   the row's escalation type with no recorded escalation
 #                (scripts/pipeline-fix.sh escalate);
 #   KEY-REUSED   the key already has a row;

@@ -262,8 +262,13 @@ func lpEarlierRound(lp lpLoop, suffix string, rows []lpDispatch) bool {
 
 var (
 	lpFirstReviewID = regexp.MustCompile(`\*\*ID:\*\*\s*first-review-effort\b`)
+	lpEntryID       = regexp.MustCompile(`\*\*ID:\*\*`)
 	lpChosen        = regexp.MustCompile(`\*\*Chosen:\*\*[^\n]*`)
-	lpReviewType    = regexp.MustCompile("`(flow-(?:low|medium))`")
+	lpStatus        = regexp.MustCompile(`\*\*Status:\*\*\s*([a-z]+)`)
+	// The effort a **Chosen:** line names: a bare low or medium opening the
+	// value, else its first backticked low, medium, flow-low or flow-medium.
+	lpChosenBare = regexp.MustCompile(`^\*\*Chosen:\*\*\s*(low|medium)\b`)
+	lpChosenTick = regexp.MustCompile("`(?:flow-)?(low|medium)`")
 )
 
 // lpFirstReviewType is the subagent_type the planner recorded for review-1 in
@@ -271,8 +276,11 @@ var (
 // line). The loop's plan is always spectre/changes/<loop branch name>/ --
 // self-review-<name> on the change's own branch too -- read from the loop's
 // branch, or for a self-review on the change's own branch from spectre/<name>
-// (/flow) or <name> (/flow-fast); flow-medium when it recorded none.
-func lpFirstReviewType(env Env, git, repo string, lp lpLoop) string {
+// (/flow) or <name> (/flow-fast), from the first such entry whose **Status:**
+// is active (or absent); flow-medium when it recorded none. ok is
+// false when the decision is recorded but its **Chosen:** line names no
+// effort: a refusal, never a silent flow-medium.
+func lpFirstReviewType(env Env, git, repo string, lp lpLoop) (typ string, ok bool) {
 	ref := lp.token
 	for _, b := range []string{"spectre/" + lp.change, lp.change} {
 		if lpBranchExists(env, git, repo, ref) {
@@ -282,16 +290,29 @@ func lpFirstReviewType(env Env, git, repo string, lp lpLoop) string {
 	}
 	rc, body := kwRun(env, "", git, "-C", repo, "show", "refs/heads/"+ref+":spectre/changes/"+lp.token+"/design.md")
 	if rc != 0 {
-		return "flow-medium"
+		return "flow-medium", true
 	}
-	if loc := lpFirstReviewID.FindStringIndex(body); loc != nil {
-		if c := lpChosen.FindString(body[loc[1]:]); c != "" {
-			if m := lpReviewType.FindStringSubmatch(c); m != nil {
-				return m[1]
-			}
+	entry, found := "", false
+	for _, loc := range lpFirstReviewID.FindAllStringIndex(body, -1) {
+		entry = body[loc[1]:]
+		if next := lpEntryID.FindStringIndex(entry); next != nil {
+			entry = entry[:next[0]]
+		}
+		if s := lpStatus.FindStringSubmatch(entry); s == nil || s[1] == "active" {
+			found = true
+			break
 		}
 	}
-	return "flow-medium"
+	if !found {
+		return "flow-medium", true
+	}
+	c := lpChosen.FindString(entry)
+	for _, re := range []*regexp.Regexp{lpChosenBare, lpChosenTick} {
+		if m := re.FindStringSubmatch(c); m != nil {
+			return "flow-" + m[1], true
+		}
+	}
+	return "", false
 }
 
 func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
@@ -344,7 +365,11 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse(fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: scripts/pipeline-fix.sh escalate %s", key, typ, key))
 		}
 	} else if suffix == "review-1" {
-		if want := lpFirstReviewType(env, git, lp.main, lp); typ != want {
+		want, ok := lpFirstReviewType(env, git, lp.main, lp)
+		if !ok {
+			return refuse(fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
+		}
+		if typ != want {
 			return refuse(fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
 		}
 	}
