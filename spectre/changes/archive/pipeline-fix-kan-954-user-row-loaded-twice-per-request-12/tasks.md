@@ -37,12 +37,12 @@ the six per-package helpers forward to it and each package's `TestMain` calls `s
   the template, another process's databases, or the live `flow` database.
 - `internal/harvest`'s helper still seeds pricing after opening the store.
 
-- [ ] 1. Copy store test databases from one migrated template
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** The flake needs the whole
+- [x] 1. Copy store test databases from one migrated template
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** The flake needs the whole
     suite's cross-package load and was reproduced at plan time (`design.md`, `## Context`); here
     run `cd stats && go test -count=1 ./internal/store/ -run 'TestProjectRootsListsRegisteredCheckouts'`
     on the untouched tree and confirm it passes alone — the defect is load, not logic.
-  - [ ] **Step 2: Implement.** Save the diff below to `/tmp/pf12-task1.diff` and apply it
+  - [x] **Step 2: Implement.** Save the diff below to `/tmp/pf12-task1.diff` and apply it
     (`git apply /tmp/pf12-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at e777ee03; go vet ./... clean with this diff alone; go test -count=1 ./internal/storetest/ ./internal/store/ green; TestMigratedDatabasesAreCopiesOfOneTemplate fails when NewMigratedDatabase migrates per database
@@ -559,15 +559,15 @@ index 00000000..fb4d97e3
 +}
 ````
 
-  - [ ] **Step 3: Prove the seam.** In `stats/internal/storetest/storetest.go`, temporarily replace
+  - [x] **Step 3: Prove the seam.** In `stats/internal/storetest/storetest.go`, temporarily replace
     `NewMigratedDatabase`'s `return createDatabase(t, templateName)` with an empty
     `createDatabase(t, "")` followed by `store.Open` + `RunMigrations` on it, run
     `cd stats && go test -count=1 -run TestMigratedDatabasesAreCopiesOfOneTemplate ./internal/storetest/`
     and see it FAIL with `applied at … in one database and … in the other`; restore the file
     (`git diff --stat` shows only the diff's own changes) and see it pass.
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l ./internal/storetest ./internal/store && go vet ./... && go test -count=1 ./internal/storetest/ && go test -count=1 ./internal/store/ -run 'TestProjectRootsListsRegisteredCheckouts|TestConcurrentBeginStageForOneSessionLeavesOneOpenRun|TestPriceFreezesCostAndVersion'`
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l ./internal/storetest ./internal/store && go vet ./... && go test -count=1 ./internal/storetest/ && go test -count=1 ./internal/store/ -run 'TestProjectRootsListsRegisteredCheckouts|TestConcurrentBeginStageForOneSessionLeavesOneOpenRun|TestPriceFreezesCostAndVersion'`
     — gofmt prints nothing, the rest exit 0.
-  - [ ] **Step 5: Commit** the four files with the subject below.
+  - [x] **Step 5: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/storetest/storetest.go`, `stats/internal/storetest/storetest_test.go`, `stats/internal/storetest/storetest_internal_test.go`, `stats/internal/store/testsupport_test.go`
@@ -583,8 +583,8 @@ index 00000000..fb4d97e3
 **Decision:** storetest-package
 **Decision:** main-sweeps-leftovers
 
-- [ ] 2. Switch the other store-backed packages to the template
-  - [ ] **Step 1: Implement.** Save the diff below to `/tmp/pf12-task2.diff` and apply it
+- [x] 2. Switch the other store-backed packages to the template
+  - [x] **Step 1: Implement.** Save the diff below to `/tmp/pf12-task2.diff` and apply it
     (`git apply /tmp/pf12-task2.diff`):
 
 ````diff verified:applied with git apply to this worktree at e777ee03 on top of Task 1's diff; go vet clean; the whole stats suite green 2 of 2 plain and 2 of 2 with -race at load averages 17–24
@@ -1219,9 +1219,9 @@ index 18da1018..eada7eb0 100644
  // seedChange puts a minimal, valid change under projectKey/name so a
 ````
 
-  - [ ] **Step 2: Verify.** `cd stats && gofmt -l ./internal/reconcile ./internal/sweep ./internal/harvest ./internal/api ./cmd/flow && go vet ./... && go test -count=1 ./internal/harvest/ -run 'TestMarkedStageBindsToRealSessionEndToEnd' && go test -count=1 ./internal/api/ -run 'TestMultiRepoChangeIsOneRowInEveryView|TestCostPerChangeAcceptsChangeAlone' && go test -count=1 ./cmd/flow/ -run 'TestJournalFlushCommand' && go test -count=1 ./internal/reconcile/ ./internal/sweep/`
+  - [x] **Step 2: Verify.** `cd stats && gofmt -l ./internal/reconcile ./internal/sweep ./internal/harvest ./internal/api ./cmd/flow && go vet ./... && go test -count=1 ./internal/harvest/ -run 'TestMarkedStageBindsToRealSessionEndToEnd' && go test -count=1 ./internal/api/ -run 'TestMultiRepoChangeIsOneRowInEveryView|TestCostPerChangeAcceptsChangeAlone' && go test -count=1 ./cmd/flow/ -run 'TestJournalFlushCommand' && go test -count=1 ./internal/reconcile/ ./internal/sweep/`
     — gofmt prints nothing, the rest exit 0.
-  - [ ] **Step 3: Commit** the five files with the subject below.
+  - [x] **Step 3: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/reconcile/testsupport_test.go`, `stats/internal/sweep/testsupport_test.go`, `stats/internal/harvest/endtoend_test.go`, `stats/internal/api/stats_test.go`, `stats/cmd/flow/journal_test.go`
