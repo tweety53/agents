@@ -385,14 +385,16 @@ the panel reviews the whole diff anyway:
 > of this pass.
 
 **A defect raised by several roles is recorded per role and fixed once.** Findings from different
-roles that cite the same `file:line` and name the same root cause are one defect: the first in
-roster order is recorded as usual, and every other raising role's row is recorded under its own
-`-slot` with `-supersedes F<first>`. Before the fix dispatch the parent folds them: the fix
+roles in the same round that cite the same `file:line` and name the same root cause are one
+defect: the first in roster order is recorded as usual, and every other raising role's row is
+recorded under its own `-slot` with `-supersedes F<first>`. Before the fix dispatch the parent folds them: the fix
 subagent receives the defect as one structured block, the first row's, listing every linked
 `F<n>`; only the first row's role re-runs on it (**Panel re-runs**,
 `skills/flow/review-panel-fix-round.md`); and each linked row takes the first row's verdict — its
 `flow record status` recorded in the same call, with the same status. Findings that differ in
-location or in root cause are never folded, however alike their prose.
+location or in root cause are never folded, however alike their prose, and neither is a row whose
+`-supersedes` names a row of an earlier round: that is the same defect re-raised by a later fix
+round, and its own role re-runs on it.
 
 **A finding recorded under a joined slot that a per-role re-run must cover is withdrawn with the chain named, and re-recorded under each raising role.** The joined row's `-slot` names the bundle and no single role, so a fix round's slot coverage (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) and `check-panel-findings-closed.sh` have no row they can close. Withdraw it — `flow record status -change <name> -ref F<n> -status 'withdrawn <reason>'`, the reason naming the chain: the joined row it leaves and the per-role re-run that needs single-role rows — then record the defect once per raising role, `flow record finding` under each role's own single-role `-slot` with the bundle's `-dispatch-seq`.
 

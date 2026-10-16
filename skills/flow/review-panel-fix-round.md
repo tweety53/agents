@@ -88,7 +88,7 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
 
 - **a slot re-runs when it raised a finding the round touched — Critical, Important or Minor
   alike — or the previous round raised a new Critical**, a row linked by `-supersedes` to another
-  role's row counting as that other role's (**Bundled dispatch**, `skills/flow/review-panel.md`);
+  role's row of the same round counting as that other role's (**Bundled dispatch**, `skills/flow/review-panel.md`);
   the new-Critical clause sends every slot
   in the resolved roster, Primary included, and every operator-added slot already dispatched in
   an earlier pass of this run. **A fix round is never exempt from being itself reviewed**: the
