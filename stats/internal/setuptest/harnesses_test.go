@@ -139,6 +139,8 @@ func TestZcodeGlobalSelfContained(t *testing.T) {
 	g.assertContains("the claude block keeps its own pointers — no rewrite leak", filepath.Join(home, ".claude/CLAUDE.md"), "Full rule: `~/.claude/rules/cored.md`")
 	g.assertContains("the zcode hook registration snippet is printed", g.log, ".zcode/hooks/enforce-agent-baseline.py")
 	g.assertContains("the zcode flow-active-change registration snippet is printed", g.log, ".zcode/hooks/flow-active-change.py")
+	g.assertSymlink("the zcode enforce-loop-dispatch hook is linked", filepath.Join(z, "hooks/enforce-loop-dispatch.py"))
+	g.assertContains("the zcode enforce-loop-dispatch registration snippet is printed", g.log, ".zcode/hooks/enforce-loop-dispatch.py")
 
 	// --- idempotence: a second global must refresh the zcode layer, never duplicate it.
 	home = g.newHome()

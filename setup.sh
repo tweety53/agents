@@ -389,17 +389,46 @@ install_rules_zcode() {
 # only a real grep failure (rc ≥ 2), the same way every other caller in this script
 # does. The helper itself always returns 0: the printed warning is the user's whole
 # remedy, and "unregistered" must never fail the install.
+#
+# A snippet carrying `"timeout": N` also pins the registered entry's timeout: a registered
+# hook whose every command entry naming <hook-identifier> lacks that exact timeout gets
+# its own warning and the snippet, since a harness default below the hook's own budget
+# kills it mid-check.
 warn_unregistered_hook() {
-  local config="$1" identifier="$2" label="$3" rc=1
+  local config="$1" identifier="$2" label="$3" rc=1 snippet want
   shift 3
+  snippet=$(cat)
   if [[ -f "$config" ]]; then
     rc=0
     grep -q "$identifier" "$config" || rc=$?
     require_grep_ok "$rc" "checking $config for the $label hook"
   fi
-  (( rc == 0 )) && return 0
+  if (( rc == 0 )); then
+    want=$(sed -n 's/.*"timeout": *\([0-9][0-9]*\).*/\1/p' <<<"$snippet" | head -n1)
+    [[ -z "$want" ]] && return 0
+    python3 - "$config" "$identifier" "$want" <<'PY' && return 0
+import json, sys
+path, ident, want = sys.argv[1], sys.argv[2], int(sys.argv[3])
+def walk(o):
+    if isinstance(o, dict):
+        if ident in str(o.get("command", "")):
+            yield o.get("timeout")
+        for v in o.values():
+            yield from walk(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from walk(v)
+try:
+    found = list(walk(json.load(open(path))))
+except (OSError, ValueError):
+    sys.exit(1)
+sys.exit(0 if want in found else 1)
+PY
+    set -- "  ⚠ The $label hook is registered in $config without \"timeout\": $want," \
+      "    so the harness may kill it mid-check. Register it as:"
+  fi
   printf '%s\n' "" "$@"
-  cat
+  printf '%s\n' "$snippet"
   printf '\n'
 }
 
@@ -436,6 +465,15 @@ install_hooks_zcode() {
       ]
     }
   }
+SNIPPET
+  warn_unregistered_hook "$config" enforce-loop-dispatch enforce-loop-dispatch \
+    "  ⚠ The enforce-loop-dispatch hook is installed but NOT registered, so nothing yet admits" \
+    "    a pipeline-fix or self-review loop dispatch off its pairs row, or records it. Add" \
+    "    this entry to \"PreToolUse\" under \"hooks\".\"events\" in $config:" <<'SNIPPET'
+
+        { "matcher": "Agent|Task", "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/enforce-loop-dispatch.py\"", "timeout": 300 }
+        ] }
 SNIPPET
   warn_unregistered_hook "$config" flow-active-change flow-active-change \
     "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem" \
@@ -544,6 +582,18 @@ install_hooks() {
       }
     ]
 SNIPPET
+  warn_unregistered_hook "$settings" enforce-loop-dispatch enforce-loop-dispatch \
+    "  ⚠ The enforce-loop-dispatch hook is installed but NOT registered, so nothing yet admits" \
+    "    a pipeline-fix or self-review loop dispatch off its pairs row, or records it." \
+    "    Add this entry to \"PreToolUse\" in $settings:" <<'SNIPPET'
+
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/enforce-loop-dispatch.py\"", "timeout": 300 }
+        ]
+      }
+SNIPPET
   warn_unregistered_hook "$settings" flow-active-change flow-active-change \
     "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem" \
     "    report is never named as a fix of the open change. Add this to \"hooks\" in $settings:" <<'SNIPPET'
@@ -564,7 +614,7 @@ SNIPPET
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/protect-main-checkout.py\"" }
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/protect-main-checkout.py\"", "timeout": 300 }
         ]
       }
 SNIPPET

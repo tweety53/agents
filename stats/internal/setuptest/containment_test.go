@@ -85,6 +85,10 @@ func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 	g.assertContains("the protect-main-checkout registration snippet is printed", g.log, ".claude/hooks/protect-main-checkout.py")
 	g.assertContains("the claude agent-baseline registration snippet is printed", g.log, ".claude/hooks/enforce-agent-baseline.py")
 	g.assertContains("the claude flow-active-change registration snippet is printed", g.log, ".claude/hooks/flow-active-change.py")
+	g.assertExists("the enforce-loop-dispatch hook is installed", filepath.Join(hooks, "enforce-loop-dispatch.py"))
+	g.assertContains("an unregistered enforce-loop-dispatch hook is reported", g.log,
+		"enforce-loop-dispatch hook is installed but NOT registered")
+	g.assertContains("the claude enforce-loop-dispatch registration snippet is printed", g.log, ".claude/hooks/enforce-loop-dispatch.py")
 
 	// An unbalanced marker renders the wrong amount of text into every block, so it must abort
 	// the run rather than ship a half-rule.
@@ -347,4 +351,19 @@ func repoDirs(t *testing.T, dir string) []string {
 		}
 	}
 	return out
+}
+
+func TestRegisteredHookTimeoutIsChecked(t *testing.T) {
+	g := newGroup(t)
+	home := g.newHome()
+	g.seedFile(filepath.Join(home, ".claude/settings.json"), 0o644, `{"hooks":{"PreToolUse":[
+  {"matcher":"Bash","hooks":[{"type":"command","command":"python3 \"$HOME/.claude/hooks/protect-main-checkout.py\""}]},
+  {"matcher":"Agent|Task","hooks":[{"type":"command","command":"python3 \"$HOME/.claude/hooks/enforce-loop-dispatch.py\"","timeout":300}]}
+]}}`)
+	g.runSetup(repoRoot, home, "global", "")
+	g.assertRCZero("the install succeeds", g.rc, g.log)
+	g.assertContains("a registered hook missing its timeout is reported", g.log,
+		"protect-main-checkout hook is registered in "+filepath.Join(home, ".claude/settings.json")+` without "timeout": 300`)
+	g.assertNotContains("a registered hook with its timeout is not reported", g.log,
+		"enforce-loop-dispatch hook is registered in")
 }

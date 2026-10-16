@@ -132,11 +132,20 @@ handshake** there applying to each reply. Every dispatch is one-shot: no `SendMe
 it returns. The no-progress escalation of **Fewest operator actions**
 (`skills/flow-contracts/pipeline.md`) still runs on `flow-high`.
 
-**The pairs are this file's own**, and **Pipeline defects found mid-run** cites them: **the planner
-pair** is `subagent_type: flow-medium` on `opus`; **the fixer pair** is `flow-low` on `opus`;
-**the review pair** is `opus` for the first review (`<r>` = 1), on `flow-medium` or `flow-low` as
-the planner recorded — `flow-medium` when it recorded none — and `flow-low` on `sonnet` for
-every re-review after a fix.
+**The pairs are this file's own**, and **Pipeline defects found mid-run** cites them — one row per
+key suffix, the table `check-loop-dispatch.sh` reads and refuses a loop dispatch off:
+
+| Key suffix | `subagent_type` | Model | On a recorded escalation |
+|---|---|---|---|
+| `pass` | `flow-medium` | `opus` | — |
+| `plan`, `plan-<n>` | `flow-medium` | `opus` | `flow-high` |
+| `fix`, `fix-<r>`, `fix-g<g>`, `fix-v<v>` | `flow-low` | `opus` | `flow-high` |
+| `review-1` | `flow-medium`, `flow-low` | `opus` | — |
+| `review-<r>` | `flow-low` | `sonnet` | — |
+
+**The planner pair** is the `plan` row, **the fixer pair** the `fix` row and **the review pair**
+the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded —
+`flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
 
 `<agents-base>` is the one **Pipeline defects found mid-run** binds. `<fix-branch>` and
 `<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose
