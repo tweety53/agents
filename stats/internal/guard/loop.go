@@ -268,14 +268,19 @@ var (
 
 // lpFirstReviewType is the subagent_type the planner recorded for review-1 in
 // the loop's design.md (its `first-review-effort` decision's **Chosen:**
-// line), read from the loop's branch -- the change's own spectre/<name> for a
-// self-review on it; flow-medium when it recorded none.
+// line). The loop's plan is always spectre/changes/<loop branch name>/ --
+// self-review-<name> on the change's own branch too -- read from the loop's
+// branch, or for a self-review on the change's own branch from spectre/<name>
+// (/flow) or <name> (/flow-fast); flow-medium when it recorded none.
 func lpFirstReviewType(env Env, git, repo string, lp lpLoop) string {
 	ref := lp.token
-	if !lpBranchExists(env, git, repo, ref) {
-		ref = "spectre/" + lp.change
+	for _, b := range []string{"spectre/" + lp.change, lp.change} {
+		if lpBranchExists(env, git, repo, ref) {
+			break
+		}
+		ref = b
 	}
-	rc, body := kwRun(env, "", git, "-C", repo, "show", "refs/heads/"+ref+":spectre/changes/"+lp.change+"/design.md")
+	rc, body := kwRun(env, "", git, "-C", repo, "show", "refs/heads/"+ref+":spectre/changes/"+lp.token+"/design.md")
 	if rc != 0 {
 		return "flow-medium"
 	}

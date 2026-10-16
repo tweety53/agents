@@ -183,7 +183,8 @@ func TestCheckLoopDispatchUnreadableTable(t *testing.T) {
 // A self-review on a change's own branch in another project -- no
 // self-review-<name> branch in <agents repo> -- files its rows in that
 // project's flowd project: flow runs with -C the caller's main checkout, and
-// review-1's first-review-effort is read from that project's spectre/<name>.
+// review-1's first-review-effort is read from the loop's own plan,
+// spectre/changes/self-review-<name>/, on that project's spectre/<name>.
 // A self-review-<name> loop branch in <agents repo> still files there.
 func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	t.Parallel()
@@ -194,7 +195,7 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	gitRun(t, proj, "add", "-A")
 	gitRun(t, proj, "commit", "-q", "-m", "init")
 	gitRun(t, proj, "checkout", "-q", "-b", "spectre/kan-1-demo")
-	writeFile(t, proj+"/spectre/changes/kan-1-demo/design.md", lpDesignLow)
+	writeFile(t, proj+"/spectre/changes/self-review-kan-1-demo/design.md", lpDesignLow)
 	gitRun(t, proj, "add", "-A")
 	gitRun(t, proj, "commit", "-q", "-m", "plan")
 	gitRun(t, proj, "checkout", "-q", "develop")
@@ -210,5 +211,20 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	if rc, out := fx.run(t, "self-review-kan-1-demo-fix", "flow-low", "opus"); rc != 0 ||
 		!strings.Contains(fx.calls(t), "record dispatch begin -C "+fx.repo+" -change self-review-kan-1-demo") {
 		t.Fatalf("a self-review loop branch left <agents repo>: rc %d: %s\n%s", rc, out, fx.calls(t))
+	}
+}
+
+// A self-review on a /flow-fast change's own branch, <name> with no spectre/
+// prefix, reads review-1's first-review-effort from the loop's plan there.
+func TestCheckLoopDispatchOwnFastBranchReadsLoopPlan(t *testing.T) {
+	t.Parallel()
+	fx := lpNew(t, lpRowsJSON("self-review-kan-1-demo-", "self-review-kan-1-demo", "plan completed", "fix completed"))
+	gitRun(t, fx.repo, "checkout", "-q", "-b", "kan-1-demo")
+	writeFile(t, fx.repo+"/spectre/changes/self-review-kan-1-demo/design.md", lpDesignLow)
+	gitRun(t, fx.repo, "add", "-A")
+	gitRun(t, fx.repo, "commit", "-q", "-m", "plan")
+	gitRun(t, fx.repo, "checkout", "-q", "main")
+	if rc, out := fx.run(t, "self-review-kan-1-demo-review-1", "flow-low", "opus"); rc != 0 {
+		t.Fatalf("rc %d: %s", rc, out)
 	}
 }
