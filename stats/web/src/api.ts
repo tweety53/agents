@@ -290,12 +290,12 @@ export interface StageLeaderboardRow {
 }
 
 /** Mirrors flowSummaryDTO (internal/api/health.go): the flow-summary
- * view's one object of period totals. The means are null when nothing in
- * the period finished or recorded a round -- absence, never a zero. */
+ * view's one object of period totals. The cost and mean figures are null
+ * when nothing in the period was measured -- absence, never a zero. */
 export interface FlowSummary {
   changesStarted: number;
   changesFinished: number;
-  totalCostUsd: number;
+  totalCostUsd: number | null;
   meanCostPerFinished: number | null;
   medianLeadTimeMs: number | null;
   meanPanelRounds: number | null;

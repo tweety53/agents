@@ -71,14 +71,17 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 // FlowSummaryRow is the flow-health dashboard's eight period totals
 // (design.md's flow-health-tiles). A change starts at its first stage run
 // and finishes at its FINISHED write -- a withdrawal is not a finish.
-// MeanCostPerFinished is the whole-life cost of the changes finished in the
-// period; MedianLeadTimeMs runs from a finished change's first stage start
-// to its finish. Both are nil when nothing finished, and MeanPanelRounds
-// when no change in the period recorded a round -- absence, never a zero.
+// TotalCostUsd is nil when no stage run started in the period carried a
+// cost. MeanCostPerFinished is the whole-life cost of the changes finished
+// in the period that carried one -- a finished change with no costed stage
+// run is skipped, never averaged in as $0; MedianLeadTimeMs runs from a
+// finished change's first stage start to its finish. Both are nil when no
+// finished change was measured, and MeanPanelRounds when no change in the
+// period recorded a round -- absence, never a zero.
 type FlowSummaryRow struct {
 	ChangesStarted      int
 	ChangesFinished     int
-	TotalCostUsd        float64
+	TotalCostUsd        *float64
 	MeanCostPerFinished *float64
 	MedianLeadTimeMs    *int64
 	MeanPanelRounds     *float64
@@ -97,9 +100,7 @@ func (s *Store) FlowSummary(ctx context.Context, period Period, project *string)
 	var lead *float64
 	err := s.pool.QueryRow(ctx, `
 		WITH costed AS (
-			SELECT sr.change_id, sr.started_at,
-				CASE WHEN jsonb_typeof(sr.metrics->'cost_usd') = 'number'
-				     THEN (sr.metrics->>'cost_usd')::float8 END AS cost
+			SELECT sr.change_id, sr.started_at, `+stageRunCostExpr+` AS cost
 			FROM stage_runs sr
 			JOIN changes c ON c.id = sr.change_id
 			WHERE ($3::text IS NULL OR c.project_key = $3)
@@ -110,7 +111,7 @@ func (s *Store) FlowSummary(ctx context.Context, period Period, project *string)
 			GROUP BY change_id
 		),
 		finished AS (
-			SELECT c.updated_at, f.first_start, COALESCE(f.life_cost, 0) AS life_cost
+			SELECT c.updated_at, f.first_start, f.life_cost
 			FROM changes c
 			LEFT JOIN firsts f ON f.change_id = c.id
 			WHERE c.state = 'FINISHED' AND NOT c.withdrawn
@@ -120,7 +121,7 @@ func (s *Store) FlowSummary(ctx context.Context, period Period, project *string)
 		SELECT
 			(SELECT COUNT(*)::int FROM firsts WHERE first_start >= $1 AND first_start < $2),
 			(SELECT COUNT(*)::int FROM finished),
-			(SELECT COALESCE(SUM(cost), 0)::float8 FROM costed WHERE started_at >= $1 AND started_at < $2),
+			(SELECT SUM(cost)::float8 FROM costed WHERE started_at >= $1 AND started_at < $2),
 			(SELECT AVG(life_cost)::float8 FROM finished),
 			(SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM updated_at - first_start) * 1000)
 				FROM finished WHERE first_start IS NOT NULL),

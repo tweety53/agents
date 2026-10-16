@@ -31,19 +31,24 @@ interface ClassExecutionSummaryRow {
 // (static / free / default) is a fourth axis the same table now carries: a
 // free run and a static run of the same class and execution are not
 // comparable runs to average together.
-function summarizeByClassAndExecution(rows: DecisionRow[]): ClassExecutionSummaryRow[] {
+function groupBy(rows: DecisionRow[], key: (r: DecisionRow) => string): Map<string, DecisionRow[]> {
   const groups = new Map<string, DecisionRow[]>();
   for (const row of rows) {
-    const key = `${row.class} ${row.execution} ${row.grouping}`;
-    const group = groups.get(key);
+    const k = key(row);
+    const group = groups.get(k);
     if (group) group.push(row);
-    else groups.set(key, [row]);
+    else groups.set(k, [row]);
   }
-  return Array.from(groups.entries())
+  return groups;
+}
+
+const totalFindings = (r: DecisionRow) => r.critical + r.important + r.minor;
+
+function summarizeByClassAndExecution(rows: DecisionRow[]): ClassExecutionSummaryRow[] {
+  return Array.from(groupBy(rows, (r) => `${r.class} ${r.execution} ${r.grouping}`).entries())
     .map(([key, group]) => {
       const [cls, execution, grouping] = key.split(" ");
       const count = group.length;
-      const totalFindings = (r: DecisionRow) => r.critical + r.important + r.minor;
       return {
         key,
         class: cls,
@@ -104,21 +109,15 @@ interface ImplementerModelSummaryRow {
 // default run groups under the string its decision recorded ("skipped —
 // inline", "default"), never folded into a model.
 function summarizeByImplementerModel(rows: DecisionRow[]): ImplementerModelSummaryRow[] {
-  const groups = new Map<string, DecisionRow[]>();
-  for (const row of rows) {
-    const group = groups.get(row.implementerModel);
-    if (group) group.push(row);
-    else groups.set(row.implementerModel, [row]);
-  }
   const mean = (group: DecisionRow[], value: (r: DecisionRow) => number) =>
     group.reduce((sum, r) => sum + value(r), 0) / group.length;
-  return Array.from(groups.entries())
+  return Array.from(groupBy(rows, (r) => r.implementerModel).entries())
     .map(([implementerModel, group]) => ({
       implementerModel,
       count: group.length,
       meanCostUsd: mean(group, (r) => r.costUsd),
       meanWallClockSeconds: mean(group, (r) => r.wallClockSeconds),
-      meanFindings: mean(group, (r) => r.critical + r.important + r.minor),
+      meanFindings: mean(group, totalFindings),
       meanFixRounds: mean(group, (r) => r.fixRounds),
     }))
     .sort((a, b) => b.count - a.count || a.implementerModel.localeCompare(b.implementerModel));

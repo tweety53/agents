@@ -12,15 +12,8 @@ import { StatPanel } from "../components/StatPanel";
 import { ViewFrame } from "../components/ViewFrame";
 import type { FlowSummary } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
-import { formatInt, formatMs, formatRatio, formatUsd } from "../format";
+import { formatDays, formatInt, formatRatio, formatUsd } from "../format";
 import type { ViewProps } from "../viewTypes";
-
-const DAY_MS = 86_400_000;
-
-/** A lead time runs to days; anything shorter reads in formatMs's units. */
-function formatLeadTime(ms: number): string {
-  return ms >= DAY_MS ? `${(ms / DAY_MS).toFixed(1)} d` : formatMs(ms);
-}
 
 export function FlowHealth({ period, project }: ViewProps) {
   const state = useStatsView<FlowSummary>("flow-summary", { from: period.from, to: period.to, project });
@@ -42,7 +35,7 @@ export function FlowHealth({ period, project }: ViewProps) {
         {tile("Mean cost per finished change", (s) => s.meanCostPerFinished, formatUsd)}
       </div>
       <div className="dashboard-stat-row">
-        {tile("Median lead time", (s) => s.medianLeadTimeMs, formatLeadTime)}
+        {tile("Median lead time", (s) => s.medianLeadTimeMs, formatDays)}
         {tile("Mean panel rounds", (s) => s.meanPanelRounds, formatRatio)}
         <Panel title="Findings (C/I/Mi)" state={state}>
           {({ rows: s }) => (

@@ -411,8 +411,9 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// runs carry a measurement" would be a wasted query answering a
 	// question that period does not raise.
 	// The flow-health view counts changes, guard runs and panel rounds,
-	// none of which is a token measurement, so "no run carried a
-	// measurement" says nothing about them and would hide real rows.
+	// and its two cost totals state their own absence (nil) -- so "no run
+	// carried a measurement" says nothing it does not already say, and
+	// would hide real rows.
 	var unmeasured bool
 	if recorded && !isHealthView(name) {
 		unmeasured, err = h.store.AllRecordedRunsUnmeasured(r.Context(), period, project)

@@ -16,6 +16,13 @@ export function formatRatio(value: number): string {
   return value.toFixed(2);
 }
 
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A span that can run to days (a lead time); shorter reads in formatMs's units. */
+export function formatDays(value: number): string {
+  return value >= DAY_MS ? `${(value / DAY_MS).toFixed(1)} d` : formatMs(value);
+}
+
 export function formatMs(value: number): string {
   if (value < 1000) return `${Math.round(value)} ms`;
   const seconds = value / 1000;

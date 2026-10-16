@@ -47,6 +47,15 @@ type LiveStateRow struct {
 	Errors      int
 }
 
+// signalErrorsExpr is one stage run's tool and API errors, main and
+// sidechain, each counted only where the signal is a JSON number. Four
+// plain terms rather than an unnest per row: the board pays this per stage
+// run of every change it lists.
+const signalErrorsExpr = `(CASE WHEN jsonb_typeof(sr.metrics #> '{signals,main,tool_errors}') = 'number' THEN (sr.metrics #>> '{signals,main,tool_errors}')::int ELSE 0 END
+	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,main,api_errors}') = 'number' THEN (sr.metrics #>> '{signals,main,api_errors}')::int ELSE 0 END
+	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,sidechain,tool_errors}') = 'number' THEN (sr.metrics #>> '{signals,sidechain,tool_errors}')::int ELSE 0 END
+	+ CASE WHEN jsonb_typeof(sr.metrics #> '{signals,sidechain,api_errors}') = 'number' THEN (sr.metrics #>> '{signals,sidechain,api_errors}')::int ELSE 0 END)`
+
 // LiveStateBoard lists every change updated within period, optionally
 // restricted to one project. A period containing no changes returns an
 // empty slice, never an error.
@@ -76,21 +85,11 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project *stri
 			       COALESCE(SUM(r.wall_ms), 0)::bigint AS wall_ms,
 			       COALESCE(SUM(r.errors), 0)::int AS errors
 			FROM (
-				SELECT SUM(CASE WHEN jsonb_typeof(sr.metrics->'cost_usd') = 'number'
-				                THEN (sr.metrics->>'cost_usd')::float8 END) AS cost,
+				SELECT SUM(`+stageRunCostExpr+`) AS cost,
 				       CASE WHEN bool_and(sr.ended_at IS NOT NULL)
 				            THEN floor(EXTRACT(EPOCH FROM MAX(sr.ended_at) - MIN(sr.started_at)) * 1000)
 				            ELSE 0 END AS wall_ms,
-				       SUM((
-				           SELECT COALESCE(SUM((v #>> '{}')::numeric), 0)
-				           FROM unnest(ARRAY[
-				               sr.metrics #> '{signals,main,tool_errors}',
-				               sr.metrics #> '{signals,main,api_errors}',
-				               sr.metrics #> '{signals,sidechain,tool_errors}',
-				               sr.metrics #> '{signals,sidechain,api_errors}'
-				           ]) v
-				           WHERE jsonb_typeof(v) = 'number'
-				       )) AS errors
+				       SUM(`+signalErrorsExpr+`) AS errors
 				FROM stage_runs sr
 				WHERE sr.change_id = c.id
 				GROUP BY COALESCE(sr.session_token, 'stage-' || sr.id)

@@ -3,7 +3,7 @@ import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
 
 // This change (KAN-472's own diff) adds two new static views -- Reviewers
 // and Decisions -- that baseline.spec.ts (Dashboard, RunDetail) and
-// views.spec.ts (stage leaderboard, trend, cache efficiency) do not cover.
+// views.spec.ts (stage leaderboard, trend) do not cover.
 // Each spec follows baseline.spec.ts's own shape: assert the data actually
 // loaded, assert the dark palette applied, then toHaveScreenshot.
 

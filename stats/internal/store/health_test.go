@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -101,7 +102,7 @@ func TestFlowSummaryTotals(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-summary-%d", time.Now().UnixNano())
-	for _, name := range []string{"kan-1", "kan-2", "kan-3", "kan-4"} {
+	for _, name := range []string{"kan-1", "kan-2", "kan-3", "kan-4", "kan-5"} {
 		seedChange(t, st, projectKey, name)
 	}
 
@@ -120,6 +121,10 @@ func TestFlowSummaryTotals(t *testing.T) {
 	stage("kan-2", "flow.review-panel", kan2Start, 4.0)
 	// kan-3 started inside it and was withdrawn.
 	stage("kan-3", "flow.kickoff", time.Date(2026, 8, 11, 9, 0, 0, 0, time.UTC), 0.5)
+	// kan-5 started and finished inside it, a day apart: three lead times
+	// whose median (2 days) differs from their mean.
+	kan5Start := time.Date(2026, 8, 20, 9, 0, 0, 0, time.UTC)
+	stage("kan-5", "flow.kickoff", kan5Start, 1.0)
 
 	finish := func(name string, at time.Time, withdrawn bool) {
 		t.Helper()
@@ -133,6 +138,10 @@ func TestFlowSummaryTotals(t *testing.T) {
 	finish("kan-1", kan1End, false)
 	finish("kan-2", kan2Start.Add(48*time.Hour), false)
 	finish("kan-3", time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC), true)
+	// kan-4 finished with no stage run: counted finished, never averaged in
+	// as $0 and never given a lead time.
+	finish("kan-4", time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC), false)
+	finish("kan-5", kan5Start.Add(24*time.Hour), false)
 
 	for _, f := range []records.Finding{
 		{Ref: "F1", Round: 0, Slot: "primary", Severity: "Critical", Note: "a", Status: "fixed"},
@@ -158,18 +167,17 @@ func TestFlowSummaryTotals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FlowSummary: %v", err)
 	}
-	if got.ChangesStarted != 2 || got.ChangesFinished != 2 {
-		t.Errorf("started/finished = %d/%d, want 2/2 (kan-2, kan-3 started; kan-1, kan-2 finished)", got.ChangesStarted, got.ChangesFinished)
+	if got.ChangesStarted != 3 || got.ChangesFinished != 4 {
+		t.Errorf("started/finished = %d/%d, want 3/4 (kan-2, kan-3, kan-5 started; kan-1, kan-2, kan-4, kan-5 finished)", got.ChangesStarted, got.ChangesFinished)
 	}
-	if got.TotalCostUsd != 6.5 {
-		t.Errorf("TotalCostUsd = %v, want 6.5 (2.0 + 4.0 + 0.5 started in period)", got.TotalCostUsd)
+	if got.TotalCostUsd == nil || *got.TotalCostUsd != 7.5 {
+		t.Errorf("TotalCostUsd = %v, want 7.5 (2.0 + 4.0 + 0.5 + 1.0 started in period)", got.TotalCostUsd)
 	}
-	if got.MeanCostPerFinished == nil || *got.MeanCostPerFinished != 3.5 {
-		t.Errorf("MeanCostPerFinished = %v, want 3.5 (whole-life 3.0 and 4.0)", got.MeanCostPerFinished)
+	if want := 8.0 / 3; got.MeanCostPerFinished == nil || math.Abs(*got.MeanCostPerFinished-want) > 1e-9 {
+		t.Errorf("MeanCostPerFinished = %v, want %v (whole-life 3.0, 4.0, 1.0; kan-4 unmeasured)", got.MeanCostPerFinished, want)
 	}
-	wantLead := (kan1End.Sub(kan1Start) + 48*time.Hour).Milliseconds() / 2
-	if got.MedianLeadTimeMs == nil || *got.MedianLeadTimeMs != wantLead {
-		t.Errorf("MedianLeadTimeMs = %v, want %d", got.MedianLeadTimeMs, wantLead)
+	if want := (48 * time.Hour).Milliseconds(); got.MedianLeadTimeMs == nil || *got.MedianLeadTimeMs != want {
+		t.Errorf("MedianLeadTimeMs = %v, want %d (the median of 24d2h, 2d and 1d)", got.MedianLeadTimeMs, want)
 	}
 	if got.MeanPanelRounds == nil || *got.MeanPanelRounds != 2 {
 		t.Errorf("MeanPanelRounds = %v, want 2 (kan-1's two rounds; kan-2 recorded none)", got.MeanPanelRounds)
@@ -179,5 +187,15 @@ func TestFlowSummaryTotals(t *testing.T) {
 	}
 	if got.GuardFires != 2 {
 		t.Errorf("GuardFires = %d, want 2", got.GuardFires)
+	}
+
+	empty, err := st.FlowSummary(ctx, store.Period{
+		From: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2020, 2, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey)
+	if err != nil {
+		t.Fatalf("FlowSummary(empty): %v", err)
+	}
+	if empty.TotalCostUsd != nil || empty.MeanCostPerFinished != nil || empty.MedianLeadTimeMs != nil {
+		t.Errorf("empty period = %+v, want nil cost and lead figures, never a zero", empty)
 	}
 }

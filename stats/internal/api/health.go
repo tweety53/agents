@@ -53,7 +53,7 @@ func (h *statsHandler) healthRows(ctx context.Context, name viewName, period sto
 type flowSummaryDTO struct {
 	ChangesStarted      int      `json:"changesStarted"`
 	ChangesFinished     int      `json:"changesFinished"`
-	TotalCostUsd        float64  `json:"totalCostUsd"`
+	TotalCostUsd        *float64 `json:"totalCostUsd"`
 	MeanCostPerFinished *float64 `json:"meanCostPerFinished"`
 	MedianLeadTimeMs    *int64   `json:"medianLeadTimeMs"`
 	MeanPanelRounds     *float64 `json:"meanPanelRounds"`

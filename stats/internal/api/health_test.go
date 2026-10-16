@@ -18,10 +18,10 @@ import (
 )
 
 func TestFlowSummaryCarriesItsNumbersThrough(t *testing.T) {
-	meanCost, rounds := 3.5, 2.0
+	total, meanCost, rounds := 6.5, 3.5, 2.0
 	lead := int64(1_126_800_000)
 	sts := &statsFake{flowSummary: store.FlowSummaryRow{
-		ChangesStarted: 2, ChangesFinished: 3, TotalCostUsd: 6.5, MeanCostPerFinished: &meanCost,
+		ChangesStarted: 2, ChangesFinished: 3, TotalCostUsd: &total, MeanCostPerFinished: &meanCost,
 		MedianLeadTimeMs: &lead, MeanPanelRounds: &rounds, Critical: 1, Important: 2, Minor: 4, GuardFires: 7,
 	}}
 	ts := newStatsTestServer(t, sts)
@@ -47,7 +47,7 @@ func TestFlowSummaryCarriesItsNumbersThrough(t *testing.T) {
 	_, env, body = getStats(t, ts, periodPath("flow-summary"))
 	row = nil
 	mustDecodeRows(t, env, body, &row)
-	for _, k := range []string{"meanCostPerFinished", "medianLeadTimeMs", "meanPanelRounds"} {
+	for _, k := range []string{"totalCostUsd", "meanCostPerFinished", "medianLeadTimeMs", "meanPanelRounds"} {
 		if v, ok := row[k]; !ok || v != nil {
 			t.Errorf("empty row[%q] = %v (present %v), want an explicit null", k, v, ok)
 		}
