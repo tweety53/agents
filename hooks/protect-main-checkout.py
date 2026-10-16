@@ -35,6 +35,16 @@ denied too unless scripts/check-loop-landing.sh, in the agents checkout this hoo
 from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
 check fails closed: a checker that cannot answer or cannot run denies the push.
 
+Both landing checks read the push from the command text, so a push the hook cannot read is denied
+rather than let through: one whose repository (`-C <path>`, a `cd`), remote or refspec goes through
+a shell expansion the hook cannot resolve — `$W`, `"${B}:main"`, `$(git branch --show-current)`, a
+backtick — and whose destination is the default branch or cannot be told (0b055e56 landed a
+`pipeline-fix-*` branch with no flowd records through `git -C $W push origin $B:main`). The reason
+asks for literal names. A push whose destination is a literal other branch (`git -C $W push origin
+spectre/<name>`) passes; an assignment the command itself makes (`B=x; git push origin $B:main`) is
+expanded first, so only names from outside the command count. Scripts are untouched — the hook only
+sees the typed Bash command, never what a script it calls runs.
+
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
 `git worktree add`, `git push`, and the landing scripts (`land-self-review-report.sh`,
 `refresh-main-checkout.sh`) — they are not `git` verbs in the command text, and each owns its own
@@ -387,6 +397,11 @@ def unarchived_landing(args, target):
     return None
 
 
+SEPARATORS = ("&&", "||", ";", "|")
+# Push flags that push every branch, the default branch among them.
+ALL_BRANCH_FLAGS = ("--all", "--mirror", "--branches")
+
+
 def push_refspecs(args, target):
     """(src, dst) for each refspec of `git push <args>`, dst a bare branch name:
     `<src>:<dst>`, a colon-less `<b>` as `<b>:<b>`, HEAD and no refspec at all as
@@ -394,6 +409,9 @@ def push_refspecs(args, target):
     pos = [a for a in args if not a.startswith("-")]
     specs = pos[1:] or ["HEAD"]
     out = []
+    if any(a in ALL_BRANCH_FLAGS for a in args):
+        default = default_branch(target)
+        out += [(d, d) for d in ({default} if default else FALLBACK_DEFAULT_BRANCHES)]
     for a in specs:
         src, colon, dst = a.lstrip("+").partition(":")
         if not colon:
@@ -402,6 +420,37 @@ def push_refspecs(args, target):
             dst = git(target, "branch", "--show-current") or ""
         out.append((src, dst.removeprefix("refs/heads/")))
     return out
+
+
+def unreadable_landing(args, target):
+    """The deny reason when the push may land on the default branch and the hook cannot read it:
+    its repository is unknown (target None, a `-C $W` or `cd $W`), or any of its words holds a
+    shell expansion left unexpanded, and some refspec's destination is the default branch, an
+    expansion, or unknown. Else None."""
+    if target is not None and not any("$" in a or "`" in a for a in args):
+        return None
+    default = default_branch(target) if target else None
+    defaults = {default} if default else FALLBACK_DEFAULT_BRANCHES
+    unknown = any((a.startswith("-") and ("$" in a or "`" in a)) or a in ALL_BRANCH_FLAGS for a in args)
+    pos = [a for a in args if not a.startswith("-")]
+    for a in pos[1:] or ["HEAD"]:
+        src, colon, dst = a.lstrip("+").partition(":")
+        dst = (dst if colon else src).removeprefix("refs/heads/")
+        if dst == "HEAD":
+            dst = git(target, "branch", "--show-current") if target else None
+        if not dst or "$" in dst or "`" in dst or dst in defaults:
+            unknown = True
+    if not unknown:
+        return None
+    return (
+        "Blocked: this push may land on the default branch, and part of it — the repository "
+        "(`-C`, `cd`), the remote or a refspec — goes through a shell expansion (`$VAR`, "
+        "`${VAR}`, `$(...)`, a backtick) the hook cannot resolve, so its landing checks (an open "
+        "spectre change, a fix loop's records) cannot see what it lands. Write the push with "
+        "literal names:\n\n"
+        "  git -C /abs/path/to/worktree push origin <branch>:<default-branch>\n\n"
+        "A fix loop lands with scripts/pipeline-fix.sh land <worktree>."
+    )
 
 
 def loop_landing(args, target):
@@ -472,10 +521,14 @@ def bash_hits(command, cwd, landings=None):
     for line in logical_lines(strip_data_heredocs(command)):
         raw_tokens = tokenize(line)
         tokens = []
-        for raw in raw_tokens:
+        for k, raw in enumerate(raw_tokens):
             if ASSIGNMENT_RE.match(raw):
-                name, _, value = raw.partition("=")
-                env[name] = value
+                # A run of assignments followed by a command word is that command's
+                # prefix: bash does not use it when expanding the command's own words.
+                rest = [t for t in raw_tokens[k + 1 :] if not ASSIGNMENT_RE.match(t)]
+                if not rest or rest[0] in SEPARATORS:
+                    name, _, value = raw.partition("=")
+                    env[name] = value
             tokens.append(expand_vars(raw, env))
         i = 0
         n = len(tokens)
@@ -485,10 +538,16 @@ def bash_hits(command, cwd, landings=None):
                 cur = resolve(tokens[i + 1], cur)
                 i += 2
                 continue
-            if tok == "git":
-                target = cur
+            expanded = "$" in tok or "`" in tok
+            if tok == "git" or (expanded and i + 1 < n and tokens[i + 1] == "push"):
+                # `$GIT push` or `git $OPTS push`: the repository cannot be read.
+                target = None if expanded else cur
                 j = i + 1
-                while j < n and tokens[j].startswith("-"):
+                while j < n and (tokens[j].startswith("-") or "$" in tokens[j] or "`" in tokens[j]):
+                    if not tokens[j].startswith("-"):
+                        target = None
+                        j += 1
+                        continue
                     if tokens[j] == "-C" and j + 1 < n:
                         target = resolve(tokens[j + 1], cur)
                         j += 2
@@ -505,10 +564,13 @@ def bash_hits(command, cwd, landings=None):
                         if t in ("&&", "||", ";", "|"):
                             break
                         args.append(t)
-                    hit = unarchived_landing(args, target)
+                    unreadable = unreadable_landing(args, target)
+                    if unreadable:
+                        landings.append(unreadable)
+                    hit = None if unreadable else unarchived_landing(args, target)
                     if hit:
                         landings.append(landing_reason(*hit))
-                    loop = loop_landing(args, target)
+                    loop = None if unreadable else loop_landing(args, target)
                     if loop:
                         landings.append(loop)
                 i = j + 1

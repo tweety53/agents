@@ -92,6 +92,17 @@
 #       the checker refuses (self-review rows left open)              -> deny
 #   89. two such pushes in one command, each check inside a per-push budget
 #       but together over the command's one budget                    -> deny
+#   90-93. a landing push the hook cannot read, every existing check
+#       admitting it: `git -C $W push origin $B:main`, `"${B}:main"`,
+#       `$(git branch --show-current):main`, a backtick refspec       -> deny each
+#   94. `cd $W && git push origin HEAD` (repository and destination unknown) -> deny
+#   95. `git -C $W push -u origin $B` (destination unknown)          -> deny
+#   96. `git -C $W push origin spectre/x` (a literal non-default destination) -> allow
+#   97. `B=change; git -C <wt> push origin $B` (assigned in the command) -> allow
+#   98. `B=x git -C <wt> push origin $B:main` (prefix assignment)   -> deny
+#   99. `git -C <wt> push --all $R` (--all pushes the default branch) -> deny
+#  100. `git ${OPTS} push origin HEAD` (expanded git option)         -> deny
+#  101. `$GIT push origin HEAD` (expanded git command word)          -> deny
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../hooks/protect-main-checkout.py"
@@ -445,6 +456,32 @@ printf '#!/usr/bin/env bash\nsleep 1.5\n' >"$ROOT/slowcheck"
 chmod +x "$ROOT/slowcheck"
 expect "89 two landing pushes share one checker budget" deny \
   "$(LOOP_LANDING_CHECK="$ROOT/slowcheck" LOOP_LANDING_TIMEOUT=2 run "$ROOT" Bash "{\"command\":$(q "git -C $LWT push origin spectre/chg:main; git -C $LWT push origin spectre/chg:main")}")"
+# 90-97: a push named through an unexpanded shell expansion cannot be checked;
+# the stub admits, so only the unreadable-landing check can deny.
+echo 0 >"$LOOP_RC"
+n=90
+for c in "git -C \$W push origin \$B:main" "git -C $WT push origin \"\${B}:main\"" \
+  "git -C $WT push origin \$(git branch --show-current):main" \
+  "git -C $WT push origin \`git branch --show-current\`:main"; do
+  expect "$n unreadable landing: $c" deny "$(run "$ROOT" Bash "{\"command\":$(q "$c")}")"
+  n=$((n + 1))
+done
+expect "94 cd to an unexpanded path, then push HEAD" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q 'cd $W && git push origin HEAD')}")"
+expect "95 push of an unexpanded branch" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q 'git -C $W push -u origin $B')}")"
+expect "96 unexpanded repository, literal non-default destination" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q 'git -C $W push origin spectre/x')}")"
+expect "97 a branch assigned in the command itself" allow \
+  "$(run "$ROOT" Bash "{\"command\":$(q "B=change; git -C $WT push origin \$B")}")"
+expect "98 a prefix assignment is not seen by its own command's words" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "B=x git -C $WT push origin \$B:main")}")"
+expect "99 --all with an unexpanded remote pushes the default branch too" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git -C $WT push --all \$R")}")"
+expect "100 an expanded git option hides the repository" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "git \${OPTS} push origin HEAD")}")"
+expect "101 an expanded git command word" deny \
+  "$(run "$ROOT" Bash "{\"command\":$(q "\$GIT push origin HEAD")}")"
 unset LOOP_LANDING_CHECK
 
 # 3 last: moving the main checkout off main lifts the protection
