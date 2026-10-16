@@ -179,3 +179,36 @@ func TestCheckLoopDispatchUnreadableTable(t *testing.T) {
 		t.Fatalf("rc %d, want 2: %s", rc, out)
 	}
 }
+
+// A self-review on a change's own branch in another project -- no
+// self-review-<name> branch in <agents repo> -- files its rows in that
+// project's flowd project: flow runs with -C the caller's main checkout, and
+// review-1's first-review-effort is read from that project's spectre/<name>.
+// A self-review-<name> loop branch in <agents repo> still files there.
+func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
+	t.Parallel()
+	fx := lpNew(t, lpRowsJSON("self-review-kan-1-demo-", "self-review-kan-1-demo", "plan completed"))
+	proj := filepath.Dir(fx.repo) + "/gymie"
+	writeFile(t, proj+"/README.md", "gymie\n")
+	gitRun(t, "", "init", "-q", "-b", "develop", proj)
+	gitRun(t, proj, "add", "-A")
+	gitRun(t, proj, "commit", "-q", "-m", "init")
+	gitRun(t, proj, "checkout", "-q", "-b", "spectre/kan-1-demo")
+	writeFile(t, proj+"/spectre/changes/kan-1-demo/design.md", lpDesignLow)
+	gitRun(t, proj, "add", "-A")
+	gitRun(t, proj, "commit", "-q", "-m", "plan")
+	gitRun(t, proj, "checkout", "-q", "develop")
+	fx.env.Dir = proj
+	if rc, out := fx.run(t, "self-review-kan-1-demo-review-1", "flow-low", "opus"); rc != 0 {
+		t.Fatalf("rc %d: %s", rc, out)
+	}
+	if calls := fx.calls(t); !strings.Contains(calls, "record dispatch begin -C "+proj+" -change kan-1-demo -role reviewer") ||
+		!strings.Contains(calls, "record dispatches -change kan-1-demo -C "+proj) {
+		t.Fatalf("the own-branch loop was not filed in the caller's project:\n%s", calls)
+	}
+	gitRun(t, fx.repo, "branch", "self-review-kan-1-demo")
+	if rc, out := fx.run(t, "self-review-kan-1-demo-fix", "flow-low", "opus"); rc != 0 ||
+		!strings.Contains(fx.calls(t), "record dispatch begin -C "+fx.repo+" -change self-review-kan-1-demo") {
+		t.Fatalf("a self-review loop branch left <agents repo>: rc %d: %s\n%s", rc, out, fx.calls(t))
+	}
+}

@@ -95,9 +95,9 @@ func pfRecord(state, branch string, worktrees map[string]string) map[string]any 
 		"artifactUrl": nil, "jiraIssue": nil, "prUrl": nil, "updatedBy": "/flow"}
 }
 
-// pfBase is origin/HEAD's short name, e.g. origin/main.
-func pfBase(env Env, pe pfEnv) (string, bool) {
-	rc, out := kwRun(env, "", pe.git, "-C", pe.main, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+// pfBase is dir's origin/HEAD short name, e.g. origin/main.
+func pfBase(env Env, git, dir string) (string, bool) {
+	rc, out := kwRun(env, "", git, "-C", dir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
 	return strings.TrimSpace(out), rc == 0 && strings.HasPrefix(out, "origin/")
 }
 
@@ -116,7 +116,7 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, out)
 		return 1
 	}
-	base, ok := pfBase(env, pe)
+	base, ok := pfBase(env, pe.git, pe.main)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
 		return 2
@@ -256,7 +256,7 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 		fmt.Fprintf(stderr, "pipeline-fix end: %s takes outcome %s\n", key, strings.Join(want, " or "))
 		return 2
 	}
-	out, _, frc := pcFlow(env, true, "record", "dispatch", "end", "-C", pe.main, "-change", lp.change,
+	out, _, frc := pcFlow(env, true, "record", "dispatch", "end", "-C", lp.main, "-change", lp.change,
 		"-key", key, "-session-token", lp.token, "-outcome", outcome)
 	fmt.Fprint(stdout, string(out))
 	if frc != 0 {
@@ -265,7 +265,7 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 	// An own-branch self-review has no loop worktree for pfRemove to clear
 	// its escalation markers with; its final clean review clears them.
 	if outcome == "clean" && lp.change != lp.token {
-		kwRun(env, "", pe.git, "-C", pe.main, "config", "--unset-all", "flow.escalation", "^"+regexp.QuoteMeta(lp.token)+":")
+		kwRun(env, "", pe.git, "-C", lp.main, "config", "--unset-all", "flow.escalation", "^"+regexp.QuoteMeta(lp.token)+":")
 	}
 	return 0
 }
@@ -279,7 +279,7 @@ func pfEscalate(env Env, pe pfEnv, key string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: the pairs table admits no escalation for %s\n", key)
 		return 1
 	}
-	rows, ok := lpRows(env, pe.main, lp)
+	rows, ok := lpRows(env, lp.main, lp)
 	if !ok {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: flow record dispatches -change %s failed -- cannot answer\n", lp.change)
 		return 2
@@ -289,7 +289,7 @@ func pfEscalate(env Env, pe pfEnv, key string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: %s has no completed earlier round to escalate from\n", key)
 		return 1
 	}
-	if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "config", "--add", "flow.escalation", lp.token+":"+key); rc != 0 {
+	if rc, out := kwRun(env, "", pe.git, "-C", lp.main, "config", "--add", "flow.escalation", lp.token+":"+key); rc != 0 {
 		fmt.Fprint(stderr, out)
 		return 1
 	}
@@ -374,7 +374,9 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 }
 
 func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
-	base, ok := pfBase(env, pe)
+	// wt's own origin/HEAD: an own-branch self-review verifies a worktree of
+	// the change's project, whose default branch need not be <agents repo>'s.
+	base, ok := pfBase(env, pe.git, wt)
 	if !ok {
 		fmt.Fprint(stderr, "pipeline-fix verify: refs/remotes/origin/HEAD is unset\n")
 		return 2
@@ -452,7 +454,7 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: the default landing route is %q, not merge and push — land it by that route\n", self, first)
 		return 1
 	}
-	base, ok := pfBase(env, pe)
+	base, ok := pfBase(env, pe.git, pe.main)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: refs/remotes/origin/HEAD is unset\n", self)
 		return 2

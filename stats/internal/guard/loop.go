@@ -19,9 +19,10 @@ import (
 // steps. A loop is its own change in <agents repo>'s flowd project, named
 // after its branch -- pipeline-fix-<name>-<k> or self-review-<name> --
 // except a self-review on the change's own branch, which has no branch of its
-// own and files its rows under <name> itself. Either way the rows carry the
-// loop's branch name as their session token, so one loop's rows never mix
-// with the run's own.
+// own and files its rows under <name> itself -- in the flowd project of the
+// caller's working directory, which for a change in another project is that
+// project, not <agents repo>. Either way the rows carry the loop's branch name
+// as their session token, so one loop's rows never mix with the run's own.
 func init() {
 	Registry["check-loop-dispatch"] = checkLoopDispatch
 }
@@ -105,9 +106,11 @@ func lpTable(repo string) ([]lpRow, error) {
 }
 
 // lpLoop names one loop's records: the change they are filed under, the
-// session token (the loop's branch name) and the key prefix of its rows.
+// session token (the loop's branch name), the key prefix of its rows, and
+// main, the main checkout every flow call and git config read for the loop
+// runs with -C.
 type lpLoop struct {
-	change, token, prefix string
+	change, token, prefix, main string
 }
 
 // lpMain is <repo>'s main checkout, the -C every flow call runs with.
@@ -153,7 +156,7 @@ func lpFromKey(env Env, git, repo, key string, rows []lpRow) (lpLoop, string, lp
 		if len(hits) != 1 {
 			return lpLoop{}, "", lpRow{}, fmt.Sprintf("NOT-STARTED — %s: %d branches pipeline-fix-<name>-%s; start the loop with scripts/pipeline-fix.sh start <name> %s", key, len(hits), k, k), false
 		}
-		return lpLoop{change: hits[0], token: hits[0], prefix: "pipeline-fix-" + k + "-"}, suffix, row, "", true
+		return lpLoop{change: hits[0], token: hits[0], prefix: "pipeline-fix-" + k + "-", main: repo}, suffix, row, "", true
 	}
 	if !strings.HasPrefix(key, "self-review-") {
 		return lpLoop{}, "", lpRow{}, "", false
@@ -169,9 +172,13 @@ func lpFromKey(env Env, git, repo, key string, rows []lpRow) (lpLoop, string, lp
 		if !ok || !plainChangeName(name) {
 			continue
 		}
-		loop := lpLoop{token: "self-review-" + name, prefix: "self-review-" + name + "-", change: name}
+		loop := lpLoop{token: "self-review-" + name, prefix: "self-review-" + name + "-", change: name, main: repo}
 		if lpBranchExists(env, git, repo, loop.token) {
 			loop.change = loop.token
+		} else if m, ok := lpMain(env, git, env.Dir); env.Dir != "" && ok {
+			// On the change's own branch the change lives in the caller's
+			// project -- gymie's for a gymie run -- never necessarily <agents repo>.
+			loop.main = m
 		}
 		return loop, suffix, row, "", true
 	}
@@ -318,7 +325,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	family := lpFamily(suffix)
 	var mine []lpDispatch
 	if family != "pass" {
-		if mine, ok = lpRows(env, main, lp); !ok {
+		if mine, ok = lpRows(env, lp.main, lp); !ok {
 			fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer (is flowd up?)\n", self, lp.change)
 			return 2
 		}
@@ -328,11 +335,11 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse(fmt.Sprintf("PAIR — %s runs on subagent_type %s, model %s (the pairs table, %s); this dispatch carries subagent_type %q, model %q",
 				key, strings.Join(row.types, " or "), row.model, lpSkill, typ, model))
 		}
-		if !lpEscalated(env, git, main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
+		if !lpEscalated(env, git, lp.main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
 			return refuse(fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: scripts/pipeline-fix.sh escalate %s", key, typ, key))
 		}
 	} else if suffix == "review-1" {
-		if want := lpFirstReviewType(env, git, main, lp); typ != want {
+		if want := lpFirstReviewType(env, git, lp.main, lp); typ != want {
 			return refuse(fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
 		}
 	}
@@ -360,7 +367,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if !slices.Contains([]string{"low", "medium", "high"}, effort) {
 		effort = "default"
 	}
-	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", lp.change,
+	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
 		"-role", role, "-model", model, "-effort", effort, "-key", key, "-session-token", lp.token)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)

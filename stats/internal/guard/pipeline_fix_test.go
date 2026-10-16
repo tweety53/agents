@@ -310,3 +310,55 @@ func TestPipelineFixEndClearsOwnBranchEscalation(t *testing.T) {
 		t.Fatalf("the own-branch escalation marker outlived its final clean review: %s", out)
 	}
 }
+
+// end and escalate of an own-branch self-review in another project run in
+// that project -- the caller's working directory -- and verify diffs a
+// worktree against its own origin/HEAD, not <agents repo>'s.
+func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
+	pfIdentity(t)
+	const token = "self-review-kan-1-demo"
+	fx := pfNew(t, lpRowsJSON(token+"-", token, "plan completed", "fix completed"))
+	tmp := filepath.Dir(fx.repo)
+	porigin, proj := tmp+"/gymie.git", tmp+"/gymie"
+	gitRun(t, "", "init", "-q", "--bare", "-b", "develop", porigin)
+	gitRun(t, "", "clone", "-q", porigin, proj)
+	writeFile(t, proj+"/README.md", "gymie\n")
+	gitRun(t, proj, "add", "-A")
+	gitRun(t, proj, "commit", "-q", "-m", "init")
+	gitRun(t, proj, "push", "-q", "origin", "HEAD:develop")
+	gitRun(t, proj, "remote", "set-head", "origin", "develop")
+	gitRun(t, proj, "checkout", "-q", "-b", "spectre/kan-1-demo")
+	writeFile(t, proj+"/.flow/project.md", "# gymie\n\n## lint\n\n```bash\ntrue\n```\n")
+	gitRun(t, proj, "add", "-A")
+	gitRun(t, proj, "commit", "-q", "-m", "fix: tooling")
+	fx.env.Dir = proj
+	if rc, out := fx.pf(t, "end", token+"-fix-1", "completed"); rc != 0 ||
+		!strings.Contains(fx.calls(t), "record dispatch end -C "+proj+" -change kan-1-demo -key "+token+"-fix-1") {
+		t.Fatalf("end left the caller's project: rc %d: %s\n%s", rc, out, fx.calls(t))
+	}
+	if rc, out := fx.pf(t, "escalate", token+"-fix-2"); rc != 0 {
+		t.Fatalf("escalate: rc %d: %s", rc, out)
+	}
+	if _, out := kwRun(fx.env, "", fixtureGit, "-C", proj, "config", "--get-all", "flow.escalation"); !strings.Contains(out, token+":"+token+"-fix-2") {
+		t.Fatalf("the escalation was not recorded in the caller's project: %q", out)
+	}
+	rows, err := lpTable(fx.repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lp, _, _, msg, ok := lpFromKey(fx.env, fixtureGit, proj, token+"-fix-2", rows)
+	if !ok || !lpEscalated(fx.env, fixtureGit, lp.main, lp, token+"-fix-2") {
+		t.Fatalf("check-loop-dispatch does not read the escalation in the caller's project: %s", msg)
+	}
+	if rc, out := fx.pf(t, "verify", proj); rc != 0 || !strings.Contains(out, "green: true") {
+		t.Fatalf("verify against the worktree's own origin/HEAD: rc %d: %s", rc, out)
+	}
+	p := filepath.Join(t.TempDir(), "report.md")
+	writeFile(t, p, "Critical: 0\nImportant: 0\n")
+	if rc, out := fx.pf(t, "end", token+"-review-1", p); rc != 0 {
+		t.Fatalf("end review clean: rc %d: %s", rc, out)
+	}
+	if _, out := kwRun(fx.env, "", fixtureGit, "-C", proj, "config", "--get-all", "flow.escalation"); strings.Contains(out, token) {
+		t.Fatalf("the escalation outlived its final clean review in the caller's project: %q", out)
+	}
+}

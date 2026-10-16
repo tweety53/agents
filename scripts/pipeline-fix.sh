@@ -5,7 +5,9 @@
 # retyped or skipped. The loop is its own change in this repository's flowd
 # project, named after its branch — pipeline-fix-<name>-<k> or
 # self-review-<name> — and check-loop-dispatch.sh files every loop dispatch
-# under it (a self-review on the change's own branch files under <name>).
+# under it (a self-review on the change's own branch files under <name>, in
+# the flowd project of the caller's working directory: end and escalate of
+# such a key run from the run's own project).
 #
 # Usage:
 #   pipeline-fix.sh start <name> [<k>]
@@ -30,7 +32,7 @@
 #       escalation for <key> and an earlier round of its kind completed.
 #   pipeline-fix.sh verify <worktree>
 #       runs the ## lint lines and tests the branch's touched paths need,
-#       against origin/<default>: every guard line, the `cd stats` lines for
+#       against <worktree>'s own origin/HEAD: every guard line, the `cd stats` lines for
 #       touched Go, the `cd stats/web` lines for a touched SPA file; go test
 #       of each touched stats package, scripts/test-<n>.sh or
 #       scripts/test-<n>-hook.sh of a touched script or hook, the setuptest
