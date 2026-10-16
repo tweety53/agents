@@ -30,7 +30,7 @@ preview text. Option text records the decision only.
 
 Why: a harness focus mode shows only a turn's final message, so a flow-eval candidate's template
 written before a call in the same turn is never seen. Carrying the explanation inside the prompt
-instead was rejected by the operator on 2026-10-16. Splitting every ask across two turns was
+instead was rejected by the operator on 2026-10-16: the explanation belongs in chat, in the agreed format, not in the prompt. Splitting every ask across two turns was
 rejected by the operator the same day: the split is for flow-eval candidates alone.
 An unanswered call of this shape follows **Unanswered mid-run asks**
 (`skills/flow-contracts/pipeline.md`).

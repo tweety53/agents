@@ -280,7 +280,7 @@ and what the fix would be — in chat ahead of the ask, per **Explain before ask
 arriving afterward describes something the operator did not agree to. When the call offers an
 angle-7 candidate, the whole explanation is the turn's final message and the call fires in the next
 turn; with none, the call follows the explanation in the same turn. Every fixed finding is one
-line in the turn's final message, naming its landed sha; it is not offered. The filing ask,
+line in the explanation message, naming its landed sha; it is not offered. The filing ask,
 the mining ask and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
 (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
 three offered items each — findings to file or angle-7 candidates to mine, never both in one
@@ -292,7 +292,7 @@ carries the rating alone. A candidate is mined only when the operator selects it
 stalled prompt and **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
 mine nothing. An angle-7 candidate's explanation in the message body is its template.
 
-That message renders in Markdown; step 2's template stays the field list, this is its layout:
+The explanation message renders in Markdown; step 2's template stays the field list, this is its layout:
 
 - **Findings** — one table, every finding a row: `#`, observed, what breaks, fix (sha).
 - **Each flow-eval candidate** — its own `### <n> · <kind> case — <title>` heading, then a
