@@ -26,9 +26,9 @@
 - A `skipped: change summary (absent)` line inside a recorded summary's own text must not fire signal six — only the header counts (Task 2's case).
 - **Write `IN_PROGRESS`** must record the summary before the unfinished-work guard runs, or every creating run's self-check fires on its own missing summary (Task 2's prose edit).
 
-- [ ] 1. gymie's query counter counts SQL that begins on a new line
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `bash /private/tmp/claude-501/-Users-tweety53-Projects-gymie/19d20152-1ee3-4781-ba2d-176d4703d990/scratchpad/repro-leading-newline.sh` and confirm it prints `statements=1 begin=0 select:weigh_in=1` — the defect: the `execute <unnamed>: ` statement whose SQL sits on its continuation lines is dropped.
-  - [ ] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-worktrees/kan-957-body-weight-and-calorie-reads-reselect-rows`, apply this diff:
+- [x] 1. gymie's query counter counts SQL that begins on a new line
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `bash /private/tmp/claude-501/-Users-tweety53-Projects-gymie/19d20152-1ee3-4781-ba2d-176d4703d990/scratchpad/repro-leading-newline.sh` and confirm it prints `statements=1 begin=0 select:weigh_in=1` — the defect: the `execute <unnamed>: ` statement whose SQL sits on its continuation lines is dropped.
+  - [x] **Step 2: Apply the fix.** From `/Users/tweety53/Projects/gymie-worktrees/kan-957-body-weight-and-calorie-reads-reselect-rows`, apply this diff:
 
 ````diff verified:git apply --check in the gymie worktree at f3d2675d; applied to a copy of both scripts, bash scripts/test-count-request-queries.sh passes, the repro prints statements=2 begin=0 select:weigh_in=2, and with count-request-queries.sh restored the new case fails (statements=2 … select:weigh_in=1)
 diff --git a/scripts/count-request-queries.sh b/scripts/count-request-queries.sh
@@ -107,7 +107,7 @@ index 10671b5..1639938 100755
  if printf '%s\n' "$log" | count_slice 7-9 100,101 >/dev/null 2>&1; then
 ````
 
-  - [ ] **Step 3: Verify.** From `/Users/tweety53/Projects/gymie-worktrees/kan-957-body-weight-and-calorie-reads-reselect-rows`: `bash scripts/test-count-request-queries.sh` exits 0 with every line `OK`, and the step 1 repro prints `statements=2 begin=0 select:weigh_in=2`. Commit.
+  - [x] **Step 3: Verify.** From `/Users/tweety53/Projects/gymie-worktrees/kan-957-body-weight-and-calorie-reads-reselect-rows`: `bash scripts/test-count-request-queries.sh` exits 0 with every line `OK`, and the step 1 repro prints `statements=2 begin=0 select:weigh_in=2`. Commit.
 
 **Build:** green
 **Files:** `scripts/count-request-queries.sh`, `scripts/test-count-request-queries.sh` (gymie repository, worktree `/Users/tweety53/Projects/gymie-worktrees/kan-957-body-weight-and-calorie-reads-reselect-rows`)
@@ -120,10 +120,10 @@ index 10671b5..1639938 100755
 
 **Decision:** leading-newline-continuation
 
-- [ ] 2. A change with no recorded summary is unfinished work
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -rn 'record summary' skills scripts hooks` and confirm the only hit is the prescription in `skills/flow-contracts/pipeline.md`, and `grep -n 'self-review' stats/internal/guard/unfinishedwork.go` and confirm no hit — the defect: nothing refuses a change whose store holds no summary row.
-  - [ ] **Step 2: Write the failing tests.** Apply the `stats/internal/guard/check_unfinished_work_test.go` hunks of the diff in step 3 alone (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1`: it FAILS on the four cases `a change with no recorded summary is OUTSTANDING`, `the breakdown names the summary and its record command`, `a bundle with no found: line cannot answer` and `a failed bundle read cannot answer`.
-  - [ ] **Step 3: Implement the signal.** Apply the rest of this diff:
+- [x] 2. A change with no recorded summary is unfinished work
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -rn 'record summary' skills scripts hooks` and confirm the only hit is the prescription in `skills/flow-contracts/pipeline.md`, and `grep -n 'self-review' stats/internal/guard/unfinishedwork.go` and confirm no hit — the defect: nothing refuses a change whose store holds no summary row.
+  - [x] **Step 2: Write the failing tests.** Apply the `stats/internal/guard/check_unfinished_work_test.go` hunks of the diff in step 3 alone (`git apply --include='stats/internal/guard/check_unfinished_work_test.go' <the diff>`) and run `cd stats && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1`: it FAILS on the four cases `a change with no recorded summary is OUTSTANDING`, `the breakdown names the summary and its record command`, `a bundle with no found: line cannot answer` and `a failed bundle read cannot answer`.
+  - [x] **Step 3: Implement the signal.** Apply the rest of this diff:
 
 ````diff verified:git apply --check at d1085fb4; gofmt -l, go vet ./internal/guard/ and go test ./internal/guard/ -count=1 pass with it applied; with unfinishedwork.go reverted the four cases step 2 names fail; bash scripts/test-integrate-change.sh prints 161 passed, 0 failed; check-verbatim-moves.sh with this change's verbatim-moves.txt, check-references.sh, check-markdown-integrity.py and check-dispatch-paragraphs.sh exit 0 with Tasks 2 and 3 applied
 diff --git a/scripts/check-unfinished-work.sh b/scripts/check-unfinished-work.sh
@@ -260,7 +260,7 @@ index c2b6b4bd..0d832147 100644
  **The `Running:` section is never omitted.** Its URLs are the ones **Resolve the run
 ````
 
-  - [ ] **Step 4: Verify.** From the repository root: `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-stage-mark-calls.sh` exit 0. Commit.
+  - [x] **Step 4: Verify.** From the repository root: `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run TestCheckUnfinishedWork -count=1` passes; `bash scripts/test-integrate-change.sh` ends `0 failed`; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh` and `scripts/check-stage-mark-calls.sh` exit 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/unfinishedwork.go`, `stats/internal/guard/check_unfinished_work_test.go`, `scripts/check-unfinished-work.sh`, `scripts/test-integrate-change.sh`, `skills/flow/verify-and-handoff.md`, `skills/flow/integrate.md`
@@ -273,9 +273,9 @@ index c2b6b4bd..0d832147 100644
 
 **Decision:** summary-is-unfinished-work
 
-- [ ] 3. A live check's before figure comes from a detached worktree at the merge base
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'detach' skills/flow/verify-and-handoff.md` and confirm no hit — the defect: **Live check** names no source for the before figure, so kan-957's run checked base sources out over its change worktree.
-  - [ ] **Step 2: Apply the fix.** Apply this diff:
+- [x] 3. A live check's before figure comes from a detached worktree at the merge base
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'detach' skills/flow/verify-and-handoff.md` and confirm no hit — the defect: **Live check** names no source for the before figure, so kan-957's run checked base sources out over its change worktree.
+  - [x] **Step 2: Apply the fix.** Apply this diff:
 
 ````diff verified:git apply --check at d1085fb4, alone and after Task 2's diff; check-verbatim-moves.sh with this change's verbatim-moves.txt, check-references.sh and check-markdown-integrity.py exit 0 with Tasks 2 and 3 applied
 diff --git a/skills/flow/verify-and-handoff.md b/skills/flow/verify-and-handoff.md
@@ -297,7 +297,7 @@ index 0d832147..67983ca6 100644
  command's environment cause does. The verifier row's `end` (**Recording.**, above) is recorded
 ````
 
-  - [ ] **Step 3: Verify.** From the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` — all exit 0. Commit.
+  - [x] **Step 3: Verify.** From the repository root `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh` and `scripts/check-markdown-integrity.py` — all exit 0. Commit.
 
 **Build:** green
 **Files:** `skills/flow/verify-and-handoff.md`
