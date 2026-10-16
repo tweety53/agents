@@ -374,6 +374,7 @@ unique within the run's session token — `task-<n>-implementer`, reused identic
 flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,
 never a shell substitution. The start and end instants are the daemon's own — never
 caller inputs.
+**A dispatch recorded only after it finished is a back-fill, and is one call** — `flow record dispatch backfill`, carrying `begin`'s flags and `end`'s together with the dispatch's real `-started-at` and `-ended-at`, both required — never a `begin` and `end` pair, whose instants would read the back-fill's own moment.
 
 **`-model` is the model this dispatch was actually given — the group's own `model` from the
 decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brainstorm-planner.md`,
@@ -680,8 +681,8 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    is the parent's own fix, with nothing ticked or pushed: it re-commits that task itself,
    without the swept paths and carrying `Task-Id: <n>`, and re-runs `close-task.sh` without the `-end-*` flags before
    anything below; **exit 1 with `close-task: RECORD —`** is an appended task no dispatch row
-   names — record its implementer dispatch (`flow record dispatch begin … -task <n>` and its
-   `end`, a back-fill passing the dispatch's real `-started-at` and `-ended-at`), then re-run
+   names — record its implementer dispatch (`flow record dispatch backfill … -task <n>`, the
+   back-fill above), then re-run
    `close-task.sh` without the `-end-*` flags; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into

@@ -93,7 +93,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	undispatched := ctUndispatched(env, canonical, name, closed)
 	for _, id := range undispatched {
-		fmt.Fprintf(stderr, "close-task: appended task %s has no dispatch row naming it — record its dispatch (`flow record dispatch begin … -task %s` and its `end`; a back-fill passes -started-at and -ended-at), then re-run without the -end-* flags\n", id, id)
+		fmt.Fprintf(stderr, "close-task: appended task %s has no dispatch row naming it — record its dispatch (`flow record dispatch backfill … -task %s -started-at <instant> -ended-at <instant> -outcome <outcome>`), then re-run without the -end-* flags\n", id, id)
 	}
 
 	// Both commit guards run before anything is ticked or pushed, so a

@@ -258,6 +258,12 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
                              [-agent-id id] [-tokens k=v,...] [-ended-at instant]
+       flow record dispatch backfill [-addr url] [-timeout dur] [-C dir]
+                             -change name [-task id] -role role [-slot name]
+                             -model model [-effort level] [-agent-id id|none]
+                             [-diff-base sha] -started-at instant -ended-at instant
+                             -key key -session-token token [-commit sha]
+                             -outcome outcome [-cause cause] [-tokens k=v,...]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -482,6 +488,12 @@ and never re-reads past it, so a row that appears only at close is
 invisible to every harvest tick the dispatch ran through -- that usage is
 dropped or credited to an unrelated earlier dispatch -- and a row never
 closed leaves an open window that goes on claiming its successors' tokens.
+
+A dispatch recorded only after it finished is a back-fill, and is ONE
+"backfill" call: begin's flags and end's together, with -started-at,
+-ended-at and -outcome required, so the row carries the dispatch's real
+instants rather than the moment it was recorded. It validates both
+instants before writing either half, then runs begin and end.
 
 -key names the dispatch within its run. It is what "end" closes, and what
 makes "begin" idempotent: a write whose response was lost is journalled
@@ -886,6 +898,8 @@ func runRecordDispatchVerb(ctx context.Context, args []string, stdout, stderr io
 		return runRecordDispatchBegin(ctx, args[1:], stdout, stderr)
 	case "end":
 		return runRecordDispatchEnd(ctx, args[1:], stdout, stderr)
+	case "backfill":
+		return runRecordDispatchBackfill(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record dispatch command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -1091,27 +1105,8 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	) {
 		return 2
 	}
-	if *outcome != "" && !slices.Contains(recordOutcomes, *outcome) {
-		fmt.Fprintf(stderr, "flow: -outcome %q is not one of: %s\n", *outcome, strings.Join(recordOutcomes, ", "))
-		return 2
-	}
-	if *outcome == "blocked" && *cause == "" {
-		fmt.Fprintf(stderr, "flow: -cause is required when -outcome is blocked -- one of: %s\n", strings.Join(recordCauses, ", "))
-		return 2
-	}
-	if *cause != "" {
-		if *outcome != "blocked" {
-			fmt.Fprintf(stderr, "flow: -cause is only valid with -outcome blocked, not -outcome %q\n", *outcome)
-			return 2
-		}
-		if !slices.Contains(recordCauses, *cause) {
-			fmt.Fprintf(stderr, "flow: -cause %q is not one of: %s\n", *cause, strings.Join(recordCauses, ", "))
-			return 2
-		}
-	}
-	report, err := parseTokenReport(*tokens)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+	report, ok := checkDispatchEndFields(*outcome, *cause, *tokens, stderr)
+	if !ok {
 		return 2
 	}
 	if err := validateSessionToken(*sessionToken); err != nil {
@@ -1160,6 +1155,97 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		fmt.Fprintf(stdout, "updated: dispatch %d\n", out.Seq)
 	}
 	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr)
+}
+
+// runRecordDispatchBackfill implements `flow record dispatch backfill`: a
+// row recorded after its dispatch ran, in one call whose real instants are
+// required (kan-939 self-review: back-filled begin/end pairs took the
+// recording moment as both instants, since only close-task's message asked
+// for -started-at and -ended-at). It routes each flag it was given to begin,
+// end or both and runs the two, begin first; both instants are validated
+// before either is sent, so a bad -ended-at never leaves a half-written row.
+func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record dispatch backfill", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	beginOnly := []string{"task", "role", "slot", "model", "effort", "agent-id", "diff-base", "started-at"}
+	endOnly := []string{"commit", "outcome", "cause", "tokens", "ended-at"}
+	v := map[string]*string{}
+	for _, n := range append(append([]string{"key", "session-token"}, beginOnly...), endOnly...) {
+		v[n] = fset.String(n, "", "as on `dispatch begin` or `dispatch end`")
+	}
+	if err := fset.Parse(args); err != nil || fset.NArg() != 0 {
+		return 2
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-started-at", *v["started-at"]},
+		[2]string{"-ended-at", *v["ended-at"]},
+		[2]string{"-outcome", *v["outcome"]},
+	) {
+		return 2
+	}
+	started, ok := parseBackfillInstant("-started-at", *v["started-at"], stderr)
+	if !ok {
+		return 2
+	}
+	ended, ok := parseBackfillInstant("-ended-at", *v["ended-at"], stderr)
+	if !ok {
+		return 2
+	}
+	if started.After(ended) {
+		fmt.Fprintf(stderr, "flow: -started-at %s is later than -ended-at %s\n", *v["started-at"], *v["ended-at"])
+		return 2
+	}
+	if _, ok := checkDispatchEndFields(*v["outcome"], *v["cause"], *v["tokens"], stderr); !ok {
+		return 2
+	}
+	var begin, end []string
+	fset.Visit(func(fl *flag.Flag) {
+		arg := []string{"-" + fl.Name, fl.Value.String()}
+		switch {
+		case slices.Contains(beginOnly, fl.Name):
+			begin = append(begin, arg...)
+		case slices.Contains(endOnly, fl.Name):
+			end = append(end, arg...)
+		default:
+			begin, end = append(begin, arg...), append(end, arg...)
+		}
+	})
+	if code := runRecordDispatchBegin(ctx, begin, stdout, stderr); code != 0 {
+		return code
+	}
+	return runRecordDispatchEnd(ctx, end, stdout, stderr)
+}
+
+// checkDispatchEndFields validates `dispatch end`'s -outcome, -cause and
+// -tokens and returns the parsed token report; `dispatch backfill` runs it
+// before its begin, so a bad end flag never leaves a begun row with no end.
+func checkDispatchEndFields(outcome, cause, tokens string, stderr io.Writer) (*records.TokenReport, bool) {
+	if outcome != "" && !slices.Contains(recordOutcomes, outcome) {
+		fmt.Fprintf(stderr, "flow: -outcome %q is not one of: %s\n", outcome, strings.Join(recordOutcomes, ", "))
+		return nil, false
+	}
+	if outcome == "blocked" && cause == "" {
+		fmt.Fprintf(stderr, "flow: -cause is required when -outcome is blocked -- one of: %s\n", strings.Join(recordCauses, ", "))
+		return nil, false
+	}
+	if cause != "" {
+		if outcome != "blocked" {
+			fmt.Fprintf(stderr, "flow: -cause is only valid with -outcome blocked, not -outcome %q\n", outcome)
+			return nil, false
+		}
+		if !slices.Contains(recordCauses, cause) {
+			fmt.Fprintf(stderr, "flow: -cause %q is not one of: %s\n", cause, strings.Join(recordCauses, ", "))
+			return nil, false
+		}
+	}
+	report, err := parseTokenReport(tokens)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return nil, false
+	}
+	return report, true
 }
 
 // parseBackfillInstant reads -started-at or -ended-at: empty is the zero

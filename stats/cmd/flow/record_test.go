@@ -4871,6 +4871,61 @@ func TestRequireChangeCheckoutRefusesNonChangeNames(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBackfill pins the kan-939 self-review fix: a back-fill
+// is one `dispatch backfill` call whose real instants are required. It
+// sends begin carrying -started-at, then end carrying -ended-at and the
+// outcome; a call missing either instant, or carrying one that is not RFC
+// 3339, is exit 2 before the store is called -- never half a row.
+func TestRecordDispatchBackfill(t *testing.T) {
+	const start, end = "2026-10-15T12:08:50Z", "2026-10-15T12:31:07Z"
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	defer srv.Close()
+	base := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-task", "7", "-role", "implementer", "-model", "opus", "-agent-id", "none",
+		"-key", "task-7-implementer", "-session-token", "mf-record-backfill", "-commit", "abc1234"}
+	var stdout, stderr bytes.Buffer
+	args := append(append([]string{}, base...), "-started-at", start, "-ended-at", end, "-outcome", "completed")
+	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if len(bodies) != 2 {
+		t.Fatalf("store calls = %d, want begin then end: %v", len(bodies), bodies)
+	}
+	if bodies[0]["startedAt"] != start || bodies[0]["taskId"] != "7" || bodies[0]["endedAt"] != nil {
+		t.Errorf("begin body = %v, want startedAt %s, taskId 7, no endedAt", bodies[0], start)
+	}
+	if bodies[1]["endedAt"] != end || bodies[1]["outcome"] != "completed" || bodies[1]["commitSha"] != "abc1234" {
+		t.Errorf("end body = %v, want endedAt %s, outcome completed, commitSha abc1234", bodies[1], end)
+	}
+
+	for name, extra := range map[string][]string{
+		"no -ended-at":                {"-started-at", start, "-outcome", "completed"},
+		"no -started-at":              {"-ended-at", end, "-outcome", "completed"},
+		"no -outcome":                 {"-started-at", start, "-ended-at", end},
+		"a malformed -ended-at":       {"-started-at", start, "-ended-at", "yesterday", "-outcome", "completed"},
+		"-started-at after -ended-at": {"-started-at", end, "-ended-at", start, "-outcome", "completed"},
+		"an unknown -outcome":         {"-started-at", start, "-ended-at", end, "-outcome", "done"},
+		"-cause with completed":       {"-started-at", start, "-ended-at", end, "-outcome", "completed", "-cause", "other"},
+		"malformed -tokens":           {"-started-at", start, "-ended-at", end, "-outcome", "completed", "-tokens", "bogus"},
+	} {
+		bodies = nil
+		stderr.Reset()
+		if code := run(context.Background(), append(append([]string{}, base...), extra...), strings.NewReader(""), &stdout, &stderr); code != 2 || bodies != nil {
+			t.Errorf("%s: exit %d, store calls %d; want 2 and none (stderr %q)", name, code, len(bodies), stderr.String())
+		}
+	}
+}
+
 // TestRecordDispatchBackfillInstants pins the kan-982 self-review fix: a
 // back-filled row carries the dispatch's real instants. -started-at reaches
 // begin's body as startedAt and -ended-at end's as endedAt; an instant that
