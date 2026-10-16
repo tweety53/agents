@@ -38,15 +38,15 @@ caller in `checkLoopDispatch`; the refusal list in `scripts/check-loop-dispatch.
   `review-1` on `flow-medium` only — every existing `TestCheckLoopDispatch` case.
 - The `EFFORT` refusal fires only for a recorded entry naming no effort.
 
-- [ ] 1. Read the first-review effort as the skill names it, and refuse a recorded one naming none
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Read the first-review effort as the skill names it, and refuse a recorded one naming none
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf14-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/guard/*_test.go' /tmp/pf14-task1.diff`) and run
     `cd stats && go test ./internal/guard/ -run 'TestCheckLoopDispatchFirstReviewEffort' -count=1`:
     six subtests FAIL (`bare_low`, `bare_low_refuses_flow-medium`, `backticked_low_in_prose`,
     `bare_value_before_a_backticked_one`, `no_effort_named`,
     `no_Chosen_line,_the_next_entry's_never_read`); `backticked_medium` passes.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/*_test.go' /tmp/pf14-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at be156cf7; six of the new test's seven subtests fail with loop.go untouched and all pass with it; go test ./internal/guard/ -count=1 green; gofmt -l and go vet clean
@@ -182,9 +182,9 @@ index b53d6eed..95211ead 100644
  	}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'CheckLoopDispatch|LoopTable|PipelineFix' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'CheckLoopDispatch|LoopTable|PipelineFix' -count=1`
     — gofmt prints nothing, the rest exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/loop.go`, `stats/internal/guard/check_loop_dispatch_test.go`, `scripts/check-loop-dispatch.sh`
