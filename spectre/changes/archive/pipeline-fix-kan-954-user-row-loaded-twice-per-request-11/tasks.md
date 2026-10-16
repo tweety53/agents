@@ -38,14 +38,14 @@ remedy.
 - The prose states each rule once: step 2 canonical for tracing, step 7 for the refusal's remedy,
   integrate.md and flow-fast cite step 7.
 
-- [ ] 1. Refuse a self-review report carrying an untraced finding
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Refuse a self-review report carrying an untraced finding
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf11-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/guard/*_test.go' /tmp/pf11-task1.diff`) and run
     `cd stats && go test ./internal/guard/ -run 'TestLandSelfReviewReportRefusesUntracedFinding' -count=1`:
     it FAILS with `rc=0` and a commit `[main …] docs(self-review): kan-u self-review report` on
     stdout — the untraced report landed.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/*_test.go' /tmp/pf11-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 752f3a28; the new test fails with the lsrrUntraced call disabled and passes with it; go test ./internal/guard/ -run TestLandSelfReviewReport -count=1 green; gofmt -l and go vet clean
@@ -168,9 +168,9 @@ index da830167..a7eeccd4 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestLandSelfReviewReport' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestLandSelfReviewReport' -count=1`
     — all green, `gofmt -l` prints nothing.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/landselfreviewreport.go`, `stats/internal/guard/land_self_review_report_test.go`, `scripts/land-self-review-report.sh`
@@ -185,12 +185,12 @@ index da830167..a7eeccd4 100644
 **Decision:** gate-at-landing-chain
 **Decision:** untraced-phrases
 
-- [ ] 2. State that a finished run leaves nothing untraced or still open
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** On the untouched tree,
+- [x] 2. State that a finished run leaves nothing untraced or still open
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** On the untouched tree,
     `grep -n 'traced to a verdict' skills/flow-self-review/SKILL.md` and
     `grep -n 'carry no open item' skills/flow/cleanup.md` print nothing: no rule makes the pass
     trace a finding, and the Finished handoff admits an open item.
-  - [ ] **Step 2: Implement.** Save the diff below to `/tmp/pf11-task2.diff` and apply it
+  - [x] **Step 2: Implement.** Save the diff below to `/tmp/pf11-task2.diff` and apply it
     (`git apply /tmp/pf11-task2.diff`):
 
 ````diff verified:applied with git apply to this worktree at 752f3a28; scripts/check-verbatim-moves.sh then FAILs exactly the four sentences this change's verbatim-moves.txt lists, and passes with that file in place
@@ -257,9 +257,9 @@ index a5cbaccd..9162d864 100644
  A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark
 ````
 
-  - [ ] **Step 3: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-markdown-integrity.py && scripts/check-references.sh`
+  - [x] **Step 3: Verify.** `scripts/check-verbatim-moves.sh && scripts/check-markdown-integrity.py && scripts/check-references.sh`
     — all exit 0 (`verbatim-moves.txt` already lists the four new sentences).
-  - [ ] **Step 4: Commit** the four files with the subject below.
+  - [x] **Step 4: Commit** the four files with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-self-review/SKILL.md`, `skills/flow/cleanup.md`, `skills/flow/integrate.md`, `skills/flow-fast/SKILL.md`
