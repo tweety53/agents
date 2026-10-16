@@ -16,10 +16,12 @@
 # pre-fix commit in a throwaway directory under TMPDIR, the reproducer is
 # copied to the SAME worktree-relative path inside it, and the leg runs with
 # its working directory set to that scratch — so the cwd contract holds and
-# no absolute path is ever needed. F17's ROOT class is then structural: a
-# script that hardcodes its own tree cannot reach past the scratch, because
-# the scratch is the tree the leg runs in. The scratch is removed on every
-# path out of this script, failed proof or not.
+# no absolute path is ever needed. The scratch does not stop F17's ROOT
+# class: a script that hardcodes the live tree's absolute path still reads
+# the already-fixed tree from inside the scratch, so a reproducer whose body
+# names <worktree>'s absolute path is refused (exit 2) before any leg runs.
+# The scratch is removed on every path out of this script, failed proof or
+# not.
 #
 # EACH LEG IS A run-reproducer CALL, NOT A RE-IMPLEMENTATION -- in-process,
 # the Go run-reproducer (stats/internal/guard/runreproducer.go) called with
@@ -40,8 +42,9 @@
 #   1  the proof did not hold — a leg read the wrong demonstration; the
 #      verdict names which leg and what it read.
 #   2  cannot answer — usage, an unresolvable <pre-fix-ref>, an unusable
-#      <reproducer-path>, a git plumbing failure, or a leg run-reproducer
-#      refused (2), could not verdict (3) or could not answer (4). Never a
+#      <reproducer-path> or one whose body names <worktree>'s absolute
+#      path, a git plumbing failure, or a leg run-reproducer refused (2),
+#      could not verdict (3) or could not answer (4). Never a
 #      verdict on the defect.
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this script's

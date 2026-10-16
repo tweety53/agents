@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -82,6 +83,21 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if syscall.Access(abs(wt+"/"+rel), rrExecOK) != nil {
 		return die("reproducer is not executable: %s/%s", wt, rel)
+	}
+	// A body naming the live worktree by its absolute path reads the
+	// already-fixed tree from inside the pre-fix scratch (F17's ROOT class),
+	// so the pre-fix leg would never run at the pre-fix commit. An
+	// unreadable body is left to the copy step's own refusal below.
+	if body, err := os.ReadFile(abs(wt + "/" + rel)); err == nil {
+		live := []string{filepath.Clean(abs(wt))}
+		if real, err := filepath.EvalSymlinks(live[0]); err == nil && real != live[0] {
+			live = append(live, real)
+		}
+		for _, p := range live {
+			if bytes.Contains(body, []byte(p)) {
+				return die("the reproducer names the live worktree's absolute path %s -- the pre-fix leg would read the already-fixed tree; name paths relative to the working directory", p)
+			}
+		}
 	}
 
 	// The bash's "${TMPDIR:-/tmp}/prove-reproducer.XXXXXX", slash for slash.

@@ -332,6 +332,40 @@ func prBash(t *testing.T, env Env, args ...string) (int, string, string) {
 // alike, which is all that differs between two runs' messages.
 var prTempName = regexp.MustCompile(`prove-reproducer\.[A-Za-z0-9]+`)
 
+// TestProveReproducerRefusesLiveWorktreePath pins that a reproducer whose
+// body names the live worktree by absolute path is refused before any leg
+// runs: from inside the pre-fix scratch it would read the already-fixed
+// tree, and a gymie /flow run's pre-fix leg did exactly that (kan-988).
+func TestProveReproducerRefusesLiveWorktreePath(t *testing.T) {
+	t.Parallel()
+	repo, pre := prRepo(t, "repo")
+	prReproducer(t, repo, prRel, "exec grep -q old-behaviour "+repo+"/check.txt")
+	r := prRun(t, repo, Env{}, repo, pre, prRel)
+	prWant(t, r, 2, "prove-reproducer: the reproducer names the live worktree's absolute path "+repo+" -- the pre-fix leg would read the already-fixed tree; name paths relative to the working directory\n")
+	prUnchanged(t, r)
+}
+
+// TestProveReproducerRefusesSymlinkResolvedWorktreePath pins the refusal
+// when the worktree is reached through a symlink and the body names its
+// symlink-resolved path, which the given path never contains.
+func TestProveReproducerRefusesSymlinkResolvedWorktreePath(t *testing.T) {
+	t.Parallel()
+	repo, pre := prRepo(t, "repo")
+	real, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(filepath.Dir(repo), link); err != nil {
+		t.Fatal(err)
+	}
+	wt := filepath.Join(link, "repo")
+	prReproducer(t, repo, prRel, "exec grep -q old-behaviour "+real+"/check.txt")
+	r := prRun(t, wt, Env{}, wt, pre, prRel)
+	prWant(t, r, 2, "prove-reproducer: the reproducer names the live worktree's absolute path "+real+" -- the pre-fix leg would read the already-fixed tree; name paths relative to the working directory\n")
+	prUnchanged(t, r)
+}
+
 // TestProveReproducerBashParity pins the refusals after the scratch base
 // exists against the bash at d71a2327, stdout, stderr and exit: the
 // worktree add, mkdir -p and cp -p failures with the tools' own
