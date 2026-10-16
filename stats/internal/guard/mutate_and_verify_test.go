@@ -556,6 +556,30 @@ func TestMutateAndVerify(t *testing.T) {
 			mvCheck(t, "mutated timeout: touched file clean after restore",
 				mvGit(t, c.repo, "status", "--porcelain", "--", "guard.sh") == "", "dirty")
 		}},
+		{"project command caught", func(t *testing.T) {
+			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			cmdPath := c.repo + "/project-cmd.sh"
+			writeExec(t, cmdPath, "#!/usr/bin/env bash\n[ \"$1\" = run-tests ] || exit 9\n"+
+				"if grep -q '"+mvMutationMark+"' guard.sh; then exit 1; fi\nexit 0\n")
+			r := c.run(nil, c.patch, "--", "./project-cmd.sh", "run-tests")
+			mvCheck(t, "project command: caught, exit 0", r.rc == 0 && has(r.all(), "caught"), "rc=%d out=%s", r.rc, r.all())
+			mvCheck(t, "project command: names the command", has(r.all(), "./project-cmd.sh run-tests"), "%s", r.all())
+			mvCheck(t, "project command: touched file clean after restore",
+				mvGit(t, c.repo, "status", "--porcelain", "--", "guard.sh") == "", "dirty")
+		}},
+		{"project command surviving mutant", func(t *testing.T) {
+			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			cmdPath := c.repo + "/project-cmd.sh"
+			writeExec(t, cmdPath, "#!/usr/bin/env bash\n[ \"$1\" = run-tests ] || exit 9\nexit 0\n")
+			r := c.run(nil, c.patch, "--", "./project-cmd.sh", "run-tests")
+			mvCheck(t, "project command surviving: exit 0, surviving mutant", r.rc == 0 && has(r.all(), "surviving mutant"), "rc=%d out=%s", r.rc, r.all())
+		}},
+		{"project command missing refused", func(t *testing.T) {
+			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			c.snap()
+			r := c.run(nil, c.patch, "--", "./no-such-cmd.sh", "run-tests")
+			mvCheck(t, "missing command: exits 2 naming it", r.rc == 2 && has(r.all(), "no-such-cmd.sh"), "rc=%d out=%s", r.rc, r.all())
+		}},
 		{"baseline pass timeout cannot answer", func(t *testing.T) {
 			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
 			h := c.repo + "/sleepy.sh"

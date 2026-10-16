@@ -37,10 +37,23 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "mutate-and-verify: refused — %s — nothing was mutated\n", msg)
 		return 2
 	}
-	if len(args) < 2 {
-		fmt.Fprintln(stderr, "mutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>...")
+	// Split an optional project command after `--`: everything after it
+	// is one argv vector (a Gradle invocation and its like), never a shell
+	// string. File harnesses before it may be empty only when it is given.
+	var cmdArgv []string
+	rest := args
+	if i := slices.Index(args, "--"); i >= 0 {
+		rest, cmdArgv = args[:i], args[i+1:]
+		if len(cmdArgv) == 0 {
+			fmt.Fprintln(stderr, "mutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]")
+			return 4
+		}
+	}
+	if len(rest) < 1 || (len(rest) < 2 && len(cmdArgv) == 0) {
+		fmt.Fprintln(stderr, "mutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]")
 		return 4
 	}
+	args = rest
 
 	// Patch and harness arguments resolve to absolute paths against the
 	// caller's own cwd BEFORE anything runs from the repository root — a
@@ -111,6 +124,32 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
+	// The project command resolves the same way before anything mutates:
+	// a path containing `/` against the caller's cwd, a bare name on PATH.
+	var targets []mvTarget
+	for _, h := range harnesses {
+		targets = append(targets, mvTarget{name: filepath.Base(h), harness: h})
+	}
+	if len(cmdArgv) > 0 {
+		exe := cmdArgv[0]
+		resolved := exe
+		if strings.Contains(exe, "/") {
+			resolved = toAbs(exe)
+			if !isFile(resolved) {
+				return refuse("command does not exist: " + resolved)
+			}
+			if syscall.Access(resolved, 1) != nil {
+				return refuse("command is not executable: " + resolved)
+			}
+		} else if p, err := exec.LookPath(exe); err != nil {
+			return refuse("command does not exist: " + exe)
+		} else {
+			resolved = p
+		}
+		argv := append([]string{resolved}, cmdArgv[1:]...)
+		targets = append(targets, mvTarget{name: strings.Join(cmdArgv, " "), argv: argv})
+	}
+
 	// Step 6: none of the touched files may already carry uncommitted
 	// changes — never conflate a pre-existing dirty file with the mutation's
 	// own diff at restore time. A failing git ends the run with its own
@@ -150,7 +189,23 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	// report, and `git apply`'s output written while mu is held, go through
 	// r.stdout, where a failed write carries on -- halting either would
 	// leave the trap waiting forever.
-	return r.finish(r.main(patchArg, patch, harnesses, env, mvHaltOnEPIPE{stdout}, cannotAnswer))
+	return r.finish(r.main(patchArg, patch, targets, env, mvHaltOnEPIPE{stdout}, cannotAnswer))
+}
+
+// mvTarget is one thing run before and after the mutation: a file
+// harness (its ok:/FAIL: lines are the verdict) or, when argv is set, a
+// project command (its exit code is the verdict).
+type mvTarget struct {
+	name    string
+	harness string
+	argv    []string
+}
+
+func (t mvTarget) run(root string, timeout time.Duration) (ok int, fails []string, answered, timedOut bool) {
+	if len(t.argv) == 0 {
+		return mvRunHarness(t.harness, root, timeout)
+	}
+	return mvRunCommand(t.argv, root, timeout)
 }
 
 // mvRun is the state the bash's EXIT trap read: whether the patch is applied,
@@ -170,7 +225,7 @@ type mvRun struct {
 
 // main is steps 8-14: the baseline pass, the mutation, the mutated pass and
 // the verdict. It returns the exit code the trap starts from.
-func (r *mvRun) main(patchArg, patch string, harnesses []string, env Env, stdout io.Writer, cannotAnswer func(string) int) int {
+func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout io.Writer, cannotAnswer func(string) int) int {
 	fmt.Fprintf(stdout, "mutate-and-verify: patch %s touches:\n", patchArg)
 	for _, t := range r.touched {
 		fmt.Fprintf(stdout, "  %s\n", t)
@@ -178,10 +233,10 @@ func (r *mvRun) main(patchArg, patch string, harnesses []string, env Env, stdout
 
 	// Step 9: baseline pass — every harness, before applying the patch.
 	fmt.Fprint(stdout, "\nmutate-and-verify: baseline pass (before mutation)\n")
-	base := make([][]string, len(harnesses))
-	for i, h := range harnesses {
-		name := filepath.Base(h)
-		ok, fails, answered, timedOut := mvRunHarness(h, r.root, r.timeout)
+	base := make([][]string, len(targets))
+	for i, t := range targets {
+		name := t.name
+		ok, fails, answered, timedOut := t.run(r.root, r.timeout)
 		if timedOut {
 			return cannotAnswer(fmt.Sprintf("harness %s timed out after %s on the baseline pass", name, r.timeout))
 		}
@@ -210,10 +265,10 @@ func (r *mvRun) main(patchArg, patch string, harnesses []string, env Env, stdout
 
 	// Step 11: mutated pass — every harness, after applying the patch.
 	fmt.Fprint(stdout, "\nmutate-and-verify: mutated pass (after mutation)\n")
-	mut := make([][]string, len(harnesses))
-	for i, h := range harnesses {
-		name := filepath.Base(h)
-		ok, fails, answered, timedOut := mvRunHarness(h, r.root, r.timeout)
+	mut := make([][]string, len(targets))
+	for i, t := range targets {
+		name := t.name
+		ok, fails, answered, timedOut := t.run(r.root, r.timeout)
 		if timedOut {
 			// A mutant that never finishes is killed by the bound, not
 			// left hanging: synthesise the new failure the verdict counts.
@@ -241,8 +296,8 @@ func (r *mvRun) main(patchArg, patch string, harnesses []string, env Env, stdout
 	}
 	fmt.Fprintf(stdout, "\nmutate-and-verify: verdict (blast-radius bound: %s)\n", bound)
 
-	for i, h := range harnesses {
-		name := filepath.Base(h)
+	for i, t := range targets {
+		name := t.name
 		// Step 12: new failures = the mutated FAIL-name set minus the
 		// baseline's, by whole name — a case name can contain spaces ("guard
 		// exits 0"). An empty name (a bare `FAIL: ` line) is counted in the
@@ -435,4 +490,33 @@ func mvRunHarness(h, dir string, timeout time.Duration) (ok int, fails []string,
 		}
 	}
 	return ok, fails, ok > 0 || len(fails) > 0, timedOut
+}
+
+// mvRunCommand runs a project test command as an argv vector from the
+// repository root. Its output is evidence for the caller, not the
+// verdict: exit 0 synthesises one ok, a non-zero exit one failure named
+// for the exit code, so the shared verdict diff reads caught/surviving
+// exactly as it does for a harness's FAIL: lines.
+func mvRunCommand(argv []string, dir string, timeout time.Duration) (ok int, fails []string, answered bool, timedOut bool) {
+	if timeout <= 0 {
+		timeout = 300 * time.Second
+	}
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Dir, cmd.Stdin = dir, os.Stdin
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	timedOut = mvRunBounded(cmd, timeout)
+	// The command's own output is not printed: a Gradle log would flood
+	// the report. Its exit code, synthesised below, is the evidence.
+	if timedOut {
+		return 0, nil, true, true
+	}
+	if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 0 {
+		return 1, nil, true, false
+	}
+	code := -1
+	if cmd.ProcessState != nil {
+		code = cmd.ProcessState.ExitCode()
+	}
+	return 0, []string{fmt.Sprintf("exit-%d", code)}, true, false
 }
