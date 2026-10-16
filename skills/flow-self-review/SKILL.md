@@ -257,6 +257,23 @@ carries the rating alone. A candidate is mined only when the operator selects it
 stalled prompt and **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
 mine nothing. An angle-7 candidate's explanation in the message body is its template.
 
+That message renders in Markdown; step 2's template stays the field list, this is its layout:
+
+- **Findings** — one table, every finding a row: `#`, observed, what breaks, fix (sha).
+- **Each flow-eval candidate** — its own `### <n> · <kind> case — <title>` heading, then a
+  two-column field table: severity, location `path:line`, the reviewer's sentence verbatim, fix
+  commit sha + subject, test names; an impl case adds task title, commit subject, files, tests
+  before→after, code `path:line`; a visual case adds actual and mockup absolute paths, diff score,
+  verdict.
+- **Code** — every excerpt a fenced block with its language tag (` ```kotlin `, ` ```go ` …), real
+  multi-line code taken from the commit with `git show <sha>`, never a one-line paraphrase. A review
+  case shows **Bad** and **Fixed** as two separate blocks, each labelled above it, the fixed block
+  the diff's post-image (or a ` ```diff ` block of the relevant hunk), plus the relevant test's key
+  assertion. An impl case excerpts its core function(s) and lists the plan's worked figures as
+  bullets. A visual case lists its departures in a measured app-vs-mockup table.
+- Each candidate closes with a `**Why it's a good case:**` line; the message's last line is the
+  decision: "reply with which to mine: any of 1–N, or none".
+
 #### The multi-select variant
 
 Some prompts ask the operator to choose any subset of several options, not exactly one. This
