@@ -4657,6 +4657,48 @@ func TestRunRecordNextRound(t *testing.T) {
 	})
 }
 
+// TestRunRecordPasses pins `flow record passes`: the change's pass rows as
+// one JSON array, `[]` for a change the store has never heard of, and
+// nothing on stdout with a non-zero exit when the store cannot be read --
+// check-unfinished-work's signal five reads it.
+func TestRunRecordPasses(t *testing.T) {
+	repo := recordRepo(t, "demo")
+	isolatedStateRoot(t)
+	for _, tc := range []struct {
+		name, body string
+		status     int
+		want       string
+	}{
+		{"pass rows", `{"change":"demo","dispatches":[],"passes":[{"id":1,"round":0,"note":"roster: full"}]}`, http.StatusOK, `[{"id":1,"round":0,"note":"roster: full"}]`},
+		{"no pass rows", `{"change":"demo","dispatches":[]}`, http.StatusOK, `[]`},
+		{"unknown change", ``, http.StatusNotFound, `[]`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "passes", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
+				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
+			}
+		})
+	}
+	t.Run("unreachable store prints nothing", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "passes", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
+			strings.NewReader(""), &stdout, &stderr)
+		if code == 0 || stdout.Len() != 0 {
+			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
+		}
+	})
+}
+
 // TestRunRecordNextRef pins the ref a run records its first finding under:
 // one past the highest F<n> any finding row carries, compared as numbers,
 // F1 for a change the store has never heard of, and nothing on a failed

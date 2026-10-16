@@ -281,6 +281,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -name pattern
        flow record dispatches [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record passes   [-addr url] [-timeout dur] [-C dir]
+                             -change name
        flow record next-round [-addr url] [-timeout dur] [-C dir]
                              -change name
        flow record next-ref [-addr url] [-timeout dur] [-C dir]
@@ -587,6 +589,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordFindingPattern(ctx, args[1:], stdout, stderr)
 	case "dispatches":
 		return runRecordDispatches(ctx, args[1:], stdout, stderr)
+	case "passes":
+		return runRecordPasses(ctx, args[1:], stdout, stderr)
 	case "next-round":
 		return runRecordNextRound(ctx, args[1:], stdout, stderr)
 	case "next-ref":
@@ -2095,7 +2099,32 @@ func runRecordFindingPattern(ctx context.Context, args []string, stdout, stderr 
 // never rendered as an empty array a caller could mistake for "no
 // dispatches."
 func runRecordDispatches(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("flow record dispatches", flag.ContinueOnError)
+	return runRecordRunRows(ctx, "dispatches", args, stdout, stderr, func(r records.Run) any {
+		if r.Dispatches == nil {
+			return []records.Dispatch{}
+		}
+		return r.Dispatches
+	})
+}
+
+// runRecordPasses implements `flow record passes`: the change's pass-log
+// rows as one JSON array, `dispatches`' twin -- the read
+// check-unfinished-work needs to tell a panel round that recorded no pass
+// row (kan-939 self-review).
+func runRecordPasses(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	return runRecordRunRows(ctx, "passes", args, stdout, stderr, func(r records.Run) any {
+		if r.Passes == nil {
+			return []records.Pass{}
+		}
+		return r.Passes
+	})
+}
+
+// runRecordRunRows is a read verb printing one kind of the change's run
+// record rows as a JSON array: a change the store has never heard of is
+// `[]`, any other failed read exits 1 with nothing on stdout.
+func runRecordRunRows(ctx context.Context, verb string, args []string, stdout, stderr io.Writer, rows func(records.Run) any) int {
+	fset := flag.NewFlagSet("flow record "+verb, flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	registerRecordIdentityFlags(fset, &f)
@@ -2119,19 +2148,15 @@ func runRecordDispatches(ctx context.Context, args []string, stdout, stderr io.W
 		// The store was reached and has never heard of this change --
 		// "no rows" is a fact, not a failure, and prints as an empty
 		// array below exactly as the findings verb treats it.
-		run = records.Run{Change: f.change, Dispatches: []records.Dispatch{}}
+		run = records.Run{Change: f.change}
 	default:
-		fmt.Fprintf(stderr, "flow: dispatches: %v\n", callErr)
+		fmt.Fprintf(stderr, "flow: %s: %v\n", verb, callErr)
 		return 1
 	}
 
-	if run.Dispatches == nil {
-		run.Dispatches = []records.Dispatch{}
-	}
-
-	body, err := json.Marshal(run.Dispatches)
+	body, err := json.Marshal(rows(run))
 	if err != nil {
-		fmt.Fprintf(stderr, "flow: encode dispatches: %v\n", err)
+		fmt.Fprintf(stderr, "flow: encode %s: %v\n", verb, err)
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))

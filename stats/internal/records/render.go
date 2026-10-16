@@ -218,7 +218,7 @@ func RenderPanel(r Run) string {
 			if passes == 0 {
 				var keys []string
 				for _, d := range r.Dispatches {
-					if n, ok := panelDispatchRound(d); ok && n == round {
+					if n, ok := PanelDispatchRound(d); ok && n == round {
 						keys = append(keys, neutraliseMarkers(d.Key))
 					}
 				}
@@ -269,7 +269,7 @@ func passLogRounds(r Run) []int {
 		add(m.Round)
 	}
 	for _, d := range r.Dispatches {
-		if n, ok := panelDispatchRound(d); ok {
+		if n, ok := PanelDispatchRound(d); ok {
 			add(n)
 		}
 	}
@@ -277,10 +277,11 @@ func passLogRounds(r Run) []int {
 	return nums
 }
 
-// panelDispatchRound reads the round out of a panel bundle's dispatch key,
+// PanelDispatchRound reads the round out of a panel bundle's dispatch key,
 // panel-<round>-<slot|slot+slot> (skills/flow/implement.md's dispatch
 // table); any other row -- a panel-fix-<round> fixer included -- is not one.
-func panelDispatchRound(d Dispatch) (int, bool) {
+// check-unfinished-work's panel-round signal reads rounds the same way.
+func PanelDispatchRound(d Dispatch) (int, bool) {
 	if d.Role != "reviewer" {
 		return 0, false
 	}

@@ -69,6 +69,8 @@ func newUWBare(t *testing.T, wt string) *uwFix {
 	writeExec(t, f.bin+"/flow", uwStub)
 	f.setFile(t, "verdicts.json", "[]\n")
 	f.setFile(t, "dispatches.json", `[{"key":"task-1-implementer","outcome":"completed"}]`+"\n")
+	// A pass row for every round a fixture's panel rows run in (0..2).
+	f.setFile(t, "passes.json", `[{"id":1,"round":0,"note":"roster: full"},{"id":2,"round":1,"note":"n"},{"id":3,"round":2,"note":"n"}]`+"\n")
 	f.setFindings(t)
 	get := pathEnv(f.bin)
 	f.env = Env{Getenv: get, Dir: wt,
@@ -329,6 +331,28 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("a non-panel reviewer row does not review the appended task", "OUTSTANDING:"))
 	each(demo(planned("- [x] 1. done\n- [x] 2. grouped\n- [x] 3. grouped\n", `[{"key":"task-2-implementer","outcome":"completed"}]`)),
 		uwVerdict("plan-time tasks grouped under one key, with no Tasks appended line, are CLEAR", "CLEAR:"))
+	// 2e. Signal five — a panel round dispatched with no pass row (kan-939:
+	//     round 1 ran panel-1-primary+principles and recorded nothing).
+	withPasses := func(rows, passes string) func(t *testing.T, f *uwFix) {
+		return func(t *testing.T, f *uwFix) {
+			f.setFile(t, "dispatches.json", rows+"\n")
+			f.setFile(t, "passes.json", passes+"\n")
+		}
+	}
+	panelRows := `[{"seq":1,"key":"panel-0-primary+principles","role":"reviewer","outcome":"clean"},{"seq":2,"key":"panel-fix-1","role":"panel-fix","outcome":"completed"},{"seq":3,"key":"panel-1-primary+principles","role":"reviewer","outcome":"clean"},{"seq":4,"key":"task-1-reviewer","role":"reviewer","outcome":"clean"}]`
+	each(demo(withPasses(panelRows, `[{"id":1,"round":0,"note":"roster: full"}]`)),
+		uwVerdict("a panel round dispatched with no pass row is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the round and its keys", "1 panel round(s) dispatched with no pass row (round 1: panel-1-primary+principles)"))
+	each(demo(withPasses(panelRows, `[{"id":1,"round":0,"note":"roster: full"},{"id":2,"round":1,"note":"n"}]`)),
+		uwVerdict("every dispatched panel round with a pass row is CLEAR", "CLEAR:"))
+	each(demo(withPasses(`[{"seq":1,"key":"task-1-reviewer","role":"reviewer","outcome":"clean"},{"seq":2,"key":"panel-fix-3","role":"panel-fix","outcome":"completed"}]`, "not json")),
+		uwVerdict("no panel reviewer row reads no pass rows", "CLEAR:"))
+	each(demo(withPasses(panelRows, "not json")), uwRC("unreadable pass rows cannot answer", 2))
+	each(demo(func(t *testing.T, f *uwFix) {
+		withPasses(panelRows, "[]")(t, f)
+		f.setFile(t, "passes.fail", "")
+	}), uwRC("a failed pass-row read cannot answer", 2))
+
 	// 2d. Signal four's commit half — a dispatch row is not a commit (a
 	//     back-filled row named a task whose work never landed).
 	each(demo(committedAs("base", "fix: the appended task\n\nFlow-Key: panel-fix-2", false)),

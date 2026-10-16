@@ -71,6 +71,15 @@
 # plan with a ticked appended task and no range passed is exit 2, and a range
 # git cannot read is exit 2.
 #
+# SIGNAL FIVE: A PANEL ROUND DISPATCHED WITH NO PASS ROW IS UNFINISHED
+# (kan-939 self-review). Every round a reviewer row keyed
+# `panel-<round>-<slot>` ran in needs a pass row of that round, read with
+# `flow record passes -change <name> -C <anchor>` — every panel run and
+# fix-round pass records one (skills/flow/review-panel.md). The pass rows are
+# read only when such a round exists; a failed or unreadable read is exit 2,
+# like the dispatch read. Like signal three, only the worktree holding the
+# plan reads them.
+#
 # All signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.

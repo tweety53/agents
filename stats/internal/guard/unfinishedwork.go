@@ -8,9 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // checkUnfinishedWork is scripts/check-unfinished-work.sh: that script's
@@ -312,11 +315,52 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		if len(unclosed) > 0 {
 			reasons = append(reasons, strconv.Itoa(len(unclosed))+" dispatch row(s) with no outcome ("+strings.Join(unclosed, ", ")+") — close each with "+strings.Join(closeCmds, ", "))
 		}
+		// SIGNAL FIVE — a panel round dispatched with no pass row (kan-939
+		// self-review: round 1 ran panel-1-primary+principles and recorded
+		// nothing, and the gate cleared it). Every panel run and fix-round
+		// pass records pass rows (review-panel.md), so a round some
+		// `panel-<round>-…` reviewer row ran in and no pass row carries is
+		// unfinished. Pass rows are read only when such a round exists, and
+		// a failed read is refused like the dispatch read above.
+		rounds := map[int][]string{}
+		for _, d := range dispatches {
+			if n, ok := records.PanelDispatchRound(records.Dispatch{Key: d.Key, Role: d.Role}); ok {
+				rounds[n] = append(rounds[n], d.Key)
+			}
+		}
+		if len(rounds) > 0 {
+			passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
+			if passRC != 0 {
+				fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
+				return 2
+			}
+			var passes []struct {
+				Round int `json:"round"`
+			}
+			if json.Unmarshal(passOut, &passes) != nil || passes == nil {
+				fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
+				return 2
+			}
+			for _, p := range passes {
+				delete(rounds, p.Round)
+			}
+			if len(rounds) > 0 {
+				var nums []int
+				for n := range rounds {
+					nums = append(nums, n)
+				}
+				slices.Sort(nums)
+				var named []string
+				for _, n := range nums {
+					named = append(named, "round "+strconv.Itoa(n)+": "+strings.Join(rounds[n], ", "))
+				}
+				reasons = append(reasons, strconv.Itoa(len(nums))+" panel round(s) dispatched with no pass row ("+strings.Join(named, "; ")+") — record each round's pass rows with `flow record pass -change "+name+" -round <round>` before landing")
+			}
+		}
 		// SIGNAL FOUR — a ticked appended task no dispatch row names: a fix
 		// round that recorded nothing (kan-979's fix-round Task 7 reached
 		// integrate with no dispatch row at all). A row names a task by its
-		// taskId or by the `+`-joined ids of a task-<ids>[-…] key; pass rows
-		// have no read verb, so dispatch rows are the proxy. Only the tasks a
+		// taskId or by the `+`-joined ids of a task-<ids>[-…] key. Only the tasks a
 		// fix run appended — the last `**Tasks appended:** <n>` of the plan —
 		// are judged: each is implemented alone, so it carries a row of its
 		// own, while plan-time tasks run grouped under one task-<n> key or
