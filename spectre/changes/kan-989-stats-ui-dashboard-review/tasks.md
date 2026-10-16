@@ -97,14 +97,14 @@ Correction (2026-10-17): the plan's `**Files:**` omitted two paths the removal r
 **Allowed-collateral:** `stats/internal/store/*.go`
 **Tests:** none — repairs existing tests: `TestEveryViewAcceptsAPeriod`; removes `stats/internal/store/runs_test.go`, `stats/web/src/views/Runs.test.tsx` and `TestRunsViewIncludesStageRows`.
 **Regression:** none — the task declares no tests
-**Baseline:** before=168 after=163 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
+**Baseline:** before=163 after=158 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
 **Commit:** refactor(stats): remove the runs dashboard now the live board carries its totals
 **After:** Task 1, 2, 3, 4
 
 **Decision:** board-run-totals
 **Decision:** retain-stored-data
 
-Correction (2026-10-17): `seedRunsFixture` fed only the runs view, so it was removed with `seed_test.go`'s count for it; `RunDetail.test.tsx` pins `VIEW_NAMES`' length (8 → 7), `views.test.tsx` carried the `runs` fixture, and the root `README.md` listed the view — all four were widened into `**Files:**`. `store/export_test.go` existed only to expose `fanOutMax` to `runs_test.go` and went with it. The baseline was measured at this task's own chain position (task 4 added two vitest cases the plan's figure did not count).
+Correction (2026-10-17): `seedRunsFixture` fed only the runs view, so it was removed with `seed_test.go`'s count for it; `RunDetail.test.tsx` pins `VIEW_NAMES`' length (8 → 7), `views.test.tsx` carried the `runs` fixture, and the root `README.md` listed the view — all four were widened into `**Files:**`. `store/export_test.go` existed only to expose `fanOutMax` to `runs_test.go` and went with it.
 
 - [x] 6. Stage leaderboard: total cost, top 10
   - [x] **Step 1: Store.** In `stats/internal/store/aggregate.go` `StageLeaderboard` add `SUM(cost)` as `TotalCostUsd` to the row and replace `ORDER BY command, stage` with `ORDER BY SUM(cost) DESC, command, stage LIMIT 10`. Update `TestStageLeaderboardComputesMeanMedianP90` for the new order and add `TestStageLeaderboardKeepsTopTenByTotalCost` (eleven stages; the cheapest by total is absent, rows ordered by total desc).
@@ -121,6 +121,8 @@ Correction (2026-10-17): `seedRunsFixture` fed only the runs view, so it was rem
 
 **Decision:** leaderboard-top10-total
 
+Correction (2026-10-17): step 2's "default sort Total cost descending" shipped as the server's order — `StageLeaderboard` returns rows ranked by total cost and `DataTable` renders them in that order until a reader sorts another column; no client-side initial sort or ▼ indicator was added.
+
 - [x] 7. Decisions: By implementer model replaces Every decision
   - [x] **Step 1: UI.** In `stats/web/src/views/Decisions.tsx` remove the `Runs` stat panel and the `Every decision` panel and its `columns`; add a `By implementer model` panel below `By class and execution`: client-side group of `data.rows` on `implementerModel` with Runs, Mean cost (`formatUsd`), Mean wall-clock, Mean findings (critical+important+minor), Mean fix rounds, sorted by Runs desc (decision `decisions-by-implementer-model`).
   - [x] **Step 2: Tests.** In `stats/web/src/views/views.test.tsx` update `decisions shows a run's class, execution and cost, and a class × execution summary` (no Every decision table, no Runs tile) and add `decisions groups runs by implementer model` (two rows on `opus`, one on `skipped — inline` → two groups, opus first with Runs 2 and their mean cost).
@@ -130,7 +132,7 @@ Correction (2026-10-17): `seedRunsFixture` fed only the runs view, so it was rem
 **Files:** `stats/web/src/views/Decisions.tsx`, `stats/web/src/views/views.test.tsx`
 **Tests:** `decisions groups runs by implementer model`
 **Regression:** `decisions groups runs by implementer model` — reverted, no `By implementer model` panel renders.
-**Baseline:** before=163 after=164 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
+**Baseline:** before=158 after=159 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
 **Commit:** feat(stats): summarise decisions by implementer model
 **After:** Task 1, 2, 3, 4, 5, 6
 
@@ -163,7 +165,7 @@ Correction (2026-10-17): `MeanCostPerFinished` shipped as `*float64`, not `float
 **Files:** `stats/web/src/views/SelfReview.tsx`, `stats/web/src/views/views.test.tsx`
 **Tests:** none — repairs existing tests: `renders self-review fixes`.
 **Regression:** none — the task declares no tests
-**Baseline:** before=158 after=158 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
+**Baseline:** before=159 after=159 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
 **Commit:** refactor(stats): drop the per-change block from self-review fixes
 **After:** Task 1, 2, 3, 4, 5, 6, 7, 8
 
@@ -180,6 +182,6 @@ Correction (2026-10-17): `MeanCostPerFinished` shipped as `*float64`, not `float
 **Allowed-collateral:** `stats/web/tests/visual/**`
 **Tests:** none — repairs existing tests: `views.spec.ts`, `full-app-suite.spec.ts`, `controls.spec.ts`, `combinations.spec.ts`, `reviewers-decisions.spec.ts`, `self-review.spec.ts`, `baseline.spec.ts`.
 **Regression:** none — the task declares no tests
-**Baseline:** before=158 after=158 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
+**Baseline:** before=159 after=159 <!-- measured: cd stats/web && grep -rhE '^[[:space:]]*(it|test)\(' src --include='*.test.ts' --include='*.test.tsx' | wc -l -->
 **Commit:** test(stats): update visual specs and baselines for the reworked dashboards
 **After:** Task 1, 2, 3, 4, 5, 6, 7, 8, 9
