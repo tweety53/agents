@@ -50,6 +50,10 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       nextCommand: "/flow-fast",
       plannedTasks: 22,
       currentTasks: 46,
+      runCount: 7,
+      costUsd: 12.5,
+      wallClockMs: 5400000,
+      errors: 3,
     },
     {
       projectKey: "kan-16-stats-app",
@@ -58,6 +62,10 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       updatedAt: "2026-01-15T09:00:00Z",
       updatedBy: "bob",
       nextCommand: "/flow",
+      runCount: 0,
+      costUsd: 0,
+      wallClockMs: 0,
+      errors: 0,
     },
     {
       projectKey: "kan-16-stats-app",
@@ -68,6 +76,22 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       nextCommand: "/flow",
       plannedTasks: 46,
       currentTasks: 22,
+      runCount: 2,
+      costUsd: 1.25,
+      wallClockMs: 45000,
+      errors: 11,
+    },
+    {
+      projectKey: "kan-16-stats-app",
+      name: "pipeline-fix-x-14",
+      state: "FINISHED",
+      updatedAt: "2026-01-15T07:00:00Z",
+      updatedBy: "dave",
+      nextCommand: "",
+      runCount: 1,
+      costUsd: 0.5,
+      wallClockMs: 1000,
+      errors: 0,
     },
   ]),
   "stage-leaderboard": envelope("stage-leaderboard", [
@@ -233,14 +257,21 @@ beforeEach(() => {
 });
 
 describe("views render their fixture response's actual values", () => {
-  it("state board shows the change's state, updater and next command", async () => {
+  it("state board shows the change's state and run totals", async () => {
     render(<StateBoard period={period} project={undefined} />);
     // The state also appears as a filter-dropdown <option>, which is not a
     // table cell -- scoping to role "cell" is what makes this assertion
     // about the rendered row rather than about either element.
     expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "alice" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "/flow-fast" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^By/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /Next command/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "alice" })).not.toBeInTheDocument();
+    // Whole-life run totals (design.md's board-run-totals).
+    const row = screen.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
+    within(row).getByRole("cell", { name: "7" });
+    within(row).getByRole("cell", { name: "$12.50" });
+    within(row).getByRole("cell", { name: "90.0 min" });
+    within(row).getByRole("cell", { name: "3" });
     // Plan growth (KAN-415): the observed change shows planned -> current
     // with the appended figure; the never-observed one reads as the
     // absence dash, never as a count of zero.
@@ -249,10 +280,16 @@ describe("views render their fixture response's actual values", () => {
     // (panel round 0, F1).
     expect(screen.getByRole("cell", { name: "46 → 22 (-24)" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "—" })).toBeInTheDocument();
-    // Its own stat panel: a count of the rows the server returned, never a
-    // fabricated total or mean for a categorical "state" column.
+    // Its own stat panel: a count of the rows shown, never a fabricated
+    // total or mean for a categorical "state" column.
     expect(screen.getByRole("heading", { name: "Changes" })).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Changes" })).getByText("3");
+  });
+
+  it("state board hides pipeline-fix changes", async () => {
+    render(<StateBoard period={period} project={undefined} />);
+    expect(await screen.findByRole("link", { name: "kan-16-stats-app" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "pipeline-fix-x-14" })).not.toBeInTheDocument();
   });
 
   it("stage leaderboard shows mean, median and p90 cost, and its own stat panels", async () => {

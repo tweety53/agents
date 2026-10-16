@@ -258,6 +258,11 @@ export interface StateBoardRow {
    * when the change was never observed -- absence, never a zero. */
   plannedTasks?: number;
   currentTasks?: number;
+  /** Whole-life run totals (store.LiveStateRow). */
+  runCount: number;
+  costUsd: number;
+  wallClockMs: number;
+  errors: number;
 }
 
 /** Mirrors costPerChangeRowDTO. */
