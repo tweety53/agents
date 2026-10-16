@@ -1006,6 +1006,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	if *agentID == "none" {
 		*agentID = ""
 	}
+	*model = recordModelAlias(*model)
 	if !slices.Contains(recordRoles, *role) {
 		fmt.Fprintf(stderr, "flow: -role %q is not one of: %s\n", *role, strings.Join(recordRoles, ", "))
 		return 2
@@ -1159,6 +1160,19 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		fmt.Fprintf(stdout, "updated: dispatch %d\n", out.Seq)
 	}
 	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr)
+}
+
+// recordModelAlias maps a full Claude model id to the alias dispatches are
+// recorded under (kan-939 self-review: a parent's inline row recorded
+// claude-opus-5-5 while every dispatch it made recorded opus, so one model
+// read as two). Every other value is kept verbatim.
+func recordModelAlias(model string) string {
+	for _, alias := range []string{"opus", "sonnet"} {
+		if strings.HasPrefix(model, "claude-"+alias+"-") {
+			return alias
+		}
+	}
+	return model
 }
 
 // runRecordDispatchBackfill implements `flow record dispatch backfill`: a

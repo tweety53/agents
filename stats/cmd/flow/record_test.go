@@ -4913,6 +4913,22 @@ func TestRequireChangeCheckoutRefusesNonChangeNames(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBeginModelAlias pins that a full Claude model id is
+// recorded under its alias -- kan-939's parent rows read claude-opus-5-5
+// beside dispatches' opus -- and any other model verbatim.
+func TestRecordDispatchBeginModelAlias(t *testing.T) {
+	for given, want := range map[string]string{
+		"claude-opus-5-5":   "opus",
+		"claude-sonnet-4-6": "sonnet",
+		"opus":              "opus",
+		"glm-5.3-flash":     "glm-5.3-flash",
+	} {
+		if sent := dispatchBeginBody(t, "-model", given); sent["model"] != want {
+			t.Errorf("-model %s recorded as %v, want %s", given, sent["model"], want)
+		}
+	}
+}
+
 // TestRecordDispatchBackfill pins the kan-939 self-review fix: a back-fill
 // is one `dispatch backfill` call whose real instants are required. It
 // sends begin carrying -started-at, then end carrying -ended-at and the
