@@ -274,14 +274,25 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 
 ### 4. Explain, then ask
 
-Every offered finding is explained before the operator answers — what was observed, what breaks,
-and what the fix would be — in chat ahead of the ask, per **Explain before asking**
-(`skills/flow-contracts/operator-prompts.md`): a filed issue is durable, and an explanation
-arriving afterward describes something the operator did not agree to. When the call offers an
-angle-7 candidate, the whole explanation is the turn's final message and the call fires in the next
-turn; with none, the call follows the explanation in the same turn. Every fixed finding is one
-line in the explanation message, naming its landed sha; it is not offered. The filing ask,
-the mining ask and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
+Every finding is explained in the message body first, before any prompt fires — what was
+observed, what breaks, and what the fix would be. Every fixed finding is one line in the same
+body, naming its landed sha; it is not offered. A prompt's option text cannot carry that
+explanation, so the prompt records the decision only: a filed issue is durable, and an
+explanation arriving afterward describes something the operator did not agree to.
+
+When an angle-7 candidate is offered, the ask is two calls: the filing questions and the rating
+in one call that follows the explanation in the same turn, and the mining questions in their own
+call in a later turn, after a turn that ends on the candidates' template; the
+operator may instead answer the mining ask in chat directly. Why: a harness focus mode shows
+only a turn's final message, so a flow-eval candidate's template written before a call in the same
+turn is never seen. Carrying the explanation inside the prompt instead was rejected by the operator
+on 2026-10-16: the explanation belongs in chat, in the agreed format, not in the prompt. Splitting
+every ask across two turns was rejected by the operator the same day: the split is for flow-eval
+candidates alone. An unanswered call of this shape follows **Unanswered mid-run asks**
+(`skills/flow-contracts/pipeline.md`).
+
+With no candidate offered, the filing ask and the rating are **one `AskUserQuestion` call**
+that follows the explanation in the same turn. Every call has the shape per **Operator prompts**
 (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
 three offered items each — findings to file or angle-7 candidates to mine, never both in one
 question — every option prefixed with its angle's label, plus **None — file nothing** or
