@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -12,13 +13,11 @@ import (
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
-// health.go backs the flow-health dashboard: three views asking whether
-// flow's own machinery earns its keep -- which guards ever fire, which
-// stages get re-entered, and how many review-panel rounds a change needs --
-// plus the one write the first of those needs (RecordGuardRun). Every other
-// view in aggregate.go asks what the pipeline costs; these ask where it
-// loops, so a rule or guard that never catches anything can be found and
-// removed, and a stage that often needs a second pass can be tightened.
+// health.go backs the flow-health dashboard: one set of period totals
+// (FlowSummary) asking whether flow's own machinery earns its keep -- how
+// many changes start and finish, what they cost and how long they take, how
+// many review-panel rounds and findings they need, and how often a guard
+// fires -- plus the one write the last of those needs (RecordGuardRun).
 
 // ErrProjectNotFound is returned by a project-scoped write naming a project
 // the store holds no row for. RecordGuardRun is its caller: a guard run
@@ -69,140 +68,92 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 	return out, nil
 }
 
-// GuardActivityRow is one guard's record across a period: its runs as the
-// flow-guard binary recorded them (guard_runs) beside the verdicts and
-// operator-flagged false positives the guards that record one kept
-// (guard_verdicts). A guard appears when either source names it.
-//
-// LastRunAt, LastFiredAt and MedianDurationMS are nil when the guard has no
-// guard_runs row in the period (it is known only from a verdict), or, for
-// LastFiredAt, when it never fired -- absence, never a zero time.
-type GuardActivityRow struct {
-	Guard            string
-	Runs             int
-	Fired            int
-	CannotAnswer     int
-	LastRunAt        *time.Time
-	LastFiredAt      *time.Time
-	MedianDurationMS *float64
-	Verdicts         int
-	FalsePositives   int
+// FlowSummaryRow is the flow-health dashboard's eight period totals
+// (design.md's flow-health-tiles). A change starts at its first stage run
+// and finishes at its FINISHED write -- a withdrawal is not a finish.
+// MeanCostPerFinished is the whole-life cost of the changes finished in the
+// period; MedianLeadTimeMs runs from a finished change's first stage start
+// to its finish. Both are nil when nothing finished, and MeanPanelRounds
+// when no change in the period recorded a round -- absence, never a zero.
+type FlowSummaryRow struct {
+	ChangesStarted      int
+	ChangesFinished     int
+	TotalCostUsd        float64
+	MeanCostPerFinished *float64
+	MedianLeadTimeMs    *int64
+	MeanPanelRounds     *float64
+	Critical            int
+	Important           int
+	Minor               int
+	GuardFires          int
 }
 
-// GuardActivity reports one row per guard across period, optionally
-// restricted to one project. guard_runs rows are scoped by their own
-// recorded_at, and guard_verdicts rows by theirs.
-func (s *Store) GuardActivity(ctx context.Context, period Period, project *string) ([]GuardActivityRow, error) {
-	rows, err := s.pool.Query(ctx, `
-		WITH runs AS (
-			SELECT gr.guard,
-				COUNT(*) AS runs,
-				COUNT(*) FILTER (WHERE gr.outcome = 'fired') AS fired,
-				COUNT(*) FILTER (WHERE gr.outcome = 'cannot-answer') AS cannot_answer,
-				MAX(gr.recorded_at) AS last_run,
-				MAX(gr.recorded_at) FILTER (WHERE gr.outcome = 'fired') AS last_fired,
-				percentile_cont(0.5) WITHIN GROUP (ORDER BY gr.duration_ms) AS median_ms
-			FROM guard_runs gr
-			WHERE gr.recorded_at >= $1 AND gr.recorded_at < $2
-			  AND ($3::text IS NULL OR gr.project_key = $3)
-			GROUP BY gr.guard
+// FlowSummary reports the period's totals, optionally restricted to one
+// project. Stage-run cost is attributed by start instant, as every
+// aggregation in aggregate.go is; the panel figures are PanelRounds' rows
+// folded together.
+func (s *Store) FlowSummary(ctx context.Context, period Period, project *string) (FlowSummaryRow, error) {
+	var out FlowSummaryRow
+	var lead *float64
+	err := s.pool.QueryRow(ctx, `
+		WITH costed AS (
+			SELECT sr.change_id, sr.started_at,
+				CASE WHEN jsonb_typeof(sr.metrics->'cost_usd') = 'number'
+				     THEN (sr.metrics->>'cost_usd')::float8 END AS cost
+			FROM stage_runs sr
+			JOIN changes c ON c.id = sr.change_id
+			WHERE ($3::text IS NULL OR c.project_key = $3)
 		),
-		verdicts AS (
-			SELECT gv.guard,
-				COUNT(*) AS verdicts,
-				COUNT(*) FILTER (WHERE gv.false_positive) AS false_positives
-			FROM guard_verdicts gv
-			JOIN changes c ON c.id = gv.change_id
-			WHERE gv.recorded_at >= $1 AND gv.recorded_at < $2
+		firsts AS (
+			SELECT change_id, MIN(started_at) AS first_start, SUM(cost) AS life_cost
+			FROM costed
+			GROUP BY change_id
+		),
+		finished AS (
+			SELECT c.updated_at, f.first_start, COALESCE(f.life_cost, 0) AS life_cost
+			FROM changes c
+			LEFT JOIN firsts f ON f.change_id = c.id
+			WHERE c.state = 'FINISHED' AND NOT c.withdrawn
+			  AND c.updated_at >= $1 AND c.updated_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)
-			GROUP BY gv.guard
 		)
-		SELECT COALESCE(r.guard, v.guard),
-			COALESCE(r.runs, 0), COALESCE(r.fired, 0), COALESCE(r.cannot_answer, 0),
-			r.last_run, r.last_fired, r.median_ms,
-			COALESCE(v.verdicts, 0), COALESCE(v.false_positives, 0)
-		FROM runs r
-		FULL OUTER JOIN verdicts v ON v.guard = r.guard
-		ORDER BY 1
-	`, period.From, period.To, project)
+		SELECT
+			(SELECT COUNT(*)::int FROM firsts WHERE first_start >= $1 AND first_start < $2),
+			(SELECT COUNT(*)::int FROM finished),
+			(SELECT COALESCE(SUM(cost), 0)::float8 FROM costed WHERE started_at >= $1 AND started_at < $2),
+			(SELECT AVG(life_cost)::float8 FROM finished),
+			(SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM updated_at - first_start) * 1000)
+				FROM finished WHERE first_start IS NOT NULL),
+			(SELECT COUNT(*)::int FROM guard_runs gr
+				WHERE gr.outcome = 'fired' AND gr.recorded_at >= $1 AND gr.recorded_at < $2
+				  AND ($3::text IS NULL OR gr.project_key = $3))
+	`, period.From, period.To, project).Scan(&out.ChangesStarted, &out.ChangesFinished, &out.TotalCostUsd,
+		&out.MeanCostPerFinished, &lead, &out.GuardFires)
 	if err != nil {
-		return nil, fmt.Errorf("store: guard activity: %w", err)
+		return FlowSummaryRow{}, fmt.Errorf("store: flow summary: %w", err)
 	}
-	defer rows.Close()
-
-	var out []GuardActivityRow
-	for rows.Next() {
-		var row GuardActivityRow
-		if err := rows.Scan(&row.Guard, &row.Runs, &row.Fired, &row.CannotAnswer,
-			&row.LastRunAt, &row.LastFiredAt, &row.MedianDurationMS,
-			&row.Verdicts, &row.FalsePositives); err != nil {
-			return nil, fmt.Errorf("store: guard activity: scan: %w", err)
-		}
-		out = append(out, row)
+	if lead != nil {
+		ms := int64(math.Round(*lead))
+		out.MedianLeadTimeMs = &ms
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: guard activity: %w", err)
-	}
-	return out, nil
-}
 
-// StageRedoRow is one command/stage pair's re-entry record across a period.
-// A stage run with attempt > 1 is a re-entry: the same stage begun again on
-// the same change -- a fix run, a resumed session, a retried gate. Runs
-// counts every attempt; Changes the distinct changes that ran the stage;
-// ReenteredChanges those that ran it more than once.
-//
-// MedianSeconds and P90Seconds cover ended runs only, and are nil when no
-// run in the group has ended.
-type StageRedoRow struct {
-	Command          string
-	Stage            string
-	Runs             int
-	Changes          int
-	Reentries        int
-	ReenteredChanges int
-	MedianSeconds    *float64
-	P90Seconds       *float64
-}
-
-// StageRedo reports one row per command/stage pair whose runs started in
-// period, optionally restricted to one project -- the same attribution
-// StageLeaderboard uses. Plan-session runs (change_id NULL) join no change
-// and are not counted.
-func (s *Store) StageRedo(ctx context.Context, period Period, project *string) ([]StageRedoRow, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT sr.command, sr.stage,
-			COUNT(*),
-			COUNT(DISTINCT sr.change_id),
-			COUNT(*) FILTER (WHERE sr.attempt > 1),
-			COUNT(DISTINCT sr.change_id) FILTER (WHERE sr.attempt > 1),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM sr.ended_at - sr.started_at))
-				FILTER (WHERE sr.ended_at IS NOT NULL),
-			percentile_cont(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM sr.ended_at - sr.started_at))
-				FILTER (WHERE sr.ended_at IS NOT NULL)
-		FROM stage_runs sr
-		JOIN changes c ON c.id = sr.change_id
-		WHERE sr.started_at >= $1 AND sr.started_at < $2
-		  AND ($3::text IS NULL OR c.project_key = $3)
-		GROUP BY sr.command, sr.stage
-		ORDER BY sr.command, sr.stage
-	`, period.From, period.To, project)
+	panels, err := s.PanelRounds(ctx, period, project)
 	if err != nil {
-		return nil, fmt.Errorf("store: stage redo: %w", err)
+		return FlowSummaryRow{}, err
 	}
-	defer rows.Close()
-
-	var out []StageRedoRow
-	for rows.Next() {
-		var row StageRedoRow
-		if err := rows.Scan(&row.Command, &row.Stage, &row.Runs, &row.Changes,
-			&row.Reentries, &row.ReenteredChanges, &row.MedianSeconds, &row.P90Seconds); err != nil {
-			return nil, fmt.Errorf("store: stage redo: scan: %w", err)
+	var rounds, roundChanges int
+	for _, p := range panels {
+		out.Critical += p.Critical
+		out.Important += p.Important
+		out.Minor += p.Minor
+		if p.Rounds != nil {
+			rounds += *p.Rounds
+			roundChanges++
 		}
-		out = append(out, row)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: stage redo: %w", err)
+	if roundChanges > 0 {
+		mean := float64(rounds) / float64(roundChanges)
+		out.MeanPanelRounds = &mean
 	}
 	return out, nil
 }

@@ -57,12 +57,9 @@ type StatsStore interface {
 	// models (store.DecisionRow's own doc comment).
 	Decisions(ctx context.Context, period store.Period, project *string) ([]store.DecisionRow, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
-	// GuardActivity, StageRedo and PanelRounds back the flow-health
-	// dashboard's views (store/health.go): which guards fire, which stages
-	// get re-entered, and how many review-panel rounds a change needs.
-	GuardActivity(ctx context.Context, period store.Period, project *string) ([]store.GuardActivityRow, error)
-	StageRedo(ctx context.Context, period store.Period, project *string) ([]store.StageRedoRow, error)
-	PanelRounds(ctx context.Context, period store.Period, project *string) ([]store.PanelRoundsRow, error)
+	// FlowSummary backs the flow-health dashboard's period totals
+	// (store/health.go).
+	FlowSummary(ctx context.Context, period store.Period, project *string) (store.FlowSummaryRow, error)
 	// SelfReviewFindingsInPeriod backs the "self-review" view: every
 	// self-review finding recorded in the period, newest first.
 	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
@@ -112,9 +109,7 @@ const (
 	viewTrend            viewName = "trend"
 	viewReviewers        viewName = "reviewers"
 	viewDecisions        viewName = "decisions"
-	viewGuards           viewName = "guards"
-	viewStageRedo        viewName = "stage-redo"
-	viewPanelRounds      viewName = "panel-rounds"
+	viewFlowSummary      viewName = "flow-summary"
 	viewSelfReview       viewName = "self-review"
 )
 
@@ -125,7 +120,7 @@ const (
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
 	viewReviewers, viewDecisions,
-	viewGuards, viewStageRedo, viewPanelRounds, viewSelfReview,
+	viewFlowSummary, viewSelfReview,
 }
 
 func acceptedViewNames() string {
@@ -415,8 +410,8 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// already fully reported by Recorded=false, so asking "did none of its
 	// runs carry a measurement" would be a wasted query answering a
 	// question that period does not raise.
-	// The flow-health views count guard runs, stage attempts and panel
-	// rounds, none of which is a token measurement, so "no run carried a
+	// The flow-health view counts changes, guard runs and panel rounds,
+	// none of which is a token measurement, so "no run carried a
 	// measurement" says nothing about them and would hide real rows.
 	var unmeasured bool
 	if recorded && !isHealthView(name) {
@@ -532,7 +527,7 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toDecisionDTOs(decisions), 0, ""
 
-	case viewGuards, viewStageRedo, viewPanelRounds, viewSelfReview:
+	case viewFlowSummary, viewSelfReview:
 		return h.healthRows(ctx, name, period, project, model)
 
 	default:
@@ -819,16 +814,6 @@ func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
 		}
 	}
 	return out
-}
-
-// rfc3339Ptr formats t the same way every other timestamp on the wire is
-// formatted (UTC, RFC3339Nano), preserving nil for an absent instant.
-func rfc3339Ptr(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-	s := t.UTC().Format(time.RFC3339Nano)
-	return &s
 }
 
 // filterCostPerChangeByName narrows rows to changeName, preserving order.

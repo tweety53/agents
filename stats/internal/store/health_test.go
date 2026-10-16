@@ -43,94 +43,6 @@ func TestRecordGuardRunRefusesAnInvalidRun(t *testing.T) {
 	}
 }
 
-func TestGuardActivityMergesRunsAndVerdicts(t *testing.T) {
-	st := newTestStore(t)
-	ctx := context.Background()
-	projectKey := fmt.Sprintf("proj-guards-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
-
-	day := func(d int) time.Time { return time.Date(2026, 8, d, 12, 0, 0, 0, time.UTC) }
-	for _, in := range []records.GuardRun{
-		guardRun("check-plan-shape", "clear", 0, 100, day(2)),
-		guardRun("check-plan-shape", "fired", 1, 300, day(3)),
-		guardRun("check-plan-shape", "cannot-answer", 2, 200, day(4)),
-		guardRun("check-quiet", "clear", 0, 10, day(5)),
-		// Outside the period: never counted.
-		guardRun("check-plan-shape", "fired", 1, 999, time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)),
-	} {
-		if _, err := st.RecordGuardRun(ctx, projectKey, in); err != nil {
-			t.Fatalf("RecordGuardRun: %v", err)
-		}
-	}
-	if _, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict("check-unfinished-work", "OUTSTANDING: x", day(6))); err != nil {
-		t.Fatalf("RecordVerdict: %v", err)
-	}
-	if _, err := st.FlagVerdictFalsePositive(ctx, projectKey, "kan-1", records.VerdictFlag{Guard: "check-unfinished-work", Reason: "hand-verified"}); err != nil {
-		t.Fatalf("FlagVerdictFalsePositive: %v", err)
-	}
-
-	rows, err := st.GuardActivity(ctx, healthPeriod, &projectKey)
-	if err != nil {
-		t.Fatalf("GuardActivity: %v", err)
-	}
-	if len(rows) != 3 {
-		t.Fatalf("rows = %+v, want 3 guards", rows)
-	}
-	shape := rows[0]
-	if shape.Guard != "check-plan-shape" || shape.Runs != 3 || shape.Fired != 1 || shape.CannotAnswer != 1 {
-		t.Errorf("check-plan-shape = %+v, want 3 runs, 1 fired, 1 cannot-answer", shape)
-	}
-	if shape.LastFiredAt == nil || !shape.LastFiredAt.Equal(day(3)) {
-		t.Errorf("LastFiredAt = %v, want %v", shape.LastFiredAt, day(3))
-	}
-	if shape.MedianDurationMS == nil || *shape.MedianDurationMS != 200 {
-		t.Errorf("MedianDurationMS = %v, want 200", shape.MedianDurationMS)
-	}
-	quiet := rows[1]
-	if quiet.Guard != "check-quiet" || quiet.Runs != 1 || quiet.Fired != 0 || quiet.LastFiredAt != nil {
-		t.Errorf("check-quiet = %+v, want 1 run that never fired", quiet)
-	}
-	verdictOnly := rows[2]
-	if verdictOnly.Guard != "check-unfinished-work" || verdictOnly.Runs != 0 || verdictOnly.Verdicts != 1 ||
-		verdictOnly.FalsePositives != 1 || verdictOnly.LastRunAt != nil {
-		t.Errorf("check-unfinished-work = %+v, want a verdict-only row with one false positive", verdictOnly)
-	}
-}
-
-func TestStageRedoCountsReentries(t *testing.T) {
-	st := newTestStore(t)
-	ctx := context.Background()
-	projectKey := fmt.Sprintf("proj-redo-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
-	seedChange(t, st, projectKey, "kan-2")
-
-	start := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
-	// kan-1 enters the panel twice (attempt 1 and 2); kan-2 once.
-	for i, spec := range []struct {
-		change string
-		dur    time.Duration
-	}{{"kan-1", time.Minute}, {"kan-1", 3 * time.Minute}, {"kan-2", 2 * time.Minute}} {
-		in := baseBeginInput(projectKey, spec.change, "/flow", "flow.review-panel")
-		in.StartedAt = start.Add(time.Duration(i) * time.Hour)
-		runStage(t, st, in, nil, in.StartedAt.Add(spec.dur), "completed")
-	}
-
-	rows, err := st.StageRedo(ctx, healthPeriod, &projectKey)
-	if err != nil {
-		t.Fatalf("StageRedo: %v", err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("rows = %+v, want 1", rows)
-	}
-	r := rows[0]
-	if r.Runs != 3 || r.Changes != 2 || r.Reentries != 1 || r.ReenteredChanges != 1 {
-		t.Errorf("row = %+v, want 3 runs over 2 changes, 1 re-entry on 1 change", r)
-	}
-	if r.MedianSeconds == nil || *r.MedianSeconds != 120 {
-		t.Errorf("MedianSeconds = %v, want 120", r.MedianSeconds)
-	}
-}
-
 func TestPanelRoundsPerChange(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
@@ -177,5 +89,95 @@ func TestPanelRoundsPerChange(t *testing.T) {
 	}
 	if k1.Findings != 3 || k1.Critical != 1 || k1.Important != 1 || k1.Minor != 1 {
 		t.Errorf("kan-1 counts = %+v, want 3 findings, one per severity", k1)
+	}
+}
+
+// TestFlowSummaryTotals pins the eight flow-health tiles (design.md's
+// flow-health-tiles): a change starts at its first stage run and finishes
+// at its FINISHED write (a withdrawal is not a finish); cost is the stage
+// runs started in period, the per-finished mean is whole-life; the panel
+// figures come from PanelRounds and guard fires from guard_runs.
+func TestFlowSummaryTotals(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-summary-%d", time.Now().UnixNano())
+	for _, name := range []string{"kan-1", "kan-2", "kan-3", "kan-4"} {
+		seedChange(t, st, projectKey, name)
+	}
+
+	stage := func(change, name string, at time.Time, cost float64) {
+		t.Helper()
+		in := baseBeginInput(projectKey, change, "/flow", name)
+		in.StartedAt = at
+		costRun(t, st, in, cost)
+	}
+	// kan-1 started before the period, re-entered the panel inside it.
+	kan1Start := time.Date(2026, 7, 20, 10, 0, 0, 0, time.UTC)
+	stage("kan-1", "flow.kickoff", kan1Start, 1.0)
+	stage("kan-1", "flow.review-panel", time.Date(2026, 8, 5, 10, 0, 0, 0, time.UTC), 2.0)
+	// kan-2 started and finished inside it.
+	kan2Start := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
+	stage("kan-2", "flow.review-panel", kan2Start, 4.0)
+	// kan-3 started inside it and was withdrawn.
+	stage("kan-3", "flow.kickoff", time.Date(2026, 8, 11, 9, 0, 0, 0, time.UTC), 0.5)
+
+	finish := func(name string, at time.Time, withdrawn bool) {
+		t.Helper()
+		c := baseChange(projectKey, name)
+		c.State, c.Withdrawn, c.UpdatedAt = store.StateFinished, withdrawn, at
+		if err := st.PutChange(ctx, c); err != nil {
+			t.Fatalf("PutChange %s: %v", name, err)
+		}
+	}
+	kan1End := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+	finish("kan-1", kan1End, false)
+	finish("kan-2", kan2Start.Add(48*time.Hour), false)
+	finish("kan-3", time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC), true)
+
+	for _, f := range []records.Finding{
+		{Ref: "F1", Round: 0, Slot: "primary", Severity: "Critical", Note: "a", Status: "fixed"},
+		{Ref: "F2", Round: 1, Slot: "primary", Severity: "Important", Note: "b", Status: "fixed"},
+	} {
+		if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", f); err != nil {
+			t.Fatalf("UpsertFinding: %v", err)
+		}
+	}
+	day := func(d int) time.Time { return time.Date(2026, 8, d, 12, 0, 0, 0, time.UTC) }
+	for _, in := range []records.GuardRun{
+		guardRun("check-plan-shape", "fired", 1, 10, day(2)),
+		guardRun("check-plan-shape", "fired", 1, 10, day(3)),
+		guardRun("check-plan-shape", "clear", 0, 10, day(4)),
+		guardRun("check-plan-shape", "fired", 1, 10, time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)),
+	} {
+		if _, err := st.RecordGuardRun(ctx, projectKey, in); err != nil {
+			t.Fatalf("RecordGuardRun: %v", err)
+		}
+	}
+
+	got, err := st.FlowSummary(ctx, healthPeriod, &projectKey)
+	if err != nil {
+		t.Fatalf("FlowSummary: %v", err)
+	}
+	if got.ChangesStarted != 2 || got.ChangesFinished != 2 {
+		t.Errorf("started/finished = %d/%d, want 2/2 (kan-2, kan-3 started; kan-1, kan-2 finished)", got.ChangesStarted, got.ChangesFinished)
+	}
+	if got.TotalCostUsd != 6.5 {
+		t.Errorf("TotalCostUsd = %v, want 6.5 (2.0 + 4.0 + 0.5 started in period)", got.TotalCostUsd)
+	}
+	if got.MeanCostPerFinished == nil || *got.MeanCostPerFinished != 3.5 {
+		t.Errorf("MeanCostPerFinished = %v, want 3.5 (whole-life 3.0 and 4.0)", got.MeanCostPerFinished)
+	}
+	wantLead := (kan1End.Sub(kan1Start) + 48*time.Hour).Milliseconds() / 2
+	if got.MedianLeadTimeMs == nil || *got.MedianLeadTimeMs != wantLead {
+		t.Errorf("MedianLeadTimeMs = %v, want %d", got.MedianLeadTimeMs, wantLead)
+	}
+	if got.MeanPanelRounds == nil || *got.MeanPanelRounds != 2 {
+		t.Errorf("MeanPanelRounds = %v, want 2 (kan-1's two rounds; kan-2 recorded none)", got.MeanPanelRounds)
+	}
+	if got.Critical != 1 || got.Important != 1 || got.Minor != 0 {
+		t.Errorf("C/I/Mi = %d/%d/%d, want 1/1/0", got.Critical, got.Important, got.Minor)
+	}
+	if got.GuardFires != 2 {
+		t.Errorf("GuardFires = %d, want 2", got.GuardFires)
 	}
 }

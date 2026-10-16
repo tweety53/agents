@@ -60,14 +60,8 @@ func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string
 // satisfying api.StatsStore at call sites that never exercise a stats route
 // at all (this section's own header comment) -- no test here needs any of
 // them to return anything but a harmless zero value.
-func (f *fakeStore) GuardActivity(_ context.Context, _ store.Period, _ *string) ([]store.GuardActivityRow, error) {
-	return nil, nil
-}
-func (f *fakeStore) StageRedo(_ context.Context, _ store.Period, _ *string) ([]store.StageRedoRow, error) {
-	return nil, nil
-}
-func (f *fakeStore) PanelRounds(_ context.Context, _ store.Period, _ *string) ([]store.PanelRoundsRow, error) {
-	return nil, nil
+func (f *fakeStore) FlowSummary(_ context.Context, _ store.Period, _ *string) (store.FlowSummaryRow, error) {
+	return store.FlowSummaryRow{}, nil
 }
 func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
@@ -108,9 +102,7 @@ type statsFake struct {
 	trendOverTime    []store.TrendPoint
 	reviewers        []store.ReviewerRow
 	decisions        []store.DecisionRow
-	guardActivity    []store.GuardActivityRow
-	stageRedo        []store.StageRedoRow
-	panelRounds      []store.PanelRoundsRow
+	flowSummary      store.FlowSummaryRow
 	selfReview       []store.SelfReviewFindingRow
 	aggErr           error
 
@@ -182,17 +174,9 @@ func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period
 	f.lastProject = p
 	return f.selfReview, f.aggErr
 }
-func (f *statsFake) GuardActivity(_ context.Context, _ store.Period, p *string) ([]store.GuardActivityRow, error) {
+func (f *statsFake) FlowSummary(_ context.Context, _ store.Period, p *string) (store.FlowSummaryRow, error) {
 	f.lastProject = p
-	return f.guardActivity, f.aggErr
-}
-func (f *statsFake) StageRedo(_ context.Context, _ store.Period, p *string) ([]store.StageRedoRow, error) {
-	f.lastProject = p
-	return f.stageRedo, f.aggErr
-}
-func (f *statsFake) PanelRounds(_ context.Context, _ store.Period, p *string) ([]store.PanelRoundsRow, error) {
-	f.lastProject = p
-	return f.panelRounds, f.aggErr
+	return f.flowSummary, f.aggErr
 }
 func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *string) (int, error) {
 	f.lastProject = p

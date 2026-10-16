@@ -1,5 +1,5 @@
-// health.go serves the flow-health dashboard: the guards, stage-redo and
-// panel-rounds views over store/health.go, and POST
+// health.go serves the flow-health dashboard: the flow-summary view over
+// store/health.go, and POST
 // /api/v1/guard-runs/{project}, the write the flow-guard binary makes for
 // every guard it runs.
 package api
@@ -10,43 +10,27 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-// isHealthView reports whether name is one of the flow-health views, or the
+// isHealthView reports whether name is the flow-summary view or the
 // self-review view: neither counts a token measurement nor carries a model.
 func isHealthView(name viewName) bool {
-	return name == viewGuards || name == viewStageRedo || name == viewPanelRounds || name == viewSelfReview
+	return name == viewFlowSummary || name == viewSelfReview
 }
 
-// healthRows answers the three flow-health views and the self-review view.
-// None takes a model restriction: a guard run and a self-review finding carry
-// no model, and a stage's re-entries and a change's panel rounds are counted
-// across every model that ran them, so a
-// model filter is refused rather than silently ignored -- the runs view's
-// posture.
+// healthRows answers the flow-summary view and the self-review view. Neither
+// takes a model restriction: a guard run and a self-review finding carry no
+// model, and a change's cost, lead time and panel rounds are counted across
+// every model that ran them, so a model filter is refused rather than
+// silently ignored.
 func (h *statsHandler) healthRows(ctx context.Context, name viewName, period store.Period, project, model *string) (rows any, status int, msg string) {
 	if model != nil {
 		return nil, http.StatusBadRequest, fmt.Sprintf("view %q counts across every model, so a model restriction cannot apply here", name)
 	}
 	switch name {
-	case viewGuards:
-		got, err := h.store.GuardActivity(ctx, period, project)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "guard activity", err)
-			return nil, s, m
-		}
-		return toGuardActivityDTOs(got), 0, ""
-	case viewStageRedo:
-		got, err := h.store.StageRedo(ctx, period, project)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "stage redo", err)
-			return nil, s, m
-		}
-		return toStageRedoDTOs(got), 0, ""
 	case viewSelfReview:
 		got, err := h.store.SelfReviewFindingsInPeriod(ctx, period, project)
 		if err != nil {
@@ -54,82 +38,29 @@ func (h *statsHandler) healthRows(ctx context.Context, name viewName, period sto
 			return nil, s, m
 		}
 		return toSelfReviewDTOs(got, h.commitBase), 0, ""
-	default: // viewPanelRounds
-		got, err := h.store.PanelRounds(ctx, period, project)
+	default: // viewFlowSummary
+		got, err := h.store.FlowSummary(ctx, period, project)
 		if err != nil {
-			s, m := mapStoreError(h.logger, "panel rounds", err)
+			s, m := mapStoreError(h.logger, "flow summary", err)
 			return nil, s, m
 		}
-		return toPanelRoundsDTOs(got), 0, ""
+		return flowSummaryDTO(got), 0, ""
 	}
 }
 
-type guardActivityRowDTO struct {
-	Guard            string   `json:"guard"`
-	Runs             int      `json:"runs"`
-	Fired            int      `json:"fired"`
-	CannotAnswer     int      `json:"cannotAnswer"`
-	LastRunAt        *string  `json:"lastRunAt"`
-	LastFiredAt      *string  `json:"lastFiredAt"`
-	MedianDurationMS *float64 `json:"medianDurationMs"`
-	Verdicts         int      `json:"verdicts"`
-	FalsePositives   int      `json:"falsePositives"`
-}
-
-func toGuardActivityDTOs(rows []store.GuardActivityRow) []guardActivityRowDTO {
-	out := make([]guardActivityRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = guardActivityRowDTO{
-			Guard: r.Guard, Runs: r.Runs, Fired: r.Fired, CannotAnswer: r.CannotAnswer,
-			LastRunAt: rfc3339Ptr(r.LastRunAt), LastFiredAt: rfc3339Ptr(r.LastFiredAt),
-			MedianDurationMS: r.MedianDurationMS,
-			Verdicts:         r.Verdicts, FalsePositives: r.FalsePositives,
-		}
-	}
-	return out
-}
-
-type stageRedoRowDTO struct {
-	Command          string   `json:"command"`
-	Stage            string   `json:"stage"`
-	Runs             int      `json:"runs"`
-	Changes          int      `json:"changes"`
-	Reentries        int      `json:"reentries"`
-	ReenteredChanges int      `json:"reenteredChanges"`
-	MedianSeconds    *float64 `json:"medianSeconds"`
-	P90Seconds       *float64 `json:"p90Seconds"`
-}
-
-func toStageRedoDTOs(rows []store.StageRedoRow) []stageRedoRowDTO {
-	out := make([]stageRedoRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = stageRedoRowDTO(r)
-	}
-	return out
-}
-
-type panelRoundsRowDTO struct {
-	Project   string `json:"project"`
-	Change    string `json:"change"`
-	StartedAt string `json:"startedAt"`
-	Rounds    *int   `json:"rounds"`
-	Findings  int    `json:"findings"`
-	Critical  int    `json:"critical"`
-	Important int    `json:"important"`
-	Minor     int    `json:"minor"`
-}
-
-func toPanelRoundsDTOs(rows []store.PanelRoundsRow) []panelRoundsRowDTO {
-	out := make([]panelRoundsRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = panelRoundsRowDTO{
-			Project: r.Project, Change: r.Change,
-			StartedAt: r.StartedAt.UTC().Format(time.RFC3339Nano),
-			Rounds:    r.Rounds, Findings: r.Findings,
-			Critical: r.Critical, Important: r.Important, Minor: r.Minor,
-		}
-	}
-	return out
+// flowSummaryDTO is the flow-summary view's one row -- an object, not a
+// list: the view is a set of period totals (store.FlowSummaryRow).
+type flowSummaryDTO struct {
+	ChangesStarted      int      `json:"changesStarted"`
+	ChangesFinished     int      `json:"changesFinished"`
+	TotalCostUsd        float64  `json:"totalCostUsd"`
+	MeanCostPerFinished *float64 `json:"meanCostPerFinished"`
+	MedianLeadTimeMs    *int64   `json:"medianLeadTimeMs"`
+	MeanPanelRounds     *float64 `json:"meanPanelRounds"`
+	Critical            int      `json:"critical"`
+	Important           int      `json:"important"`
+	Minor               int      `json:"minor"`
+	GuardFires          int      `json:"guardFires"`
 }
 
 // GuardRunStore is the store dependency POST /api/v1/guard-runs/{project}

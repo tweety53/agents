@@ -62,10 +62,9 @@ export const VIEW_NAMES: readonly ViewName[] = [
  * aggregate, so `fetchStatsView` keeps accepting it alongside `ViewName`. */
 type CostPerChangeViewSlug = "cost-per-change";
 
-/** The three statistics endpoints the "flow-health" dashboard composes
- * (internal/api/health.go) -- not navigable views of their own: the one
- * dashboard reads all three. */
-export type HealthViewSlug = "guards" | "stage-redo" | "panel-rounds";
+/** The statistics endpoint the "flow-health" dashboard reads
+ * (internal/api/health.go) -- not a navigable view of its own. */
+export type HealthViewSlug = "flow-summary";
 
 /** Every slug GET /api/v1/stats/{view} is called with from this client. */
 export type StatsViewSlug = ViewName | CostPerChangeViewSlug | HealthViewSlug;
@@ -290,44 +289,20 @@ export interface StageLeaderboardRow {
   totalCostUsd: number;
 }
 
-/** Mirrors guardActivityRowDTO (internal/api/health.go). The run-derived
- * fields are null for a guard known only from a recorded verdict. */
-export interface GuardActivityRow {
-  guard: string;
-  runs: number;
-  fired: number;
-  cannotAnswer: number;
-  lastRunAt: string | null;
-  lastFiredAt: string | null;
-  medianDurationMs: number | null;
-  verdicts: number;
-  falsePositives: number;
-}
-
-/** Mirrors stageRedoRowDTO. The durations are null when no run in the
- * group has ended. */
-export interface StageRedoRow {
-  command: string;
-  stage: string;
-  runs: number;
-  changes: number;
-  reentries: number;
-  reenteredChanges: number;
-  medianSeconds: number | null;
-  p90Seconds: number | null;
-}
-
-/** Mirrors panelRoundsRowDTO. `rounds` is null when the change recorded
- * no finding and no pass-log line -- not recorded, never zero rounds. */
-export interface PanelRoundsRow {
-  project: string;
-  change: string;
-  startedAt: string;
-  rounds: number | null;
-  findings: number;
+/** Mirrors flowSummaryDTO (internal/api/health.go): the flow-summary
+ * view's one object of period totals. The means are null when nothing in
+ * the period finished or recorded a round -- absence, never a zero. */
+export interface FlowSummary {
+  changesStarted: number;
+  changesFinished: number;
+  totalCostUsd: number;
+  meanCostPerFinished: number | null;
+  medianLeadTimeMs: number | null;
+  meanPanelRounds: number | null;
   critical: number;
   important: number;
   minor: number;
+  guardFires: number;
 }
 
 /** Mirrors selfReviewRowDTO. `commitUrl` is "" unless the finding is

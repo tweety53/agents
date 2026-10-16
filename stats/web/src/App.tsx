@@ -179,7 +179,7 @@ const MODEL_DISABLED_REASONS: Partial<Record<ViewName, string>> = {
   "state-board":
     "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.",
   "flow-health":
-    "Flow health counts guard runs, stage re-entries and panel rounds across every model, so a model restriction cannot apply here.",
+    "Flow health totals changes, panel rounds and guard fires across every model, so a model restriction cannot apply here.",
 };
 
 export function App() {
