@@ -45,6 +45,12 @@ evidence and its classification — `noted` or fixable, in or out of scope, and 
 counted blast radius and whether it is `big`. This session keeps the filing-and-rating prompt, the
 store rows and the report.
 
+**Every suspected defect is traced to a verdict before the pass returns it.** Reproduced, it is
+fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it in its line. "Not
+traced", "unverified" or a cause left unknown is never a classification: such a finding goes to
+step 3's planner as a non-`big` finding whose plan opens on the trace, never into the report or
+into the run's final report as an open item.
+
 The pass runs the seven-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
 
@@ -363,6 +369,7 @@ flow self-review finding -change <name> -angle <label> -disposition fixed|filed|
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
 lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues — the report below is the durable record.
+A row is stated as recorded only once `flow self-review findings -change <name>` lists it: read that listing before step 8, record every row it lacks again, and fix a store that still refuses per **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`).
 
 ### 7. Write the report, delete the bundle, land it
 
@@ -385,6 +392,7 @@ it in `<project>/.flow/project.md`'s `## lint` section; fix any violation before
 **Exit 2 — the guard cannot answer at all (a missing or unreadable target directory, an
 unreadable report inside it, an internal coverage.sh call failing) — is not a violation**: report it and stop before the
 commit, never commit a report the guard could not read.
+`land-self-review-report.sh` refuses a report whose finding line says `not traced` or `untraced` — `LAND-UNTRACED-FINDING`, exit 4, nothing committed: trace that finding to a verdict per step 2 (`skills/flow-self-review/SKILL.md`), rewrite its line, and land again.
 Commit both paths in one commit through the landing chain's one script — the same invocation
 `skills/flow/integrate.md` step 4 lands the report with, differing in the asserted branch,
 the removed context-bundle path and the `--push` — since the round-trip through the seven-angle

@@ -326,6 +326,7 @@ The report and the fixes land with the change on every route. **7. Land**'s land
 commits' shas per item 5 of step 3 of `/flow-self-review`, in whichever invocation makes it. A staged index holding anything
 beyond the chain's own path refuses the commit (`LAND-FOREIGN-STAGED`) — clear the staging or land
 from a clean checkout, never around it.
+A `LAND-UNTRACED-FINDING` refusal is not a stop: resolve it per step 7 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) and land again.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the mark below
 `-outcome stopped` instead, and ends the run on the handoff block **the sweep**
@@ -454,4 +455,5 @@ flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.refresh-
 ```
 
 Transition the Jira issue to **Done**, the same way as before. End by naming the landed commit
-on `<base>`.
+on `<base>`. The final report carries no open item, per the Finished handoff rule in
+`skills/flow/cleanup.md`.
