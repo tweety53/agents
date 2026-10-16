@@ -596,6 +596,12 @@ and applies **The handshake** stated above, unchanged.
 > the shape you construct by hand is not the shape the real producer emits. Build the value the way
 > production builds it, or assert against the real boundary.
 
+> **SCRATCH HARNESS:** A throwaway harness — a measuring spec, a repro script, a probe — lives in
+> your session scratchpad or in this change's state dir (the path `flow state dir` prints), never
+> in a new worktree or branch of any repository. Cleanup removes only the change's own worktrees
+> and branches, so one you create outlives the run (kan-960 left a `kan-960-measure` worktree and
+> branch in `gymie-playwright`).
+
 > **REPORT FILE:** write your report to
 > `<abs-worktree>/.superpowers/sdd/implementer-report-<k>.md` as your **last** act — after your
 > commit and your final test run — carrying each commit's sha, the failing RED output you saw,
