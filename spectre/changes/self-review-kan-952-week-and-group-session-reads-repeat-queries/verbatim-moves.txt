@@ -1,0 +1,8 @@
+# Every sentence this change adds or rewords on purpose, exactly as check-verbatim-moves.sh prints it.
+**A fix run then runs the unfinished-work guard on itself**, once per worktree of the resolved set, with the arguments **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) passes it — `check-unfinished-work.sh <worktree> <name> <canonical-worktree> <worktree>=<merge-base>...
+`-commit` is the task commit the fixup was folded into.
+— so an appended task left unrecorded or unreviewed stops this run rather than the next integrate.
+A violation naming a row's recorded commit is not that prompt: the row recorded a commit the fix did not land in.
+The parent ends the row again under its own key and token with the commit the fix landed in as `-commit`, and runs the guard again.
+`-commit` is the task commit the fixup was folded into, or, where the branch is already on the remote (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`), the fix commit itself, carrying the round's `Flow-Key:` trailer.
+— so an appended task left unrecorded or unreviewed, or a panel round dispatched with no pass row, stops this run rather than the next integrate.
