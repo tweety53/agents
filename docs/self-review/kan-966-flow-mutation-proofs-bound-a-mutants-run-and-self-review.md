@@ -5,7 +5,7 @@
 
 ## Problems encountered, and what pipeline change would avoid them — `flow-fix`
 
-- **[flow-fix]** The intentional usage-string change shipped with a stale pinned expectation, so the touched package's suite was red until the pin was updated in the panel fix commit — fixed: 6594368c
+- **[flow-fix]** The intentional usage-string change shipped with a stale pinned expectation, so the touched package's suite was red until the pin was updated in the panel fix commit — fixed: 219a22f8
 - **[flow-fix]** check-ask-silence failed identically on the untouched base commit; fixed in-run as a sweep commit and never offered — noted
 - **[flow-fix]** The first clean-check in the timeout test false-failed on the run's own untracked fixture harness; resolved in-run by checking the touched file only — noted
 
@@ -35,18 +35,18 @@
 ## What would make a good flow-eval case — `flow-eval`
 
 - **[flow-eval]** impl Task 1 — bound every run in mutate-and-verify and count a mutated timeout as killed; operator chose to mine nothing — noted
-  - task: `.superpowers/sdd/kan-966-flow-mutation-proofs-bound-a-mutants-run-and/tasks.md` Task 1, commit bb17ee45
+  - task: `.superpowers/sdd/kan-966-flow-mutation-proofs-bound-a-mutants-run-and/tasks.md` Task 1, commit 54fe1acb
   - code: `stats/internal/guard/mutateandverify.go:425` (`mvTimeout`/`mvRunBounded`)
   - why: self-contained verdict-semantics task with deterministic sleep-fixture tests and explicit rejected alternatives
 - **[flow-eval]** impl Task 2 — run a project test command after `--` through mutate-and-verify; operator chose to mine nothing — noted
-  - task: `.superpowers/sdd/kan-966-flow-mutation-proofs-bound-a-mutants-run-and/tasks.md` Task 2, commit 96b7169c
+  - task: `.superpowers/sdd/kan-966-flow-mutation-proofs-bound-a-mutants-run-and/tasks.md` Task 2, commit 61decb49
   - code: `stats/internal/guard/mutateandverify.go:502` (`mvRunCommand`)
   - why: argv-vs-shell-string design choice plus an exit-code verdict
-- **[flow-eval]** review F2 — Important, `stats/internal/guard/mutateandverify.go:521`: a project command failing on both passes was reported caught when its exit code merely changed; fixed at `stats/internal/guard/mutateandverify.go:523` in 6594368c; operator chose to mine nothing — noted
+- **[flow-eval]** review F2 — Important, `stats/internal/guard/mutateandverify.go:521`: a project command failing on both passes was reported caught when its exit code merely changed; fixed at `stats/internal/guard/mutateandverify.go:523` in 219a22f8; operator chose to mine nothing — noted
   - bad code: `return 0, []string{fmt.Sprintf("exit-%d", code)}, true, false`
   - fixed code: `return 0, []string{"exit-nonzero"}, true, false`
   - why: a subtle set-difference verdict bug, invisible without tracing baseline/mutated name equality
-- **[flow-eval]** review F1+F3+F4 — Important ×3 duplicate slots on the stale usage pin at `stats/internal/guard/mutate_and_verify_test.go:895`, fixed in 6594368c; operator chose to mine nothing — noted
+- **[flow-eval]** review F1+F3+F4 — Important ×3 duplicate slots on the stale usage pin at `stats/internal/guard/mutate_and_verify_test.go:895`, fixed in 219a22f8; operator chose to mine nothing — noted
   - why: tests whether a reviewer catches a self-inflicted suite-red from an intentional output change; also the duplicate-reporting specimen
-- **[flow-eval]** review F5+F6 — Minor test gaps and the 1s fixture flake, both fixed in 6594368c (`stats/internal/guard/mutate_and_verify_test.go:577`); operator chose to mine nothing — noted
+- **[flow-eval]** review F5+F6 — Minor test gaps and the 1s fixture flake, both fixed in 219a22f8 (`stats/internal/guard/mutate_and_verify_test.go:577`); operator chose to mine nothing — noted
   - why: a Minor-grade calibration case
