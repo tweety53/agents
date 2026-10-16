@@ -69,7 +69,8 @@ every field present:
 
 - **impl** — the task, as `tasks.md` records it; the resulting code, an excerpt under its
   worktree-resolved `path:line`; why it is a good candidate.
-- **review** — each finding with its severity, its location and the reviewer's own sentence; the
+- **review** — a Critical or Important finding only, never a Minor one, a Critical preferred
+  over an Important; each finding with its severity, its location and the reviewer's own sentence; the
   bad code; the fixed code, with the fixing commit's sha; why it is a good candidate.
 - **visual** — the actual app screenshot and the mockup screenshot, each by absolute path; the
   findings; why it is a good candidate.
