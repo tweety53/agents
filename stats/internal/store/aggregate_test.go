@@ -1093,6 +1093,67 @@ func TestReviewersSplitsBundledSlots(t *testing.T) {
 	}
 }
 
+// TestReviewersIncludesExtraDispatchSlots seeds the always-on
+// test-sanity+call-efficiency bundle, whose slots a decision records under
+// extra_dispatch.slots and never under panel.roster, and asserts both roles
+// surface as rows, each with its finding and its description.
+func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-reviewers-extra-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	d := baseDispatch("reviewer", "sonnet")
+	d.Slot = "test-sanity+call-efficiency"
+	d.StartedAt = time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
+	bundle, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	f := baseFinding("F1", 1)
+	f.Slot = "test-sanity"
+	f.Severity = "Minor"
+	f.Status = "fixed"
+	f.DispatchSeq = &bundle.Seq
+	if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", f); err != nil {
+		t.Fatalf("UpsertFinding: %v", err)
+	}
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
+		SessionToken: "mf-extra-" + projectKey,
+		Decision:     json.RawMessage(`{"panel": "default", "extra_dispatch": {"slots": ["test-sanity", "call-efficiency"], "model": "sonnet", "effort": "low"}}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+	rows, err := st.Reviewers(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	bySlot := map[string]store.ReviewerRow{}
+	for _, r := range rows {
+		bySlot[r.Slot] = r
+	}
+	for _, slot := range []string{"test-sanity", "call-efficiency"} {
+		r, ok := bySlot[slot]
+		if !ok {
+			t.Fatalf("no row for extra-dispatch slot %q (rows: %+v)", slot, rows)
+		}
+		if r.Dispatches != 1 {
+			t.Errorf("%s Dispatches = %d, want 1", slot, r.Dispatches)
+		}
+		if r.Description == "" {
+			t.Errorf("%s Description is empty", slot)
+		}
+	}
+	if got := bySlot["test-sanity"].Minor; got != 1 {
+		t.Errorf("test-sanity Minor = %d, want 1", got)
+	}
+}
+
 // TestDecisionsJoinsRunTotals seeds one recorded decision together with the
 // stage run, dispatches and findings its own session token shares, and
 // asserts Decisions (design.md's "Stats views › decisions") joins every one

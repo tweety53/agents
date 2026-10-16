@@ -528,7 +528,10 @@ type ReviewerRow struct {
 // roster_slots is also the view's membership test: a slot is a row only
 // when some recorded roster names it. Dispatches of other roles (panel-fix,
 // verifier) and one-off reviewers sometimes carry an invented -slot, and
-// without this join each surfaced as a zero-findings row.
+// without this join each surfaced as a zero-findings row. The always-on
+// extra dispatch's slots are recorded under extra_dispatch.slots, never in
+// the roster, so they count as members too; that record carries no
+// description, so theirs comes from extraDispatchDescriptions.
 func (s *Store) Reviewers(ctx context.Context, period Period, project, model *string) ([]ReviewerRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH scoped_dispatches AS (
@@ -561,7 +564,10 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			GROUP BY slot
 		),
 		roster_slots AS (
-			SELECT DISTINCT jsonb_path_query(decision, '$.panel.roster[*].slot') #>> '{}' AS slot
+			SELECT jsonb_path_query(decision, '$.panel.roster[*].slot') #>> '{}' AS slot
+			FROM decisions
+			UNION
+			SELECT jsonb_path_query(decision, '$.extra_dispatch.slots[*]') #>> '{}'
 			FROM decisions
 		)
 		SELECT
@@ -607,12 +613,22 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		); err != nil {
 			return nil, fmt.Errorf("store: reviewers: scan: %w", err)
 		}
+		if row.Description == "" {
+			row.Description = extraDispatchDescriptions[row.Slot]
+		}
 		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: reviewers: %w", err)
 	}
 	return out, nil
+}
+
+// extraDispatchDescriptions describes the always-on extra dispatch's
+// slots, in the words of skills/flow/review-panel.md's table for it.
+var extraDispatchDescriptions = map[string]string{
+	"test-sanity":     "Test-sanity — would each test the diff adds or changes fail if its behaviour broke",
+	"call-efficiency": "Call-efficiency — second callers, a read repeated in one request, a query per list item",
 }
 
 // DecisionRow is one recorded planner decision (design.md's "The decision
