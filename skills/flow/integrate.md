@@ -107,8 +107,10 @@ its own `chore(spectre): plan <name>` subject. An archived change without new wo
 archives the change on its branch, commits the archive and pushes each reshaped branch
 `--force-with-lease` — per **Archive on the change branch**
 (`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-split`,
-`archive`, `commit-archive`, `push` — is reported with the script's lines and leaves the change at
+`archive`, `commit-archive`, `push`, `pre-reshape` — is reported with the script's lines and leaves the change at
 `IN_PROGRESS`; **`/flow` never passes `--force`** to `spectre archive`.
+
+**`STOP: pre-reshape`** → pinning the worktree's HEAD failed, or origin holds a `refs/flow/pre-reshape/<name>` the local pin does not descend from: report both shas and git's output; never overwrite either pin.
 
 **`STOP: narrative`** → an `In-run pipeline fix:` line in the narrative is off the format **Pipeline defects found mid-run** fixes for it (`skills/flow-contracts/pipeline.md`): rewrite that line to that format and re-run `commit`.
 

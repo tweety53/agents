@@ -39,14 +39,22 @@
 #          implementation commit would not be empty (impl_paths below).
 #          --accept-foreign / --accept-outstanding: the operator chose
 #          Continue at that stop; its lines still print.
-# commit   reshape-branch per worktree, the ledger render, commit-split per
+# commit   the pre-reshape pin per worktree (refs/flow/pre-reshape/<name>
+#          at its HEAD; kept when it already reaches HEAD, so a re-run
+#          after a stop keeps the first, else advanced to a merge of the
+#          old pin and HEAD; fetched from origin when absent locally; run 2
+#          never deletes it), reshape-branch per
+#          worktree, the ledger render, commit-split per
 #          worktree in `## Merge order`, `spectre archive` (each
 #          <name>-fix-N too) unless already archived, commit-archive. A
 #          worktree with nothing on the implementation side takes no
 #          subject; any other without one stops `commit-split`. An
 #          archived change without new work skips straight to commit-archive.
 #          Then the --force-with-lease branch push per worktree, in merge
-#          order — the reshape's push (Branch backup, git-boundaries.md).
+#          order — the reshape's push (Branch backup, git-boundaries.md) —
+#          each followed by a plain push of that worktree's pin, refused
+#          (STOP: pre-reshape) when origin holds one the local pin does
+#          not descend from.
 #          --outstanding <text> puts `Outstanding: <text>` in the planning
 #          commit's body, under this script's own subject.
 #          The parent appends its narrative before calling this; an
@@ -491,6 +499,7 @@ cmd_commit() {
     for o in "${ORDER[@]}"; do
       f="$(reshape_file "${WT[o]}")"; [ -f "$f" ] || continue
       rb="$(cat "$f")"
+      pin_pre_reshape "${WT[o]}"
       run "$SCRIPT_DIR/reshape-branch.sh" "${WT[o]}" "$NAME" "$rb"
       [ "$RC" -eq 0 ] || stop reshape "reshape-branch exit $RC in ${WT[o]} — report its lines"
     done
@@ -527,7 +536,7 @@ cmd_commit() {
   [ "$RC" -eq 0 ] || stop commit-archive "commit-archive exit $RC — report its lines"
   # The rewritten branch reaches the remote now, not at land: a run that
   # stops before land leaves the next plain branch-backup push a fast-forward.
-  for o in "${ORDER[@]}"; do push_branch "${WT[o]}"; done
+  for o in "${ORDER[@]}"; do push_branch "${WT[o]}"; push_pin "${WT[o]}"; done
   mark_end flow.commit-archive completed
   mark_begin flow.self-review
   if git -C "$CANON" cat-file -e "HEAD:docs/self-review/$NAME-self-review.md" 2>/dev/null; then
@@ -585,6 +594,40 @@ record_fixed_rows() {
       -ref "${BASH_REMATCH[3]}" -note "${BASH_REMATCH[2]}" ||
       echo "integrate-change: warning: recording the fixed row for ${BASH_REMATCH[3]} failed" >&2
   done <"$rpt"
+}
+
+# pin_pre_reshape <worktree>: refs/flow/pre-reshape/<name> at the
+# worktree's HEAD before the reshape folds its per-task commits — the one
+# ref that still reaches each `Task-Id:` commit and the pre-task tasks.md
+# afterwards. Absent locally, origin's is fetched first (a re-clone). Kept
+# when it already reaches HEAD (a re-run after a stop already reshaped);
+# otherwise advanced to a merge of the old pin and HEAD, so an archived
+# re-run's new tasks stay reachable beside the earlier ones.
+pin_pre_reshape() {
+  local r="refs/flow/pre-reshape/$NAME" p
+  git -C "$1" rev-parse -q --verify "$r" >/dev/null || git -C "$1" fetch -q origin "$r:$r" 2>/dev/null || true
+  if p="$(git -C "$1" rev-parse -q --verify "$r")"; then
+    git -C "$1" merge-base --is-ancestor HEAD "$p" && return 0
+    p="$(git -C "$1" commit-tree "HEAD^{tree}" -p "$p" -p HEAD -m "pre-reshape $NAME")" &&
+      git -C "$1" update-ref "$r" "$p" && return 0
+  else
+    git -C "$1" update-ref "$r" HEAD && return 0
+  fi
+  stop pre-reshape "pinning $1's HEAD as $r failed — report git's output; this worktree was not reshaped"
+}
+
+# push_pin <worktree>: the pin to origin, plain, when the worktree has one;
+# origin's is replaced only when the local pin descends from it — any other
+# differing pin is refused, never overwritten.
+push_pin() {
+  local r="refs/flow/pre-reshape/$NAME" l rem
+  l="$(git -C "$1" rev-parse -q --verify "$r")" || return 0
+  rem="$(git -C "$1" ls-remote origin "$r")" || stop push "reading origin's $r from $1 failed — report git's output; the change stays IN_PROGRESS"
+  rem="${rem%%[[:space:]]*}"
+  [ "$rem" = "$l" ] && return 0
+  [ -z "$rem" ] || git -C "$1" merge-base --is-ancestor "$rem" "$l" 2>/dev/null ||
+    stop pre-reshape "origin's $r is $rem, not an ancestor of $1's pin $l — report it; neither was overwritten"
+  git -C "$1" push -q origin "$r:$r" || stop push "the push of $r from $1 was rejected — report git's output; the change stays IN_PROGRESS"
 }
 
 push_branch() { git -C "$1" push --force-with-lease -u origin "spectre/$NAME" || stop push "the branch push from $1 was rejected — report git's output; the change stays IN_PROGRESS"; }

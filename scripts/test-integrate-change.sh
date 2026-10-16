@@ -71,6 +71,17 @@
 #   peer_fix_canon_first  peer_fix with the merge order `.` then `b`: the
 #                   rewrite lands after a was pushed, and land pushes a's
 #                   branch and base again in the same run.
+#   pre_reshape_pin  commit stopped after the reshape, then re-run: each
+#                   repository's refs/flow/pre-reshape/demo stays at its
+#                   pre-reshape HEAD, reaches the Task-Id: 1 commit, and is
+#                   on origin; a pin on origin the local one does not
+#                   descend from stops commit at STOP: pre-reshape, untouched. happy_path checks
+#                   the pin survives run 2.
+#   rerun_pin       an archived re-run with a new Task-Id: 2 commit in a:
+#                   commit advances a's pin so it reaches both Task-Id
+#                   commits and pushes it to origin; with the local pin
+#                   deleted first (a re-clone), commit fetches origin's and
+#                   does the same rather than stopping.
 #   outstanding     commit --outstanding keeps the planning commit's own
 #                   subject and puts the text in its body; --plan-message,
 #                   which replaced the subject whole, is refused.
@@ -245,6 +256,8 @@ check "Jira In Review then Done are handed to the parent" \
   '[ "$(printf "%s\n" "$OUT" | grep "^JIRA: " | tr "\n" "|")" = "JIRA: transition KAN-1 to In Review|JIRA: transition KAN-1 to Done|" ]'
 check "the stage log runs preflight through refresh-main-checkout" \
   'head -1 "$WORK/stages.log" | grep -q "stage begin .*-stage flow.preflight" && tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.refresh-main-checkout -outcome completed"'
+check "run 2 keeps a's pre-reshape pin, locally and on origin" \
+  'git -C "$WORK/a" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null && git --git-dir="$WORK/a-origin.git" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null'
 check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
 
 # --- foreign_staged ---
@@ -479,6 +492,53 @@ printf '# demo\n\n## Parts\n\n`b:demo`\n\n## Branch\n\nmain\n\n## Merge order\n\
   >"$WORK/a-worktrees/demo/spectre/changes/demo/link.md"
 g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
 peer_fix_case "peer_fix_canon_first: "
+
+# --- pre_reshape_pin ---
+fixture
+pa="$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)"; pb="$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
+check "pre_reshape_pin: commit with no subject for b stops after the reshape" \
+  'printf "%s" "$OUT" | grep -q "^STOP: commit-split" && [ "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" = "$(git -C "$WORK/b" rev-parse main)" ]'
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "pre_reshape_pin: the re-run commit exits 0" '[ "$RC" -eq 0 ]'
+check "pre_reshape_pin: each pin is the pre-reshape HEAD, not the reshaped one" \
+  '[ "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" = "$pa" ] && [ "$(git -C "$WORK/b" rev-parse refs/flow/pre-reshape/demo)" = "$pb" ]'
+check "pre_reshape_pin: b's Task-Id: 1 commit is found through its pin" \
+  '[ "$(git -C "$WORK/b" log --format=%s --grep="^Task-Id: 1$" main..refs/flow/pre-reshape/demo)" = "feat(b): task 1" ]'
+check "pre_reshape_pin: each origin holds its pin" \
+  '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$pa" ] && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$pb" ]'
+fixture
+stray="$(g -C "$WORK/b" commit-tree "main^{tree}" -m stray)"
+g -C "$WORK/b" push -q origin "$stray:refs/flow/pre-reshape/demo"
+g -C "$WORK/b" update-ref refs/flow/pre-reshape/demo "$(g -C "$WORK/b-worktrees/demo" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "pre_reshape_pin: a differing pin on origin stops commit, untouched" \
+  'printf "%s" "$OUT" | grep -q "^STOP: pre-reshape" && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$stray" ]'
+
+# --- rerun_pin ---
+rerun_pin_case() {
+  fixture
+  to_land "${1}"
+  [ "${2:-}" = reclone ] && git -C "$WORK/a" update-ref -d refs/flow/pre-reshape/demo
+  printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
+  g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
+  sut prepare "$WORK/a" demo
+  [ "$RC" -eq 0 ] || halt prepare
+  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): more work" "$WORK/b=feat(b): do the work"
+  check "${1}the re-run commit exits 0" '[ "$RC" -eq 0 ]'
+  check "${1}a's pin reaches both Task-Id commits" \
+    '[ "$(git -C "$WORK/a" log --format=%s --grep="^Task-Id: [12]$" main..refs/flow/pre-reshape/demo | sort | tr "\n" ,)" = "feat(a): more,feat(a): task 1," ]'
+  check "${1}origin holds the advanced pin" \
+    '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" ]'
+}
+rerun_pin_case "rerun_pin: "
+rerun_pin_case "rerun_pin reclone: " reclone
 
 # --- outstanding ---
 fixture

@@ -214,8 +214,12 @@ to that merge base: every commit the run made on the branch — task, fixup and 
 alike, the planning ones being the plan-gate, link, reviewer-dispatch, fix-run and
 write-in-progress commits of **Planning commits** (`git-boundaries.md`) and `/flow-plan`'s capture
 commit — folds back into the index, uncommitted. **Planning commits are squashed into one on
-landing**: they exist on the branch during the run, never on the base. **When the script cannot be
-located**, stop and report it.
+landing**: they exist on the branch during the run, never on the base. Before that reset,
+`integrate-change.sh commit` pins the worktree's HEAD as `refs/flow/pre-reshape/<name>` — kept when it
+already reaches HEAD, otherwise advanced to a merge of the old pin and HEAD, pushed plain beside the branch push and never deleted by run 2 — so a
+task's own commit stays findable afterwards as the one carrying its `Task-Id: <n>` trailer
+between the recorded merge base and `refs/flow/pre-reshape/<name>`, grouped implementer tasks included. **When the script
+cannot be located**, stop and report it.
 
 All three routes then commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
