@@ -39,14 +39,14 @@ payload's `cwd`. `pipeline-fix.sh verify` reads the worktree's own `origin/HEAD`
 - An own-branch self-review for an agents change run from the agents repository resolves to the
   agents main checkout exactly as before.
 
-- [ ] 1. File an own-branch self-review loop in the caller's project
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. File an own-branch self-review loop in the caller's project
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf8-task1.diff`, apply its test hunks alone
     (`git apply --include='stats/internal/guard/*_test.go' /tmp/pf8-task1.diff`) and run
     `cd stats && go test ./internal/guard/ -run 'OwnBranchInAnotherProject' -count=1`: both tests
     FAIL — `end left the caller's project` shows `record dispatch end -C <…>/agents`, and the
     dispatch test reports the begin not filed in the caller's project.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/*_test.go' /tmp/pf8-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at b803ec00; both new tests pass with it and fail with loop.go and pipelinefix.go reverted; go test ./internal/guard/ green
@@ -331,9 +331,9 @@ index 166483ea..7c10dcb2 100644
  		return 2
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'OwnBranchInAnotherProject|CheckLoopDispatch|PipelineFix' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'OwnBranchInAnotherProject|CheckLoopDispatch|PipelineFix' -count=1`
     — gofmt prints nothing, the rest exit 0.
-  - [ ] **Step 4: Commit** the five files with the subject below.
+  - [x] **Step 4: Commit** the five files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/loop.go`, `stats/internal/guard/pipelinefix.go`, `stats/internal/guard/check_loop_dispatch_test.go`, `stats/internal/guard/pipeline_fix_test.go`, `scripts/pipeline-fix.sh`
@@ -347,13 +347,13 @@ index 166483ea..7c10dcb2 100644
 **Decision:** caller-dir-resolves-own-branch
 **Decision:** verify-base-from-worktree
 
-- [ ] 2. Run the loop-dispatch checker in the payload's working directory
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 2. Run the loop-dispatch checker in the payload's working directory
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf8-task2.diff`, apply its harness hunks alone
     (`git apply --include='scripts/test-enforce-loop-dispatch-hook.sh' /tmp/pf8-task2.diff`) and
     run `bash scripts/test-enforce-loop-dispatch-hook.sh`: it FAILS with
     `FAIL: 12 checker ran in <the worktree>`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='scripts/test-enforce-loop-dispatch-hook.sh' /tmp/pf8-task2.diff`):
 
 ````diff verified:applied with git apply to this worktree at b803ec00; case 12 passes with it and fails with the hook hunk reverted
@@ -433,10 +433,10 @@ index 7efe59c2..17d422d4 100755
    exit 1
 ````
 
-  - [ ] **Step 3: Verify.** `bash scripts/test-enforce-loop-dispatch-hook.sh`,
+  - [x] **Step 3: Verify.** `bash scripts/test-enforce-loop-dispatch-hook.sh`,
     `python3 -m py_compile hooks/enforce-loop-dispatch.py` and
     `scripts/check-python-suppressions.sh` — all exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `hooks/enforce-loop-dispatch.py`, `scripts/test-enforce-loop-dispatch-hook.sh`, `scripts/check-loop-dispatch.sh`
@@ -449,8 +449,8 @@ index 7efe59c2..17d422d4 100755
 
 **Decision:** hook-runs-in-payload-cwd
 
-- [ ] 3. State that a loop tool's refusal is fixed in-run, never a stop
-  - [ ] **Step 1: Implement.** Apply the diff below with `git apply`:
+- [x] 3. State that a loop tool's refusal is fixed in-run, never a stop
+  - [x] **Step 1: Implement.** Apply the diff below with `git apply`:
 
 ````diff verified:applied with git apply to this worktree at b803ec00; check-verbatim-moves.sh reports 0 violations with it
 diff --git a/skills/flow-self-review/SKILL.md b/skills/flow-self-review/SKILL.md
@@ -471,9 +471,9 @@ index c965dbeb..8e2ce23b 100644
  `<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose
 ````
 
-  - [ ] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
+  - [x] **Step 2: Verify.** `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
     `scripts/check-markdown-integrity.py` and `scripts/check-dispatch-paragraphs.sh` — all exit 0.
-  - [ ] **Step 3: Commit** the file with the subject below.
+  - [x] **Step 3: Commit** the file with the subject below.
 
 **Build:** green
 **Files:** `skills/flow-self-review/SKILL.md`

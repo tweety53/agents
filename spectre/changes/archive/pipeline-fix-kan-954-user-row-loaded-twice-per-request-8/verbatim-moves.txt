@@ -1,0 +1,2 @@
+# Sentence pipeline-fix-kan-954-user-row-loaded-twice-per-request-8 adds on purpose: where the loop tools run for an own-branch loop in another project.
+For an own-branch loop in another project, `pipeline-fix.sh end` and `escalate` run from that project's working directory, never from `<agents repo>`.
