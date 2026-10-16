@@ -38,7 +38,14 @@
 #          NEXT names `<worktree>=<impl subject>` only for a worktree whose
 #          implementation commit would not be empty (impl_paths below).
 #          --accept-foreign / --accept-outstanding: the operator chose
-#          Continue at that stop; its lines still print.
+#          Continue at that stop; its lines still print. A
+#          VISUAL-VERIFY-MISSING is STOP: visual-verify, which
+#          --accept-outstanding never passes — only an operator's
+#          false-positive flag on that worktree's verdict row naming its
+#          current HEAD. The gate runs on an archived re-run with no new
+#          work too, and again on each worktree a base move rebased here.
+#          commit and land run the same gate before every push they make,
+#          on every route, and again after land's re-sync.
 # commit   the pre-reshape pin per worktree (refs/flow/pre-reshape/<name>
 #          at its HEAD; kept when it already reaches HEAD, so a re-run
 #          after a stop keeps the first, else advanced to a merge of the
@@ -50,7 +57,8 @@
 #          worktree with nothing on the implementation side takes no
 #          subject; any other without one stops `commit-split`. An
 #          archived change without new work skips straight to commit-archive.
-#          Then the --force-with-lease branch push per worktree, in merge
+#          Then, each behind the visual-verify gate, the --force-with-lease
+#          branch push per worktree, in merge
 #          order — the reshape's push (Branch backup, git-boundaries.md) —
 #          each followed by a plain push of that worktree's pin, refused
 #          (STOP: pre-reshape) when origin holds one the local pin does
@@ -66,7 +74,9 @@
 #          `gh pr create --fill`, or that worktree's --pr-url when there is
 #          no usable gh; manual: the branch push), the self-review report's
 #          sha re-read before each landing push and its `fixed` rows after,
-#          and the IN_PROGRESS write. Refuses to push anything until the
+#          and the IN_PROGRESS write. Every push, on every route (the
+#          canonical re-push after a report rewrite too), runs the
+#          visual-verify gate on that worktree's HEAD first. Refuses to push anything until the
 #          self-review report is committed in the canonical worktree; only
 #          `commit`'s branch push precedes it. Merge
 #          and push continues into `cleanup`.
@@ -173,6 +183,42 @@ run() {
   return 0
 }
 verdict() { grep -m1 -E "^($1):" <<<"$OUT" || true; }
+
+# visual_false_positive <worktree>: an operator flagged a false positive on
+# <worktree>'s own check-visual-verify-dispatched verdict row for $NAME, the
+# row naming its current HEAD (the verdict line ends "— HEAD <sha>") — so a
+# flag never covers a later commit, or another worktree. A failed or
+# unreadable read is no flag.
+visual_false_positive() {
+  local w h
+  w="$(cd "$1" && pwd -P)" && h="$(git -C "$1" rev-parse HEAD)" || return 1
+  flow record verdicts -guard check-visual-verify-dispatched -false-positive -C "$CANON" 2>/dev/null |
+    jq -e --arg c "$NAME" --arg w "$w" --arg h " — HEAD $h" '
+      any(.[]?; .change == $c and .falsePositive == true and .worktree == $w and ((.verdict // "") | endswith($h)))' >/dev/null 2>&1
+}
+
+# visual_ok <worktree> <base branch>: check-visual-verify-dispatched passes
+# <worktree>'s current HEAD, or its MISSING verdict for that HEAD is flagged
+# a false positive. No verdict is its own stop.
+visual_ok() {
+  run "$SCRIPT_DIR/check-visual-verify-dispatched.sh" "$1" "$NAME" "$(git -C "$1" merge-base HEAD "origin/$2")" "$CANON"
+  case "$RC:$(verdict 'VISUAL-VERIFY-OK|VISUAL-VERIFY-MISSING')" in
+    0:VISUAL-VERIFY-OK:*) ;;
+    1:VISUAL-VERIFY-MISSING:*) visual_false_positive "$1" || return 1 ;;
+    *) stop no-verdict "check-visual-verify-dispatched reached no verdict for $1 (exit $RC) — report its output and ask the operator; --accept-outstanding does not pass this" ;;
+  esac
+}
+# visual_gate: visual_ok on each worktree, stopping at the first MISSING —
+# so that MISSING row is the newest verdict, the one
+# `flow record verdict false-positive` flags.
+visual_gate() {
+  local i
+  for i in "${!WT[@]}"; do
+    visual_ok "${WT[i]}" "${BASES[i]}" || stop visual-verify "$(visual_stop_text "${WT[i]}" prepare)"
+  done
+}
+# visual_stop_text <worktree> <step>
+visual_stop_text() { printf '%s' "$1: no verifier saw its current HEAD — dispatch flow.visual-verify on it, fix every departure in-run, commit, then re-run $2; --accept-outstanding does not pass this. A false-positive flag is recorded now, while this worktree's verdict is the newest"; }
 
 main_of() {
   local d
@@ -383,6 +429,8 @@ cmd_prepare() {
   fi
 
   if [ "$ARCHIVED" -eq 1 ] && [ "$newwork" -eq 0 ]; then
+    # No new work still runs the visual gate: the archive is no verifier.
+    visual_gate
     mark_end flow.unfinished-work-gate completed
   else
     ask=0
@@ -404,12 +452,6 @@ cmd_prepare() {
         0:OUTSTANDING:*) ask=1 ;;
         *) stop no-verdict "check-unfinished-work reached no verdict for ${WT[i]} (exit $RC) — report its output and ask the operator; --accept-outstanding does not pass this" ;;
       esac
-      run "$SCRIPT_DIR/check-visual-verify-dispatched.sh" "${WT[i]}" "$NAME" "$(git -C "${WT[i]}" merge-base HEAD "origin/${BASES[i]}")" "$CANON"
-      case "$RC:$(verdict 'VISUAL-VERIFY-OK|VISUAL-VERIFY-MISSING')" in
-        0:VISUAL-VERIFY-OK:*) ;;
-        1:VISUAL-VERIFY-MISSING:*) ask=1 ;;
-        *) stop no-verdict "check-visual-verify-dispatched reached no verdict for ${WT[i]} (exit $RC) — report its output and ask the operator; --accept-outstanding does not pass this" ;;
-      esac
       ub="$(git -C "${WT[i]}" merge-base HEAD "origin/${BASES[i]}")"
       [ "$ARCHIVED" -eq 1 ] && ub="$(arch_base "${WT[i]}" "$ub")"
       run "$SCRIPT_DIR/check-untasked-commits.sh" "${WT[i]}" "$ub"
@@ -419,6 +461,10 @@ cmd_prepare() {
         *) stop no-verdict "check-untasked-commits reached no verdict for ${WT[i]} (exit $RC) — report its output and ask the operator; --accept-outstanding does not pass this" ;;
       esac
     done
+    # A UI no verifier saw at this HEAD is a hard stop (kan-939), never an
+    # OUTSTANDING item: --accept-outstanding does not pass it, only an
+    # operator's false-positive flag on that worktree's row for that HEAD.
+    visual_gate
     [ "$ask" -eq 1 ] && [ -z "$ACCEPT_OUTSTANDING" ] &&
       stop unfinished-work "load skills/flow/unfinished-work-gate.md and offer its three courses; Continue or File-or-join re-runs prepare with --accept-outstanding"
     mark_end flow.unfinished-work-gate completed
@@ -446,6 +492,8 @@ cmd_prepare() {
     vline="$(verdict REBASED)"; sha="${vline##*onto }"
     RB[i]="$sha"
     guard_tests
+    # The rebase made a HEAD no verifier saw: the gate again.
+    visual_ok "${WT[i]}" "${BASES[i]}" || stop visual-verify "rebased onto origin/${BASES[i]} after the gate: $(visual_stop_text "${WT[i]}" prepare)"
   done
 
   local route=""
@@ -536,7 +584,11 @@ cmd_commit() {
   [ "$RC" -eq 0 ] || stop commit-archive "commit-archive exit $RC — report its lines"
   # The rewritten branch reaches the remote now, not at land: a run that
   # stops before land leaves the next plain branch-backup push a fast-forward.
-  for o in "${ORDER[@]}"; do push_branch "${WT[o]}"; push_pin "${WT[o]}"; done
+  for o in "${ORDER[@]}"; do
+    base_of "$o"
+    visual_ok "${WT[o]}" "$BASE" || stop visual-verify "spectre/$NAME not pushed from ${WT[o]}. $(visual_stop_text "${WT[o]}" commit)"
+    push_branch "${WT[o]}"; push_pin "${WT[o]}"
+  done
   mark_end flow.commit-archive completed
   mark_begin flow.self-review
   if git -C "$CANON" cat-file -e "HEAD:docs/self-review/$NAME-self-review.md" 2>/dev/null; then
@@ -569,6 +621,7 @@ reread_fix_shas() {
   run "$SCRIPT_DIR/land-self-review-report.sh" "$CANON" "spectre/$NAME" "docs(self-review): $NAME self-review report" "${rpt#"$CANON"/}"
   [ "$RC" -eq 0 ] || stop self-review-report "land-self-review-report exit $RC — report its line"
   [ "$w" = "$CANON" ] || [ -z "$CANON_BASE" ] && return 0
+  visual_ok "$CANON" "$CANON_BASE" || stop visual-verify "the rewritten report was not pushed. $(visual_stop_text "$CANON" land)"
   push_branch "$CANON"
   [ "$ROUTE" = "merge and push" ] || return 0
   git -C "$CANON" push origin "HEAD:$CANON_BASE" || stop push "the re-push of $CANON to origin/$CANON_BASE was rejected — report git's output; the change stays IN_PROGRESS"
@@ -643,7 +696,7 @@ pr_arg() {
 }
 
 cmd_land() {
-  local o w pr="" url fork
+  local o w pr="" url fork pushed=""
   CANON_BASE=""
   load_set
   find_canonical || die "no worktree in the set holds $NAME's tasks.md"
@@ -661,6 +714,7 @@ cmd_land() {
     w="${WT[o]}"
     base_of "$o"
     reread_fix_shas "$o"
+    visual_ok "$w" "$BASE" || stop visual-verify "spectre/$NAME not pushed from $w; already pushed: ${pushed:-none}. $(visual_stop_text "$w" land)"
     push_branch "$w"
     [ "$w" = "$CANON" ] && CANON_BASE="$BASE"
     case "$ROUTE" in
@@ -680,10 +734,11 @@ cmd_land() {
           esac
           guard_tests
           reread_fix_shas "$o"
+          visual_ok "$w" "$BASE" || stop visual-verify "re-synced onto origin/$BASE after its push was rejected, so it was not pushed there; already pushed: ${pushed:-none}. $(visual_stop_text "$w" land)"
           push_branch "$w"
           git -C "$w" push origin "HEAD:$BASE" || stop push "the second push of $w to origin/$BASE was rejected — report git's output; the change stays IN_PROGRESS"
         fi
-        say "PUSHED: $w — spectre/$NAME onto origin/$BASE"
+        say "PUSHED: $w — spectre/$NAME onto origin/$BASE"; pushed="${pushed:+$pushed, }$w"
         ;;
       "pull request")
         if [ -n "$PR_URL_STATE" ]; then

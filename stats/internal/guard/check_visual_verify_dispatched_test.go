@@ -29,8 +29,8 @@ const (
 	vvdNotConfig = "VISUAL-VERIFY-OK: not configured\n"
 	vvdNoUI      = "VISUAL-VERIFY-OK: no UI paths touched\n"
 	vvdOK        = "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for 'demo'\n"
-	vvdMissing   = "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for 'demo' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart\n"
-	vvdStale     = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for 'demo' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since\n"
+	vvdMissing   = "VISUAL-VERIFY-MISSING: this change's diff touched a declared UI path but no completed or ended 'verifier' dispatch (key starting 'visual-verify') is recorded for 'demo' — flow.visual-verify's stage marks were written with no verifier ever dispatched, its report was never read to completion, or the dispatch's closing outcome was lost to a session restart — HEAD @HEAD@\n"
+	vvdStale     = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for 'demo' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since — HEAD @HEAD@\n"
 	vvdSection   = "# project\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `app/src/**` |\n"
 )
 
@@ -515,11 +515,16 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 			if tc.wantErr != nil {
 				wantErr = tc.wantErr(r)
 			}
-			if r.code != tc.want || r.out != tc.wantOut || r.err != wantErr {
-				t.Fatalf("got exit %d\nstdout %q\nstderr %q\nwant exit %d\nstdout %q\nstderr %q", r.code, r.out, r.err, tc.want, tc.wantOut, wantErr)
+			head := ""
+			if strings.Contains(tc.wantOut, "@HEAD@") {
+				head = tcfGit(t, r.wt, "rev-parse", "HEAD")
+			}
+			wantOut := strings.ReplaceAll(tc.wantOut, "@HEAD@", head)
+			if r.code != tc.want || r.out != wantOut || r.err != wantErr {
+				t.Fatalf("got exit %d\nstdout %q\nstderr %q\nwant exit %d\nstdout %q\nstderr %q", r.code, r.out, r.err, tc.want, wantOut, wantErr)
 			}
 			if tc.calls != nil {
-				if want := tc.calls(r); r.calls != want {
+				if want := strings.ReplaceAll(tc.calls(r), "@HEAD@", head); r.calls != want {
 					t.Fatalf("store calls\n%q\nwant\n%q", r.calls, want)
 				}
 			}
@@ -614,8 +619,8 @@ func TestCheckVisualVerifyDispatchedCanonicalUIPaths(t *testing.T) {
 			}
 			var out, errb bytes.Buffer
 			code := Registry["check-visual-verify-dispatched"](args, env, &out, &errb)
-			if code != c.code || out.String() != c.out {
-				t.Fatalf("exit %d stdout %q stderr %q, want %d %q", code, out.String(), errb.String(), c.code, c.out)
+			if want := strings.ReplaceAll(c.out, "@HEAD@", tcfGit(t, wt, "rev-parse", "HEAD")); code != c.code || out.String() != want {
+				t.Fatalf("exit %d stdout %q stderr %q, want %d %q", code, out.String(), errb.String(), c.code, want)
 			}
 			if calls, _ := os.ReadFile(bin + "/args"); c.code == 1 && !strings.Contains(string(calls), "record dispatches -change demo -C "+canon) {
 				t.Errorf("store calls %q, want the dispatches read under the canonical worktree %s", calls, canon)

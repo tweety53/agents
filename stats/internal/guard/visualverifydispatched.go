@@ -260,6 +260,16 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	if len(heads) > 0 {
 		verdict = "VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '" + name + "' but none verified a HEAD after this change's last UI-path commit — a row counts only with the -diff-base it verified, and only when no UI path this change touches changed since"
 	}
+	// THE MISSING VERDICT NAMES THE HEAD IT JUDGED (kan-939 self-review):
+	// integrate's hard stop passes only on an operator's false-positive flag
+	// on this worktree's row for this very HEAD, so a flag never covers a
+	// commit made after it.
+	headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
+	if !ok {
+		fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
+		return 2
+	}
+	verdict += " — HEAD " + headSHA
 	record(verdict)
 	var prior []byte
 	var priorErr error

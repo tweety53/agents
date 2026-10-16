@@ -161,8 +161,9 @@ once per worktree in the same resolved set — the fork point itself, because th
 base-moved check below can name a rebased one, and the state-file value is stale after an earlier
 rebase. The canonical worktree makes a satellite's diff match the canonical `ui paths` as well as
 its own, as **Visual verification** (`skills/flow/verify-and-handoff.md`) step 2 matches it. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
-breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same
-breakdown and the same three courses (**The three courses**, `skills/flow/unfinished-work-gate.md`), not a second prompt. Exit 2 (cannot answer) is stop-and-ask,
+breakdown in; a `VISUAL-VERIFY-MISSING` line is a hard stop, never an `OUTSTANDING` item — no course of
+**The three courses** (`skills/flow/unfinished-work-gate.md`) passes it, and its handling is
+`skills/flow/integrate.md`'s `STOP: visual-verify`. Exit 2 (cannot answer) is stop-and-ask,
 the same as a missing `check-unfinished-work.sh` verdict line above.
 
 **Then run `check-untasked-commits.sh <worktree> <base>`**, once per worktree in the same
@@ -172,8 +173,8 @@ the commits it lists are treated exactly as `OUTSTANDING`, and exit 2 is stop-an
 a missing `check-unfinished-work.sh` verdict line. The guard's header
 (`<agents repo>/scripts/check-untasked-commits.sh`) is canonical for what it exempts.
 
-**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING`,
-`VISUAL-VERIFY-MISSING` or `UNTASKED` — the three courses, the filing and the relay are there.
+**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` or
+`UNTASKED` — the three courses, the filing and the relay are there.
 
 **Check whether the base branch has moved — after the unfinished-work gate, before the landing
 question.** `check-base-moved.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict

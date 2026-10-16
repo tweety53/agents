@@ -1,0 +1,23 @@
+# Intended rewords and additions: VISUAL-VERIFY-MISSING is a hard stop at integrate and at the IN_PROGRESS write; an unverified landing UI is a product-side stop in self-review.
+**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING`, `VISUAL-VERIFY-MISSING` or `UNTASKED` — the three courses, the filing and the relay are there.
+**Loaded by `skills/flow/integrate.md`'s step 1 only when** a worktree reported `OUTSTANDING` or `VISUAL-VERIFY-MISSING`.
+A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same breakdown and the same three courses (**The three courses**, `skills/flow/unfinished-work-gate.md`), not a second prompt.
+**A landing HEAD whose UI no verifier saw is such a defect.
+**Every run then runs the visual guard on itself** — creating, resuming and fix runs alike — once per worktree of the resolved set, with the arguments integrate's gate passes it (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`):
+**Loaded by `skills/flow/integrate.md`'s step 1 only when** a worktree reported `OUTSTANDING` or `UNTASKED`.
+**`STOP: visual-verify`** → a worktree printed `VISUAL-VERIFY-MISSING`: the UI about to land was
+A `VISUAL-VERIFY-MISSING:` line means a UI-path commit landed after the last HEAD a verifier saw — a visual-fix task's, a panel fix's, a full-suite fix's or a fix run's own.
+A landing HEAD whose UI no visual verifier saw is such a finding, never a risk line.
+A pass finding that a UI-path commit landed after the last HEAD a visual verifier saw — departures fixed and never re-captured, a fix run's UI change never verified — stops the landing exactly as above.
+An exit 2 is reported and stops the run at the state it read.
+Integrate stops on the same verdict and no operator course there passes it.
+It is never a Continue, and `--accept-outstanding` never passes it.
+It is never a risk line, a `noted` finding or an angle item the landing proceeds over.
+`VISUAL-VERIFY-MISSING` never loads it: that verdict is `STOP: visual-verify`, which no course here passes.
+check-visual-verify-dispatched.sh <worktree> <name> $(git -C <worktree> merge-base HEAD origin/<base>) <canonical-worktree>
+never shown to a verifier at this HEAD.
+The one other pass is an operator who hand-verified that HEAD's UI and calls the verdict wrong: record it with `flow record verdict false-positive -change <name> -guard check-visual-verify-dispatched -reason "<the operator's reason, verbatim>" -C <canonical-worktree>` right after the stop, and re-run `prepare`.
+The command flags the guard's newest verdict, and `prepare` stops at the first `MISSING` worktree so that row is the newest; `prepare` passes only on a flag on that worktree's own row whose verdict names its current HEAD (`— HEAD <sha>`), so a later commit or a rebase needs a new verifier or a new flag.
+A flag made at `prepare` does not carry to `land`: the reshape and the archive move HEAD, so `land` stops again and the operator flags that HEAD anew.
+The gate runs on an archived re-run with no new work too, again on each worktree a base move rebases in `prepare`, before every push `commit` and `land` make on every route — `land`'s stop names the worktrees already pushed — and again after a re-sync on a rejected push.
+So the gate covers every push the pipeline makes, and the forge merge of an opened PR is of the verified head; run 2 `cleanup` adds no check, since it could only report after landing.

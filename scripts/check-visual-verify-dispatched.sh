@@ -22,15 +22,19 @@
 #
 # Prints ONE verdict line to stdout:
 #   VISUAL-VERIFY-OK: <reason>          nothing outstanding
-#   VISUAL-VERIFY-MISSING: <reason>     UI paths touched, no verifier dispatch found,
-#                                       and the plan did not skip visual verification
+#   VISUAL-VERIFY-MISSING: <reason> — HEAD <sha>
+#                                       UI paths touched, no verifier dispatch found,
+#                                       and the plan did not skip visual verification;
+#                                       <sha> is the HEAD it judged, the one an
+#                                       operator's false-positive flag must name
 #
 # Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
 # UI paths were touched and no qualifying verifier dispatch is recorded;
 # the verdict line carries the answer — and exit 2 when it cannot answer at
 # all — a non-directory worktree, a change name outside the allowlist, an
 # empty merge-base, dispatch or decision rows that are not one readable JSON
-# array (or a newest decision row that is not an object), or a store call
+# array (or a newest decision row that is not an object), a MISSING verdict
+# for a worktree whose HEAD git cannot name, or a store call
 # that failed outright (never
 # read as "no dispatches", exactly as check-panel-fix-single-dispatch.sh's
 # own header explains for the identical hazard: an outage that read as zero
@@ -99,7 +103,7 @@
 # worktree cannot resolve verified nothing here. With qualifying rows and
 # none fresh, the verdict is
 #   VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '<name>' but
-#   none verified a HEAD after this change's last UI-path commit — …
+#   none verified a HEAD after this change's last UI-path commit — … — HEAD <sha>
 # and a git diff that fails against a row's sha is exit 2.
 #
 # A SKIP DECIDED AT PLANNING IS NOT A SILENT SKIP. With no qualifying

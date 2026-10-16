@@ -85,6 +85,25 @@
 #                   commits and pushes it to origin; with the local pin
 #                   deleted first (a re-clone), commit fetches origin's and
 #                   does the same rather than stopping.
+#   visual_stop     a declares `ui paths` its task commit touches and no
+#                   verifier saw that HEAD: prepare stops at
+#                   STOP: visual-verify, and --accept-outstanding does not
+#                   pass it; neither does a false-positive flag on an
+#                   earlier HEAD, on another worktree's row, or on another
+#                   change. A flag on this worktree's row for this HEAD, or
+#                   a verifier row whose diffBase is that HEAD, passes.
+#                   The stop comes at the first MISSING worktree, no later
+#                   one judged, so its row is the newest a flag lands on.
+#   visual_archived an archived re-run with no new work still runs the
+#                   gate: a flag on the pre-archive HEAD does not pass it.
+#   visual_rebased  a base move in prepare rebases a: the gate runs again
+#                   on the rebased HEAD and stops.
+#   visual_resync   land's push of a is rejected and the re-sync makes a
+#                   HEAD no verifier saw: land stops before a's push,
+#                   naming b as already pushed; re-running land stops again.
+#   visual_uncommitted an uncommitted UI edit on a verified HEAD is folded in
+#                   by commit: on each route, commit stops before a's branch
+#                   push and land before any push from a.
 #   outstanding     commit --outstanding keeps the planning commit's own
 #                   subject and puts the text in its body; --plan-message,
 #                   which replaced the subject whole, is refused.
@@ -148,7 +167,9 @@ case "\$1 \$2" in
   "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") echo '[]' ;;
   "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
-  "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; echo '[{"key":"task-1-implementer","outcome":"completed"}]' ;;
+  "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; cat "$WORK/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"}]' ;;
+  "record decisions") echo '[]' ;;
+  "record verdicts") cat "$WORK/verdicts.json" 2>/dev/null || echo '[]' ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;
 esac
@@ -552,6 +573,123 @@ rerun_pin_case() {
 }
 rerun_pin_case "rerun_pin: "
 rerun_pin_case "rerun_pin reclone: " reclone
+
+# --- visual_stop ---
+# ui_a: a declares `ui paths` its task commit touches.
+ui_a() {
+  printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `work-a.txt` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
+  g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
+}
+# flag <worktree> <sha> [<change>]: an operator's false-positive flag on
+# <worktree>'s MISSING verdict row naming HEAD <sha>.
+flag() {
+  printf '[{"change":"%s","guard":"check-visual-verify-dispatched","worktree":"%s","verdict":"VISUAL-VERIFY-MISSING: no verifier — HEAD %s","falsePositive":true,"falsePositiveReason":"hand-verified","flaggedAt":"2026-01-01T00:00:00Z"}]' \
+    "${3:-demo}" "$(cd "$1" && pwd -P)" "$2" >"$WORK/verdicts.json"
+}
+fixture
+ui_a
+A="$WORK/a-worktrees/demo"
+sut prepare "$WORK/a" demo
+check "visual_stop: an unverified UI HEAD stops prepare with exit 1" '[ "$RC" -eq 1 ]'
+check "visual_stop: the stop is STOP: visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+sut prepare "$WORK/a" demo --accept-outstanding
+check "visual_stop: --accept-outstanding does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+check "visual_stop: no worktree is judged after the MISSING one, whose row stays the newest to flag" \
+  '! printf "%s\n" "$OUT" | sed -n "/^VISUAL-VERIFY-MISSING:/,\$p" | sed 1d | grep -q "^VISUAL-VERIFY-"'
+check "visual_stop: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped"'
+flag "$A" "$(git -C "$A" rev-parse HEAD~1)"
+sut prepare "$WORK/a" demo --accept-outstanding
+check "visual_stop: a false-positive flag on an earlier HEAD does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+flag "$WORK/b-worktrees/demo" "$(git -C "$A" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+check "visual_stop: a flag on another worktree's row does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+flag "$A" "$(git -C "$A" rev-parse HEAD)" other
+sut prepare "$WORK/a" demo
+check "visual_stop: another change's flag does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+check "visual_stop: a flag on this worktree's row for this HEAD passes the gate" '[ "$RC" -eq 0 ]'
+rm "$WORK/verdicts.json"
+printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"%s"}]' \
+  "$(git -C "$A" rev-parse HEAD)" >"$WORK/dispatches.json"
+sut prepare "$WORK/a" demo
+check "visual_stop: a verifier of the HEAD passes the gate" '[ "$RC" -eq 0 ]'
+
+# --- visual_archived: an archived re-run with no new work runs the gate ---
+fixture
+ui_a
+A="$WORK/a-worktrees/demo"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$A/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "visual_archived: commit archives, then stops before a's unverified branch push" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+sut prepare "$WORK/a" demo
+check "visual_archived: the re-run is archived without new work" 'printf "%s\n" "$OUT" | grep -q "^ARCHIVED: demo — without new work"'
+check "visual_archived: a flag on the pre-archive HEAD does not pass the gate" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+
+# --- visual_rebased: a base move in prepare re-runs the gate ---
+fixture
+ui_a
+A="$WORK/a-worktrees/demo"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+printf 'moved\n' >"$WORK/a/moved.txt"
+g -C "$WORK/a" add moved.txt && g -C "$WORK/a" commit -qm "base: moved" && g -C "$WORK/a" push -q origin main
+sut prepare "$WORK/a" demo
+check "visual_rebased: a was rebased" 'printf "%s\n" "$OUT" | grep -q "^REBASED: "'
+check "visual_rebased: the rebased HEAD no verifier saw stops prepare" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — rebased onto origin/main after the gate: .*a-worktrees/demo: "'
+
+# --- visual_resync: land's re-sync re-runs the gate before that push ---
+fixture
+ui_a
+A="$WORK/a-worktrees/demo"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$A/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "visual_resync: commit's reshaped HEAD stops before a's branch push" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "visual_resync: commit re-run with that HEAD flagged exits 0" '[ "$RC" -eq 0 ]'
+mkdir -p "$A/docs/self-review"
+printf '# demo self-review\n' >"$A/docs/self-review/demo-self-review.md"
+g -C "$A" add docs/self-review/demo-self-review.md
+g -C "$A" commit -qm "docs(self-review): demo self-review report"
+flag "$A" "$(git -C "$A" rev-parse HEAD)"
+printf 'moved\n' >"$WORK/a/moved.txt"
+g -C "$WORK/a" add moved.txt && g -C "$WORK/a" commit -qm "base: moved" && g -C "$WORK/a" push -q origin main
+sut land "$WORK/a" demo
+check "visual_resync: a's re-synced HEAD no verifier saw stops land" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — .*already pushed: $WORK/b-worktrees/demo"'
+check "visual_resync: a was not pushed to its base" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: moved" ]'
+sut land "$WORK/a" demo
+check "visual_resync: re-running land after the stop still stops at visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+check "visual_resync: the re-run did not push a's unverified HEAD" '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = "base: moved" ]'
+
+# --- visual_uncommitted: an uncommitted UI edit folded in by commit stops every push ---
+for route in "merge and push" "pull request" manual; do
+  fixture
+  ui_a
+  A="$WORK/a-worktrees/demo"
+  printf '#!/bin/sh\necho https://forge.invalid/pr/1\n' >"$WORK/bin/gh"; chmod +x "$WORK/bin/gh"
+  printf '[{"key":"task-1-implementer","outcome":"completed"},{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"%s"}]' \
+    "$(git -C "$A" rev-parse HEAD)" >"$WORK/dispatches.json"
+  printf 'edited\n' >>"$A/work-a.txt"
+  sut prepare "$WORK/a" demo
+  [ "$RC" -eq 0 ] || halt prepare
+  printf '\n## integrate run\n\nnarrative\n' >>"$A/spectre/changes/demo/narrative.md"
+  sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
+  check "visual_uncommitted ($route): commit stops at visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+  check "visual_uncommitted ($route): commit did not push a's branch" '! git --git-dir="$WORK/a-origin.git" rev-parse -q --verify spectre/demo >/dev/null'
+  mkdir -p "$A/docs/self-review"
+  printf '# demo self-review\n' >"$A/docs/self-review/demo-self-review.md"
+  g -C "$A" add docs/self-review/demo-self-review.md
+  g -C "$A" commit -qm "docs(self-review): demo self-review report"
+  sut land "$WORK/a" demo --route "$route"
+  check "visual_uncommitted ($route): land stops at visual-verify" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
+  check "visual_uncommitted ($route): land pushed neither a's branch nor its base" '! git --git-dir="$WORK/a-origin.git" rev-parse -q --verify spectre/demo >/dev/null && [ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -1)" = base ]'
+done
 
 # --- outstanding ---
 fixture

@@ -56,6 +56,20 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
   script closed `stopped`.
 - **`STOP: no-verdict`** → a guard of the gate printed no verdict line, or exited non-zero without
   one: stop and ask, reporting its output. `--accept-outstanding` never passes it.
+- **`STOP: visual-verify`** → a worktree printed `VISUAL-VERIFY-MISSING`: the UI about to land was
+  never shown to a verifier at this HEAD. It is never a Continue, and `--accept-outstanding` never
+  passes it. Run **Visual verification** (`skills/flow/verify-and-handoff.md`) from its `begin`
+  mark on each such worktree's current HEAD, take every departure through **The loop**
+  (`skills/flow/verify-fix-loop.md`) without asking, then re-run `prepare`. The one other pass is
+  an operator who hand-verified that HEAD's UI and calls the verdict wrong: record it with
+  `flow record verdict false-positive -change <name> -guard check-visual-verify-dispatched -reason
+  "<the operator's reason, verbatim>" -C <canonical-worktree>` right after the stop, and re-run `prepare`. The
+  command flags the guard's newest verdict, and `prepare` stops at the first `MISSING` worktree
+  so that row is the newest; `prepare` passes only on a flag on that worktree's own row whose
+  verdict names its current HEAD (`— HEAD <sha>`), so a later commit or a rebase needs a new
+  verifier or a new flag. The gate runs on an archived re-run with no new work too, again on each
+  worktree a base move rebases in `prepare`, and in `land` on a worktree re-synced after a
+  rejected push, before that worktree's push — that stop names the worktrees already pushed.
 
 ## 2. Ask how the branch should land
 
