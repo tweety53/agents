@@ -36,16 +36,16 @@ existing landing checks; harness cases in `scripts/test-protect-main-checkout.sh
 - `$(…)` tokenizes into separate `$`, `(` … `)` words and a backtick refspec splits across words
   (one of them option-looking); both still deny.
 
-- [ ] 1. Deny a default-branch push named through an unexpanded shell expansion
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From the repository root
+- [x] 1. Deny a default-branch push named through an unexpanded shell expansion
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From the repository root
     run `printf '{"tool_name":"Bash","tool_input":{"command":"git -C $W push origin $B:main"},"cwd":"/tmp"}' | python3 hooks/protect-main-checkout.py; echo "rc=$?"` —
     it prints nothing and `rc=0`: the push is allowed, the defect.
-  - [ ] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf7-task1.diff`, apply its
+  - [x] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf7-task1.diff`, apply its
     harness hunks alone (`git apply --include='scripts/test-protect-main-checkout.sh' /tmp/pf7-task1.diff`)
     and run `bash scripts/test-protect-main-checkout.sh`: it FAILS — every `unreadable landing`
     case, `cd to an unexpanded path, then push HEAD` and `push of an unexpanded branch` print
     `wanted deny, got allow`.
-  - [ ] **Step 3: Implement.** Apply the rest (`git apply --exclude='scripts/test-protect-main-checkout.sh' /tmp/pf7-task1.diff`):
+  - [x] **Step 3: Implement.** Apply the rest (`git apply --exclude='scripts/test-protect-main-checkout.sh' /tmp/pf7-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 881de558; scripts/test-protect-main-checkout.sh passes with it and fails the six deny cases with the hook hunk reverted
 diff --git a/hooks/protect-main-checkout.py b/hooks/protect-main-checkout.py
@@ -168,10 +168,10 @@ index 77a3d0d2..777344c4 100755
  # 3 last: moving the main checkout off main lifts the protection
 ````
 
-  - [ ] **Step 4: Verify.** From the repository root: `bash scripts/test-protect-main-checkout.sh`
+  - [x] **Step 4: Verify.** From the repository root: `bash scripts/test-protect-main-checkout.sh`
     (ends `all protect-main-checkout cases pass`), `python3 -m py_compile hooks/protect-main-checkout.py`,
     `scripts/check-python-suppressions.sh` and `scripts/check-references.sh` — all exit 0.
-  - [ ] **Step 5: Update the saved memories** (outside the repository, never committed), per
+  - [x] **Step 5: Update the saved memories** (outside the repository, never committed), per
     decision `callers-and-memories`: in
     `/Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/memory/protect-main-checkout-hook-quirks.md`
     extend the `$VAR` bullet with: a `git push` whose repository, remote or refspec is an
@@ -180,7 +180,7 @@ index 77a3d0d2..777344c4 100755
     `/Users/tweety53/.claude/projects/-Users-tweety53-Projects-gymie/memory/archive-push-base-checked-out-in-main.md`
     add to **How to apply** that the push after `update-ref` names the landing worktree's `-C`
     path and the branch literally, since the hook denies a default-branch push through a variable.
-  - [ ] **Step 6: Commit** both files with the subject below.
+  - [x] **Step 6: Commit** both files with the subject below.
 
 **Build:** green
 **Files:** `hooks/protect-main-checkout.py`, `scripts/test-protect-main-checkout.sh`
