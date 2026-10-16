@@ -130,7 +130,11 @@ calls: when the stack's worktree-resolved URLs do not answer, or `check-dev-stac
 (`skills/flow/implement.md`) does; then exercise what the section names and write each
 before/after figure, beside the failure look the section states, to `live-verification.md` in
 the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`), a
-planning path the write-in-progress planning commit carries. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
+planning path the write-in-progress planning commit carries. **A before figure is measured from a
+detached worktree at the merge base** — `git -C <worktree> worktree add --detach
+<project>-worktrees/<name>-before <merge-base>`, the base's stack run from there, then stopped, and the worktree
+removed with `git worktree remove` once the figure is written — never by checking base sources out
+over the change worktree. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
 shows the failure look is the branch's own defect and takes **The loop**
 (`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
 command's environment cause does. The verifier row's `end` (**Recording.**, above) is recorded
