@@ -241,11 +241,11 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 
 ### 4. Explain, then ask
 
-Every finding is explained in the message body first, before any prompt fires — what was
-observed, what breaks, and what the fix would be. Every fixed finding is one line in the same
-body, naming its landed sha; it is not offered. A prompt's option text cannot carry that
-explanation, so the prompt records the decision only: a filed issue is durable, and an
-explanation arriving afterward describes something the operator did not agree to. The filing ask,
+Every offered finding is explained before the operator answers — what was observed, what breaks,
+and what the fix would be — inside the prompt itself, per **The explanation rides inside the call**
+(`skills/flow-contracts/operator-prompts.md`): a filed issue is durable, and an explanation
+arriving afterward describes something the operator did not agree to. Every fixed finding is one
+line in the turn's final message, naming its landed sha; it is not offered. The filing ask,
 the mining ask and the rating are **one `AskUserQuestion` call**, shape per **Operator prompts**
 (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
 three offered items each — findings to file or angle-7 candidates to mine, never both in one

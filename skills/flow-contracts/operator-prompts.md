@@ -13,6 +13,14 @@ A prompt in this shape states:
 - a 🤖 marker in the handoff when that silent default actually fired, or when **Auto-resolution**
   below took it
 
+## The explanation rides inside the call
+
+**An explanation the operator must read before answering goes inside the `AskUserQuestion` call
+itself** — in the question text and in each option's description, with multi-line content such as a
+template in the option's preview — and never only as text earlier in the turn. Text written between
+tool calls may never reach the operator: a harness focus mode shows only a turn's final message, so
+an explanation written before the call leaves them choosing between bare option labels.
+
 ## Every item offered
 
 **A prompt that asks the operator to choose from a list — findings to file, items to act on —
