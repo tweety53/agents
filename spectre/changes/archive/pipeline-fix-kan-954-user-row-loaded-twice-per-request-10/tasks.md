@@ -35,15 +35,15 @@ repeats already in the store collapse onto their first row.
 - A rewritten sha, a different refless note and every existing `TestSelfReviewFindings*` case
   still record a new row.
 
-- [ ] 1. Record a self-review finding once
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Record a self-review finding once
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf10-task1.diff`, apply its test hunk alone
     (`git apply --include='stats/internal/store/*_test.go' /tmp/pf10-task1.diff`) and run
     `cd stats && go test ./internal/store/ -run 'SelfReviewFinding' -count=1`:
     `TestSelfReviewFindingRecordedOnce` FAILS with `a repeat answered with a new row: ids [1 2 3 4 5 6 7]`
     and `TestSelfReviewFindingsMigrationCollapsesRepeats` FAILS with
     `index "self_review_findings_once" does not exist`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/store/*_test.go' /tmp/pf10-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 752f3a28; both tests fail with the test hunk alone and pass with the whole diff; go test ./internal/store/ ./internal/api/ ./internal/client/ -count=1 green; gofmt -l and go vet clean
@@ -228,9 +228,9 @@ index 231fc0c0..12555e15 100644
 +}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/store && go vet ./internal/store/ && go test ./internal/store/ -run 'SelfReviewFinding|Migration' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/store && go vet ./internal/store/ && go test ./internal/store/ -run 'SelfReviewFinding|Migration' -count=1`
     — gofmt prints nothing, the rest exit 0.
-  - [ ] **Step 4: Commit** the three files with the subject below.
+  - [x] **Step 4: Commit** the three files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/store/selfreviewfindings.go`, `stats/internal/store/selfreviewfindings_test.go`, `stats/internal/store/migrations/0038_self_review_findings_once.sql`
