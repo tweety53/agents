@@ -38,7 +38,8 @@
 # Exit codes:
 #   0  no finding is open or deferred, and every Critical or Important
 #      recorded `fixed` has a clean re-run dispatch of its slot in a later
-#      round
+#      round — for a row whose `supersedes` names a row of the same round
+#      (review-panel.md's cross-role fold), the named row's slot covers it
 #   1  a finding is open or `deferred`, or a Critical or Important is
 #      recorded `fixed` with no clean re-run dispatch of its slot in any
 #      later round — the ordering review-panel.md's **Recording findings**

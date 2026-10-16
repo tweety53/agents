@@ -150,19 +150,22 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	// finding's: a bundled re-run covers its members, a solo re-run of one
 	// member does not cover a joined finding. Withdrawn findings claim no
 	// verification and check nothing here.
-	var unverified []string
+	//
+	// A ROW FOLDED ONTO ANOTHER ROLE'S ROW is covered by that row's slot
+	// instead: review-panel.md's **A defect raised by several roles is
+	// recorded per role and fixed once** links it with -supersedes to a row
+	// of the same round and re-runs only the first row's role. A
+	// -supersedes naming a row of an earlier round is the same defect
+	// re-raised by a later fix round, which still re-runs its own role, so
+	// only a same-round target lends its slot.
+	byRef := map[string]cfcFindingRow{}
 	for _, f := range findings {
-		if f.status != "fixed" {
-			continue
-		}
-		// A fixed Minor closes on its fix alone (review-panel.md's **Panel re-runs**).
-		if strings.EqualFold(f.severity, "minor") {
-			continue
-		}
-		required := strings.Split(f.slot, "+")
-		covered := false
+		byRef[f.ref] = f
+	}
+	covers := func(slot string, round int) bool {
+		required := strings.Split(slot, "+")
 		for _, d := range dispatches {
-			if d.role != "reviewer" || d.outcome != "completed" || d.round <= f.round {
+			if d.role != "reviewer" || d.outcome != "completed" || d.round <= round {
 				continue
 			}
 			provides := strings.Split(d.slot, "+")
@@ -174,9 +177,23 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 				}
 			}
 			if all {
-				covered = true
-				break
+				return true
 			}
+		}
+		return false
+	}
+	var unverified []string
+	for _, f := range findings {
+		if f.status != "fixed" {
+			continue
+		}
+		// A fixed Minor closes on its fix alone (review-panel.md's **Panel re-runs**).
+		if strings.EqualFold(f.severity, "minor") {
+			continue
+		}
+		covered := covers(f.slot, f.round)
+		if t, ok := byRef[f.supersedes]; !covered && ok && f.supersedes != "" && t.round == f.round {
+			covered = covers(t.slot, f.round)
 		}
 		if !covered {
 			unverified = append(unverified, f.ref+" ("+f.slot+")")
@@ -196,7 +213,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 type cfcFindingRow struct {
 	ref, status, severity string
 	round                 int
-	slot                  string
+	slot, supersedes      string
 }
 
 // cfcDispatchRow is one row of `flow record dispatches`' array, reduced to
@@ -251,6 +268,9 @@ func cfcParse(b []byte) ([]cfcFindingRow, bool) {
 		}
 		if pcIsString(o["slot"]) {
 			_ = json.Unmarshal(o["slot"], &f.slot)
+		}
+		if pcIsString(o["supersedes"]) {
+			_ = json.Unmarshal(o["supersedes"], &f.supersedes)
 		}
 		out = append(out, f)
 	}

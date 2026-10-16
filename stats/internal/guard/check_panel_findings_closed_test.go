@@ -24,7 +24,7 @@ import (
 type cfcFinding struct {
 	Ref, Status, Severity string
 	Round                 int
-	Slot                  string
+	Slot, Supersedes      string
 }
 
 func cfcJSON(fs ...cfcFinding) string {
@@ -36,6 +36,9 @@ func cfcJSON(fs ...cfcFinding) string {
 		}
 		if f.Slot != "" {
 			row["slot"] = f.Slot
+		}
+		if f.Supersedes != "" {
+			row["supersedes"] = f.Supersedes
 		}
 		out = append(out, row)
 	}
@@ -190,6 +193,14 @@ func TestCheckPanelFindingsClosed(t *testing.T) {
 		{label: "case 30: a fixed Minor needs no re-run while a fixed Important of another slot still does",
 			json: cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Slot: "failure-modes"}, cfcFinding{Ref: "F2", Severity: "Minor", Status: "fixed", Slot: "primary"}), disp: "[]",
 			want: 1, needle: []string{"with no clean re-run dispatch of their slot in any later round: F1 (failure-modes)\n"}, absent: "F2"},
+		{label: "case 31: a row folded by -supersedes onto a same-round row of another role is covered by that row's slot re-run",
+			json: cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"}, cfcFinding{Ref: "F2", Severity: "Important", Status: "fixed", Round: 1, Slot: "bugbot", Supersedes: "F1"}),
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-2-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"}),
+			want: 0, needle: []string{"FINDINGS-CLOSED"}, clean: true},
+		{label: "case 31b: a cross-round -supersedes re-raise still needs its own slot's re-run",
+			json: cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"}, cfcFinding{Ref: "F2", Severity: "Important", Status: "fixed", Round: 2, Slot: "bugbot", Supersedes: "F1"}),
+			disp: cfcDispatchJSON(cfcDispatch{Key: "panel-3-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"}),
+			want: 1, needle: []string{"in any later round: F2 (bugbot)\n"}, absent: "F1 ("},
 	}
 	for _, c := range cases {
 		t.Run(c.label, func(t *testing.T) {
