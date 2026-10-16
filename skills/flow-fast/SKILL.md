@@ -87,6 +87,19 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   `<project>/spectre/changes/<change>/verbatim-moves.txt` on a `/flow` run,
   `<changeRoot>/verbatim-moves.txt` — `<abs-worktree>/.superpowers/sdd/<change>/` — on this one,
   never `<project>/spectre/`.
+  A minimal task in that shape — every field line at column 0, never indented under the task line
+  (an indented field is invisible to the parser and fails `check-plan-shape.sh`), and `**Tests:**`
+  naming the test in backticks or opening with `none — <reason>`:
+
+```markdown
+- [ ] 1. Reject an empty name in the parser
+**Files:** `stats/internal/parse/name.go`, `stats/internal/parse/name_test.go`
+**Tests:** `TestParseNameRejectsEmpty` in `stats/internal/parse/name_test.go`
+**Commit:** fix(parse): reject an empty name
+**After:** none
+**Build:** green
+```
+
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5 and the tree `plan-class.sh` prints
   (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
