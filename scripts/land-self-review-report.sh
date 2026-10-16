@@ -28,6 +28,10 @@
 #   3  foreign staged work — one LAND-FOREIGN-STAGED line naming it; the
 #      commit is refused and nothing is rolled back (the chain's own
 #      add/rm stay staged beside the foreign paths)
+#   4  an untraced finding — one LAND-UNTRACED-FINDING line per finding
+#      line saying "not traced" or "untraced"; checked right after the
+#      start-of-run branch assert, so nothing is added, committed, pulled
+#      or pushed
 #   otherwise git's own exit code, unmasked: a rejected push leaves the
 #   commit local and names itself on stderr; this script never retries it.
 #   A pull --rebase that stops on a conflict leaves <repo> mid-rebase with

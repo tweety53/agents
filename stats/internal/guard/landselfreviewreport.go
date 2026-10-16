@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -85,6 +87,9 @@ func landSelfReviewReport(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 
 	if rc := assertBranch("— nothing added, committed, pulled or pushed"); rc != 0 {
+		return rc
+	}
+	if rc := lsrrUntraced(env, repo, addPath, stderr); rc != 0 {
 		return rc
 	}
 	if rc := lsrrStatus(g("add", "--", addPath).Run(), stderr); rc != 0 {
@@ -218,4 +223,32 @@ func lsrrWords(lines []string) string {
 		b.WriteString(l + " ")
 	}
 	return b.String()
+}
+
+// lsrrUntraced refuses a report whose finding line says its cause was not
+// traced: an untraced finding is an open item, and a run whose report
+// carries one must not reach FINISHED (pipeline-fix-kan-954-…-11). Every
+// such line is named, and exit 4 leaves nothing added, committed, pulled or
+// pushed. A path it cannot read is left to `git add`, which names it.
+func lsrrUntraced(env Env, repo, addPath string, stderr io.Writer) int {
+	p := addPath
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(repo, p)
+	}
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(env.Dir, p)
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return 0
+	}
+	rc := 0
+	for i, line := range strings.Split(string(b), "\n") {
+		l := strings.ReplaceAll(strings.ToLower(line), "land-untraced-finding", "")
+		if strings.HasPrefix(line, "- **[") && (strings.Contains(l, "not traced") || strings.Contains(l, "untraced")) {
+			fmt.Fprintf(stderr, "LAND-UNTRACED-FINDING: %s:%d: %s — trace it to a verdict before landing; nothing added, committed, pulled or pushed\n", addPath, i+1, strings.TrimSpace(line))
+			rc = 4
+		}
+	}
+	return rc
 }

@@ -547,3 +547,41 @@ exec %q "$@"
 		})
 	}
 }
+
+// A finding line whose cause was "not traced" is an open item: the report is
+// refused with exit 4 before anything is staged, and lands once traced.
+func TestLandSelfReviewReportRefusesUntracedFinding(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repo := dir + "/repo"
+	var g fxGit
+	g.git("", "init", "-q", "-b", "main", repo)
+	for _, kv := range [][2]string{{"user.name", "land-test"}, {"user.email", "land-test@example.com"}, {"commit.gpgsign", "false"}} {
+		g.git(repo, "config", kv[0], kv[1])
+	}
+	g.git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+	mkdir(t, repo+"/docs/self-review")
+	const rep = "docs/self-review/kan-u-self-review.md"
+	g.write(repo+"/"+rep, "## 5. Go app — `flow-stats-app`\n\n- **[flow-stats-app]** a row shows no tokens; cause in flowd recording, not traced — noted\n")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	base := g.git(repo, "rev-parse", "HEAD")
+	env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
+	var o, e bytes.Buffer
+	rc := Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-u self-review report", rep}, env, &o, &e)
+	want := "LAND-UNTRACED-FINDING: " + rep + ":3: - **[flow-stats-app]** a row shows no tokens; cause in flowd recording, not traced — noted — trace it to a verdict before landing; nothing added, committed, pulled or pushed\n"
+	if rc != 4 || e.String() != want || o.String() != "" {
+		t.Fatalf("rc=%d stdout=%q stderr=%q", rc, o.String(), e.String())
+	}
+	if head := g.git(repo, "rev-parse", "HEAD"); head != base || g.git(repo, "diff", "--cached", "--name-only") != "" {
+		t.Fatalf("the refusal moved HEAD or staged a path: %s", g.git(repo, "status", "--short"))
+	}
+
+	g.write(repo+"/"+rep, "## 5. Go app — `flow-stats-app`\n\n- **[flow-stats-app]** a row shows no tokens; disproved — the row was the aborted attempt's — noted\n- **[guard]** `LAND-UNTRACED-FINDING` fired on a blank line; disproved — noted\n")
+	o.Reset()
+	e.Reset()
+	if rc := Registry["land-self-review-report"]([]string{repo, "main", "docs(self-review): kan-u self-review report", rep}, env, &o, &e); rc != 0 {
+		t.Fatalf("a traced report did not land: rc=%d stderr=%q", rc, e.String())
+	}
+}
