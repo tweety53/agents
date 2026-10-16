@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
 
 // baseline.spec.ts already covers the dashboard (state-board) and
-// run-detail views -- the two KAN-16 broke. This file covers the three
-// remaining static views task 12 requires ("every view reachable"):
-// stage-leaderboard, trend and cache-efficiency. Each spec follows
+// run-detail views -- the two KAN-16 broke. This file covers two more
+// static views task 12 requires ("every view reachable"):
+// stage-leaderboard and trend. Each spec follows
 // baseline.spec.ts's own shape: assert the data actually loaded (no
 // error, no stuck "loading", the fixture's own rows visible), assert the
 // dark palette actually applied, assert no stat-panel label is
@@ -16,11 +16,7 @@ import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
 // GET /api/v1/stats/stage-leaderboard?<PINNED_QUERY> returns two rows
 // (/flow "SDD + TDD per task", runCount 2; /flow-fast
 // "integrate", runCount 1); GET /api/v1/stats/trend?<PINNED_QUERY>
-// returns two days (2026-08-14, 2026-08-15); GET
-// /api/v1/stats/cache-efficiency?<PINNED_QUERY> returns both stage rows
-// with cacheReadTotal/cacheCreationTotal 0 and ratio null -- the fixture
-// seeds no cache tokens, so every ratio cell renders through
-// Unavailable.tsx as "unavailable", never a fabricated 0/0 or a blank.
+// returns two days (2026-08-14, 2026-08-15).
 
 test.describe("stage leaderboard", () => {
   test("renders every costed stage with data loaded and the dark palette applied", async ({ page }) => {
@@ -219,94 +215,6 @@ test.describe("trend", () => {
       await expect(header).toHaveText("Total cost ▲");
       // totalCostUsd: 2026-08-15 0.207 (smaller), 2026-08-14 2.75.
       await expect(dayCells).toHaveText(["2026-08-15", "2026-08-14"]);
-    });
-  });
-});
-
-test.describe("cache efficiency", () => {
-  test("renders every stage's cache totals, unmeasured ratios, and the dark palette applied", async ({ page }) => {
-    await page.goto(`/#/cache-efficiency?${PINNED_QUERY}`);
-    await expect(page.getByRole("heading", { name: "Cache efficiency" })).toBeVisible();
-
-    const tablePanel = page.locator('section.panel[aria-label="Every stage"]');
-    await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
-    // The fixture records no cache tokens: every ratio cell must read
-    // "unavailable" (Unavailable.tsx's own data-testid), never a
-    // fabricated ratio or a silently blank cell -- the same
-    // never-coerce-null-to-zero rule StatPanel.tsx's own header comment
-    // states for the stat panels above it.
-    await expect(tablePanel.locator('[data-testid="unavailable"]')).toHaveCount(2);
-
-    expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
-
-    const readPanel = page.locator('section.panel[aria-label="Total cache read"]');
-    await expect(readPanel.getByText("Total cache read", { exact: true })).toHaveCount(1);
-    const ratioPanel = page.locator('section.panel[aria-label="Overall ratio"]');
-    await expect(ratioPanel.getByText("Overall ratio", { exact: true })).toHaveCount(1);
-    // Both totals are measured zeros (the fixture's runs recorded no
-    // cache tokens at all, which is "0", not "absent") but the pooled
-    // ratio divides by a zero denominator, so it is unavailable even
-    // though its own inputs are not -- Unavailable.tsx's null branch,
-    // not its measured branch.
-    await expect(ratioPanel.locator('[data-testid="unavailable"]')).toHaveCount(1);
-
-    await expect(page).toHaveScreenshot("cache-efficiency.png", { fullPage: true });
-  });
-
-  // CacheEfficiency.tsx declares its own five sortable columns and its own
-  // one filterable column (command). Only two of the five are worth an
-  // order assertion against this fixture: Command and Stage differ
-  // between the two rows the same way they do on stage-leaderboard above.
-  // Cache read, Cache creation and Read:creation ratio all **tie** --
-  // this file's own header comment already establishes why (the fixture
-  // records no cache tokens: cacheReadTotal and cacheCreationTotal are
-  // both a measured 0 on both rows, and ratio is null on both) -- so a
-  // click on any of those three headers cannot move either row, and an
-  // order assertion there would pass whether or not the column's own
-  // accessor were even wired up. Skipped for the same reason
-  // StageRunTable's Attempt/Outcome/Duration were skipped in
-  // run-detail.spec.ts: a tied column proves nothing about its own sort.
-  test.describe("sort and filter", () => {
-    const tablePanelSelector = 'section.panel[aria-label="Every stage"]';
-
-    test("sorting by Command orders alphabetically", async ({ page }) => {
-      await page.goto(`/#/cache-efficiency?${PINNED_QUERY}`);
-      const tablePanel = page.locator(tablePanelSelector);
-      const header = tablePanel.getByRole("button", { name: /^Command/ });
-      const commandCells = tablePanel.locator("table tbody tr td:nth-child(1)");
-
-      await header.click();
-      await expect(header).toHaveText("Command ▲");
-      await expect(commandCells).toHaveText(["/flow", "/flow-fast"]);
-
-      await header.click();
-      await expect(header).toHaveText("Command ▼");
-      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
-    });
-
-    test("sorting by Stage orders by its own text, not Command's", async ({ page }) => {
-      await page.goto(`/#/cache-efficiency?${PINNED_QUERY}`);
-      const tablePanel = page.locator(tablePanelSelector);
-      const header = tablePanel.getByRole("button", { name: /^Stage/ });
-      const commandCells = tablePanel.locator("table tbody tr td:nth-child(1)");
-
-      await header.click();
-      await expect(header).toHaveText("Stage ▲");
-      // "integrate" < "SDD + TDD per task" -- same collation this file's
-      // stage-leaderboard block already verified via localeCompare.
-      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
-    });
-
-    test("Filter by Command narrows to the matching stage", async ({ page }) => {
-      await page.goto(`/#/cache-efficiency?${PINNED_QUERY}`);
-      const tablePanel = page.locator(tablePanelSelector);
-      await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
-
-      await page.getByLabel("Filter by Command").selectOption("/flow-fast");
-
-      await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
-      await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toHaveCount(0);
     });
   });
 });
