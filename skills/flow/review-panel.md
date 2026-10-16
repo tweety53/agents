@@ -908,7 +908,11 @@ the **AskUserQuestion** it states.
 > that your fix's own test tests what it claims.
 > `mutate-and-verify.sh <patch-file> <harness>` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
-> mutate is your judgment, not the script's.
+> mutate is your judgment, not the script's. A project test command (a Gradle invocation and its
+> like) goes through it too, as `mutate-and-verify.sh <patch-file> -- <command> <args>...`,
+> never run by hand: its exit code is the verdict. Every run is bounded
+> (`MUTATE_AND_VERIFY_TIMEOUT_SECONDS`, default 300), and a mutant that times out counts as
+> killed, never as a hang to wait out.
 > `break-and-prove.sh [--clean <command>] <file> (--sed <expr> | --patch <patch>) -- <test-command>` mechanizes a
 > single-file flip: it mutates `<file>`, asserts the test fails, restores `<file>` from a
 > pre-mutation byte snapshot rather than `git checkout --`, so uncommitted edits on it survive, and

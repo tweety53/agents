@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
-# mutate-and-verify.sh <patch-file> <harness>...
+# mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]
+#
+# After `--`, one project test command as an argv vector (never a shell
+# string) — e.g. `-- ./gradlew :app:testDebugUnitTest --tests '<class>'`
+# — runs before and after the mutation with the file harnesses, its
+# verdict read from its exit code (baseline 0; mutated non-zero is
+# caught, mutated 0 is a surviving mutant). File harnesses may be
+# omitted when a command is given. Every run is bounded by
+# MUTATE_AND_VERIFY_TIMEOUT_SECONDS (all digits, else 300): the run's
+# whole process group gets SIGTERM, then SIGKILL after 2s. A mutated
+# run that times out counts as killed (caught); a baseline run that
+# times out is cannot-answer (exit 4), there being no baseline to
+# diff against.
 #
 # Mechanizes the review panel's fix-round mutation-proof loop
 # (skills/flow/review-panel.md, "The fix round mutation-proves what it
@@ -33,8 +45,9 @@
 #      are still not clean; the residual `git status --porcelain` output is
 #      printed and the files may still be mutated. Takes precedence over
 #      exit 2 when both drift kinds fire.
-#   4  cannot answer — bad usage, not inside a git worktree, or a harness
-#      produced no readable `ok:`/`FAIL:` line at all on either run.
+#   4  cannot answer — bad usage, not inside a git worktree, a harness
+#      produced no readable `ok:`/`FAIL:` line at all on either run, or
+#      a run timed out on the baseline pass.
 #
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 4 (this script's
