@@ -189,7 +189,7 @@ these substitutions:
   inline work under the same roles a dispatched run would use. Every inline row's `dispatch
   begin` is recorded when the parent starts that work, before its first edit, and its `dispatch
   end` once the work's commit lands — never the two together, which records the work as taking
-  no time; `flow record dispatch end` refuses a `completed` inline row closed under ten seconds
+  no time; `flow record dispatch end` refuses a `completed` inline row closed under three seconds
   after its begin when it carries no `-tokens` report.
 
 ## 1. Load context and validate the plan

@@ -107,9 +107,11 @@ var ErrAgentIDInvalid = errors.New("store: invalid agent id")
 var ErrInlineWindowTooShort = errors.New("store: inline dispatch window too short")
 
 // minInlineWindow is the shortest window an inline row may close with.
-// One Bash call lands its begin and end milliseconds apart; real inline
-// work takes minutes.
-const minInlineWindow = 10 * time.Second
+// One Bash call lands its begin and end milliseconds apart, and that is
+// the case the floor exists to refuse; real inline work takes seconds at
+// the least -- a cached docs-only verify closed in 7.6 s and was refused
+// under the old ten-second floor (kan-960).
+const minInlineWindow = 3 * time.Second
 
 // agentIDPlaceholders is the closed set of stand-in words a dispatcher
 // types when it does not hold the harness's identifier yet. Every word

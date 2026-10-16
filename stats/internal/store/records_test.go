@@ -3949,8 +3949,9 @@ func TestEndDispatchRejectsInvalidAgentID(t *testing.T) {
 }
 
 // TestEndDispatchRefusesAZeroWidthInlineRow pins the inline window floor:
-// an inline row closed seconds after its begin, with no token report, is
-// refused and stays open; closed a minute later it closes.
+// an inline row closed one second after its begin, with no token report, is
+// refused and stays open; closed seven seconds later -- a cached docs-only
+// verify (kan-960) -- it closes.
 func TestEndDispatchRefusesAZeroWidthInlineRow(t *testing.T) {
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
@@ -3984,9 +3985,9 @@ func TestEndDispatchRefusesAZeroWidthInlineRow(t *testing.T) {
 	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", blocked); err != nil {
 		t.Fatalf("EndDispatch a blocked inline row one second after its begin: %v", err)
 	}
-	end.EndedAt = begin.StartedAt.Add(time.Minute)
+	end.EndedAt = begin.StartedAt.Add(7 * time.Second)
 	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
-		t.Fatalf("EndDispatch a minute after an inline begin: %v", err)
+		t.Fatalf("EndDispatch seven seconds after an inline begin: %v", err)
 	}
 }
 
