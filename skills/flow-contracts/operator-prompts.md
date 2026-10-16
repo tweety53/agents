@@ -13,13 +13,20 @@ A prompt in this shape states:
 - a 🤖 marker in the handoff when that silent default actually fired, or when **Auto-resolution**
   below took it
 
-## The explanation rides inside the call
+## The explanation is the turn's final message
 
-**An explanation the operator must read before answering goes inside the `AskUserQuestion` call
-itself** — in the question text and in each option's description, with multi-line content such as a
-template in the option's preview — and never only as text earlier in the turn. Text written between
-tool calls may never reach the operator: a harness focus mode shows only a turn's final message, so
-an explanation written before the call leaves them choosing between bare option labels.
+**An explanation the operator must read before answering is written in chat as the turn's final
+message, and the turn ends there.** That covers each finding — observed, what breaks, the fix — and
+each flow-eval candidate in its kind's template exactly as step 2 of
+`skills/flow-self-review/SKILL.md` defines it (impl, review or visual, every field). The
+`AskUserQuestion` fires only in a later turn, after the operator has seen the explanation; the
+operator may instead answer in chat directly. The explanation is never carried only inside the
+`AskUserQuestion`'s question, option or preview text, and never written as mid-turn text before the
+call. Option text records the decision only.
+
+Why: a harness focus mode shows only a turn's final message, so text written before a call in the
+same turn is never seen. Carrying the explanation inside the prompt instead was rejected by the
+operator on 2026-10-16: the explanation belongs in chat, in the agreed format, not in the prompt.
 
 ## Every item offered
 
