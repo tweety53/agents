@@ -14,7 +14,7 @@
 #
 # Usage:
 #   integrate-change.sh prepare <main-checkout> <name> [--accept-foreign] [--accept-outstanding]
-#   integrate-change.sh commit  <main-checkout> <name> [<worktree>=<impl subject>]... [--plan-message <msg>]
+#   integrate-change.sh commit  <main-checkout> <name> [<worktree>=<impl subject>]... [--outstanding <text>]
 #   integrate-change.sh land    <main-checkout> <name> [--route <route>] [--pr-url <worktree>=<url|none>]...
 #   integrate-change.sh cleanup <main-checkout> <name> [--proceed <main-checkout>]...
 # Every subcommand also takes --harness <harness> and --session-token
@@ -47,6 +47,8 @@
 #          archived change without new work skips straight to commit-archive.
 #          Then the --force-with-lease branch push per worktree, in merge
 #          order — the reshape's push (Branch backup, git-boundaries.md).
+#          --outstanding <text> puts `Outstanding: <text>` in the planning
+#          commit's body, under this script's own subject.
 #          The parent appends its narrative before calling this; an
 #          `In-run pipeline fix:` line in it off the format pipeline.md's
 #          Pipeline defects found mid-run fixes stops first, STOP: narrative.
@@ -113,7 +115,12 @@ while [ $# -gt 0 ]; do
     --session-token) TOKEN="${2:-}"; shift ;;
     --accept-foreign) ACCEPT_FOREIGN=1 ;;
     --accept-outstanding) ACCEPT_OUTSTANDING=1 ;;
-    --plan-message) PLAN_MSG="${2:-}"; shift ;;
+    # The planning commit's subject is always this script's own: the
+    # outstanding work rides in its body, so a text with no Conventional
+    # Commits subject never reaches a commit-msg hook as one (it stopped
+    # commit-split after the reshape when it replaced the subject whole).
+    --outstanding) [ -n "${2:-}" ] || die "--outstanding takes the outstanding work's text"
+      PLAN_MSG="$(printf 'chore(spectre): plan %s\n\nOutstanding: %s' "$NAME" "$2")"; shift ;;
     --route) ROUTE="${2:-}"; shift ;;
     --pr-url) case "${2:-}" in ?*=?*) PR_ARGS+=("$2") ;; *) die "--pr-url takes <worktree>=<url|none>" ;; esac; shift ;;
     --proceed)

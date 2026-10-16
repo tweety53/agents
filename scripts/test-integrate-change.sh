@@ -71,6 +71,9 @@
 #   peer_fix_canon_first  peer_fix with the merge order `.` then `b`: the
 #                   rewrite lands after a was pushed, and land pushes a's
 #                   branch and base again in the same run.
+#   outstanding     commit --outstanding keeps the planning commit's own
+#                   subject and puts the text in its body; --plan-message,
+#                   which replaced the subject whole, is refused.
 #
 # Bash 3.2 is the floor: indexed arrays only.
 set -u
@@ -476,6 +479,18 @@ printf '# demo\n\n## Parts\n\n`b:demo`\n\n## Branch\n\nmain\n\n## Merge order\n\
   >"$WORK/a-worktrees/demo/spectre/changes/demo/link.md"
 g -C "$WORK/a-worktrees/demo" commit -qam "chore(spectre): plan-gate demo" --amend
 peer_fix_case "peer_fix_canon_first: "
+
+# --- outstanding ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work" --plan-message "Task 3 is unticked"
+check "outstanding: --plan-message is refused" '[ "$RC" -ne 0 ] && grep -q "unknown argument .--plan-message." "$WORK/stderr"'
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work" --outstanding "Task 3 is unticked"
+check "outstanding: commit exits 0" '[ "$RC" -eq 0 ]'
+check "outstanding: the planning commit keeps its own subject and carries the text in its body" \
+  '[ "$(g -C "$WORK/a-worktrees/demo" log --format=%s --grep="^Outstanding: " -1)" = "chore(spectre): plan demo" ] && [ "$(g -C "$WORK/a-worktrees/demo" log --format=%b --grep="^Outstanding: " -1)" = "Outstanding: Task 3 is unticked" ]'
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
