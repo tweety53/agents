@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -39,6 +40,16 @@ var execFixtures struct {
 }
 
 func TestMain(m *testing.M) {
+	// A test binary started with SIGINT or SIGHUP ignored -- a `&` job of a
+	// non-interactive shell, or nohup -- hands that ignore to every child it
+	// execs, so the signal tests watch a child that cannot die of the signal.
+	// Catching and dropping the signal keeps this process as deaf as it
+	// started, while exec resets a caught signal to its default in each child.
+	for _, sig := range []os.Signal{syscall.SIGINT, syscall.SIGHUP} {
+		if signal.Ignored(sig) {
+			signal.Notify(make(chan os.Signal, 1), sig)
+		}
+	}
 	dir, err := os.MkdirTemp("", "guard-exec-fixtures")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
