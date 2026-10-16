@@ -34,15 +34,15 @@ plan directory named after the loop's token and tries the own-branch refs in ord
 - The ref loop stops at the first existing branch in the order loop branch, `spectre/<name>`,
   `<name>`, and falls back to `flow-medium` when none carries the plan.
 
-- [ ] 1. Read an own-branch self-review's first-review effort from the loop's plan
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
+- [x] 1. Read an own-branch self-review's first-review effort from the loop's plan
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Save the diff below to
     `/tmp/pf9-task1.diff`, apply its test hunks alone
     (`git apply --include='stats/internal/guard/*_test.go' /tmp/pf9-task1.diff`) and run
     `cd stats && go test ./internal/guard/ -run 'OwnBranchInAnotherProject|OwnFastBranchReadsLoopPlan' -count=1`:
     both tests FAIL with `LOOP-DISPATCH-REFUSED: PAIR — self-review-kan-1-demo-review-1 runs on
     flow-medium, as the loop's design.md first-review-effort decision records (flow-medium when
     none); this dispatch carries "flow-low"`.
-  - [ ] **Step 2: Implement.** Apply the rest
+  - [x] **Step 2: Implement.** Apply the rest
     (`git apply --exclude='stats/internal/guard/*_test.go' /tmp/pf9-task1.diff`):
 
 ````diff verified:applied with git apply to this worktree at 711c69c9; both tests fail with loop.go untouched and pass with it; go test ./internal/guard/ -count=1 green; gofmt -l and go vet clean
@@ -119,9 +119,9 @@ index 570978ae..b53d6eed 100644
  	}
 ````
 
-  - [ ] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'CheckLoopDispatch|OwnFastBranchReadsLoopPlan|PipelineFix' -count=1`
+  - [x] **Step 3: Verify.** `cd stats && gofmt -l ./internal/guard && go vet ./internal/guard/ && go test ./internal/guard/ -run 'CheckLoopDispatch|OwnFastBranchReadsLoopPlan|PipelineFix' -count=1`
     — gofmt prints nothing, the rest exit 0.
-  - [ ] **Step 4: Commit** the two files with the subject below.
+  - [x] **Step 4: Commit** the two files with the subject below.
 
 **Build:** green
 **Files:** `stats/internal/guard/loop.go`, `stats/internal/guard/check_loop_dispatch_test.go`
