@@ -180,7 +180,7 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	// ponytail: SIGINT restores at once, as SIGTERM does; bash waited for a
 	// running harness and carried on if that harness survived the SIGINT. A
 	// Ctrl-C reaches the harness too, so both end in the same restore.
-	r := &mvRun{root: root, touched: touched, snapshot: snapshot, stdout: stdout, stderr: stderr, timeout: mvTimeout(env)}
+	r := &mvRun{root: root, touched: touched, snapshot: snapshot, stdout: stdout, stderr: stderr, timeout: mvTimeout(env), expire: env.MutateExpire}
 	defer trapExitSignals(func() {
 		r.dying.Store(true)
 		r.exit(0)
@@ -201,11 +201,11 @@ type mvTarget struct {
 	argv    []string
 }
 
-func (t mvTarget) run(root string, timeout time.Duration) (ok int, fails []string, answered, timedOut bool) {
+func (t mvTarget) run(root string, timeout time.Duration, expire <-chan time.Time) (ok int, fails []string, answered, timedOut bool) {
 	if len(t.argv) == 0 {
-		return mvRunHarness(t.harness, root, timeout)
+		return mvRunHarness(t.harness, root, timeout, expire)
 	}
-	return mvRunCommand(t.argv, root, timeout)
+	return mvRunCommand(t.argv, root, timeout, expire)
 }
 
 // mvRun is the state the bash's EXIT trap read: whether the patch is applied,
@@ -215,6 +215,7 @@ type mvRun struct {
 	touched        []string
 	stdout, stderr io.Writer
 	timeout        time.Duration
+	expire         <-chan time.Time // Env.MutateExpire
 
 	mu      sync.Mutex // held across `git apply` and the restore, so neither interleaves
 	applied bool
@@ -236,7 +237,7 @@ func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout
 	base := make([][]string, len(targets))
 	for i, t := range targets {
 		name := t.name
-		ok, fails, answered, timedOut := t.run(r.root, r.timeout)
+		ok, fails, answered, timedOut := t.run(r.root, r.timeout, r.expire)
 		if timedOut {
 			return cannotAnswer(fmt.Sprintf("harness %s timed out after %s on the baseline pass", name, r.timeout))
 		}
@@ -268,7 +269,7 @@ func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout
 	mut := make([][]string, len(targets))
 	for i, t := range targets {
 		name := t.name
-		ok, fails, answered, timedOut := t.run(r.root, r.timeout)
+		ok, fails, answered, timedOut := t.run(r.root, r.timeout, r.expire)
 		if timedOut {
 			// A mutant that never finishes is killed by the bound, not
 			// left hanging: synthesise the new failure the verdict counts.
@@ -440,10 +441,11 @@ func mvTimeout(env Env) time.Duration {
 }
 
 // mvRunBounded runs cmd, killing its whole process group (SIGTERM, then
-// SIGKILL after 2s) once timeout elapses. The group kill is what reaches
+// SIGKILL after 2s) once timeout elapses -- or, when expire is non-nil, once
+// expire receives instead (Env.MutateExpire). The group kill is what reaches
 // a test executor the harness forked; WaitDelay keeps an escaped
 // descendant holding the capture pipe from hanging the wait.
-func mvRunBounded(cmd *exec.Cmd, timeout time.Duration) (timedOut bool) {
+func mvRunBounded(cmd *exec.Cmd, timeout time.Duration, expire <-chan time.Time) (timedOut bool) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 2 * time.Second
 	if err := cmd.Start(); err != nil {
@@ -451,10 +453,15 @@ func mvRunBounded(cmd *exec.Cmd, timeout time.Duration) (timedOut bool) {
 	}
 	done := make(chan struct{})
 	go func() { _ = cmd.Wait(); close(done) }()
+	if expire == nil {
+		bound := time.NewTimer(timeout)
+		defer bound.Stop()
+		expire = bound.C
+	}
 	select {
 	case <-done:
 		return false
-	case <-time.After(timeout):
+	case <-expire:
 	}
 	pid := cmd.Process.Pid
 	if syscall.Kill(-pid, syscall.SIGTERM) != nil {
@@ -472,7 +479,7 @@ func mvRunBounded(cmd *exec.Cmd, timeout time.Duration) (timedOut bool) {
 	return true
 }
 
-func mvRunHarness(h, dir string, timeout time.Duration) (ok int, fails []string, answered bool, timedOut bool) {
+func mvRunHarness(h, dir string, timeout time.Duration, expire <-chan time.Time) (ok int, fails []string, answered bool, timedOut bool) {
 	if timeout <= 0 {
 		timeout = mvDefaultTimeout
 	}
@@ -480,7 +487,7 @@ func mvRunHarness(h, dir string, timeout time.Duration) (ok int, fails []string,
 	cmd.Dir, cmd.Stdin = dir, os.Stdin
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
-	timedOut = mvRunBounded(cmd, timeout)
+	timedOut = mvRunBounded(cmd, timeout, expire)
 	// $(...) dropped every NUL byte (bash 5 also warned "ignored null byte
 	// in input" on stderr, the one byte of its output not reproduced here).
 	for _, line := range strings.Split(strings.ReplaceAll(out.String(), "\x00", ""), "\n") {
@@ -499,7 +506,7 @@ func mvRunHarness(h, dir string, timeout time.Duration) (ok int, fails []string,
 // verdict: exit 0 synthesises one ok, a non-zero exit one failure named
 // for the exit code, so the shared verdict diff reads caught/surviving
 // exactly as it does for a harness's FAIL: lines.
-func mvRunCommand(argv []string, dir string, timeout time.Duration) (ok int, fails []string, answered bool, timedOut bool) {
+func mvRunCommand(argv []string, dir string, timeout time.Duration, expire <-chan time.Time) (ok int, fails []string, answered bool, timedOut bool) {
 	if timeout <= 0 {
 		timeout = mvDefaultTimeout
 	}
@@ -507,7 +514,7 @@ func mvRunCommand(argv []string, dir string, timeout time.Duration) (ok int, fai
 	cmd.Dir, cmd.Stdin = dir, os.Stdin
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
-	timedOut = mvRunBounded(cmd, timeout)
+	timedOut = mvRunBounded(cmd, timeout, expire)
 	// The command's own output is captured and deliberately discarded:
 	// a Gradle log would flood the report, and its exit code,
 	// synthesised below, is the only evidence the verdict reads.

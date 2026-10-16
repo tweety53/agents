@@ -235,6 +235,16 @@ func (c *mvCase) run(vars map[string]string, args ...string) mvRes {
 	return mvRunIn(c.repo, vars, args...)
 }
 
+// runExpire is run with Env.MutateExpire set: the bound fires when expire
+// receives, never on the wall clock, so a slow baseline cannot hit it.
+func (c *mvCase) runExpire(expire <-chan time.Time, args ...string) mvRes {
+	env := crEnv(c.repo, nil)
+	env.MutateExpire = expire
+	var out, errb bytes.Buffer
+	rc := mutateAndVerify(args, env, &out, &errb)
+	return mvRes{rc, out.String(), errb.String()}
+}
+
 func mvRunIn(dir string, vars map[string]string, args ...string) mvRes {
 	var out, errb bytes.Buffer
 	rc := mutateAndVerify(args, crEnv(dir, vars), &out, &errb)
@@ -544,14 +554,15 @@ func TestMutateAndVerify(t *testing.T) {
 			mvParity(t, fx, map[string]string{"MUTATE_AND_VERIFY_MAX_NEW_FAILURES": "99999999999999999999"}, "")
 		}},
 		{"mutated pass timeout counts as killed", func(t *testing.T) {
-			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			dir := t.TempDir()
+			c := fx.newFixture(t, dir, 4, "4/flip:2")
 			h := c.repo + "/sleepy.sh"
 			writeExec(t, h, "#!/usr/bin/env bash\necho 'ok: case-1'\n"+
-				"if grep -q '"+mvMutationMark+"' guard.sh; then sleep 30; fi\n")
+				"if grep -q '"+mvMutationMark+"' guard.sh; then touch '"+dir+"/mutated'; sleep 30; fi\n")
 			start := time.Now()
-			r := c.run(map[string]string{"MUTATE_AND_VERIFY_TIMEOUT_SECONDS": "3"}, c.patch, h)
+			r := c.runExpire(ccExpireWhen(dir+"/mutated"), c.patch, h)
 			mvCheck(t, "mutated timeout: caught, exit 0", r.rc == 0 && has(r.all(), "caught"), "rc=%d out=%s", r.rc, r.all())
-			mvCheck(t, "mutated timeout: counted as killed", has(r.all(), "timed out after 3s — counted as killed"), "%s", r.all())
+			mvCheck(t, "mutated timeout: counted as killed", has(r.all(), "timed out after 5m0s — counted as killed"), "%s", r.all())
 			mvCheck(t, "mutated timeout: bounded", time.Since(start) < 20*time.Second, "took %s", time.Since(start))
 			mvCheck(t, "mutated timeout: touched file clean after restore",
 				mvGit(t, c.repo, "status", "--porcelain", "--", "guard.sh") == "", "dirty")
@@ -592,11 +603,12 @@ func TestMutateAndVerify(t *testing.T) {
 			mvCheck(t, "PATH command: caught, exit 0", r.rc == 0 && has(r.all(), "caught"), "rc=%d out=%s", r.rc, r.all())
 		}},
 		{"project command timeout counts as killed", func(t *testing.T) {
-			c := fx.newFixture(t, t.TempDir(), 4, "4/flip:2")
+			dir := t.TempDir()
+			c := fx.newFixture(t, dir, 4, "4/flip:2")
 			cmdPath := c.repo + "/project-cmd.sh"
 			writeExec(t, cmdPath, "#!/usr/bin/env bash\n"+
-				"if grep -q '"+mvMutationMark+"' guard.sh; then sleep 30; fi\nexit 0\n")
-			r := c.run(map[string]string{"MUTATE_AND_VERIFY_TIMEOUT_SECONDS": "3"}, c.patch, "--", "./project-cmd.sh")
+				"if grep -q '"+mvMutationMark+"' guard.sh; then touch '"+dir+"/mutated'; sleep 30; fi\nexit 0\n")
+			r := c.runExpire(ccExpireWhen(dir+"/mutated"), c.patch, "--", "./project-cmd.sh")
 			mvCheck(t, "command timeout: caught as killed", r.rc == 0 && has(r.all(), "counted as killed", "caught"), "rc=%d out=%s", r.rc, r.all())
 		}},
 		{"project command missing refused", func(t *testing.T) {

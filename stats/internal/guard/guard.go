@@ -22,6 +22,10 @@ type Env struct {
 	// SurvivorsExpire, when non-nil, replaces the survivors bound's timer:
 	// the bound fires when it receives, so a test decides when (or never).
 	SurvivorsExpire <-chan time.Time
+	// MutateExpire, when non-nil, replaces mutate-and-verify's per-run
+	// timer: the running pass is killed as timed out when it receives, so a
+	// test decides which pass hits the bound and the baseline never races it.
+	MutateExpire <-chan time.Time
 	// ProcTable, when non-nil, replaces run-reproducer's process-table read
 	// (rrProcTable), so a test can make the read fail.
 	ProcTable func() ([]rrProc, error)
