@@ -266,7 +266,6 @@ return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
 
 **Web UI** at http://127.0.0.1:4173, filterable by project, period and model:
 - live state board
-- runs, with a per-run stage breakdown
 - stage leaderboard
 - cost and token trend
 - planner decisions

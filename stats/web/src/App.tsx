@@ -19,7 +19,6 @@ import { Decisions } from "./views/Decisions";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
 import { Reviewers } from "./views/Reviewers";
-import { Runs } from "./views/Runs";
 import { SelfReview } from "./views/SelfReview";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
@@ -33,7 +32,6 @@ const VIEW_LABELS: Record<ViewName, string> = {
   trend: "Trend over time",
   reviewers: "Reviewers",
   decisions: "Decisions",
-  runs: "Runs",
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
 };
@@ -44,7 +42,6 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   trend: Trend,
   reviewers: Reviewers,
   decisions: Decisions,
-  runs: Runs,
   "flow-health": FlowHealth,
   "self-review": SelfReview,
 };

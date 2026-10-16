@@ -392,14 +392,6 @@ func (fakeStore) PanelRounds(context.Context, store.Period, *string) ([]store.Pa
 	return nil, nil
 }
 
-// ListRuns is here for the same reason AllRecordedRunsUnmeasured's own doc
-// comment gives: api.StatsStore gained this method (task 22's "runs"
-// view), and every implementer must keep compiling -- this file's
-// fakeStore never exercises a stats route at all.
-func (fakeStore) ListRuns(context.Context, store.Period, *string, *string) ([]store.ChangeRuns, error) {
-	return nil, nil
-}
-
 func (fakeStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, nil
 }

@@ -189,7 +189,6 @@ const fixtures: Record<Exclude<ViewName, "flow-health"> | HealthViewSlug, StatsR
       timedOut: 0,
     },
   ]),
-  runs: envelope("runs", []),
   guards: envelope("guards", [
     {
       guard: "check-plan-shape",

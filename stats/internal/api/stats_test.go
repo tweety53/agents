@@ -55,14 +55,11 @@ func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string
 	return f.decisionRows, f.decisionRowsErr
 }
 
-// ListRuns, CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured
+// CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured
 // have no fakeStore field of their own: this type exists purely to keep
 // satisfying api.StatsStore at call sites that never exercise a stats route
 // at all (this section's own header comment) -- no test here needs any of
 // them to return anything but a harmless zero value.
-func (f *fakeStore) ListRuns(_ context.Context, _ store.Period, _, _ *string) ([]store.ChangeRuns, error) {
-	return nil, nil
-}
 func (f *fakeStore) GuardActivity(_ context.Context, _ store.Period, _ *string) ([]store.GuardActivityRow, error) {
 	return nil, nil
 }
@@ -111,7 +108,6 @@ type statsFake struct {
 	trendOverTime    []store.TrendPoint
 	reviewers        []store.ReviewerRow
 	decisions        []store.DecisionRow
-	runs             []store.ChangeRuns
 	guardActivity    []store.GuardActivityRow
 	stageRedo        []store.StageRedoRow
 	panelRounds      []store.PanelRoundsRow
@@ -181,9 +177,6 @@ func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) (
 func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]store.DecisionRow, error) {
 	f.lastProject = p
 	return f.decisions, f.aggErr
-}
-func (f *statsFake) ListRuns(_ context.Context, _ store.Period, _ *string, _ *string) ([]store.ChangeRuns, error) {
-	return f.runs, f.aggErr
 }
 func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, p *string) ([]store.SelfReviewFindingRow, error) {
 	f.lastProject = p
@@ -588,134 +581,12 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		}
 	})
 
-	t.Run("runs", func(t *testing.T) {
-		change := "kan-1"
-		startedAt := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
-		sts := &statsFake{runs: []store.ChangeRuns{
-			{Project: "kan", Change: &change, JiraKey: &change,
-				Totals: store.RunTotals{InputTokens: 500}, IdleBetweenRunsMs: 1000, FixIterations: 1,
-				Runs: []store.RunRow{
-					{SessionToken: "sess-1", Kind: "flow", Command: "/flow", StartedAt: startedAt,
-						Totals:    store.RunTotals{InputTokens: 300, Priced: false},
-						Main:      store.RunTotals{InputTokens: 200, Priced: true},
-						FanOutMax: 2, SuiteRuns: 1,
-						Dispatches: []store.RunDispatchRow{
-							{Seq: 1, Role: "reviewer", Slot: "exp-failure-modes", AgentID: "a1", AgentType: "general-purpose",
-								Description: "review", DeclaredModel: "claude-sonnet-4-5", DeclaredEffort: "high", Priced: true,
-								StartedAt: startedAt, Totals: store.RunTotals{InputTokens: 100, Priced: true}},
-						},
-					},
-				},
-			},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("runs"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			Project string `json:"project"`
-			Change  string `json:"change"`
-			Runs    []struct {
-				Totals struct {
-					Priced bool `json:"priced"`
-				} `json:"totals"`
-				Main struct {
-					InputTokens int64 `json:"inputTokens"`
-					Priced      bool  `json:"priced"`
-				} `json:"main"`
-				Dispatches []struct {
-					DeclaredModel string `json:"declaredModel"`
-					Priced        bool   `json:"priced"`
-				} `json:"dispatches"`
-			} `json:"runs"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 || len(rows[0].Runs) != 1 || len(rows[0].Runs[0].Dispatches) != 1 {
-			t.Fatalf("rows = %+v, want 1 change with 1 run with 1 dispatch", rows)
-		}
-		if got := rows[0].Runs[0].Dispatches[0].DeclaredModel; got != "claude-sonnet-4-5" {
-			t.Errorf("dispatches[0].declaredModel = %q, want claude-sonnet-4-5", got)
-		}
-		if got := rows[0].Runs[0].Main.InputTokens; got != 200 {
-			t.Errorf("runs[0].main.inputTokens = %d, want 200", got)
-		}
-		if rows[0].Runs[0].Totals.Priced {
-			t.Errorf("runs[0].totals.priced = true, want false")
-		}
-		if !rows[0].Runs[0].Main.Priced {
-			t.Errorf("runs[0].main.priced = false, want true")
-		}
-		if !rows[0].Runs[0].Dispatches[0].Priced {
-			t.Errorf("dispatches[0].priced = false, want true")
-		}
-	})
-
 }
 
 func mustDecodeRows(t *testing.T, env statsEnvelope, body []byte, v any) {
 	t.Helper()
 	if err := json.Unmarshal(env.Rows, v); err != nil {
 		t.Fatalf("decode rows: %v (body %s)", err, body)
-	}
-}
-
-// TestRunsViewIncludesStageRows pins the per-run stage breakdown on the
-// wire: each run row carries its own stage runs -- stage, attempt, both
-// instants, outcome -- so the runs view can show where a run's wall clock
-// went. A still-open stage keeps endedAt and outcome JSON nulls, the same
-// absence-not-zero discipline every other timestamp on this wire follows.
-func TestRunsViewIncludesStageRows(t *testing.T) {
-	change := "kan-1"
-	startedAt := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
-	endedAt := startedAt.Add(5 * time.Hour)
-	outcome := "completed"
-	sts := &statsFake{runs: []store.ChangeRuns{
-		{Project: "kan", Change: &change,
-			Runs: []store.RunRow{{
-				SessionToken: "sess-1", Kind: "flow", Command: "/flow", StartedAt: startedAt, EndedAt: &endedAt,
-				Stages: []store.RunStageSpan{
-					{Stage: "flow.sdd-tdd", Attempt: 2, StartedAt: startedAt, EndedAt: &endedAt, Outcome: &outcome},
-					{Stage: "flow.verify", Attempt: 1, StartedAt: endedAt},
-				},
-			}},
-		},
-	}}
-	ts := newStatsTestServer(t, sts)
-	status, env, body := getStats(t, ts, periodPath("runs"))
-	if status != http.StatusOK {
-		t.Fatalf("status %d, body %s", status, body)
-	}
-	var rows []struct {
-		Runs []struct {
-			Stages []struct {
-				Stage     string  `json:"stage"`
-				Attempt   int     `json:"attempt"`
-				StartedAt string  `json:"startedAt"`
-				EndedAt   *string `json:"endedAt"`
-				Outcome   *string `json:"outcome"`
-			} `json:"stages"`
-		} `json:"runs"`
-	}
-	mustDecodeRows(t, env, body, &rows)
-	if len(rows) != 1 || len(rows[0].Runs) != 1 {
-		t.Fatalf("rows = %+v, want 1 change with 1 run", rows)
-	}
-	stages := rows[0].Runs[0].Stages
-	if len(stages) != 2 {
-		t.Fatalf("stages = %+v, want 2", stages)
-	}
-	if stages[0].Stage != "flow.sdd-tdd" || stages[0].Attempt != 2 {
-		t.Errorf("stages[0] = %+v, want flow.sdd-tdd attempt 2", stages[0])
-	}
-	if stages[0].EndedAt == nil || stages[0].Outcome == nil || *stages[0].Outcome != "completed" {
-		t.Errorf("stages[0] close = %+v, want endedAt set and outcome completed", stages[0])
-	}
-	if want := endedAt.UTC().Format(time.RFC3339Nano); stages[0].EndedAt == nil || *stages[0].EndedAt != want {
-		t.Errorf("stages[0].endedAt = %v, want %s", stages[0].EndedAt, want)
-	}
-	if stages[1].Stage != "flow.verify" || stages[1].EndedAt != nil || stages[1].Outcome != nil {
-		t.Errorf("stages[1] = %+v, want open flow.verify with null endedAt/outcome", stages[1])
 	}
 }
 

@@ -43,7 +43,6 @@ export type ViewName =
   | "trend"
   | "reviewers"
   | "decisions"
-  | "runs"
   | "flow-health"
   | "self-review";
 
@@ -53,7 +52,6 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "trend",
   "reviewers",
   "decisions",
-  "runs",
   "flow-health",
   "self-review",
 ];
@@ -394,91 +392,6 @@ export interface DecisionRow {
   fixRounds: number;
   fallbacks: number;
   timedOut: number;
-}
-
-/** Mirrors the runs view's per-run totals bag. */
-export interface RunTotals {
-  inputTokens: number;
-  outputTokens: number;
-  thinkingTokens: number;
-  cacheRead: number;
-  cacheWrite5m: number;
-  cacheWrite1h: number;
-  cacheHitRatio: number | null;
-  costUsd: number | null;
-  priced: boolean;
-  wallClockMs: number;
-  humanGateMs: number;
-  compactions: number;
-  turns: number;
-  toolCalls: number;
-  toolErrors: number;
-  denials: number;
-  apiErrors: number;
-  contextEnd: number | null;
-}
-
-/** One dispatch inside a run (mirrors the runs view's dispatch row). */
-export interface RunDispatchRow {
-  seq: number;
-  role: string;
-  slot: string;
-  agentId: string;
-  agentType: string;
-  description: string;
-  depth: number | null;
-  declaredModel: string;
-  declaredEffort: string;
-  servedModels: Record<string, number> | null;
-  servedEfforts: Record<string, number> | null;
-  mismatch: boolean;
-  priced: boolean;
-  findingsRaised: number;
-  findingsByStatus: Record<string, number> | null;
-  startedAt: string;
-  endedAt: string | null;
-  totals: RunTotals;
-}
-
-/**
- * One stage run inside a run (mirrors the runs view's per-run stage span):
- * where that run's wall clock went. `endedAt`/`outcome` are null while the
- * stage is still open.
- */
-export interface RunStageSpan {
-  stage: string;
-  attempt: number;
-  startedAt: string;
-  endedAt: string | null;
-  outcome: string | null;
-}
-
-/** One run (a change's /flow-plan, /flow or /flow-fast invocation), keyed by session token. */
-export interface RunRow {
-  sessionToken: string;
-  kind: "plan" | "flow" | "flow-fast";
-  command: string;
-  startedAt: string;
-  endedAt: string | null;
-  totals: RunTotals;
-  main: RunTotals;
-  decision: { execution: string; implementer: string; panel: string } | null;
-  fanOutMax: number;
-  suiteRuns: number;
-  suiteFirstPass: boolean | null;
-  dispatches: RunDispatchRow[];
-  stages: RunStageSpan[];
-}
-
-/** A change's runs, grouped -- mirrors the runs view's top-level row. */
-export interface ChangeRuns {
-  project: string;
-  change: string | null;
-  jiraKey: string | null;
-  totals: RunTotals;
-  idleBetweenRunsMs: number;
-  fixIterations: number;
-  runs: RunRow[];
 }
 
 /**
