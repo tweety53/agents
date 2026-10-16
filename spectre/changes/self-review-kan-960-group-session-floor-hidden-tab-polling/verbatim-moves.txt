@@ -1,0 +1,6 @@
+# Sentences self-review-kan-960 rewords or adds on purpose: the inline-window floor's new figure
+# (Task 1) and the implementer dispatch's SCRATCH HARNESS paragraph (Task 2).
+Every inline row's `dispatch begin` is recorded when the parent starts that work, before its first edit, and its `dispatch end` once the work's commit lands — never the two together, which records the work as taking no time; `flow record dispatch end` refuses a `completed` inline row closed under ten seconds after its begin when it carries no `-tokens` report.
+Every inline row's `dispatch begin` is recorded when the parent starts that work, before its first edit, and its `dispatch end` once the work's commit lands — never the two together, which records the work as taking no time; `flow record dispatch end` refuses a `completed` inline row closed under three seconds after its begin when it carries no `-tokens` report.
+**SCRATCH HARNESS:** A throwaway harness — a measuring spec, a repro script, a probe — lives in your session scratchpad or in this change's state dir (the path `flow state dir` prints), never in a new worktree or branch of any repository.
+Cleanup removes only the change's own worktrees and branches, so one you create outlives the run (kan-960 left a `kan-960-measure` worktree and branch in `gymie-playwright`).
