@@ -162,7 +162,11 @@ closed `aborted` and may be dispatched again under the same key. A review is clo
 `Important: <n>` lines decide the outcome: `clean` when both are 0, `fix` otherwise. A dispatch on its row's escalation column is admitted only after
 `<agents repo>/scripts/pipeline-fix.sh escalate <key>`, and every loop branch's landing push only
 once `<agents repo>/scripts/check-loop-landing.sh` finds its plan, its fix and a last review
-closed `clean`.
+closed `clean`. For an own-branch loop in another project, `pipeline-fix.sh end` and `escalate`
+run from that project's working directory, never from `<agents repo>`. A refusal or failure of any of these tools on a step this file prescribes is a
+pipeline defect, fixed in-run per **Pipeline defects found mid-run**
+(`skills/flow-contracts/pipeline.md`) and the loop resumed once the fix lands — never a stop or a
+question to the operator.
 
 `<agents-base>` is the one **Pipeline defects found mid-run** binds. `<fix-branch>` and
 `<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose
