@@ -1318,8 +1318,9 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	// findings through `flow record findings` against it. That write's
 	// outcome is irrelevant here -- the guard's own combined output already
 	// silences it -- so this handler answers the render route with the
-	// zero-form envelope, every other GET with the empty change's rows,
-	// and accepts any other method rather than failing the test over it.
+	// zero-form envelope, the self-review bundle with a recorded summary,
+	// every other GET with the empty change's rows, and accepts any other
+	// method rather than failing the test over it.
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusCreated)
@@ -1328,6 +1329,12 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		if strings.Contains(r.URL.Path, "/render/") {
 			_ = json.NewEncoder(w).Encode(records.Rendered{Body: records.RenderPanel(records.Run{Change: "demo"})})
+			return
+		}
+		// The guard's signal six reads the self-review bundle's header for a
+		// recorded change summary; a finished change carries one.
+		if strings.HasSuffix(r.URL.Path, "/bundle") {
+			_, _ = w.Write([]byte("found: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\ndone\n"))
 			return
 		}
 		_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"findings":[]}`))
