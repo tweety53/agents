@@ -1,0 +1,15 @@
+# Sentences pipeline-fix-kan-939-step-4-frontend-cardio-plan-view-start-log-16 rewords on purpose: the explain-then-ask turn split moves from operator-prompts.md into self-review step 4, and the finding and filing-ask sentences return to their pre-bb273948 text (operator, 2026-10-16).
+\## Explain before asking
+**A flow-eval candidate's explanation is written in chat as the turn's final message, and the turn ends there.
+**Every other ask explains and asks in the same turn.
+A finding, a filing item, a gate or any other question the operator must read up on first is explained in chat — observed, what breaks, the fix — and the `AskUserQuestion` follows in that same turn; the turn is never ended just to split the two.
+Either way, the explanation is never carried only inside the `AskUserQuestion`'s question, option or preview text.
+Every fixed finding is one line in the explanation message, naming its landed sha; it is not offered.
+Every offered finding is explained before the operator answers — what was observed, what breaks, and what the fix would be — in chat ahead of the ask, per **Explain before asking** (`skills/flow-contracts/operator-prompts.md`): a filed issue is durable, and an explanation arriving afterward describes something the operator did not agree to.
+Option text records the decision only.
+That covers each flow-eval candidate in its kind's template exactly as step 2 of `skills/flow-self-review/SKILL.md` defines it (impl, review or visual, every field).
+The filing prompt explains each item the run would file — what was observed, what breaks because of it, and what the fix would be — in chat, ahead of the ask in the same turn, per **Explain before asking** (`skills/flow-contracts/operator-prompts.md`), and otherwise follows the shape that contract defines.
+A prompt's option text cannot carry that explanation, so the prompt records the decision only: a filed issue is durable, and an explanation arriving afterward describes something the operator did not agree to.
+Before the filing prompt fires, the message body explains each item the run would file — what was observed, what breaks because of it, and what the fix would be — never leaving that explanation to the prompt's option text.
+Every finding is explained in the message body first, before any prompt fires — what was observed, what breaks, and what the fix would be.
+Every fixed finding is one line in the same body, naming its landed sha; it is not offered.
