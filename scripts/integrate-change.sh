@@ -378,10 +378,19 @@ cmd_prepare() {
     mark_end flow.unfinished-work-gate completed
   else
     ask=0
+    # Every worktree's commit range, for signal four's Task-Id search.
+    local ranges=()
+    # An archived re-run starts at the archive: the guard exempts the tasks
+    # already ticked there, whose commits run 1 squashed.
+    for i in "${!WT[@]}"; do
+      rb="$(git -C "${WT[i]}" merge-base HEAD "origin/${BASES[i]}")"
+      [ "$ARCHIVED" -eq 1 ] && rb="$(arch_base "${WT[i]}" "$rb")"
+      ranges+=("${WT[i]}=$rb")
+    done
     # A guard that reached no verdict is not OUTSTANDING: its own stop,
     # which --accept-outstanding never passes.
     for i in "${!WT[@]}"; do
-      run "$SCRIPT_DIR/check-unfinished-work.sh" "${WT[i]}" "$NAME" "$CANON"
+      run "$SCRIPT_DIR/check-unfinished-work.sh" "${WT[i]}" "$NAME" "$CANON" "${ranges[@]}"
       case "$RC:$(verdict 'CLEAR|OUTSTANDING')" in
         0:CLEAR:*) ;;
         0:OUTSTANDING:*) ask=1 ;;

@@ -396,7 +396,7 @@ flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -sess
 
 **A fix run then runs the unfinished-work guard on itself**, once per worktree of the resolved
 set, with the arguments **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) passes it —
-`check-unfinished-work.sh <worktree> <name> <canonical-worktree>` — so an appended task left
+`check-unfinished-work.sh <worktree> <name> <canonical-worktree> <worktree>=<merge-base>...` — so an appended task left
 unrecorded or unreviewed stops this run rather than the next integrate. An `OUTSTANDING:` line is
 this run's own unfinished work: finish what its breakdown names — a missing dispatch or review is
 run and recorded, never recorded after the fact for work that did not run — and run the guard

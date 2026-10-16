@@ -2,7 +2,7 @@
 # check-unfinished-work.sh — report whether a change carries unfinished work,
 # for /flow's integrate-run gate.
 #
-# Usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]
+# Usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...
 #
 # Prints ONE verdict line to stdout:
 #   CLEAR: <reason>          nothing outstanding
@@ -64,6 +64,12 @@
 # row naming it: the fix run's panel reviews it under keys that name no task,
 # so any panel reviewer row of the change counts, and a reviewer row under any
 # other key does not.
+# A ticked appended task also needs a commit carrying `Task-Id: <n>` in one of
+# the `<worktree>=<merge-base>` ranges passed — one per worktree of the
+# change's resolved set, since a cross-repo fix task may commit in a peer
+# repository: a dispatch row back-filled after the fact is not a commit. A
+# plan with a ticked appended task and no range passed is exit 2, and a range
+# git cannot read is exit 2.
 #
 # All signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being

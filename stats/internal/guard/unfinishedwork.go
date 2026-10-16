@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -35,8 +36,20 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	worktree, name, canonical := arg(0), arg(1), arg(2)
 	if worktree == "" || name == "" {
-		fmt.Fprintln(stderr, "usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]")
+		fmt.Fprintln(stderr, "usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...")
 		return 2
+	}
+	// The change's commit ranges, one per worktree of its resolved set:
+	// signal four's commit half searches them for each ticked appended
+	// task's `Task-Id:` trailer.
+	var ranges [][2]string
+	for _, a := range args[min(3, len(args)):] {
+		wt, base, ok := strings.Cut(a, "=")
+		if !ok || wt == "" || base == "" {
+			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base>\n", uwPrefix, a)
+			return 2
+		}
+		ranges = append(ranges, [2]string{wt, base})
 	}
 
 	// CONTAINMENT: the change name arrives from a pull-request-editable state
@@ -347,6 +360,48 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			if len(unreviewed) > 0 {
 				reasons = append(reasons, strconv.Itoa(len(unreviewed))+" ticked appended task(s) with no panel reviewer row (key `panel-<round>-<slot>`) begun after its implementer row (Task "+strings.Join(unreviewed, ", ")+") — run its fix round's panel and record its pass rows and findings, before landing")
 			}
+			// A dispatch row is not a commit: a row back-filled after the
+			// fact names a task whose work never landed. Each ticked
+			// appended task also needs a commit carrying `Task-Id: <n>` in
+			// one of the change's ranges -- all of them, since a cross-repo
+			// change's fix task may commit in a peer repository.
+			if len(appended) > 0 {
+				if len(ranges) == 0 {
+					fmt.Fprintf(stderr, "%sticked appended task(s) (Task %s) and no <worktree>=<merge-base> range was passed — cannot judge their commits\n", uwPrefix, strings.Join(appended, ", "))
+					return 2
+				}
+				committed := map[string]bool{}
+				for _, r := range ranges {
+					out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%(trailers:key=Task-Id,valueonly)", r[1]+"..HEAD"))
+					if !ok {
+						fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
+						return 2
+					}
+					for _, id := range ctTaskNumberRE.FindAllString(out, -1) {
+						committed[id] = true
+					}
+					// An archived re-run's range starts at the archive: run 1
+					// squashed the earlier task commits, trailers and all, and
+					// its gate already judged every task ticked in the plan
+					// as it stood there.
+					if rel, err := filepath.Rel(r[0], primary); err == nil && !strings.HasPrefix(rel, "..") {
+						if old, ok := capture(envGit(env)("-C", r[0], "show", r[1]+":./"+filepath.ToSlash(rel))); ok {
+							for _, id := range uwAppendedIn(old, true) {
+								committed[id] = true
+							}
+						}
+					}
+				}
+				var uncommitted []string
+				for _, id := range appended {
+					if !committed[id] {
+						uncommitted = append(uncommitted, id)
+					}
+				}
+				if len(uncommitted) > 0 {
+					reasons = append(reasons, strconv.Itoa(len(uncommitted))+" ticked appended task(s) with no commit carrying its `Task-Id:` trailer on the branch (Task "+strings.Join(uncommitted, ", ")+") — commit each task's work with `Task-Id: <n>` before landing")
+				}
+			}
 		}
 	}
 
@@ -402,9 +457,14 @@ func uwAppended(plan string, tickedOnly bool) ([]string, bool) {
 	if err != nil {
 		return nil, false
 	}
+	return uwAppendedIn(string(b), tickedOnly), true
+}
+
+// uwAppendedIn is uwAppended over a plan's text.
+func uwAppendedIn(plan string, tickedOnly bool) []string {
 	appended := 0
 	var tasks [][]string
-	for l := range strings.Lines(string(b)) {
+	for l := range strings.Lines(plan) {
 		if m := uwTasksAppended.FindStringSubmatch(l); m != nil {
 			appended, _ = strconv.Atoi(m[1])
 		} else if m := uwTask.FindStringSubmatch(l); m != nil {
@@ -417,7 +477,7 @@ func uwAppended(plan string, tickedOnly bool) ([]string, bool) {
 			ids = append(ids, m[2])
 		}
 	}
-	return ids, true
+	return ids
 }
 
 // uwCountUnticked is count_unticked: column-0 `- [ ]` lines (the script

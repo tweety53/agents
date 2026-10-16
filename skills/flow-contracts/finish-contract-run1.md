@@ -138,13 +138,14 @@ either way: the base-moved check and **Sync the branch onto the base**
 self-review pass, and the route.
 
 **Check for unfinished work first — before the landing question and before any git action but the undo of an uncommitted archive above.**
-`check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]` prints one verdict line and
+`check-unfinished-work.sh <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...` prints one verdict line and
 exits 0 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the
 worktree. Run it once per worktree in the set found by **Resolving a change's worktrees** below —
 never a raw read of the state file's `worktrees` map, for the same reason the preflight verdict
 above does not read it raw. Pass `[canonical-worktree]` on every call in the run: the one member of
 the resolved set whose own change directory (**A change's directory**,
 `skills/flow-contracts/pipeline.md`) holds `tasks.md`.
+Pass every worktree of the resolved set as `<worktree>=<merge-base>`, its merge base `git -C <worktree> merge-base HEAD origin/<base>`, on every call.
 
 | Verdict | Meaning |
 |---------|---------|

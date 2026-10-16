@@ -40,6 +40,19 @@ type uwFix struct {
 	env      Env
 	findings []byte
 	fErr     error
+	ranges   []string // <worktree>=<merge-base> arguments, after an empty canonical
+}
+
+// commits makes dir a repository whose base commit carries baseMsg and
+// whose one later commit carries msg -- both empty, so the fixture's files
+// stay untracked -- and returns `<dir>=<base sha>`, a range argument.
+func uwCommits(t *testing.T, dir, baseMsg, msg string) string {
+	t.Helper()
+	gitRun(t, "", "init", "-q", dir)
+	gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", baseMsg)
+	base := tcfGit(t, dir, "rev-parse", "HEAD")
+	gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", msg)
+	return dir + "=" + base
 }
 
 // uwResult is one run: exit code, stdout (trailing newlines stripped, as
@@ -236,6 +249,9 @@ func TestCheckUnfinishedWork(t *testing.T) {
 			if setup != nil {
 				setup(t, f)
 			}
+			if len(f.ranges) > 0 {
+				return f.run(t, append([]string{f.wt, "demo", ""}, f.ranges...)...)
+			}
 			return f.run(t, f.wt, "demo")
 		}
 	}
@@ -277,6 +293,21 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		return func(t *testing.T, f *uwFix) {
 			f.plan(t, body)
 			f.setFile(t, "dispatches.json", rows+"\n")
+			f.ranges = []string{uwCommits(t, f.wt, "base", "fix: the appended task\n\nTask-Id: 7")}
+		}
+	}
+	// covered is a ticked appended task 7 with its implementer row and a
+	// later panel reviewer row: only its commit is left to judge.
+	covered := `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`
+	committedAs := func(baseMsg, msg string, peer bool) func(t *testing.T, f *uwFix) {
+		return func(t *testing.T, f *uwFix) {
+			f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
+			f.setFile(t, "dispatches.json", covered+"\n")
+			if peer {
+				f.ranges = []string{uwCommits(t, f.wt, "base", "fix: no trailer"), uwCommits(t, t.TempDir(), "base", msg)}
+				return
+			}
+			f.ranges = []string{uwCommits(t, f.wt, baseMsg, msg)}
 		}
 	}
 	appended := "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 2. grouped\n- [x] 7. appended by a fix run\n"
@@ -298,6 +329,37 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("a non-panel reviewer row does not review the appended task", "OUTSTANDING:"))
 	each(demo(planned("- [x] 1. done\n- [x] 2. grouped\n- [x] 3. grouped\n", `[{"key":"task-2-implementer","outcome":"completed"}]`)),
 		uwVerdict("plan-time tasks grouped under one key, with no Tasks appended line, are CLEAR", "CLEAR:"))
+	// 2d. Signal four's commit half — a dispatch row is not a commit (a
+	//     back-filled row named a task whose work never landed).
+	each(demo(committedAs("base", "fix: the appended task\n\nFlow-Key: panel-fix-2", false)),
+		uwVerdict("an appended task with its rows but no Task-Id commit is OUTSTANDING", "OUTSTANDING:"),
+		uwReason("the breakdown names the uncommitted appended task", "1 ticked appended task(s) with no commit carrying its `Task-Id:` trailer on the branch (Task 7)"))
+	each(demo(committedAs("fix: before the branch\n\nTask-Id: 7", "fix: no trailer", false)),
+		uwVerdict("a Task-Id commit at or before the merge base does not count", "OUTSTANDING:"))
+	each(demo(committedAs("base", "fix: the appended task\n\nTask-Id: 7", true)),
+		uwVerdict("a Task-Id commit in a peer worktree's range covers the appended task", "CLEAR:"))
+	each(func(t *testing.T) uwResult {
+		f := newUW(t)
+		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
+		f.setFile(t, "dispatches.json", covered+"\n")
+		gitRun(t, "", "init", "-q", f.wt)
+		gitRun(t, f.wt, "add", "spectre/changes/demo/tasks.md")
+		gitRun(t, f.wt, "commit", "-q", "-m", "chore(spectre): archive demo")
+		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "fix: no trailer")
+		return f.run(t, f.wt, "demo", "", f.wt+"="+base)
+	}, uwVerdict("an appended task already ticked in the plan at an archived re-run's base needs no new commit", "CLEAR:"))
+	each(func(t *testing.T) uwResult {
+		f := newUW(t)
+		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 7. appended by a fix run\n")
+		f.setFile(t, "dispatches.json", covered+"\n")
+		return f.run(t, f.wt, "demo")
+	}, uwRC("ticked appended tasks with no range passed cannot answer", 2))
+	each(demo(nil), uwVerdict("a plan with no appended task needs no range", "CLEAR:"))
+	each(func(t *testing.T) uwResult {
+		f := newUW(t)
+		return f.run(t, f.wt, "demo", "", "no-equals-sign")
+	}, uwRC("a range argument not shaped <worktree>=<merge-base> is refused", 2))
 
 	// 3. Signal one — the plan.
 	each(demo(unticked),
