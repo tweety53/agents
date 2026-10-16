@@ -23,10 +23,10 @@
 - A message straddling two reads must count its input once and its output to the final figure — never the first line's count plus the last line's in full (Task 3's straddle test).
 - A batch with no id'd usage record must keep the previous carry, as `lastUsageMessageID`'s caller did.
 
-- [ ] 1. prove-reproducer refuses a reproducer naming the live worktree by absolute path
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'cannot reach past the scratch' scripts/prove-reproducer.sh` and confirm one hit, and `grep -n 'ReadFile' stats/internal/guard/provereproducer.go` and confirm none — the defect: the header claims the scratch contains a hardcoding script, and nothing reads the body.
-  - [ ] **Step 2: Write the failing test.** Apply the test hunk alone (`git apply --include='stats/internal/guard/prove_reproducer_test.go' <the diff in step 3>`) and run `cd stats && go test ./internal/guard/ -run TestProveReproducerRefusesLiveWorktreePath -count=1`: it FAILS with `want exit 2 … got 1`.
-  - [ ] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/prove_reproducer_test.go' <the diff>`):
+- [x] 1. prove-reproducer refuses a reproducer naming the live worktree by absolute path
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'cannot reach past the scratch' scripts/prove-reproducer.sh` and confirm one hit, and `grep -n 'ReadFile' stats/internal/guard/provereproducer.go` and confirm none — the defect: the header claims the scratch contains a hardcoding script, and nothing reads the body.
+  - [x] **Step 2: Write the failing test.** Apply the test hunk alone (`git apply --include='stats/internal/guard/prove_reproducer_test.go' <the diff in step 3>`) and run `cd stats && go test ./internal/guard/ -run TestProveReproducerRefusesLiveWorktreePath -count=1`: it FAILS with `want exit 2 … got 1`.
+  - [x] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/guard/prove_reproducer_test.go' <the diff>`):
 
 ````diff verified:git apply --check at 4f64d5f8; gofmt -l, go vet ./internal/guard/ and go test ./internal/guard/ -count=1 pass with it applied; TestProveReproducerRefusesLiveWorktreePath fails with provereproducer.go reverted (got 1)
 diff --git a/scripts/prove-reproducer.sh b/scripts/prove-reproducer.sh
@@ -122,7 +122,7 @@ index e3ef4d09..27eb03b1 100644
  	tmp := env.Getenv("TMPDIR")
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `go vet ./internal/guard/` and `go test ./internal/guard/ -run 'TestProveReproducer' -count=1` pass; from the repository root `scripts/check-guard-symlinks.sh` exits 0. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l ./internal/guard` prints nothing; `go vet ./internal/guard/` and `go test ./internal/guard/ -run 'TestProveReproducer' -count=1` pass; from the repository root `scripts/check-guard-symlinks.sh` exits 0. Commit.
 
 **Build:** green
 **Files:** `stats/internal/guard/provereproducer.go`, `stats/internal/guard/prove_reproducer_test.go`, `scripts/prove-reproducer.sh`
@@ -136,10 +136,10 @@ index e3ef4d09..27eb03b1 100644
 **Decision:** live-path-refusal
 
 
-- [ ] 2. The -effort refusal names the default rule
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** From `stats/`, run `go run ./cmd/flow record dispatch begin -agent-id none -C .. -change self-review-kan-988-ledger-test-pool-starvation -role implementer -model opus -effort unknown -key k1 -session-token mf-x` and confirm it is refused with exactly `flow: -effort "unknown" is not one of: low, medium, high, default` — no rule for an unstated effort.
-  - [ ] **Step 2: Write the failing test.** Apply the test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the diff in step 3>`) and run `cd stats && go test ./cmd/flow/ -run TestRunRecordDispatchBeginUnknownEffortNamesDefault -count=1`: it FAILS on the stderr assertion.
-  - [ ] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
+- [x] 2. The -effort refusal names the default rule
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** From `stats/`, run `go run ./cmd/flow record dispatch begin -agent-id none -C .. -change self-review-kan-988-ledger-test-pool-starvation -role implementer -model opus -effort unknown -key k1 -session-token mf-x` and confirm it is refused with exactly `flow: -effort "unknown" is not one of: low, medium, high, default` — no rule for an unstated effort.
+  - [x] **Step 2: Write the failing test.** Apply the test hunk alone (`git apply --include='stats/cmd/flow/record_test.go' <the diff in step 3>`) and run `cd stats && go test ./cmd/flow/ -run TestRunRecordDispatchBeginUnknownEffortNamesDefault -count=1`: it FAILS on the stderr assertion.
+  - [x] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/cmd/flow/record_test.go' <the diff>`):
 
 ````diff verified:git apply --check at 4f64d5f8; gofmt -l, go vet ./cmd/flow/ and go test ./cmd/flow/ -count=1 pass with it applied; TestRunRecordDispatchBeginUnknownEffortNamesDefault fails with record.go reverted
 diff --git a/stats/cmd/flow/record.go b/stats/cmd/flow/record.go
@@ -191,7 +191,7 @@ index 49b09e56..7ef41f57 100644
  // the wire body -- the store column is NOT NULL DEFAULT 'default' because
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l ./cmd/flow` prints nothing; `go vet ./cmd/flow/` and `go test ./cmd/flow/ -run 'TestRunRecordDispatchBegin.*Effort' -count=1` pass. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l ./cmd/flow` prints nothing; `go vet ./cmd/flow/` and `go test ./cmd/flow/ -run 'TestRunRecordDispatchBegin.*Effort' -count=1` pass. Commit.
 
 **Build:** green
 **Files:** `stats/cmd/flow/record.go`, `stats/cmd/flow/record_test.go`
@@ -205,10 +205,10 @@ index 49b09e56..7ef41f57 100644
 **Decision:** effort-refusal-names-default
 
 
-- [ ] 3. The harvester counts each message's final output
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'seen\[id\] = true' stats/internal/harvest/transcript.go` and confirm one hit — the first line per id is kept whatever its output count — and `grep -n 'lastMessageID map\[string\]string' stats/internal/harvest/watcher.go` and confirm one hit — the carry holds no count.
-  - [ ] **Step 2: Write the failing tests.** Apply the two test hunks alone (`git apply --include='stats/internal/harvest/*_test.go' <the diff in step 3>`) and run `cd stats && go test ./internal/harvest/ -run 'TestParseAssistantRecordsTakesLargestOutputPerMessage|TestMessageStraddlingTwoReadsCountsFinalOutput' -count=1`: both FAIL, output `4` where `135` is wanted.
-  - [ ] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/harvest/*_test.go' <the diff>`):
+- [x] 3. The harvester counts each message's final output
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `grep -n 'seen\[id\] = true' stats/internal/harvest/transcript.go` and confirm one hit — the first line per id is kept whatever its output count — and `grep -n 'lastMessageID map\[string\]string' stats/internal/harvest/watcher.go` and confirm one hit — the carry holds no count.
+  - [x] **Step 2: Write the failing tests.** Apply the two test hunks alone (`git apply --include='stats/internal/harvest/*_test.go' <the diff in step 3>`) and run `cd stats && go test ./internal/harvest/ -run 'TestParseAssistantRecordsTakesLargestOutputPerMessage|TestMessageStraddlingTwoReadsCountsFinalOutput' -count=1`: both FAIL, output `4` where `135` is wanted.
+  - [x] **Step 3: Implement the fix.** Apply the rest of this diff (`git apply --exclude='stats/internal/harvest/*_test.go' <the diff>`):
 
 ````diff verified:git apply --check at 4f64d5f8; gofmt -l, go vet ./... and go test ./... -count=1 pass with it applied; both declared tests fail with transcript.go and watcher.go reverted, and the straddle test fails with watcher.go alone reverted
 diff --git a/stats/internal/harvest/transcript.go b/stats/internal/harvest/transcript.go
@@ -489,7 +489,7 @@ index d419665d..61dd6f71 100644
  // agent had already run (kan-933's task-1-reviewer-fix-1 and
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -l ./internal/harvest` prints nothing; `go vet ./internal/harvest/` and `go test ./internal/harvest/ -run 'TestParseAssistantRecords|TestMessageStraddlingTwoReads' -count=1` pass. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -l ./internal/harvest` prints nothing; `go vet ./internal/harvest/` and `go test ./internal/harvest/ -run 'TestParseAssistantRecords|TestMessageStraddlingTwoReads' -count=1` pass. Commit.
 
 **Build:** green
 **Files:** `stats/internal/harvest/transcript.go`, `stats/internal/harvest/watcher.go`, `stats/internal/harvest/transcript_test.go`, `stats/internal/harvest/watcher_test.go`
