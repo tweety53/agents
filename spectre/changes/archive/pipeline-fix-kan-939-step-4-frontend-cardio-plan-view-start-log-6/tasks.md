@@ -46,10 +46,10 @@ plan, fix and clean review, and the loops' fixed steps run by one script.
 - `land` on a base that moved runs `verify` again and pushes nothing when it is red.
 - The pairs table and the guard cannot drift: the Go test parses the real `SKILL.md`.
 
-- [ ] 1. Admit a fix-loop dispatch only off its pairs row, and record it
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Run `flow record dispatches -C /Users/tweety53/Projects/agents -change pipeline-fix-kan-939-step-4-frontend-cardio-plan-view-start-log-5` and confirm `[]` — the defect: a loop's dispatches are recorded nowhere, and nothing checks the `subagent_type` or model a loop dispatch carries against the pairs of `skills/flow-self-review/SKILL.md` step 3.
-  - [ ] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf6-task1.diff`, apply its `stats/internal/guard/check_loop_dispatch_test.go` hunk alone (`git apply --include='stats/internal/guard/check_loop_dispatch_test.go' /tmp/pf6-task1.diff`) and run `cd stats && go test ./internal/guard/ -run 'TestLoopTableIsTheSkillsOwn|TestCheckLoopDispatch' -count=1`: it FAILS to build with `undefined: lpSkill`.
-  - [ ] **Step 3: Implement.** Apply the rest of the diff (`git apply --exclude='stats/internal/guard/check_loop_dispatch_test.go' /tmp/pf6-task1.diff`) — the guard, its shim, the hook and its harness, the registration snippets and their setuptest pins, the README rows, and the pairs table:
+- [x] 1. Admit a fix-loop dispatch only off its pairs row, and record it
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Run `flow record dispatches -C /Users/tweety53/Projects/agents -change pipeline-fix-kan-939-step-4-frontend-cardio-plan-view-start-log-5` and confirm `[]` — the defect: a loop's dispatches are recorded nowhere, and nothing checks the `subagent_type` or model a loop dispatch carries against the pairs of `skills/flow-self-review/SKILL.md` step 3.
+  - [x] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf6-task1.diff`, apply its `stats/internal/guard/check_loop_dispatch_test.go` hunk alone (`git apply --include='stats/internal/guard/check_loop_dispatch_test.go' /tmp/pf6-task1.diff`) and run `cd stats && go test ./internal/guard/ -run 'TestLoopTableIsTheSkillsOwn|TestCheckLoopDispatch' -count=1`: it FAILS to build with `undefined: lpSkill`.
+  - [x] **Step 3: Implement.** Apply the rest of the diff (`git apply --exclude='stats/internal/guard/check_loop_dispatch_test.go' /tmp/pf6-task1.diff`) — the guard, its shim, the hook and its harness, the registration snippets and their setuptest pins, the README rows, and the pairs table:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at a1bca81b; gofmt -l, go vet, go test ./internal/guard/ ./internal/setuptest/ -race and scripts/run-guard-tests.sh pass with every task applied; TestCheckLoopDispatch fails with the plan prerequisite removed (fix_without_a_plan)
 diff --git a/README.md b/README.md
@@ -903,7 +903,7 @@ index 89d2472f..30fb31b2 100644
  		// An always-on rule whose BODY carries a bare begin delimiter. Inlining it would put a
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ ./internal/setuptest/ && go test ./internal/guard/ -run 'TestLoopTableIsTheSkillsOwn|TestCheckLoopDispatch' -count=1 && go test ./internal/setuptest/ -run 'TestCoreExcerptsLinksAndBaseline|TestZcodeGlobalSelfContained' -count=1`, then from the repository root `scripts/test-enforce-loop-dispatch-hook.sh`, `bash -n setup.sh scripts/check-loop-dispatch.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh`, `scripts/check-installed-citations.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ ./internal/setuptest/ && go test ./internal/guard/ -run 'TestLoopTableIsTheSkillsOwn|TestCheckLoopDispatch' -count=1 && go test ./internal/setuptest/ -run 'TestCoreExcerptsLinksAndBaseline|TestZcodeGlobalSelfContained' -count=1`, then from the repository root `scripts/test-enforce-loop-dispatch-hook.sh`, `bash -n setup.sh scripts/check-loop-dispatch.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-guard-symlinks.sh`, `scripts/check-installed-citations.sh` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
 **Files:** `README.md`, `hooks/enforce-loop-dispatch.py`, `scripts/check-loop-dispatch.sh`, `scripts/test-enforce-loop-dispatch-hook.sh`, `setup.sh`, `skills/flow-self-review/SKILL.md`, `stats/internal/guard/check_loop_dispatch_test.go`, `stats/internal/guard/loop.go`, `stats/internal/setuptest/containment_test.go`, `stats/internal/setuptest/harnesses_test.go`, `stats/internal/setuptest/main_test.go`
@@ -921,10 +921,10 @@ index 89d2472f..30fb31b2 100644
 **Decision:** separate-loop-hook
 **Decision:** loop-checks-fail-closed
 
-- [ ] 2. Refuse a fix-loop landing its flowd records do not cover
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read `unarchived_landing` in `hooks/protect-main-checkout.py`: a landing push is refused only for an open `spectre/changes/<change>/`, so an archived `pipeline-fix-*` branch with no review at all lands — the defect: b8e0e063, bb273948 and 3fd761da reached agents `main` with no review dispatch.
-  - [ ] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf6-task2.diff`, apply its `stats/internal/guard/check_loop_landing_test.go` and `scripts/test-protect-main-checkout.sh` hunks alone (`git apply --include='stats/internal/guard/check_loop_landing_test.go' --include='scripts/test-protect-main-checkout.sh' /tmp/pf6-task2.diff`) and run `cd stats && go test ./internal/guard/ -run TestCheckLoopLanding -count=1` — it FAILS to build with `undefined: checkLoopLanding` — and `scripts/test-protect-main-checkout.sh`, which FAILS cases 77, 79 and 80 (`wanted deny, got allow`).
-  - [ ] **Step 3: Implement.** Apply the rest of the diff (`git apply --exclude='stats/internal/guard/check_loop_landing_test.go' --exclude='scripts/test-protect-main-checkout.sh' /tmp/pf6-task2.diff`) — the landing guard, its shim, the hook's loop-landing check and the README line:
+- [x] 2. Refuse a fix-loop landing its flowd records do not cover
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read `unarchived_landing` in `hooks/protect-main-checkout.py`: a landing push is refused only for an open `spectre/changes/<change>/`, so an archived `pipeline-fix-*` branch with no review at all lands — the defect: b8e0e063, bb273948 and 3fd761da reached agents `main` with no review dispatch.
+  - [x] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf6-task2.diff`, apply its `stats/internal/guard/check_loop_landing_test.go` and `scripts/test-protect-main-checkout.sh` hunks alone (`git apply --include='stats/internal/guard/check_loop_landing_test.go' --include='scripts/test-protect-main-checkout.sh' /tmp/pf6-task2.diff`) and run `cd stats && go test ./internal/guard/ -run TestCheckLoopLanding -count=1` — it FAILS to build with `undefined: checkLoopLanding` — and `scripts/test-protect-main-checkout.sh`, which FAILS cases 77, 79 and 80 (`wanted deny, got allow`).
+  - [x] **Step 3: Implement.** Apply the rest of the diff (`git apply --exclude='stats/internal/guard/check_loop_landing_test.go' --exclude='scripts/test-protect-main-checkout.sh' /tmp/pf6-task2.diff`) — the landing guard, its shim, the hook's loop-landing check and the README line:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at a1bca81b; gofmt -l, go vet, go test ./internal/guard/ ./internal/setuptest/ -race and scripts/run-guard-tests.sh pass with every task applied; TestCheckLoopLanding fails with the clean-review check removed, and cases 77, 79 and 80 fail with the hook at a1bca81b
 diff --git a/README.md b/README.md
@@ -1336,10 +1336,10 @@ index 00000000..e882841f
 +}
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckLoopLanding|TestCheckLoopDispatch' -count=1`, then from the repository root `scripts/test-protect-main-checkout.sh`, `bash -n scripts/check-loop-landing.sh`, `scripts/check-references.sh`, `scripts/check-python-suppressions.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestCheckLoopLanding|TestCheckLoopDispatch' -count=1`, then from the repository root `scripts/test-protect-main-checkout.sh`, `bash -n scripts/check-loop-landing.sh`, `scripts/check-references.sh`, `scripts/check-python-suppressions.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-markdown-integrity.py` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
-**Files:** `README.md`, `hooks/protect-main-checkout.py`, `scripts/check-loop-landing.sh`, `scripts/test-protect-main-checkout.sh`, `stats/internal/guard/check_loop_landing_test.go`, `stats/internal/guard/looplanding.go`
+**Files:** `README.md`, `hooks/protect-main-checkout.py`, `scripts/check-loop-landing.sh`, `scripts/test-protect-main-checkout.sh`, `stats/internal/guard/check_loop_landing_test.go`, `stats/internal/guard/looplanding.go`, `stats/internal/setuptest/hook_timeouts_test.go`
 **Tests:** `TestCheckLoopLanding`
 **Regression:** reverting the commit lets a `pipeline-fix-*` or `self-review-*` branch land on `main` with no plan, no fix or no clean review recorded.
 **Baseline:** before=181 after=182
@@ -1351,10 +1351,10 @@ index 00000000..e882841f
 **Decision:** loop-checks-fail-closed
 **Decision:** forward-only
 
-- [ ] 3. Run the fix loop's fixed mechanics from `pipeline-fix.sh`
-  - [ ] **Step 1: Reproduce before touching anything; do not guess.** Read item 1 and item 4 of **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) and items 1, 4 and 5 of step 3 of `skills/flow-self-review/SKILL.md`: the worktree add, worktree setup, lint-and-test selection, rebase, push, pull and removal are restated as commands for the parent to type, and no script runs them — the defect: each is a step the parent can skip.
-  - [ ] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf6-task3.diff`, apply its `stats/internal/guard/pipeline_fix_test.go` hunk alone (`git apply --include='stats/internal/guard/pipeline_fix_test.go' /tmp/pf6-task3.diff`) and run `cd stats && go test ./internal/guard/ -run TestPipelineFix -count=1`: it FAILS to build with `undefined: pipelineFix`.
-  - [ ] **Step 3: Implement.** Apply the rest of the diff (`git apply --exclude='stats/internal/guard/pipeline_fix_test.go' /tmp/pf6-task3.diff`) — the script, kickoff's worktree-setup step shared with it, and the two skill files citing it:
+- [x] 3. Run the fix loop's fixed mechanics from `pipeline-fix.sh`
+  - [x] **Step 1: Reproduce before touching anything; do not guess.** Read item 1 and item 4 of **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) and items 1, 4 and 5 of step 3 of `skills/flow-self-review/SKILL.md`: the worktree add, worktree setup, lint-and-test selection, rebase, push, pull and removal are restated as commands for the parent to type, and no script runs them — the defect: each is a step the parent can skip.
+  - [x] **Step 2: Write the failing test.** Save step 3's diff to `/tmp/pf6-task3.diff`, apply its `stats/internal/guard/pipeline_fix_test.go` hunk alone (`git apply --include='stats/internal/guard/pipeline_fix_test.go' /tmp/pf6-task3.diff`) and run `cd stats && go test ./internal/guard/ -run TestPipelineFix -count=1`: it FAILS to build with `undefined: pipelineFix`.
+  - [x] **Step 3: Implement.** Apply the rest of the diff (`git apply --exclude='stats/internal/guard/pipeline_fix_test.go' /tmp/pf6-task3.diff`) — the script, kickoff's worktree-setup step shared with it, and the two skill files citing it:
 
 ````diff verified:applied with git apply in plan order to a scratch clone at a1bca81b; gofmt -l, go vet, go test ./internal/guard/ ./internal/setuptest/ -race and scripts/run-guard-tests.sh pass with every task applied; TestPipelineFixLand fails with the post-rebase verify removed (a_moved_base_is_rebased_and_verified_first)
 diff --git a/scripts/pipeline-fix.sh b/scripts/pipeline-fix.sh
@@ -2312,10 +2312,10 @@ index 00000000..91a5a721
 +}
 ````
 
-  - [ ] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestPipelineFix|TestKickoffWorktree|TestCheckLoop' -count=1`, then from the repository root `bash -n scripts/pipeline-fix.sh`, `scripts/test-git-config-pins.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-installed-citations.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-normative-inventory.sh >/dev/null` — all exit 0 with `gofmt -l` printing nothing. Commit.
+  - [x] **Step 4: Verify.** `cd stats && gofmt -w . && gofmt -l . && go vet ./internal/guard/ && go test ./internal/guard/ -run 'TestPipelineFix|TestKickoffWorktree|TestCheckLoop' -count=1`, then from the repository root `bash -n scripts/pipeline-fix.sh`, `scripts/test-git-config-pins.sh`, `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-installed-citations.sh`, `scripts/check-guard-symlinks.sh`, `scripts/check-normative-inventory.sh >/dev/null` — all exit 0 with `gofmt -l` printing nothing. Commit.
 
 **Build:** green
-**Files:** `scripts/pipeline-fix.sh`, `skills/flow-contracts/pipeline.md`, `skills/flow-self-review/SKILL.md`, `stats/internal/guard/kickoffworktree.go`, `stats/internal/guard/pipeline_fix_test.go`, `stats/internal/guard/pipelinefix.go`
+**Files:** `scripts/pipeline-fix.sh`, `skills/flow-contracts/pipeline.md`, `skills/flow-self-review/SKILL.md`, `stats/internal/guard/kickoffworktree.go`, `stats/internal/guard/pipeline_fix_test.go`, `stats/internal/guard/pipelinefix.go`, `scripts/integrate-change.sh`, `scripts/test-integrate-change.sh`, `skills/flow/integrate.md`, `skills/flow/scripts/check-loop-landing.sh`, `stats/internal/store/records.go`, `stats/internal/store/records_test.go`
 **Tests:** `TestPipelineFixStart`, `TestPipelineFixEndAndEscalate`, `TestPipelineFixVerify`, `TestPipelineFixLand`, `TestPipelineFixDrop`
 **Regression:** reverting the commit leaves the loops' worktree, verification and landing steps as prose the parent types by hand, with no `end` or `escalate` to satisfy the dispatch check.
 **Baseline:** before=182 after=187
