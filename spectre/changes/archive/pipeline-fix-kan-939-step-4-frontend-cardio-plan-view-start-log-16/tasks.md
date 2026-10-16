@@ -28,8 +28,8 @@ turn, as before b8e0e063.
 - Step 4 still states the angle-7 split, the same-turn case with no candidate, both rejected
   alternatives and the **Unanswered mid-run asks** citation.
 
-- [ ] 1. Scope the explain-then-ask turn split to self-review's mining ask
-  - [ ] **Step 1: Apply.** Save the diff below to `/tmp/pf16-task1.diff` and run
+- [x] 1. Scope the explain-then-ask turn split to self-review's mining ask
+  - [x] **Step 1: Apply.** Save the diff below to `/tmp/pf16-task1.diff` and run
     `git apply /tmp/pf16-task1.diff` from the worktree root:
 
 ````diff verified:applied with git apply to this worktree at a618d04f; check-verbatim-moves 0 violations with this change's verbatim-moves.txt, check-references and check-ask-silence OK
@@ -124,13 +124,13 @@ index 9a68c6e4..2949a179 100644
  ## The three courses
 ````
 
-  - [ ] **Step 2: Verify.** `grep -rln "Explain before asking" --exclude-dir=.git --exclude-dir=archive skills rules commands-claude`
+  - [x] **Step 2: Verify.** `grep -rln "Explain before asking" --exclude-dir=.git --exclude-dir=archive skills rules commands-claude`
     prints nothing; `scripts/check-verbatim-moves.sh`, `scripts/check-references.sh`,
     `scripts/check-ask-silence.sh .` and `scripts/check-markdown-integrity.py` exit 0.
-  - [ ] **Step 3: Commit** the three files with the subject below.
+  - [x] **Step 3: Commit** the three files with the subject below.
 
 **Build:** green
-**Files:** `skills/flow-contracts/operator-prompts.md`, `skills/flow-self-review/SKILL.md`, `skills/flow/unfinished-work-gate.md`
+**Files:** `skills/flow-contracts/operator-prompts.md`, `skills/flow-self-review/SKILL.md`, `skills/flow/unfinished-work-gate.md`, `spectre/changes/pipeline-fix-kan-939-step-4-frontend-cardio-plan-view-start-log-16/verbatim-moves.txt`
 **Tests:** **none** — prose contract; guarded by check-verbatim-moves, check-references and check-ask-silence.
 **Regression:** none
 **Commit:** fix(flow-contracts): scope the explain-then-ask turn split to self-review's mining ask
