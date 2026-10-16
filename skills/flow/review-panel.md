@@ -390,8 +390,9 @@ defect: the first in roster order is recorded as usual, and every other raising 
 recorded under its own `-slot` with `-supersedes F<first>`. Before the fix dispatch the parent folds them: the fix
 subagent receives the defect as one structured block, the first row's, listing every linked
 `F<n>`; only the first row's role re-runs on it (**Panel re-runs**,
-`skills/flow/review-panel-fix-round.md`); and each linked row takes the first row's verdict — its
-`flow record status` recorded in the same call, with the same status. Findings that differ in
+`skills/flow/review-panel-fix-round.md`); and each linked row takes the first row's verdict — one
+`flow record status` call per linked `-ref`, made in the same step as the first row's, with the
+same status. Findings that differ in
 location or in root cause are never folded, however alike their prose, and neither is a row whose
 `-supersedes` names a row of an earlier round: that is the same defect re-raised by a later fix
 round, and its own role re-runs on it.
